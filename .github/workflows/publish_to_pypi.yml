@@ -59,18 +59,17 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          
           target: ${{ matrix.target }}
           
           args: --release --out dist --find-interpreter
           sccache: 'true'
           manylinux: auto
+
       - name: Upload wheels
         uses: actions/upload-artifact@v3
         with:
           name: wheels
           path: dist
-
   windows:
     runs-on: windows-latest
     strategy:
@@ -92,6 +91,7 @@ jobs:
           
           args: --release --out dist --find-interpreter
           sccache: 'true'
+
       - name: Upload wheels
         uses: actions/upload-artifact@v3
         with:
@@ -121,6 +121,8 @@ jobs:
         with:
           name: wheels
           path: dist
+    env:
+      RUSTFLAGS: "-Clink-arg=-undefined -Clink-arg=dynamic_lookup"
 
   sdist:
     runs-on: ubuntu-latest

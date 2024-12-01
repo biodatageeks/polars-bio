@@ -8,3 +8,5 @@ venv
 *.pyd
 
 .idea
+sandbox/
+.DS_Store
