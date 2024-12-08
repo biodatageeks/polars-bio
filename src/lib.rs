@@ -73,31 +73,29 @@ async fn do_overlap(ctx: &SessionContext, df_1: Vec<RecordBatch>, df_2: Vec<Reco
    ctx.sql(QUERY).await.unwrap()
 }
 
-#[pyfunction]
-fn overlap_internal(df1: PyArrowType<ArrowArrayStreamReader>, df2: PyArrowType<ArrowArrayStreamReader>) -> PyResult<PyDataFrame> {
+// #[pyfunction]
+// fn overlap_internal(df1: PyArrowType<ArrowArrayStreamReader>, df2: PyArrowType<ArrowArrayStreamReader>) -> PyResult<PyDataFrame> {
+//
+//     let start = Instant::now();
+//     let rt = Runtime::new().unwrap();
+//     let ctx = create_context(Algorithm::Coitrees);
+//     let batches_df1 = df1.0.collect::<Result<Vec<RecordBatch>, ArrowError>>().unwrap();
+//     let batches_df2 = df2.0.collect::<Result<Vec<RecordBatch>, ArrowError>>().unwrap();
+//     let df = rt.block_on(do_overlap(&ctx, batches_df1, batches_df2));
+//     let duration = start.elapsed(); // Calculate the elapsed time
+//     println!("Execution time: {:?}", duration);
+//     // df.clone().execute_stream();
+//     Ok(PyDataFrame::new(df))
+// }
 
-    let start = Instant::now();
+#[pyfunction]
+fn overlap_scan(df_path1: String, df_path2: String) -> PyResult<PyDataFrame> {
     let rt = Runtime::new().unwrap();
     let ctx = create_context(Algorithm::Coitrees);
-    let batches_df1 = df1.0.collect::<Result<Vec<RecordBatch>, ArrowError>>().unwrap();
-    let batches_df2 = df2.0.collect::<Result<Vec<RecordBatch>, ArrowError>>().unwrap();
-    let df = rt.block_on(do_overlap(&ctx, batches_df1, batches_df2));
-    let duration = start.elapsed(); // Calculate the elapsed time
-    println!("Execution time: {:?}", duration);
-    // df.clone().execute_stream();
-    Ok(PyDataFrame::new(df))
-}
-
-#[pyfunction]
-fn test_data_exchange() -> PyResult<PyDataFrame> {
-    let rt = Runtime::new().unwrap();
-    let ctx = create_context(Algorithm::Coitrees);
-    // let s1_path = "/Users/mwiewior/research/git/openstack-bdg-runners/ansible/roles/gha_runner/files/databio/ex-anno//*.parquet";
-    // let s2_path = "/Users/mwiewior/research/git/openstack-bdg-runners/ansible/roles/gha_runner/files/databio/ex-rna/*parquet";
-    let s1_path = "/Users/mwiewior/research/git/openstack-bdg-runners/ansible/roles/gha_runner/files/databio/chainRn4/*parquet";
-    let s2_path = "/Users/mwiewior/research/git/openstack-bdg-runners/ansible/roles/gha_runner/files/databio/chainOrnAna1/*parquet";
-    rt.block_on(ctx.register_parquet("s1", s1_path.clone(), ParquetReadOptions::new())).expect("TODO: panic message");
-    rt.block_on(ctx.register_parquet("s2", s2_path.clone(), ParquetReadOptions::new())).expect("TODO: panic message");
+    let s1_path = &df_path1;
+    let s2_path = &df_path2;
+    rt.block_on(ctx.register_parquet("s1", s1_path, ParquetReadOptions::new())).expect("TODO: panic message");
+    rt.block_on(ctx.register_parquet("s2", s2_path, ParquetReadOptions::new())).expect("TODO: panic message");
     const QUERY: &str = r#"
             SELECT
                 a.contig as contig_1,
@@ -122,8 +120,8 @@ fn test_data_exchange() -> PyResult<PyDataFrame> {
 
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(overlap_internal, m)?)?;
-    m.add_function(wrap_pyfunction!(test_data_exchange, m)?)?;
+    // m.add_function(wrap_pyfunction!(overlap_internal, m)?)?;
+    m.add_function(wrap_pyfunction!(overlap_scan, m)?)?;
     Ok(())
 }
 

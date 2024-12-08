@@ -10,7 +10,7 @@ from pygments.styles.dracula import yellow
 from typing_extensions import TYPE_CHECKING, Union
 
 
-from .polars_bio import overlap_internal, test_data_exchange
+from .polars_bio import overlap_scan
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -69,11 +69,11 @@ def overlap(df1 : Union[str, pl.DataFrame, pd.DataFrame],
     df_schema2 = _get_schema(df2, suffixes[1])
     merged_schema = pl.Schema({**df_schema1, **df_schema2})
     if output_type == "polars.LazyFrame":
-        return scan_overlap(merged_schema)
+        return scan_overlap(df1, df2, merged_schema)
     elif output_type == "polars.DataFrame":
-        return test_data_exchange().to_polars()
+        return overlap_scan(df1, df2).to_polars()
     elif output_type == "pandas.DataFrame":
-        return test_data_exchange().to_pandas()
+        return overlap_scan(df1, df2).to_pandas()
     else:
         raise ValueError("Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported")
 
@@ -95,14 +95,14 @@ def _get_schema(path: str, suffix = None ) -> pl.Schema:
 
 
 
-def scan_overlap(schema: pl.Schema, ) -> pl.LazyFrame:
+def scan_overlap(df_1:str, df_2: str, schema: pl.Schema ) -> pl.LazyFrame:
     def _overlap_source(
             with_columns: pl.Expr | None,
             predicate: pl.Expr | None,
             _n_rows: int | None,
             _batch_size: int | None,
     ) -> Iterator[pl.DataFrame]:
-        df_lazy: datafusion.DataFrame = test_data_exchange()
+        df_lazy: datafusion.DataFrame = overlap_scan(df_1, df_2)
         df_stream = df_lazy.execute_stream()
         for r in df_stream:
             py_df = r.to_pyarrow()
