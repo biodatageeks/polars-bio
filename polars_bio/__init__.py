@@ -1,1 +1,1 @@
-from .overlap import test_exchange, test_exchange_lazy, overlap
+from .overlap import overlap
