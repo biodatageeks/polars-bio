@@ -1,9 +1,12 @@
 [build-system]
-requires = ["maturin>=1.0,<2.0", "polars>=1.3.0"]
+requires = ["poetry-core>=1.0.0", "maturin>=1.0,<2.0", "polars>=1.3.0"]
 build-backend = "maturin"
 
 [project]
 name = "polars-bio"
+version = "0.1.0"
+description = "Blazing fast genomic operations on large Python dataframes"
+authors = []
 requires-python = ">=3.8"
 classifiers = [
   "Programming Language :: Rust",
@@ -17,3 +20,26 @@ module-name = "polars_bio"
 [[tool.mypy.overrides]]
 module = "polars.utils.udfs"
 ignore_missing_imports = true
+
+[tool.poetry]
+name = "polars-bio"
+version = "0.1.0"
+description = ""
+authors = ["Marek Wiewiórka <marek.wiewiorka@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.13"
+polars = "^1.16.0"
+pandas = "^2.2.3"
+
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.3.3"
+pytest-cov = "^6.0.0"
+pre-commit = "^4.0.1"
+jupyter = "^1.1.0"
+ruff = "^0.8.2"
+maturin = "^1.7.5"
+bioframe = "^0.7.2"
+mdpd = "^0.2.1"
