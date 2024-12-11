@@ -1,16 +1,16 @@
 SET sequila.prefer_interval_join TO true;
-SET datafusion.execution.target_partitions=1;
+SET datafusion.execution.target_partitions=8;
 SET sequila.interval_join_algorithm TO coitrees;
 SET datafusion.optimizer.repartition_joins TO false;
 SET datafusion.execution.coalesce_batches TO false;
 
 CREATE EXTERNAL TABLE a
 STORED AS PARQUET
-LOCATION '/Users/mwiewior/research/git/openstack-bdg-runners/ansible/roles/gha_runner/files/databio/chainRn4/*parquet';
+LOCATION '/Users/mwiewior/research/git/openstack-bdg-runners/ansible/roles/gha_runner/files/databio-8p/chainRn4/*parquet';
 
 CREATE EXTERNAL TABLE b
 STORED AS PARQUET
-LOCATION '/Users/mwiewior/research/git/openstack-bdg-runners/ansible/roles/gha_runner/files/databio/chainOrnAna1/*parquet';
+LOCATION '/Users/mwiewior/research/git/openstack-bdg-runners/ansible/roles/gha_runner/files/databio-8p/chainOrnAna1/*parquet';
 
 select count(1) from a join b
                             on a.contig = b.contig

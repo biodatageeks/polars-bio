@@ -1,4 +1,3 @@
-import pandas as pd
 import polars_bio as pb
 from _expected import PL_DF_OVERLAP, PL_DF1, PL_DF2
 
