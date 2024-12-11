@@ -13,6 +13,11 @@ from typing_extensions import TYPE_CHECKING, Union
 
 from .polars_bio import overlap_scan, overlap_frame
 
+from .polars_bio import BioSessionContext
+
+ctx = BioSessionContext()
+
+
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -78,16 +83,16 @@ def overlap(df1 : Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
         if output_type == "polars.LazyFrame":
             return overlap_lazy_scan(df1, df2, merged_schema)
         elif output_type == "polars.DataFrame":
-            return overlap_scan(df1, df2).to_polars()
+            return overlap_scan(ctx, df1, df2).to_polars()
         elif output_type == "pandas.DataFrame":
-            return overlap_scan(df1, df2).to_pandas()
+            return overlap_scan(ctx, df1, df2).to_pandas()
         else:
             raise ValueError("Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported")
     elif isinstance(df1, pl.DataFrame) and isinstance(df2, pl.DataFrame) or \
             isinstance(df1, pl.LazyFrame) and isinstance(df2, pl.LazyFrame) or \
             isinstance(df1, pd.DataFrame) and isinstance(df2, pd.DataFrame):
         if output_type == "polars.LazyFrame":
-            merged_schema = pl.Schema({**_rename_columns(df1,suffixes[0]), **_rename_columns(df2, suffixes[1])})
+            merged_schema = pl.Schema({**_rename_columns(df1,suffixes[0]).schema, **_rename_columns(df2, suffixes[1]).schema})
             return overlap_lazy_scan(df1, df2, merged_schema, col1, col2)
         elif output_type == "polars.DataFrame":
             if isinstance(df1, pl.DataFrame) and isinstance(df2, pl.DataFrame):
@@ -95,14 +100,14 @@ def overlap(df1 : Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
                 df2 = df2.to_arrow().to_reader()
             else:
                 raise ValueError("Input and output dataframes must be of the same type: either polars or pandas")
-            return overlap_frame(df1, df2).to_polars()
+            return overlap_frame(ctx, df1, df2).to_polars()
         elif output_type == "pandas.DataFrame":
             if isinstance(df1, pd.DataFrame) and isinstance(df2, pd.DataFrame):
                 df1 = _df_to_arrow(df1, col1[0]).to_reader()
                 df2 = _df_to_arrow(df2, col2[0]).to_reader()
             else:
                 raise ValueError("Input and output dataframes must be of the same type: either polars or pandas")
-            return overlap_frame(df1, df2).to_pandas()
+            return overlap_frame(ctx, df1, df2).to_pandas()
     else:
         raise ValueError("Both dataframes must be of the same type: either polars or pandas or a path to a file")
 
@@ -115,10 +120,10 @@ def _rename_columns_pl(df: pl.DataFrame, suffix: str) -> pl.DataFrame:
 def _rename_columns(df: Union[pl.DataFrame, pd.DataFrame], suffix: str) -> Union[pl.DataFrame, pd.DataFrame]:
     if isinstance(df, pl.DataFrame):
         df = pl.DataFrame(schema=df.schema)
-        return _rename_columns_pl(df, suffix).schema
+        return _rename_columns_pl(df, suffix)
     elif isinstance(df, pd.DataFrame):
         df = pl.from_pandas(pd.DataFrame(columns=df.columns))
-        return _rename_columns_pl(df, suffix).schema
+        return _rename_columns_pl(df, suffix)
     else:
         raise ValueError("Only polars and pandas dataframes are supported")
 
@@ -178,7 +183,7 @@ def overlap_lazy_scan(df_1:Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
             _n_rows: int | None,
             _batch_size: int | None,
     ) -> Iterator[pl.DataFrame]:
-        df_lazy: datafusion.DataFrame = overlap_function(df_1, df_2)
+        df_lazy: datafusion.DataFrame = overlap_function(ctx, df_1, df_2)
         df_stream = df_lazy.execute_stream()
         for r in df_stream:
             py_df = r.to_pyarrow()
