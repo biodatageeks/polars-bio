@@ -2,6 +2,7 @@ import mdpd
 from pathlib import Path
 
 import pandas as pd
+import polars as pl
 
 TEST_DIR = Path(__file__).parent
 DATA_DIR = TEST_DIR / "data"
@@ -28,15 +29,18 @@ EXPECTED_OVERLAP = """
         "+--------+-----------+---------+--------+-----------+---------+",
 """
 
-DF_OVERLAP = (mdpd.from_md(EXPECTED_OVERLAP)
-              .astype({'pos_start_1': 'int64'})
-              .astype({'pos_end_1': 'int64'})
-              .astype({'pos_start_2': 'int64'})
-              .astype({'pos_end_2': 'int64'}))
+# Pandas
+PD_DF_OVERLAP = (mdpd.from_md(EXPECTED_OVERLAP)
+                 .astype({'pos_start_1': 'int64'})
+                 .astype({'pos_end_1': 'int64'})
+                 .astype({'pos_start_2': 'int64'})
+                 .astype({'pos_end_2': 'int64'}))
 
-DF_OVERLAP = DF_OVERLAP.sort_values(by=list(DF_OVERLAP.columns)).reset_index(drop=True)
+PD_DF_OVERLAP = PD_DF_OVERLAP.sort_values(by=list(PD_DF_OVERLAP.columns)).reset_index(drop=True)
+PD_DF1 = pd.read_csv(f"{DATA_DIR}/reads.csv")
+PD_DF2 = pd.read_csv(f"{DATA_DIR}/targets.csv")
 
-
-
-DF1 = pd.read_csv(f"{DATA_DIR}/reads.csv")
-DF2 = pd.read_csv(f"{DATA_DIR}/targets.csv")
+# Polars
+PL_DF_OVERLAP = pl.DataFrame(PD_DF_OVERLAP)
+PL_DF1 = pl.DataFrame(PD_DF1)
+PL_DF2 = pl.DataFrame(PD_DF2)
