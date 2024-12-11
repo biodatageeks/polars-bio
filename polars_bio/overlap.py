@@ -6,9 +6,8 @@ import datafusion.dataframe
 import pandas as pd
 import polars as pl
 import pyarrow as pa
-from jsonschema.benchmarks.subcomponents import schema
+import pyarrow.compute as pc
 from polars.io.plugins import register_io_source
-from pygments.styles.dracula import yellow
 from typing_extensions import TYPE_CHECKING, Union
 
 
@@ -26,8 +25,8 @@ def overlap(df1 : Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
             how="inner",
             suffixes=("_1", "_2"),
             on_cols=None,
-            col1: Union[list[str], None]=None,
-            col2: Union[list[str], None]=None,
+            col1: Union[list[str]|None]=None,
+            col2: Union[list[str]|None]=None,
             output_type: str ="polars.LazyFrame"
             ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     """
@@ -52,12 +51,15 @@ def overlap(df1 : Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     :return: **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
     """
 
-
-    # TODO: Add support for on_cols ()
-    assert on_cols is None, "on_cols is not supported yet"
     # TODO: Add support for col1 and col2
     assert col1 is None, "col1 is not supported yet"
     assert col2 is None, "col2 is not supported yet"
+    col1 = ["contig", "pos_start", "pos_end"] if col1 is None else col1
+    col2 = ["contig", "pos_start", "pos_end"] if col2 is None else col2
+
+    # TODO: Add support for on_cols ()
+    assert on_cols is None, "on_cols is not supported yet"
+
 
     assert suffixes == ("_1", "_2"), "Only default suffixes are supported"
     assert output_type in ["polars.LazyFrame", "polars.DataFrame", "pandas.DataFrame"], "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
@@ -74,7 +76,7 @@ def overlap(df1 : Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
         df_schema2 = _get_schema(df2, suffixes[1])
         merged_schema = pl.Schema({**df_schema1, **df_schema2})
         if output_type == "polars.LazyFrame":
-            return scan_overlap(df1, df2, merged_schema)
+            return overlap_lazy_scan(df1, df2, merged_schema)
         elif output_type == "polars.DataFrame":
             return overlap_scan(df1, df2).to_polars()
         elif output_type == "pandas.DataFrame":
@@ -86,13 +88,23 @@ def overlap(df1 : Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
             isinstance(df1, pd.DataFrame) and isinstance(df2, pd.DataFrame):
         if output_type == "polars.LazyFrame":
             merged_schema = pl.Schema({**_rename_columns(df1,suffixes[0]), **_rename_columns(df2, suffixes[1])})
-            return scan_overlap(df1, df2, merged_schema)
+            return overlap_lazy_scan(df1, df2, merged_schema, col1, col2)
         elif output_type == "polars.DataFrame":
-            return overlap_scan(df1, df2).to_polars()
+            if isinstance(df1, pl.DataFrame) and isinstance(df2, pl.DataFrame):
+                df1 = df1.to_arrow().to_reader()
+                df2 = df2.to_arrow().to_reader()
+            else:
+                raise ValueError("Input and output dataframes must be of the same type: either polars or pandas")
+            return overlap_frame(df1, df2).to_polars()
         elif output_type == "pandas.DataFrame":
-            return overlap_scan(df1, df2).to_pandas()
-        else:
-            raise ValueError("Both dataframes must be of the same type: either polars or pandas or a path to a file")
+            if isinstance(df1, pd.DataFrame) and isinstance(df2, pd.DataFrame):
+                df1 = _df_to_arrow(df1, col1[0]).to_reader()
+                df2 = _df_to_arrow(df2, col2[0]).to_reader()
+            else:
+                raise ValueError("Input and output dataframes must be of the same type: either polars or pandas")
+            return overlap_frame(df1, df2).to_pandas()
+    else:
+        raise ValueError("Both dataframes must be of the same type: either polars or pandas or a path to a file")
 
 
 
@@ -123,11 +135,30 @@ def _get_schema(path: str, suffix = None ) -> pl.Schema:
     return df.schema
 
 
+# since there is an error when Pandas DF are converted to Arrow, we need to use the following function
+# to change the type of the columns to largestring (the problem is with the string type for
+# larger datasets)
+def _string_to_largestring(table: pa.Table, column_name: str) -> pa.Table:
+    index = _get_column_index(table, column_name)
+    return table.set_column(
+        index,  # Index of the column to replace
+        table.schema.field(index).name,  # Name of the column
+        pc.cast(table.column(index), pa.large_string())  # Cast to `largestring`
+    )
 
+def _get_column_index(table, column_name):
+    try:
+        return table.schema.names.index(column_name)
+    except ValueError:
+        raise KeyError(f"Column '{column_name}' not found in the table.")
 
-def scan_overlap(df_1:Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-                 df_2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-                 schema: pl.Schema ) -> pl.LazyFrame:
+def _df_to_arrow(df: pd.DataFrame, col: str) -> pa.Table:
+    table_1 = pa.Table.from_pandas(df)
+    return _string_to_largestring(table_1, col)
+
+def overlap_lazy_scan(df_1:Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+                      df_2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+                      schema: pl.Schema, col1: list[str]=None, col2: list[str]=None) -> pl.LazyFrame:
     overlap_function = None
     if isinstance(df_1, str) and isinstance(df_2, str):
         overlap_function = overlap_scan
@@ -137,8 +168,8 @@ def scan_overlap(df_1:Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
         df_2 = df_2.to_arrow().to_reader()
     elif isinstance(df_1, pd.DataFrame) and isinstance(df_2, pd.DataFrame):
         overlap_function = overlap_frame
-        df_1 = pa.Table.from_pandas(df_1).to_reader()
-        df_2 = pa.Table.from_pandas(df_2).to_reader()
+        df_1 = _df_to_arrow(df_1, col1[0]).to_reader()
+        df_2 = _df_to_arrow(df_2, col2[0]).to_reader()
     else:
         raise ValueError("Only polars and pandas dataframes are supported")
     def _overlap_source(
