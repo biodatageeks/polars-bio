@@ -9,8 +9,8 @@ import pyarrow as pa
 import pyarrow.compute as pc
 from polars.io.plugins import register_io_source
 from typing_extensions import TYPE_CHECKING, Union
-from .polars_bio import overlap_scan, overlap_frame
-from .polars_bio import BioSessionContext, OverlapFilter
+
+from .polars_bio import BioSessionContext, OverlapFilter, overlap_frame, overlap_scan
 
 
 def singleton(cls):

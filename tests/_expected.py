@@ -1,6 +1,6 @@
-import mdpd
 from pathlib import Path
 
+import mdpd
 import pandas as pd
 import polars as pl
 

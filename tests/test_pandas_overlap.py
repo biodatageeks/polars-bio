@@ -1,7 +1,7 @@
 import pandas as pd
+from _expected import PD_DF1, PD_DF2, PD_DF_OVERLAP
 
 import polars_bio as pb
-from _expected import PD_DF_OVERLAP, PD_DF1, PD_DF2
 
 
 class TestOverlapPandas:

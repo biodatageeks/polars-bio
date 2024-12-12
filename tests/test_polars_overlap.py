@@ -1,5 +1,6 @@
+from _expected import PL_DF1, PL_DF2, PL_DF_OVERLAP
+
 import polars_bio as pb
-from _expected import PL_DF_OVERLAP, PL_DF1, PL_DF2
 
 
 class TestOverlapPolars:

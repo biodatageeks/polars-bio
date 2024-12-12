@@ -1,9 +1,10 @@
 import bioframe as bf
 import pandas as pd
-import polars_bio as pb
-
 from _expected import BIO_PD_DF1, BIO_PD_DF2
+
+import polars_bio as pb
 from polars_bio import OverlapFilter
+
 
 class TestOverlapBioframe:
     result = pb.overlap(BIO_PD_DF1, BIO_PD_DF2, output_type="pandas.DataFrame", overlap_filter=OverlapFilter.Strict)
