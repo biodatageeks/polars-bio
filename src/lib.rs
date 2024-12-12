@@ -1,5 +1,6 @@
 use std::sync::Arc;
-use datafusion::arrow::array::{RecordBatch};
+
+use datafusion::arrow::array::RecordBatch;
 use datafusion::arrow::error::ArrowError;
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
@@ -14,7 +15,7 @@ use sequila_core::session_context::{Algorithm, SeQuiLaSessionExt, SequilaConfig}
 use tokio::runtime::Runtime;
 
 #[pyclass(eq, eq_int)]
-#[derive(Clone,PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum OverlapFilter {
     Weak = 0,
     Strict = 1,
@@ -24,7 +25,6 @@ pub enum InputFormat {
     Parquet,
     Csv,
 }
-
 
 #[pyclass(name = "BioSessionContext")]
 #[derive(Clone)]
@@ -93,18 +93,18 @@ fn get_input_format(path: &str) -> InputFormat {
         InputFormat::Parquet
     } else if path.ends_with(".csv") {
         InputFormat::Csv
+    } else {
+        panic!("Unsupported format")
     }
-    else { panic!("Unsupported format") }
 }
 
 async fn register_table(ctx: &SessionContext, path: &str, table_name: &str, format: InputFormat) {
     ctx.deregister_table(table_name).unwrap();
     match format {
-        InputFormat::Parquet => {
-            ctx.register_parquet(table_name, path, ParquetReadOptions::new())
-                .await
-                .unwrap()
-        }
+        InputFormat::Parquet => ctx
+            .register_parquet(table_name, path, ParquetReadOptions::new())
+            .await
+            .unwrap(),
         InputFormat::Csv => {
             let csv_read_options = CsvReadOptions::new() //FIXME: expose
                 .delimiter(b',')
@@ -112,17 +112,20 @@ async fn register_table(ctx: &SessionContext, path: &str, table_name: &str, form
             ctx.register_csv(table_name, path, csv_read_options)
                 .await
                 .unwrap()
-        }
+        },
     }
 }
 
-async fn do_overlap(ctx: &SessionContext, filter: OverlapFilter) -> datafusion::dataframe::DataFrame {
-
+async fn do_overlap(
+    ctx: &SessionContext,
+    filter: OverlapFilter,
+) -> datafusion::dataframe::DataFrame {
     let sign = match filter {
         OverlapFilter::Weak => "=".to_string(),
         _ => "".to_string(),
     };
-        let query = format!(r#"
+    let query = format!(
+        r#"
             SELECT
                 a.contig as contig_1,
                 a.pos_start as pos_start_1,
@@ -138,7 +141,9 @@ async fn do_overlap(ctx: &SessionContext, filter: OverlapFilter) -> datafusion::
                 a.pos_end >{} b.pos_start
             AND
                 a.pos_start <{} b.pos_end
-        "#, sign, sign);
+        "#,
+        sign, sign
+    );
     ctx.sql(&query).await.unwrap()
 }
 
@@ -147,7 +152,7 @@ fn overlap_frame(
     py_ctx: &PyBioSessionContext,
     df1: PyArrowType<ArrowArrayStreamReader>,
     df2: PyArrowType<ArrowArrayStreamReader>,
-    overlap_filter: OverlapFilter
+    overlap_filter: OverlapFilter,
 ) -> PyResult<PyDataFrame> {
     let rt = Runtime::new().unwrap();
     let ctx = &py_ctx.ctx;
@@ -162,7 +167,7 @@ fn overlap_scan(
     py_ctx: &PyBioSessionContext,
     df_path1: String,
     df_path2: String,
-    overlap_filter: OverlapFilter
+    overlap_filter: OverlapFilter,
 ) -> PyResult<PyDataFrame> {
     let rt = Runtime::new().unwrap();
     let ctx = &py_ctx.ctx;
@@ -172,8 +177,18 @@ fn overlap_scan(
     );
     let s1_path = &df_path1;
     let s2_path = &df_path2;
-    rt.block_on(register_table(&ctx, s1_path, "s1", get_input_format(s1_path)));
-    rt.block_on(register_table(&ctx, s2_path, "s2", get_input_format(s2_path)));
+    rt.block_on(register_table(
+        &ctx,
+        s1_path,
+        "s1",
+        get_input_format(s1_path),
+    ));
+    rt.block_on(register_table(
+        &ctx,
+        s2_path,
+        "s2",
+        get_input_format(s2_path),
+    ));
 
     let df = rt.block_on(do_overlap(&ctx, overlap_filter));
     Ok(PyDataFrame::new(df))
