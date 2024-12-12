@@ -37,8 +37,10 @@ PD_DF_OVERLAP = (mdpd.from_md(EXPECTED_OVERLAP)
                  .astype({'pos_end_2': 'int64'}))
 
 PD_DF_OVERLAP = PD_DF_OVERLAP.sort_values(by=list(PD_DF_OVERLAP.columns)).reset_index(drop=True)
-PD_DF1 = pd.read_csv(f"{DATA_DIR}/reads.csv")
-PD_DF2 = pd.read_csv(f"{DATA_DIR}/targets.csv")
+DF_PATH1 = f"{DATA_DIR}/reads.csv"
+DF_PATH2 = f"{DATA_DIR}/targets.csv"
+PD_DF1 = pd.read_csv(DF_PATH1)
+PD_DF2 = pd.read_csv(DF_PATH2)
 
 # Polars
 PL_DF_OVERLAP = pl.DataFrame(PD_DF_OVERLAP)

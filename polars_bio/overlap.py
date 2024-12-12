@@ -88,10 +88,9 @@ def overlap(df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     assert how in ["inner"], "Only inner join is supported"
     if isinstance(df1, str) and isinstance(df2, str):
         ext1 = Path(df1).suffix
-        # TODO: Add support for CSV files
-        assert ext1 == '.parquet', "Dataframe1 must be a Parquet file"
+        assert ext1 == '.parquet' or ext1 == ".csv", "Dataframe1 must be a Parquet or CSV file"
         ext2 = Path(df2).suffix
-        assert ext2 == '.parquet', "Dataframe2 must be a Parquet file"
+        assert ext2 == '.parquet' or ext2 == ".csv", "Dataframe1 must be a Parquet or CSV file"
         # use suffixes to avoid column name conflicts
         df_schema1 = _get_schema(df2, suffixes[0])
         df_schema2 = _get_schema(df2, suffixes[1])

@@ -3,9 +3,9 @@ use datafusion::arrow::array::{RecordBatch};
 use datafusion::arrow::error::ArrowError;
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
-use datafusion::config::ConfigOptions;
+use datafusion::config::{ConfigOptions, CsvOptions};
 use datafusion::datasource::MemTable;
-use datafusion::prelude::{ParquetReadOptions, SessionConfig};
+use datafusion::prelude::{CsvReadOptions, ParquetReadOptions, SessionConfig};
 use datafusion_python::dataframe::PyDataFrame;
 use datafusion_python::datafusion::prelude::SessionContext;
 use pyo3::prelude::*;
@@ -19,6 +19,12 @@ pub enum OverlapFilter {
     Weak = 0,
     Strict = 1,
 }
+
+pub enum InputFormat {
+    Parquet,
+    Csv,
+}
+
 
 #[pyclass(name = "BioSessionContext")]
 #[derive(Clone)]
@@ -82,11 +88,32 @@ fn register_frame(
     ctx.register_table(&table_name, Arc::new(table)).unwrap();
 }
 
-async fn register_parquet(ctx: &SessionContext, path: &str, table_name: &str) {
+fn get_input_format(path: &str) -> InputFormat {
+    if path.ends_with(".parquet") {
+        InputFormat::Parquet
+    } else if path.ends_with(".csv") {
+        InputFormat::Csv
+    }
+    else { panic!("Unsupported format") }
+}
+
+async fn register_table(ctx: &SessionContext, path: &str, table_name: &str, format: InputFormat) {
     ctx.deregister_table(table_name).unwrap();
-    ctx.register_parquet(table_name, path, ParquetReadOptions::new())
-        .await
-        .unwrap()
+    match format {
+        InputFormat::Parquet => {
+            ctx.register_parquet(table_name, path, ParquetReadOptions::new())
+                .await
+                .unwrap()
+        }
+        InputFormat::Csv => {
+            let csv_read_options = CsvReadOptions::new()
+                .delimiter(b',')
+                .has_header(true);
+            ctx.register_csv(table_name, path, csv_read_options)
+                .await
+                .unwrap()
+        }
+    }
 }
 
 async fn do_overlap(ctx: &SessionContext, filter: OverlapFilter) -> datafusion::dataframe::DataFrame {
@@ -140,13 +167,13 @@ fn overlap_scan(
     let rt = Runtime::new().unwrap();
     let ctx = &py_ctx.ctx;
     println!(
-        "{}",
+        "Running overlap with {} threads",
         ctx.state().config().options().execution.target_partitions
     );
     let s1_path = &df_path1;
     let s2_path = &df_path2;
-    rt.block_on(register_parquet(&ctx, s1_path, "s1"));
-    rt.block_on(register_parquet(&ctx, s2_path, "s2"));
+    rt.block_on(register_table(&ctx, s1_path, "s1", get_input_format(s1_path)));
+    rt.block_on(register_table(&ctx, s2_path, "s2", get_input_format(s2_path)));
 
     let df = rt.block_on(do_overlap(&ctx, overlap_filter));
     Ok(PyDataFrame::new(df))
