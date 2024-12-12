@@ -4,7 +4,6 @@ import polars_bio as pb
 
 
 class TestOverlapPolars:
-
     result_frame = pb.overlap(PL_DF1, PL_DF2, output_type="polars.DataFrame")
     result_lazy = pb.overlap(PL_DF1, PL_DF2, output_type="polars.LazyFrame").collect()
     expected = PL_DF_OVERLAP

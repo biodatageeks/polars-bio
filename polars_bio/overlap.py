@@ -40,16 +40,17 @@ DEFAULT_INTERVAL_COLUMNS = ["contig", "pos_start", "pos_end"]
 ctx = Context().ctx
 
 
-def overlap(df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-            df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-            how="inner",
-            overlap_filter: OverlapFilter = OverlapFilter.Weak,
-            suffixes=("_1", "_2"),
-            on_cols=None,
-            col1: Union[list[str] | None] = None,
-            col2: Union[list[str] | None] = None,
-            output_type: str = "polars.LazyFrame"
-            ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
+def overlap(
+    df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+    df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+    how="inner",
+    overlap_filter: OverlapFilter = OverlapFilter.Weak,
+    suffixes=("_1", "_2"),
+    on_cols=None,
+    col1: Union[list[str] | None] = None,
+    col2: Union[list[str] | None] = None,
+    output_type: str = "polars.LazyFrame",
+) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     """
     Find pairs of overlapping genomic intervals.
     Bioframe inspired API.
@@ -81,42 +82,64 @@ def overlap(df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     assert on_cols is None, "on_cols is not supported yet"
 
     assert suffixes == ("_1", "_2"), "Only default suffixes are supported"
-    assert output_type in ["polars.LazyFrame", "polars.DataFrame",
-                           "pandas.DataFrame"], "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
+    assert output_type in [
+        "polars.LazyFrame",
+        "polars.DataFrame",
+        "pandas.DataFrame",
+    ], "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
 
     assert how in ["inner"], "Only inner join is supported"
     if isinstance(df1, str) and isinstance(df2, str):
         ext1 = Path(df1).suffix
-        assert ext1 == '.parquet' or ext1 == ".csv", "Dataframe1 must be a Parquet or CSV file"
+        assert (
+            ext1 == ".parquet" or ext1 == ".csv"
+        ), "Dataframe1 must be a Parquet or CSV file"
         ext2 = Path(df2).suffix
-        assert ext2 == '.parquet' or ext2 == ".csv", "Dataframe1 must be a Parquet or CSV file"
+        assert (
+            ext2 == ".parquet" or ext2 == ".csv"
+        ), "Dataframe1 must be a Parquet or CSV file"
         # use suffixes to avoid column name conflicts
         df_schema1 = _get_schema(df2, suffixes[0])
         df_schema2 = _get_schema(df2, suffixes[1])
         merged_schema = pl.Schema({**df_schema1, **df_schema2})
         if output_type == "polars.LazyFrame":
-            return overlap_lazy_scan(df1, df2, merged_schema, overlap_filter=overlap_filter)
+            return overlap_lazy_scan(
+                df1, df2, merged_schema, overlap_filter=overlap_filter
+            )
         elif output_type == "polars.DataFrame":
             return overlap_scan(ctx, df1, df2, overlap_filter).to_polars()
         elif output_type == "pandas.DataFrame":
             return overlap_scan(ctx, df1, df2, overlap_filter).to_pandas()
         else:
             raise ValueError(
-                "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported")
-    elif isinstance(df1, pl.DataFrame) and isinstance(df2, pl.DataFrame) or \
-            isinstance(df1, pl.LazyFrame) and isinstance(df2, pl.LazyFrame) or \
-            isinstance(df1, pd.DataFrame) and isinstance(df2, pd.DataFrame):
+                "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
+            )
+    elif (
+        isinstance(df1, pl.DataFrame)
+        and isinstance(df2, pl.DataFrame)
+        or isinstance(df1, pl.LazyFrame)
+        and isinstance(df2, pl.LazyFrame)
+        or isinstance(df1, pd.DataFrame)
+        and isinstance(df2, pd.DataFrame)
+    ):
         if output_type == "polars.LazyFrame":
-            merged_schema = pl.Schema({**_rename_columns(df1, suffixes[0]).schema,
-                                       **_rename_columns(df2, suffixes[1]).schema})
-            return overlap_lazy_scan(df1, df2, merged_schema, col1, col2, overlap_filter)
+            merged_schema = pl.Schema(
+                {
+                    **_rename_columns(df1, suffixes[0]).schema,
+                    **_rename_columns(df2, suffixes[1]).schema,
+                }
+            )
+            return overlap_lazy_scan(
+                df1, df2, merged_schema, col1, col2, overlap_filter
+            )
         elif output_type == "polars.DataFrame":
             if isinstance(df1, pl.DataFrame) and isinstance(df2, pl.DataFrame):
                 df1 = df1.to_arrow().to_reader()
                 df2 = df2.to_arrow().to_reader()
             else:
                 raise ValueError(
-                    "Input and output dataframes must be of the same type: either polars or pandas")
+                    "Input and output dataframes must be of the same type: either polars or pandas"
+                )
             return overlap_frame(ctx, df1, df2, overlap_filter).to_polars()
         elif output_type == "pandas.DataFrame":
             if isinstance(df1, pd.DataFrame) and isinstance(df2, pd.DataFrame):
@@ -124,19 +147,22 @@ def overlap(df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
                 df2 = _df_to_arrow(df2, col2[0]).to_reader()
             else:
                 raise ValueError(
-                    "Input and output dataframes must be of the same type: either polars or pandas")
+                    "Input and output dataframes must be of the same type: either polars or pandas"
+                )
             return overlap_frame(ctx, df1, df2, overlap_filter).to_pandas()
     else:
         raise ValueError(
-            "Both dataframes must be of the same type: either polars or pandas or a path to a file")
+            "Both dataframes must be of the same type: either polars or pandas or a path to a file"
+        )
 
 
 def _rename_columns_pl(df: pl.DataFrame, suffix: str) -> pl.DataFrame:
     return df.rename({col: f"{col}{suffix}" for col in df.columns})
 
 
-def _rename_columns(df: Union[pl.DataFrame, pd.DataFrame], suffix: str) -> Union[
-    pl.DataFrame, pd.DataFrame]:
+def _rename_columns(
+    df: Union[pl.DataFrame, pd.DataFrame], suffix: str
+) -> Union[pl.DataFrame, pd.DataFrame]:
     if isinstance(df, pl.DataFrame):
         df = pl.DataFrame(schema=df.schema)
         return _rename_columns_pl(df, suffix)
@@ -149,9 +175,9 @@ def _rename_columns(df: Union[pl.DataFrame, pd.DataFrame], suffix: str) -> Union
 
 def _get_schema(path: str, suffix=None) -> pl.Schema:
     ext = Path(path).suffix
-    if ext == '.parquet':
+    if ext == ".parquet":
         df = pl.read_parquet(path)
-    elif ext == '.csv':
+    elif ext == ".csv":
         df = pl.read_csv(path)
     else:
         raise ValueError("Only CSV and Parquet files are supported")
@@ -168,7 +194,7 @@ def _string_to_largestring(table: pa.Table, column_name: str) -> pa.Table:
     return table.set_column(
         index,  # Index of the column to replace
         table.schema.field(index).name,  # Name of the column
-        pc.cast(table.column(index), pa.large_string())  # Cast to `largestring`
+        pc.cast(table.column(index), pa.large_string()),  # Cast to `largestring`
     )
 
 
@@ -184,10 +210,14 @@ def _df_to_arrow(df: pd.DataFrame, col: str) -> pa.Table:
     return _string_to_largestring(table_1, col)
 
 
-def overlap_lazy_scan(df_1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-                      df_2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-                      schema: pl.Schema, col1: list[str] = None, col2: list[str] = None,
-                      overlap_filter: OverlapFilter = OverlapFilter.Weak) -> pl.LazyFrame:
+def overlap_lazy_scan(
+    df_1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+    df_2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+    schema: pl.Schema,
+    col1: list[str] = None,
+    col2: list[str] = None,
+    overlap_filter: OverlapFilter = OverlapFilter.Weak,
+) -> pl.LazyFrame:
     overlap_function = None
     if isinstance(df_1, str) and isinstance(df_2, str):
         overlap_function = overlap_scan
@@ -203,12 +233,14 @@ def overlap_lazy_scan(df_1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame]
         raise ValueError("Only polars and pandas dataframes are supported")
 
     def _overlap_source(
-            with_columns: pl.Expr | None,
-            predicate: pl.Expr | None,
-            _n_rows: int | None,
-            _batch_size: int | None,
+        with_columns: pl.Expr | None,
+        predicate: pl.Expr | None,
+        _n_rows: int | None,
+        _batch_size: int | None,
     ) -> Iterator[pl.DataFrame]:
-        df_lazy: datafusion.DataFrame = overlap_function(ctx, df_1, df_2, overlap_filter)
+        df_lazy: datafusion.DataFrame = overlap_function(
+            ctx, df_1, df_2, overlap_filter
+        )
         df_stream = df_lazy.execute_stream()
         for r in df_stream:
             py_df = r.to_pyarrow()

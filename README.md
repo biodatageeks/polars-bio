@@ -17,3 +17,7 @@
 | Polars DataFrame |             |:white_check_mark:       |          |            |
 | Polars LazyFrame |             |:white_check_mark:       |          |            |
 | Native readers   |             |:white_check_mark:       |          |            |
+
+
+## Performance
+![img.png](benchmark/results-0.1.1.png)

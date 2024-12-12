@@ -30,13 +30,17 @@ EXPECTED_OVERLAP = """
 """
 
 # Pandas
-PD_DF_OVERLAP = (mdpd.from_md(EXPECTED_OVERLAP)
-                 .astype({'pos_start_1': 'int64'})
-                 .astype({'pos_end_1': 'int64'})
-                 .astype({'pos_start_2': 'int64'})
-                 .astype({'pos_end_2': 'int64'}))
+PD_DF_OVERLAP = (
+    mdpd.from_md(EXPECTED_OVERLAP)
+    .astype({"pos_start_1": "int64"})
+    .astype({"pos_end_1": "int64"})
+    .astype({"pos_start_2": "int64"})
+    .astype({"pos_end_2": "int64"})
+)
 
-PD_DF_OVERLAP = PD_DF_OVERLAP.sort_values(by=list(PD_DF_OVERLAP.columns)).reset_index(drop=True)
+PD_DF_OVERLAP = PD_DF_OVERLAP.sort_values(by=list(PD_DF_OVERLAP.columns)).reset_index(
+    drop=True
+)
 DF_PATH1 = f"{DATA_DIR}/reads.csv"
 DF_PATH2 = f"{DATA_DIR}/targets.csv"
 PD_DF1 = pd.read_csv(DF_PATH1)
