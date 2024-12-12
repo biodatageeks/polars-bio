@@ -8,7 +8,6 @@ import polars as pl
 import pyarrow as pa
 import pyarrow.compute as pc
 from polars.io.plugins import register_io_source
-from six import print_
 from typing_extensions import TYPE_CHECKING, Union
 from .polars_bio import overlap_scan, overlap_frame
 from .polars_bio import BioSessionContext, OverlapFilter

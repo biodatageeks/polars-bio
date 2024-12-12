@@ -106,7 +106,7 @@ async fn register_table(ctx: &SessionContext, path: &str, table_name: &str, form
                 .unwrap()
         }
         InputFormat::Csv => {
-            let csv_read_options = CsvReadOptions::new()
+            let csv_read_options = CsvReadOptions::new() //FIXME: expose
                 .delimiter(b',')
                 .has_header(true);
             ctx.register_csv(table_name, path, csv_read_options)

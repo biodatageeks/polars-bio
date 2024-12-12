@@ -21,6 +21,3 @@ arrow = "53.3.0"
 tokio = "1.42.0"
 
 #pyo3-arrow = { version = "0.5.1"}
-
-
-

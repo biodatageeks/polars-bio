@@ -13,7 +13,3 @@ class TestOverlapPandas:
         result = self.result.sort_values(by=list(self.result.columns)).reset_index(drop=True)
         expected = PD_DF_OVERLAP
         pd.testing.assert_frame_equal(result, expected)
-
-
-
-
