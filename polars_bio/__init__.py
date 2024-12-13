@@ -1,4 +1,4 @@
-from .overlap import ctx, overlap
-from .polars_bio import OverlapFilter
+from .polars_bio import FilterOp
+from .range_op import ctx, overlap
 
-__all__ = ["overlap", "ctx", "OverlapFilter"]
+__all__ = ["overlap", "ctx", "FilterOp"]
