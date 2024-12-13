@@ -21,6 +21,15 @@ pub enum OverlapFilter {
     Strict = 1,
 }
 
+#[pyclass(eq, eq_int)]
+#[derive(Clone, PartialEq)]
+pub enum RangeOp {
+    Overlap = 0,
+    Complement = 1,
+    Cluster = 2,
+    Closest = 3,
+}
+
 pub enum InputFormat {
     Parquet,
     Csv,
@@ -200,5 +209,6 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(overlap_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<OverlapFilter>()?;
+    m.add_class::<RangeOp>()?;
     Ok(())
 }
