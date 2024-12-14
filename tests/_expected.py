@@ -41,10 +41,10 @@ PD_DF_OVERLAP = (
 PD_DF_OVERLAP = PD_DF_OVERLAP.sort_values(by=list(PD_DF_OVERLAP.columns)).reset_index(
     drop=True
 )
-DF_PATH1 = f"{DATA_DIR}/reads.csv"
-DF_PATH2 = f"{DATA_DIR}/targets.csv"
-PD_DF1 = pd.read_csv(DF_PATH1)
-PD_DF2 = pd.read_csv(DF_PATH2)
+DF_PATH1 = f"{DATA_DIR}/overlap/reads.csv"
+DF_PATH2 = f"{DATA_DIR}/overlap/targets.csv"
+PD_OVERLAP_DF1 = pd.read_csv(DF_PATH1)
+PD_OVERLAP_DF2 = pd.read_csv(DF_PATH2)
 
 BIO_PD_DF1 = pd.read_parquet(f"{DATA_DIR}/exons/")
 BIO_PD_DF2 = pd.read_parquet(f"{DATA_DIR}/fBrain-DS14718/")
@@ -52,5 +52,5 @@ BIO_PD_DF2 = pd.read_parquet(f"{DATA_DIR}/fBrain-DS14718/")
 
 # Polars
 PL_DF_OVERLAP = pl.DataFrame(PD_DF_OVERLAP)
-PL_DF1 = pl.DataFrame(PD_DF1)
-PL_DF2 = pl.DataFrame(PD_DF2)
+PL_DF1 = pl.DataFrame(PD_OVERLAP_DF1)
+PL_DF2 = pl.DataFrame(PD_OVERLAP_DF2)

@@ -1,11 +1,11 @@
 import pandas as pd
-from _expected import PD_DF1, PD_DF2, PD_DF_OVERLAP
+from _expected import PD_DF_OVERLAP, PD_OVERLAP_DF1, PD_OVERLAP_DF2
 
 import polars_bio as pb
 
 
 class TestOverlapPandas:
-    result = pb.overlap(PD_DF1, PD_DF2, output_type="pandas.DataFrame")
+    result = pb.overlap(PD_OVERLAP_DF1, PD_OVERLAP_DF2, output_type="pandas.DataFrame")
 
     def test_overlap_count(self):
         assert len(self.result) == 16

@@ -5,7 +5,7 @@ import polars as pl
 from typing_extensions import TYPE_CHECKING, Union
 
 from .polars_bio import FilterOp, RangeOp, RangeOptions
-from .range_op_helpers import Context, range_operation
+from .range_op_helpers import Context, _validate_overlap_input, range_operation
 
 if TYPE_CHECKING:
     pass
@@ -47,24 +47,11 @@ def overlap(
     :param output_type: str, optional The type of the output. default is "polars.LazyFrame".
     :return: **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
     """
-    # TODO: Add support for col1 and col2
-    assert col1 is None, "col1 is not supported yet"
-    assert col2 is None, "col2 is not supported yet"
+
+    _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how)
+
     col1 = ["contig", "pos_start", "pos_end"] if col1 is None else col1
     col2 = ["contig", "pos_start", "pos_end"] if col2 is None else col2
-
-    # TODO: Add support for on_cols ()
-    assert on_cols is None, "on_cols is not supported yet"
-
-    assert suffixes == ("_1", "_2"), "Only default suffixes are supported"
-    assert output_type in [
-        "polars.LazyFrame",
-        "polars.DataFrame",
-        "pandas.DataFrame",
-    ], "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
-
-    assert how in ["inner"], "Only inner join is supported"
-
     range_options = RangeOptions(range_op=RangeOp.Overlap, filter_op=overlap_filter)
     return range_operation(
         df1, df2, suffixes, range_options, col1, col2, output_type, ctx

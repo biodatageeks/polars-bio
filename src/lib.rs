@@ -9,6 +9,7 @@ use datafusion::datasource::MemTable;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions, SessionConfig};
 use datafusion_python::dataframe::PyDataFrame;
 use datafusion_python::datafusion::prelude::SessionContext;
+use log::info;
 use pyo3::prelude::*;
 use pyo3::pyclass;
 use sequila_core::session_context::{Algorithm, SeQuiLaSessionExt, SequilaConfig};
@@ -22,16 +23,34 @@ const RIGHT_TABLE: &str = "s2";
 pub struct RangeOptions {
     pub range_op: RangeOp,
     pub filter_op: Option<FilterOp>,
+    pub suffixes: Option<Vec<String>>,
+    pub columns_1: Option<Vec<String>>,
+    pub columns_2: Option<Vec<String>>,
+    pub on_cols: Option<Vec<String>>,
+    pub overlap_alg: Option<String>,
 }
 
 #[pymethods]
 impl RangeOptions {
     #[new]
-    #[pyo3(signature = (range_op, filter_op))]
-    pub fn new(range_op: RangeOp, filter_op: Option<FilterOp>) -> Self {
+    #[pyo3(signature = (range_op, filter_op=None, suffixes=None, columns_1=None, columns_2=None, on_cols=None, overlap_alg=None))]
+    pub fn new(
+        range_op: RangeOp,
+        filter_op: Option<FilterOp>,
+        suffixes: Option<Vec<String>>,
+        columns_1: Option<Vec<String>>,
+        columns_2: Option<Vec<String>>,
+        on_cols: Option<Vec<String>>,
+        overlap_alg: Option<String>,
+    ) -> Self {
         RangeOptions {
             range_op,
             filter_op,
+            suffixes,
+            columns_1,
+            columns_2,
+            on_cols,
+            overlap_alg,
         }
     }
 }
@@ -49,7 +68,7 @@ pub enum RangeOp {
     Overlap = 0,
     Complement = 1,
     Cluster = 2,
-    Closest = 3,
+    Nearest = 3,
 }
 
 pub enum InputFormat {
@@ -68,22 +87,26 @@ impl PyBioSessionContext {
     #[pyo3(signature = ())]
     #[new]
     pub fn new() -> PyResult<Self> {
-        let ctx = create_context(Algorithm::Coitrees);
+        let ctx = create_context();
         Ok(PyBioSessionContext { ctx })
     }
     #[pyo3(signature = (key, value))]
     pub fn set_option(&mut self, key: &str, value: &str) {
-        let state = self.ctx.state_ref();
-        state
-            .write()
-            .config_mut()
-            .options_mut()
-            .set(key, value)
-            .unwrap();
+        set_option_internal(&self.ctx, key, value);
     }
 }
 
-fn create_context(algorithm: Algorithm) -> SessionContext {
+pub fn set_option_internal(ctx: &SessionContext, key: &str, value: &str) {
+    let state = ctx.state_ref();
+    state
+        .write()
+        .config_mut()
+        .options_mut()
+        .set(key, value)
+        .unwrap();
+}
+
+fn create_context() -> SessionContext {
     let mut options = ConfigOptions::new();
     let tuning_options = vec![
         ("datafusion.optimizer.repartition_joins", "false"),
@@ -96,7 +119,6 @@ fn create_context(algorithm: Algorithm) -> SessionContext {
 
     let mut sequila_config = SequilaConfig::default();
     sequila_config.prefer_interval_join = true;
-    sequila_config.interval_join_algorithm = algorithm;
 
     let config = SessionConfig::from(options)
         .with_option_extension(sequila_config)
@@ -147,13 +169,63 @@ async fn register_table(ctx: &SessionContext, path: &str, table_name: &str, form
     }
 }
 
+async fn do_nearest(ctx: &SessionContext) -> datafusion::dataframe::DataFrame {
+    info!(
+        "Running nearest: algorithm {} with {} threads",
+        ctx.state()
+            .config()
+            .options()
+            .extensions
+            .get::<SequilaConfig>()
+            .unwrap()
+            .interval_join_algorithm,
+        ctx.state().config().options().execution.target_partitions
+    );
+    let query = format!(
+        r#"
+            SELECT
+                a.contig as contig_1,
+                a.pos_start as pos_start_1,
+                a.pos_end as pos_end_1,
+                b.contig as contig_2,
+                b.pos_start as pos_start_2,
+                b.pos_end as pos_end_2
+                CASE WHEN
+                    b.pos_start >= a.pos_end
+                    THEN
+                    abs(b.pos_start-a.pos_end)
+                WHEN b.pos_end <= a.pos_start
+                    THEN
+                    abs(a.pos_start-b.pos_end)
+                ELSE 0
+                END AS distance
+            FROM
+                {} a, {} b
+            WHERE
+                a.contig=b.contig
+            AND
+                a.pos_end <= b.pos_start
+            OR
+                a.pos_start >= b.pos_end
+        "#,
+        LEFT_TABLE, RIGHT_TABLE
+    );
+    ctx.sql(&query).await.unwrap()
+}
 async fn do_overlap(ctx: &SessionContext, filter: FilterOp) -> datafusion::dataframe::DataFrame {
     let sign = match filter {
         FilterOp::Weak => "=".to_string(),
         _ => "".to_string(),
     };
-    println!(
-        "Running overlap with {} threads",
+    info!(
+        "Running overlap: algorithm {} with {} threads",
+        ctx.state()
+            .config()
+            .options()
+            .extensions
+            .get::<SequilaConfig>()
+            .unwrap()
+            .interval_join_algorithm,
         ctx.state().config().options().execution.target_partitions
     );
     let query = format!(
@@ -232,14 +304,35 @@ fn do_range_operation(
     rt: &Runtime,
     range_options: RangeOptions,
 ) -> datafusion::dataframe::DataFrame {
+    // defaults
+    match range_options.overlap_alg {
+        Some(alg) if alg == "coitreesnearest" => {
+            panic!("CoitreesNearest is an internal algorithm for nearest operation. Can't be set explicitly.");
+        },
+        Some(alg) => {
+            set_option_internal(&ctx, "sequila.interval_join_algorithm", &alg);
+        },
+        _ => {
+            set_option_internal(
+                &ctx,
+                "sequila.interval_join_algorithm",
+                &Algorithm::Coitrees.to_string(),
+            );
+        },
+    }
     match range_options.range_op {
         RangeOp::Overlap => rt.block_on(do_overlap(&ctx, range_options.filter_op.unwrap())),
+        RangeOp::Nearest => {
+            set_option_internal(&ctx, "sequila.interval_join_algorithm", "coitreesnearest");
+            rt.block_on(do_nearest(&ctx))
+        },
         _ => panic!("Unsupported operation"),
     }
 }
 
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
+    pyo3_log::init();
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;

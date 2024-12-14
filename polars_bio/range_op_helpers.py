@@ -13,6 +13,28 @@ from .polars_bio import (
 from .range_op_io import _df_to_arrow, _get_schema, _rename_columns, range_lazy_scan
 
 
+def singleton(cls):
+    """Decorator to make a class a singleton."""
+    instances = {}
+
+    def get_instance(*args, **kwargs):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+
+    return get_instance
+
+
+@singleton
+class Context:
+    def __init__(self):
+        self.ctx = BioSessionContext()
+        self.ctx.set_option("datafusion.execution.target_partitions", "1")
+        self.ctx.set_option("sequila.interval_join_algorithm", "coitrees")
+        self.ctx.set_option("datafusion.execution.coalesce_batches", "false")
+        self.ctx.set_option("datafusion.optimizer.repartition_joins", "true")
+
+
 def range_operation(
     df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
@@ -38,7 +60,13 @@ def range_operation(
         merged_schema = pl.Schema({**df_schema1, **df_schema2})
         if output_type == "polars.LazyFrame":
             return range_lazy_scan(
-                df1, df2, merged_schema, range_options=range_options, ctx=ctx
+                df1,
+                df2,
+                merged_schema,
+                range_options=range_options,
+                ctx=ctx,
+                col1=col1,
+                col2=col2,
             )
         elif output_type == "polars.DataFrame":
             return range_operation_scan(ctx, df1, df2, range_options).to_polars()
@@ -90,20 +118,19 @@ def range_operation(
         )
 
 
-def singleton(cls):
-    """Decorator to make a class a singleton."""
-    instances = {}
+def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how):
+    # TODO: Add support for col1 and col2
+    assert col1 is None, "col1 is not supported yet"
+    assert col2 is None, "col2 is not supported yet"
 
-    def get_instance(*args, **kwargs):
-        if cls not in instances:
-            instances[cls] = cls(*args, **kwargs)
-        return instances[cls]
+    # TODO: Add support for on_cols ()
+    assert on_cols is None, "on_cols is not supported yet"
 
-    return get_instance
+    assert suffixes == ("_1", "_2"), "Only default suffixes are supported"
+    assert output_type in [
+        "polars.LazyFrame",
+        "polars.DataFrame",
+        "pandas.DataFrame",
+    ], "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
 
-
-@singleton
-class Context:
-    def __init__(self):
-        self.ctx = BioSessionContext()
-        self.ctx.set_option("datafusion.execution.target_partitions", "1")
+    assert how in ["inner"], "Only inner join is supported"
