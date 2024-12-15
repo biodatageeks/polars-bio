@@ -187,26 +187,27 @@ async fn do_nearest(ctx: &SessionContext, filter: FilterOp) -> datafusion::dataf
     };
     let query = format!(
         r#"
-            SELECT
-                a.contig as contig_1,
-                a.pos_start as pos_start_1,
-                a.pos_end as pos_end_1,
-                b.contig as contig_2,
-                b.pos_start as pos_start_2,
-                b.pos_end as pos_end_2,
-       case when b.pos_start >= a.pos_end
-           then
+        SELECT
+            a.contig AS contig_1,
+            a.pos_start AS pos_start_1,
+            a.pos_end AS pos_end_1,
+            b.contig AS contig_2,
+            b.pos_start AS pos_start_2,
+            b.pos_end AS pos_end_2,
+       CAST(
+       CASE WHEN b.pos_start >= a.pos_end
+            THEN
                 abs(b.pos_start-a.pos_end)
-        when b.pos_end <= a.pos_start
-            then
+        WHEN b.pos_end <= a.pos_start
+            THEN
             abs(a.pos_start-b.pos_end)
-        else 0
-       end as distance
+            ELSE 0
+       END AS BIGINT) AS distance
 
-       from {} as b, {} as a
-        where  b.contig = a.contig
-            and cast(b.pos_end AS INT) >{} cast(a.pos_start AS INT )
-            and cast(b.pos_start AS INT) <{} cast(a.pos_end AS INT)
+       FROM {} AS b, {} AS a
+        WHERE  b.contig = a.contig
+            AND cast(b.pos_end AS INT) >{} cast(a.pos_start AS INT )
+            AND cast(b.pos_start AS INT) <{} cast(a.pos_end AS INT)
         "#,
         RIGHT_TABLE, LEFT_TABLE, sign, sign
     );
