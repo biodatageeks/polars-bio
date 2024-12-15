@@ -169,7 +169,7 @@ async fn register_table(ctx: &SessionContext, path: &str, table_name: &str, form
     }
 }
 
-async fn do_nearest(ctx: &SessionContext) -> datafusion::dataframe::DataFrame {
+async fn do_nearest(ctx: &SessionContext, filter: FilterOp) -> datafusion::dataframe::DataFrame {
     info!(
         "Running nearest: algorithm {} with {} threads",
         ctx.state()
@@ -181,6 +181,10 @@ async fn do_nearest(ctx: &SessionContext) -> datafusion::dataframe::DataFrame {
             .interval_join_algorithm,
         ctx.state().config().options().execution.target_partitions
     );
+    let sign = match filter {
+        FilterOp::Weak => "=".to_string(),
+        _ => "".to_string(),
+    };
     let query = format!(
         r#"
             SELECT
@@ -189,26 +193,22 @@ async fn do_nearest(ctx: &SessionContext) -> datafusion::dataframe::DataFrame {
                 a.pos_end as pos_end_1,
                 b.contig as contig_2,
                 b.pos_start as pos_start_2,
-                b.pos_end as pos_end_2
-                CASE WHEN
-                    b.pos_start >= a.pos_end
-                    THEN
-                    abs(b.pos_start-a.pos_end)
-                WHEN b.pos_end <= a.pos_start
-                    THEN
-                    abs(a.pos_start-b.pos_end)
-                ELSE 0
-                END AS distance
-            FROM
-                {} a, {} b
-            WHERE
-                a.contig=b.contig
-            AND
-                a.pos_end <= b.pos_start
-            OR
-                a.pos_start >= b.pos_end
+                b.pos_end as pos_end_2,
+       case when b.pos_start >= a.pos_end
+           then
+                abs(b.pos_start-a.pos_end)
+        when b.pos_end <= a.pos_start
+            then
+            abs(a.pos_start-b.pos_end)
+        else 0
+       end as distance
+
+       from {} as b, {} as a
+        where  b.contig = a.contig
+            and cast(b.pos_end AS INT) >{} cast(a.pos_start AS INT )
+            and cast(b.pos_start AS INT) <{} cast(a.pos_end AS INT)
         "#,
-        LEFT_TABLE, RIGHT_TABLE
+        RIGHT_TABLE, LEFT_TABLE, sign, sign
     );
     ctx.sql(&query).await.unwrap()
 }
@@ -324,7 +324,7 @@ fn do_range_operation(
         RangeOp::Overlap => rt.block_on(do_overlap(&ctx, range_options.filter_op.unwrap())),
         RangeOp::Nearest => {
             set_option_internal(&ctx, "sequila.interval_join_algorithm", "coitreesnearest");
-            rt.block_on(do_nearest(&ctx))
+            rt.block_on(do_nearest(&ctx, range_options.filter_op.unwrap()))
         },
         _ => panic!("Unsupported operation"),
     }

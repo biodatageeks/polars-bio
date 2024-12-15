@@ -55,7 +55,7 @@ def range_operation(
             ext2 == ".parquet" or ext2 == ".csv"
         ), "Dataframe1 must be a Parquet or CSV file"
         # use suffixes to avoid column name conflicts
-        df_schema1 = _get_schema(df2, suffixes[0])
+        df_schema1 = _get_schema(df1, suffixes[0])
         df_schema2 = _get_schema(df2, suffixes[1])
         merged_schema = pl.Schema({**df_schema1, **df_schema2})
         if output_type == "polars.LazyFrame":

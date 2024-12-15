@@ -5,17 +5,17 @@
 
 ## Genomic ranges operations
 
-| Features     | Bioframe           | polars-bio         | PyRanges | Pybedtools         | PyGenomics |
-|--------------|--------------------|--------------------|----------|--------------------|------------|
-| overlap      | :white_check_mark: | :white_check_mark: |          | :white_check_mark: |            |
-| closest      | :white_check_mark: |                    |          |                    |            |
-| cluster      | :white_check_mark: |                    |          |                    |            |
-| merge        | :white_check_mark: |                    |          |                    |            |
-| complement   | :white_check_mark: |                    |          |                    |            |
-| select/slice | :white_check_mark: |                    |          |                    |            |
-| coverage     | :white_check_mark: |                    |          |                    |            |
-| expand       | :white_check_mark: |                    |          |                    |            |
-| sort         | :white_check_mark: |                    |          |                    |            |
+| Features     | Bioframe           | polars-bio          | PyRanges | Pybedtools         | PyGenomics |
+|--------------|--------------------|---------------------|----------|--------------------|------------|
+| overlap      | :white_check_mark: | :white_check_mark:  |          | :white_check_mark: |            |
+| nearest      | :white_check_mark: | :white_check_mark:  |          |                    |            |
+| cluster      | :white_check_mark: |                     |          |                    |            |
+| merge        | :white_check_mark: |                     |          |                    |            |
+| complement   | :white_check_mark: |                     |          |                    |            |
+| select/slice | :white_check_mark: |                     |          |                    |            |
+| coverage     | :white_check_mark: |                     |          |                    |            |
+| expand       | :white_check_mark: |                     |          |                    |            |
+| sort         | :white_check_mark: |                     |          |                    |            |
 
 
 ## Input/Output
