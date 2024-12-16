@@ -14,6 +14,12 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 
+dependencies = [
+  "polars~=1.16.0",
+  "pandas~=2.2.3",
+  "pyarrow~=18.1.0",
+  "datafusion ~=42.0.0"]
+
 [tool.maturin]
 module-name = "polars_bio"
 
