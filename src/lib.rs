@@ -261,10 +261,10 @@ fn range_operation_frame(
 ) -> PyResult<PyDataFrame> {
     let rt = Runtime::new().unwrap();
     let ctx = &py_ctx.ctx;
-    register_frame(&ctx, df1, LEFT_TABLE.to_string());
-    register_frame(&ctx, df2, RIGHT_TABLE.to_string());
+    register_frame(ctx, df1, LEFT_TABLE.to_string());
+    register_frame(ctx, df2, RIGHT_TABLE.to_string());
     Ok(PyDataFrame::new(do_range_operation(
-        &ctx,
+        ctx,
         &rt,
         range_options,
     )))
@@ -282,19 +282,19 @@ fn range_operation_scan(
     let s1_path = &df_path1;
     let s2_path = &df_path2;
     rt.block_on(register_table(
-        &ctx,
+        ctx,
         s1_path,
         LEFT_TABLE,
         get_input_format(s1_path),
     ));
     rt.block_on(register_table(
-        &ctx,
+        ctx,
         s2_path,
         RIGHT_TABLE,
         get_input_format(s2_path),
     ));
     Ok(PyDataFrame::new(do_range_operation(
-        &ctx,
+        ctx,
         &rt,
         range_options,
     )))
@@ -311,21 +311,21 @@ fn do_range_operation(
             panic!("CoitreesNearest is an internal algorithm for nearest operation. Can't be set explicitly.");
         },
         Some(alg) => {
-            set_option_internal(&ctx, "sequila.interval_join_algorithm", &alg);
+            set_option_internal(ctx, "sequila.interval_join_algorithm", &alg);
         },
         _ => {
             set_option_internal(
-                &ctx,
+                ctx,
                 "sequila.interval_join_algorithm",
                 &Algorithm::Coitrees.to_string(),
             );
         },
     }
     match range_options.range_op {
-        RangeOp::Overlap => rt.block_on(do_overlap(&ctx, range_options.filter_op.unwrap())),
+        RangeOp::Overlap => rt.block_on(do_overlap(ctx, range_options.filter_op.unwrap())),
         RangeOp::Nearest => {
-            set_option_internal(&ctx, "sequila.interval_join_algorithm", "coitreesnearest");
-            rt.block_on(do_nearest(&ctx, range_options.filter_op.unwrap()))
+            set_option_internal(ctx, "sequila.interval_join_algorithm", "coitreesnearest");
+            rt.block_on(do_nearest(ctx, range_options.filter_op.unwrap()))
         },
         _ => panic!("Unsupported operation"),
     }
