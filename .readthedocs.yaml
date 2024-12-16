@@ -15,6 +15,9 @@
        - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH poetry lock --no-update
        - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH poetry install
        - VIRTUAL_ENV=$READTHEDOCS_VIRTUALENV_PATH pip install polars-bio
+ python:
+   install:
+    - requirements: docs/requirements.txt
 
  mkdocs:
    configuration: mkdocs.yml
