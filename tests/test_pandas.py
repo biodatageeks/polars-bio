@@ -12,7 +12,12 @@ import polars_bio as pb
 
 
 class TestOverlapPandas:
-    result = pb.overlap(PD_OVERLAP_DF1, PD_OVERLAP_DF2, output_type="pandas.DataFrame")
+    result = pb.overlap(
+        PD_OVERLAP_DF1,
+        PD_OVERLAP_DF2,
+        output_type="pandas.DataFrame",
+        overlap_filter=pb.FilterOp.Weak,
+    )
 
     def test_overlap_count(self):
         assert len(self.result) == len(PD_DF_OVERLAP)
@@ -26,7 +31,12 @@ class TestOverlapPandas:
 
 
 class TestNearestPandas:
-    result = pb.nearest(PD_NEAREST_DF1, PD_NEAREST_DF2, output_type="pandas.DataFrame")
+    result = pb.nearest(
+        PD_NEAREST_DF1,
+        PD_NEAREST_DF2,
+        output_type="pandas.DataFrame",
+        overlap_filter=pb.FilterOp.Weak,
+    )
 
     def test_nearest_count(self):
         assert len(self.result) == len(PD_DF_NEAREST)

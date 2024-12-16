@@ -11,8 +11,12 @@ import polars_bio as pb
 
 
 class TestOverlapPolars:
-    result_frame = pb.overlap(PL_DF1, PL_DF2, output_type="polars.DataFrame")
-    result_lazy = pb.overlap(PL_DF1, PL_DF2, output_type="polars.LazyFrame").collect()
+    result_frame = pb.overlap(
+        PL_DF1, PL_DF2, output_type="polars.DataFrame", overlap_filter=pb.FilterOp.Weak
+    )
+    result_lazy = pb.overlap(
+        PL_DF1, PL_DF2, output_type="polars.LazyFrame", overlap_filter=pb.FilterOp.Weak
+    ).collect()
     expected = PL_DF_OVERLAP
 
     def test_overlap_count(self):

@@ -171,7 +171,7 @@ async fn register_table(ctx: &SessionContext, path: &str, table_name: &str, form
 
 async fn do_nearest(ctx: &SessionContext, filter: FilterOp) -> datafusion::dataframe::DataFrame {
     info!(
-        "Running nearest: algorithm {} with {} threads",
+        "Running nearest: algorithm {} with {} thread(s)",
         ctx.state()
             .config()
             .options()
@@ -219,7 +219,7 @@ async fn do_overlap(ctx: &SessionContext, filter: FilterOp) -> datafusion::dataf
         _ => "".to_string(),
     };
     info!(
-        "Running overlap: algorithm {} with {} threads",
+        "Running overlap: algorithm {} with {} thread(s)",
         ctx.state()
             .config()
             .options()
@@ -243,9 +243,9 @@ async fn do_overlap(ctx: &SessionContext, filter: FilterOp) -> datafusion::dataf
             WHERE
                 a.contig=b.contig
             AND
-                a.pos_end >{} b.pos_start
+                cast(a.pos_end AS INT) >{} cast(b.pos_start AS INT)
             AND
-                a.pos_start <{} b.pos_end
+                cast(a.pos_start AS INT) <{} cast(b.pos_end AS INT)
         "#,
         LEFT_TABLE, RIGHT_TABLE, sign, sign,
     );

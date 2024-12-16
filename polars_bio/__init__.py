@@ -9,4 +9,4 @@ logger = logging.getLogger("polars_bio")
 logger.setLevel(logging.INFO)
 
 
-__all__ = ["overlap", "nearest", "ctx", "FilterOp"]
+__all__ = ["overlap", "nearest", "ctx", "FilterOp", "vizualize_intervals"]

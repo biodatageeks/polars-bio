@@ -13,7 +13,10 @@ import polars_bio as pb
 
 class TestOverlapNative:
     result_csv = pb.overlap(
-        DF_OVER_PATH1, DF_OVER_PATH2, output_type="pandas.DataFrame"
+        DF_OVER_PATH1,
+        DF_OVER_PATH2,
+        output_type="pandas.DataFrame",
+        overlap_filter=pb.FilterOp.Weak,
     )
 
     def test_overlap_count(self):
@@ -29,7 +32,10 @@ class TestOverlapNative:
 
 class TestNearestNative:
     result = pb.nearest(
-        DF_NEAREST_PATH1, DF_NEAREST_PATH2, output_type="pandas.DataFrame"
+        DF_NEAREST_PATH1,
+        DF_NEAREST_PATH2,
+        output_type="pandas.DataFrame",
+        overlap_filter=pb.FilterOp.Weak,
     )
 
     def test_nearest_count(self):
