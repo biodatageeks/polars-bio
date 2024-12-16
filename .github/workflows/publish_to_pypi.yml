@@ -21,7 +21,8 @@ permissions:
 
 # Make sure CI fails on all warnings, including Clippy lints
 env:
-  RUSTFLAGS: "-Dwarnings"
+  RUSTFLAGS: "-Dwarnings -Ctarget-cpu=native"
+  POETRY_VERSION: 1.8.4
 
 jobs:
   linux_tests:
@@ -29,15 +30,15 @@ jobs:
     strategy:
       matrix:
         target: [x86_64]
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: [ "3.9", "3.10", "3.11", "3.12" ]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-
           python-version: ${{ matrix.python-version }}
-
-
+      - uses: abatilo/actions-poetry@v2
+        with:
+          poetry-version: ${{ env.POETRY_VERSION }}
       - name: Set up Rust
         run: rustup show
       - uses: mozilla-actions/sccache-action@v0.0.3
@@ -50,12 +51,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [x86_64, x86]
+        target: [x86_64]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+      - uses: abatilo/actions-poetry@v2
+        with:
+          poetry-version: ${{ env.POETRY_VERSION }}
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -80,9 +84,10 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-
           architecture: ${{ matrix.target }}
-
+      - uses: abatilo/actions-poetry@v2
+        with:
+          poetry-version: ${{ env.POETRY_VERSION }}
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
@@ -108,12 +113,13 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+      - uses: abatilo/actions-poetry@v2
+        with:
+          poetry-version: ${{ env.POETRY_VERSION }}
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-
           target: ${{ matrix.target }}
-
           args: --release --out dist --find-interpreter
           sccache: 'true'
       - name: Upload wheels
@@ -128,6 +134,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: abatilo/actions-poetry@v2
+        with:
+          poetry-version: ${{ env.POETRY_VERSION }}
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:

@@ -7,7 +7,6 @@ from polars_bio import FilterOp
 
 
 class TestOverlapBioframe:
-
     result_overlap = pb.overlap(
         BIO_PD_DF1,
         BIO_PD_DF2,

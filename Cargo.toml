@@ -1,6 +1,6 @@
 [package]
 name = "polars_bio"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [lib]
@@ -11,7 +11,7 @@ crate-type= ["cdylib"]
 datafusion-python = { git = "https://github.com/apache/datafusion-python.git", rev = "5c834934dec89bd96ff70df3b278e9d6fe78f7ec"}
 pyo3 = { version = "0.22.4", features = ["extension-module", "abi3-py38", "experimental-async"] }
 pyo3-log = "0.11.0"
-sequila-core = { git = "https://github.com/biodatageeks/sequila-native.git", rev = "4a0b7383eed84cadaa1b524f401dd419b1c0ce8d" }
+sequila-core = { git = "https://github.com/biodatageeks/sequila-native.git", rev = "1a2eeb42d26753cd68ce5d981f6471655037abab" }
 datafusion = { version = "43.0.0"}
 arrow = "53.3.0"
 tokio = "1.42.0"

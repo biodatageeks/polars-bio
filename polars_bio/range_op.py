@@ -22,8 +22,8 @@ def overlap(
     overlap_filter: FilterOp = FilterOp.Strict,
     suffixes: tuple[str] = ("_1", "_2"),
     on_cols=None,
-    col1: Union[list[str] | None] = None,
-    col2: Union[list[str] | None] = None,
+    col1: Union[list[str], None] = None,
+    col2: Union[list[str], None] = None,
     output_type: str = "polars.LazyFrame",
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     """
@@ -98,9 +98,9 @@ def nearest(
     df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     overlap_filter: FilterOp = FilterOp.Strict,
     suffixes: (str, str) = ("_1", "_2"),
-    on_cols: Union[list[str] | None] = None,
-    col1: Union[list[str] | None] = None,
-    col2: Union[list[str] | None] = None,
+    on_cols: Union[list[str], None] = None,
+    col1: Union[list[str], None] = None,
+    col2: Union[list[str], None] = None,
     output_type: str = "polars.LazyFrame",
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     """

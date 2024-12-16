@@ -13,6 +13,7 @@ repos:
       - id: ruff
         types_or: [python, pyi, jupyter]
         args: [--fix, --show-fixes, --exit-non-zero-on-fix]
+      - id: ruff-format
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
     hooks:

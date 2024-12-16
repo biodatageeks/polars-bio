@@ -40,10 +40,10 @@ def range_lazy_scan(
         raise ValueError("Only polars and pandas dataframes are supported")
 
     def _overlap_source(
-        with_columns: pl.Expr | None,
-        predicate: pl.Expr | None,
-        _n_rows: int | None,
-        _batch_size: int | None,
+        with_columns: Union[pl.Expr, None],
+        predicate: Union[pl.Expr, None],
+        _n_rows: Union[int, None],
+        _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
         df_lazy: datafusion.DataFrame = range_function(ctx, df_1, df_2, range_options)
         df_stream = df_lazy.execute_stream()

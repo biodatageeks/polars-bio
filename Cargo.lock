@@ -3329,7 +3329,7 @@ checksum = "a3f0bf26fd526d2a95683cd0f87bf103b8539e2ca1ef48ce002d67aad59aa0b4"
 [[package]]
 name = "sequila-core"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/sequila-native.git?rev=4a0b7383eed84cadaa1b524f401dd419b1c0ce8d#4a0b7383eed84cadaa1b524f401dd419b1c0ce8d"
+source = "git+https://github.com/biodatageeks/sequila-native.git?rev=f94cdd0def5ec3cdc18b2581a54d62f8779cf818#f94cdd0def5ec3cdc18b2581a54d62f8779cf818"
 dependencies = [
  "ahash",
  "async-trait",
