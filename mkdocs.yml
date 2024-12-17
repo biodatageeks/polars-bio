@@ -15,7 +15,7 @@ plugins:
         options:
           docstring_style: google
 theme:
-  name: material
+  name: mkdocs
   features:
     - content.code.copy
     - content.code.select
