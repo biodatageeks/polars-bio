@@ -18,7 +18,8 @@ dependencies = [
   "polars~=1.16.0",
   "pandas~=2.2.3",
   "pyarrow~=18.1.0",
-  "datafusion ~=42.0.0"]
+  "datafusion ~=42.0.0",
+  "bioframe ~=0.7.2"]
 
 [tool.maturin]
 module-name = "polars_bio"
@@ -40,7 +41,7 @@ polars = "^1.16.0"
 pandas = "^2.2.3"
 pyarrow = "^18.1.0"
 datafusion = "^42.0.0"
-
+bioframe = "^0.7.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.3.3"
@@ -49,7 +50,6 @@ pre-commit = "^4.0.1"
 jupyter = "^1.1.0"
 ruff = "^0.8.2"
 maturin = "^1.7.5"
-bioframe = "^0.7.2"
 mdpd = "^0.2.1"
 mkdocs = "^1.6.1"
 mkdocs-jupyter = "^0.25.1"
