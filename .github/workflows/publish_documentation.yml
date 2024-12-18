@@ -19,7 +19,7 @@ jobs:
       - uses: abatilo/actions-poetry@v2
         with:
           poetry-version: ${{ env.POETRY_VERSION }}
-      - run: poetry install
+      - run: poetry lock --no-update && poetry install
       - name: Deploy docs
         run: mkdocs gh-deploy --remote-branch gh-pages -f mkdocs.yml --verbose
         env:
