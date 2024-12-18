@@ -23,6 +23,6 @@ jobs:
       - name: Install polars-bio
         run: pip install polars-bio
       - name: Deploy docs
-        run: python3 -m mkdocs gh-deploy --remote-branch gh-pages -f mkdocs.yml --force
+        run: poetry run mkdocs gh-deploy --remote-branch gh-pages -f mkdocs.yml --force
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
