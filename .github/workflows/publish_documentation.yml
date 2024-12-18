@@ -20,7 +20,9 @@ jobs:
         with:
           poetry-version: ${{ env.POETRY_VERSION }}
       - run: poetry lock --no-update && poetry install
+      - name: Install polars-bio
+        run: pip install polars-bio
       - name: Deploy docs
-        run: mkdocs gh-deploy --remote-branch gh-pages -f mkdocs.yml --verbose
+        run: python3 -m mkdocs gh-deploy --remote-branch gh-pages -f mkdocs.yml --force
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
