@@ -19,7 +19,7 @@ jobs:
       - uses: abatilo/actions-poetry@v2
         with:
           poetry-version: ${{ env.POETRY_VERSION }}
-      - run: poetry lock --no-update && poetry install
+      - run: poetry lock --no-update && poetry install --no-root
       - name: Install polars-bio
         run: pip install polars-bio
       - name: Deploy docs
