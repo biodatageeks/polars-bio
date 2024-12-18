@@ -8,10 +8,12 @@ nav:
       - 🏃🏼‍♂️ Quick start: quickstart.md
       - 🔨Features: features.md
       - 📚 Tutorial: notebooks/tutorial.ipynb
+      - 🚀 Performance: performance.md
       - ⚙️ API reference: api.md
   - Quick start: quickstart.md
   - Features: features.md
   - Tutorial: notebooks/tutorial.ipynb
+  - Performance: performance.md
   - API reference: api.md
 
 plugins:
