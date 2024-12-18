@@ -7,8 +7,12 @@ on:
       - master
     tags:
       - '*'
+    paths-ignore:
+      - 'docs/**'
+      - 'benchmark/**'
   pull_request:
   workflow_dispatch:
+
 
 concurrency:
 
