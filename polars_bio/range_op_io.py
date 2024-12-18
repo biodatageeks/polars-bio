@@ -8,7 +8,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 from polars.io.plugins import register_io_source
 
-from .polars_bio import (
+from polars_bio.polars_bio import (
     BioSessionContext,
     RangeOptions,
     range_operation_frame,

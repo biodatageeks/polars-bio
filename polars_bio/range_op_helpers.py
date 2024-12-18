@@ -4,12 +4,13 @@ from typing import Union
 import pandas as pd
 import polars as pl
 
-from .polars_bio import (
+from polars_bio.polars_bio import (
     BioSessionContext,
     RangeOptions,
     range_operation_frame,
     range_operation_scan,
 )
+
 from .range_op_io import _df_to_arrow, _get_schema, _rename_columns, range_lazy_scan
 
 

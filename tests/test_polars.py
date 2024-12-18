@@ -8,14 +8,15 @@ from _expected import (
 )
 
 import polars_bio as pb
+from polars_bio.polars_bio import FilterOp
 
 
 class TestOverlapPolars:
     result_frame = pb.overlap(
-        PL_DF1, PL_DF2, output_type="polars.DataFrame", overlap_filter=pb.FilterOp.Weak
+        PL_DF1, PL_DF2, output_type="polars.DataFrame", overlap_filter=FilterOp.Weak
     )
     result_lazy = pb.overlap(
-        PL_DF1, PL_DF2, output_type="polars.LazyFrame", overlap_filter=pb.FilterOp.Weak
+        PL_DF1, PL_DF2, output_type="polars.LazyFrame", overlap_filter=FilterOp.Weak
     ).collect()
     expected = PL_DF_OVERLAP
 

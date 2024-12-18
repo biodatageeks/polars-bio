@@ -9,6 +9,7 @@ from _expected import (
 )
 
 import polars_bio as pb
+from polars_bio.polars_bio import FilterOp
 
 
 class TestOverlapNative:
@@ -16,7 +17,7 @@ class TestOverlapNative:
         DF_OVER_PATH1,
         DF_OVER_PATH2,
         output_type="pandas.DataFrame",
-        overlap_filter=pb.FilterOp.Weak,
+        overlap_filter=FilterOp.Weak,
     )
 
     def test_overlap_count(self):
@@ -35,7 +36,7 @@ class TestNearestNative:
         DF_NEAREST_PATH1,
         DF_NEAREST_PATH2,
         output_type="pandas.DataFrame",
-        overlap_filter=pb.FilterOp.Weak,
+        overlap_filter=FilterOp.Weak,
     )
 
     def test_nearest_count(self):

@@ -4,11 +4,11 @@ import pandas as pd
 import polars as pl
 from typing_extensions import TYPE_CHECKING, Union
 
-from .polars_bio import FilterOp, RangeOp, RangeOptions
 from .range_op_helpers import Context, _validate_overlap_input, range_operation
 
 if TYPE_CHECKING:
     pass
+from polars_bio.polars_bio import FilterOp, RangeOp, RangeOptions
 
 DEFAULT_INTERVAL_COLUMNS = ["contig", "pos_start", "pos_end"]
 
