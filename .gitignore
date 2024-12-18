@@ -10,3 +10,4 @@ venv
 .idea
 sandbox/
 .DS_Store
+site/

@@ -4,7 +4,8 @@ on:
    tags:
      - "*"
   workflow_dispatch:
-
+env:
+  POETRY_VERSION: 1.8.4
 jobs:
   build:
     name: Deploy docs
@@ -12,13 +13,14 @@ jobs:
     steps:
       - name: Checkout main
         uses: actions/checkout@v2
-
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.12
+      - uses: abatilo/actions-poetry@v2
+        with:
+          poetry-version: ${{ env.POETRY_VERSION }}
+      - run: poetry install
       - name: Deploy docs
-        uses: mhausenblas/mkdocs-deploy-gh-pages@master
-        # Or use mhausenblas/mkdocs-deploy-gh-pages@nomaterial to build without the mkdocs-material theme
+        run: mkdocs gh-deploy --remote-branch gh-pages -f mkdocs.yml --verbose
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CUSTOM_DOMAIN: biodatageeks.org
-          CONFIG_FILE: mkdocs.yml
-          EXTRA_PACKAGES: build-base
-          REQUIREMENTS: docs/requirements.txt

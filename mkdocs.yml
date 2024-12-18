@@ -1,7 +1,16 @@
 site_name: polars-bio
+site_url: https://biodatageeks.org/polars-bio/
+repo_url: https://github.com/biodatageeks/polars-bio
+repo_name: biodatageeks/polars-bio
 nav:
-  - Home: index.md
-  - Quickstart: quickstart.md
+  - Home:
+      - polars-bio: index.md
+      - 🏃🏼‍♂️ Quick start: quickstart.md
+      - 🔨Features: features.md
+      - 📚 Tutorial: notebooks/tutorial.ipynb
+      - ⚙️ API reference: api.md
+  - Quick start: quickstart.md
+  - Features: features.md
   - Tutorial: notebooks/tutorial.ipynb
   - API reference: api.md
 
@@ -18,6 +27,8 @@ plugins:
           docstring_style: google
 theme:
   name: material
+  logo: assets/logo.png
+  favicon: assets/logo.png
   features:
     - content.code.copy
     - content.code.select
@@ -33,9 +44,13 @@ theme:
     - navigation.tracking
     - navigation.instant
     - content.footnote.tooltips
+  icon:
+    repo: fontawesome/brands/github
 extra:
   version:
     provider: mike
+    default:
+      - latest
 
 markdown_extensions:
   - admonition
