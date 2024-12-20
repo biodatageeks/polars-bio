@@ -11,6 +11,7 @@ on:
       - 'docs/**'
       - 'benchmark/**'
       - 'mkdocs.yml'
+      - 'README.md'
   pull_request:
   workflow_dispatch:
 
