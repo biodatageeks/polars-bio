@@ -5,7 +5,7 @@ pip install polars-bio
 There are binary versions for Linux (x86_64), MacOS (x86_64 and arm64) and Windows (x86_64).
 In case of other platforms, you can build polars-bio from source with [maturin](https://github.com/PyO3/maturin):
 ```shell
-RUSTFLAGS="-Ctarget-cpu=native" maturin build --release  -m Cargo.toml
+RUSTFLAGS="-Ctarget-cpu=native" maturin build --release -m Cargo.toml
 ```
 and you should see the following output:
 ```shell
@@ -14,5 +14,5 @@ Finished `release` profile [optimized] target(s) in 1m 25s
 📦 Built wheel for abi3 Python ≥ 3.8 to /Users/mwiewior/research/git/polars-bio/target/wheels/polars_bio-0.2.11-cp38-abi3-macosx_11_0_arm64.whl
 
 ```
-!!! note
-    Rust compiler and Cargo are required to build the package from source. [rustup](https://rustup.rs/) is the recommended way to install Rust.
+!!! tip
+    Python>=3.9, Rust compiler and Cargo are required to build the package from source. [rustup](https://rustup.rs/) is the recommended way to install Rust.

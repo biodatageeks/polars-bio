@@ -10,6 +10,7 @@ on:
     paths-ignore:
       - 'docs/**'
       - 'benchmark/**'
+      - 'mkdocs.yml'
   pull_request:
   workflow_dispatch:
 
