@@ -22,8 +22,8 @@ def visualize_intervals(
     df = df if isinstance(df, pd.DataFrame) else df.to_pandas()
     for i, reg_pair in df.iterrows():
         bf.vis.plot_intervals_arr(
-            starts=[reg_pair.pos_start_1, reg_pair.pos_start_2],
-            ends=[reg_pair.pos_end_1, reg_pair.pos_end_2],
+            starts=[reg_pair.start_1, reg_pair.start_2],
+            ends=[reg_pair.end_1, reg_pair.end_2],
             colors=["skyblue", "lightpink"],
             levels=[2, 1],
             xlim=(0, 16),

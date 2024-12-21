@@ -29,3 +29,14 @@ repos:
     hooks:
       - id: fmt
       - id: cargo-check
+
+### FIXME
+#  - repo: https://github.com/ddkasa/check-mkdocs.git
+#    rev: 65e819a4c62ee22c38f244b51b63f2f9b89a66d0
+#    hooks:
+#      - id: check-mkdocs
+#        name: check-mkdocs
+#        args: ["--config", "mkdocs.yml"]  # Optional, mkdocs.yml is the default
+#        # If you have additional plugins or libraries that are not included in
+#        # check-mkdocs, add them here
+#        additional_dependencies: ['mkdocs-material', 'mkdocs-jupyter', 'mkdocstrings-python']

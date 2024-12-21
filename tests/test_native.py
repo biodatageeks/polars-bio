@@ -16,6 +16,8 @@ class TestOverlapNative:
     result_csv = pb.overlap(
         DF_OVER_PATH1,
         DF_OVER_PATH2,
+        col1=("contig", "pos_start", "pos_end"),
+        col2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         overlap_filter=FilterOp.Weak,
     )
@@ -35,6 +37,8 @@ class TestNearestNative:
     result = pb.nearest(
         DF_NEAREST_PATH1,
         DF_NEAREST_PATH2,
+        col1=("contig", "pos_start", "pos_end"),
+        col2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         overlap_filter=FilterOp.Weak,
     )

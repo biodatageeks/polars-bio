@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     pass
 from polars_bio.polars_bio import FilterOp, RangeOp, RangeOptions
 
-DEFAULT_INTERVAL_COLUMNS = ["contig", "pos_start", "pos_end"]
+DEFAULT_INTERVAL_COLUMNS = ["chrom", "start", "end"]
 
 ctx = Context().ctx
 
@@ -85,12 +85,16 @@ def overlap(
 
     _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how)
 
-    col1 = ["contig", "pos_start", "pos_end"] if col1 is None else col1
-    col2 = ["contig", "pos_start", "pos_end"] if col2 is None else col2
-    range_options = RangeOptions(range_op=RangeOp.Overlap, filter_op=overlap_filter)
-    return range_operation(
-        df1, df2, suffixes, range_options, col1, col2, output_type, ctx
+    col1 = DEFAULT_INTERVAL_COLUMNS if col1 is None else col1
+    col2 = DEFAULT_INTERVAL_COLUMNS if col2 is None else col2
+    range_options = RangeOptions(
+        range_op=RangeOp.Overlap,
+        filter_op=overlap_filter,
+        suffixes=suffixes,
+        columns_1=col1,
+        columns_2=col2,
     )
+    return range_operation(df1, df2, range_options, output_type, ctx)
 
 
 def nearest(
@@ -136,9 +140,13 @@ def nearest(
 
     _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how="inner")
 
-    col1 = ["contig", "pos_start", "pos_end"] if col1 is None else col1
-    col2 = ["contig", "pos_start", "pos_end"] if col2 is None else col2
-    range_options = RangeOptions(range_op=RangeOp.Nearest, filter_op=overlap_filter)
-    return range_operation(
-        df1, df2, suffixes, range_options, col1, col2, output_type, ctx
+    col1 = DEFAULT_INTERVAL_COLUMNS if col1 is None else col1
+    col2 = DEFAULT_INTERVAL_COLUMNS if col2 is None else col2
+    range_options = RangeOptions(
+        range_op=RangeOp.Nearest,
+        filter_op=overlap_filter,
+        suffixes=suffixes,
+        columns_1=col1,
+        columns_2=col2,
     )
+    return range_operation(df1, df2, range_options, output_type, ctx)

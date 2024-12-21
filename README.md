@@ -5,6 +5,6 @@
 
 
 [polars-bio](https://pypi.org/project/polars-bio/) is a Python library for genomics built on top of [polars](https://pola.rs/), [Apache Arrow](https://arrow.apache.org/) and [Apache DataFusion](https://datafusion.apache.org/).
-It provides a DataFrame API for genomics data and is designed to be fast, memory efficient and easy to use.
+It provides a DataFrame API for genomics data and is designed to be blazing fast, memory efficient and easy to use.
 
 Read the [documentation](https://biodatageeks.github.io/polars-bio/)

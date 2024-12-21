@@ -16,6 +16,8 @@ class TestOverlapPandas:
     result = pb.overlap(
         PD_OVERLAP_DF1,
         PD_OVERLAP_DF2,
+        col1=("contig", "pos_start", "pos_end"),
+        col2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         overlap_filter=FilterOp.Weak,
     )
@@ -35,6 +37,8 @@ class TestNearestPandas:
     result = pb.nearest(
         PD_NEAREST_DF1,
         PD_NEAREST_DF2,
+        col1=("contig", "pos_start", "pos_end"),
+        col2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         overlap_filter=FilterOp.Weak,
     )

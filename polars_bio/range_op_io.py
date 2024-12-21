@@ -20,8 +20,6 @@ def range_lazy_scan(
     df_1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     df_2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     schema: pl.Schema,
-    col1: list[str],
-    col2: list[str],
     range_options: RangeOptions,
     ctx: BioSessionContext,
 ) -> pl.LazyFrame:
@@ -34,8 +32,8 @@ def range_lazy_scan(
         df_2 = df_2.to_arrow().to_reader()
     elif isinstance(df_1, pd.DataFrame) and isinstance(df_2, pd.DataFrame):
         range_function = range_operation_frame
-        df_1 = _df_to_arrow(df_1, col1[0]).to_reader()
-        df_2 = _df_to_arrow(df_2, col2[0]).to_reader()
+        df_1 = _df_to_arrow(df_1, range_options.columns_1[0]).to_reader()
+        df_2 = _df_to_arrow(df_2, range_options.columns_2[0]).to_reader()
     else:
         raise ValueError("Only polars and pandas dataframes are supported")
 

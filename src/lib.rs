@@ -1,3 +1,4 @@
+use std::fmt;
 use std::sync::Arc;
 
 use datafusion::arrow::array::RecordBatch;
@@ -21,13 +22,20 @@ const RIGHT_TABLE: &str = "s2";
 #[pyclass(name = "RangeOptions")]
 #[derive(Clone)]
 pub struct RangeOptions {
-    pub range_op: RangeOp,
-    pub filter_op: Option<FilterOp>,
-    pub suffixes: Option<Vec<String>>,
-    pub columns_1: Option<Vec<String>>,
-    pub columns_2: Option<Vec<String>>,
-    pub on_cols: Option<Vec<String>>,
-    pub overlap_alg: Option<String>,
+    #[pyo3(get, set)]
+    range_op: RangeOp,
+    #[pyo3(get, set)]
+    filter_op: Option<FilterOp>,
+    #[pyo3(get, set)]
+    suffixes: Option<(String, String)>,
+    #[pyo3(get, set)]
+    columns_1: Option<Vec<String>>,
+    #[pyo3(get, set)]
+    columns_2: Option<Vec<String>>,
+    #[pyo3(get, set)]
+    on_cols: Option<Vec<String>>,
+    #[pyo3(get, set)]
+    overlap_alg: Option<String>,
 }
 
 #[pymethods]
@@ -37,7 +45,7 @@ impl RangeOptions {
     pub fn new(
         range_op: RangeOp,
         filter_op: Option<FilterOp>,
-        suffixes: Option<Vec<String>>,
+        suffixes: Option<(String, String)>,
         columns_1: Option<Vec<String>>,
         columns_2: Option<Vec<String>>,
         on_cols: Option<Vec<String>>,
@@ -69,6 +77,19 @@ pub enum RangeOp {
     Complement = 1,
     Cluster = 2,
     Nearest = 3,
+    Coverage = 4,
+}
+
+impl fmt::Display for RangeOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RangeOp::Overlap => write!(f, "Overlap"),
+            RangeOp::Nearest => write!(f, "Nearest"),
+            RangeOp::Complement => write!(f, "Complement"),
+            RangeOp::Cluster => write!(f, "Cluster"),
+            RangeOp::Coverage => write!(f, "Coverage"),
+        }
+    }
 }
 
 pub enum InputFormat {
@@ -169,85 +190,189 @@ async fn register_table(ctx: &SessionContext, path: &str, table_name: &str, form
     }
 }
 
-async fn do_nearest(ctx: &SessionContext, filter: FilterOp) -> datafusion::dataframe::DataFrame {
-    info!(
-        "Running nearest: algorithm {} with {} thread(s)",
-        ctx.state()
-            .config()
-            .options()
-            .extensions
-            .get::<SequilaConfig>()
-            .unwrap()
-            .interval_join_algorithm,
-        ctx.state().config().options().execution.target_partitions
-    );
-    let sign = match filter {
+async fn do_nearest(
+    ctx: &SessionContext,
+    range_opts: RangeOptions,
+) -> datafusion::dataframe::DataFrame {
+    let sign = match range_opts.filter_op.unwrap() {
         FilterOp::Weak => "=".to_string(),
         _ => "".to_string(),
     };
+    let suffixes = match range_opts.suffixes {
+        Some((s1, s2)) => (s1, s2),
+        _ => ("_1".to_string(), "_2".to_string()),
+    };
+    let columns_1 = match range_opts.columns_1 {
+        Some(cols) => cols,
+        _ => vec![
+            "contig".to_string(),
+            "pos_start".to_string(),
+            "pos_end".to_string(),
+        ],
+    };
+    let columns_2 = match range_opts.columns_2 {
+        Some(cols) => cols,
+        _ => vec![
+            "contig".to_string(),
+            "pos_start".to_string(),
+            "pos_end".to_string(),
+        ],
+    };
+
     let query = format!(
         r#"
         SELECT
-            a.contig AS contig_1,
-            a.pos_start AS pos_start_1,
-            a.pos_end AS pos_end_1,
-            b.contig AS contig_2,
-            b.pos_start AS pos_start_2,
-            b.pos_end AS pos_end_2,
+            a.{} AS {}{}, -- contig
+            a.{} AS {}{}, -- pos_start
+            a.{} AS {}{}, -- pos_end
+            b.{} AS {}{}, -- contig
+            b.{} AS {}{}, -- pos_start
+            b.{} AS {}{},  -- pos_end
+            a.* except({}, {}, {}), -- all join columns from left table
+            b.* except({}, {}, {}), -- all join columns from right table
        CAST(
-       CASE WHEN b.pos_start >= a.pos_end
+       CASE WHEN b.{} >= a.{}
             THEN
-                abs(b.pos_start-a.pos_end)
-        WHEN b.pos_end <= a.pos_start
+                abs(b.{}-a.{})
+        WHEN b.{} <= a.{}
             THEN
-            abs(a.pos_start-b.pos_end)
+            abs(a.{}-b.{})
             ELSE 0
        END AS BIGINT) AS distance
 
        FROM {} AS b, {} AS a
-        WHERE  b.contig = a.contig
-            AND cast(b.pos_end AS INT) >{} cast(a.pos_start AS INT )
-            AND cast(b.pos_start AS INT) <{} cast(a.pos_end AS INT)
+        WHERE  b.{} = a.{}
+            AND cast(b.{} AS INT) >{} cast(a.{} AS INT )
+            AND cast(b.{} AS INT) <{} cast(a.{} AS INT)
         "#,
-        RIGHT_TABLE, LEFT_TABLE, sign, sign
+        columns_1[0],
+        columns_1[0],
+        suffixes.0, // contig
+        columns_1[1],
+        columns_1[1],
+        suffixes.0, // pos_start
+        columns_1[2],
+        columns_1[2],
+        suffixes.0, // pos_end
+        columns_2[0],
+        columns_2[0],
+        suffixes.1, // contig
+        columns_2[1],
+        columns_2[1],
+        suffixes.1, // pos_start
+        columns_2[2],
+        columns_2[2],
+        suffixes.1, // pos_end
+        columns_1[0],
+        columns_1[1],
+        columns_1[2], // all join columns from right table
+        columns_2[0],
+        columns_2[1],
+        columns_2[2], // all join columns from left table
+        columns_2[1],
+        columns_1[2], //  b.pos_start >= a.pos_end
+        columns_2[1],
+        columns_1[2], // b.pos_start-a.pos_end
+        columns_2[2],
+        columns_1[1], // b.pos_end <= a.pos_start
+        columns_2[2],
+        columns_1[1], // a.pos_start-b.pos_end
+        RIGHT_TABLE,
+        LEFT_TABLE,
+        columns_1[0],
+        columns_2[0], // contig
+        columns_1[2],
+        sign,
+        columns_2[1], // pos_start
+        columns_1[1],
+        sign,
+        columns_2[2], // pos_end
     );
     ctx.sql(&query).await.unwrap()
 }
-async fn do_overlap(ctx: &SessionContext, filter: FilterOp) -> datafusion::dataframe::DataFrame {
-    let sign = match filter {
+
+async fn do_overlap(
+    ctx: &SessionContext,
+    range_opts: RangeOptions,
+) -> datafusion::dataframe::DataFrame {
+    let sign = match range_opts.clone().filter_op.unwrap() {
         FilterOp::Weak => "=".to_string(),
         _ => "".to_string(),
     };
-    info!(
-        "Running overlap: algorithm {} with {} thread(s)",
-        ctx.state()
-            .config()
-            .options()
-            .extensions
-            .get::<SequilaConfig>()
-            .unwrap()
-            .interval_join_algorithm,
-        ctx.state().config().options().execution.target_partitions
-    );
+    let suffixes = match range_opts.suffixes {
+        Some((s1, s2)) => (s1, s2),
+        _ => ("_1".to_string(), "_2".to_string()),
+    };
+    let columns_1 = match range_opts.columns_1 {
+        Some(cols) => cols,
+        _ => vec![
+            "contig".to_string(),
+            "pos_start".to_string(),
+            "pos_end".to_string(),
+        ],
+    };
+    let columns_2 = match range_opts.columns_2 {
+        Some(cols) => cols,
+        _ => vec![
+            "contig".to_string(),
+            "pos_start".to_string(),
+            "pos_end".to_string(),
+        ],
+    };
     let query = format!(
         r#"
             SELECT
-                a.contig as contig_1,
-                a.pos_start as pos_start_1,
-                a.pos_end as pos_end_1,
-                b.contig as contig_2,
-                b.pos_start as pos_start_2,
-                b.pos_end as pos_end_2
+                a.{} as {}{}, -- contig
+                a.{} as {}{}, -- pos_start
+                a.{} as {}{}, -- pos_end
+                b.{} as {}{}, -- contig
+                b.{} as {}{}, -- pos_start
+                b.{} as {}{}, -- pos_end
+                a.* except({}, {}, {}), -- all join columns from left table
+                b.* except({}, {}, {}) -- all join columns from right table
             FROM
                 {} a, {} b
             WHERE
-                a.contig=b.contig
+                a.{}=b.{}
             AND
-                cast(a.pos_end AS INT) >{} cast(b.pos_start AS INT)
+                cast(a.{} AS INT) >{} cast(b.{} AS INT)
             AND
-                cast(a.pos_start AS INT) <{} cast(b.pos_end AS INT)
+                cast(a.{} AS INT) <{} cast(b.{} AS INT)
         "#,
-        LEFT_TABLE, RIGHT_TABLE, sign, sign,
+        columns_1[0],
+        columns_1[0],
+        suffixes.0, // contig
+        columns_1[1],
+        columns_1[1],
+        suffixes.0, // pos_start
+        columns_1[2],
+        columns_1[2],
+        suffixes.0, // pos_end
+        columns_2[0],
+        columns_2[0],
+        suffixes.1, // contig
+        columns_2[1],
+        columns_2[1],
+        suffixes.1, // pos_start
+        columns_2[2],
+        columns_2[2],
+        suffixes.1, // pos_end
+        columns_1[0],
+        columns_1[1],
+        columns_1[2], // all join columns from right table
+        columns_2[0],
+        columns_2[1],
+        columns_2[2], // all join columns from left table
+        LEFT_TABLE,
+        RIGHT_TABLE,
+        columns_1[0],
+        columns_2[0], // contig
+        columns_1[2],
+        sign,
+        columns_2[1], // pos_start
+        columns_1[1],
+        sign,
+        columns_2[2], // pos_end
     );
     ctx.sql(&query).await.unwrap()
 }
@@ -306,7 +431,7 @@ fn do_range_operation(
     range_options: RangeOptions,
 ) -> datafusion::dataframe::DataFrame {
     // defaults
-    match range_options.overlap_alg {
+    match &range_options.overlap_alg {
         Some(alg) if alg == "coitreesnearest" => {
             panic!("CoitreesNearest is an internal algorithm for nearest operation. Can't be set explicitly.");
         },
@@ -321,11 +446,23 @@ fn do_range_operation(
             );
         },
     }
+    info!(
+        "Running {} operation with algorithm {} and {} thread(s)...",
+        range_options.range_op,
+        ctx.state()
+            .config()
+            .options()
+            .extensions
+            .get::<SequilaConfig>()
+            .unwrap()
+            .interval_join_algorithm,
+        ctx.state().config().options().execution.target_partitions
+    );
     match range_options.range_op {
-        RangeOp::Overlap => rt.block_on(do_overlap(ctx, range_options.filter_op.unwrap())),
+        RangeOp::Overlap => rt.block_on(do_overlap(ctx, range_options)),
         RangeOp::Nearest => {
             set_option_internal(ctx, "sequila.interval_join_algorithm", "coitreesnearest");
-            rt.block_on(do_nearest(ctx, range_options.filter_op.unwrap()))
+            rt.block_on(do_nearest(ctx, range_options))
         },
         _ => panic!("Unsupported operation"),
     }

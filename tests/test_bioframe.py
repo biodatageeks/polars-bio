@@ -6,10 +6,12 @@ import polars_bio as pb
 from polars_bio.polars_bio import FilterOp
 
 
-class TestOverlapBioframe:
+class TestBioframe:
     result_overlap = pb.overlap(
         BIO_PD_DF1,
         BIO_PD_DF2,
+        col1=("contig", "pos_start", "pos_end"),
+        col2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         overlap_filter=FilterOp.Strict,
     )
@@ -25,6 +27,8 @@ class TestOverlapBioframe:
     resust_nearest = pb.nearest(
         BIO_PD_DF1,
         BIO_PD_DF2,
+        col1=("contig", "pos_start", "pos_end"),
+        col2=("contig", "pos_start", "pos_end"),
         overlap_filter=FilterOp.Strict,
         output_type="pandas.DataFrame",
     )
