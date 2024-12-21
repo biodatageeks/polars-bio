@@ -436,7 +436,7 @@ fn do_range_operation(
             panic!("CoitreesNearest is an internal algorithm for nearest operation. Can't be set explicitly.");
         },
         Some(alg) => {
-            set_option_internal(ctx, "sequila.interval_join_algorithm", &alg);
+            set_option_internal(ctx, "sequila.interval_join_algorithm", alg);
         },
         _ => {
             set_option_internal(
