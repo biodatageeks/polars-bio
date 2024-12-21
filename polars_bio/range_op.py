@@ -21,7 +21,7 @@ def overlap(
     how: str = "inner",
     overlap_filter: FilterOp = FilterOp.Strict,
     suffixes: tuple[str, str] = ("_1", "_2"),
-    on_cols=None,
+    on_cols: Union[list[str], None] = None,
     col1: Union[list[str], None] = None,
     col2: Union[list[str], None] = None,
     output_type: str = "polars.LazyFrame",
@@ -35,14 +35,14 @@ def overlap(
         df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header and Parquet are supported.
         how: How to handle the overlaps on the two dataframes. inner: use intersection of the set of intervals from df1 and df2, optional.
         overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). default is FilterOp.Weak.
+        suffixes: Suffixes for the columns of the two overlapped sets.
+        on_cols: List of additional column names to join on. default is None.
         col1: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set. The default
             values are 'chrom', 'start', 'end'.
         col2:  The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set. The default
             values are 'chrom', 'start', 'end'.
-        suffixes: Suffixes for the columns of the two overlapped sets.
-        on_cols: List of additional column names to join on. default is None.
         output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
 
     Returns:
@@ -115,6 +115,7 @@ def nearest(
         df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header and Parquet are supported.
         df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header and Parquet are supported.
         overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). default is FilterOp.Weak.
+        on_cols: List of additional column names to join on. default is None.
         col1: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set. The default
             values are 'chrom', 'start', 'end'.
@@ -150,3 +151,30 @@ def nearest(
         columns_2=col2,
     )
     return range_operation(df1, df2, range_options, output_type, ctx)
+
+
+def coverage(
+    df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+    df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+    suffixes: tuple[str, str] = ("_1", "_2"),
+    col1: Union[list[str], None] = None,
+    col2: Union[list[str], None] = None,
+) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
+    """
+    Calculate the coverage of one set of genomic intervals with respect to another set.
+
+    Parameters:
+        df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header and Parquet are supported.
+        df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header and Parquet are supported.
+        suffixes: Suffixes for the columns of the two overlapped sets.
+        col1: The names of columns containing the chromosome, start and end of the
+            genomic intervals, provided separately for each set. The default
+            values are 'chrom', 'start', 'end'.
+        col2:  The names of columns containing the chromosome, start and end of the
+            genomic intervals, provided separately for each set. The default
+            values are 'chrom', 'start', 'end'.
+
+    Returns:
+        **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
+    """
+    pass

@@ -23,10 +23,10 @@ plugins:
       execute: true
       allow_errors: false
   - mkdocstrings:
-      default_handler:
-      python:
-        options:
-          docstring_style: google
+      default_handler: python
+      handlers:
+          options:
+            docstring_style: google
 theme:
   name: material
   logo: assets/logo.png
@@ -48,11 +48,6 @@ theme:
     - content.footnote.tooltips
   icon:
     repo: fontawesome/brands/github
-extra:
-  version:
-    provider: mike
-    default:
-      - latest
 
 markdown_extensions:
   - admonition
