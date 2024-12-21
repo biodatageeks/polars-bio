@@ -37,10 +37,10 @@ def overlap(
         overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). default is FilterOp.Weak.
         col1: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set. The default
-            values are 'contig', 'pos_start', 'pos_end'.
+            values are 'chrom', 'start', 'end'.
         col2:  The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set. The default
-            values are 'contig', 'pos_start', 'pos_end'.
+            values are 'chrom', 'start', 'end'.
         suffixes: Suffixes for the columns of the two overlapped sets.
         on_cols: List of additional column names to join on. default is None.
         output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
@@ -62,18 +62,18 @@ def overlap(
             ['chr1', 3, 8],
             ['chr1', 8, 10],
             ['chr1', 12, 14]],
-        columns=['contig', 'pos_start', 'pos_end']
+        columns=['chrom', 'start', 'end']
         )
 
         df2 = pd.DataFrame(
         [['chr1', 4, 8],
          ['chr1', 10, 11]],
-        columns=['contig', 'pos_start', 'pos_end' ]
+        columns=['chrom', 'start', 'end' ]
         )
         overlapping_intervals = pb.overlap(df1, df2, output_type="pandas.DataFrame")
 
         overlapping_intervals
-          contig_1  pos_start_1  pos_end_1 contig_2  pos_start_2  pos_end_2
+            chrom_1         start_1     end_1 chrom_2       start_2  end_2
         0     chr1            1          5     chr1            4          8
         1     chr1            3          8     chr1            4          8
 
@@ -117,10 +117,10 @@ def nearest(
         overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). default is FilterOp.Weak.
         col1: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set. The default
-            values are 'contig', 'pos_start', 'pos_end'.
+            values are 'chrom', 'start', 'end'.
         col2:  The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set. The default
-            values are 'contig', 'pos_start', 'pos_end'.
+            values are 'chrom', 'start', 'end'.
         suffixes: Suffixes for the columns of the two overlapped sets.
         on_cols: List of additional column names to join on. default is None.
         output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
