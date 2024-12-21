@@ -13,6 +13,7 @@ class TestBioframe:
         col1=("contig", "pos_start", "pos_end"),
         col2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
+        suffixes=("_1", "_3"),
         overlap_filter=FilterOp.Strict,
     )
     result_bio_overlap = bf.overlap(
@@ -20,7 +21,7 @@ class TestBioframe:
         BIO_PD_DF2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        suffixes=("_1", "_2"),
+        suffixes=("_1", "_3"),
         how="inner",
     )
 

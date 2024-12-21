@@ -115,8 +115,6 @@ def range_operation(
 def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how):
     # TODO: Add support for on_cols ()
     assert on_cols is None, "on_cols is not supported yet"
-
-    assert suffixes == ("_1", "_2"), "Only default suffixes are supported"
     assert output_type in [
         "polars.LazyFrame",
         "polars.DataFrame",
