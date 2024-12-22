@@ -1,5 +1,9 @@
 # polars-bio - Next-gen Python DataFrame operations for genomics!
-[![PyPI version](https://badge.fury.io/py/polars-bio.svg)](https://badge.fury.io/py/polars-bio)
+![PyPI - Version](https://img.shields.io/pypi/v/polars-bio)
+![GitHub License](https://img.shields.io/github/license/biodatageeks/polars-bio)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/polars-bio)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/m/biodatageeks/polars-bio)
+
 ![CI](https://github.com/biodatageeks/polars-bio/actions/workflows/publish_to_pypi.yml/badge.svg?branch=master)
 ![Docs](https://github.com/biodatageeks/polars-bio/actions/workflows/publish_documentation.yml/badge.svg?branch=master)
 ![logo](docs/assets/logo-large.png)
