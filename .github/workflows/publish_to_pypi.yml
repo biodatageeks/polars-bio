@@ -2,16 +2,17 @@ name: Build, test, and publish to PyPI
 
 on:
   push:
-    branches:
-      - main
-      - master
-    tags:
-      - '*'
     paths-ignore:
       - 'docs/**'
       - 'benchmark/**'
       - 'mkdocs.yml'
       - 'README.md'
+    branches:
+      - main
+      - master
+    tags:
+      - '*'
+
   pull_request:
   workflow_dispatch:
 
