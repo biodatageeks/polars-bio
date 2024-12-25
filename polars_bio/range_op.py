@@ -21,9 +21,10 @@ def overlap(
     how: str = "inner",
     overlap_filter: FilterOp = FilterOp.Strict,
     suffixes: tuple[str, str] = ("_1", "_2"),
-    on_cols=None,
+    on_cols: Union[list[str], None] = None,
     col1: Union[list[str], None] = None,
     col2: Union[list[str], None] = None,
+    algorithm: str = "Coitrees",
     output_type: str = "polars.LazyFrame",
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     """
@@ -43,6 +44,7 @@ def overlap(
             values are 'chrom', 'start', 'end'.
         suffixes: Suffixes for the columns of the two overlapped sets.
         on_cols: List of additional column names to join on. default is None.
+        algorithm: The algorithm to use for the overlap operation. default is "Coitrees".
         output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
 
     Returns:
@@ -93,6 +95,7 @@ def overlap(
         suffixes=suffixes,
         columns_1=col1,
         columns_2=col2,
+        overlap_alg=algorithm,
     )
     return range_operation(df1, df2, range_options, output_type, ctx)
 

@@ -23,10 +23,11 @@ plugins:
       execute: true
       allow_errors: false
   - mkdocstrings:
-      default_handler:
-      python:
-        options:
-          docstring_style: google
+      default_handler: python
+      handlers:
+          options:
+            docstring_style: google
+  - markdown-exec
 theme:
   name: material
   logo: assets/logo.png

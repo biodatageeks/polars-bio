@@ -6,8 +6,10 @@ on:
   workflow_dispatch:
 jobs:
   build:
+    env:
+      JUPYTER_PLATFORM_DIRS: 1
     name: Deploy docs
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, huge-c10m25]
     steps:
       - name: Checkout main
         uses: actions/checkout@v2

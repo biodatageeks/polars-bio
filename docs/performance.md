@@ -1,3 +1,46 @@
+## Test environment
+
+```python exec="on" session="benchmark"
+import os
+import platform
+from textwrap import dedent
+import polars_bio
+import cpuinfo
+import psutil
+import numpy as np
+BENCH_DATA_ROOT = os.getenv("BENCH_DATA_ROOT")
+BENCH_SRC_ROOT = os.getenv("BENCH_SRC_ROOT")
+OUTPUT_MD = "test.md"
+
+print(
+    dedent(
+        f"""
+        - cpu architecture: `{platform.machine()}`
+        - cpu name: `{cpuinfo.get_cpu_info()['brand_raw']}`
+        - cpu cores: `{psutil.cpu_count(logical=False)}`
+        - memory: `{int(np.round(psutil.virtual_memory().total / (1024. **3)))} GB`
+        - kernel: `{platform.version()}`
+        - system: `{platform.system()}`
+        - os-release: `{platform.platform()}`
+        - python: `{platform.python_version()}`
+        - polars-bio: `{polars_bio.__version__}`
+        """
+    )
+)
+```
+
+### Overlap operation
+```python exec="on" session="benchmark"
+import os
+import subprocess
+
+subprocess.run(["hyperfine", "python benchmark/src/overlap/test-polars-bio.py", "--export-markdown", OUTPUT_MD, "-u", "millisecond", "--show-output"])
+markdown = open("test.md").read()
+print(markdown)
+os.remove(OUTPUT_MD)
+```
+
+
 ## Benchmarking
 polars-bio significantly outperforms other libraries in terms of speed and memory usage.
 It was benchmarked against following libraries:

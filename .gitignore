@@ -11,3 +11,4 @@ venv
 sandbox/
 .DS_Store
 site/
+benchmark/bin/env.sh
