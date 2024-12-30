@@ -9,7 +9,7 @@ jobs:
     env:
       JUPYTER_PLATFORM_DIRS: 1
     name: Deploy docs
-    runs-on: [self-hosted, Linux, huge-c10m25]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout main
         uses: actions/checkout@v2

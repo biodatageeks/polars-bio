@@ -1,4 +1,12 @@
-## Test datasets
+
+
+## Results summary
+
+## Navigation
+- [Binary operations](#binary-operations)
+- [Parallel operations](#parallel-execution-and-scalability)
+## Benchmarks
+### Test datasets
 [AIList](https://github.com/databio/AIList) dataset was used for benchmarking.
 
 |Dataset#  | Name            |size(x1000) |non-flatness |
@@ -19,7 +27,7 @@
     * for [single-threaded](https://drive.google.com/file/d/1lctmude31mSAh9fWjI60K1bDrbeDPGfm/view?usp=sharing) tests
     * for [parallel](https://drive.google.com/file/d/1Sj7nTB5gCUq9nbeQOg4zzS4tKO37M5Nd/view?usp=sharing) tests (8 partitions per dataset)
 
-## Test libraries
+### Test libraries
 
 - [Bioframe](https://github.com/open2c/bioframe)-0.7.2
 - [PyRanges0](https://github.com/pyranges/pyranges)-0.0.132
@@ -29,6 +37,7 @@
 - [GenomicRanges](https://github.com/BiocPy/GenomicRanges)-0.5.0
 
 ## Binary operations
+
 
 ### Apple Silicon
 
@@ -472,6 +481,30 @@
 | polars_bio-4  |  4.409859 |  4.462592 |  4.429911 | 2.57x     |
 | polars_bio-8  |  3.069381 |  3.080261 |  3.073801 | 3.71x     |
 | polars_bio-16 |  1.698058 |  1.736596 |  1.717683 | **6.64x** |
+
+
+#### 3-0 (input:  1,956,864 and 2,350,965, output: 1,086,692,495
+
+##### Apple Silicon
+
+| Library      |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
+|--------------|-----------|-----------|-----------|-----------|
+| pyranges0-1  | 86.613871 | 86.613871 | 86.613871 | 0.14x     |
+| polars_bio-1 | 12.626873 | 19.909944 | 17.401360 | **1.00x** |
+| polars_bio-2 | 10.837240 | 15.490195 | 12.717995 | 1.37x     |
+| polars_bio-4 |  7.708758 |  7.817039 |  7.754055 | 2.24x     |
+| polars_bio-8 |  6.023458 |  6.521387 |  6.295188 | **2.76x** |
+
+
+
+##### Intel
+| Library      |    Min (s) |    Max (s) |   Mean (s) | Speedup   |
+|--------------|------------|------------|------------|-----------|
+| pyranges0-1  | 158.193622 | 159.014103 | 158.563798 | 0.38x     |
+| polars_bio-1 | 35.225662 | 35.821574 | 35.573672 | **1.00x** |
+| polars_bio-2 | 24.591723 | 25.029197 | 24.797555 | 1.43x     |
+| polars_bio-4 | 16.198270 | 16.867106 | 16.497054 | 2.16x     |
+| polars_bio-8 | 11.666194 | 11.735179 | 11.699761 | **3.04x** |
 
 
 ### Native, Pandas, Polars performance comparison
