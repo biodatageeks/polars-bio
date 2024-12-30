@@ -378,6 +378,12 @@
 
 ##### L-size (7-8), output: 307, 184,634
 
+| Library    |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
+|------------|-----------|-----------|-----------|-----------|
+| bioframe   | 51.923368 | 52.840132 | 52.354141 | 0.14x     |
+| polars_bio |  6.604371 |  7.975253 |  7.151908 | **1.00x** |
+| pyranges0  | 41.702499 | 42.557826 | 42.027393 | **0.17x** |
+| pyranges1  | 73.713501 | 76.161131 | 74.770918 | 0.10x     |
 
 
 ### Google Axion
@@ -407,12 +413,74 @@
 
 ### Parallel execution and scalability
 
+#### Intel
+
+- cpu architecture: `x86_64`
+- cpu name: `INTEL(R) XEON(R) PLATINUM 8581C CPU @ 2.30GHz`
+- cpu cores: `16`
+- memory: `118 GB`
+- kernel: `#27~22.04.1-Ubuntu SMP Tue Jul 16 23:03:39 UTC 2024`
+- system: `Linux`
+- os-release: `Linux-6.5.0-1025-gcp-x86_64-with-glibc2.35`
+- python: `3.12.8`
+- polars-bio: `0.3.0`
+
+#### 0-8 (input: 2,350,965 and 9,944,559,  output: 164,196,784)
+
+##### Apple Silicon
+| Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
+|---------------|----------|----------|----------|-----------|
+| pyranges0-1   | 9.331440 | 9.399316 | 9.358115 | 0.31x     |
+| polars_bio-1  | 2.810053 | 3.163260 | 2.935647 | **1.00x** |
+| polars_bio-2  | 1.353191 | 1.422477 | 1.376621 | 2.13x     |
+| polars_bio-4  | 1.020456 | 1.029563 | 1.024929 | 2.86x     |
+| polars_bio-8  | 0.734393 | 0.738268 | 0.735762 | **3.99x** |
+
+
+
+##### Intel
+| Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
+|---------------|-----------|-----------|-----------|-----------|
+| pyranges0-1   | 22.856168 | 23.086879 | 22.958235 | 0.27x     |
+| polars_bio-1  |  5.935124 |  6.694116 |  6.203911 | **1.00x** |
+| polars_bio-2  |  3.763082 |  3.913454 |  3.815991 | 1.63x     |
+| polars_bio-4  |  2.331916 |  2.358274 |  2.342218 | 2.65x     |
+| polars_bio-8  |  1.317331 |  1.326317 |  1.322318 | **4.69x** |
+
+
+
+#### 2-5 (input: 438,694 and 50,980,975,  output: 52,395,369)
+
+##### Apple Silicon
+| Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
+|---------------|-----------|-----------|-----------|-----------|
+| pyranges0-1   | 11.836572 | 12.033881 | 11.943536 | 0.41x     |
+| polars_bio-1  |  4.878542 |  4.944363 |  4.912092 | **1.00x** |
+| polars_bio-2  |  3.109014 |  3.113733 |  3.111639 | 1.58x     |
+| polars_bio-4  |  1.928374 |  1.944733 |  1.935807 | 2.54x     |
+| polars_bio-8  |  1.319147 |  1.334540 |  1.324507 | 3.71x     |
+| polars_bio-16 |  0.751453 |  0.758128 |  0.754517 | **6.51x** |
+
+
+#### 2-6 (input: 438,694 and 128,186,542, output: 116,300,901)
+
+| Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
+|---------------|-----------|-----------|-----------|-----------|
+| pyranges0-1   | 29.674772 | 31.891295 | 30.546541 | 0.37x     |
+| polars_bio-1  | 11.379310 | 11.423765 | 11.399042 | **1.00x** |
+| polars_bio-2  |  7.134765 |  7.209546 |  7.163538 | 1.59x     |
+| polars_bio-4  |  4.409859 |  4.462592 |  4.429911 | 2.57x     |
+| polars_bio-8  |  3.069381 |  3.080261 |  3.073801 | 3.71x     |
+| polars_bio-16 |  1.698058 |  1.736596 |  1.717683 | **6.64x** |
+
+
 ### Native, Pandas, Polars performance comparison
 
 ## How to run the benchmarks
 ```bash
 poetry env use python3.12
 poetry update
+poetry shell
 RUSTFLAGS="-Ctarget-cpu=native" maturin develop --release  -m Cargo.toml
-poetry run python benchmark/src/bench_overlap.py
+python benchmark/src/bench_overlap.py
 ```
