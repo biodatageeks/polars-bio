@@ -1,4 +1,3 @@
-import itertools
 import json
 import os
 import timeit
@@ -112,37 +111,27 @@ def df2pr1(df):
 
 
 def bioframe(df_1, df_2):
-    len(bf.overlap(df_1, df_2, cols1=columns, cols2=columns, how="inner"))
+    len(bf.closest(df_1, df_2, cols1=columns, cols2=columns))
 
 
 def polars_bio(df_path_1, df_path_2):
-    pb.overlap(df_path_1, df_path_2, col1=columns, col2=columns).collect().count()
+    pb.nearest(df_path_1, df_path_2, col1=columns, col2=columns).collect().count()
 
 
 def pyranges0(df_1_pr0, df_2_pr0):
-    len(df_1_pr0.join(df_2_pr0))
+    len(df_1_pr0.nearest(df_2_pr0))
 
 
 def pyranges1(df_1_pr1, df_2_pr1):
-    len(df_1_pr1.overlap(df_2_pr1))
+    len(df_1_pr1.nearest(df_2_pr1))
 
 
 def pybedtools0(df_1_bed, df_2_bed):
-    len(df_1_bed.intersect(df_2_bed))
-
-
-def pygenomics(df_1_pg, df_2_array):
-    len(
-        list(
-            itertools.chain.from_iterable(
-                [df_1_pg.find_all((r[0], r[1], r[2])) for r in df_2_array]
-            )
-        )
-    )
+    len(df_1_bed.closest(df_2_bed, s=False, t="first"))
 
 
 def genomicranges(df_1, df_2):
-    len(df_1.find_overlaps(df_2, ignore_strand=True, query_type="any"))
+    len(df_1.nearest(df_2, ignore_strand=True, select="arbitrary"))
 
 
 functions = [
@@ -151,8 +140,7 @@ functions = [
     pyranges0,
     pyranges1,
     pybedtools0,
-    pygenomics,
-    genomicranges,
+    # genomicranges,
 ]
 
 
@@ -169,8 +157,8 @@ for t in test_cases:
     df_2_pr0 = df2pr0(df_2)
     df_1_pr1 = df2pr1(df_1)
     df_2_pr1 = df2pr1(df_2)
-    df_0_bed = pybedtools.BedTool.from_dataframe(df_1)
-    df_1_bed = pybedtools.BedTool.from_dataframe(df_2)
+    df_0_bed = pybedtools.BedTool.from_dataframe(df_1).sort()
+    df_1_bed = pybedtools.BedTool.from_dataframe(df_2).sort()
     df_1_pg = GenomicBase(
         [(r.contig, r.pos_start, r.pos_end) for r in df_1.itertuples()]
     )
@@ -215,12 +203,6 @@ for t in test_cases:
         elif func == pybedtools0:
             times = timeit.repeat(
                 lambda: func(df_0_bed, df_1_bed),
-                repeat=num_repeats,
-                number=num_executions,
-            )
-        elif func == pygenomics:
-            times = timeit.repeat(
-                lambda: func(df_1_pg, df_2_array),
                 repeat=num_repeats,
                 number=num_executions,
             )
@@ -271,9 +253,9 @@ for t in test_cases:
             "df_1_num": len(df_1),
             "df_2_num": len(df_2),
         },
-        "output_num": pb.overlap(df_1, df_2, col1=columns, col2=columns)
-        .collect()
-        .count(),
+        # "output_num":
+        #     pb.overlap(df_1, df_2, col1=columns, col2=columns).collect()
+        # ,
         "results": results,
     }
     print(t["name"])

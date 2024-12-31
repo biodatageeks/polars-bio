@@ -2,6 +2,7 @@ import json
 import os
 import timeit
 
+import bioframe as bf
 import numpy as np
 import pandas as pd
 import pyranges as pr
@@ -17,7 +18,7 @@ BENCH_DATA_ROOT = os.getenv("BENCH_DATA_ROOT")
 if BENCH_DATA_ROOT is None:
     raise ValueError("BENCH_DATA_ROOT is not set")
 
-pb.ctx.set_option("datafusion.optimizer.repartition_joins", "false")
+pb.ctx.set_option("datafusion.optimizer.repartition_joins", "true")
 
 columns = ("contig", "pos_start", "pos_end")
 
@@ -67,11 +68,11 @@ test_cases = [
     #     "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
     #     "name": "7-8",
     # },
-    {
-        "df_path_1": f"{BENCH_DATA_ROOT}/chainOrnAna1/*.parquet",
-        "df_path_2": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
-        "name": "3-0",
-    },
+    # {
+    #     "df_path_1": f"{BENCH_DATA_ROOT}/chainOrnAna1/*.parquet",
+    #     "df_path_2": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
+    #     "name": "3-0",
+    # },
     # {
     #     "df_path_1": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
     #     "df_path_2": f"{BENCH_DATA_ROOT}/chainVicPac2/*.parquet",
@@ -82,11 +83,11 @@ test_cases = [
     #     "df_path_2": f"{BENCH_DATA_ROOT}/chainXenTro3Link/*.parquet",
     #     "name": "0-5",
     # },
-    # {
-    #     "df_path_1": f"{BENCH_DATA_ROOT}/exons/*.parquet",
-    #     "df_path_2": f"{BENCH_DATA_ROOT}/chainXenTro3Link/*.parquet",
-    #     "name": "2-5",
-    # },
+    {
+        "df_path_1": f"{BENCH_DATA_ROOT}/exons/*.parquet",
+        "df_path_2": f"{BENCH_DATA_ROOT}/chainXenTro3Link/*.parquet",
+        "name": "2-5",
+    },
     # {
     #     "df_path_1": f"{BENCH_DATA_ROOT}/exons/*.parquet",
     #     "df_path_2": f"{BENCH_DATA_ROOT}/chainMonDom5Link/*.parquet",
@@ -119,16 +120,33 @@ def df2pr1(df):
     )
 
 
+def bioframe(df_1, df_2):
+    len(bf.closest(df_1, df_2, cols1=columns, cols2=columns))
+
+
 def polars_bio(df_path_1, df_path_2):
-    pb.overlap(df_path_1, df_path_2, col1=columns, col2=columns).collect().count()
+    len(pb.nearest(df_path_1, df_path_2, col1=columns, col2=columns).collect())
 
 
 def pyranges0(df_1_pr0, df_2_pr0):
-    len(df_1_pr0.join(df_2_pr0))
+    len(df_1_pr0.nearest(df_2_pr0))
+
+
+def pyranges1(df_1_pr1, df_2_pr1):
+    len(df_1_pr1.nearest(df_2_pr1))
+
+
+def pybedtools0(df_1_bed, df_2_bed):
+    len(df_1_bed.closest(df_2_bed, s=False, t="first"))
+
+
+def genomicranges(df_1, df_2):
+    len(df_1.nearest(df_2, ignore_strand=True, select="arbitrary"))
 
 
 functions = [
-    # pyranges0,
+    pyranges0,
+    pyranges1,
     polars_bio,
 ]
 
@@ -163,6 +181,12 @@ for t in test_cases:
                     repeat=num_repeats,
                     number=num_executions,
                 )
+            elif func == pyranges1 and p == 1:
+                times = timeit.repeat(
+                    lambda: func(df_1_pr1, df_2_pr1),
+                    repeat=num_repeats,
+                    number=num_executions,
+                )
             else:
                 continue
             per_run_times = [
@@ -178,7 +202,7 @@ for t in test_cases:
             )
 
         # fastest_mean = min(result["mean"] for result in results)
-        fastest_mean = results[0]["mean"]
+        fastest_mean = results[2]["mean"]
         for result in results:
             result["speedup"] = fastest_mean / result["mean"]
 
