@@ -1,26 +1,24 @@
+## Results summary 📈
 
-
-## Results summary
-
-## Navigation
+## Navigation 🧭
 - [Binary operations](#binary-operations)
 - [Parallel execution](#parallel-execution-and-scalability)
 - [DataFrame formats](#dataframe-formats-performance-comparison)
-## Benchmarks
-### Test datasets
+## Benchmarks 🧪
+### Test datasets 🗃️
 [AIList](https://github.com/databio/AIList) dataset was used for benchmarking.
 
-|Dataset#  | Name            |size(x1000) |non-flatness |
-|:---------|:----------------|:-----------|:------------|
-|0         | chainRn4        |2,351       |6            |
-|1         | fBrain          |199         |1            |
-|2         | exons           |439         |2            |
-|3         | chainOrnAna1    |1,957       |6            |
-|4         | chainVicPac2    |7,684       |8            |
-|5         | chainXenTro3Link|50,981      |7            |
-|6         | chainMonDom5Link|128,187     |7            |
-|7         | ex-anno         |1,194       |2            |
-|8         | ex-rna          |9,945       |7            |
+|Dataset#  | Name            | Size(x1000) | Non-flatness |
+|:---------|:----------------|:------------|:-------------|
+|0         | chainRn4        | 2,351       | 6            |
+|1         | fBrain          | 199         | 1            |
+|2         | exons           | 439         | 2            |
+|3         | chainOrnAna1    | 1,957       | 6            |
+|4         | chainVicPac2    | 7,684       | 8            |
+|5         | chainXenTro3Link| 50,981      | 7            |
+|6         | chainMonDom5Link| 128,187     | 7            |
+|7         | ex-anno         | 1,194       | 2            |
+|8         | ex-rna          | 9,945       | 7            |
 
 !!! note
     Test dataset in *Parquet* format can be downloaded from:
@@ -28,7 +26,7 @@
     * for [single-threaded](https://drive.google.com/file/d/1lctmude31mSAh9fWjI60K1bDrbeDPGfm/view?usp=sharing) tests
     * for [parallel](https://drive.google.com/file/d/1Sj7nTB5gCUq9nbeQOg4zzS4tKO37M5Nd/view?usp=sharing) tests (8 partitions per dataset)
 
-### Test libraries
+### Test libraries 📚
 
 - [Bioframe](https://github.com/open2c/bioframe)-0.7.2
 - [PyRanges0](https://github.com/pyranges/pyranges)-0.0.132
@@ -37,10 +35,26 @@
 - [PyGenomics](https://gitlab.com/gtamazian/pygenomics)-0.1.1
 - [GenomicRanges](https://github.com/BiocPy/GenomicRanges)-0.5.0
 
+
+### Output compatibility 🖥️
+See [API comparison](../features/#api-comparison-between-libraries) for more details on parameters used in the benchmark.
 ## Binary operations
 
 
-### Apple Silicon
+
+### Overlap operation
+Test cases were categorized based on the size of the input datasets and the expected output size into the following groups:
+
+- **S-size**: output < 1,000,000
+- **M-size**: 1,000,000 < output < 100,000,000
+- **L-size**: 100,000,000 < output < 1,000,000,000
+- **XL-size**: output > 1,000,000,000
+
+!!! note
+    Naming convention for the test cases is as follows `test-case-size (dataset-1-id, dataset-2-id)`, e.g.: `S-size (1-2)`, where `1` and `2` are the indices of the datasets used in the test case.
+
+### Apple Silicon (macOS) 
+Here is the configuration of the Apple Silicon machine used for benchmarking:
 
 - cpu architecture: `arm64`
 - cpu name: `Apple M3 Max`
@@ -52,9 +66,10 @@
 - python: `3.12.4`
 - polars-bio: `0.3.0`
 
-#### Overlap operation
-#### S-size, output < 1,000,000
-##### S-size (1-2) - output: 54,246
+#### S-size
+##### S-size (1-2)
+
+Output size: 54,246
 
 | Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |---------------|----------|----------|----------|-----------|
@@ -66,7 +81,9 @@
 | pygenomics    | 1.424975 | 1.436369 | 1.430531 | 0.02x     |
 | genomicranges | 0.972717 | 0.979013 | 0.975761 | 0.03x     |
 
-##### S-size (2-7), output: 273,500
+##### S-size (2-7)
+
+Output size: 273,500
 
 | Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |---------------|----------|----------|----------|-----------|
@@ -79,7 +96,9 @@
 | genomicranges | 2.919675 | 2.926785 | 2.923549 | 0.03x     |
 
 
-##### S-size (1-0) - output: 320,955
+##### S-size (1-0)
+
+Output size: 320,955
 
 | Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |---------------|----------|----------|----------|-----------|
@@ -92,40 +111,43 @@
 | genomicranges | 4.222082 | 4.266592 | 4.244865 | 0.03x     |
 
 
+#### M-size
 
+##### M-size (7-0)
 
-
-#### M-size, 1,000,000 < output  < 100,000,000
-
-
-##### M-size (7-0), output: 2,761,621
+Output size: 2,761,621
 
 | Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |---------------|----------|----------|----------|-----------|
 | bioframe      | 0.935141 | 0.990710 | 0.970345 | 0.22x     |
 | polars_bio    | 0.213880 | 0.220151 | 0.216288 | **1.00x** |
 | pyranges0     | 0.408637 | 0.434262 | 0.422380 | **0.51x** |
-| pyranges1     | 1.130004 | 1.162724 | 1.147292 | 0.19x     |
+| pyranges1     | 0.632015 | 0.642214 | 0.635670 | 0.34x     |
 | pybedtools0   | 6.415976 | 6.467304 | 6.444268 | 0.03x     |
 | pygenomics    | 9.588232 | 9.705035 | 9.653368 | 0.02x     |
 | genomicranges | 9.017886 | 9.058916 | 9.033964 | 0.02x     |
 
 
 
-##### M-size (7-3), output: 4,408,383
+##### M-size (7-3)
 
-| Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
-|---------------|-----------|-----------|-----------|-----------|
-| bioframe      |  0.954765 |  0.969307 |  0.959704 | 0.21x     |
-| polars_bio    |  0.198607 |  0.208906 |  0.203033 | **1.00x** |
-| pyranges0     |  0.425277 |  0.430527 |  0.428594 | **0.47x** |
-| pyranges1     |  1.190621 |  1.199869 |  1.194593 | 0.17x     |
-| pybedtools0   |  9.403818 |  9.491574 |  9.453402 | 0.02x     |
-| pygenomics    |  8.638968 |  8.662197 |  8.647764 | 0.02x     |
-| genomicranges | 10.514233 | 10.556004 | 10.540377 | 0.02x     |
+Output size: 4,408,383
+
+| Library       | Min (s)    | Max (s)    | Mean (s)   | Speedup   |
+|---------------|------------|------------|------------|-----------|
+| bioframe      | 0.954765   | 0.969307   | 0.959704   | 0.21x     |
+| polars_bio    | 0.198607   | 0.208906   | 0.203033   | **1.00x** |
+| pyranges0     | 0.425277   | 0.430527   | 0.428594   | **0.47x** |
+| pyranges1     | 0.696934   | 0.710050   | 0.702206   | 0.29x     |
+| pybedtools0   | 9.403818   | 9.491574   | 9.453402   | 0.02x     |
+| pygenomics    | 8.638968   | 8.662197   | 8.647764   | 0.02x     |
+| genomicranges | 10.514233  | 10.556004  | 10.540377  | 0.02x     |
 
 
-##### L-size (0-8), output: 164,196,784
+##### L-size (0-8)
+
+Output size: 164,196,784
+
 | Library       |    Min (s) |    Max (s) |   Mean (s) | Speedup   |
 |---------------|------------|------------|------------|-----------|
 | bioframe      |  15.630508 |  16.719793 |  16.080009 | 0.19x     |
@@ -137,7 +159,9 @@
 | genomicranges | 234.237435 | 239.315157 | 236.504565 | 0.01x     |
 
 
-##### L-size (4-8), output: 227,832,153
+##### L-size (4-8)
+
+Output size: 227,832,153
 
 | Library       |    Min (s) |    Max (s) |   Mean (s) | Speedup   |
 |---------------|------------|------------|------------|-----------|
@@ -150,7 +174,9 @@
 | genomicranges | 322.217280 | 322.490391 | 322.371662 | 0.01x     |
 
 
-##### L-size (7-8), output: 307, 184,634
+##### L-size (7-8)
+
+Output size: 307,184,634
 
 | Library       |    Min (s) |    Max (s) |   Mean (s) | Speedup   |
 |---------------|------------|------------|------------|-----------|
@@ -163,9 +189,11 @@
 | genomicranges | 416.095573 | 417.284236 | 416.700000 | 0.01x     |
 
 
-#### XL-size, output > 1,000,000,000
+#### XL-size
 
-##### XL-size (3-0), output: 1,086,692,495
+##### XL-size (3-0)
+
+Output size: 1,086,692,495
 
 | Library    |    Min (s) |    Max (s) |   Mean (s) | Speedup   |
 |------------|------------|------------|------------|-----------|
@@ -175,11 +203,10 @@
 | pyranges1  |  92.802026 |  94.400313 |  93.447716 | 0.16x     |
 
 
-##### XL-size (0-4), output: xxx
+### AMD Genoa (Linux)
 
-##### XL-size (0-5), output: xxx
+[c3d-highmem-8](https://gcloud-compute.com/c3d-highmem-8.html) machine was used for benchmarking.
 
-### AMD
 - cpu architecture: `x86_64`
 - cpu name: `AMD EPYC 9B14`
 - cpu cores: `4`
@@ -190,9 +217,10 @@
 - python: `3.12.8`
 - polars-bio: `0.3.0`
 
-#### Overlap operation
-#### S-size, output < 1,000,000
-##### S-size (1-2) - output: 54,246
+#### S-size
+##### S-size (1-2)
+
+Output size: 54,246
 
 | Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |---------------|----------|----------|----------|-----------|
@@ -205,7 +233,9 @@
 | genomicranges | 1.648289 | 1.663941 | 1.657652 | 0.04x     |
 
 
-##### S-size (2-7), output: 273,500
+##### S-size (2-7)
+
+Output size: 273,500
 
 | Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |---------------|----------|----------|----------|-----------|
@@ -217,7 +247,9 @@
 | pygenomics    | 6.929725 | 6.932875 | 6.931662 | 0.02x     |
 | genomicranges | 5.096514 | 5.105638 | 5.100280 | 0.03x     |
 
-##### S-size (1-0) - output: 320,955
+##### S-size (1-0)
+
+Output size: 320,955
 
 | Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |---------------|-----------|-----------|-----------|-----------|
@@ -230,7 +262,9 @@
 | genomicranges |  7.090998 |  7.121029 |  7.107298 | 0.04x     |
 
 
-##### M-size (7-0), output: 2,761,621
+##### M-size (7-0)
+
+Output size: 2,761,621
 
 | Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |---------------|-----------|-----------|-----------|-----------|
@@ -244,7 +278,9 @@
 
 
 
-##### M-size (7-3), output: 4,408,383
+##### M-size (7-3)
+
+Output size: 4,408,383
 
 | Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |---------------|-----------|-----------|-----------|-----------|
@@ -256,7 +292,9 @@
 | pygenomics    | 13.983596 | 13.994300 | 13.990662 | 0.03x     |
 | genomicranges | 18.602139 | 18.625446 | 18.615777 | 0.02x     |
 
-##### L-size (0-8), output: 164,196,784
+##### L-size (0-8)
+
+Output size: 164,196,784
 
 | Library       |    Min (s) |    Max (s) |   Mean (s) | Speedup   |
 |---------------|------------|------------|------------|-----------|
@@ -269,7 +307,9 @@
 | genomicranges | 440.650408 | 440.737924 | 440.706206 | 0.01x     |
 
 
-##### L-size (4-8), output: 227,832,153
+##### L-size (4-8)
+
+Output size: 227,832,153
 
 | Library    |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |------------|-----------|-----------|-----------|-----------|
@@ -278,7 +318,9 @@
 | pyranges0  | 21.637592 | 22.724399 | 22.011753 | **0.45x** |
 | pyranges1  | 37.035666 | 37.531010 | 37.218867 | 0.27x     |
 
-##### L-size (7-8), output: 307, 184,634
+##### L-size (7-8)
+
+Output size: 307,184,634
 
 | Library    |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |------------|-----------|-----------|-----------|-----------|
@@ -288,7 +330,9 @@
 | pyranges1  | 80.373241 | 80.871479 | 80.546908 | 0.09x     |
 
 
-### Intel
+### Intel Emerald Rapids (Linux)
+
+[c4-highmem-8](https://gcloud-compute.com/c4-highmem-8.html) machine was used for benchmarking.
 
 - cpu architecture: `x86_64`
 - cpu name: `INTEL(R) XEON(R) PLATINUM 8581C CPU @ 2.30GHz`
@@ -300,9 +344,10 @@
 - python: `3.12.8`
 - polars-bio: `0.3.0`
 
-#### Overlap operation
-#### S-size, output < 1,000,000
-##### S-size (1-2) - output: 54,246
+#### S-size
+##### S-size (1-2)
+
+Output size: 54,246
 
 | Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |---------------|----------|----------|----------|-----------|
