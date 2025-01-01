@@ -1,10 +1,15 @@
-## Results summary 📈
+# Results summary 📈
 
-## Navigation 🧭
-- [Binary operations](#binary-operations)
-- [Parallel execution](#parallel-execution-and-scalability)
-- [DataFrame formats](#dataframe-formats-performance-comparison)
+
+!!! todo
+    - Add summary of the results
+
 ## Benchmarks 🧪
+### Detailed results shortcuts 👨‍🔬
+- [Binary operations](#binary-operations)
+- [Parallel execution and scalability](#parallel-execution-and-scalability)
+- [DataFrame formats performance](#dataframe-formats-performance-comparison)
+
 ### Test datasets 🗃️
 [AIList](https://github.com/databio/AIList) dataset was used for benchmarking.
 
@@ -30,11 +35,13 @@
 
 - [Bioframe](https://github.com/open2c/bioframe)-0.7.2
 - [PyRanges0](https://github.com/pyranges/pyranges)-0.0.132
-- [PyRanges1](https://github.com/pyranges/pyranges_1.x)-master
+- [PyRanges1](https://github.com/pyranges/pyranges_1.x)-[e634a11](https://github.com/mwiewior/pyranges1/commit/e634a110e7c00d7c5458d69d5e39bec41d23a2fe)
 - [pybedtools](https://github.com/daler/pybedtools)-0.10.0
 - [PyGenomics](https://gitlab.com/gtamazian/pygenomics)-0.1.1
 - [GenomicRanges](https://github.com/BiocPy/GenomicRanges)-0.5.0
 
+!!! note
+    Some tests were not conducted for all libraries in case of poor performance of specific tools, e.g. `pybedtools`, `PyGenomics` and `GenomicRanges` for the largest outputs.
 
 ### Output compatibility 🖥️
 See [API comparison](../features/#api-comparison-between-libraries) for more details on parameters used in the benchmark.
@@ -43,7 +50,7 @@ See [API comparison](../features/#api-comparison-between-libraries) for more det
 
 
 ### Overlap operation
-Test cases were categorized based on the size of the input datasets and the expected output size into the following groups:
+Test cases were categorized based on the size 👕 of the input datasets and the expected output size into the following groups:
 
 - **S-size**: output < 1,000,000
 - **M-size**: 1,000,000 < output < 100,000,000
@@ -53,7 +60,7 @@ Test cases were categorized based on the size of the input datasets and the expe
 !!! note
     Naming convention for the test cases is as follows `test-case-size (dataset-1-id, dataset-2-id)`, e.g.: `S-size (1-2)`, where `1` and `2` are the indices of the datasets used in the test case.
 
-### Apple Silicon (macOS) 
+### Apple Silicon (macOS) 🍎
 Here is the configuration of the Apple Silicon machine used for benchmarking:
 
 - cpu architecture: `arm64`
@@ -178,15 +185,15 @@ Output size: 227,832,153
 
 Output size: 307,184,634
 
-| Library       |    Min (s) |    Max (s) |   Mean (s) | Speedup   |
-|---------------|------------|------------|------------|-----------|
-| bioframe      |  29.128664 |  29.993182 |  29.518215 | 0.12x     |
-| polars_bio    |   3.260438 |   3.897260 |   3.489278 | **1.00x** |
-| pyranges0     |  16.615283 |  16.983202 |  16.753369 | **0.21x** |
-| pyranges1     |  44.154733 |  44.496357 |  44.379647 | 0.08x     |
-| pybedtools0   | 555.480532 | 559.947421 | 556.986772 | 0.01x     |
-| pygenomics    | 156.724420 | 157.321514 | 156.935424 | 0.02x     |
-| genomicranges | 416.095573 | 417.284236 | 416.700000 | 0.01x     |
+| Library       | Min (s)     | Max (s)    | Mean (s)    | Speedup   |
+|---------------|-------------|------------|-------------|-----------|
+| bioframe      | 29.128664   | 29.993182  | 29.518215   | 0.12x     |
+| polars_bio    | 3.260438    | 3.897260   | 3.489278    | **1.00x** |
+| pyranges0     | 16.615283   | 16.983202  | 16.753369   | **0.21x** |
+| pyranges1     | 30.504657   | 30.912445  | 30.752887   | 0.11x     |
+| pybedtools0   | 555.480532  | 559.947421 | 556.986772  | 0.01x     |
+| pygenomics    | 156.724420  | 157.321514 | 156.935424  | 0.02x     |
+| genomicranges | 416.095573  | 417.284236 | 416.700000  | 0.01x     |
 
 
 #### XL-size
@@ -203,7 +210,7 @@ Output size: 1,086,692,495
 | pyranges1  |  92.802026 |  94.400313 |  93.447716 | 0.16x     |
 
 
-### AMD Genoa (Linux)
+### AMD Genoa (Linux) 🐧
 
 [c3d-highmem-8](https://gcloud-compute.com/c3d-highmem-8.html) machine was used for benchmarking.
 
@@ -330,7 +337,7 @@ Output size: 307,184,634
 | pyranges1  | 80.373241 | 80.871479 | 80.546908 | 0.09x     |
 
 
-### Intel Emerald Rapids (Linux)
+### Intel Emerald Rapids (Linux) 🐧
 
 [c4-highmem-8](https://gcloud-compute.com/c4-highmem-8.html) machine was used for benchmarking.
 
@@ -359,7 +366,9 @@ Output size: 54,246
 | pygenomics    | 1.933479 | 1.980263 | 1.958915 | 0.03x     |
 | genomicranges | 1.317808 | 1.365975 | 1.345268 | 0.04x     |
 
-##### S-size (2-7), output: 273,500
+##### S-size (2-7)
+
+Output size: 273,500
 
 | Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |---------------|----------|----------|----------|-----------|
@@ -372,7 +381,9 @@ Output size: 54,246
 | genomicranges | 4.202981 | 4.298941 | 4.243175 | 0.03x     |
 
 
-##### S-size (1-0) - output: 320,955
+##### S-size (1-0)
+
+Output: 320,955
 
 | Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |---------------|-----------|-----------|-----------|-----------|
@@ -385,7 +396,9 @@ Output size: 54,246
 | genomicranges |  5.806456 |  5.880285 |  5.851234 | 0.04x     |
 
 
-##### M-size (7-0), output: 2,761,621
+##### M-size (7-0)
+
+Output: 2,761,621
 
 | Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |---------------|-----------|-----------|-----------|-----------|
@@ -398,7 +411,9 @@ Output size: 54,246
 | genomicranges | 13.230635 | 13.690668 | 13.472020 | 0.03x     |
 
 
-##### M-size (7-3), output: 4,408,383
+##### M-size (7-3)
+
+Output: 4,408,383
 
 | Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |---------------|-----------|-----------|-----------|-----------|
@@ -411,7 +426,9 @@ Output size: 54,246
 | genomicranges | 15.640415 | 15.839974 | 15.736289 | 0.03x     |
 
 
-##### L-size (0-8), output: 164,196,784
+##### L-size (0-8)
+
+Output: 164,196,784
 
 | Library    |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |------------|-----------|-----------|-----------|-----------|
@@ -421,7 +438,9 @@ Output size: 54,246
 | pyranges1  | 24.446387 | 24.804753 | 24.613135 | 0.25x     |
 
 
-##### L-size (4-8), output: 227,832,153
+##### L-size (4-8)
+
+Output: 227,832,153
 
 | Library    |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |------------|-----------|-----------|-----------|-----------|
@@ -431,43 +450,29 @@ Output size: 54,246
 | pyranges1  | 39.407547 | 40.279563 | 39.843926 | 0.25x     |
 
 
-##### L-size (7-8), output: 307, 184,634
+##### L-size (7-8)
+
+Output: 307,184,634
 
 | Library    |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |------------|-----------|-----------|-----------|-----------|
 | bioframe   | 51.923368 | 52.840132 | 52.354141 | 0.14x     |
 | polars_bio |  6.604371 |  7.975253 |  7.151908 | **1.00x** |
 | pyranges0  | 41.702499 | 42.557826 | 42.027393 | **0.17x** |
-| pyranges1  | 73.713501 | 76.161131 | 74.770918 | 0.10x     |
+| pyranges1  | 63.524302 | 63.774618 | 63.679367 | 0.11x     |
 
 
-[//]: # (## Benchmarking)
+### Sorted input
 
-[//]: # (polars-bio significantly outperforms other libraries in terms of speed and memory usage.)
+!!! todo
+    - Add sorted input benchmarks
 
-[//]: # (It was benchmarked against following libraries:)
+## Nearest (closest) operation
 
-[//]: # ()
-[//]: # ()
-[//]: # ()
-[//]: # ()
-[//]: # ()
-[//]: # (## Results)
+### Apple Silicon (macOS) 🍎
 
-[//]: # (### Overlap operation)
+#### S-size (1-2)
 
-[//]: # (![results-overlap-0.1.1.png]&#40;assets/results-overlap-0.1.1.png&#41;)
-
-[//]: # ()
-[//]: # (### Nearest interval operation)
-
-[//]: # (![results-nearest-0.1.1.png]&#40;assets/results-nearest-0.1.1.png&#41;)
-
-#### Nearest (closest) operation
-
-##### Apple Silicon
-
-##### S-size (1-2)
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
 | bioframe    | 0.282320 | 0.288275 | 0.285267 | 0.31x     |
@@ -476,7 +481,7 @@ Output size: 54,246
 | pyranges1   | 0.174185 | 0.176994 | 0.175650 | 0.50x     |
 | pybedtools0 | 0.639068 | 0.648982 | 0.644444 | 0.14x     |
 
-##### S-size (2-7)
+#### S-size (2-7)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -486,7 +491,7 @@ Output size: 54,246
 | pyranges1   | 0.415821 | 0.425321 | 0.420848 | 0.52x     |
 | pybedtools0 | 1.477262 | 1.490676 | 1.483696 | 0.15x     |
 
-##### S-size (1-0)
+#### S-size (1-0)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -497,7 +502,7 @@ Output size: 54,246
 | pybedtools0 | 1.054003 | 1.106122 | 1.075032 | 0.19x     |
 
 
-##### M-size (7-0)
+#### M-size (7-0)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -508,7 +513,7 @@ Output size: 54,246
 | pybedtools0 | 3.891626 | 3.920097 | 3.907743 | 0.11x     |
 
 
-##### M-size (7-3)
+#### M-size (7-3)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -518,7 +523,7 @@ Output size: 54,246
 | pyranges1   | 0.915549 | 0.943690 | 0.931994 | 0.50x     |
 | pybedtools0 | 3.781775 | 3.803629 | 3.794066 | 0.12x     |
 
-##### L-size (0-8)
+#### L-size (0-8)
 
 | Library     |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |-------------|-----------|-----------|-----------|-----------|
@@ -529,7 +534,7 @@ Output size: 54,246
 | pybedtools0 | 10.561658 | 10.661184 | 10.603403 | 0.15x     |
 
 
-##### L-size (4-8)
+#### L-size (4-8)
 
 | Library     |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |-------------|-----------|-----------|-----------|-----------|
@@ -540,7 +545,7 @@ Output size: 54,246
 
 
 
-##### L-size (7-8)
+#### L-size (7-8)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -550,9 +555,7 @@ Output size: 54,246
 | pybedtools0 | 9.403173 | 9.474385 | 9.441718 | 0.11x     |
 
 
-
-
-##### L-size (3-0)
+#### L-size (3-0)
 
 | Library     |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |-------------|-----------|-----------|-----------|-----------|
@@ -562,9 +565,9 @@ Output size: 54,246
 | pybedtools0 | 18.643435 | 18.860937 | 18.717684 | 0.04x     |
 
 
-##### Intel
+### Intel Emerald Rapids (Linux) 🐧
 
-##### S-size (1-2)
+#### S-size (1-2)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -575,7 +578,7 @@ Output size: 54,246
 | pybedtools0 | 0.917019 | 0.931643 | 0.926433 | 0.12x     |
 
 
-##### S-size (2-7)
+#### S-size (2-7)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -586,7 +589,7 @@ Output size: 54,246
 | pybedtools0 | 2.085108 | 2.086168 | 2.085780 | 0.10x     |
 
 
-##### S-size (1-0)
+#### S-size (1-0)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -596,7 +599,7 @@ Output size: 54,246
 | pyranges1   | 0.747615 | 0.754387 | 0.750464 | 0.25x     |
 | pybedtools0 | 1.177251 | 1.192054 | 1.185509 | 0.16x     |
 
-##### M-size (7-0)
+#### M-size (7-0)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -607,7 +610,7 @@ Output size: 54,246
 | pybedtools0 | 5.498016 | 5.507600 | 5.503549 | 0.07x     |
 
 
-##### M-size (7-3)
+#### M-size (7-3)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -617,7 +620,7 @@ Output size: 54,246
 | pyranges1   | 0.969036 | 0.976941 | 0.972361 | 0.38x     |
 | pybedtools0 | 5.394985 | 5.454826 | 5.431693 | 0.07x     |
 
-##### L-size (0-8)
+#### L-size (0-8)
 
 | Library     |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |-------------|-----------|-----------|-----------|-----------|
@@ -627,7 +630,7 @@ Output size: 54,246
 | pyranges1   |  4.658245 |  5.014545 |  4.811681 | 0.43x     |
 | pybedtools0 | 16.245615 | 16.445935 | 16.373377 | 0.13x     |
 
-##### L-size (4-8)
+#### L-size (4-8)
 
 | Library     |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |-------------|-----------|-----------|-----------|-----------|
@@ -638,7 +641,7 @@ Output size: 54,246
 | pybedtools0 | 39.047774 | 39.824156 | 39.436474 | 0.08x     |
 
 
-##### L-size (7-8)
+#### L-size (7-8)
 
 | Library     |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |-------------|-----------|-----------|-----------|-----------|
@@ -648,7 +651,7 @@ Output size: 54,246
 | pyranges1   |  4.251595 |  4.516436 |  4.341912 | 0.43x     |
 | pybedtools0 | 15.481021 | 15.533977 | 15.501447 | 0.12x     |
 
-##### L-size (3-0)
+#### L-size (3-0)
 
 | Library     |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |-------------|-----------|-----------|-----------|-----------|
@@ -658,7 +661,7 @@ Output size: 54,246
 | pyranges1   |  1.151087 |  1.200064 |  1.168257 | 0.76x     |
 | pybedtools0 | 28.309991 | 28.624311 | 28.421618 | 0.03x     |
 
-##### XL-size (0-4)
+#### XL-size (0-4)
 
 | Library     |    Min (s) |    Max (s) |   Mean (s) | Speedup   |
 |-------------|------------|------------|------------|-----------|
@@ -669,7 +672,7 @@ Output size: 54,246
 | pybedtools0 | 126.338178 | 127.104972 | 126.646993 | 0.02x     |
 
 
-##### XL-size (0-5)
+#### XL-size (0-5)
 
 | Library    |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |------------|-----------|-----------|-----------|-----------|
@@ -677,14 +680,9 @@ Output size: 54,246
 | pyranges0  | 20.752479 | 20.837782 | 20.797340 | 0.76x     |
 | pyranges1  | 20.315355 | 20.490498 | 20.376382 | **0.78x** |
 
+## Parallel execution and scalability
 
-##### XL-size (0-6)
-
-
-
-### Parallel execution and scalability
-
-#### Intel
+Apple Silicon and [c4-standard-32](https://gcloud-compute.com/c4-standard-32.html) machine were used for benchmarking.
 
 - cpu architecture: `x86_64`
 - cpu name: `INTEL(R) XEON(R) PLATINUM 8581C CPU @ 2.30GHz`
@@ -696,88 +694,117 @@ Output size: 54,246
 - python: `3.12.8`
 - polars-bio: `0.3.0`
 
+
 ### Overlap operation
 
-#### 0-8 (input: 2,350,965 and 9,944,559,  output: 164,196,784)
+#### Apple Silicon (macOS) 🍎
 
-##### Apple Silicon
-| Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
-|---------------|----------|----------|----------|-----------|
-| pyranges0-1   | 9.331440 | 9.399316 | 9.358115 | 0.31x     |
-| polars_bio-1  | 2.810053 | 3.163260 | 2.935647 | **1.00x** |
-| polars_bio-2  | 1.353191 | 1.422477 | 1.376621 | 2.13x     |
-| polars_bio-4  | 1.020456 | 1.029563 | 1.024929 | 2.86x     |
-| polars_bio-8  | 0.734393 | 0.738268 | 0.735762 | **3.99x** |
-
-
-
-##### Intel
-
-| Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
-|---------------|-----------|-----------|-----------|-----------|
-| pyranges0-1   | 22.856168 | 23.086879 | 22.958235 | 0.27x     |
-| polars_bio-1  |  5.935124 |  6.694116 |  6.203911 | **1.00x** |
-| polars_bio-2  |  3.763082 |  3.913454 |  3.815991 | 1.63x     |
-| polars_bio-4  |  2.331916 |  2.358274 |  2.342218 | 2.65x     |
-| polars_bio-8  |  1.317331 |  1.326317 |  1.322318 | **4.69x** |
-
-
-
-#### 2-5 (input: 438,694 and 50,980,975,  output: 52,395,369)
-
-##### Apple Silicon
-| Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
-|---------------|-----------|-----------|-----------|-----------|
-| pyranges0-1   | 11.836572 | 12.033881 | 11.943536 | 0.41x     |
-| polars_bio-1  |  4.878542 |  4.944363 |  4.912092 | **1.00x** |
-| polars_bio-2  |  3.109014 |  3.113733 |  3.111639 | 1.58x     |
-| polars_bio-4  |  1.928374 |  1.944733 |  1.935807 | 2.54x     |
-| polars_bio-8  |  1.319147 |  1.334540 |  1.324507 | 3.71x     |
-| polars_bio-16 |  0.751453 |  0.758128 |  0.754517 | **6.51x** |
-
-
-#### 2-6 (input: 438,694 and 128,186,542, output: 116,300,901)
-
-| Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
-|---------------|-----------|-----------|-----------|-----------|
-| pyranges0-1   | 29.674772 | 31.891295 | 30.546541 | 0.37x     |
-| polars_bio-1  | 11.379310 | 11.423765 | 11.399042 | **1.00x** |
-| polars_bio-2  |  7.134765 |  7.209546 |  7.163538 | 1.59x     |
-| polars_bio-4  |  4.409859 |  4.462592 |  4.429911 | 2.57x     |
-| polars_bio-8  |  3.069381 |  3.080261 |  3.073801 | 3.71x     |
-| polars_bio-16 |  1.698058 |  1.736596 |  1.717683 | **6.64x** |
-
-
-#### 3-0 (input:  1,956,864 and 2,350,965, output: 1,086,692,495
-
-##### Apple Silicon
+##### 0-8
 
 | Library      |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |--------------|-----------|-----------|-----------|-----------|
-| pyranges0-1  | 86.613871 | 86.613871 | 86.613871 | 0.14x     |
-| polars_bio-1 | 12.626873 | 19.909944 | 17.401360 | **1.00x** |
-| polars_bio-2 | 10.837240 | 15.490195 | 12.717995 | 1.37x     |
-| polars_bio-4 |  7.708758 |  7.817039 |  7.754055 | 2.24x     |
-| polars_bio-8 |  6.023458 |  6.521387 |  6.295188 | **2.76x** |
+| pyranges0-1  |  9.146743 | 10.067171 |  9.512946 | 0.31x     |
+| pyranges1-1  | 17.084293 | 17.394639 | 17.207398 | 0.17x     |
+| polars_bio-1 |  2.784917 |  3.184688 |  2.963876 | **1.00x** |
+| polars_bio-2 |  1.447746 |  2.194926 |  1.716935 | 1.73x     |
+| polars_bio-4 |  1.023359 |  1.031373 |  1.027862 | 2.88x     |
+| polars_bio-8 |  0.745024 |  0.766747 |  0.757039 | **3.92x** |
+
+##### 7-8
+
+| Library      |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
+|--------------|-----------|-----------|-----------|-----------|
+| pyranges0-1  | 16.015978 | 16.471722 | 16.183480 | 0.24x     |
+| pyranges1-1  | 30.504657 | 30.912445 | 30.752887 | 0.13x     |
+| polars_bio-1 |  3.582070 |  4.331780 |  3.930337 | **1.00x** |
+| polars_bio-2 |  1.798026 |  1.866828 |  1.829596 | 2.15x     |
+| polars_bio-4 |  1.126025 |  1.135795 |  1.132349 | 3.47x     |
+| polars_bio-8 |  0.703821 |  0.707697 |  0.705424 | **5.57x** |
 
 
 
-##### Intel
-| Library      |    Min (s) |    Max (s) |   Mean (s) | Speedup   |
+##### 2-5
+
+| Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
+|---------------|-----------|-----------|-----------|-----------|
+| pyranges0-1   |  7.359118 |  8.248676 |  7.747425 | 0.42x     |
+| pyranges1-1   | 12.017050 | 12.394313 | 12.172057 | 0.26x     |
+| polars_bio-1  |  3.168840 |  3.279239 |  3.221157 | **1.00x** |
+| polars_bio-2  |  1.807984 |  1.896123 |  1.840286 | 1.75x     |
+| polars_bio-4  |  1.565173 |  1.855352 |  1.667814 | 1.93x     |
+| polars_bio-8  |  1.328546 |  1.644594 |  1.525987 | **2.11x** |
+
+
+##### 3-0
+
+| Library       |    Min (s) |    Max (s) |   Mean (s) | Speedup   |
+|---------------|------------|------------|------------|-----------|
+| pyranges0-1   |  78.437583 |  80.667906 |  79.691000 | 0.16x     |
+| pyranges1-1   | 149.301588 | 150.696560 | 150.214238 | 0.08x     |
+| polars_bio-1  |   8.699317 |  15.876707 |  12.749627 | **1.00x** |
+| polars_bio-2  |   7.107510 |  11.556344 |   8.876861 | 1.44x     |
+| polars_bio-4  |   6.368686 |   6.746370 |   6.558874 | 1.94x     |
+| polars_bio-8  |   5.673492 |   6.341975 |   6.052686 | **2.11x** |
+
+
+
+#### Intel Emerald Rapids (Linux) 🐧
+
+##### 0-8
+
+| Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
+|---------------|-----------|-----------|-----------|-----------|
+| pyranges0-1   | 22.427066 | 23.052440 | 22.637076 | 0.29x     |
+| pyranges1-1   | 35.304058 | 35.420546 | 35.342961 | 0.18x     |
+| polars_bio-1  |  5.664570 |  7.867539 |  6.508315 | **1.00x** |
+| polars_bio-2  |  3.485226 |  3.621209 |  3.564963 | 1.83x     |
+| polars_bio-4  |  2.262268 |  2.320929 |  2.287944 | 2.84x     |
+| polars_bio-8  |  1.287120 |  1.311752 |  1.297510 | **5.02x** |
+
+
+##### 7-8
+
+| Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
+|---------------|-----------|-----------|-----------|-----------|
+| pyranges0-1   | 41.676284 | 42.974216 | 42.485708 | 0.18x     |
+| pyranges1-1   | 63.524302 | 63.774618 | 63.679367 | 0.12x     |
+| polars_bio-1  |  6.510632 |  9.640636 |  7.619978 | **1.00x** |
+| polars_bio-2  |  4.063316 |  4.558028 |  4.316856 | 1.77x     |
+| polars_bio-4  |  3.006938 |  3.116209 |  3.053199 | 2.50x     |
+| polars_bio-8  |  1.733345 |  1.782316 |  1.752699 | 4.35x     |
+| polars_bio-16 |  1.308820 |  1.350968 |  1.323112 | **5.76x** |
+
+
+
+##### 2-5
+
+| Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
+|---------------|-----------|-----------|-----------|-----------|
+| pyranges0-1   | 15.954215 | 17.879185 | 16.597961 | 0.32x     |
+| pyranges1-1   | 22.822777 | 23.005675 | 22.899582 | 0.23x     |
+| polars_bio-1  |  5.096198 |  5.652478 |  5.296669 | **1.00x** |
+| polars_bio-2  |  3.216712 |  3.390962 |  3.296900 | 1.61x     |
+| polars_bio-4  |  2.941997 |  3.078842 |  3.004835 | 1.76x     |
+| polars_bio-8  |  2.373662 |  2.483793 |  2.423432 | **2.19x** |
+
+
+##### 3-0
+
+| Library      | Min (s)    |    Max (s) |   Mean (s) | Speedup   |
 |--------------|------------|------------|------------|-----------|
 | pyranges0-1  | 158.193622 | 159.014103 | 158.563798 | 0.38x     |
-| polars_bio-1 | 35.225662 | 35.821574 | 35.573672 | **1.00x** |
-| polars_bio-2 | 24.591723 | 25.029197 | 24.797555 | 1.43x     |
-| polars_bio-4 | 16.198270 | 16.867106 | 16.497054 | 2.16x     |
-| polars_bio-8 | 11.666194 | 11.735179 | 11.699761 | **3.04x** |
-
+| pyranges1-1  | OOM        | OOM | OOM | OOM    |
+| polars_bio-1 | 35.225662  | 35.821574 | 35.573672 | **1.00x** |
+| polars_bio-2 | 24.591723  | 25.029197 | 24.797555 | 1.43x     |
+| polars_bio-4 | 16.198270  | 16.867106 | 16.497054 | 2.16x     |
+| polars_bio-8 | 11.666194  | 11.735179 | 11.699761 | **3.04x** |
 
 
 ### Nearest operation
 
-#### 7-8
+#### Apple Silicon (macOS) 🍎
 
-##### Apple Silicon
+##### 7-8
 
 | Library      |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |--------------|----------|----------|----------|-----------|
@@ -788,23 +815,7 @@ Output size: 54,246
 | polars_bio-4 | 0.412480 | 0.422400 | 0.417233 | 2.44x     |
 | polars_bio-8 | 0.286680 | 0.291932 | 0.290088 | **3.50x** |
 
-
-##### Intel
-
-| Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
-|---------------|----------|----------|----------|-----------|
-| pyranges0-1   | 4.206312 | 4.294343 | 4.241896 | 0.45x     |
-| pyranges1-1   | 4.442628 | 4.488366 | 4.458621 | 0.43x     |
-| polars_bio-1  | 1.891354 | 1.948671 | 1.912490 | **1.00x** |
-| polars_bio-2  | 1.283955 | 1.302282 | 1.295635 | 1.48x     |
-| polars_bio-4  | 1.078061 | 1.105893 | 1.094149 | 1.75x     |
-| polars_bio-8  | 0.712460 | 0.752014 | 0.727148 | **2.63x** |
-
-
-
-#### 0-8
-
-##### Apple Silicon
+##### 0-8
 
 | Library      |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |--------------|----------|----------|----------|-----------|
@@ -816,21 +827,7 @@ Output size: 54,246
 | polars_bio-8 | 0.371300 | 0.377496 | 0.374637 | **2.86x** |
 
 
-##### Intel
-
-| Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
-|---------------|----------|----------|----------|-----------|
-| pyranges0-1   | 4.231424 | 4.330897 | 4.274404 | 0.48x     |
-| pyranges1-1   | 4.763702 | 4.832694 | 4.797875 | 0.43x     |
-| polars_bio-1  | 2.041052 | 2.054510 | 2.048951 | **1.00x** |
-| polars_bio-2  | 1.427670 | 1.462461 | 1.445207 | 1.42x     |
-| polars_bio-4  | 1.133872 | 1.182288 | 1.150375 | 1.78x     |
-| polars_bio-8  | 0.743850 | 0.786324 | 0.769738 | **2.66x** |
-
-
-#### 3-0
-
-##### Apple Silicon
+##### 0-3
 
 | Library      |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |--------------|----------|----------|----------|-----------|
@@ -842,21 +839,7 @@ Output size: 54,246
 | polars_bio-8 | 0.404343 | 0.408482 | 0.406183 | **2.24x** |
 
 
-##### Intel
-
-| Library      |  Min (s) |  Max (s) | Mean (s) | Speedup   |
-|--------------|----------|----------|----------|-----------|
-| pyranges0-1  | 0.929409 | 1.043995 | 0.989172 | 1.29x     |
-| pyranges1-1  | 1.232229 | 1.277243 | 1.250441 | 1.02x     |
-| polars_bio-1 | 1.121446 | 1.560456 | 1.272248 | **1.00x** |
-| polars_bio-2 | 0.790184 | 0.798372 | 0.795170 | 1.60x     |
-| polars_bio-4 | 0.645712 | 0.662949 | 0.652850 | 1.95x     |
-| polars_bio-8 | 0.473802 | 0.505282 | 0.489050 | **2.60x** |
-
-
-#### 2-5
-
-##### Apple Silicon
+##### 2-5
 
 | Library      |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |--------------|-----------|-----------|-----------|-----------|
@@ -868,7 +851,47 @@ Output size: 54,246
 | polars_bio-8 |  1.229453 |  1.255038 |  1.244184 | **1.49x** |
 
 
-##### Intel
+##### Intel Emerald Rapids (Linux) 🐧
+
+##### 7-8
+
+| Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
+|---------------|----------|----------|----------|-----------|
+| pyranges0-1   | 4.206312 | 4.294343 | 4.241896 | 0.45x     |
+| pyranges1-1   | 4.442628 | 4.488366 | 4.458621 | 0.43x     |
+| polars_bio-1  | 1.891354 | 1.948671 | 1.912490 | **1.00x** |
+| polars_bio-2  | 1.283955 | 1.302282 | 1.295635 | 1.48x     |
+| polars_bio-4  | 1.078061 | 1.105893 | 1.094149 | 1.75x     |
+| polars_bio-8  | 0.712460 | 0.752014 | 0.727148 | **2.63x** |
+
+
+##### 0-8
+
+| Library       |  Min (s) |  Max (s) | Mean (s) | Speedup   |
+|---------------|----------|----------|----------|-----------|
+| pyranges0-1   | 4.231424 | 4.330897 | 4.274404 | 0.48x     |
+| pyranges1-1   | 4.763702 | 4.832694 | 4.797875 | 0.43x     |
+| polars_bio-1  | 2.041052 | 2.054510 | 2.048951 | **1.00x** |
+| polars_bio-2  | 1.427670 | 1.462461 | 1.445207 | 1.42x     |
+| polars_bio-4  | 1.133872 | 1.182288 | 1.150375 | 1.78x     |
+| polars_bio-8  | 0.743850 | 0.786324 | 0.769738 | **2.66x** |
+
+
+##### 0-3
+
+
+| Library      |  Min (s) |  Max (s) | Mean (s) | Speedup   |
+|--------------|----------|----------|----------|-----------|
+| pyranges0-1  | 0.929409 | 1.043995 | 0.989172 | 1.29x     |
+| pyranges1-1  | 1.232229 | 1.277243 | 1.250441 | 1.02x     |
+| polars_bio-1 | 1.121446 | 1.560456 | 1.272248 | **1.00x** |
+| polars_bio-2 | 0.790184 | 0.798372 | 0.795170 | 1.60x     |
+| polars_bio-4 | 0.645712 | 0.662949 | 0.652850 | 1.95x     |
+| polars_bio-8 | 0.473802 | 0.505282 | 0.489050 | **2.60x** |
+
+
+##### 2-5
+
 
 | Library       |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |---------------|-----------|-----------|-----------|-----------|
@@ -880,8 +903,10 @@ Output size: 54,246
 | polars_bio-8  |  3.250405 |  3.413984 |  3.329296 | **1.54x** |
 
 
-
 ### DataFrame formats performance comparison
+
+!!! todo
+    - Add benchmarks for different DataFrame formats
 
 ## How to run the benchmarks
 ```bash
@@ -891,3 +916,6 @@ poetry shell
 RUSTFLAGS="-Ctarget-cpu=native" maturin develop --release  -m Cargo.toml
 python benchmark/src/bench_overlap.py
 ```
+
+!!! todo
+    - Add more details on how to run the benchmarks
