@@ -18,7 +18,7 @@ dependencies = [
   "polars~=1.16.0",
   "pandas~=2.2.3",
   "pyarrow~=18.1.0",
-  "datafusion ~=42.0.0",
+  "datafusion ~=43.1.0",
   "bioframe ~=0.7.2"]
 
 [tool.maturin]
@@ -40,7 +40,7 @@ python = ">=3.12,<3.13"
 polars = "^1.16.0"
 pandas = "^2.2.3"
 pyarrow = "^18.1.0"
-datafusion = "^42.0.0"
+datafusion = "^43.1.0"
 bioframe = "^0.7.2"
 
 [tool.poetry.dev-dependencies]
