@@ -34,6 +34,10 @@ def range_lazy_scan(
         range_function = range_operation_frame
         df_1 = _df_to_arrow(df_1, range_options.columns_1[0]).to_reader()
         df_2 = _df_to_arrow(df_2, range_options.columns_2[0]).to_reader()
+    elif isinstance(df_1, pl.LazyFrame) and isinstance(df_2, pl.LazyFrame):
+        range_function = range_operation_frame
+        df_1 = df_1.collect().to_arrow().to_reader()
+        df_2 = df_2.collect().to_arrow().to_reader()
     else:
         raise ValueError("Only polars and pandas dataframes are supported")
 
@@ -56,7 +60,7 @@ def range_lazy_scan(
             #  but for now we'll do it here.
             if with_columns is not None:
                 df = df.select(with_columns)
-            yield df
+        yield df
 
     return register_io_source(_overlap_source, schema=schema)
 
@@ -68,7 +72,7 @@ def _rename_columns_pl(df: pl.DataFrame, suffix: str) -> pl.DataFrame:
 def _rename_columns(
     df: Union[pl.DataFrame, pd.DataFrame], suffix: str
 ) -> Union[pl.DataFrame, pd.DataFrame]:
-    if isinstance(df, pl.DataFrame):
+    if isinstance(df, pl.DataFrame) or isinstance(df, pl.LazyFrame):
         df = pl.DataFrame(schema=df.schema)
         return _rename_columns_pl(df, suffix)
     elif isinstance(df, pd.DataFrame):

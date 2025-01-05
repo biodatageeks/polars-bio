@@ -23,6 +23,7 @@ if BENCH_DATA_ROOT is None:
 
 
 pb.ctx.set_option("datafusion.optimizer.repartition_joins", "false")
+pb.ctx.set_option("datafusion.execution.target_partitions", "1")
 
 columns = ("contig", "pos_start", "pos_end")
 
@@ -32,51 +33,51 @@ num_executions = 3
 
 
 test_cases = [
-    {
-        "df_path_1": f"{BENCH_DATA_ROOT}/fBrain-DS14718/*.parquet",
-        "df_path_2": f"{BENCH_DATA_ROOT}/exons/*.parquet",
-        "name": "1-2",
-    },
-    {
-        "df_path_1": f"{BENCH_DATA_ROOT}/exons/*.parquet",
-        "df_path_2": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
-        "name": "2-7",
-    },
-    {
-        "df_path_1": f"{BENCH_DATA_ROOT}/fBrain-DS14718/*.parquet",
-        "df_path_2": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
-        "name": "1-0",
-    },
-    {
-        "df_path_1": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
-        "df_path_2": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
-        "name": "7-0",
-    },
-    {
-        "df_path_1": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
-        "df_path_2": f"{BENCH_DATA_ROOT}/chainOrnAna1/*.parquet",
-        "name": "7-3",
-    },
-    {
-        "df_path_1": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
-        "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
-        "name": "0-8",
-    },
-    {
-        "df_path_1": f"{BENCH_DATA_ROOT}/chainVicPac2/*.parquet",
-        "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
-        "name": "4-8",
-    },
+    # {
+    #     "df_path_1": f"{BENCH_DATA_ROOT}/fBrain-DS14718/*.parquet",
+    #     "df_path_2": f"{BENCH_DATA_ROOT}/exons/*.parquet",
+    #     "name": "1-2",
+    # },
+    # {
+    #     "df_path_1": f"{BENCH_DATA_ROOT}/exons/*.parquet",
+    #     "df_path_2": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
+    #     "name": "2-7",
+    # },
+    # {
+    #     "df_path_1": f"{BENCH_DATA_ROOT}/fBrain-DS14718/*.parquet",
+    #     "df_path_2": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
+    #     "name": "1-0",
+    # },
+    # {
+    #     "df_path_1": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
+    #     "df_path_2": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
+    #     "name": "7-0",
+    # },
+    # {
+    #     "df_path_1": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
+    #     "df_path_2": f"{BENCH_DATA_ROOT}/chainOrnAna1/*.parquet",
+    #     "name": "7-3",
+    # },
+    # {
+    #     "df_path_1": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
+    #     "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
+    #     "name": "0-8",
+    # },
+    # {
+    #     "df_path_1": f"{BENCH_DATA_ROOT}/chainVicPac2/*.parquet",
+    #     "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
+    #     "name": "4-8",
+    # },
     {
         "df_path_1": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
         "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
         "name": "7-8",
     },
-    {
-        "df_path_1": f"{BENCH_DATA_ROOT}/chainOrnAna1/*.parquet",
-        "df_path_2": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
-        "name": "3-0",
-    },
+    # {
+    #     "df_path_1": f"{BENCH_DATA_ROOT}/chainOrnAna1/*.parquet",
+    #     "df_path_2": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
+    #     "name": "3-0",
+    # },
     # {
     #     "df_path_1": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
     #     "df_path_2": f"{BENCH_DATA_ROOT}/chainVicPac2/*.parquet",
@@ -140,7 +141,7 @@ functions = [
     pyranges0,
     pyranges1,
     pybedtools0,
-    # genomicranges,
+    genomicranges,
 ]
 
 

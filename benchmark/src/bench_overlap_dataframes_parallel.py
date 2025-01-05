@@ -4,8 +4,8 @@ import timeit
 
 import numpy as np
 import pandas as pd
+import polars as pl
 import pyranges as pr
-import pyranges1 as pr1
 from rich import print
 from rich.box import MARKDOWN
 from rich.table import Table
@@ -17,16 +17,18 @@ BENCH_DATA_ROOT = os.getenv("BENCH_DATA_ROOT")
 if BENCH_DATA_ROOT is None:
     raise ValueError("BENCH_DATA_ROOT is not set")
 
+
 pb.ctx.set_option("datafusion.optimizer.repartition_joins", "true")
 pb.ctx.set_option("datafusion.optimizer.repartition_file_scans", "true")
 pb.ctx.set_option("datafusion.execution.coalesce_batches", "false")
-pb.ctx.set_option("datafusion.execution.parquet.schema_force_view_types", "false")
+
 columns = ("contig", "pos_start", "pos_end")
 
-test_threads = [8]
+test_threads = [1, 2, 4, 8]
 
-num_repeats = 1
-num_executions = 1
+num_repeats = 3
+num_executions = 2
+
 
 test_cases = [
     # {
@@ -54,11 +56,11 @@ test_cases = [
     #     "df_path_2": f"{BENCH_DATA_ROOT}/chainOrnAna1/*.parquet",
     #     "name": "7-3",
     # },
-    # {
-    #     "df_path_1": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
-    #     "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
-    #     "name": "0-8",
-    # },
+    {
+        "df_path_1": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
+        "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
+        "name": "0-8",
+    },
     # {
     #     "df_path_1": f"{BENCH_DATA_ROOT}/chainVicPac2/*.parquet",
     #     "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
@@ -84,11 +86,6 @@ test_cases = [
     #     "df_path_2": f"{BENCH_DATA_ROOT}/chainXenTro3Link/*.parquet",
     #     "name": "0-5",
     # },
-    {
-        "df_path_1": f"{BENCH_DATA_ROOT}/chainOrnAna1/*.parquet",
-        "df_path_2": f"{BENCH_DATA_ROOT}/chainXenTro3Link/*.parquet",
-        "name": "3-5",
-    },
 ]
 
 
@@ -101,48 +98,34 @@ def df2pr0(df):
     )
 
 
-### pyranges1
-def df2pr1(df):
-    return pr1.PyRanges(
-        {
-            "Chromosome": df.contig,
-            "Start": df.pos_start,
-            "End": df.pos_end,
-        }
-    )
-
-
 def polars_bio(df_path_1, df_path_2):
-    # lf = pl.LazyFrame(
-    #     {
-    #         "a": ["a", "b", "a", "b", "b", "c"],
-    #         "b": [1, 2, 3, 4, 5, 6],
-    #         "c": [6, 5, 4, 3, 2, 1],
-    #     }
-    # )
-    # print(lf.group_by("a", maintain_order=True).agg(pl.all().sum()).sort(
-    #     "a"
-    # ).explain(streaming=True, format="tree"))
-    # print(pb.overlap(df_path_1, df_path_2, col1=columns, col2=columns).explain(streaming=True, format="tree"))
+    pb.overlap(df_path_1, df_path_2, col1=columns, col2=columns).collect().count()
+
+
+def polars_bio_pandas_lf(df1, df2):
+    pb.overlap(df1, df2, col1=columns, col2=columns).collect().count()
+
+
+def polars_bio_pandas_pd(df1, df2):
     len(
-        pb.overlap(df_path_1, df_path_2, col1=columns, col2=columns).collect(
-            streaming=True
-        )
+        pb.overlap(df1, df2, col1=columns, col2=columns, output_type="pandas.DataFrame")
     )
 
 
-def pyranges0(df_1_pr0, df_2_pr0):
-    len(df_1_pr0.join(df_2_pr0))
+def polars_bio_polars_eager(df1, df2):
+    pb.overlap(df1, df2, col1=columns, col2=columns).collect().count()
 
 
-def pyranges1(df_1_pr1, df_2_pr1):
-    len(df_1_pr1.join_ranges(df_2_pr1))
+def polars_bio_polars_lazy(df1, df2):
+    pb.overlap(df1, df2, col1=columns, col2=columns).collect().count()
 
 
 functions = [
-    pyranges0,
-    pyranges1,
     polars_bio,
+    polars_bio_pandas_lf,
+    polars_bio_pandas_pd,
+    polars_bio_polars_eager,
+    polars_bio_polars_lazy,
 ]
 
 
@@ -155,10 +138,10 @@ for t in test_cases:
     results = []
     df_1 = pd.read_parquet(t["df_path_1"].replace("*.parquet", ""), engine="pyarrow")
     df_2 = pd.read_parquet(t["df_path_2"].replace("*.parquet", ""), engine="pyarrow")
-    df_1_pr0 = df2pr0(df_1)
-    df_2_pr0 = df2pr0(df_2)
-    df_1_pr1 = df2pr1(df_1)
-    df_2_pr1 = df2pr1(df_2)
+    df_pl_1 = pl.from_pandas(df_1)
+    df_pl_2 = pl.from_pandas(df_2)
+    df_pl_lazy_1 = df_pl_1.lazy()
+    df_pl_lazy_2 = df_pl_2.lazy()
     for p in test_threads:
         pb.ctx.set_option("datafusion.execution.target_partitions", str(p))
         for func in functions:
@@ -170,20 +153,31 @@ for t in test_cases:
                     repeat=num_repeats,
                     number=num_executions,
                 )
-            elif func == pyranges0 and p == 1:
+            elif func == polars_bio_pandas_lf:
                 times = timeit.repeat(
-                    lambda: func(df_1_pr0, df_2_pr0),
+                    lambda: func(df_1, df_2),
                     repeat=num_repeats,
                     number=num_executions,
                 )
-            elif func == pyranges1 and p == 1:
+            elif func == polars_bio_pandas_pd:
                 times = timeit.repeat(
-                    lambda: func(df_1_pr1, df_2_pr1),
+                    lambda: func(df_1, df_2),
                     repeat=num_repeats,
                     number=num_executions,
                 )
-            else:
-                continue
+            elif func == polars_bio_polars_eager:
+                times = timeit.repeat(
+                    lambda: func(df_pl_1, df_pl_2),
+                    repeat=num_repeats,
+                    number=num_executions,
+                )
+            elif func == polars_bio_polars_lazy:
+                times = timeit.repeat(
+                    lambda: func(df_pl_lazy_1, df_pl_lazy_2),
+                    repeat=num_repeats,
+                    number=num_executions,
+                )
+
             per_run_times = [
                 time / num_executions for time in times
             ]  # Convert to per-run times
@@ -196,28 +190,27 @@ for t in test_cases:
                 }
             )
 
-        # fastest_mean = min(result["mean"] for result in results)
-        fastest_mean = results[0]["mean"]
-        for result in results:
-            result["speedup"] = fastest_mean / result["mean"]
+    fastest_mean = results[0]["mean"]
+    for result in results:
+        result["speedup"] = fastest_mean / result["mean"]
 
-        # Create Rich table
-        table = Table(title="Benchmark Results", box=MARKDOWN)
-        table.add_column("Library", justify="left", style="cyan", no_wrap=True)
-        table.add_column("Min (s)", justify="right", style="green")
-        table.add_column("Max (s)", justify="right", style="green")
-        table.add_column("Mean (s)", justify="right", style="green")
-        table.add_column("Speedup", justify="right", style="magenta")
+    # Create Rich table
+    table = Table(title="Benchmark Results", box=MARKDOWN)
+    table.add_column("Library", justify="left", style="cyan", no_wrap=True)
+    table.add_column("Min (s)", justify="right", style="green")
+    table.add_column("Max (s)", justify="right", style="green")
+    table.add_column("Mean (s)", justify="right", style="green")
+    table.add_column("Speedup", justify="right", style="magenta")
 
-        # Add rows to the table
-        for result in results:
-            table.add_row(
-                result["name"],
-                f"{result['min']:.6f}",
-                f"{result['max']:.6f}",
-                f"{result['mean']:.6f}",
-                f"{result['speedup']:.2f}x",
-            )
+    # Add rows to the table
+    for result in results:
+        table.add_row(
+            result["name"],
+            f"{result['min']:.6f}",
+            f"{result['max']:.6f}",
+            f"{result['mean']:.6f}",
+            f"{result['speedup']:.2f}x",
+        )
 
     # Display the table
     benchmark_results = {
@@ -226,11 +219,11 @@ for t in test_cases:
             "df_2_num": len(df_2),
         },
         # "output_num":
-        #     pb.overlap(df_1, df_2, col1=columns, col2=columns).collect().count()
+        #     pb.overlap(df_1, df_2, col1=columns, col2=columns).collect()
         # ,
         "results": results,
     }
     print(t["name"])
-    # print(json.dumps(benchmark_results, indent=4))
+    print(json.dumps(benchmark_results, indent=4))
     json.dump(benchmark_results, open(f"results/{t['name']}.json", "w"))
     print(table)

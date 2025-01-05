@@ -18,14 +18,16 @@ BENCH_DATA_ROOT = os.getenv("BENCH_DATA_ROOT")
 if BENCH_DATA_ROOT is None:
     raise ValueError("BENCH_DATA_ROOT is not set")
 
-pb.ctx.set_option("datafusion.optimizer.repartition_joins", "true")
+pb.ctx.set_option("datafusion.optimizer.repartition_joins", "false")
+pb.ctx.set_option("datafusion.optimizer.repartition_file_scans", "false")
+pb.ctx.set_option("datafusion.execution.coalesce_batches", "false")
 
 columns = ("contig", "pos_start", "pos_end")
 
 test_threads = [1, 2, 4, 8]
 
 num_repeats = 3
-num_executions = 1
+num_executions = 2
 
 test_cases = [
     # {
@@ -103,10 +105,6 @@ def df2pr0(df):
         starts=df.pos_start,
         ends=df.pos_end,
     )
-
-
-# df_1_pr0 = df2pr0(df_1)
-# df_2_pr0 = df2pr0(df_2)
 
 
 ### pyranges1
@@ -202,7 +200,7 @@ for t in test_cases:
             )
 
         # fastest_mean = min(result["mean"] for result in results)
-        fastest_mean = results[2]["mean"]
+        fastest_mean = results[0]["mean"]
         for result in results:
             result["speedup"] = fastest_mean / result["mean"]
 
