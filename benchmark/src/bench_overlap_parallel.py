@@ -29,46 +29,46 @@ num_repeats = 1
 num_executions = 1
 
 test_cases = [
-    # {
-    #     "df_path_1": f"{BENCH_DATA_ROOT}/fBrain-DS14718/*.parquet",
-    #     "df_path_2": f"{BENCH_DATA_ROOT}/exons/*.parquet",
-    #     "name": "1-2",
-    # },
-    # {
-    #     "df_path_1": f"{BENCH_DATA_ROOT}/exons/*.parquet",
-    #     "df_path_2": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
-    #     "name": "2-7",
-    # },
-    # {
-    #     "df_path_1": f"{BENCH_DATA_ROOT}/fBrain-DS14718/*.parquet",
-    #     "df_path_2": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
-    #     "name": "1-0",
-    # },
-    # {
-    #     "df_path_1": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
-    #     "df_path_2": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
-    #     "name": "7-0",
-    # },
-    # {
-    #     "df_path_1": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
-    #     "df_path_2": f"{BENCH_DATA_ROOT}/chainOrnAna1/*.parquet",
-    #     "name": "7-3",
-    # },
-    # {
-    #     "df_path_1": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
-    #     "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
-    #     "name": "0-8",
-    # },
-    # {
-    #     "df_path_1": f"{BENCH_DATA_ROOT}/chainVicPac2/*.parquet",
-    #     "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
-    #     "name": "4-8",
-    # },
-    # {
-    #     "df_path_1": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
-    #     "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
-    #     "name": "7-8",
-    # },
+    {
+        "df_path_1": f"{BENCH_DATA_ROOT}/fBrain-DS14718/*.parquet",
+        "df_path_2": f"{BENCH_DATA_ROOT}/exons/*.parquet",
+        "name": "1-2",
+    },
+    {
+        "df_path_1": f"{BENCH_DATA_ROOT}/exons/*.parquet",
+        "df_path_2": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
+        "name": "2-7",
+    },
+    {
+        "df_path_1": f"{BENCH_DATA_ROOT}/fBrain-DS14718/*.parquet",
+        "df_path_2": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
+        "name": "1-0",
+    },
+    {
+        "df_path_1": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
+        "df_path_2": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
+        "name": "7-0",
+    },
+    {
+        "df_path_1": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
+        "df_path_2": f"{BENCH_DATA_ROOT}/chainOrnAna1/*.parquet",
+        "name": "7-3",
+    },
+    {
+        "df_path_1": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
+        "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
+        "name": "0-8",
+    },
+    {
+        "df_path_1": f"{BENCH_DATA_ROOT}/chainVicPac2/*.parquet",
+        "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
+        "name": "4-8",
+    },
+    {
+        "df_path_1": f"{BENCH_DATA_ROOT}/ex-anno/*.parquet",
+        "df_path_2": f"{BENCH_DATA_ROOT}/ex-rna/*.parquet",
+        "name": "7-8",
+    },
     # {
     #     "df_path_1": f"{BENCH_DATA_ROOT}/chainOrnAna1/*.parquet",
     #     "df_path_2": f"{BENCH_DATA_ROOT}/chainRn4/*.parquet",
@@ -84,11 +84,11 @@ test_cases = [
     #     "df_path_2": f"{BENCH_DATA_ROOT}/chainXenTro3Link/*.parquet",
     #     "name": "0-5",
     # },
-    {
-        "df_path_1": f"{BENCH_DATA_ROOT}/chainOrnAna1/*.parquet",
-        "df_path_2": f"{BENCH_DATA_ROOT}/chainXenTro3Link/*.parquet",
-        "name": "3-5",
-    },
+    # {
+    #     "df_path_1": f"{BENCH_DATA_ROOT}/chainOrnAna1/*.parquet",
+    #     "df_path_2": f"{BENCH_DATA_ROOT}/chainXenTro3Link/*.parquet",
+    #     "name": "3-5",
+    # },
 ]
 
 

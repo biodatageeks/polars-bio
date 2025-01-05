@@ -8,7 +8,7 @@
 ### Detailed results shortcuts 👨‍🔬
 - [Binary operations](#binary-operations)
 - [Parallel execution and scalability](#parallel-execution-and-scalability)
-- [DataFrame formats performance](#dataframe-formats-performance-comparison)
+- [DataFrame formats performance](#dataframes-comparison)
 
 ### Test datasets 🗃️
 [AIList](https://github.com/databio/AIList) dataset was used for benchmarking.
@@ -584,7 +584,7 @@ Output: 307,184,634
 | pybedtools0 | 0.917019 | 0.931643 | 0.926433 | 0.12x     |
 
 
-#### S-size (2-7)
+##### S-size (2-7)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -595,7 +595,7 @@ Output: 307,184,634
 | pybedtools0 | 2.085108 | 2.086168 | 2.085780 | 0.10x     |
 
 
-#### S-size (1-0)
+##### S-size (1-0)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -605,7 +605,8 @@ Output: 307,184,634
 | pyranges1   | 0.747615 | 0.754387 | 0.750464 | 0.25x     |
 | pybedtools0 | 1.177251 | 1.192054 | 1.185509 | 0.16x     |
 
-#### M-size (7-0)
+#### M-size
+##### M-size (7-0)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -616,7 +617,7 @@ Output: 307,184,634
 | pybedtools0 | 5.498016 | 5.507600 | 5.503549 | 0.07x     |
 
 
-#### M-size (7-3)
+##### M-size (7-3)
 
 | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------|----------|----------|----------|-----------|
@@ -626,7 +627,8 @@ Output: 307,184,634
 | pyranges1   | 0.969036 | 0.976941 | 0.972361 | 0.38x     |
 | pybedtools0 | 5.394985 | 5.454826 | 5.431693 | 0.07x     |
 
-#### L-size (0-8)
+#### L-size
+##### L-size (0-8)
 
 | Library     |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |-------------|-----------|-----------|-----------|-----------|
@@ -636,7 +638,7 @@ Output: 307,184,634
 | pyranges1   |  4.658245 |  5.014545 |  4.811681 | 0.43x     |
 | pybedtools0 | 16.245615 | 16.445935 | 16.373377 | 0.13x     |
 
-#### L-size (4-8)
+##### L-size (4-8)
 
 | Library     |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |-------------|-----------|-----------|-----------|-----------|
@@ -647,7 +649,7 @@ Output: 307,184,634
 | pybedtools0 | 39.047774 | 39.824156 | 39.436474 | 0.08x     |
 
 
-#### L-size (7-8)
+##### L-size (7-8)
 
 | Library     |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |-------------|-----------|-----------|-----------|-----------|
@@ -657,7 +659,7 @@ Output: 307,184,634
 | pyranges1   |  4.251595 |  4.516436 |  4.341912 | 0.43x     |
 | pybedtools0 | 15.481021 | 15.533977 | 15.501447 | 0.12x     |
 
-#### L-size (3-0)
+##### L-size (3-0)
 
 | Library     |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |-------------|-----------|-----------|-----------|-----------|
@@ -667,7 +669,9 @@ Output: 307,184,634
 | pyranges1   |  1.151087 |  1.200064 |  1.168257 | 0.76x     |
 | pybedtools0 | 28.309991 | 28.624311 | 28.421618 | 0.03x     |
 
-#### XL-size (0-4)
+
+#### XL-size
+##### XL-size (0-4)
 
 | Library     |    Min (s) |    Max (s) |   Mean (s) | Speedup   |
 |-------------|------------|------------|------------|-----------|
@@ -678,7 +682,7 @@ Output: 307,184,634
 | pybedtools0 | 126.338178 | 127.104972 | 126.646993 | 0.02x     |
 
 
-#### XL-size (0-5)
+##### XL-size (0-5)
 
 | Library    |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |------------|-----------|-----------|-----------|-----------|
@@ -1016,6 +1020,14 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 
 ## DataFrames comparison
 
+!!! Note
+    In the following benchmarks we compared the perfoemance of Python DataFrames libraries in the following scenarios:
+
+    - `polars_bio`: **native** Rust Parquet (*default*) reader and Polars **LazyFrame** (*default*) as an output.
+    - `polars_bio_pandas_lf`: **Pandas DataFrames** as an input and Polars **LazyFrame** as an output.
+    - `polars_bio_pandas_pd`: **Pandas DataFrames** as an input and Pandas **DataFrame** as an output.
+    - `polars_bio_polars_eager`: **Polars DataFrames** as an input and Polars **LazyFrame** as an output.
+    - `polars_bio_polars_lazy`: Polars **LazyFrames** as an input and Polars **LazyFrame** as an output.
 ### Apple Silicon (macOS) 🍎
 
 #### S-size
@@ -1114,8 +1126,6 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 
 ### Intel Emerald Rapids (Linux) 🐧
 
-
-
 #### S-size
 
 ##### 1-2
@@ -1148,6 +1158,7 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 | polars_bio_polars_eager | 0.166366 | 0.169000 | 0.167294 | **1.00x** |
 | polars_bio_polars_lazy  | 0.166566 | 0.167847 | 0.167033 | **1.00x** |
 
+#### M-size
 ##### 7-0
 
 | Library                 |  Min (s) |  Max (s) | Mean (s) | Speedup |
@@ -1158,7 +1169,7 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 | polars_bio_polars_eager | 0.353321 | 0.364626 | 0.358433 |   0.86x |
 | polars_bio_polars_lazy  | 0.355099 | 0.359842 | 0.357666 |   0.87x |
 
-###### 7-3
+##### 7-3
 
 | Library                 |  Min (s) |  Max (s) | Mean (s) | Speedup    |
 |-------------------------|----------|----------|----------|------------|
@@ -1168,6 +1179,7 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 | polars_bio_polars_eager | 0.446789 | 0.455552 | 0.450521 | **0.64x**  |
 | polars_bio_polars_lazy  | 0.450512 | 0.456530 | 0.453931 | 0.63x      |
 
+#### L-size
 ##### 0-8
 
 | Library                 |   Min (s) |   Max (s) |  Mean (s) | Speedup    |
@@ -1199,7 +1211,8 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 | polars_bio_polars_lazy  | 19.803839 | 19.818197 | 19.813257 | **0.24x**  |
 
 
-#### Parallel execution
+### Parallel execution
+#### Apple Silicon (macOS) 🍎
 
 ##### 7-8
 | Library                   |  Min (s) |  Max (s) | Mean (s) | Speedup   |
@@ -1233,6 +1246,9 @@ poetry env use python3.12
 poetry update
 poetry shell
 RUSTFLAGS="-Ctarget-cpu=native" maturin develop --release  -m Cargo.toml
+## export path with benchmark datasets, e.g.
+export BENCH_DATA_ROOT=/Users/mwiewior/research/databio/
+## other test also in benchmark/src directory
 python benchmark/src/bench_overlap.py
 ```
 
