@@ -377,6 +377,7 @@ async fn do_overlap(
     ctx.sql(&query).await.unwrap()
 }
 
+#[allow(clippy::useless_conversion)]
 #[pyfunction]
 fn range_operation_frame(
     py_ctx: &PyBioSessionContext,
@@ -395,6 +396,7 @@ fn range_operation_frame(
     )))
 }
 
+#[allow(clippy::useless_conversion)]
 #[pyfunction]
 fn range_operation_scan(
     py_ctx: &PyBioSessionContext,
