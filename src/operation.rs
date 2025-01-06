@@ -5,7 +5,8 @@ use tokio::runtime::Runtime;
 
 use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions};
-use crate::{LEFT_TABLE, RIGHT_TABLE};
+use crate::utils::default_cols_to_string;
+use crate::{DEFAULT_COLUMN_NAMES, LEFT_TABLE, RIGHT_TABLE};
 
 pub(crate) fn do_range_operation(
     ctx: &SessionContext,
@@ -64,19 +65,11 @@ async fn do_nearest(
     };
     let columns_1 = match range_opts.columns_1 {
         Some(cols) => cols,
-        _ => vec![
-            "contig".to_string(),
-            "pos_start".to_string(),
-            "pos_end".to_string(),
-        ],
+        _ => default_cols_to_string(&DEFAULT_COLUMN_NAMES),
     };
     let columns_2 = match range_opts.columns_2 {
         Some(cols) => cols,
-        _ => vec![
-            "contig".to_string(),
-            "pos_start".to_string(),
-            "pos_end".to_string(),
-        ],
+        _ => default_cols_to_string(&DEFAULT_COLUMN_NAMES),
     };
 
     let query = format!(
@@ -165,19 +158,11 @@ async fn do_overlap(
     };
     let columns_1 = match range_opts.columns_1 {
         Some(cols) => cols,
-        _ => vec![
-            "contig".to_string(),
-            "pos_start".to_string(),
-            "pos_end".to_string(),
-        ],
+        _ => default_cols_to_string(&DEFAULT_COLUMN_NAMES),
     };
     let columns_2 = match range_opts.columns_2 {
         Some(cols) => cols,
-        _ => vec![
-            "contig".to_string(),
-            "pos_start".to_string(),
-            "pos_end".to_string(),
-        ],
+        _ => default_cols_to_string(&DEFAULT_COLUMN_NAMES),
     };
     let query = format!(
         r#"

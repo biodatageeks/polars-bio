@@ -2,6 +2,9 @@ mod context;
 mod operation;
 mod option;
 mod scan;
+mod utils;
+
+use std::string::ToString;
 
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
@@ -18,6 +21,7 @@ use crate::scan::{get_input_format, register_frame, register_table};
 
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
+const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
 
 #[pyfunction]
 fn range_operation_frame(
@@ -46,19 +50,17 @@ fn range_operation_scan(
 ) -> PyResult<PyDataFrame> {
     let rt = Runtime::new()?;
     let ctx = &py_ctx.ctx;
-    let s1_path = &df_path1;
-    let s2_path = &df_path2;
     rt.block_on(register_table(
         ctx,
-        s1_path,
+        &df_path1,
         LEFT_TABLE,
-        get_input_format(s1_path),
+        get_input_format(&df_path1),
     ));
     rt.block_on(register_table(
         ctx,
-        s2_path,
+        &df_path2,
         RIGHT_TABLE,
-        get_input_format(s2_path),
+        get_input_format(&df_path2),
     ));
     Ok(PyDataFrame::new(do_range_operation(
         ctx,
