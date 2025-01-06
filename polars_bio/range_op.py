@@ -26,6 +26,7 @@ def overlap(
     col2: Union[list[str], None] = None,
     algorithm: str = "Coitrees",
     output_type: str = "polars.LazyFrame",
+    streaming: bool = False,
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     """
     Find pairs of overlapping genomic intervals.
@@ -46,13 +47,15 @@ def overlap(
         on_cols: List of additional column names to join on. default is None.
         algorithm: The algorithm to use for the overlap operation. default is "Coitrees".
         output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
+        streaming: If True, use Polars [streaming](https://docs.pola.rs/user-guide/concepts/_streaming/) engine.
 
     Returns:
         **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
     Note:
-        The default output format, i.e.  [LazyFrame](https://docs.pola.rs/api/python/stable/reference/lazyframe/index.html), is recommended for large datasets as it supports output streaming and lazy evaluation.
+        1. The default output format, i.e.  [LazyFrame](https://docs.pola.rs/api/python/stable/reference/lazyframe/index.html), is recommended for large datasets as it supports output streaming and lazy evaluation.
         This enables efficient processing of large datasets without loading the entire output dataset into memory.
+        2. Streaming is only supported for polars.LazyFrame output.
 
     Example:
         ```python

@@ -1,3 +1,24 @@
+## Features
+
+### Parallel engine 🏎️
+It is straightforward to parallelize operations in polars-bio. The library is built on top of [Apache DataFusion](https://datafusion.apache.org/)  you can set
+the degree of parallelism using the `datafusion.execution.target_partitions` option, e.g.:
+```python
+import polars_bio as pb
+pb.ctx.set_option("datafusion.execution.target_partitions", 8)
+```
+!!! tip
+    1. The default value is **1** (parallel execution disabled).
+    2. The `datafusion.execution.target_partitions` option is a global setting and affects all operations in the current session.
+    3. Check [available strategies](performance.md#parallel-execution-and-scalability) for optimal performance.
+    4. See  the other configuration settings in the Apache DataFusion [documentation](https://datafusion.apache.org/user-guide/configs.html).
+
+
+### Streaming (out-of-core processing)
+polars-bio supports out-of-core processing with Polars LazyFrame [streaming](https://docs.pola.rs/user-guide/concepts/_streaming/) option.
+
+:construction:
+More details coming soon.
 ## Genomic ranges operations
 
 | Features     | Bioframe           | polars-bio         | PyRanges           | Pybedtools          | PyGenomics         | GenomicRanges      |

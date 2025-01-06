@@ -17,4 +17,6 @@ arrow = "53.3.0"
 tokio = "1.42.0"
 log = "0.4.22"
 
-#pyo3-arrow = { version = "0.5.1"}
+polars = { path = "/Users/mwiewior/research/git/polars/crates/polars"}
+polars-plan = { path = "/Users/mwiewior/research/git/polars/crates/polars-plan", features = ["parquet", "cloud"] }
+polars-lazy = { path="/Users/mwiewior/research/git/polars/crates/polars-lazy", features = ["parquet", "new_streaming", "streaming", "csv", "cse"] }
