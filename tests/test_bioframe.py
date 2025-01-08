@@ -16,6 +16,16 @@ class TestBioframe:
         suffixes=("_1", "_3"),
         overlap_filter=FilterOp.Strict,
     )
+    result_overlap_lf = pb.overlap(
+        BIO_PD_DF1,
+        BIO_PD_DF2,
+        col1=("contig", "pos_start", "pos_end"),
+        col2=("contig", "pos_start", "pos_end"),
+        output_type="polars.LazyFrame",
+        suffixes=("_1", "_3"),
+        overlap_filter=FilterOp.Strict,
+    )
+
     result_bio_overlap = bf.overlap(
         BIO_PD_DF1,
         BIO_PD_DF2,
@@ -43,6 +53,7 @@ class TestBioframe:
 
     def test_overlap_count(self):
         assert len(self.result_overlap) == len(self.result_bio_overlap)
+        assert len(self.result_overlap_lf.collect()) == len(self.result_bio_overlap)
 
     def test_overlap_schema_rows(self):
         expected = self.result_bio_overlap.sort_values(

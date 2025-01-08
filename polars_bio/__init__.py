@@ -7,5 +7,5 @@ logging.getLogger().setLevel(logging.WARN)
 logger = logging.getLogger("polars_bio")
 logger.setLevel(logging.INFO)
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __all__ = ["overlap", "nearest", "ctx", "FilterOp", "vizualize_intervals"]
