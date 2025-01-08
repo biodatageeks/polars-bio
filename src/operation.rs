@@ -12,7 +12,7 @@ pub(crate) fn do_range_operation(
     ctx: &SessionContext,
     rt: &Runtime,
     range_options: RangeOptions,
-) -> datafusion::dataframe::DataFrame {
+) -> datafusion::common::Result<datafusion::dataframe::DataFrame> {
     // defaults
     match &range_options.overlap_alg {
         Some(alg) if alg == "coitreesnearest" => {
@@ -54,7 +54,7 @@ pub(crate) fn do_range_operation(
 async fn do_nearest(
     ctx: &SessionContext,
     range_opts: RangeOptions,
-) -> datafusion::dataframe::DataFrame {
+) -> datafusion::common::Result<datafusion::dataframe::DataFrame> {
     let sign = match range_opts.filter_op.unwrap() {
         FilterOp::Weak => "=".to_string(),
         _ => "".to_string(),
@@ -141,14 +141,19 @@ async fn do_nearest(
         sign,
         columns_2[2], // pos_end
     );
-    ctx.sql(&query).await.unwrap()
+    ctx.sql(&query).await
 }
 
 async fn do_overlap(
     ctx: &SessionContext,
     range_opts: RangeOptions,
-) -> datafusion::dataframe::DataFrame {
-    let sign = match range_opts.clone().filter_op.unwrap() {
+) -> datafusion::common::Result<datafusion::dataframe::DataFrame> {
+    let sign = match range_opts
+        .clone()
+        .filter_op
+        .or_else(|| Some(FilterOp::Strict))
+        .unwrap()
+    {
         FilterOp::Weak => "=".to_string(),
         _ => "".to_string(),
     };
@@ -219,5 +224,5 @@ async fn do_overlap(
         sign,
         columns_2[2], // pos_end
     );
-    ctx.sql(&query).await.unwrap()
+    ctx.sql(&query).await
 }

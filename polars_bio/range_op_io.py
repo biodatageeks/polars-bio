@@ -46,7 +46,7 @@ def range_lazy_scan(
         predicate: Union[pl.Expr, None],
         _n_rows: Union[int, None],
         _batch_size: Union[int, None],
-    ) -> Iterator[pl.DataFrame]:
+    ) -> Iterator[pl.LazyFrame]:
         df_lazy: datafusion.DataFrame = range_function(ctx, df_1, df_2, range_options)
         df_stream = df_lazy.execute_stream()
         for r in df_stream:
@@ -60,7 +60,7 @@ def range_lazy_scan(
             #  but for now we'll do it here.
             if with_columns is not None:
                 df = df.select(with_columns)
-        yield df
+        yield df.lazy()
 
     return register_io_source(_overlap_source, schema=schema)
 

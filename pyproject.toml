@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "polars-bio"
-version = "0.3.0"
+version = "0.4.0"
 description = "Blazing fast genomic operations on large Python dataframes"
 authors = []
 requires-python = ">=3.9"
@@ -16,7 +16,7 @@ classifiers = [
 
 dependencies = [
 #  "polars~=1.18.0",
-  "polars @ git+https://github.com/mwiewior/polars.git@d959dd3306f7bf19e2c2b2735e185b53ced42867#subdirectory=py-polars",
+  "polars @ git+https://github.com/mwiewior/polars.git@streaming-1.18.0#subdirectory=py-polars",
   "pandas~=2.2.3",
   "pyarrow~=18.1.0",
   "datafusion ~=43.1.0",
@@ -38,7 +38,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
-polars  = { git = "https://github.com/mwiewior/polars.git", rev ="d959dd3306f7bf19e2c2b2735e185b53ced42867", subdirectory = "py-polars"}
+polars  = { git = "https://github.com/mwiewior/polars.git", branch ="streaming-1.18.0", subdirectory = "py-polars"}
 pandas = "^2.2.3"
 pyarrow = "^18.1.0"
 datafusion = "^43.1.0"
