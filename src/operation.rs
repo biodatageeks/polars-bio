@@ -30,6 +30,10 @@ pub(crate) fn do_range_operation(
             );
         },
     }
+    let streaming = range_options.streaming.unwrap_or(false);
+    if streaming {
+        info!("Running in streaming mode...");
+    }
     info!(
         "Running {} operation with algorithm {} and {} thread(s)...",
         range_options.range_op,
@@ -67,6 +71,10 @@ async fn do_overlap(
 ) -> datafusion::dataframe::DataFrame {
     let query = prepare_query(overlap_query, range_opts);
     debug!("Query: {}", query);
+    debug!(
+        "{}",
+        ctx.state().config().options().execution.target_partitions
+    );
     ctx.sql(&query).await.unwrap()
 }
 

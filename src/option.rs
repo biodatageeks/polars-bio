@@ -3,7 +3,7 @@ use std::fmt;
 use pyo3::{pyclass, pymethods};
 
 #[pyclass(name = "RangeOptions")]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RangeOptions {
     #[pyo3(get, set)]
     pub range_op: RangeOp,
@@ -49,16 +49,25 @@ impl RangeOptions {
         }
     }
 }
+impl std::fmt::Display for RangeOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "streaming {}",
+            self.streaming.or_else(|| Some(false)).unwrap()
+        )
+    }
+}
 
 #[pyclass(eq, eq_int)]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum FilterOp {
     Weak = 0,
     Strict = 1,
 }
 
 #[pyclass(eq, eq_int)]
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum RangeOp {
     Overlap = 0,
     Complement = 1,

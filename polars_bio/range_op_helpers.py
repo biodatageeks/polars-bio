@@ -34,6 +34,9 @@ class Context:
         self.ctx.set_option("datafusion.execution.target_partitions", "1")
         self.ctx.set_option("sequila.interval_join_algorithm", "coitrees")
 
+    def set_option(self, key, value):
+        self.ctx.set_option(key, value)
+
 
 def range_operation(
     df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
@@ -41,8 +44,8 @@ def range_operation(
     range_options: RangeOptions,
     output_type: str,
     ctx: BioSessionContext,
-    streaming: bool = False,
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
+    ctx.sync_options()
     if isinstance(df1, str) and isinstance(df2, str):
         ext1 = Path(df1).suffix
         assert (
@@ -53,12 +56,13 @@ def range_operation(
             ext2 == ".parquet" or ext2 == ".csv"
         ), "Dataframe1 must be a Parquet or CSV file"
         # use suffixes to avoid column name conflicts
-        if streaming:
+        if range_options.streaming:
             # FIXME: Parallelism is not supported
             # FIXME: StringViews not supported yet see: https://datafusion.apache.org/blog/2024/12/14/datafusion-python-43.1.0/
-            ctx.set_option("datafusion.execution.target_partitions", "1")
+
+            ctx.set_option("datafusion.execution.target_partitions", "1", True)
             ctx.set_option(
-                "datafusion.execution.parquet.schema_force_view_types", "false"
+                "datafusion.execution.parquet.schema_force_view_types", "false", True
             )
             return stream_wrapper(
                 stream_range_operation_scan(ctx, df1, df2, range_options)

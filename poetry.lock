@@ -3071,7 +3071,7 @@ xlsxwriter = ["xlsxwriter"]
 [package.source]
 type = "git"
 url = "https://github.com/mwiewior/polars.git"
-reference = "streaming-1.18.0"
+reference = "9d4fca54b1d71fce08a51cf00a88f67c67313706"
 resolved_reference = "9d4fca54b1d71fce08a51cf00a88f67c67313706"
 subdirectory = "py-polars"
 
@@ -4624,4 +4624,4 @@ test = ["pytest"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "13b00d1a63d28e190f205f35d4d131ccbf982aecb3df128b25ad66e134f064f7"
+content-hash = "571838d432ba50c9af554b4a9f5bd313f88cf94150a44eea1d8524c9072d3b8d"

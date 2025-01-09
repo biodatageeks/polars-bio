@@ -12,6 +12,7 @@ nav:
       - ⚙️ API reference: api.md
   - Quick start: quickstart.md
   - Features: features.md
+  - Cookbook: cookbook.md
   - Tutorial: notebooks/tutorial.ipynb
   - Performance: performance.md
   - API reference: api.md

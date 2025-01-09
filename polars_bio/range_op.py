@@ -99,8 +99,9 @@ def overlap(
         columns_1=col1,
         columns_2=col2,
         overlap_alg=algorithm,
+        streaming=streaming,
     )
-    return range_operation(df1, df2, range_options, output_type, ctx, streaming)
+    return range_operation(df1, df2, range_options, output_type, ctx)
 
 
 def nearest(
@@ -156,5 +157,6 @@ def nearest(
         suffixes=suffixes,
         columns_1=col1,
         columns_2=col2,
+        streaming=streaming,
     )
-    return range_operation(df1, df2, range_options, output_type, ctx, streaming)
+    return range_operation(df1, df2, range_options, output_type, ctx)

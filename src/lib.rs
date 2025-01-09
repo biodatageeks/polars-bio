@@ -113,6 +113,10 @@ fn stream_range_operation_scan(
             name: &"SCAN polars-bio",
             ..ScanArgsAnonymous::default()
         };
+        debug!(
+            "{}",
+            ctx.state().config().options().execution.target_partitions
+        );
         let stream = rt.block_on(df.execute_stream()).unwrap();
         let scan = RangeOperationScan {
             df_iter: Arc::new(Mutex::new(stream)),

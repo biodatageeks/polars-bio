@@ -14,11 +14,16 @@ pb.ctx.set_option("datafusion.execution.target_partitions", 8)
     4. See  the other configuration settings in the Apache DataFusion [documentation](https://datafusion.apache.org/user-guide/configs.html).
 
 
-### Streaming (out-of-core processing)
+### Streaming (out-of-core processing) [Exeprimental]🧪
 polars-bio supports out-of-core processing with Polars LazyFrame [streaming](https://docs.pola.rs/user-guide/concepts/_streaming/) option.
 
+
+!!! Limitations
+    1. Single threaded.
+
+
 :construction:
-More details coming soon.
+
 ## Genomic ranges operations
 
 | Features     | Bioframe           | polars-bio         | PyRanges           | Pybedtools          | PyGenomics         | GenomicRanges      |
