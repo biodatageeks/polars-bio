@@ -13,4 +13,13 @@
 [polars-bio](https://pypi.org/project/polars-bio/) is a Python library for genomics built on top of [polars](https://pola.rs/), [Apache Arrow](https://arrow.apache.org/) and [Apache DataFusion](https://datafusion.apache.org/).
 It provides a DataFrame API for genomics data and is designed to be blazing fast, memory efficient and easy to use.
 
+## Key Features
+* optimized for [peformance](performance.md#results-summary-) and large-scale genomics datasets
+* popular genomics [operations](features.md#genomic-ranges-operations) with a DataFrame API (both [Pandas](https://pandas.pydata.org/) and [polars](https://pola.rs/))
+* native parallel engine powered by Apache DataFusion and [sequila-native](https://github.com/biodatageeks/sequila-native)
+* [out-of-core](features.md#streaming-out-of-core-processing) processing (for data too large to fit into a computer's main memory)  with [Apache DataFusion](https://datafusion.apache.org/) and [polars](https://pola.rs/)
+* zero-copy data exchange with [Apache Arrow](https://arrow.apache.org/)
+* pre-built wheel packages for *Linux*, *Windows* and *MacOS* (*arm64* and *x86_64*) available on [PyPI](https://pypi.org/project/polars-bio/#files)
+
+
 Read the [documentation](https://biodatageeks.github.io/polars-bio/)
