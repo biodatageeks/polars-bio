@@ -58,9 +58,9 @@ Test cases were categorized based on the size 👕 of the input datasets and the
 - **L-size**: 100,000,000 < output < 1,000,000,000
 - **XL-size**: output > 1,000,000,000
 
-!!! note
-    Naming convention for the test cases is as follows `test-case-size (dataset-1-id, dataset-2-id)`, e.g.: `S-size (1-2)`, where `1` and `2` are the indices of the datasets used in the test case.
-
+!!! tip
+    1. Naming convention for the test cases is as follows `test-case-size (dataset-1-id, dataset-2-id)`, e.g.: `S-size (1-2)`, where `1` and `2` are the indices of the datasets used in the test case.
+    2. In the case of all but *polars-bio* native reader the reported timings **exclude** the time to read the data from disk and do the required preprocessing (e.g. Python object creation) and column mappings.
 ### Apple Silicon (macOS) 🍎
 Here is the configuration of the Apple Silicon machine used for benchmarking:
 
@@ -728,6 +728,8 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 
 ### Overlap operation
 
+
+
 #### Apple Silicon (macOS) 🍎
 
 ##### 0-8
@@ -1249,7 +1251,14 @@ memory-profiler            0.61.0
 mprof run --include-children benchmark/src/memory/mem_xxx.py
 mprof plot mprofile_xxx.dat
 ```
-#### Count operation
+
+!!! tip
+    1. Here we report end-to-end time, i.e. including reading and writing to a file and all the required operations in between, such as data transformation, Python object creation, etc.
+
+
+#### Apple Silicon (macOS) 🍎
+
+##### Read Parquet files and count overlaps  7-8
 Library      | Peak Memory (MB) | Factor   |
 -------------|------------------|----------|
 polars-bio   | **14,650**       | **1.0x** |
@@ -1257,10 +1266,7 @@ bioframe     | 35,720           | 2.43x    |
 pyranges0    | 30,140           | 2.06x    |
 pyranges1    | 35,940           | 2.45x    |
 
-#### Apple Silicon (macOS) 🍎
 
-
-##### 7-8
 ###### polars-bio
 ![polars-bio](assets/memory/polars-bio.png)
 ###### bioframe
@@ -1269,6 +1275,34 @@ pyranges1    | 35,940           | 2.45x    |
 ![pyranges](assets/memory/pyranges0.png)
 ###### pyranges1
 ![pyranges](assets/memory/pyranges1.png)
+
+#### Calculate overlaps and export to a CSV file 7-8
+
+| Library           | Time (s)               | Speedup  | Peak Memory (MB) | Factor   |
+|-------------------|------------------------|----------|------------------|----------|
+| polars-bio        | **23.765**             | 0.77x    | 14,660           | 26.07x   |
+| polars-bio-stream | **18.221**<sup>1</sup> | **1.0x** | **562.22**       | **1.0x** |
+| bioframe          | 370.010                | 0.05x    | 33,352           | 59.32x   |
+| pyranges0         | 275.237                | 0.07x    | 30.052           | 53.45x   |
+| pyranges1         | 351.041                | 0.05x    | 36,530           | 0.06x    |
+
+<sup>1</sup> Despite limiting the number of threads in DataFusion (`datafusion.execution.target_partitions=1`) and in Polars (`POLARS_MAX_THREADS=1`) cpu utilization was constant and approx.160%.
+###### polars-bio
+![polars-bio](assets/memory/polars-bio_sink.png)
+
+###### polars-bio_stream
+![polars-bio](assets/memory/polars-bio_stream_sink.png)
+
+###### bioframe
+
+![bioframe](assets/memory/bioframe_sink.png)
+
+###### pyranges0
+
+![pyranges](assets/memory/pyranges0_sink.png)
+###### pyranges1
+![pyranges](assets/memory/pyranges1_sink.png)
+
 ## How to run the benchmarks
 ```bash
 poetry env use python3.12
