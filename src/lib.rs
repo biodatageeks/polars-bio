@@ -30,14 +30,15 @@ const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
 const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
 
-#[allow(clippy::useless_conversion)]
 #[pyfunction]
+
 fn range_operation_frame(
     py_ctx: &PyBioSessionContext,
     df1: PyArrowType<ArrowArrayStreamReader>,
     df2: PyArrowType<ArrowArrayStreamReader>,
     range_options: RangeOptions,
 ) -> PyResult<PyDataFrame> {
+    #[allow(clippy::useless_conversion)]
     let rt = Runtime::new().unwrap();
     let ctx = &py_ctx.ctx;
     register_frame(ctx, df1, LEFT_TABLE.to_string());
@@ -49,14 +50,15 @@ fn range_operation_frame(
     )))
 }
 
-#[allow(clippy::useless_conversion)]
 #[pyfunction]
+
 fn range_operation_scan(
     py_ctx: &PyBioSessionContext,
     df_path1: String,
     df_path2: String,
     range_options: RangeOptions,
 ) -> PyResult<PyDataFrame> {
+    #[allow(clippy::useless_conversion)]
     let rt = Runtime::new()?;
     let ctx = &py_ctx.ctx;
     rt.block_on(register_table(
@@ -78,8 +80,8 @@ fn range_operation_scan(
     )))
 }
 
-#[allow(clippy::useless_conversion)]
 #[pyfunction]
+
 fn stream_range_operation_scan(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
@@ -87,6 +89,7 @@ fn stream_range_operation_scan(
     df_path2: String,
     range_options: RangeOptions,
 ) -> PyResult<PyLazyFrame> {
+    #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
         let rt = Runtime::new().unwrap();
         let ctx = &py_ctx.ctx;
