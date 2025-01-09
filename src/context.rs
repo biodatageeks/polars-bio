@@ -19,7 +19,7 @@ impl PyBioSessionContext {
     #[new]
     pub fn new() -> PyResult<Self> {
         let ctx = create_context();
-        let mut session_config: HashMap<String, String> = HashMap::new();
+        let session_config: HashMap<String, String> = HashMap::new();
         Ok(PyBioSessionContext {
             ctx,
             session_config,

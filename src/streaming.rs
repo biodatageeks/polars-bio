@@ -17,10 +17,11 @@ impl AnonymousScan for RangeOperationScan {
         self
     }
 
+    #[allow(unused)]
     fn scan(&self, scan_opts: AnonymousScanArgs) -> PolarsResult<polars::prelude::DataFrame> {
-        !todo!("Only streaming is supported")
+        unimplemented!()
     }
-
+    #[allow(unused)]
     fn next_batch(
         &self,
         scan_opts: AnonymousScanArgs,

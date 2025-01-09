@@ -1,5 +1,5 @@
 use datafusion::prelude::SessionContext;
-use log::{debug, info, log};
+use log::{debug, info};
 use sequila_core::session_context::{Algorithm, SequilaConfig};
 use tokio::runtime::Runtime;
 
@@ -7,7 +7,7 @@ use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions};
 use crate::query::{nearest_query, overlap_query};
 use crate::utils::default_cols_to_string;
-use crate::{DEFAULT_COLUMN_NAMES, LEFT_TABLE, RIGHT_TABLE};
+use crate::DEFAULT_COLUMN_NAMES;
 
 pub(crate) fn do_range_operation(
     ctx: &SessionContext,

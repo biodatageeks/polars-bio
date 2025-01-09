@@ -6,7 +6,6 @@ use arrow::ffi_stream::ArrowArrayStreamReader;
 use arrow::pyarrow::PyArrowType;
 use datafusion::datasource::MemTable;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions, SessionContext};
-use polars_plan::prelude::AnonymousScan;
 
 use crate::option::InputFormat;
 

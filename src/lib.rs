@@ -8,16 +8,12 @@ mod utils;
 
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
-use std::task;
 
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
 use datafusion_python::dataframe::PyDataFrame;
-use futures_util::stream::StreamExt;
 use log::debug;
-use polars::df;
-use polars_core::prelude::SchemaRef;
-use polars_lazy::prelude::{IntoLazy, LazyFrame, ScanArgsAnonymous, ScanArgsParquet};
+use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
 use polars_python::error::PyPolarsErr;
 use polars_python::lazyframe::PyLazyFrame;
 use pyo3::prelude::*;
