@@ -9,6 +9,12 @@ use crate::query::{nearest_query, overlap_query};
 use crate::utils::default_cols_to_string;
 use crate::DEFAULT_COLUMN_NAMES;
 
+pub(crate) struct QueryParams {
+    pub sign: String,
+    pub suffixes: (String, String),
+    pub columns_1: Vec<String>,
+    pub columns_2: Vec<String>,
+}
 pub(crate) fn do_range_operation(
     ctx: &SessionContext,
     rt: &Runtime,
@@ -78,10 +84,7 @@ async fn do_overlap(
     ctx.sql(&query).await.unwrap()
 }
 
-pub(crate) fn prepare_query(
-    query: fn(String, (String, String), Vec<String>, Vec<String>) -> String,
-    range_opts: RangeOptions,
-) -> String {
+pub(crate) fn prepare_query(query: fn(QueryParams) -> String, range_opts: RangeOptions) -> String {
     let sign = match range_opts.filter_op.unwrap() {
         FilterOp::Weak => "=".to_string(),
         _ => "".to_string(),
@@ -98,6 +101,12 @@ pub(crate) fn prepare_query(
         Some(cols) => cols,
         _ => default_cols_to_string(&DEFAULT_COLUMN_NAMES),
     };
+    let query_params = QueryParams {
+        sign,
+        suffixes,
+        columns_1,
+        columns_2,
+    };
 
-    query(sign, suffixes, columns_1, columns_2)
+    query(query_params)
 }

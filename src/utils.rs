@@ -43,7 +43,10 @@ fn convert_arrow_rs_array_to_polars_arrow_array(
     let export_arrow = arrow_array::ffi::to_ffi(&arrow_rs_array.to_data()).unwrap();
     let arrow_c_array = export_arrow.0;
     let polars_c_array: polars_arrow::ffi::ArrowArray = unsafe { mem::transmute(arrow_c_array) };
-    Ok(unsafe { polars_arrow::ffi::import_array_from_c(polars_c_array, polars_arrow_dtype) }?)
+    Ok(
+        unsafe { polars_arrow::ffi::import_array_from_c(polars_c_array, polars_arrow_dtype) }
+            .unwrap(),
+    )
 }
 
 pub fn convert_arrow_rb_to_polars_df(

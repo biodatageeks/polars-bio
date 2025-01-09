@@ -25,6 +25,7 @@ pub struct RangeOptions {
 
 #[pymethods]
 impl RangeOptions {
+    #[allow(clippy::too_many_arguments)]
     #[new]
     #[pyo3(signature = (range_op, filter_op=None, suffixes=None, columns_1=None, columns_2=None, on_cols=None, overlap_alg=None, streaming=None))]
     pub fn new(
@@ -51,11 +52,7 @@ impl RangeOptions {
 }
 impl std::fmt::Display for RangeOptions {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(
-            f,
-            "streaming {}",
-            self.streaming.or_else(|| Some(false)).unwrap()
-        )
+        write!(f, "streaming {}", self.streaming.unwrap_or(false))
     }
 }
 

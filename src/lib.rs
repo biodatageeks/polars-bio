@@ -103,11 +103,11 @@ fn stream_range_operation_scan(
 
         let df = do_range_operation(ctx, &rt, range_options);
         let schema = df.schema().as_arrow();
-        let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(&schema).unwrap();
+        let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
         debug!("Schema: {:?}", polars_schema);
         let args = ScanArgsAnonymous {
             schema: Some(Arc::new(polars_schema)),
-            name: &"SCAN polars-bio",
+            name: "SCAN polars-bio",
             ..ScanArgsAnonymous::default()
         };
         debug!(

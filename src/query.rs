@@ -1,11 +1,7 @@
+use crate::operation::QueryParams;
 use crate::{LEFT_TABLE, RIGHT_TABLE};
 
-pub(crate) fn nearest_query(
-    sign: String,
-    suffixes: (String, String),
-    columns_1: Vec<String>,
-    columns_2: Vec<String>,
-) -> String {
+pub(crate) fn nearest_query(query_params: QueryParams) -> String {
     let query = format!(
         r#"
         SELECT
@@ -32,58 +28,53 @@ pub(crate) fn nearest_query(
             AND cast(b.{} AS INT) >{} cast(a.{} AS INT )
             AND cast(b.{} AS INT) <{} cast(a.{} AS INT)
         "#,
-        columns_1[0],
-        columns_1[0],
-        suffixes.0, // contig
-        columns_1[1],
-        columns_1[1],
-        suffixes.0, // pos_start
-        columns_1[2],
-        columns_1[2],
-        suffixes.0, // pos_end
-        columns_2[0],
-        columns_2[0],
-        suffixes.1, // contig
-        columns_2[1],
-        columns_2[1],
-        suffixes.1, // pos_start
-        columns_2[2],
-        columns_2[2],
-        suffixes.1, // pos_end
-        columns_1[0],
-        columns_1[1],
-        columns_1[2], // all join columns from right table
-        columns_2[0],
-        columns_2[1],
-        columns_2[2], // all join columns from left table
-        columns_2[1],
-        columns_1[2], //  b.pos_start >= a.pos_end
-        columns_2[1],
-        columns_1[2], // b.pos_start-a.pos_end
-        columns_2[2],
-        columns_1[1], // b.pos_end <= a.pos_start
-        columns_2[2],
-        columns_1[1], // a.pos_start-b.pos_end
+        query_params.columns_1[0],
+        query_params.columns_1[0],
+        query_params.suffixes.0, // contig
+        query_params.columns_1[1],
+        query_params.columns_1[1],
+        query_params.suffixes.0, // pos_start
+        query_params.columns_1[2],
+        query_params.columns_1[2],
+        query_params.suffixes.0, // pos_end
+        query_params.columns_2[0],
+        query_params.columns_2[0],
+        query_params.suffixes.1, // contig
+        query_params.columns_2[1],
+        query_params.columns_2[1],
+        query_params.suffixes.1, // pos_start
+        query_params.columns_2[2],
+        query_params.columns_2[2],
+        query_params.suffixes.1, // pos_end
+        query_params.columns_1[0],
+        query_params.columns_1[1],
+        query_params.columns_1[2], // all join columns from right table
+        query_params.columns_2[0],
+        query_params.columns_2[1],
+        query_params.columns_2[2], // all join columns from left table
+        query_params.columns_2[1],
+        query_params.columns_1[2], //  b.pos_start >= a.pos_end
+        query_params.columns_2[1],
+        query_params.columns_1[2], // b.pos_start-a.pos_end
+        query_params.columns_2[2],
+        query_params.columns_1[1], // b.pos_end <= a.pos_start
+        query_params.columns_2[2],
+        query_params.columns_1[1], // a.pos_start-b.pos_end
         RIGHT_TABLE,
         LEFT_TABLE,
-        columns_1[0],
-        columns_2[0], // contig
-        columns_1[2],
-        sign,
-        columns_2[1], // pos_start
-        columns_1[1],
-        sign,
-        columns_2[2], // pos_end
+        query_params.columns_1[0],
+        query_params.columns_2[0], // contig
+        query_params.columns_1[2],
+        query_params.sign,
+        query_params.columns_2[1], // pos_start
+        query_params.columns_1[1],
+        query_params.sign,
+        query_params.columns_2[2], // pos_end
     );
     query
 }
 
-pub(crate) fn overlap_query(
-    sign: String,
-    suffixes: (String, String),
-    columns_1: Vec<String>,
-    columns_2: Vec<String>,
-) -> String {
+pub(crate) fn overlap_query(query_params: QueryParams) -> String {
     let query = format!(
         r#"
             SELECT
@@ -104,40 +95,40 @@ pub(crate) fn overlap_query(
             AND
                 cast(a.{} AS INT) <{} cast(b.{} AS INT)
         "#,
-        columns_1[0],
-        columns_1[0],
-        suffixes.0, // contig
-        columns_1[1],
-        columns_1[1],
-        suffixes.0, // pos_start
-        columns_1[2],
-        columns_1[2],
-        suffixes.0, // pos_end
-        columns_2[0],
-        columns_2[0],
-        suffixes.1, // contig
-        columns_2[1],
-        columns_2[1],
-        suffixes.1, // pos_start
-        columns_2[2],
-        columns_2[2],
-        suffixes.1, // pos_end
-        columns_1[0],
-        columns_1[1],
-        columns_1[2], // all join columns from right table
-        columns_2[0],
-        columns_2[1],
-        columns_2[2], // all join columns from left table
+        query_params.columns_1[0],
+        query_params.columns_1[0],
+        query_params.suffixes.0, // contig
+        query_params.columns_1[1],
+        query_params.columns_1[1],
+        query_params.suffixes.0, // pos_start
+        query_params.columns_1[2],
+        query_params.columns_1[2],
+        query_params.suffixes.0, // pos_end
+        query_params.columns_2[0],
+        query_params.columns_2[0],
+        query_params.suffixes.1, // contig
+        query_params.columns_2[1],
+        query_params.columns_2[1],
+        query_params.suffixes.1, // pos_start
+        query_params.columns_2[2],
+        query_params.columns_2[2],
+        query_params.suffixes.1, // pos_end
+        query_params.columns_1[0],
+        query_params.columns_1[1],
+        query_params.columns_1[2], // all join columns from right table
+        query_params.columns_2[0],
+        query_params.columns_2[1],
+        query_params.columns_2[2], // all join columns from left table
         LEFT_TABLE,
         RIGHT_TABLE,
-        columns_1[0],
-        columns_2[0], // contig
-        columns_1[2],
-        sign,
-        columns_2[1], // pos_start
-        columns_1[1],
-        sign,
-        columns_2[2], // pos_end
+        query_params.columns_1[0],
+        query_params.columns_2[0], // contig
+        query_params.columns_1[2],
+        query_params.sign,
+        query_params.columns_2[1], // pos_start
+        query_params.columns_1[1],
+        query_params.sign,
+        query_params.columns_2[2], // pos_end
     );
     query
 }
