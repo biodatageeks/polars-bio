@@ -9,6 +9,7 @@ from polars_bio.polars_bio import (
     RangeOptions,
     range_operation_frame,
     range_operation_scan,
+    stream_range_operation_scan,
 )
 
 from .range_op_io import _df_to_arrow, _get_schema, _rename_columns, range_lazy_scan
@@ -32,8 +33,6 @@ class Context:
         self.ctx = BioSessionContext()
         self.ctx.set_option("datafusion.execution.target_partitions", "1")
         self.ctx.set_option("sequila.interval_join_algorithm", "coitrees")
-        self.ctx.set_option("datafusion.execution.coalesce_batches", "false")
-        self.ctx.set_option("datafusion.optimizer.repartition_joins", "true")
 
 
 def range_operation(
@@ -42,6 +41,7 @@ def range_operation(
     range_options: RangeOptions,
     output_type: str,
     ctx: BioSessionContext,
+    streaming: bool = False,
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     if isinstance(df1, str) and isinstance(df2, str):
         ext1 = Path(df1).suffix
@@ -53,6 +53,16 @@ def range_operation(
             ext2 == ".parquet" or ext2 == ".csv"
         ), "Dataframe1 must be a Parquet or CSV file"
         # use suffixes to avoid column name conflicts
+        if streaming:
+            # FIXME: Parallelism is not supported
+            # FIXME: StringViews not supported yet see: https://datafusion.apache.org/blog/2024/12/14/datafusion-python-43.1.0/
+            ctx.set_option("datafusion.execution.target_partitions", "1")
+            ctx.set_option(
+                "datafusion.execution.parquet.schema_force_view_types", "false"
+            )
+            return stream_wrapper(
+                stream_range_operation_scan(ctx, df1, df2, range_options)
+            )
         df_schema1 = _get_schema(df1, range_options.suffixes[0])
         df_schema2 = _get_schema(df2, range_options.suffixes[1])
         merged_schema = pl.Schema({**df_schema1, **df_schema2})
@@ -122,3 +132,7 @@ def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how):
     ], "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
 
     assert how in ["inner"], "Only inner join is supported"
+
+
+def stream_wrapper(pyldf):
+    return pl.LazyFrame._from_pyldf(pyldf)

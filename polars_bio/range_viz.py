@@ -14,6 +14,7 @@ def visualize_intervals(
 
     Parameters:
         df: Pandas DataFrame or Polars DataFrame. The DataFrame containing the overlapping intervals
+        label: TBD
 
     """
     assert isinstance(

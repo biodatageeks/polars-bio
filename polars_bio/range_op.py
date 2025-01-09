@@ -47,7 +47,7 @@ def overlap(
         on_cols: List of additional column names to join on. default is None.
         algorithm: The algorithm to use for the overlap operation. default is "Coitrees".
         output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
-        streaming: If True, use Polars [streaming](https://docs.pola.rs/user-guide/concepts/_streaming/) engine.
+        streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming-out-of-core-processing) engine.
 
     Returns:
         **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
@@ -100,7 +100,7 @@ def overlap(
         columns_2=col2,
         overlap_alg=algorithm,
     )
-    return range_operation(df1, df2, range_options, output_type, ctx)
+    return range_operation(df1, df2, range_options, output_type, ctx, streaming)
 
 
 def nearest(
@@ -112,6 +112,7 @@ def nearest(
     col1: Union[list[str], None] = None,
     col2: Union[list[str], None] = None,
     output_type: str = "polars.LazyFrame",
+    streaming: bool = False,
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     """
     Find pairs of overlapping genomic intervals.
@@ -130,6 +131,7 @@ def nearest(
         suffixes: Suffixes for the columns of the two overlapped sets.
         on_cols: List of additional column names to join on. default is None.
         output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
+        streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming-out-of-core-processing) engine.
 
     Returns:
         **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
@@ -155,4 +157,4 @@ def nearest(
         columns_1=col1,
         columns_2=col2,
     )
-    return range_operation(df1, df2, range_options, output_type, ctx)
+    return range_operation(df1, df2, range_options, output_type, ctx, streaming)

@@ -15,6 +15,7 @@ nav:
   - Tutorial: notebooks/tutorial.ipynb
   - Performance: performance.md
   - API reference: api.md
+  - FAQ: faq.md
 
 plugins:
   - search

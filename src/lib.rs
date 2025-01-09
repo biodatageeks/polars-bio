@@ -79,20 +79,8 @@ fn range_operation_scan(
     )))
 }
 
-fn genomic_ranges() -> polars::prelude::DataFrame {
-    df!(
-            "contig_1"=> ["chr1"],
-            "pos_start_1"=> [1i32 ],
-            "pos_end_1"=> [1i32],
-            "contig_2"=> ["chr1"],
-            "pos_start_2"=> [1i32],
-            "pos_end_2"=> [1i32]
-    )
-    .unwrap()
-}
-
 #[pyfunction]
-fn lazy_range_operation_scan(
+fn stream_range_operation_scan(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
     df_path1: String,
@@ -100,8 +88,6 @@ fn lazy_range_operation_scan(
     range_options: RangeOptions,
 ) -> PyResult<PyLazyFrame> {
     py.allow_threads(|| {
-        let streaming = range_options.streaming.unwrap_or_else(|| false);
-        let operation = range_options.range_op.to_string();
         let rt = Runtime::new().unwrap();
         let ctx = &py_ctx.ctx;
 
@@ -132,81 +118,19 @@ fn lazy_range_operation_scan(
             df_iter: Arc::new(Mutex::new(stream)),
         };
         let function = Arc::new(scan);
-        let lf = LazyFrame::anonymous_scan(function, args).unwrap();
+        let lf = LazyFrame::anonymous_scan(function, args)
+            .unwrap()
+            .with_streaming(true);
         Ok(lf.into())
     })
 }
-
-// fn genomic_ranges() -> polars::prelude::DataFrame {
-//     df!(
-//             "contig_1"=> ["chr1"],
-//             "pos_start_1"=> [1i32 ],
-//             "pos_end_1"=> [1i32],
-//             "contig_2"=> ["chr1"],
-//             "pos_start_2"=> [1i32],
-//             "pos_end_2"=> [1i32]
-//     )
-//         .unwrap()
-// }
-//
-// #[pyfunction]
-// fn lazy_range_operation_scan(
-//     py: Python<'_>,
-//     py_ctx: &PyBioSessionContext,
-//     df_path1: String,
-//     df_path2: String,
-//     range_options: RangeOptions,
-// ) -> PyResult<PyLazyFrame> {
-//     py.allow_threads(|| {
-//         let streaming = range_options.streaming.unwrap_or_else(|| false);
-//         let operation = range_options.range_op.to_string();
-//         let rt = Runtime::new().unwrap();
-//         let ctx = &py_ctx.ctx;
-//
-//         rt.block_on(register_table(
-//             ctx,
-//             &df_path1,
-//             LEFT_TABLE,
-//             get_input_format(&df_path1),
-//         ));
-//         rt.block_on(register_table(
-//             ctx,
-//             &df_path2,
-//             RIGHT_TABLE,
-//             get_input_format(&df_path2),
-//         ));
-//
-//         let args = ScanArgsAnonymous {
-//             schema: Some(Arc::new(genomic_ranges().schema())), //FIXME: This is a dummy implementation
-//             // name: &*format!("SCAN {}", operation).to_string(),
-//
-//             ..ScanArgsAnonymous::default()
-//         };
-//         // let df = rt.block_on(ctx.sql("SELECT contig as contig_1, pos_start as pos_start_1, pos_end as pos_end_1 from s1"));
-//         let df = rt.block_on(ctx.sql(
-//             "select a.contig as contig_1, a.pos_start as pos_start_1, a.pos_end as pos_end_1,
-//                         b.contig as contig_2, b.pos_start as pos_start_2, b.pos_end as pos_end_2
-//                         from s1 as a join s2 as b
-//                             on a.contig = b.contig
-//                                 and a.pos_end > b.pos_start
-//                                 and a.pos_start < b.pos_end;",
-//         ));
-//         let stream = rt.block_on(df?.execute_stream())?;
-//         let scan = RangeOperationScan {
-//             df_iter:  Arc::new(Mutex::new(stream)),
-//         };
-//         let function = Arc::new(scan);
-//         let lf = LazyFrame::anonymous_scan(function, args).unwrap();
-//         Ok(lf.lazy().into())
-//     })
-// }
 
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
-    m.add_function(wrap_pyfunction!(lazy_range_operation_scan, m)?)?;
+    m.add_function(wrap_pyfunction!(stream_range_operation_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;

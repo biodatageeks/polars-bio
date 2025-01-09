@@ -15,8 +15,8 @@ classifiers = [
 ]
 
 dependencies = [
-#  "polars~=1.18.0",
-  "polars @ git+https://github.com/mwiewior/polars.git@streaming-1.18.0#subdirectory=py-polars",
+  "polars~=1.17.1",
+#  "polars @ git+https://github.com/mwiewior/polars.git@streaming-1.18.0#subdirectory=py-polars",
   "pandas~=2.2.3",
   "pyarrow~=18.1.0",
   "datafusion ~=43.1.0",
@@ -38,7 +38,8 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
-polars  = { git = "https://github.com/mwiewior/polars.git", branch ="streaming-1.18.0", subdirectory = "py-polars"}
+polars ="1.17.1"
+#polars  = { git = "https://github.com/mwiewior/polars.git", branch ="streaming-1.18.0", subdirectory = "py-polars"}
 pandas = "^2.2.3"
 pyarrow = "^18.1.0"
 datafusion = "^43.1.0"
@@ -66,7 +67,7 @@ psutil = "^6.1.1"
 rich = "^13.9.4"
 
 ## only for benchmarking
-#pyranges = {git = "https://github.com/pyranges/pyranges.git", rev = "4f0a153336e7153cdfea15b141ce4ea35a24e233" }
+pyranges = {git = "https://github.com/pyranges/pyranges.git", rev = "4f0a153336e7153cdfea15b141ce4ea35a24e233" }
 #GenomicRanges = "^0.5.0"
 #pyranges1 = { git = "https://github.com/mwiewior/pyranges1.git", rev = "949d7c15c1c2e217f4404415f79b386f326b6f8d"}
 #pybedtools = "^0.10.0"
