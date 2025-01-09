@@ -18,6 +18,7 @@ use log::debug;
 use polars::df;
 use polars_core::prelude::SchemaRef;
 use polars_lazy::prelude::{IntoLazy, LazyFrame, ScanArgsAnonymous, ScanArgsParquet};
+use polars_python::error::PyPolarsErr;
 use polars_python::lazyframe::PyLazyFrame;
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
@@ -122,9 +123,7 @@ fn stream_range_operation_scan(
             df_iter: Arc::new(Mutex::new(stream)),
         };
         let function = Arc::new(scan);
-        let lf = LazyFrame::anonymous_scan(function, args)
-            .unwrap()
-            .with_streaming(true);
+        let lf = LazyFrame::anonymous_scan(function, args).map_err(PyPolarsErr::from)?;
         Ok(lf.into())
     })
 }

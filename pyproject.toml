@@ -16,7 +16,7 @@ classifiers = [
 
 dependencies = [
   "polars~=1.17.1",
-#  "polars @ git+https://github.com/mwiewior/polars.git@streaming-1.18.0#subdirectory=py-polars",
+#  "polars @ git+https://github.com/mwiewior/polars.git@9d4fca54b1d71fce08a51cf00a88f67c67313706#subdirectory=py-polars",
   "pandas~=2.2.3",
   "pyarrow~=18.1.0",
   "datafusion ~=43.1.0",
@@ -39,7 +39,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
 polars ="1.17.1"
-#polars  = { git = "https://github.com/mwiewior/polars.git", branch ="streaming-1.18.0", subdirectory = "py-polars"}
+#polars  = { git = "https://github.com/mwiewior/polars.git", rev ="9d4fca54b1d71fce08a51cf00a88f67c67313706", subdirectory = "py-polars"}
 pandas = "^2.2.3"
 pyarrow = "^18.1.0"
 datafusion = "^43.1.0"

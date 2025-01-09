@@ -3035,12 +3035,18 @@ testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
 name = "polars"
-version = "1.17.0"
+version = "1.17.1"
 description = "Blazingly fast DataFrame library"
 optional = false
 python-versions = ">=3.9"
-files = []
-develop = false
+files = [
+    {file = "polars-1.17.1-cp39-abi3-macosx_10_12_x86_64.whl", hash = "sha256:d3a2172f7cf332010f0b034345111e9c86d59b5a5b0fc5aa0509121f40d9e43c"},
+    {file = "polars-1.17.1-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:82e98c69197df0d8ddc341a6175008508ceaea88f723f32044027810bcdb43fa"},
+    {file = "polars-1.17.1-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:59abdab015ed2ecfa0c63862b960816c35096e1f4df057dde3c44cd973af5029"},
+    {file = "polars-1.17.1-cp39-abi3-manylinux_2_24_aarch64.whl", hash = "sha256:6d2f922c403b8900b3ae3c23a27b2cae3a2db40ad790cc4fc368402b92629b11"},
+    {file = "polars-1.17.1-cp39-abi3-win_amd64.whl", hash = "sha256:d38156c8259554cbcb17874d91e6dfa9c404335f08a3307496aadfdee46baa31"},
+    {file = "polars-1.17.1.tar.gz", hash = "sha256:5a3dac3cb7cbe174d1fa898cba9afbede0c08e8728feeeab515554d762127019"},
+]
 
 [package.extras]
 adbc = ["adbc-driver-manager[dbapi]", "adbc-driver-sqlite[dbapi]"]
@@ -3067,13 +3073,6 @@ style = ["great-tables (>=0.8.0)"]
 timezone = ["backports-zoneinfo", "tzdata"]
 xlsx2csv = ["xlsx2csv (>=0.8.0)"]
 xlsxwriter = ["xlsxwriter"]
-
-[package.source]
-type = "git"
-url = "https://github.com/mwiewior/polars.git"
-reference = "9d4fca54b1d71fce08a51cf00a88f67c67313706"
-resolved_reference = "9d4fca54b1d71fce08a51cf00a88f67c67313706"
-subdirectory = "py-polars"
 
 [[package]]
 name = "pre-commit"
@@ -4624,4 +4623,4 @@ test = ["pytest"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "571838d432ba50c9af554b4a9f5bd313f88cf94150a44eea1d8524c9072d3b8d"
+content-hash = "478004f8bdf6f7d9641e95558dcc67a10470af2e338286147745ccecd49be519"
