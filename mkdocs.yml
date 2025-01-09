@@ -7,6 +7,7 @@ nav:
       - polars-bio: index.md
       - 🏃🏼‍♂️ Quick start: quickstart.md
       - 🔨Features: features.md
+      - 👩‍🍳 Cookbook: cookbook.md
       - 📚 Tutorial: notebooks/tutorial.ipynb
       - 🚀 Performance: performance.md
       - ⚙️ API reference: api.md
