@@ -30,6 +30,7 @@ const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
 const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
 
+#[allow(clippy::useless_conversion)]
 #[pyfunction]
 fn range_operation_frame(
     py_ctx: &PyBioSessionContext,
@@ -48,6 +49,7 @@ fn range_operation_frame(
     )))
 }
 
+#[allow(clippy::useless_conversion)]
 #[pyfunction]
 fn range_operation_scan(
     py_ctx: &PyBioSessionContext,
@@ -76,6 +78,7 @@ fn range_operation_scan(
     )))
 }
 
+#[allow(clippy::useless_conversion)]
 #[pyfunction]
 fn stream_range_operation_scan(
     py: Python<'_>,
