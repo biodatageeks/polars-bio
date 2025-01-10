@@ -11,7 +11,6 @@ from .io import (
     read_fastq,
     read_gff,
     read_gtf,
-    read_indexed_vcf,
     read_vcf,
 )
 from .range_op import FilterOp, nearest, overlap

@@ -40,6 +40,17 @@ polars-bio supports out-of-core processing with Polars LazyFrame [streaming](htt
 
 ## File formats support
 
+| Format      | Support level|
+|-------------|--------------|
+| VCF         | :white_check_mark: |
+| BAM         | :white_check_mark: |
+| FASTQ       | :white_check_mark: |
+| FASTA       | :white_check_mark: |
+| GFF         | :white_check_mark: |
+| GTF         | :white_check_mark: |
+| BED         | :white_check_mark: |
+| Indexed VCF | :cross_mark: |
+| Indexed BAM | :cross_mark: |
 
 
 

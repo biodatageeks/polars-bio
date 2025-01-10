@@ -109,18 +109,18 @@ def read_fastq(path: str) -> pl.LazyFrame:
     return file_lazy_scan(path, InputFormat.Fastq)
 
 
-def read_indexed_vcf(path: str) -> pl.LazyFrame:
-    """
-    Read an indexed VCF file into a LazyFrame.
-
-    Parameters:
-        Parameters:
-        path: The path to the VCF file.
-
-    !!! warning
-        Predicate pushdown is not supported yet. So no real benefit from using an indexed VCF file.
-    """
-    return file_lazy_scan(path, InputFormat.Vcf)
+# def read_indexed_vcf(path: str) -> pl.LazyFrame:
+#     """
+#     Read an indexed VCF file into a LazyFrame.
+#
+#     Parameters:
+#         Parameters:
+#         path: The path to the VCF file.
+#
+#     !!! warning
+#         Predicate pushdown is not supported yet. So no real benefit from using an indexed VCF file.
+#     """
+#     return file_lazy_scan(path, InputFormat.Vcf)
 
 
 def file_lazy_scan(path: str, input_format: InputFormat) -> pl.LazyFrame:
