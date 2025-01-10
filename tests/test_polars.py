@@ -17,16 +17,16 @@ class TestOverlapPolars:
         PL_DF2,
         output_type="polars.DataFrame",
         overlap_filter=FilterOp.Weak,
-        col1=("contig", "pos_start", "pos_end"),
-        col2=("contig", "pos_start", "pos_end"),
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
     )
     result_lazy = pb.overlap(
         PL_DF1,
         PL_DF2,
         output_type="polars.LazyFrame",
         overlap_filter=FilterOp.Weak,
-        col1=("contig", "pos_start", "pos_end"),
-        col2=("contig", "pos_start", "pos_end"),
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
     ).collect()
     expected = PL_DF_OVERLAP
 
@@ -48,15 +48,15 @@ class TestNearestPolars:
         PL_NEAREST_DF1,
         PL_NEAREST_DF2,
         output_type="polars.DataFrame",
-        col1=("contig", "pos_start", "pos_end"),
-        col2=("contig", "pos_start", "pos_end"),
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
     )
     result_lazy = pb.nearest(
         PL_NEAREST_DF1,
         PL_NEAREST_DF2,
         output_type="polars.LazyFrame",
-        col1=("contig", "pos_start", "pos_end"),
-        col2=("contig", "pos_start", "pos_end"),
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
     ).collect()
     expected = PL_DF_NEAREST
 

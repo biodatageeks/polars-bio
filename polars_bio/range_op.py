@@ -21,8 +21,8 @@ def overlap(
     overlap_filter: FilterOp = FilterOp.Strict,
     suffixes: tuple[str, str] = ("_1", "_2"),
     on_cols: Union[list[str], None] = None,
-    col1: Union[list[str], None] = None,
-    col2: Union[list[str], None] = None,
+    cols1: Union[list[str], None] = None,
+    cols2: Union[list[str], None] = None,
     algorithm: str = "Coitrees",
     output_type: str = "polars.LazyFrame",
     streaming: bool = False,
@@ -36,10 +36,10 @@ def overlap(
         df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header and Parquet are supported.
         how: How to handle the overlaps on the two dataframes. inner: use intersection of the set of intervals from df1 and df2, optional.
         overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). default is FilterOp.Weak.
-        col1: The names of columns containing the chromosome, start and end of the
+        cols1: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set. The default
             values are 'chrom', 'start', 'end'.
-        col2:  The names of columns containing the chromosome, start and end of the
+        cols2:  The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set. The default
             values are 'chrom', 'start', 'end'.
         suffixes: Suffixes for the columns of the two overlapped sets.
@@ -84,19 +84,19 @@ def overlap(
         ```
 
     Todo:
-         Support for col1, col2, and on_cols and  suffixes parameters.
+         Support for on_cols.
     """
 
-    _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how)
+    _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type, how)
 
-    col1 = DEFAULT_INTERVAL_COLUMNS if col1 is None else col1
-    col2 = DEFAULT_INTERVAL_COLUMNS if col2 is None else col2
+    cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
+    cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
     range_options = RangeOptions(
         range_op=RangeOp.Overlap,
         filter_op=overlap_filter,
         suffixes=suffixes,
-        columns_1=col1,
-        columns_2=col2,
+        columns_1=cols1,
+        columns_2=cols2,
         overlap_alg=algorithm,
         streaming=streaming,
     )
@@ -109,8 +109,8 @@ def nearest(
     overlap_filter: FilterOp = FilterOp.Strict,
     suffixes: tuple[str, str] = ("_1", "_2"),
     on_cols: Union[list[str], None] = None,
-    col1: Union[list[str], None] = None,
-    col2: Union[list[str], None] = None,
+    cols1: Union[list[str], None] = None,
+    cols2: Union[list[str], None] = None,
     output_type: str = "polars.LazyFrame",
     streaming: bool = False,
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
@@ -122,10 +122,10 @@ def nearest(
         df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header and Parquet are supported.
         df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header and Parquet are supported.
         overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). default is FilterOp.Weak.
-        col1: The names of columns containing the chromosome, start and end of the
+        cols1: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set. The default
             values are 'chrom', 'start', 'end'.
-        col2:  The names of columns containing the chromosome, start and end of the
+        cols2:  The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set. The default
             values are 'chrom', 'start', 'end'.
         suffixes: Suffixes for the columns of the two overlapped sets.
@@ -143,19 +143,19 @@ def nearest(
     Example:
 
     Todo:
-        Support for col1, col2, and on_cols and  suffixes parameters.
+        Support for on_cols.
     """
 
-    _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how="inner")
+    _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type, how="inner")
 
-    col1 = DEFAULT_INTERVAL_COLUMNS if col1 is None else col1
-    col2 = DEFAULT_INTERVAL_COLUMNS if col2 is None else col2
+    cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
+    cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
     range_options = RangeOptions(
         range_op=RangeOp.Nearest,
         filter_op=overlap_filter,
         suffixes=suffixes,
-        columns_1=col1,
-        columns_2=col2,
+        columns_1=cols1,
+        columns_2=cols2,
         streaming=streaming,
     )
     return range_operation(df1, df2, range_options, output_type, ctx)

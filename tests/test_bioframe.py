@@ -10,8 +10,8 @@ class TestBioframe:
     result_overlap = pb.overlap(
         BIO_PD_DF1,
         BIO_PD_DF2,
-        col1=("contig", "pos_start", "pos_end"),
-        col2=("contig", "pos_start", "pos_end"),
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         suffixes=("_1", "_3"),
         overlap_filter=FilterOp.Strict,
@@ -19,8 +19,8 @@ class TestBioframe:
     result_overlap_lf = pb.overlap(
         BIO_PD_DF1,
         BIO_PD_DF2,
-        col1=("contig", "pos_start", "pos_end"),
-        col2=("contig", "pos_start", "pos_end"),
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
         output_type="polars.LazyFrame",
         suffixes=("_1", "_3"),
         overlap_filter=FilterOp.Strict,
@@ -38,8 +38,8 @@ class TestBioframe:
     resust_nearest = pb.nearest(
         BIO_PD_DF1,
         BIO_PD_DF2,
-        col1=("contig", "pos_start", "pos_end"),
-        col2=("contig", "pos_start", "pos_end"),
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
         overlap_filter=FilterOp.Strict,
         output_type="pandas.DataFrame",
     )

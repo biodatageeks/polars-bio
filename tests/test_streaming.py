@@ -13,8 +13,8 @@ class TestStreaming:
     result_stream = pb.overlap(
         DF_OVER_PATH1,
         DF_OVER_PATH2,
-        col1=columns,
-        col2=columns,
+        cols1=columns,
+        cols2=columns,
         output_type="polars.LazyFrame",
         streaming=True,
         overlap_filter=FilterOp.Weak,
