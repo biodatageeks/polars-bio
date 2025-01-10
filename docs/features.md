@@ -37,6 +37,12 @@ polars-bio supports out-of-core processing with Polars LazyFrame [streaming](htt
 | expand       | :white_check_mark: | :construction:     | :white_check_mark: | :white_check_mark:  |                    | :white_check_mark: |
 | sort         | :white_check_mark: | :construction:     | :white_check_mark: | :white_check_mark:  |                    | :white_check_mark: |
 
+
+## File formats support
+
+
+
+
 ## API comparison between libraries
 There is no standard API for genomic ranges operations in Python.
 This table compares the API of the libraries. The table is not exhaustive and only shows the most common operations used in benchmarking.

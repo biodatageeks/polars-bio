@@ -12,3 +12,4 @@
 
 [//]: # (## How to set logging level)
 
+[//]: # (## How to read from object storage)

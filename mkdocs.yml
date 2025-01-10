@@ -11,6 +11,7 @@ nav:
       - 📚 Tutorial: notebooks/tutorial.ipynb
       - 🚀 Performance: performance.md
       - ⚙️ API reference: api.md
+      - ❓ FAQ : faq.md
 
 
   - Quick start: quickstart.md
@@ -18,6 +19,7 @@ nav:
   - Cookbook: cookbook.md
   - Tutorial: notebooks/tutorial.ipynb
   - Performance: performance.md
+  - API reference: api.md
 
 plugins:
   - search
