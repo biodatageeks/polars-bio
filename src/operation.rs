@@ -1,4 +1,4 @@
-use datafusion::prelude::SessionContext;
+use exon::ExonSession;
 use log::{debug, info};
 use sequila_core::session_context::{Algorithm, SequilaConfig};
 use tokio::runtime::Runtime;
@@ -16,7 +16,7 @@ pub(crate) struct QueryParams {
     pub columns_2: Vec<String>,
 }
 pub(crate) fn do_range_operation(
-    ctx: &SessionContext,
+    ctx: &ExonSession,
     rt: &Runtime,
     range_options: RangeOptions,
 ) -> datafusion::dataframe::DataFrame {
@@ -43,14 +43,20 @@ pub(crate) fn do_range_operation(
     info!(
         "Running {} operation with algorithm {} and {} thread(s)...",
         range_options.range_op,
-        ctx.state()
+        ctx.session
+            .state()
             .config()
             .options()
             .extensions
             .get::<SequilaConfig>()
             .unwrap()
             .interval_join_algorithm,
-        ctx.state().config().options().execution.target_partitions
+        ctx.session
+            .state()
+            .config()
+            .options()
+            .execution
+            .target_partitions
     );
     match range_options.range_op {
         RangeOp::Overlap => rt.block_on(do_overlap(ctx, range_options)),
@@ -63,7 +69,7 @@ pub(crate) fn do_range_operation(
 }
 
 async fn do_nearest(
-    ctx: &SessionContext,
+    ctx: &ExonSession,
     range_opts: RangeOptions,
 ) -> datafusion::dataframe::DataFrame {
     let query = prepare_query(nearest_query, range_opts);
@@ -72,14 +78,19 @@ async fn do_nearest(
 }
 
 async fn do_overlap(
-    ctx: &SessionContext,
+    ctx: &ExonSession,
     range_opts: RangeOptions,
 ) -> datafusion::dataframe::DataFrame {
     let query = prepare_query(overlap_query, range_opts);
     debug!("Query: {}", query);
     debug!(
         "{}",
-        ctx.state().config().options().execution.target_partitions
+        ctx.session
+            .state()
+            .config()
+            .options()
+            .execution
+            .target_partitions
     );
     ctx.sql(&query).await.unwrap()
 }

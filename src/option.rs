@@ -85,7 +85,51 @@ impl fmt::Display for RangeOp {
     }
 }
 
+#[pyclass(eq, eq_int)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum InputFormat {
     Parquet,
     Csv,
+    Bam,
+    IndexedBam,
+    Cram,
+    Vcf,
+    IndexedVcf,
+    Fastq,
+    Fasta,
+    Bed,
+    Gff,
+    Gtf,
+}
+
+#[pyclass(eq, get_all)]
+#[derive(Clone, PartialEq, Debug)]
+pub struct BioTable {
+    pub name: String,
+    pub format: InputFormat,
+    pub path: String,
+}
+
+// impl BioTable {
+//     pub
+// }
+
+impl fmt::Display for InputFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            InputFormat::Parquet => "Parquet",
+            InputFormat::Csv => "CSV",
+            InputFormat::Bam => "BAM",
+            InputFormat::Vcf => "VCF",
+            InputFormat::Fastq => "FASTQ",
+            InputFormat::Fasta => "FASTA",
+            InputFormat::Bed => "BED",
+            InputFormat::Gff => "GFF",
+            InputFormat::Gtf => "GTF",
+            InputFormat::IndexedBam => "Indexed BAM",
+            InputFormat::IndexedVcf => "Indexed VCF",
+            InputFormat::Cram => "CRAM",
+        };
+        write!(f, "{}", text)
+    }
 }

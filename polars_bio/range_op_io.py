@@ -48,18 +48,19 @@ def range_lazy_scan(
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
         df_lazy: datafusion.DataFrame = range_function(ctx, df_1, df_2, range_options)
+        df_lazy.schema()
         df_stream = df_lazy.execute_stream()
         for r in df_stream:
             py_df = r.to_pyarrow()
             df = pl.DataFrame(py_df)
-            # TODO: We can push predicates down to the DataFusion plan in the future,
-            #  but for now we'll do it here.
-            if predicate is not None:
-                df = df.filter(predicate)
-            # TODO: We can push columns down to the DataFusion plan in the future,
-            #  but for now we'll do it here.
-            if with_columns is not None:
-                df = df.select(with_columns)
+            # # TODO: We can push predicates down to the DataFusion plan in the future,
+            # #  but for now we'll do it here.
+            # if predicate is not None:
+            #     df = df.filter(predicate)
+            # # TODO: We can push columns down to the DataFusion plan in the future,
+            # #  but for now we'll do it here.
+            # if with_columns is not None:
+            #     df = df.select(with_columns)
             yield df
 
     return register_io_source(_overlap_source, schema=schema)

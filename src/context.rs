@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 
 use datafusion::config::ConfigOptions;
-use datafusion::prelude::{SessionConfig, SessionContext};
+use datafusion::prelude::SessionConfig;
+use exon::config::ExonConfigExtension;
+use exon::ExonSession;
 use log::debug;
 use pyo3::{pyclass, pymethods, PyResult};
-use sequila_core::session_context::{SeQuiLaSessionExt, SequilaConfig};
+use sequila_core::session_context::SequilaConfig;
 
 #[pyclass(name = "BioSessionContext")]
-#[derive(Clone)]
+// #[derive(Clone)]
 pub struct PyBioSessionContext {
-    pub ctx: SessionContext,
+    pub ctx: ExonSession,
     pub session_config: HashMap<String, String>,
 }
 
@@ -18,8 +20,9 @@ impl PyBioSessionContext {
     #[pyo3(signature = ())]
     #[new]
     pub fn new() -> PyResult<Self> {
-        let ctx = create_context();
+        let ctx = create_context().unwrap();
         let session_config: HashMap<String, String> = HashMap::new();
+
         Ok(PyBioSessionContext {
             ctx,
             session_config,
@@ -43,8 +46,8 @@ impl PyBioSessionContext {
     }
 }
 
-pub fn set_option_internal(ctx: &SessionContext, key: &str, value: &str) {
-    let state = ctx.state_ref();
+pub fn set_option_internal(ctx: &ExonSession, key: &str, value: &str) {
+    let state = ctx.session.state_ref();
     state
         .write()
         .config_mut()
@@ -53,8 +56,9 @@ pub fn set_option_internal(ctx: &SessionContext, key: &str, value: &str) {
         .unwrap();
 }
 
-fn create_context() -> SessionContext {
+fn create_context() -> exon::Result<ExonSession> {
     let mut options = ConfigOptions::new();
+    options.extensions.insert(ExonConfigExtension::default());
     let tuning_options = vec![
         ("datafusion.optimizer.repartition_joins", "false"),
         ("datafusion.execution.coalesce_batches", "false"),
@@ -71,5 +75,5 @@ fn create_context() -> SessionContext {
         .with_option_extension(sequila_config)
         .with_information_schema(true);
 
-    SessionContext::new_with_sequila(config)
+    ExonSession::with_config_exon(config)
 }

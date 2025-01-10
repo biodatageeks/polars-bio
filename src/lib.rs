@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
 use datafusion_python::dataframe::PyDataFrame;
-use log::debug;
+use log::{debug, error, info};
 use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
 use polars_python::error::PyPolarsErr;
 use polars_python::lazyframe::PyLazyFrame;
@@ -21,7 +21,7 @@ use tokio::runtime::Runtime;
 
 use crate::context::PyBioSessionContext;
 use crate::operation::do_range_operation;
-use crate::option::{FilterOp, RangeOp, RangeOptions};
+use crate::option::{BioTable, FilterOp, InputFormat, RangeOp, RangeOptions};
 use crate::scan::{get_input_format, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
 use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
@@ -31,7 +31,6 @@ const RIGHT_TABLE: &str = "s2";
 const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
 
 #[pyfunction]
-
 fn range_operation_frame(
     py_ctx: &PyBioSessionContext,
     df1: PyArrowType<ArrowArrayStreamReader>,
@@ -51,7 +50,6 @@ fn range_operation_frame(
 }
 
 #[pyfunction]
-
 fn range_operation_scan(
     py_ctx: &PyBioSessionContext,
     df_path1: String,
@@ -81,7 +79,6 @@ fn range_operation_scan(
 }
 
 #[pyfunction]
-
 fn stream_range_operation_scan(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
@@ -118,7 +115,12 @@ fn stream_range_operation_scan(
         };
         debug!(
             "{}",
-            ctx.state().config().options().execution.target_partitions
+            ctx.session
+                .state()
+                .config()
+                .options()
+                .execution
+                .target_partitions
         );
         let stream = rt.block_on(df.execute_stream()).unwrap();
         let scan = RangeOperationScan {
@@ -130,15 +132,80 @@ fn stream_range_operation_scan(
     })
 }
 
+#[pyfunction]
+fn py_register_table(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    path: String,
+    input_format: InputFormat,
+) -> PyResult<Option<BioTable>> {
+    #[allow(clippy::useless_conversion)]
+    py.allow_threads(|| {
+        let rt = Runtime::new().unwrap();
+        let ctx = &py_ctx.ctx;
+        let table_name = path
+            .to_lowercase()
+            .split('/')
+            .last()
+            .unwrap()
+            .to_string()
+            .replace(&format!(".{}", input_format).to_string().to_lowercase(), "")
+            .replace(".", "_");
+        rt.block_on(register_table(
+            ctx,
+            &path,
+            &*table_name,
+            input_format.clone(),
+        ));
+        match rt.block_on(ctx.session.table(&table_name)) {
+            Ok(table) => {
+                let schema = table.schema().as_arrow();
+                info!("Table: {} registered for path: {}", table_name, path);
+                let bio_table = BioTable {
+                    name: table_name,
+                    format: input_format,
+                    path,
+                };
+                debug!("Schema: {:?}", schema);
+                Ok(Some(bio_table))
+            },
+            Err(e) => {
+                error!("{:?}", e);
+                Ok(None)
+            },
+        }
+    })
+}
+
+#[pyfunction]
+fn py_scan_table(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    table_name: String,
+) -> PyResult<PyDataFrame> {
+    #[allow(clippy::useless_conversion)]
+    py.allow_threads(|| {
+        let rt = Runtime::new().unwrap();
+        let ctx = &py_ctx.ctx;
+        let df = rt
+            .block_on(ctx.sql(&format!("SELECT * FROM {}", table_name)))
+            .unwrap();
+        Ok(PyDataFrame::new(df))
+    })
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
     m.add_function(wrap_pyfunction!(stream_range_operation_scan, m)?)?;
+    m.add_function(wrap_pyfunction!(py_scan_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;
     m.add_class::<RangeOptions>()?;
+    m.add_class::<InputFormat>()?;
     Ok(())
 }

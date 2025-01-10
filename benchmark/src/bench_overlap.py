@@ -267,10 +267,10 @@ for t in test_cases:
 
     # Display the table
     benchmark_results = {
-        "inputs": {
-            "df_1_num": len(df_1),
-            "df_2_num": len(df_2),
-        },
+        # "inputs": {
+        #     "df_1_num": len(df_1),
+        #     "df_2_num": len(df_2),
+        # },
         # "output_num": pb.overlap(df_1, df_2, col1=columns, col2=columns)
         # .collect()
         # .count(),

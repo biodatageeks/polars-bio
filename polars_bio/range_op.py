@@ -4,15 +4,14 @@ import pandas as pd
 import polars as pl
 from typing_extensions import TYPE_CHECKING, Union
 
-from .range_op_helpers import Context, _validate_overlap_input, range_operation
+from .context import ctx
+from .range_op_helpers import _validate_overlap_input, range_operation
 
 if TYPE_CHECKING:
     pass
 from polars_bio.polars_bio import FilterOp, RangeOp, RangeOptions
 
 DEFAULT_INTERVAL_COLUMNS = ["chrom", "start", "end"]
-
-ctx = Context().ctx
 
 
 def overlap(

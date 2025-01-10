@@ -193,6 +193,42 @@ html5lib = ["html5lib"]
 lxml = ["lxml"]
 
 [[package]]
+name = "biocframe"
+version = "0.6.2"
+description = "Flexible dataframe representation to support nested structures."
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "BiocFrame-0.6.2-py3-none-any.whl", hash = "sha256:8fd427d45334b696661350a9aa490335c017158f8d270fcc97796d6fd40a37ee"},
+    {file = "biocframe-0.6.2.tar.gz", hash = "sha256:0eb53268e010fbdd881ecf8c67cdfac8116cb205003f9609fe57790eb1eb64b5"},
+]
+
+[package.dependencies]
+biocutils = ">=0.1.4"
+numpy = "*"
+
+[package.extras]
+optional = ["pandas", "polars"]
+testing = ["pandas", "polars", "pytest", "pytest-cov", "setuptools"]
+
+[[package]]
+name = "biocutils"
+version = "0.2.1"
+description = "Utilities to use across the biocpy packages."
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "biocutils-0.2.1-py3-none-any.whl", hash = "sha256:3f09ed57a79e73c698f317e64c96386aee7d699046d6477987e2578af1836b6d"},
+    {file = "biocutils-0.2.1.tar.gz", hash = "sha256:cec3c1c0166eea5a652da75ba9403e9fd270c297394f2745775c2b9c66085318"},
+]
+
+[package.dependencies]
+numpy = "*"
+
+[package.extras]
+testing = ["pandas", "pytest", "pytest-cov", "scipy", "setuptools"]
+
+[[package]]
 name = "bioframe"
 version = "0.7.2"
 description = "Operations and utilities for Genomic Interval Dataframes."
@@ -1080,6 +1116,27 @@ files = [
 ]
 
 [[package]]
+name = "genomicranges"
+version = "0.5.2"
+description = "Container class to represent and operate over genomic regions and annotations."
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "GenomicRanges-0.5.2-py3-none-any.whl", hash = "sha256:d89cd90f060205b111258bdec1a3bd58d664539f0022c988dd785f4639cf3ee3"},
+    {file = "genomicranges-0.5.2.tar.gz", hash = "sha256:8d3293447ace5e9bbe6bf18a8df1950359c9a4dd06471e72bec73c4607bfccb1"},
+]
+
+[package.dependencies]
+biocframe = ">=0.5.11"
+biocutils = ">=0.1.3"
+iranges = {version = ">=0.2.12,<0.4.0", extras = ["optional"]}
+numpy = "*"
+
+[package.extras]
+optional = ["biobear", "joblib", "matplotlib", "pandas", "polars"]
+testing = ["biobear", "joblib", "matplotlib", "pandas", "polars", "pytest", "pytest-cov", "rich", "seaborn", "setuptools"]
+
+[[package]]
 name = "ghp-import"
 version = "2.1.0"
 description = "Copy your docs directly to the gh-pages branch."
@@ -1340,6 +1397,29 @@ widgetsnbextension = ">=4.0.12,<4.1.0"
 
 [package.extras]
 test = ["ipykernel", "jsonschema", "pytest (>=3.6.0)", "pytest-cov", "pytz"]
+
+[[package]]
+name = "iranges"
+version = "0.3.0"
+description = "Python implementation of the [**IRanges**](https://bioconductor.org/packages/IRanges) Bioconductor package."
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "IRanges-0.3.0-py3-none-any.whl", hash = "sha256:ab2c0cfc84e40defc391b9cd2cdcfa3ef916f67d0dca06d9e9bc326d300b2de5"},
+    {file = "iranges-0.3.0.tar.gz", hash = "sha256:096399c9f4d3edc4f0660937d11b0be9d2c5a941d8e56cbd502aa90e4746ae18"},
+]
+
+[package.dependencies]
+biocframe = ">=0.5.11"
+biocutils = ">=0.1.4"
+ncls = "0.0.68"
+numpy = "*"
+pandas = {version = "*", optional = true, markers = "extra == \"optional\""}
+polars = {version = "*", optional = true, markers = "extra == \"optional\""}
+
+[package.extras]
+optional = ["numpy", "pandas", "polars"]
+testing = ["biocframe", "biocutils", "ncls (==0.0.68)", "numpy", "pandas", "polars", "pytest", "pytest-cov", "setuptools"]
 
 [[package]]
 name = "isoduration"
@@ -3241,6 +3321,20 @@ files = [
 test = ["cffi", "hypothesis", "pandas", "pytest", "pytz"]
 
 [[package]]
+name = "pybedtools"
+version = "0.10.0"
+description = "Wrapper around BEDTools for bioinformatics work"
+optional = false
+python-versions = "*"
+files = [
+    {file = "pybedtools-0.10.0.tar.gz", hash = "sha256:1a6fbaad23b013becc741d7d5922a2df03e391bc44ff92772ffb7dd456711161"},
+]
+
+[package.dependencies]
+numpy = "*"
+pysam = "*"
+
+[[package]]
 name = "pycparser"
 version = "2.22"
 description = "C parser in Python"
@@ -3265,6 +3359,21 @@ files = [
 [package.extras]
 doc = ["sphinx", "sphinx_rtd_theme"]
 test = ["pillow", "pytest", "ruff"]
+
+[[package]]
+name = "pygenomics"
+version = "0.1.1"
+description = "Manipulating genomic intervals and data files in Python"
+optional = false
+python-versions = "^3.7.2"
+files = []
+develop = false
+
+[package.source]
+type = "git"
+url = "https://gitlab.com/gtamazian/pygenomics.git"
+reference = "0.1.1"
+resolved_reference = "44289a1685bffcdb7d09058ddf26cbb288477962"
 
 [[package]]
 name = "pygments"
@@ -3351,6 +3460,42 @@ type = "git"
 url = "https://github.com/pyranges/pyranges.git"
 reference = "4f0a153336e7153cdfea15b141ce4ea35a24e233"
 resolved_reference = "4f0a153336e7153cdfea15b141ce4ea35a24e233"
+
+[[package]]
+name = "pysam"
+version = "0.22.1"
+description = "Package for reading, manipulating, and writing genomic data"
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "pysam-0.22.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:f18e72013ef2db9a9bb7e8ac421934d054427f6c03e66ce8abc39b09c846ba72"},
+    {file = "pysam-0.22.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:79cd94eeb96541385fa99e759a8f83d21428e092c8b577d50b4eee5823e757cd"},
+    {file = "pysam-0.22.1-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:c71ea45461ee596949061f321a799a97c418164485fdd7e8db89aea2ff979092"},
+    {file = "pysam-0.22.1-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:ab3343f221994d163e1ba2691430ce0f6e7da13762473e0d7f9a2d5db3bec235"},
+    {file = "pysam-0.22.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:503c833e6cf348d87aec9113b1386d5c85c031d64deb914c29f5ad1792d103e6"},
+    {file = "pysam-0.22.1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:4447fdc2630519a00b6bf598995f1440e6f398eb0c084a7c141db026990ae07a"},
+    {file = "pysam-0.22.1-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:1be663a73cf56ddd1d309b91d314a0c94c9bf352eaa3c6eda30cef12699843f0"},
+    {file = "pysam-0.22.1-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:aeb31472365014fd8b37da4a88af758094b5872a8a16a25635a52cf8ceff5a9f"},
+    {file = "pysam-0.22.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:e72e129d245574801125029a5892c9e18d2956b13c4203ea585cbd64ccde9351"},
+    {file = "pysam-0.22.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:f8f00bb1fb977fc33c87cf5fe9023eefc2ba3d43d30ab4875a1765827018c949"},
+    {file = "pysam-0.22.1-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:c0e051fda433c1c7ff94532f60477bb83b97f4bb183567a0ae23f340e1c200b4"},
+    {file = "pysam-0.22.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:860c7c78ddb1539b83d5476502ba14c8b4e8435810dc7a5b715196da3dfb86b6"},
+    {file = "pysam-0.22.1-cp36-cp36m-macosx_10_9_x86_64.whl", hash = "sha256:18d886d50d75d8f853057fbbb284f0f0e98afad1f76b1a6f55660ea167d31c17"},
+    {file = "pysam-0.22.1-cp36-cp36m-manylinux_2_28_aarch64.whl", hash = "sha256:44420290a619c02da48ca0956548eb82a1665ae97b6ee69c094f9da5a6206431"},
+    {file = "pysam-0.22.1-cp36-cp36m-manylinux_2_28_x86_64.whl", hash = "sha256:acff506c921af36f364c5a87f3a30b3c105ebeb270d0e821c2ca571eaf60ca20"},
+    {file = "pysam-0.22.1-cp37-cp37m-macosx_10_9_x86_64.whl", hash = "sha256:098e0bf12d8b0399613065843310c91ba31a02d014b1f6b4e9d7f2d0d1254ff8"},
+    {file = "pysam-0.22.1-cp37-cp37m-manylinux_2_28_aarch64.whl", hash = "sha256:cd9d457063272df16136640515183ea501bf3371f140a134b2f0a42f425a37d9"},
+    {file = "pysam-0.22.1-cp37-cp37m-manylinux_2_28_x86_64.whl", hash = "sha256:af9fb53157ba2431b7b20a550c0223f4a039304c9f180d8da98ea9d2d3ef3fbf"},
+    {file = "pysam-0.22.1-cp38-cp38-macosx_10_9_x86_64.whl", hash = "sha256:d3fd6fe5aca79933632f38e5b568ce8d4e67e5c4f3bd39bff55fd9646af814d2"},
+    {file = "pysam-0.22.1-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2b6cf1871c99cfc9c01261ec5f628519c2c889f0ff070e7a26aa5adbf9f69af1"},
+    {file = "pysam-0.22.1-cp38-cp38-manylinux_2_28_aarch64.whl", hash = "sha256:b1addca11c5cfceefaebdfcf3d83bc42f4b89fb1e8ae645a4bdab971cbcd2bc0"},
+    {file = "pysam-0.22.1-cp38-cp38-manylinux_2_28_x86_64.whl", hash = "sha256:17fac22fc89c86241a71084ca097878c61c97f6ff5fd4535d718681a849852a7"},
+    {file = "pysam-0.22.1-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:4aff9b41856d5dba6585ffd60884b8f3778c5d2688f33989662aabe7f4cd0fe0"},
+    {file = "pysam-0.22.1-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:faa5298291b54f185c7b8f84510224918bddc64bbdcb2e8426ff43e83452310f"},
+    {file = "pysam-0.22.1-cp39-cp39-manylinux_2_28_aarch64.whl", hash = "sha256:4dfae1de006d1c6491a59b00052a3f67c53a136165cf4edd7789b5dcb1e6806f"},
+    {file = "pysam-0.22.1-cp39-cp39-manylinux_2_28_x86_64.whl", hash = "sha256:78ed746a39c9cebe489b8f0f86cf23c09c942e76c901260fb2794906e4cd0e26"},
+    {file = "pysam-0.22.1.tar.gz", hash = "sha256:18a0b97be95bd71e584de698441c46651cdff378db1c9a4fb3f541e560253b22"},
+]
 
 [[package]]
 name = "pytest"
@@ -4623,4 +4768,4 @@ test = ["pytest"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "478004f8bdf6f7d9641e95558dcc67a10470af2e338286147745ccecd49be519"
+content-hash = "190ff972e1e01c0d75d4c49cb5f18a768bd129e1e3a56822029b7db0ef47d00f"
