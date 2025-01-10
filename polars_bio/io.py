@@ -29,17 +29,18 @@ def read_cram(path: str) -> pl.LazyFrame:
     return file_lazy_scan(path, InputFormat.Cram)
 
 
-def read_indexed_bam(path: str) -> pl.LazyFrame:
-    """
-    Read an indexed BAM file into a LazyFrame.
-
-    Parameters:
-        path: The path to the BAM file.
-
-    !!! warning
-        Predicate pushdown is not supported yet. So no real benefit from using an indexed BAM file.
-    """
-    return file_lazy_scan(path, InputFormat.IndexedBam)
+# TODO passing of bam_region_filter
+# def read_indexed_bam(path: str) -> pl.LazyFrame:
+#     """
+#     Read an indexed BAM file into a LazyFrame.
+#
+#     Parameters:
+#         path: The path to the BAM file.
+#
+#     !!! warning
+#         Predicate pushdown is not supported yet. So no real benefit from using an indexed BAM file.
+#     """
+#     return file_lazy_scan(path, InputFormat.IndexedBam)
 
 
 def read_vcf(path: str) -> pl.LazyFrame:

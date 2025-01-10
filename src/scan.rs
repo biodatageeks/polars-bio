@@ -61,9 +61,7 @@ pub(crate) async fn register_table(
                 .unwrap()
         },
         InputFormat::Bam
-        | InputFormat::IndexedBam
         | InputFormat::Vcf
-        | InputFormat::IndexedVcf
         | InputFormat::Cram
         | InputFormat::Fastq
         | InputFormat::Fasta
@@ -73,6 +71,9 @@ pub(crate) async fn register_table(
             .register_exon_table(table_name, path, &*format.to_string())
             .await
             .unwrap(),
+        InputFormat::IndexedVcf | InputFormat::IndexedBam => {
+            todo!("Indexed formats are not supported")
+        },
     };
     table_name.to_string()
 }

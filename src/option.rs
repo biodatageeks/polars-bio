@@ -126,8 +126,8 @@ impl fmt::Display for InputFormat {
             InputFormat::Bed => "BED",
             InputFormat::Gff => "GFF",
             InputFormat::Gtf => "GTF",
-            InputFormat::IndexedBam => "Indexed BAM",
-            InputFormat::IndexedVcf => "Indexed VCF",
+            InputFormat::IndexedBam => "INDEXED_BAM",
+            InputFormat::IndexedVcf => "INDEXED_VCF",
             InputFormat::Cram => "CRAM",
         };
         write!(f, "{}", text)
