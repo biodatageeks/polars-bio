@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 
 
 def visualize_intervals(
-    df: Union[pd.DataFrame | pl.DataFrame], label: str = "overlapping pair"
+    df: Union[pd.DataFrame, pl.DataFrame], label: str = "overlapping pair"
 ) -> None:
     """
     Visualize the overlapping intervals.
