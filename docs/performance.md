@@ -1278,13 +1278,13 @@ pyranges1    | 35,940           | 2.45x    |
 
 #### Calculate overlaps and export to a CSV file 7-8
 
-| Library           | Time (s)               | Speedup  | Peak Memory (MB) | Factor   |
-|-------------------|------------------------|----------|------------------|----------|
-| polars-bio        | **23.765**             | 0.77x    | 14,660           | 26.07x   |
-| polars-bio-stream | **18.221**<sup>1</sup> | **1.0x** | **562.22**       | **1.0x** |
-| bioframe          | 370.010                | 0.05x    | 33,352           | 59.32x   |
-| pyranges0         | 275.237                | 0.07x    | 30.052           | 53.45x   |
-| pyranges1         | 351.041                | 0.05x    | 36,530           | 0.06x    |
+| Library               | Time (s)               | Speedup  | Peak Memory (MB) | Factor   |
+|-----------------------|------------------------|----------|------------------|----------|
+| polars-bio            | **23.765**             | 0.77x    | 14,660           | 26.07x   |
+| **polars-bio-stream** | **18.221**<sup>1</sup> | **1.0x** | **562.22**       | **1.0x** |
+| bioframe              | 370.010                | 0.05x    | 33,352           | 59.32x   |
+| pyranges0             | 275.237                | 0.07x    | 30.052           | 53.45x   |
+| pyranges1             | 351.041                | 0.05x    | 36,530           | 64.97x   |
 
 <sup>1</sup> Despite limiting the number of threads in DataFusion (`datafusion.execution.target_partitions=1`) and in Polars (`POLARS_MAX_THREADS=1`) cpu utilization was constant and approx.160%.
 ###### polars-bio

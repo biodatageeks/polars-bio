@@ -16,13 +16,59 @@ pb.ctx.set_option("datafusion.execution.target_partitions", 8)
 
 ### Streaming (out-of-core processing) [Exeprimental]🧪
 polars-bio supports out-of-core processing with Polars LazyFrame [streaming](https://docs.pola.rs/user-guide/concepts/_streaming/) option.
+It can bring  significant speedup as well reduction in memory usage allowing to process large datasets that do not fit in memory.
+See our benchmark [results](performance.md#calculate-overlaps-and-export-to-a-csv-file-7-8).
+
+```python
+import os
+import polars_bio as pb
+os.environ['BENCH_DATA_ROOT'] = "/Users/mwiewior/research/data/databio"
+os.environ['RUST_BACKTRACE'] = "full"
+os.environ['POLARS_MAX_THREADS'] = "1"
+os.environ['POLARS_VERBOSE'] = "1"
+
+cols=["contig", "pos_start", "pos_end"]
+BENCH_DATA_ROOT = os.getenv('BENCH_DATA_ROOT', '/data/bench_data/databio')
+df_1 = f"{BENCH_DATA_ROOT}/exons/*.parquet"
+df_2 =  f"{BENCH_DATA_ROOT}/exons/*.parquet"
+pb.overlap(df_1, df_2, cols1=cols, cols2=cols, streaming=True).collect(streaming=True).limit()
+```
+
+```bash
+INFO:polars_bio.operation:Running in streaming mode...
+INFO:polars_bio.operation:Running Overlap operation with algorithm Coitrees and 1 thread(s)...
+'STREAMING:\n  Anonymous SCAN []\n  PROJECT */6 COLUMNS'
+```
+
+```python
+pb.overlap(df_1, df_2, cols1=cols, cols2=cols, streaming=True).collect(streaming=True).limit()
+```
+```bash
+INFO:polars_bio.operation:Running in streaming mode...
+INFO:polars_bio.operation:Running Overlap operation with algorithm Coitrees and 1 thread(s)...
+RUN STREAMING PIPELINE
+[anonymous -> ordered_sink]
+shape: (5, 6)
+┌──────────┬─────────────┬───────────┬──────────┬─────────────┬───────────┐
+│ contig_1 ┆ pos_start_1 ┆ pos_end_1 ┆ contig_2 ┆ pos_start_2 ┆ pos_end_2 │
+│ ---      ┆ ---         ┆ ---       ┆ ---      ┆ ---         ┆ ---       │
+│ str      ┆ i32         ┆ i32       ┆ str      ┆ i32         ┆ i32       │
+╞══════════╪═════════════╪═══════════╪══════════╪═════════════╪═══════════╡
+│ chr1     ┆ 11873       ┆ 12227     ┆ chr1     ┆ 11873       ┆ 12227     │
+│ chr1     ┆ 12612       ┆ 12721     ┆ chr1     ┆ 12612       ┆ 12721     │
+│ chr1     ┆ 13220       ┆ 14409     ┆ chr1     ┆ 13220       ┆ 14409     │
+│ chr1     ┆ 14361       ┆ 14829     ┆ chr1     ┆ 13220       ┆ 14409     │
+│ chr1     ┆ 13220       ┆ 14409     ┆ chr1     ┆ 14361       ┆ 14829     │
+└──────────┴─────────────┴───────────┴──────────┴─────────────┴───────────┘
+
+```
 
 
 !!! Limitations
     1. Single threaded.
+    2. Because of the [bug](https://github.com/biodatageeks/polars-bio/issues/57) only Polars *sink* operations, such `sink_csv` or `sink_parquet` are supported.
 
 
-:construction:
 
 ## Genomic ranges operations
 

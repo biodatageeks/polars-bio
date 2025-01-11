@@ -21,8 +21,8 @@ def overlap(
     overlap_filter: FilterOp = FilterOp.Strict,
     suffixes: tuple[str, str] = ("_1", "_2"),
     on_cols: Union[list[str], None] = None,
-    cols1: Union[list[str], None] = None,
-    cols2: Union[list[str], None] = None,
+    cols1: Union[list[str], None] = ["chrom", "start", "end"],
+    cols2: Union[list[str], None] = ["chrom", "start", "end"],
     algorithm: str = "Coitrees",
     output_type: str = "polars.LazyFrame",
     streaming: bool = False,
@@ -35,16 +35,14 @@ def overlap(
         df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED and Parquet are supported.
         df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED  and Parquet are supported.
         how: How to handle the overlaps on the two dataframes. inner: use intersection of the set of intervals from df1 and df2, optional.
-        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). default is FilterOp.Weak.
+        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict).
         cols1: The names of columns containing the chromosome, start and end of the
-            genomic intervals, provided separately for each set. The default
-            values are 'chrom', 'start', 'end'.
+            genomic intervals, provided separately for each set.
         cols2:  The names of columns containing the chromosome, start and end of the
-            genomic intervals, provided separately for each set. The default
-            values are 'chrom', 'start', 'end'.
+            genomic intervals, provided separately for each set.
         suffixes: Suffixes for the columns of the two overlapped sets.
         on_cols: List of additional column names to join on. default is None.
-        algorithm: The algorithm to use for the overlap operation. default is "Coitrees".
+        algorithm: The algorithm to use for the overlap operation.
         output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
         streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming-out-of-core-processing) engine.
 
@@ -109,8 +107,8 @@ def nearest(
     overlap_filter: FilterOp = FilterOp.Strict,
     suffixes: tuple[str, str] = ("_1", "_2"),
     on_cols: Union[list[str], None] = None,
-    cols1: Union[list[str], None] = None,
-    cols2: Union[list[str], None] = None,
+    cols1: Union[list[str], None] = ["chrom", "start", "end"],
+    cols2: Union[list[str], None] = ["chrom", "start", "end"],
     output_type: str = "polars.LazyFrame",
     streaming: bool = False,
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
@@ -121,13 +119,11 @@ def nearest(
     Parameters:
         df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED  and Parquet are supported.
         df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED  and Parquet are supported.
-        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). default is FilterOp.Weak.
+        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict).
         cols1: The names of columns containing the chromosome, start and end of the
-            genomic intervals, provided separately for each set. The default
-            values are 'chrom', 'start', 'end'.
+            genomic intervals, provided separately for each set.
         cols2:  The names of columns containing the chromosome, start and end of the
-            genomic intervals, provided separately for each set. The default
-            values are 'chrom', 'start', 'end'.
+            genomic intervals, provided separately for each set.
         suffixes: Suffixes for the columns of the two overlapped sets.
         on_cols: List of additional column names to join on. default is None.
         output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
