@@ -26,12 +26,12 @@ def range_operation(
     if isinstance(df1, str) and isinstance(df2, str):
         ext1 = Path(df1).suffix
         assert (
-            ext1 == ".parquet" or ext1 == ".csv"
-        ), "Dataframe1 must be a Parquet or CSV file"
+            ext1 == ".parquet" or ext1 == ".csv" or ext1 == ".bed"
+        ), "Dataframe1 must be a Parquet, a BED or CSV file"
         ext2 = Path(df2).suffix
         assert (
-            ext2 == ".parquet" or ext2 == ".csv"
-        ), "Dataframe1 must be a Parquet or CSV file"
+            ext2 == ".parquet" or ext2 == ".csv" or ext2 == ".bed"
+        ), "Dataframe2 must be a Parquet, a BED or CSV file"
         # use suffixes to avoid column name conflicts
         if range_options.streaming:
             # FIXME: Parallelism is not supported

@@ -27,12 +27,13 @@ pub(crate) fn register_frame(
 }
 
 pub(crate) fn get_input_format(path: &str) -> InputFormat {
+    let path = path.to_lowercase();
     if path.ends_with(".parquet") {
         InputFormat::Parquet
     } else if path.ends_with(".csv") {
         InputFormat::Csv
-    } else if path.ends_with(".bam") {
-        InputFormat::Bam
+    } else if path.ends_with(".bed") {
+        InputFormat::Bed
     } else {
         panic!("Unsupported format")
     }
