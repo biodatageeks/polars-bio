@@ -47,7 +47,6 @@ class TestNearestPandas:
         assert len(self.result) == len(PD_DF_NEAREST)
 
     def test_nearest_schema_rows(self):
-        print(self.result)
         result = self.result.sort_values(by=list(self.result.columns)).reset_index(
             drop=True
         )

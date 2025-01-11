@@ -5,7 +5,7 @@ It is straightforward to parallelize operations in polars-bio. The library is bu
 the degree of parallelism using the `datafusion.execution.target_partitions` option, e.g.:
 ```python
 import polars_bio as pb
-pb.ctx.set_option("datafusion.execution.target_partitions", 8)
+pb.ctx.set_option("datafusion.execution.target_partitions", "8")
 ```
 !!! tip
     1. The default value is **1** (parallel execution disabled).
@@ -23,7 +23,6 @@ See our benchmark [results](performance.md#calculate-overlaps-and-export-to-a-cs
 import os
 import polars_bio as pb
 os.environ['BENCH_DATA_ROOT'] = "/Users/mwiewior/research/data/databio"
-os.environ['RUST_BACKTRACE'] = "full"
 os.environ['POLARS_MAX_THREADS'] = "1"
 os.environ['POLARS_VERBOSE'] = "1"
 
@@ -66,7 +65,7 @@ shape: (5, 6)
 
 !!! Limitations
     1. Single threaded.
-    2. Because of the [bug](https://github.com/biodatageeks/polars-bio/issues/57) only Polars *sink* operations, such `sink_csv` or `sink_parquet` are supported.
+    2. Because of the [bug](https://github.com/biodatageeks/polars-bio/issues/57) only Polars *sink* operations, such as `collect`, `sink_csv` or `sink_parquet` are supported.
 
 
 

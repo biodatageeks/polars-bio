@@ -1,3 +1,5 @@
+import bioframe as bf
+import pandas as pd
 from _expected import DATA_DIR
 
 import polars_bio as pb
@@ -28,13 +30,13 @@ class TestIOVCF:
 
 
 class TestIOBED:
-    df = pb.read_bed(f"{DATA_DIR}/io/bed/test.bed").collect()
+    df = pb.read_table(f"{DATA_DIR}/io/bed/test.bed", schema="bed12").collect()
 
     def test_count(self):
         assert len(self.df) == 3
 
     def test_fields(self):
-        assert self.df["reference_sequence_name"][2] == "chrX"
+        assert self.df["chrom"][2] == "chrX"
         assert self.df["strand"][1] == "-"
         assert self.df["end"][2] == 8000
 
@@ -62,3 +64,14 @@ class TestFasta:
         sequences = self.df
         assert sequences["id"][1] == "Sequence_2"
         assert sequences["sequence"][2] == "TTAGGCATGCGGCTA"
+
+
+class TestIOTable:
+    file = f"{DATA_DIR}/io/bed/ENCFF001XKR.bed.gz"
+
+    def test_bed9(self):
+        df_1 = pb.read_table(self.file, schema="bed9").collect().to_pandas()
+        df_1 = df_1.sort_values(by=list(df_1.columns)).reset_index(drop=True)
+        df_2 = bf.read_table(self.file, schema="bed9")
+        df_2 = df_2.sort_values(by=list(df_2.columns)).reset_index(drop=True)
+        pd.testing.assert_frame_equal(df_1, df_2)

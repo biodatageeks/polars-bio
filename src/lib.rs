@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
+use datafusion::prelude::CsvReadOptions;
 use datafusion_python::dataframe::PyDataFrame;
 use log::{debug, error, info};
 use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
@@ -194,6 +195,25 @@ fn py_scan_table(
     })
 }
 
+//TODO: not exposed Polars used for now
+#[pyfunction]
+fn py_read_table(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    path: String,
+) -> PyResult<PyDataFrame> {
+    py.allow_threads(|| {
+        let rt = Runtime::new().unwrap();
+        let ctx = &py_ctx.ctx;
+        let options = CsvReadOptions::default()
+            .delimiter(b'\t')
+            .file_extension("bed")
+            .has_header(false);
+        let df = rt.block_on(ctx.session.read_csv(&path, options))?;
+        Ok(PyDataFrame::new(df))
+    })
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -202,6 +222,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(stream_range_operation_scan, m)?)?;
     m.add_function(wrap_pyfunction!(py_scan_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;

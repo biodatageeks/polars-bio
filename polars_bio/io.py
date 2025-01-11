@@ -1,6 +1,7 @@
-from typing import Iterator, Union
+from typing import Dict, Iterator, Union
 
 import polars as pl
+from bioframe import SCHEMAS
 from datafusion import DataFrame
 from polars.io.plugins import register_io_source
 
@@ -49,21 +50,9 @@ def read_vcf(path: str) -> pl.LazyFrame:
     Read a VCF file into a LazyFrame.
 
     Parameters:
-        Parameters:
         path: The path to the VCF file.
     """
     return file_lazy_scan(path, InputFormat.Vcf)
-
-
-def read_bed(path: str) -> pl.LazyFrame:
-    """
-    Read a BED file into a LazyFrame.
-
-    Parameters:
-        Parameters:
-        path: The path to the BED file.
-    """
-    return file_lazy_scan(path, InputFormat.Bed)
 
 
 def read_fasta(path: str) -> pl.LazyFrame:
@@ -71,7 +60,6 @@ def read_fasta(path: str) -> pl.LazyFrame:
     Read a FASTA file into a LazyFrame.
 
     Parameters:
-        Parameters:
         path: The path to the FASTA file.
     """
     return file_lazy_scan(path, InputFormat.Fasta)
@@ -82,7 +70,6 @@ def read_fastq(path: str) -> pl.LazyFrame:
     Read a FASTQ file into a LazyFrame.
 
     Parameters:
-        Parameters:
         path: The path to the FASTQ file.
     """
     return file_lazy_scan(path, InputFormat.Fastq)
@@ -156,3 +143,27 @@ def read_file(path: str, input_format: InputFormat) -> pl.DataFrame:
     """
     table = py_register_table(ctx, path, input_format)
     return py_scan_table(ctx, table.name)
+
+
+def read_table(path: str, schema: Dict = None, **kwargs) -> pl.LazyFrame:
+    """
+     Read a tab-delimited (i.e. BED) file into a Polars LazyFrame.
+     Tries to be compatible with Bioframe's [read_table](https://bioframe.readthedocs.io/en/latest/guide-io.html)
+     but faster and lazy. Schema should follow the Bioframe's schema [format](https://github.com/open2c/bioframe/blob/2b685eebef393c2c9e6220dcf550b3630d87518e/bioframe/io/schemas.py#L174).
+
+    Parameters:
+        path: The path to the file.
+        schema: Schema should follow the Bioframe's schema [format](https://github.com/open2c/bioframe/blob/2b685eebef393c2c9e6220dcf550b3630d87518e/bioframe/io/schemas.py#L174).
+
+
+    """
+    df = pl.scan_csv(path, separator="\t", has_header=False, **kwargs)
+    if schema is not None:
+        columns = SCHEMAS[schema]
+        if len(columns) != len(df.collect_schema()):
+            raise ValueError(
+                f"Schema incompatible with the input. Expected {len(columns)} columns in a schema, got {len(df.collect_schema())} in the input data file. Please provide a valid schema."
+            )
+        for i, c in enumerate(columns):
+            df = df.rename({f"column_{i+1}": c})
+    return df

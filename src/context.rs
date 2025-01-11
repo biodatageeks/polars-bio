@@ -37,6 +37,11 @@ impl PyBioSessionContext {
         set_option_internal(&self.ctx, key, value);
     }
 
+    #[pyo3(signature = (key))]
+    pub fn get_option(&self, key: &str) -> Option<&str> {
+        self.session_config.get(key).map(|v| v.as_str())
+    }
+
     #[pyo3(signature = ())]
     pub fn sync_options(&mut self) {
         for (key, value) in self.session_config.iter() {
