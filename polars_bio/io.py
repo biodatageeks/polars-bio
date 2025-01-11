@@ -19,14 +19,15 @@ def read_bam(path: str) -> pl.LazyFrame:
     return file_lazy_scan(path, InputFormat.Bam)
 
 
-def read_cram(path: str) -> pl.LazyFrame:
-    """
-    Read a CRAM file into a LazyFrame.
-
-    Parameters:
-        path: The path to the CRAM file.
-    """
-    return file_lazy_scan(path, InputFormat.Cram)
+# TODO handling reference
+# def read_cram(path: str) -> pl.LazyFrame:
+#     """
+#     Read a CRAM file into a LazyFrame.
+#
+#     Parameters:
+#         path: The path to the CRAM file.
+#     """
+#     return file_lazy_scan(path, InputFormat.Cram)
 
 
 # TODO passing of bam_region_filter
@@ -63,28 +64,6 @@ def read_bed(path: str) -> pl.LazyFrame:
         path: The path to the BED file.
     """
     return file_lazy_scan(path, InputFormat.Bed)
-
-
-def read_gff(path: str) -> pl.LazyFrame:
-    """
-    Read a GFF file into a LazyFrame.
-
-    Parameters:
-        Parameters:
-        path: The path to the GFF file.
-    """
-    return file_lazy_scan(path, InputFormat.Gff)
-
-
-def read_gtf(path: str) -> pl.LazyFrame:
-    """
-    Read a GTF file into a LazyFrame.
-
-    Parameters:
-        Parameters:
-        path: The path to the GTF file.
-    """
-    return file_lazy_scan(path, InputFormat.Gtf)
 
 
 def read_fasta(path: str) -> pl.LazyFrame:

@@ -50,3 +50,15 @@ class TestFastq:
         assert sequences["name"][0] == "SEQ_ID_1"
         assert sequences["quality_scores"][0] == "!''*((((***+))%%%++)(%%%%).1***-+*"
         assert sequences["sequence"][1] == "AGTACACTGGT"
+
+
+class TestFasta:
+    df = pb.read_fasta(f"{DATA_DIR}/io/fasta/test.fasta").collect()
+
+    def test_count(self):
+        assert len(self.df) == 3
+
+    def test_fields(self):
+        sequences = self.df
+        assert sequences["id"][1] == "Sequence_2"
+        assert sequences["sequence"][2] == "TTAGGCATGCGGCTA"

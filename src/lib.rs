@@ -154,7 +154,7 @@ fn py_register_table(
         rt.block_on(register_table(
             ctx,
             &path,
-            &*table_name,
+            &table_name,
             input_format.clone(),
         ));
         match rt.block_on(ctx.session.table(&table_name)) {

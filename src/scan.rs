@@ -68,7 +68,7 @@ pub(crate) async fn register_table(
         | InputFormat::Bed
         | InputFormat::Gff
         | InputFormat::Gtf => ctx
-            .register_exon_table(table_name, path, &*format.to_string())
+            .register_exon_table(table_name, path, &format.to_string())
             .await
             .unwrap(),
         InputFormat::IndexedVcf | InputFormat::IndexedBam => {
