@@ -7,6 +7,9 @@ from typing_extensions import TYPE_CHECKING, Union
 from .context import ctx
 from .range_op_helpers import _validate_overlap_input, range_operation
 
+__all__ = ["overlap", "nearest"]
+
+
 if TYPE_CHECKING:
     pass
 from polars_bio.polars_bio import FilterOp, RangeOp, RangeOptions
