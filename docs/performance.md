@@ -1125,7 +1125,22 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 | polars_bio_polars_eager |  9.334948 |  9.350016 |  9.343123 | **0.42x** |
 | polars_bio_polars_lazy  |  9.801333 | 10.048262 |  9.912648 | 0.40x     |
 
+| Source                  | Peak Memory (MB)) | Factor   |
+|-------------------------|-------------------|----------|
+| polars_bio              | **14,671**        | **1.0x** |
+| polars_bio_pandas_pd    | 22,589            | 1.54x    |
+| polars_bio_pandas_eager | 23,681            | 1.61x    |
 
+
+###### Memory characteristic polars_bio
+![polars-bio-overlap-mem.png](assets/memory/dataframes/polars-bio-overlap-mem.png)
+
+###### Memory characteristic polars_bio_pandas_pd
+![polars-bio-overlap-pd-mem.png](assets/memory/dataframes/polars-bio-overlap-pd-mem.png)
+
+###### Memory characteristic polars_bio_pandas_eager
+
+![polars-bio-overlap-pl-mem.png](assets/memory/dataframes/polars-bio-overlap-pl-mem.png)
 
 ### Intel Emerald Rapids (Linux) 🐧
 
@@ -1164,13 +1179,13 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 #### M-size
 ##### 7-0
 
-| Library                 |  Min (s) |  Max (s) | Mean (s) | Speedup |
-|-------------------------|----------|----------|----------|---------|
-| polars_bio              | 0.306130 | 0.314524 | 0.309803 |   1.00x |
-| polars_bio_pandas_lf    | 0.416123 | 0.432397 | 0.422839 |   0.73x |
-| polars_bio_pandas_pd    | 0.410937 | 0.414566 | 0.412503 |   0.75x |
-| polars_bio_polars_eager | 0.353321 | 0.364626 | 0.358433 |   0.86x |
-| polars_bio_polars_lazy  | 0.355099 | 0.359842 | 0.357666 |   0.87x |
+| Library                 |  Min (s) |  Max (s) | Mean (s) | Speedup   |
+|-------------------------|----------|----------|----------|-----------|
+| polars_bio              | 0.306130 | 0.314524 | 0.309803 | **1.00x** |
+| polars_bio_pandas_lf    | 0.416123 | 0.432397 | 0.422839 | 0.73x     |
+| polars_bio_pandas_pd    | 0.410937 | 0.414566 | 0.412503 | 0.75x     |
+| polars_bio_polars_eager | 0.353321 | 0.364626 | 0.358433 | 0.86x     |
+| polars_bio_polars_lazy  | 0.355099 | 0.359842 | 0.357666 | 0.87x     |
 
 ##### 7-3
 
@@ -1198,20 +1213,20 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 | Library                 |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
 |-------------------------|-----------|-----------|-----------|-----------|
 | polars_bio              |  6.043839 |  6.129112 |  6.088359 | **1.00x** |
-| polars_bio_pandas_lf    | 16.528438 | 16.674857 | 16.605654 | **0.37x** |
+| polars_bio_pandas_lf    | 16.528438 | 16.674857 | 16.605654 | 0.37x     |
 | polars_bio_pandas_pd    | 16.575829 | 16.643302 | 16.600709 | 0.37x     |
 | polars_bio_polars_eager | 16.177433 | 16.185123 | 16.180217 | 0.38x     |
 | polars_bio_polars_lazy  | 16.214009 | 16.395757 | 16.281422 | 0.37x     |
 
 ##### 7-8
 
-| Library                 |   Min (s) |   Max (s) |  Mean (s) | Speedup    |
-|-------------------------|-----------|-----------|-----------|------------|
-| polars_bio              |  4.600700 |  4.806215 |  4.689799 | ***1.00x** |
-| polars_bio_pandas_lf    | 19.858977 | 20.342740 | 20.104499 | 0.23x      |
-| polars_bio_pandas_pd    | 20.263301 | 20.594552 | 20.402049 | 0.23x      |
-| polars_bio_polars_eager | 19.837098 | 20.012580 | 19.922743 | **0.24x**  |
-| polars_bio_polars_lazy  | 19.803839 | 19.818197 | 19.813257 | **0.24x**  |
+| Library                 |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
+|-------------------------|-----------|-----------|-----------|-----------|
+| polars_bio              |  4.600700 |  4.806215 |  4.689799 | **1.00x** |
+| polars_bio_pandas_lf    | 19.858977 | 20.342740 | 20.104499 | 0.23x     |
+| polars_bio_pandas_pd    | 20.263301 | 20.594552 | 20.402049 | 0.23x     |
+| polars_bio_polars_eager | 19.837098 | 20.012580 | 19.922743 | **0.24x** |
+| polars_bio_polars_lazy  | 19.803839 | 19.818197 | 19.813257 | **0.24x** |
 
 
 ### Parallel execution
