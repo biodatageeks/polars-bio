@@ -1319,15 +1319,7 @@ pyranges1    | 35,940           | 2.45x    |
 ![pyranges](assets/memory/pyranges1_sink.png)
 
 ## How to run the benchmarks
-```bash
-poetry env use python3.12
-poetry update
-poetry shell
-RUSTFLAGS="-Ctarget-cpu=native" maturin develop --release  -m Cargo.toml
-## export path with benchmark datasets, e.g.
-export BENCH_DATA_ROOT=/Users/mwiewior/research/databio/
-## other test also in benchmark/src directory
-python benchmark/src/bench_overlap.py
+Check the [repository](https://github.com/biodatageeks/polars-bio-bench) for more details on how to run the benchmarks.
 ```
 
 !!! todo
