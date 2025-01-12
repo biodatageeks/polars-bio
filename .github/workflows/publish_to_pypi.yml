@@ -155,7 +155,7 @@ jobs:
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-linux-${{ matrix.target }}
+          name: wheels-sdist
           path: dist
 
   release:
@@ -176,5 +176,5 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           command: upload
-          args: --non-interactive --skip-existing polars_bio*
+          args: --non-interactive --skip-existing wheels-*/*
 
