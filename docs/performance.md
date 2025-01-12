@@ -1138,7 +1138,7 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 ###### Memory characteristic polars_bio_pandas_pd
 ![polars-bio-overlap-pd-mem.png](assets/memory/dataframes/polars-bio-overlap-pd-mem.png)
 
-###### Memory characteristic polars_bio_pandas_eager
+###### Memory characteristic polars_bio_polars_eager
 
 ![polars-bio-overlap-pl-mem.png](assets/memory/dataframes/polars-bio-overlap-pl-mem.png)
 
