@@ -31,8 +31,8 @@ permissions:
 
 # Make sure CI fails on all warnings, including Clippy lints
 env:
-  RUSTFLAGS: "-Dwarnings -Ctarget-cpu=native"
   POETRY_VERSION: 1.8.4
+  TARGET_CPU: skylake
 
 jobs:
   linux_tests:
@@ -74,10 +74,11 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-
           args: --release --out dist --find-interpreter
           sccache: 'true'
           manylinux: auto
+        env:
+          RUSTFLAGS: "-Dwarnings -Ctarget-cpu=${{ env.TARGET_CPU }}"
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -101,12 +102,11 @@ jobs:
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-
           target: ${{ matrix.target }}
-
           args: --release --out dist --find-interpreter
           sccache: 'true'
-
+        env:
+          RUSTFLAGS: "-Dwarnings -Ctarget-cpu=${{ env.TARGET_CPU }}"
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
@@ -118,6 +118,11 @@ jobs:
     strategy:
       matrix:
         target: [x86_64, aarch64]
+        include:
+          - target: x86_64
+            apple_cpu_target: "skylake"
+          - target: aarch64
+            apple_cpu_target: "apple-m1"
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -137,8 +142,8 @@ jobs:
         with:
           name: wheels-macos-${{ matrix.target }}
           path: dist
-    env:
-      RUSTFLAGS: "-Clink-arg=-undefined -Clink-arg=dynamic_lookup"
+        env:
+          RUSTFLAGS: "-Dwarnings -Clink-arg=-undefined -Clink-arg=dynamic_lookup -Ctarget-cpu=${{ matrix.apple_cpu_target }}"
 
   sdist:
     runs-on: ubuntu-latest
