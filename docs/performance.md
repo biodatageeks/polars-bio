@@ -1038,11 +1038,13 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 
 | Library                 |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------------------|----------|----------|----------|-----------|
-| polars_bio              | 0.034696 | 0.036409 | 0.035352 | 0.83x     |
-| polars_bio_pandas_lf    | 0.038730 | 0.040108 | 0.039277 | 0.75x     |
-| polars_bio_pandas_pd    | 0.037271 | 0.038367 | 0.037958 | 0.77x     |
-| polars_bio_polars_eager | 0.029277 | 0.029464 | 0.029374 | **1.00x** |
-| polars_bio_polars_lazy  | 0.029450 | 0.030083 | 0.029727 | **0.99x** |
+| polars_bio              | 0.035567 | 0.036777 | 0.035995 | 0.91x     |
+| polars_bio_pandas_lf    | 0.040237 | 0.041256 | 0.040694 | 0.80x     |
+| polars_bio_pandas_pd    | 0.040554 | 0.040888 | 0.040761 | 0.80x     |
+| polars_bio_polars_eager | 0.032051 | 0.033022 | 0.032693 | **1.00x** |
+| polars_bio_polars_lazy  | 0.034346 | 0.035225 | 0.034775 | **0.94x** |
+
+
 
 
 
@@ -1050,22 +1052,25 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 
 | Library                 |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------------------|----------|----------|----------|-----------|
-| polars_bio              | 0.091433 | 0.091646 | 0.091509 | 0.90x     |
-| polars_bio_pandas_lf    | 0.104335 | 0.133236 | 0.114009 | 0.72x     |
-| polars_bio_pandas_pd    | 0.102595 | 0.104520 | 0.103489 | 0.79x     |
-| polars_bio_polars_eager | 0.082429 | 0.085214 | 0.083439 | **0.98x** |
-| polars_bio_polars_lazy  | 0.081784 | 0.082521 | 0.082178 | **1.00x** |
+| polars_bio              | 0.094768 | 0.096217 | 0.095266 | **1.00x** |
+| polars_bio_pandas_lf    | 0.163054 | 0.164207 | 0.163713 | 0.58x     |
+| polars_bio_pandas_pd    | 0.163245 | 0.166200 | 0.165022 | 0.58x     |
+| polars_bio_polars_eager | 0.142344 | 0.145895 | 0.144110 | **0.66x** |
+| polars_bio_polars_lazy  | 0.149738 | 0.150299 | 0.149929 | 0.64x     |
+
+
 
 
 ##### 1-0
 
 | Library                 |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------------------|----------|----------|----------|-----------|
-| polars_bio              | 0.137830 | 0.161670 | 0.145978 | 0.86x     |
-| polars_bio_pandas_lf    | 0.153229 | 0.158764 | 0.155538 | 0.81x     |
-| polars_bio_pandas_pd    | 0.153903 | 0.161426 | 0.156792 | 0.80x     |
-| polars_bio_polars_eager | 0.124594 | 0.130227 | 0.127729 | **0.98x** |
-| polars_bio_polars_lazy  | 0.124429 | 0.126208 | 0.125316 | **1.00x** |
+| polars_bio              | 0.145564 | 0.151407 | 0.147679 | **1.00x** |
+| polars_bio_pandas_lf    | 0.238292 | 0.240374 | 0.239504 | 0.62x     |
+| polars_bio_pandas_pd    | 0.239330 | 0.252445 | 0.244414 | 0.60x     |
+| polars_bio_polars_eager | 0.208421 | 0.214513 | 0.210896 | **0.70x** |
+| polars_bio_polars_lazy  | 0.219629 | 0.222126 | 0.220908 | 0.67x     |
+
 
 
 #### M-size
@@ -1074,22 +1079,24 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 
 | Library                 |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------------------|----------|----------|----------|-----------|
-| polars_bio              | 0.218274 | 0.241310 | 0.232544 | **1.00x** |
-| polars_bio_pandas_lf    | 0.279482 | 0.288486 | 0.283349 | 0.82x     |
-| polars_bio_pandas_pd    | 0.292259 | 0.301428 | 0.295783 | 0.79x     |
-| polars_bio_polars_eager | 0.239037 | 0.242774 | 0.241256 | 0.96x     |
-| polars_bio_polars_lazy  | 0.236283 | 0.243813 | 0.239054 | **0.97x** |
+| polars_bio              | 0.224327 | 0.227891 | 0.225606 | **1.00x** |
+| polars_bio_pandas_lf    | 0.377938 | 0.378380 | 0.378205 | 0.60x     |
+| polars_bio_pandas_pd    | 0.413825 | 0.415470 | 0.414630 | 0.54x     |
+| polars_bio_polars_eager | 0.332434 | 0.335960 | 0.334393 | **0.67x** |
+| polars_bio_polars_lazy  | 0.347608 | 0.350382 | 0.349330 | 0.65x     |
+
 
 
 ##### 7-3
 
 | Library                 |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------------------|----------|----------|----------|-----------|
-| polars_bio              | 0.199343 | 0.224108 | 0.208181 | **1.00x** |
-| polars_bio_pandas_lf    | 0.284750 | 0.296619 | 0.290834 | 0.72x     |
-| polars_bio_pandas_pd    | 0.308035 | 0.312373 | 0.309687 | 0.67x     |
-| polars_bio_polars_eager | 0.248849 | 0.251454 | 0.250025 | **0.83x** |
-| polars_bio_polars_lazy  | 0.252292 | 0.252924 | 0.252585 | 0.82x     |
+| polars_bio              | 0.206701 | 0.217080 | 0.210280 | **1.00x** |
+| polars_bio_pandas_lf    | 0.345310 | 0.355560 | 0.349561 | 0.60x     |
+| polars_bio_pandas_pd    | 0.415459 | 0.417442 | 0.416609 | 0.50x     |
+| polars_bio_polars_eager | 0.311204 | 0.313540 | 0.312487 | **0.67x** |
+| polars_bio_polars_lazy  | 0.321170 | 0.322826 | 0.321981 | 0.65x     |
+
 
 
 #### L-size
@@ -1098,32 +1105,37 @@ the `parallel` dataset was used (see [Test datasets](#test-datasets))
 
 | Library                 |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------------------|----------|----------|----------|-----------|
-| polars_bio              | 2.933145 | 3.005864 | 2.958892 | **1.00x** |
-| polars_bio_pandas_lf    | 6.207847 | 6.345032 | 6.274848 | 0.47x     |
-| polars_bio_pandas_pd    | 7.267690 | 7.322592 | 7.298297 | 0.41x     |
-| polars_bio_polars_eager | 6.114975 | 6.307444 | 6.194726 | **0.48x** |
-| polars_bio_polars_lazy  | 6.124255 | 6.229623 | 6.170878 | **0.48x** |
+| polars_bio              | 2.750666 | 2.895516 | 2.802942 | **1.00x** |
+| polars_bio_pandas_lf    | 3.525844 | 3.646709 | 3.592018 | 0.78x     |
+| polars_bio_pandas_pd    | 6.455399 | 6.539737 | 6.487919 | 0.43x     |
+| polars_bio_polars_eager | 3.236083 | 3.428796 | 3.331644 | 0.84x     |
+| polars_bio_polars_lazy  | 3.220374 | 3.251365 | 3.232736 | **0.87x** |
+
 
 
 ##### 4-8
 
+
 | Library                 |  Min (s) |  Max (s) | Mean (s) | Speedup   |
 |-------------------------|----------|----------|----------|-----------|
-| polars_bio              | 3.663420 | 3.810438 | 3.741928 | **1.00x** |
-| polars_bio_pandas_lf    | 7.970248 | 8.211973 | 8.109422 | 0.46x     |
-| polars_bio_pandas_pd    | 9.233966 | 9.343848 | 9.288391 | 0.40x     |
-| polars_bio_polars_eager | 7.920726 | 8.045197 | 7.999649 | **0.47x** |
-| polars_bio_polars_lazy  | 7.851801 | 8.112940 | 7.952556 | **0.47x** |
+| polars_bio              | 3.677363 | 3.877014 | 3.749576 | **1.00x** |
+| polars_bio_pandas_lf    | 4.875777 | 5.007774 | 4.953983 | 0.76x     |
+| polars_bio_pandas_pd    | 8.595318 | 8.809947 | 8.704564 | 0.43x     |
+| polars_bio_polars_eager | 4.473527 | 4.608746 | 4.561838 | **0.82x** |
+| polars_bio_polars_lazy  | 4.728077 | 4.786690 | 4.758805 | 0.79x     |
+
 
 ##### 7-8
 
-| Library                 |   Min (s) |   Max (s) |  Mean (s) | Speedup   |
-|-------------------------|-----------|-----------|-----------|-----------|
-| polars_bio              |  3.931723 |  3.957598 |  3.945474 | **1.00x** |
-| polars_bio_pandas_lf    |  9.887706 | 10.987020 | 10.317384 | 0.38x     |
-| polars_bio_pandas_pd    | 11.386133 | 11.489356 | 11.428774 | 0.35x     |
-| polars_bio_polars_eager |  9.334948 |  9.350016 |  9.343123 | **0.42x** |
-| polars_bio_polars_lazy  |  9.801333 | 10.048262 |  9.912648 | 0.40x     |
+| Library                 |  Min (s) |  Max (s) | Mean (s) | Speedup   |
+|-------------------------|----------|----------|----------|-----------|
+| polars_bio              | 3.439489 | 3.917193 | 3.633215 | **1.00x** |
+| polars_bio_pandas_lf    | 3.930340 | 4.079147 | 3.985301 | 0.91x     |
+| polars_bio_pandas_pd    | 9.646125 | 9.994008 | 9.798255 | 0.37x     |
+| polars_bio_polars_eager | 3.742098 | 3.995767 | 3.832054 | **0.95x** |
+| polars_bio_polars_lazy  | 3.767904 | 4.058453 | 3.882342 | 0.94x     |
+
+
 
 | Source                  | Peak Memory (MB)) | Factor   |
 |-------------------------|-------------------|----------|
