@@ -41,8 +41,8 @@ fn range_operation_frame(
     #[allow(clippy::useless_conversion)]
     let rt = Runtime::new().unwrap();
     let ctx = &py_ctx.ctx;
-    register_frame(ctx, df1, LEFT_TABLE.to_string());
-    register_frame(ctx, df2, RIGHT_TABLE.to_string());
+    register_frame(py_ctx, df1, LEFT_TABLE.to_string());
+    register_frame(py_ctx, df2, RIGHT_TABLE.to_string());
     Ok(PyDataFrame::new(do_range_operation(
         ctx,
         &rt,

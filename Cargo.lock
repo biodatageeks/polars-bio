@@ -5213,7 +5213,7 @@ dependencies = [
 
 [[package]]
 name = "polars_bio"
-version = "0.5.0"
+version = "0.5.4"
 dependencies = [
  "arrow",
  "arrow-array",

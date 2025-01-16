@@ -71,10 +71,11 @@ def _rename_columns_pl(df: pl.DataFrame, suffix: str) -> pl.DataFrame:
 
 
 def _rename_columns(
-    df: Union[pl.DataFrame, pd.DataFrame], suffix: str
+    df: Union[pl.DataFrame, pd.DataFrame, pl.LazyFrame], suffix: str
 ) -> Union[pl.DataFrame, pd.DataFrame]:
     if isinstance(df, pl.DataFrame) or isinstance(df, pl.LazyFrame):
-        df = pl.DataFrame(schema=df.schema)
+        schema = df.collect_schema() if isinstance(df, pl.LazyFrame) else df.schema
+        df = pl.DataFrame(schema=schema)
         return _rename_columns_pl(df, suffix)
     elif isinstance(df, pd.DataFrame):
         df = pl.from_pandas(pd.DataFrame(columns=df.columns))

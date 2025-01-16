@@ -4,14 +4,18 @@ use arrow::array::RecordBatch;
 use arrow::error::ArrowError;
 use arrow::ffi_stream::ArrowArrayStreamReader;
 use arrow::pyarrow::PyArrowType;
+use datafusion::dataframe::DataFrameWriteOptions;
 use datafusion::datasource::MemTable;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions};
 use exon::ExonSession;
 
+use crate::context::PyBioSessionContext;
 use crate::option::InputFormat;
 
+const MAX_IN_MEMORY_ROWS: usize = 1024 * 1024;
+
 pub(crate) fn register_frame(
-    ctx: &ExonSession,
+    py_ctx: &PyBioSessionContext,
     df: PyArrowType<ArrowArrayStreamReader>,
     table_name: String,
 ) {
@@ -19,11 +23,30 @@ pub(crate) fn register_frame(
         df.0.collect::<Result<Vec<RecordBatch>, ArrowError>>()
             .unwrap();
     let schema = batches[0].schema();
-    let table = MemTable::try_new(schema, vec![batches]).unwrap();
+    let ctx = &py_ctx.ctx;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let table_source = MemTable::try_new(schema, vec![batches]).unwrap();
     ctx.session.deregister_table(&table_name).unwrap();
     ctx.session
-        .register_table(&table_name, Arc::new(table))
+        .register_table(&table_name, Arc::new(table_source))
         .unwrap();
+    let df = rt
+        .block_on(ctx.sql(&format!("SELECT * FROM {}", table_name)))
+        .unwrap();
+    let table_size = rt.block_on(df.clone().count()).unwrap();
+    if table_size > MAX_IN_MEMORY_ROWS {
+        let path = format!("{}-{}.parquet", table_name, py_ctx.seed);
+        ctx.session.deregister_table(&table_name).unwrap();
+        rt.block_on(df.write_parquet(&path, DataFrameWriteOptions::new(), None))
+            .unwrap();
+        ctx.session.deregister_table(&table_name).unwrap();
+        rt.block_on(register_table(
+            ctx,
+            &path,
+            &table_name,
+            InputFormat::Parquet,
+        ));
+    }
 }
 
 pub(crate) fn get_input_format(path: &str) -> InputFormat {

@@ -12,6 +12,7 @@ from polars_bio.polars_bio import (
     stream_range_operation_scan,
 )
 
+from .logging import logger
 from .range_op_io import _df_to_arrow, _get_schema, _rename_columns, range_lazy_scan
 
 
@@ -117,3 +118,11 @@ def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how):
 
 def stream_wrapper(pyldf):
     return pl.LazyFrame._from_pyldf(pyldf)
+
+
+def tmp_cleanup(seed):
+    # remove s1, s2 temp parquet files
+    logger.info(f"Cleaning up temp files for seed: '{seed}'")
+    for f in ["s1", "s2"]:
+        path = Path(f"{f}-{seed}.parquet")
+        path.unlink(missing_ok=True)

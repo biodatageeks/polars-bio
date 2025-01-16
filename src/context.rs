@@ -13,19 +13,22 @@ use sequila_core::session_context::SequilaConfig;
 pub struct PyBioSessionContext {
     pub ctx: ExonSession,
     pub session_config: HashMap<String, String>,
+    #[pyo3(get, set)]
+    pub seed: String,
 }
 
 #[pymethods]
 impl PyBioSessionContext {
-    #[pyo3(signature = ())]
+    #[pyo3(signature = (seed))]
     #[new]
-    pub fn new() -> PyResult<Self> {
+    pub fn new(seed: String) -> PyResult<Self> {
         let ctx = create_context().unwrap();
         let session_config: HashMap<String, String> = HashMap::new();
 
         Ok(PyBioSessionContext {
             ctx,
             session_config,
+            seed,
         })
     }
     #[pyo3(signature = (key, value, temporary=Some(false)))]
