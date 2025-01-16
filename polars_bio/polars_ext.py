@@ -2,11 +2,58 @@ from typing import Union
 
 import polars as pl
 
+import polars_bio as pb
+from polars_bio.polars_bio import FilterOp
+
 
 @pl.api.register_lazyframe_namespace("pb")
 class PolarsRangesOperations:
     def __init__(self, ldf: pl.LazyFrame) -> None:
         self._ldf = ldf
+
+    def overlap(
+        self,
+        other_df: pl.LazyFrame,
+        suffixes: tuple[str, str] = ("_1", "_2"),
+        how="inner",
+        overlap_filter=FilterOp.Strict,
+        cols1=["chrom", "start", "end"],
+        cols2=["chrom", "start", "end"],
+    ) -> pl.LazyFrame:
+        """
+        !!! note
+            Alias for [overlap](api.md#polars_bio.overlap)
+        """
+        return pb.overlap(
+            self._ldf,
+            other_df,
+            how=how,
+            overlap_filter=overlap_filter,
+            suffixes=suffixes,
+            cols1=cols1,
+            cols2=cols2,
+        )
+
+    def nearest(
+        self,
+        other_df: pl.LazyFrame,
+        suffixes: tuple[str, str] = ("_1", "_2"),
+        overlap_filter=FilterOp.Strict,
+        cols1=["chrom", "start", "end"],
+        cols2=["chrom", "start", "end"],
+    ) -> pl.LazyFrame:
+        """
+        !!! note
+            Alias for [nearest](api.md#polars_bio.nearest)
+        """
+        return pb.nearest(
+            self._ldf,
+            other_df,
+            overlap_filter=overlap_filter,
+            suffixes=suffixes,
+            cols1=cols1,
+            cols2=cols2,
+        )
 
     def sort(
         self, cols: Union[tuple[str], None] = ["chrom", "start", "end"]

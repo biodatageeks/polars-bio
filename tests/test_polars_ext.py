@@ -1,4 +1,6 @@
 import bioframe as bf
+import pandas as pd
+import polars as pl
 from _expected import DATA_DIR
 
 import polars_bio as pb
@@ -28,3 +30,71 @@ class TestPolarsExt:
         df_2 = bf.expand(df_1.to_pandas(), scale=1.5)
         df_3 = df_1.lazy().pb.expand(scale=1.5).collect().to_pandas()
         assert df_2.equals(df_3)
+
+    def test_overlap(self):
+        cols = ("chrom", "start", "end")
+        df_1 = (
+            pb.read_table(self.file, schema="bed9")
+            .select(cols)
+            .collect()
+            .to_pandas()
+            .reset_index(drop=True)
+        )
+        df_2 = (
+            pb.read_table(self.file, schema="bed9")
+            .select(cols)
+            .collect()
+            .to_pandas()
+            .reset_index(drop=True)
+        )
+        df_3 = (
+            bf.overlap(df_1, df_2, suffixes=("_1", "_2"))
+            .sort_values(by=["chrom_1", "start_1", "end_1"])
+            .reset_index(drop=True)
+        )
+        #
+        df_4 = (
+            pl.DataFrame(df_1)
+            .lazy()
+            .pb.overlap(pl.DataFrame(df_2).lazy(), suffixes=("_1", "_2"))
+            .collect()
+            .to_pandas()
+            .sort_values(by=["chrom_1", "start_1", "end_1"])
+            .reset_index(drop=True)
+        )
+        assert df_3.equals(df_4)
+
+    def test_nearest(self):
+        cols = ("chrom", "start", "end")
+        df_1 = (
+            pb.read_table(self.file, schema="bed9")
+            .select(cols)
+            .collect()
+            .to_pandas()
+            .reset_index(drop=True)
+        )
+        df_2 = (
+            pb.read_table(self.file, schema="bed9")
+            .select(cols)
+            .collect()
+            .to_pandas()
+            .reset_index(drop=True)
+        )
+        df_3 = (
+            bf.closest(df_1, df_2, suffixes=("_1", "_2"))
+            .sort_values(by=["chrom_1", "start_1", "end_1"])
+            .reset_index(drop=True)
+        )
+        #
+        df_4 = (
+            pl.DataFrame(df_1)
+            .lazy()
+            .pb.nearest(pl.DataFrame(df_2).lazy(), suffixes=("_1", "_2"))
+            .collect()
+            .to_pandas()
+            .sort_values(by=["chrom_1", "start_1", "end_1"])
+            .reset_index(drop=True)
+        )
+        print(df_3.columns)
+        print(df_4.columns)
+        pd.testing.assert_frame_equal(df_3, df_4, check_dtype=False)
