@@ -4,6 +4,12 @@
 !!! todo
     - Add summary of the results
 
+## Single-threaded performance 🏃‍
+![overlap-single.png](assets/overlap-single.png)
+
+![overlap-single.png](assets/nearest-single.png)
+
+## Parallel performance 🏃‍🏃‍🏃‍
 ## Benchmarks 🧪
 ### Detailed results shortcuts 👨‍🔬
 - [Binary operations](#binary-operations)
