@@ -59,6 +59,9 @@ extra:
     provider: mike
     default:
       - latest
+  analytics:
+    provider: google
+    property: G-1M9PLLGBYS
 
 markdown_extensions:
   - admonition
