@@ -1,15 +1,14 @@
 # Results summary 📈
 
-
-!!! todo
-    - Add summary of the results
-
-## Single-threaded performance 🏃‍
+## Single-thread performance 🏃‍
 ![overlap-single.png](assets/overlap-single.png)
 
 ![overlap-single.png](assets/nearest-single.png)
 
-## Parallel performance 🏃‍🏃‍🏃‍
+## Parallel performance 🏃‍🏃‍
+![overlap-parallel.png](assets/overlap-parallel.png)
+
+![overlap-parallel.png](assets/nearest-parallel.png)
 ## Benchmarks 🧪
 ### Detailed results shortcuts 👨‍🔬
 - [Binary operations](#binary-operations)
@@ -35,7 +34,7 @@
 !!! note
     Test dataset in *Parquet* format can be downloaded from:
 
-    * for [single-threaded](https://drive.google.com/file/d/1lctmude31mSAh9fWjI60K1bDrbeDPGfm/view?usp=sharing) tests
+    * for [single-thread](https://drive.google.com/file/d/1lctmude31mSAh9fWjI60K1bDrbeDPGfm/view?usp=sharing) tests
     * for [parallel](https://drive.google.com/file/d/1Sj7nTB5gCUq9nbeQOg4zzS4tKO37M5Nd/view?usp=sharing) tests (8 partitions per dataset)
 
 ### Test libraries 📚
@@ -720,7 +719,7 @@ pb.ctx.set_option("datafusion.optimizer.repartition_joins", "true")
 pb.ctx.set_option("datafusion.optimizer.repartition_file_scans", "true")
 pb.ctx.set_option("datafusion.execution.coalesce_batches", "false")
 ```
-the `single-threaded` dataset was used (see [Test datasets](#test-datasets))
+the `single-thread` dataset was used (see [Test datasets](#test-datasets))
 
 
 - `polars_bio-n-p`: Custom partitioning schema (constant number of 8 partitions/dataset) without any repartitioning in DataFusion:

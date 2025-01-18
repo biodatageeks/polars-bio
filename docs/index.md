@@ -7,6 +7,17 @@ polars-bio is a :rocket:blazing [fast](performance.md#results-summary-) Python D
 and  [polars](https://pola.rs/).
 It is designed to be easy to use, fast and memory efficient with a focus on genomics data.
 
+## Single-thread performance 🏃‍
+![overlap-single.png](assets/overlap-single.png)
+
+![overlap-single.png](assets/nearest-single.png)
+
+## Parallel performance 🏃‍🏃‍
+![overlap-parallel.png](assets/overlap-parallel.png)
+
+![overlap-parallel.png](assets/nearest-parallel.png)
+
+
 ## Key Features
 * optimized for [peformance](performance.md#results-summary-) and large-scale genomics datasets
 * popular genomics [operations](features.md#genomic-ranges-operations) with a DataFrame API (both [Pandas](https://pandas.pydata.org/) and [polars](https://pola.rs/))
