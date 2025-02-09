@@ -55,6 +55,40 @@ class PolarsRangesOperations:
             cols2=cols2,
         )
 
+    def merge(
+        self,
+        overlap_filter: FilterOp = FilterOp.Strict,
+        min_dist: float = 0,
+        cols: Union[list[str], None] = None,
+    ) -> pl.LazyFrame:
+        """
+        !!! note
+            Alias for [merge](api.md#polars_bio.merge)
+        """
+        return pb.merge(
+            self._ldf,
+            overlap_filter=overlap_filter,
+            min_dist=min_dist,
+            cols=cols
+        )
+    
+    def cluster(
+        self,
+        overlap_filter: FilterOp = FilterOp.Strict,
+        min_dist: float = 0,
+        cols: Union[list[str], None] = None,
+    ) -> pl.LazyFrame:
+        """
+        !!! note
+            Alias for [cluster](api.md#polars_bio.cluster)
+        """
+        return pb.cluster(
+            self._ldf,
+            overlap_filter=overlap_filter,
+            min_dist=min_dist,
+            cols=cols
+        )
+
     def sort(
         self, cols: Union[tuple[str], None] = ["chrom", "start", "end"]
     ) -> pl.LazyFrame:

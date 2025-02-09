@@ -98,3 +98,74 @@ class TestPolarsExt:
         print(df_3.columns)
         print(df_4.columns)
         pd.testing.assert_frame_equal(df_3, df_4, check_dtype=False)
+    
+    def test_merge(self):
+        cols = ("chrom", "start", "end")
+        df_1 = (
+            pb.read_table(self.file, schema="bed9")
+            .select(cols)
+            .collect()
+            .to_pandas()
+            .reset_index(drop=True)
+        )
+        '''
+        df_2 = (
+            pb.read_table(self.file, schema="bed9")
+            .select(cols)
+            .collect()
+            .to_pandas()
+            .reset_index(drop=True)
+        )'''
+        df_3 = (
+            bf.merge(df_1, min_dist=None)
+            .sort_values(by=["chrom", "start", "end"])
+            .reset_index(drop=True)
+        )
+        #
+        df_4 = (
+            pl.DataFrame(df_1)
+            .lazy()
+            .pb.merge()
+            .collect()
+            .to_pandas()
+            .sort_values(by=["chrom", "start", "end"])
+            .reset_index(drop=True)
+        )
+        print(df_3.columns)
+        print(df_4.columns)
+        pd.testing.assert_frame_equal(df_3, df_4, check_dtype=False)
+    def test_cluster(self):
+        cols = ("chrom", "start", "end")
+        df_1 = (
+            pb.read_table(self.file, schema="bed9")
+            .select(cols)
+            .collect()
+            .to_pandas()
+            .reset_index(drop=True)
+        )
+        '''
+        df_2 = (
+            pb.read_table(self.file, schema="bed9")
+            .select(cols)
+            .collect()
+            .to_pandas()
+            .reset_index(drop=True)
+        )'''
+        df_3 = (
+            bf.cluster(df_1, min_dist=None)
+            .sort_values(by=["chrom", "start", "end"])
+            .reset_index(drop=True)
+        )
+        #
+        df_4 = (
+            pl.DataFrame(df_1)
+            .lazy()
+            .pb.cluster()
+            .collect()
+            .to_pandas()
+            .sort_values(by=["chrom", "start", "end"])
+            .reset_index(drop=True)
+        )
+        print(df_3.columns)
+        print(df_4.columns)
+        pd.testing.assert_frame_equal(df_3, df_4, check_dtype=False)

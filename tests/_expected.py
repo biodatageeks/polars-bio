@@ -47,6 +47,46 @@ EXPECTED_NEAREST = """
         +--------+-----------+---------+--------+-----------+---------+----------+
 """
 
+EXPECTED_MERGE = """
+| contig   |   pos_start |   pos_end |   n_intervals |
+|:---------|------------:|----------:|--------------:|
+| chr1     |         100 |       300 |             4 |
+| chr1     |         300 |       700 |             3 |
+| chr1     |       10000 |     20000 |             2 |
+| chr1     |       22000 |     22300 |             2 |
+| chr2     |         100 |       300 |             4 |
+| chr2     |         300 |       700 |             3 |
+| chr2     |       10000 |     20000 |             2 |
+| chr2     |       22000 |     22300 |             2 |
+"""
+
+EXPECTED_CLUSTER = """
+| contig   |   pos_start |   pos_end |   cluster |   cluster_start |   cluster_end |
+|:---------|------------:|----------:|----------:|----------------:|--------------:|
+| chr1     |         150 |       250 |         0 |             100 |           300 |
+| chr1     |         190 |       300 |         0 |             100 |           300 |
+| chr1     |         300 |       501 |         1 |             300 |           700 |
+| chr1     |         500 |       700 |         1 |             300 |           700 |
+| chr1     |       22000 |     22300 |         3 |           22000 |         22300 |
+| chr1     |       15000 |     15001 |         2 |           10000 |         20000 |
+| chr2     |         150 |       250 |         4 |             100 |           300 |
+| chr2     |         190 |       300 |         4 |             100 |           300 |
+| chr2     |         300 |       500 |         5 |             300 |           700 |
+| chr2     |         500 |       700 |         5 |             300 |           700 |
+| chr2     |       22000 |     22300 |         7 |           22000 |         22300 |
+| chr2     |       15000 |     15001 |         6 |           10000 |         20000 |
+| chr1     |         100 |       190 |         0 |             100 |           300 |
+| chr1     |         200 |       290 |         0 |             100 |           300 |
+| chr1     |         400 |       600 |         1 |             300 |           700 |
+| chr1     |       10000 |     20000 |         2 |           10000 |         20000 |
+| chr1     |       22100 |     22101 |         3 |           22000 |         22300 |
+| chr2     |         100 |       190 |         4 |             100 |           300 |
+| chr2     |         200 |       290 |         4 |             100 |           300 |
+| chr2     |         400 |       600 |         5 |             300 |           700 |
+| chr2     |       10000 |     20000 |         6 |           10000 |         20000 |
+| chr2     |       22100 |     22101 |         7 |           22000 |         22300 |
+"""
+
 # Pandas
 PD_DF_OVERLAP = (
     mdpd.from_md(EXPECTED_OVERLAP)
@@ -63,12 +103,32 @@ PD_DF_NEAREST = (
     .astype({"pos_end_2": "int64"})
     .astype({"distance": "int64"})
 )
+PD_DF_MERGE = (
+    mdpd.from_md(EXPECTED_MERGE)
+    .astype({"pos_start": "int64"})
+    .astype({"pos_end": "int64"})
+    .astype({"n_intervals": "int64"})
+)
 
+PD_DF_CLUSTER = (
+    mdpd.from_md(EXPECTED_CLUSTER)
+    .astype({"pos_start": "int64"})
+    .astype({"pos_end": "int64"})
+    .astype({"cluster": "int64"})
+    .astype({"cluster_start": "int64"})
+    .astype({"cluster_end": "int64"})
+)
 
 PD_DF_OVERLAP = PD_DF_OVERLAP.sort_values(by=list(PD_DF_OVERLAP.columns)).reset_index(
     drop=True
 )
 PD_DF_NEAREST = PD_DF_NEAREST.sort_values(by=list(PD_DF_NEAREST.columns)).reset_index(
+    drop=True
+)
+PD_DF_MERGE = PD_DF_MERGE.sort_values(by=list(PD_DF_MERGE.columns)).reset_index(
+    drop=True
+)
+PD_DF_CLUSTER = PD_DF_CLUSTER.sort_values(by=list(PD_DF_CLUSTER.columns)).reset_index(
     drop=True
 )
 
@@ -82,9 +142,14 @@ DF_NEAREST_PATH2 = f"{DATA_DIR}/nearest/reads.csv"
 PD_NEAREST_DF1 = pd.read_csv(DF_NEAREST_PATH1)
 PD_NEAREST_DF2 = pd.read_csv(DF_NEAREST_PATH2)
 
+DF_MERGE_PATH = f"{DATA_DIR}/merge/input.csv"
+PD_MERGE_DF = pd.read_csv(DF_MERGE_PATH)
 
-BIO_PD_DF1 = pd.read_parquet(f"{DATA_DIR}/exons/")
-BIO_PD_DF2 = pd.read_parquet(f"{DATA_DIR}/fBrain-DS14718/")
+DF_CLUSTER_PATH = f"{DATA_DIR}/cluster/input.csv"
+PD_CLUSTER_DF = pd.read_csv(DF_CLUSTER_PATH)
+
+BIO_PD_DF1 = pd.read_parquet(f"{DATA_DIR}/exons/").astype({"pos_start": "int64", "pos_end": "int64"})
+BIO_PD_DF2 = pd.read_parquet(f"{DATA_DIR}/fBrain-DS14718/").astype({"pos_start": "int64", "pos_end": "int64"})
 
 
 # Polars
@@ -95,3 +160,9 @@ PL_DF2 = pl.DataFrame(PD_OVERLAP_DF2)
 PL_DF_NEAREST = pl.DataFrame(PD_DF_NEAREST)
 PL_NEAREST_DF1 = pl.DataFrame(PD_NEAREST_DF1)
 PL_NEAREST_DF2 = pl.DataFrame(PD_NEAREST_DF2)
+
+PL_DF_MERGE = pl.DataFrame(PD_DF_MERGE)
+PL_MERGE_DF = pl.DataFrame(PD_MERGE_DF)
+
+PL_DF_CLUSTER = pl.DataFrame(PD_DF_CLUSTER)
+PL_CLUSTER_DF = pl.DataFrame(PD_MERGE_DF)
