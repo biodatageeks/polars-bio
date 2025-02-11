@@ -72,7 +72,7 @@ pub enum RangeOp {
     Nearest = 3,
     Coverage = 4,
     CountOverlaps = 5,
-    CountOverlapsNaive = 6
+    CountOverlapsNaive = 6,
 }
 
 impl fmt::Display for RangeOp {
@@ -84,7 +84,7 @@ impl fmt::Display for RangeOp {
             RangeOp::Cluster => write!(f, "Cluster"),
             RangeOp::Coverage => write!(f, "Coverage"),
             RangeOp::CountOverlaps => write!(f, "Count overlaps"),
-            RangeOp::CountOverlapsNaive => write!(f, "Count overlaps naive")
+            RangeOp::CountOverlapsNaive => write!(f, "Count overlaps naive"),
         }
     }
 }

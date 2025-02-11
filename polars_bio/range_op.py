@@ -1,16 +1,15 @@
 from __future__ import annotations
 
+import datafusion
 import pandas as pd
 import polars as pl
+from datafusion import col, literal
 from typing_extensions import TYPE_CHECKING, Union
 
 from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import ctx
+from .interval_op_helpers import convert_result, get_py_ctx, read_df_to_datafusion
 from .range_op_helpers import _validate_overlap_input, range_operation
-from .interval_op_helpers import read_df_to_datafusion, convert_result, get_py_ctx
-
-import datafusion
-from datafusion import col, literal
 
 __all__ = ["overlap", "nearest", "count_overlaps"]
 
@@ -162,6 +161,7 @@ def nearest(
     )
     return range_operation(df1, df2, range_options, output_type, ctx)
 
+
 def count_overlaps(
     df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
@@ -192,7 +192,7 @@ def count_overlaps(
         on_cols: List of additional column names to join on. default is None.
         output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
         streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming-out-of-core-processing) engine.
-
+        naive_query **EXPERIMENTAL** If True, use naive query for counting overlaps based on overlaps. Unlike Bioframe and the default algorithm it does only return the number unique intervals with sum of overlaps, i.e. if we have on the query side the same interval 2 times it will only return it once with the sum of overlaps - Bioframe returns the interval 2 times with the same overlap.
     Returns:
         **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
@@ -217,7 +217,7 @@ def count_overlaps(
         counts = pb.count_overlaps(df1, df2, output_type="pandas.DataFrame")
 
         counts
-        
+
         chrom  start  end  count
         0  chr1      1    5      1
         1  chr1      3    8      1
@@ -227,7 +227,7 @@ def count_overlaps(
 
     Todo:
          Support return_input.
-     """
+    """
     _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type, how="inner")
     my_ctx = get_py_ctx()
     on_cols = [] if on_cols is None else on_cols
@@ -235,7 +235,7 @@ def count_overlaps(
     cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
     if naive_query:
         range_options = RangeOptions(
-            range_op=NaiveRangeQuery,
+            range_op=RangeOp.CountOverlapsNaive,
             filter_op=overlap_filter,
             suffixes=suffixes,
             columns_1=cols1,
@@ -256,33 +256,80 @@ def count_overlaps(
     is_s1 = "is_s1"
     suff, _ = suffixes
     df1, df2 = df2, df1
-    df1 = df1.select(*([literal(1).alias(is_s1), col(cols1[1]).alias(s1start_s2end), col(cols1[2]).alias(s1end_s2start), col(cols1[0]).alias(contig)] + on_cols))
-    df2 = df2.select(*([literal(0).alias(is_s1), col(cols2[2]).alias(s1end_s2start), col(cols2[1]).alias(s1start_s2end), col(cols2[0]).alias(contig)] + on_cols))
-    
+    df1 = df1.select(
+        *(
+            [
+                literal(1).alias(is_s1),
+                col(cols1[1]).alias(s1start_s2end),
+                col(cols1[2]).alias(s1end_s2start),
+                col(cols1[0]).alias(contig),
+            ]
+            + on_cols
+        )
+    )
+    df2 = df2.select(
+        *(
+            [
+                literal(0).alias(is_s1),
+                col(cols2[2]).alias(s1end_s2start),
+                col(cols2[1]).alias(s1start_s2end),
+                col(cols2[0]).alias(contig),
+            ]
+            + on_cols
+        )
+    )
+
     df = df1.union(df2)
 
     partitioning = [col(contig)] + [col(c) for c in on_cols]
-    df = df.select(*([s1start_s2end, s1end_s2start, contig, is_s1,
-        datafusion.functions.sum(col(is_s1)).over(
-            datafusion.expr.Window(
-                partition_by=partitioning,
-                order_by=[col(s1start_s2end).sort(), col(is_s1).sort(ascending=(overlap_filter == FilterOp.Strict))],
-            )
-        ).alias(starts),
-        datafusion.functions.sum(col(is_s1)).over(
-            datafusion.expr.Window(
-                partition_by=partitioning,
-                order_by=[col(s1end_s2start).sort(), col(is_s1).sort(ascending=(overlap_filter == FilterOp.Weak))],
-            )
-        ).alias(ends)] + on_cols))
+    df = df.select(
+        *(
+            [
+                s1start_s2end,
+                s1end_s2start,
+                contig,
+                is_s1,
+                datafusion.functions.sum(col(is_s1))
+                .over(
+                    datafusion.expr.Window(
+                        partition_by=partitioning,
+                        order_by=[
+                            col(s1start_s2end).sort(),
+                            col(is_s1).sort(
+                                ascending=(overlap_filter == FilterOp.Strict)
+                            ),
+                        ],
+                    )
+                )
+                .alias(starts),
+                datafusion.functions.sum(col(is_s1))
+                .over(
+                    datafusion.expr.Window(
+                        partition_by=partitioning,
+                        order_by=[
+                            col(s1end_s2start).sort(),
+                            col(is_s1).sort(
+                                ascending=(overlap_filter == FilterOp.Weak)
+                            ),
+                        ],
+                    )
+                )
+                .alias(ends),
+            ]
+            + on_cols
+        )
+    )
     df = df.filter(col(is_s1) == 0)
-    df = df.select(*([
-        col(contig).alias(cols1[0] + suff),
-        col(s1end_s2start).alias(cols1[1] + suff),
-        col(s1start_s2end).alias(cols1[2] + suff)] +
-        on_cols +
-        [(col(starts) - col(ends)).alias(count)]
-    ))
+    df = df.select(
+        *(
+            [
+                col(contig).alias(cols1[0] + suff),
+                col(s1end_s2start).alias(cols1[1] + suff),
+                col(s1start_s2end).alias(cols1[2] + suff),
+            ]
+            + on_cols
+            + [(col(starts) - col(ends)).alias(count)]
+        )
+    )
 
     return convert_result(df, output_type, streaming)
-

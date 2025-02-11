@@ -5,7 +5,9 @@ use tokio::runtime::Runtime;
 
 use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions};
-use crate::query::{nearest_query, overlap_query, count_overlaps_query, count_overlaps_naive_query};
+use crate::query::{
+    count_overlaps_naive_query, count_overlaps_query, nearest_query, overlap_query,
+};
 use crate::utils::default_cols_to_string;
 use crate::DEFAULT_COLUMN_NAMES;
 

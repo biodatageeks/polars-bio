@@ -19,7 +19,7 @@ pub(crate) fn nearest_query(query_params: QueryParams) -> String {
                 abs(b.{}-a.{})
         WHEN b.{} <= a.{}
             THEN
-            abs(a.{}-b.{})
+            abs(b.{}-a.{})
             ELSE 0
        END AS BIGINT) AS distance
 
@@ -169,7 +169,7 @@ pub(crate) fn count_overlaps_query(query_params: QueryParams) -> String {
                     FROM {} AS b)
                 )
             )
-            WHERE 
+            WHERE
                 iss1 = 0
         "#,
         query_params.columns_1[0],
@@ -178,8 +178,16 @@ pub(crate) fn count_overlaps_query(query_params: QueryParams) -> String {
         query_params.suffixes.0, // pos_start
         query_params.columns_1[2],
         query_params.suffixes.0, // pos_end
-        if query_params.sign == "=" { "DESC" } else { "ASC" },
-        if query_params.sign == "=" { "ASC" } else { "DESC" },
+        if query_params.sign == "=" {
+            "DESC"
+        } else {
+            "ASC"
+        },
+        if query_params.sign == "=" {
+            "ASC"
+        } else {
+            "DESC"
+        },
         query_params.columns_2[0],
         query_params.columns_2[1],
         query_params.columns_2[2],
@@ -193,27 +201,37 @@ pub(crate) fn count_overlaps_query(query_params: QueryParams) -> String {
 }
 
 pub(crate) fn count_overlaps_naive_query(query_params: QueryParams) -> String {
-  /*
     let query = format!(
         r#"
-            SELECT
-                a.{} as {}{}, -- contig
-                a.{} as {}{}, -- pos_start
-                a.{} as {}{}, -- pos_end
-                COUNT(*) AS count
-            FROM
-                {} a, {} b
-            WHERE
-                a.{}=b.{}
-            AND
-                cast(a.{} AS INT) >{} cast(b.{} AS INT)
-            AND
-                cast(a.{} AS INT) <{} cast(b.{} AS INT)
-            GROUP BY
-                a.{},
-                a.{},
-                a.{}
-        "#,
+           SELECT {}{}, {}{}, {}{}, SUM(cnt) as COUNT FROM (
+           SELECT
+               a.{} as {}{}, -- contig
+               a.{} as {}{}, -- pos_start
+               a.{} as {}{}, -- pos_end,
+               1 as cnt
+           FROM
+               {} a, {} b
+           WHERE
+               a.{}=b.{}
+           AND
+               cast(a.{} AS INT) >{} cast(b.{} AS INT)
+           AND
+               cast(a.{} AS INT) <{} cast(b.{} AS INT)
+           UNION
+           SELECT a.{} as {}{}, -- contig
+               a.{} as {}{}, -- pos_start
+               a.{} as {}{}, -- pos_end
+               0 as cnt
+             FROM
+               {} a )
+           GROUP BY  {}{}, {}{}, {}{}
+       "#,
+        query_params.columns_1[0],
+        query_params.suffixes.0, // contig
+        query_params.columns_1[1],
+        query_params.suffixes.0, // pos_start
+        query_params.columns_1[2],
+        query_params.suffixes.0, // pos_end
         query_params.columns_1[0],
         query_params.columns_1[0],
         query_params.suffixes.0, // contig
@@ -234,77 +252,22 @@ pub(crate) fn count_overlaps_naive_query(query_params: QueryParams) -> String {
         query_params.sign,
         query_params.columns_2[2], // pos_end
         query_params.columns_1[0],
+        query_params.columns_1[0],
+        query_params.suffixes.0, // contig
         query_params.columns_1[1],
-        query_params.columns_1[2]
-    );*/
-
-       let query = format!(
-       r#"
-           SELECT {}{}, {}{}, {}{}, SUM(cnt) as COUNT FROM (
-           SELECT
-               a.{} as {}{}, -- contig
-               a.{} as {}{}, -- pos_start
-               a.{} as {}{}, -- pos_end
-               1 as cnt
-           FROM
-               {} a, {} b
-           WHERE
-               a.{}=b.{}
-           AND
-               cast(a.{} AS INT) >{} cast(b.{} AS INT)
-           AND
-               cast(a.{} AS INT) <{} cast(b.{} AS INT)
-           UNION
-           SELECT a.{} as {}{}, -- contig
-               a.{} as {}{}, -- pos_start
-               a.{} as {}{}, -- pos_end
-               0 as cnt
-             FROM
-               {} a )
-           GROUP BY  {}{}, {}{}, {}{}
-       "#,
-       query_params.columns_1[0],
-       query_params.suffixes.0, // contig
-       query_params.columns_1[1],
-       query_params.suffixes.0, // pos_start
-       query_params.columns_1[2],
-       query_params.suffixes.0, // pos_end
-       query_params.columns_1[0],
-       query_params.columns_1[0],
-       query_params.suffixes.0, // contig
-       query_params.columns_1[1],
-       query_params.columns_1[1],
-       query_params.suffixes.0, // pos_start
-       query_params.columns_1[2],
-       query_params.columns_1[2],
-       query_params.suffixes.0, // pos_end
-       LEFT_TABLE,
-       RIGHT_TABLE,
-       query_params.columns_1[0],
-       query_params.columns_2[0], // contig
-       query_params.columns_1[2],
-       query_params.sign,
-       query_params.columns_2[1], // pos_start
-       query_params.columns_1[1],
-       query_params.sign,
-       query_params.columns_2[2], // pos_end
-       query_params.columns_1[0],
-       query_params.columns_1[0],
-       query_params.suffixes.0, // contig
-       query_params.columns_1[1],
-       query_params.columns_1[1],
-       query_params.suffixes.0, // pos_start
-       query_params.columns_1[2],
-       query_params.columns_1[2],
-       query_params.suffixes.0, // pos_end
-       LEFT_TABLE,
-       query_params.columns_1[0],
-       query_params.suffixes.0, // contig
-       query_params.columns_1[1],
-       query_params.suffixes.0, // pos_start
-       query_params.columns_1[2],
-       query_params.suffixes.0, // pos_end
-   );
+        query_params.columns_1[1],
+        query_params.suffixes.0, // pos_start
+        query_params.columns_1[2],
+        query_params.columns_1[2],
+        query_params.suffixes.0, // pos_end
+        LEFT_TABLE,
+        query_params.columns_1[0],
+        query_params.suffixes.0, // contig
+        query_params.columns_1[1],
+        query_params.suffixes.0, // pos_start
+        query_params.columns_1[2],
+        query_params.suffixes.0, // pos_end
+    );
 
     query
 }
