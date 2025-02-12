@@ -24,8 +24,8 @@ pub(crate) fn do_range_operation(
 ) -> datafusion::dataframe::DataFrame {
     // defaults
     match &range_options.overlap_alg {
-        Some(alg) if alg == "coitreesnearest" => {
-            panic!("CoitreesNearest is an internal algorithm for nearest operation. Can't be set explicitly.");
+        Some(alg) if alg == "coitreesnearest" || alg == "coitreescountoverlaps" => {
+            panic!("CoitreesNearest or coitreescountoverlaps is an internal algorithm for nearest operation. Can't be set explicitly.");
         },
         Some(alg) => {
             set_option_internal(ctx, "sequila.interval_join_algorithm", alg);
@@ -67,7 +67,14 @@ pub(crate) fn do_range_operation(
             rt.block_on(do_nearest(ctx, range_options))
         },
         RangeOp::CountOverlaps => rt.block_on(do_count_overlaps(ctx, range_options)),
-        RangeOp::CountOverlapsNaive => rt.block_on(do_count_overlaps_naive(ctx, range_options)),
+        RangeOp::CountOverlapsNaive => {
+            set_option_internal(
+                ctx,
+                "sequila.interval_join_algorithm",
+                "coitreescountoverlaps",
+            );
+            rt.block_on(do_count_overlaps_naive(ctx, range_options))
+        },
 
         _ => panic!("Unsupported operation"),
     }

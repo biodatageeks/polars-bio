@@ -130,7 +130,9 @@ class TestBioframe:
 
     def test_overlaps_count(self):
         assert len(self.result_count_overlaps) == len(self.result_bio_count_overlaps)
-        # assert len(self.result_count_overlaps_naive) == len(self.result_bio_count_overlaps)
+        # assert len(self.result_count_overlaps_naive) == len(
+        #     self.result_bio_count_overlaps
+        # )
 
     def test_overlaps_schema_rows(self):
         expected = (

@@ -203,12 +203,11 @@ pub(crate) fn count_overlaps_query(query_params: QueryParams) -> String {
 pub(crate) fn count_overlaps_naive_query(query_params: QueryParams) -> String {
     let query = format!(
         r#"
-           SELECT {}{}, {}{}, {}{}, SUM(cnt) as COUNT FROM (
            SELECT
                a.{} as {}{}, -- contig
                a.{} as {}{}, -- pos_start
                a.{} as {}{}, -- pos_end,
-               1 as cnt
+               count(*) OVER (PARTITION BY a.{}, a.{}, a.{}) AS count
            FROM
                {} a, {} b
            WHERE
@@ -217,22 +216,9 @@ pub(crate) fn count_overlaps_naive_query(query_params: QueryParams) -> String {
                cast(a.{} AS INT) >{} cast(b.{} AS INT)
            AND
                cast(a.{} AS INT) <{} cast(b.{} AS INT)
-           UNION
-           SELECT a.{} as {}{}, -- contig
-               a.{} as {}{}, -- pos_start
-               a.{} as {}{}, -- pos_end
-               0 as cnt
-             FROM
-               {} a )
-           GROUP BY  {}{}, {}{}, {}{}
+
        "#,
         query_params.columns_1[0],
-        query_params.suffixes.0, // contig
-        query_params.columns_1[1],
-        query_params.suffixes.0, // pos_start
-        query_params.columns_1[2],
-        query_params.suffixes.0, // pos_end
-        query_params.columns_1[0],
         query_params.columns_1[0],
         query_params.suffixes.0, // contig
         query_params.columns_1[1],
@@ -241,8 +227,11 @@ pub(crate) fn count_overlaps_naive_query(query_params: QueryParams) -> String {
         query_params.columns_1[2],
         query_params.columns_1[2],
         query_params.suffixes.0, // pos_end
-        LEFT_TABLE,
+        query_params.columns_1[0],
+        query_params.columns_1[1],
+        query_params.columns_1[2], // partition by contig, pos_start, pos_end
         RIGHT_TABLE,
+        LEFT_TABLE,
         query_params.columns_1[0],
         query_params.columns_2[0], // contig
         query_params.columns_1[2],
@@ -251,22 +240,6 @@ pub(crate) fn count_overlaps_naive_query(query_params: QueryParams) -> String {
         query_params.columns_1[1],
         query_params.sign,
         query_params.columns_2[2], // pos_end
-        query_params.columns_1[0],
-        query_params.columns_1[0],
-        query_params.suffixes.0, // contig
-        query_params.columns_1[1],
-        query_params.columns_1[1],
-        query_params.suffixes.0, // pos_start
-        query_params.columns_1[2],
-        query_params.columns_1[2],
-        query_params.suffixes.0, // pos_end
-        LEFT_TABLE,
-        query_params.columns_1[0],
-        query_params.suffixes.0, // contig
-        query_params.columns_1[1],
-        query_params.suffixes.0, // pos_start
-        query_params.columns_1[2],
-        query_params.suffixes.0, // pos_end
     );
 
     query
