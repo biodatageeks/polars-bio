@@ -1,4 +1,5 @@
 from pathlib import Path
+from .context import Context
 
 import datafusion
 import pandas as pd
@@ -7,7 +8,7 @@ from typing_extensions import Union
 
 
 def get_py_ctx() -> datafusion.context.SessionContext:
-    return datafusion.context.SessionContext()
+    return datafusion.context.SessionContext(Context().config)
 
 
 def read_df_to_datafusion(

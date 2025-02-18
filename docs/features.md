@@ -58,7 +58,7 @@ It is straightforward to parallelize operations in polars-bio. The library is bu
 the degree of parallelism using the `datafusion.execution.target_partitions` option, e.g.:
 ```python
 import polars_bio as pb
-pb.ctx.set_option("datafusion.execution.target_partitions", "8")
+pb.set_option("datafusion.execution.target_partitions", "8")
 ```
 !!! tip
     1. The default value is **1** (parallel execution disabled).
