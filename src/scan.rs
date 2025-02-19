@@ -7,6 +7,7 @@ use arrow::pyarrow::PyArrowType;
 use datafusion::dataframe::DataFrameWriteOptions;
 use datafusion::datasource::MemTable;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions};
+use datafusion_vcf::table_provider::VcfTableProvider;
 use exon::ExonSession;
 
 use crate::context::PyBioSessionContext;
@@ -84,8 +85,12 @@ pub(crate) async fn register_table(
                 .await
                 .unwrap()
         },
+        InputFormat::Vcf =>{
+            let table_provider= VcfTableProvider::new(path.to_string(), None, None, None).unwrap();
+            ctx.session.register_table(table_name, Arc::new(table_provider)).expect("Failed to register VCF table");
+        }
         InputFormat::Bam
-        | InputFormat::Vcf
+        // | InputFormat::Vcf
         | InputFormat::Cram
         | InputFormat::Fastq
         | InputFormat::Fasta
