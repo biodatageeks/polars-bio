@@ -14,7 +14,7 @@ crate-type= ["cdylib"]
 datafusion-python = { git = "https://github.com/apache/datafusion-python.git", rev = "5c834934dec89bd96ff70df3b278e9d6fe78f7ec"}
 pyo3 = { version = "0.22"}
 pyo3-log = "0.11.0"
-sequila-core = { git = "https://github.com/biodatageeks/sequila-native.git", rev = "07a36935177f8ffbfbaa7f63958384108efd7b4f" }
+sequila-core = { git = "https://github.com/biodatageeks/sequila-native.git", rev = "43453dca320cc25a02f440850e3b947b813785c3" }
 
 datafusion = { version = "43.0.0"}
 arrow = "53.3.0"
@@ -35,4 +35,5 @@ polars-arrow =  { git = "https://github.com/mwiewior/polars.git" , rev = "9d4fca
 polars-python = { git = "https://github.com/mwiewior/polars.git" , rev = "9d4fca54b1d71fce08a51cf00a88f67c67313706"}
 
 #exon ="0.32.4"
-exon = { git = "https://github.com/mwiewior/exon.git", rev="c543c03937ce5c8f249a77e45a28d7138e0a9c0f"}
+exon = { git = "https://github.com/mwiewior/exon.git", rev="d134d923e6c592a9972d93215a12c759c70a7ed5"}
+datafusion-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git/", rev = "48ae77140a02430820dcd8a5d0148ba723c6adc8"}
