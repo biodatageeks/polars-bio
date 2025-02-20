@@ -7,6 +7,7 @@ import polars as pl
 from polars_bio.polars_bio import (
     BioSessionContext,
     RangeOptions,
+    ReadOptions,
     stream_range_operation_scan,
 )
 
@@ -21,6 +22,7 @@ def range_operation(
     range_options: RangeOptions,
     output_type: str,
     ctx: BioSessionContext,
+    read_options: Union[ReadOptions] = None,
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     ctx.sync_options()
     if isinstance(df1, str) and isinstance(df2, str):
@@ -42,7 +44,7 @@ def range_operation(
                 "datafusion.execution.parquet.schema_force_view_types", "false", True
             )
             return stream_wrapper(
-                stream_range_operation_scan(ctx, df1, df2, range_options)
+                stream_range_operation_scan(ctx, df1, df2, range_options, read_options)
             )
         df_schema1 = _get_schema(df1, range_options.suffixes[0])
         df_schema2 = _get_schema(df2, range_options.suffixes[1])
@@ -54,14 +56,15 @@ def range_operation(
                 merged_schema,
                 range_options=range_options,
                 ctx=ctx,
+                read_options=read_options,
             )
         elif output_type == "polars.DataFrame":
             return range_operation_scan_wrapper(
-                ctx, df1, df2, range_options
+                ctx, df1, df2, range_options, read_options
             ).to_polars()
         elif output_type == "pandas.DataFrame":
             return range_operation_scan_wrapper(
-                ctx, df1, df2, range_options
+                ctx, df1, df2, range_options, read_options
             ).to_pandas()
         else:
             raise ValueError(

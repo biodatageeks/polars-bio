@@ -8,7 +8,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 from polars.io.plugins import register_io_source
 
-from polars_bio.polars_bio import BioSessionContext, RangeOptions
+from polars_bio.polars_bio import BioSessionContext, RangeOptions, ReadOptions
 
 from .range_wrappers import range_operation_frame_wrapper, range_operation_scan_wrapper
 
@@ -19,6 +19,7 @@ def range_lazy_scan(
     schema: pl.Schema,
     range_options: RangeOptions,
     ctx: BioSessionContext,
+    read_options: Union[ReadOptions, None] = None,
 ) -> pl.LazyFrame:
     range_function = None
     if isinstance(df_1, str) and isinstance(df_2, str):
@@ -44,7 +45,9 @@ def range_lazy_scan(
         _n_rows: Union[int, None],
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
-        df_lazy: datafusion.DataFrame = range_function(ctx, df_1, df_2, range_options)
+        df_lazy: datafusion.DataFrame = range_function(
+            ctx, df_1, df_2, range_options, read_options
+        )
         df_lazy.schema()
         df_stream = df_lazy.execute_stream()
         for r in df_stream:

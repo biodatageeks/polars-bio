@@ -58,6 +58,7 @@ fn range_operation_scan(
     df_path1: String,
     df_path2: String,
     range_options: RangeOptions,
+    read_options: Option<ReadOptions>,
 ) -> PyResult<PyDataFrame> {
     #[allow(clippy::useless_conversion)]
     let rt = Runtime::new()?;
@@ -90,6 +91,7 @@ fn stream_range_operation_scan(
     df_path1: String,
     df_path2: String,
     range_options: RangeOptions,
+    read_options: Option<ReadOptions>,
 ) -> PyResult<PyLazyFrame> {
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
