@@ -25,7 +25,7 @@ class TestIOVCF:
 
     def test_fields(self):
         assert self.df["chrom"][0] == "21"
-        assert self.df["pos_start"][1] == 26965148
+        assert self.df["start"][1] == 26965148
         assert self.df["ref"][0] == "G"
 
 

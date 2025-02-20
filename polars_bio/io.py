@@ -5,7 +5,13 @@ from bioframe import SCHEMAS
 from datafusion import DataFrame
 from polars.io.plugins import register_io_source
 
-from polars_bio.polars_bio import InputFormat, py_register_table, py_scan_table
+from polars_bio.polars_bio import (
+    InputFormat,
+    ReadOptions,
+    VcfReadOptions,
+    py_register_table,
+    py_scan_table,
+)
 
 from .context import ctx
 
@@ -17,7 +23,7 @@ def read_bam(path: str) -> pl.LazyFrame:
     Parameters:
         path: The path to the BAM file.
     """
-    return file_lazy_scan(path, InputFormat.Bam)
+    return file_lazy_scan(path, InputFormat.Bam, None)
 
 
 # TODO handling reference
@@ -45,14 +51,20 @@ def read_bam(path: str) -> pl.LazyFrame:
 #     return file_lazy_scan(path, InputFormat.IndexedBam)
 
 
-def read_vcf(path: str) -> pl.LazyFrame:
+def read_vcf(
+    path: str, info_fields: Union[list[str] | None] = None, thread_num: int = 1
+) -> pl.LazyFrame:
     """
     Read a VCF file into a LazyFrame.
 
     Parameters:
         path: The path to the VCF file.
+        info_fields: The fields to read from the INFO column.
+        thread_num: The number of threads to use for reading the VCF file.
     """
-    return file_lazy_scan(path, InputFormat.Vcf)
+    vcf_read_options = VcfReadOptions(info_fields=info_fields, thread_num=thread_num)
+    read_options = ReadOptions(vcf_read_options=vcf_read_options)
+    return file_lazy_scan(path, InputFormat.Vcf, read_options)
 
 
 def read_fasta(path: str) -> pl.LazyFrame:
@@ -62,7 +74,7 @@ def read_fasta(path: str) -> pl.LazyFrame:
     Parameters:
         path: The path to the FASTA file.
     """
-    return file_lazy_scan(path, InputFormat.Fasta)
+    return file_lazy_scan(path, InputFormat.Fasta, None)
 
 
 def read_fastq(path: str) -> pl.LazyFrame:
@@ -72,7 +84,7 @@ def read_fastq(path: str) -> pl.LazyFrame:
     Parameters:
         path: The path to the FASTQ file.
     """
-    return file_lazy_scan(path, InputFormat.Fastq)
+    return file_lazy_scan(path, InputFormat.Fastq, None)
 
 
 # def read_indexed_vcf(path: str) -> pl.LazyFrame:
@@ -89,8 +101,10 @@ def read_fastq(path: str) -> pl.LazyFrame:
 #     return file_lazy_scan(path, InputFormat.Vcf)
 
 
-def file_lazy_scan(path: str, input_format: InputFormat) -> pl.LazyFrame:
-    df_lazy: DataFrame = read_file(path, input_format)
+def file_lazy_scan(
+    path: str, input_format: InputFormat, read_options: ReadOptions
+) -> pl.LazyFrame:
+    df_lazy: DataFrame = read_file(path, input_format, read_options)
     arrow_schema = df_lazy.schema()
 
     def _overlap_source(
@@ -125,7 +139,9 @@ def file_lazy_scan(path: str, input_format: InputFormat) -> pl.LazyFrame:
     return register_io_source(_overlap_source, schema=arrow_schema)
 
 
-def read_file(path: str, input_format: InputFormat) -> pl.DataFrame:
+def read_file(
+    path: str, input_format: InputFormat, read_options: ReadOptions
+) -> pl.DataFrame:
     """
     Read a file into a DataFrame.
 
@@ -141,7 +157,7 @@ def read_file(path: str, input_format: InputFormat) -> pl.DataFrame:
     pl.DataFrame
         The DataFrame.
     """
-    table = py_register_table(ctx, path, input_format)
+    table = py_register_table(ctx, path, input_format, read_options)
     return py_scan_table(ctx, table.name)
 
 

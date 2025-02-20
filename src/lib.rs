@@ -22,7 +22,9 @@ use tokio::runtime::Runtime;
 
 use crate::context::PyBioSessionContext;
 use crate::operation::do_range_operation;
-use crate::option::{BioTable, FilterOp, InputFormat, RangeOp, RangeOptions};
+use crate::option::{
+    BioTable, FilterOp, InputFormat, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
+};
 use crate::scan::{get_input_format, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
 use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
@@ -65,12 +67,14 @@ fn range_operation_scan(
         &df_path1,
         LEFT_TABLE,
         get_input_format(&df_path1),
+        None,
     ));
     rt.block_on(register_table(
         ctx,
         &df_path2,
         RIGHT_TABLE,
         get_input_format(&df_path2),
+        None,
     ));
     Ok(PyDataFrame::new(do_range_operation(
         ctx,
@@ -97,12 +101,14 @@ fn stream_range_operation_scan(
             &df_path1,
             LEFT_TABLE,
             get_input_format(&df_path1),
+            None,
         ));
         rt.block_on(register_table(
             ctx,
             &df_path2,
             RIGHT_TABLE,
             get_input_format(&df_path2),
+            None,
         ));
 
         let df = do_range_operation(ctx, &rt, range_options);
@@ -139,6 +145,7 @@ fn py_register_table(
     py_ctx: &PyBioSessionContext,
     path: String,
     input_format: InputFormat,
+    read_options: Option<ReadOptions>,
 ) -> PyResult<Option<BioTable>> {
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
@@ -157,6 +164,7 @@ fn py_register_table(
             &path,
             &table_name,
             input_format.clone(),
+            read_options,
         ));
         match rt.block_on(ctx.session.table(&table_name)) {
             Ok(table) => {
@@ -228,5 +236,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<RangeOp>()?;
     m.add_class::<RangeOptions>()?;
     m.add_class::<InputFormat>()?;
+    m.add_class::<ReadOptions>()?;
+    m.add_class::<VcfReadOptions>()?;
     Ok(())
 }

@@ -137,3 +137,54 @@ impl fmt::Display for InputFormat {
         write!(f, "{}", text)
     }
 }
+#[pyclass(name = "ReadOptions")]
+#[derive(Clone, Debug)]
+pub struct ReadOptions {
+    #[pyo3(get, set)]
+    pub vcf_read_options: Option<VcfReadOptions>,
+}
+
+#[pymethods]
+impl ReadOptions {
+    #[new]
+    #[pyo3(signature = (vcf_read_options=None))]
+    pub fn new(vcf_read_options: Option<VcfReadOptions>) -> Self {
+        ReadOptions { vcf_read_options }
+    }
+}
+
+#[pyclass(name = "VcfReadOptions")]
+#[derive(Clone, Debug)]
+pub struct VcfReadOptions {
+    #[pyo3(get, set)]
+    pub info_fields: Option<Vec<String>>,
+    #[pyo3(get, set)]
+    pub format_fields: Option<Vec<String>>,
+    #[pyo3(get, set)]
+    pub thread_num: Option<usize>,
+}
+
+#[pymethods]
+impl VcfReadOptions {
+    #[new]
+    #[pyo3(signature = (info_fields=None, format_fields=None, thread_num=None))]
+    pub fn new(
+        info_fields: Option<Vec<String>>,
+        format_fields: Option<Vec<String>>,
+        thread_num: Option<usize>,
+    ) -> Self {
+        VcfReadOptions {
+            info_fields,
+            format_fields,
+            thread_num,
+        }
+    }
+    #[staticmethod]
+    pub fn default() -> Self {
+        VcfReadOptions {
+            info_fields: None,
+            format_fields: None,
+            thread_num: Some(1),
+        }
+    }
+}
