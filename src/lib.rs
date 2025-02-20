@@ -53,6 +53,7 @@ fn range_operation_frame(
 }
 
 #[pyfunction]
+#[pyo3(signature = (py_ctx, df_path1, df_path2, range_options, read_options=None))]
 fn range_operation_scan(
     py_ctx: &PyBioSessionContext,
     df_path1: String,
@@ -68,14 +69,14 @@ fn range_operation_scan(
         &df_path1,
         LEFT_TABLE,
         get_input_format(&df_path1),
-        None,
+        read_options.clone(),
     ));
     rt.block_on(register_table(
         ctx,
         &df_path2,
         RIGHT_TABLE,
         get_input_format(&df_path2),
-        None,
+        read_options,
     ));
     Ok(PyDataFrame::new(do_range_operation(
         ctx,
@@ -85,6 +86,7 @@ fn range_operation_scan(
 }
 
 #[pyfunction]
+#[pyo3(signature = (py_ctx, df_path1, df_path2, range_options, read_options=None))]
 fn stream_range_operation_scan(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
@@ -103,14 +105,14 @@ fn stream_range_operation_scan(
             &df_path1,
             LEFT_TABLE,
             get_input_format(&df_path1),
-            None,
+            read_options.clone(),
         ));
         rt.block_on(register_table(
             ctx,
             &df_path2,
             RIGHT_TABLE,
             get_input_format(&df_path2),
-            None,
+            read_options,
         ));
 
         let df = do_range_operation(ctx, &rt, range_options);
@@ -142,6 +144,7 @@ fn stream_range_operation_scan(
 }
 
 #[pyfunction]
+#[pyo3(signature = (py_ctx, path, input_format, read_options=None))]
 fn py_register_table(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,

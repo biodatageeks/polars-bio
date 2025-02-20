@@ -26,14 +26,15 @@ def range_operation(
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     ctx.sync_options()
     if isinstance(df1, str) and isinstance(df2, str):
-        ext1 = Path(df1).suffix
+        supported_exts = set([".parquet", ".csv", ".bed", ".vcf"])
+        ext1 = set(Path(df1).suffixes)
         assert (
-            ext1 == ".parquet" or ext1 == ".csv" or ext1 == ".bed"
-        ), "Dataframe1 must be a Parquet, a BED or CSV file"
-        ext2 = Path(df2).suffix
+            len(supported_exts.intersection(ext1)) > 0
+        ), "Dataframe1 must be a Parquet, a BED or CSV or VCF file"
+        ext2 = set(Path(df2).suffixes)
         assert (
-            ext2 == ".parquet" or ext2 == ".csv" or ext2 == ".bed"
-        ), "Dataframe2 must be a Parquet, a BED or CSV file"
+            len(supported_exts.intersection(ext2)) > 0
+        ), "Dataframe2 must be a Parquet, a BED or CSV or VCF file"
         # use suffixes to avoid column name conflicts
         if range_options.streaming:
             # FIXME: Parallelism is not supported

@@ -59,6 +59,8 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         InputFormat::Csv
     } else if path.ends_with(".bed") {
         InputFormat::Bed
+    } else if path.ends_with(".vcf") || path.ends_with(".vcf.gz") || path.ends_with(".vcf.bgz") {
+        InputFormat::Vcf
     } else {
         panic!("Unsupported format")
     }
@@ -89,7 +91,10 @@ pub(crate) async fn register_table(
         },
         InputFormat::Vcf => {
             let vcf_read_options = match &read_options {
-                Some(options) => read_options.unwrap().vcf_read_options.unwrap(),
+                Some(options) => match options.clone().vcf_read_options {
+                    Some(vcf_read_options) => vcf_read_options,
+                    _ => VcfReadOptions::default(),
+                },
                 _ => VcfReadOptions::default(),
             };
             let table_provider = VcfTableProvider::new(
