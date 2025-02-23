@@ -114,10 +114,6 @@ pub struct BioTable {
     pub path: String,
 }
 
-// impl BioTable {
-//     pub
-// }
-
 impl fmt::Display for InputFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let text = match self {

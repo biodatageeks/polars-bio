@@ -22,7 +22,8 @@ def range_operation(
     range_options: RangeOptions,
     output_type: str,
     ctx: BioSessionContext,
-    read_options: Union[ReadOptions] = None,
+    read_options1: Union[ReadOptions | None] = None,
+    read_options2: Union[ReadOptions | None] = None,
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     ctx.sync_options()
     if isinstance(df1, str) and isinstance(df2, str):
@@ -45,10 +46,12 @@ def range_operation(
                 "datafusion.execution.parquet.schema_force_view_types", "false", True
             )
             return stream_wrapper(
-                stream_range_operation_scan(ctx, df1, df2, range_options, read_options)
+                stream_range_operation_scan(
+                    ctx, df1, df2, range_options, read_options1, read_options2
+                )
             )
-        df_schema1 = _get_schema(df1, range_options.suffixes[0])
-        df_schema2 = _get_schema(df2, range_options.suffixes[1])
+        df_schema1 = _get_schema(df1, ctx, range_options.suffixes[0], read_options1)
+        df_schema2 = _get_schema(df2, ctx, range_options.suffixes[1], read_options2)
         merged_schema = pl.Schema({**df_schema1, **df_schema2})
         if output_type == "polars.LazyFrame":
             return range_lazy_scan(
@@ -57,15 +60,16 @@ def range_operation(
                 merged_schema,
                 range_options=range_options,
                 ctx=ctx,
-                read_options=read_options,
+                read_options1=read_options1,
+                read_options2=read_options2,
             )
         elif output_type == "polars.DataFrame":
             return range_operation_scan_wrapper(
-                ctx, df1, df2, range_options, read_options
+                ctx, df1, df2, range_options, read_options1, read_options2
             ).to_polars()
         elif output_type == "pandas.DataFrame":
             return range_operation_scan_wrapper(
-                ctx, df1, df2, range_options, read_options
+                ctx, df1, df2, range_options, read_options1, read_options2
             ).to_pandas()
         else:
             raise ValueError(

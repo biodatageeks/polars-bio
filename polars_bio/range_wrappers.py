@@ -20,7 +20,7 @@ def range_operation_frame_wrapper(
     df1,
     df2,
     range_options: RangeOptions,
-    read_options: Union[ReadOptions, None] = None,
+    limit: Union[int, None] = None,
 ) -> datafusion.dataframe:
     if range_options.range_op != RangeOp.CountOverlaps:
         return range_operation_frame(ctx, df1, df2, range_options)
@@ -38,10 +38,14 @@ def range_operation_scan_wrapper(
     df1: str,
     df2: str,
     range_options: RangeOptions,
-    read_options: Union[ReadOptions, None],
+    read_options1: Union[ReadOptions, None] = None,
+    read_options2: Union[ReadOptions, None] = None,
+    limit: Union[int, None] = None,
 ) -> datafusion.dataframe:
     if range_options.range_op != RangeOp.CountOverlaps:
-        return range_operation_scan(ctx, df1, df2, range_options, read_options)
+        return range_operation_scan(
+            ctx, df1, df2, range_options, read_options1, read_options2, limit
+        )
     py_ctx = datafusion.SessionContext()
     register_file(py_ctx, df1, LEFT_TABLE)
     register_file(py_ctx, df2, RIGHT_TABLE)

@@ -33,7 +33,8 @@ def overlap(
     algorithm: str = "Coitrees",
     output_type: str = "polars.LazyFrame",
     streaming: bool = False,
-    read_options: Union[ReadOptions | None] = None,
+    read_options1: Union[ReadOptions | None] = None,
+    read_options2: Union[ReadOptions | None] = None,
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     """
     Find pairs of overlapping genomic intervals.
@@ -53,7 +54,8 @@ def overlap(
         algorithm: The algorithm to use for the overlap operation.
         output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
         streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming-out-of-core-processing) engine.
-        read_options: Additional options for reading the input files.
+        read_options1: Additional options for reading the input files.
+        read_options2: Additional options for reading the input files.
 
     Returns:
         **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
@@ -107,7 +109,9 @@ def overlap(
         overlap_alg=algorithm,
         streaming=streaming,
     )
-    return range_operation(df1, df2, range_options, output_type, ctx)
+    return range_operation(
+        df1, df2, range_options, output_type, ctx, read_options1, read_options2
+    )
 
 
 def nearest(

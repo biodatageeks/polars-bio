@@ -1,4 +1,4 @@
-use crate::operation::QueryParams;
+use crate::operation::{format_non_join_tables, QueryParams};
 use crate::{LEFT_TABLE, RIGHT_TABLE};
 
 pub(crate) fn nearest_query(query_params: QueryParams) -> String {
@@ -83,9 +83,9 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
                 a.{} as {}{}, -- pos_end
                 b.{} as {}{}, -- contig
                 b.{} as {}{}, -- pos_start
-                b.{} as {}{}, -- pos_end
-                a.* except({}, {}, {}), -- all join columns from left table
-                b.* except({}, {}, {}) -- all join columns from right table
+                b.{} as {}{} -- pos_end
+                {}
+                {}
             FROM
                 {} a, {} b
             WHERE
@@ -113,12 +113,26 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
         query_params.columns_2[2],
         query_params.columns_2[2],
         query_params.suffixes.1, // pos_end
-        query_params.columns_1[0],
-        query_params.columns_1[1],
-        query_params.columns_1[2], // all join columns from right table
-        query_params.columns_2[0],
-        query_params.columns_2[1],
-        query_params.columns_2[2], // all join columns from left table
+        if !query_params.other_columns_1.is_empty() {
+            ",".to_string()
+                + &format_non_join_tables(
+                    query_params.other_columns_1.clone(),
+                    "a".to_string(),
+                    query_params.suffixes.0.clone(),
+                )
+                + ","
+        } else {
+            "".to_string()
+        },
+        if !query_params.other_columns_2.is_empty() {
+            format_non_join_tables(
+                query_params.other_columns_2.clone(),
+                "b".to_string(),
+                query_params.suffixes.1.clone(),
+            )
+        } else {
+            "".to_string()
+        },
         LEFT_TABLE,
         RIGHT_TABLE,
         query_params.columns_1[0],

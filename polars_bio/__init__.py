@@ -1,4 +1,4 @@
-from polars_bio.polars_bio import InputFormat
+from polars_bio.polars_bio import InputFormat, ReadOptions, VcfReadOptions
 
 from .context import ctx
 from .io import read_bam, read_fasta, read_fastq, read_table, read_vcf
@@ -25,4 +25,6 @@ __all__ = [
     "read_table",
     "InputFormat",
     "LazyFrame",
+    "ReadOptions",
+    "VcfReadOptions",
 ]

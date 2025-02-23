@@ -34,32 +34,41 @@ const RIGHT_TABLE: &str = "s2";
 const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
 
 #[pyfunction]
+#[pyo3(signature = (py_ctx, df1, df2, range_options, limit=None))]
 fn range_operation_frame(
     py_ctx: &PyBioSessionContext,
     df1: PyArrowType<ArrowArrayStreamReader>,
     df2: PyArrowType<ArrowArrayStreamReader>,
     range_options: RangeOptions,
+    limit: Option<usize>,
 ) -> PyResult<PyDataFrame> {
     #[allow(clippy::useless_conversion)]
     let rt = Runtime::new().unwrap();
     let ctx = &py_ctx.ctx;
     register_frame(py_ctx, df1, LEFT_TABLE.to_string());
     register_frame(py_ctx, df2, RIGHT_TABLE.to_string());
-    Ok(PyDataFrame::new(do_range_operation(
-        ctx,
-        &rt,
-        range_options,
-    )))
+    match limit {
+        Some(l) => Ok(PyDataFrame::new(
+            do_range_operation(ctx, &rt, range_options).limit(0, Some(l))?,
+        )),
+        _ => Ok(PyDataFrame::new(do_range_operation(
+            ctx,
+            &rt,
+            range_options,
+        ))),
+    }
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path1, df_path2, range_options, read_options=None))]
+#[pyo3(signature = (py_ctx, df_path1, df_path2, range_options, read_options1=None, read_options2=None, limit=None))]
 fn range_operation_scan(
     py_ctx: &PyBioSessionContext,
     df_path1: String,
     df_path2: String,
     range_options: RangeOptions,
-    read_options: Option<ReadOptions>,
+    read_options1: Option<ReadOptions>,
+    read_options2: Option<ReadOptions>,
+    limit: Option<usize>,
 ) -> PyResult<PyDataFrame> {
     #[allow(clippy::useless_conversion)]
     let rt = Runtime::new()?;
@@ -69,31 +78,37 @@ fn range_operation_scan(
         &df_path1,
         LEFT_TABLE,
         get_input_format(&df_path1),
-        read_options.clone(),
+        read_options1,
     ));
     rt.block_on(register_table(
         ctx,
         &df_path2,
         RIGHT_TABLE,
         get_input_format(&df_path2),
-        read_options,
+        read_options2,
     ));
-    Ok(PyDataFrame::new(do_range_operation(
-        ctx,
-        &rt,
-        range_options,
-    )))
+    match limit {
+        Some(l) => Ok(PyDataFrame::new(
+            do_range_operation(ctx, &rt, range_options).limit(0, Some(l))?,
+        )),
+        _ => Ok(PyDataFrame::new(do_range_operation(
+            ctx,
+            &rt,
+            range_options,
+        ))),
+    }
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path1, df_path2, range_options, read_options=None))]
+#[pyo3(signature = (py_ctx, df_path1, df_path2, range_options, read_options1=None, read_options2=None))]
 fn stream_range_operation_scan(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
     df_path1: String,
     df_path2: String,
     range_options: RangeOptions,
-    read_options: Option<ReadOptions>,
+    read_options1: Option<ReadOptions>,
+    read_options2: Option<ReadOptions>,
 ) -> PyResult<PyLazyFrame> {
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
@@ -105,14 +120,14 @@ fn stream_range_operation_scan(
             &df_path1,
             LEFT_TABLE,
             get_input_format(&df_path1),
-            read_options.clone(),
+            read_options1,
         ));
         rt.block_on(register_table(
             ctx,
             &df_path2,
             RIGHT_TABLE,
             get_input_format(&df_path2),
-            read_options,
+            read_options2,
         ));
 
         let df = do_range_operation(ctx, &rt, range_options);

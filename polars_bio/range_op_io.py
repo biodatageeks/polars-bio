@@ -6,9 +6,17 @@ import pandas as pd
 import polars as pl
 import pyarrow as pa
 import pyarrow.compute as pc
+from datafusion import DataFrame
 from polars.io.plugins import register_io_source
 
-from polars_bio.polars_bio import BioSessionContext, RangeOptions, ReadOptions
+from polars_bio.polars_bio import (
+    BioSessionContext,
+    InputFormat,
+    RangeOptions,
+    ReadOptions,
+    py_register_table,
+    py_scan_table,
+)
 
 from .range_wrappers import range_operation_frame_wrapper, range_operation_scan_wrapper
 
@@ -19,7 +27,8 @@ def range_lazy_scan(
     schema: pl.Schema,
     range_options: RangeOptions,
     ctx: BioSessionContext,
-    read_options: Union[ReadOptions, None] = None,
+    read_options1: Union[ReadOptions, None] = None,
+    read_options2: Union[ReadOptions, None] = None,
 ) -> pl.LazyFrame:
     range_function = None
     if isinstance(df_1, str) and isinstance(df_2, str):
@@ -39,14 +48,18 @@ def range_lazy_scan(
     else:
         raise ValueError("Only polars and pandas dataframes are supported")
 
-    def _overlap_source(
+    def _range_source(
         with_columns: Union[pl.Expr, None],
         predicate: Union[pl.Expr, None],
         _n_rows: Union[int, None],
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
-        df_lazy: datafusion.DataFrame = range_function(
-            ctx, df_1, df_2, range_options, read_options
+        df_lazy: datafusion.DataFrame = (
+            range_function(
+                ctx, df_1, df_2, range_options, read_options1, read_options2, _n_rows
+            )
+            if isinstance(df_1, str) and isinstance(df_2, str)
+            else range_function(ctx, df_1, df_2, range_options, _n_rows)
         )
         df_lazy.schema()
         df_stream = df_lazy.execute_stream()
@@ -63,7 +76,7 @@ def range_lazy_scan(
             #     df = df.select(with_columns)
             yield df
 
-    return register_io_source(_overlap_source, schema=schema)
+    return register_io_source(_range_source, schema=schema)
 
 
 def _rename_columns_pl(df: pl.DataFrame, suffix: str) -> pl.DataFrame:
@@ -84,12 +97,27 @@ def _rename_columns(
         raise ValueError("Only polars and pandas dataframes are supported")
 
 
-def _get_schema(path: str, suffix=None) -> pl.Schema:
-    ext = Path(path).suffix
-    if ext == ".parquet":
+def _get_schema(
+    path: str,
+    ctx: BioSessionContext,
+    suffix=None,
+    read_options: Union[ReadOptions | None] = None,
+) -> pl.Schema:
+    ext = Path(path).suffixes
+    if ext[-1] == ".parquet":
         df = pl.read_parquet(path)
-    elif ext == ".csv":
+    elif ".csv" in ext:
         df = pl.read_csv(path)
+    elif ".vcf" in ext:
+        table = py_register_table(ctx, path, InputFormat.Vcf, read_options)
+        df: DataFrame = py_scan_table(ctx, table.name)
+        arrow_schema = df.schema()
+        empty_table = pa.Table.from_arrays(
+            [pa.array([], type=field.type) for field in arrow_schema],
+            schema=arrow_schema,
+        )
+        df = pl.from_arrow(empty_table)
+
     else:
         raise ValueError("Only CSV and Parquet files are supported")
     if suffix is not None:
