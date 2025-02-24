@@ -11,8 +11,8 @@ pub(crate) fn nearest_query(query_params: QueryParams) -> String {
             b.{} AS {}{}, -- contig
             b.{} AS {}{}, -- pos_start
             b.{} AS {}{},  -- pos_end
-            a.* except({}, {}, {}), -- all join columns from left table
-            b.* except({}, {}, {}), -- all join columns from right table
+            {}
+            {}
        CAST(
        CASE WHEN b.{} >= a.{}
             THEN
@@ -46,12 +46,26 @@ pub(crate) fn nearest_query(query_params: QueryParams) -> String {
         query_params.columns_2[2],
         query_params.columns_2[2],
         query_params.suffixes.1, // pos_end
-        query_params.columns_1[0],
-        query_params.columns_1[1],
-        query_params.columns_1[2], // all join columns from right table
-        query_params.columns_2[0],
-        query_params.columns_2[1],
-        query_params.columns_2[2], // all join columns from left table
+        if !query_params.other_columns_1.is_empty() {
+            ",".to_string()
+                + &format_non_join_tables(
+                    query_params.other_columns_1.clone(),
+                    "a".to_string(),
+                    query_params.suffixes.0.clone(),
+                )
+                + ","
+        } else {
+            "".to_string()
+        },
+        if !query_params.other_columns_2.is_empty() {
+            format_non_join_tables(
+                query_params.other_columns_2.clone(),
+                "b".to_string(),
+                query_params.suffixes.1.clone(),
+            )
+        } else {
+            "".to_string()
+        },
         query_params.columns_2[1],
         query_params.columns_1[2], //  b.pos_start >= a.pos_end
         query_params.columns_2[1],
