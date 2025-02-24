@@ -151,6 +151,7 @@ fn stream_range_operation_scan(
         let stream = rt.block_on(df.execute_stream()).unwrap();
         let scan = RangeOperationScan {
             df_iter: Arc::new(Mutex::new(stream)),
+            rt: Runtime::new().unwrap(),
         };
         let function = Arc::new(scan);
         let lf = LazyFrame::anonymous_scan(function, args).map_err(PyPolarsErr::from)?;

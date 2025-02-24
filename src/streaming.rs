@@ -10,6 +10,7 @@ use crate::utils::{convert_arrow_rb_schema_to_polars_df_schema, convert_arrow_rb
 
 pub struct RangeOperationScan {
     pub(crate) df_iter: Arc<Mutex<SendableRecordBatchStream>>,
+    pub(crate) rt: Runtime,
 }
 
 impl AnonymousScan for RangeOperationScan {
@@ -27,8 +28,7 @@ impl AnonymousScan for RangeOperationScan {
         scan_opts: AnonymousScanArgs,
     ) -> PolarsResult<Option<polars::prelude::DataFrame>> {
         let mutex = Arc::clone(&self.df_iter);
-        let rt = Runtime::new()?;
-        let result = rt.block_on(mutex.lock().unwrap().next());
+        let result = self.rt.block_on(mutex.lock().unwrap().next());
         match result {
             Some(batch) => {
                 let rb = batch.unwrap();
