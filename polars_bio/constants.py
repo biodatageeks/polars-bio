@@ -1,1 +1,2 @@
 DEFAULT_INTERVAL_COLUMNS = ["chrom", "start", "end"]
+DEFAULT_BATCH_SIZE = 8192

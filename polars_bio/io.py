@@ -4,6 +4,7 @@ import polars as pl
 from bioframe import SCHEMAS
 from datafusion import DataFrame
 from polars.io.plugins import register_io_source
+from tqdm.auto import tqdm
 
 from polars_bio.polars_bio import (
     InputFormat,
@@ -125,6 +126,7 @@ def file_lazy_scan(
             yield df
             return
         df_stream = df_lazy.execute_stream()
+        progress_bar = tqdm(unit="rows")
         for r in df_stream:
             py_df = r.to_pyarrow()
             df = pl.DataFrame(py_df)
@@ -134,6 +136,7 @@ def file_lazy_scan(
             #  but for now we'll do it here.
             if with_columns is not None:
                 df = df.select(with_columns)
+            progress_bar.update(len(df))
             yield df
 
     return register_io_source(_overlap_source, schema=arrow_schema)

@@ -65,6 +65,7 @@ py-cpuinfo = "^9.0.0"
 jupyter_client = "^8.6.3"
 psutil = "^6.1.1"
 rich = "^13.9.4"
+tqdm = "^4.67.1"
 
 ## only for benchmarking
 pyranges = {git = "https://github.com/pyranges/pyranges.git", rev = "4f0a153336e7153cdfea15b141ce4ea35a24e233" }
