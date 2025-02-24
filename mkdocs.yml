@@ -25,7 +25,7 @@ plugins:
   - search
   - autorefs
   - mkdocs-jupyter:
-      execute: true
+      execute: false
       allow_errors: false
   - mkdocstrings:
       default_handler: python
