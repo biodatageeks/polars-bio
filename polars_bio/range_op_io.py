@@ -101,7 +101,7 @@ def _get_schema(
     path: str,
     ctx: BioSessionContext,
     suffix=None,
-    read_options: Union[ReadOptions | None] = None,
+    read_options: Union[ReadOptions, None] = None,
 ) -> pl.Schema:
     ext = Path(path).suffixes
     if ext[-1] == ".parquet":

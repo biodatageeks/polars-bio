@@ -52,7 +52,7 @@ def read_bam(path: str) -> pl.LazyFrame:
 
 
 def read_vcf(
-    path: str, info_fields: Union[list[str] | None] = None, thread_num: int = 1
+    path: str, info_fields: Union[list[str], None] = None, thread_num: int = 1
 ) -> pl.LazyFrame:
     """
     Read a VCF file into a LazyFrame.

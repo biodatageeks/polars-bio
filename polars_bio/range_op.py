@@ -33,8 +33,8 @@ def overlap(
     algorithm: str = "Coitrees",
     output_type: str = "polars.LazyFrame",
     streaming: bool = False,
-    read_options1: Union[ReadOptions | None] = None,
-    read_options2: Union[ReadOptions | None] = None,
+    read_options1: Union[ReadOptions, None] = None,
+    read_options2: Union[ReadOptions, None] = None,
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     """
     Find pairs of overlapping genomic intervals.
@@ -124,7 +124,7 @@ def nearest(
     cols2: Union[list[str], None] = ["chrom", "start", "end"],
     output_type: str = "polars.LazyFrame",
     streaming: bool = False,
-    read_options: Union[ReadOptions | None] = None,
+    read_options: Union[ReadOptions, None] = None,
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     """
     Find pairs of overlapping genomic intervals.

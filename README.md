@@ -29,7 +29,7 @@ It provides a DataFrame API for genomics data and is designed to be blazing fast
 * native parallel engine powered by Apache DataFusion and [sequila-native](https://github.com/biodatageeks/sequila-native)
 * [out-of-core](https://biodatageeks.org/polars-bio/features#streaming-out-of-core-processing-exeprimental) processing (for data too large to fit into a computer's main memory)  with [Apache DataFusion](https://datafusion.apache.org/) and [polars](https://pola.rs/)
 * zero-copy data exchange with [Apache Arrow](https://arrow.apache.org/)
-* bioinformatics file [formats](https://biodatageeks.org/polars-bio/features.md#file-formats-support) with [exon](https://github.com/wheretrue/exon)
+* bioinformatics file [formats](features.md#file-formats-support) with [noodles](https://github.com/zaeleus/noodles) and [exon](https://github.com/wheretrue/exon)
 * pre-built wheel packages for *Linux*, *Windows* and *MacOS* (*arm64* and *x86_64*) available on [PyPI](https://pypi.org/project/polars-bio/#files)
 
 

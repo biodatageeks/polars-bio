@@ -22,8 +22,8 @@ def range_operation(
     range_options: RangeOptions,
     output_type: str,
     ctx: BioSessionContext,
-    read_options1: Union[ReadOptions | None] = None,
-    read_options2: Union[ReadOptions | None] = None,
+    read_options1: Union[ReadOptions, None] = None,
+    read_options2: Union[ReadOptions, None] = None,
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     ctx.sync_options()
     if isinstance(df1, str) and isinstance(df2, str):
