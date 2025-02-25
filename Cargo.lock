@@ -2141,7 +2141,7 @@ dependencies = [
 [[package]]
 name = "datafusion-vcf"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git/?rev=6facae97a749a4d281b319d7d963a3fb420ff374#6facae97a749a4d281b319d7d963a3fb420ff374"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git/?rev=8603e6e3c41fce7c805d65815c76e8d554caa2eb#8603e6e3c41fce7c805d65815c76e8d554caa2eb"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -5398,7 +5398,7 @@ dependencies = [
 
 [[package]]
 name = "polars_bio"
-version = "0.5.4"
+version = "0.6.1"
 dependencies = [
  "arrow",
  "arrow-array",
