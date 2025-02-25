@@ -9,7 +9,7 @@ from .range_viz import visualize_intervals
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 
 
-__version__ = "0.6.1"
+__version__ = "0.6.2"
 __all__ = [
     "overlap",
     "nearest",
