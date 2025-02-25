@@ -4,6 +4,7 @@ mod option;
 mod query;
 mod scan;
 mod streaming;
+mod udtf;
 mod utils;
 
 use std::string::ToString;
