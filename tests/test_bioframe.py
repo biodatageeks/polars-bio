@@ -1,10 +1,12 @@
 import bioframe as bf
 import pandas as pd
-from _expected import BIO_PD_DF1, BIO_PD_DF2
+from _expected import BIO_DF_PATH1, BIO_DF_PATH2, BIO_PD_DF1, BIO_PD_DF2
 from numpy import int32
 
 import polars_bio as pb
 from polars_bio.polars_bio import FilterOp
+
+pb.ctx.set_option("datafusion.execution.parquet.schema_force_view_types", "true", False)
 
 
 class TestBioframe:
@@ -62,12 +64,11 @@ class TestBioframe:
     )
 
     result_count_overlaps_naive = pb.count_overlaps(
-        BIO_PD_DF1,
-        BIO_PD_DF2,
+        BIO_DF_PATH1,
+        BIO_DF_PATH2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         overlap_filter=FilterOp.Strict,
-        output_type="pandas.DataFrame",
         naive_query=True,
     )
 
@@ -130,7 +131,9 @@ class TestBioframe:
 
     def test_overlaps_count(self):
         assert len(self.result_count_overlaps) == len(self.result_bio_count_overlaps)
-        # assert len(self.result_count_overlaps_naive) == len(self.result_bio_count_overlaps)
+        assert len(self.result_count_overlaps_naive.collect()) == len(
+            self.result_bio_count_overlaps
+        )
 
     def test_overlaps_schema_rows(self):
         expected = (
@@ -143,7 +146,16 @@ class TestBioframe:
         result = self.result_count_overlaps.sort_values(
             by=list(self.result_count_overlaps.columns)
         ).reset_index(drop=True)
+        result_naive = (
+            self.result_count_overlaps_naive.collect()
+            .to_pandas()
+            .sort_values(
+                by=list(self.result_count_overlaps_naive.collect_schema().names())
+            )
+            .reset_index(drop=True)
+        )
         pd.testing.assert_frame_equal(result, expected)
+        pd.testing.assert_frame_equal(result_naive, expected, check_dtype=True)
 
     def test_merge_count(self):
         assert len(self.result_merge) == len(self.result_bio_merge)

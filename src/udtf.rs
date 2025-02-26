@@ -3,7 +3,7 @@ use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
-use arrow_array::{Array, Int32Array, RecordBatch, StringViewArray};
+use arrow_array::{Array, Int32Array, Int64Array, RecordBatch, StringViewArray};
 use arrow_schema::{DataType, Field, FieldRef, Schema, SchemaRef};
 use async_trait::async_trait;
 use coitrees::{COITree, Interval, IntervalTree};
@@ -265,11 +265,10 @@ async fn get_stream(
     let right_table = session.table(right_table);
     let stream = right_table.await?.execute_stream().await?;
     let mut fields = stream.schema().fields().to_vec();
-    let new_field = Field::new("count", DataType::Int32, false);
+    let new_field = Field::new("count", DataType::Int64, false);
     fields.push(FieldRef::new(new_field));
     let new_schema = Arc::new(Schema::new(fields).clone());
     let new_schema_out = SchemaRef::from(new_schema.clone());
-    println!("new schema: {:?}", new_schema);
 
     let iter = stream.map(move |rb| match rb {
         Ok(rb) => {
@@ -285,10 +284,10 @@ async fn get_stream(
                     count_arr.push(0);
                     continue;
                 }
-                let count = tree.unwrap().query_count(pos_start, pos_end);
-                count_arr.push(count as i32);
+                let count = tree.unwrap().query_count(pos_start + 1, pos_end - 1);
+                count_arr.push(count as i64);
             }
-            let count_arr = Arc::new(Int32Array::from(count_arr));
+            let count_arr = Arc::new(Int64Array::from(count_arr));
             let mut columns = rb.columns().to_vec();
             columns.push(count_arr);
             let new_rb = RecordBatch::try_new(new_schema.clone(), columns).unwrap();

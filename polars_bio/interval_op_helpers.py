@@ -1,10 +1,13 @@
 from pathlib import Path
-from .context import Context
 
 import datafusion
 import pandas as pd
 import polars as pl
+import pyarrow as pa
 from typing_extensions import Union
+
+from .constants import DEFAULT_INTERVAL_COLUMNS
+from .context import Context
 
 
 def get_py_ctx() -> datafusion.context.SessionContext:
@@ -33,9 +36,9 @@ def read_df_to_datafusion(
                 file_extension=".bed",
                 schema=pa.schema(
                     [
-                        (DEFAULT_COLUMNS[0], pa.string()),
-                        (DEFAULT_COLUMNS[1], pa.int64()),
-                        (DEFAULT_COLUMNS[2], pa.int64()),
+                        (DEFAULT_INTERVAL_COLUMNS[0], pa.string()),
+                        (DEFAULT_INTERVAL_COLUMNS[1], pa.int64()),
+                        (DEFAULT_INTERVAL_COLUMNS[2], pa.int64()),
                     ]
                 ),
             )
@@ -63,7 +66,7 @@ def convert_result(
     df: datafusion.DataFrame, output_type: str, streaming: bool
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     # TODO: implement streaming
-    if streaming == True:
+    if streaming:
         # raise NotImplementedError("streaming is not implemented")
         return df.to_polars().lazy()
     if output_type == "polars.DataFrame":

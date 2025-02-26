@@ -253,7 +253,7 @@ def count_overlaps(
             columns_2=cols2,
             streaming=streaming,
         )
-        return range_operation(df1, df2, range_options, output_type, ctx)
+        return range_operation(df2, df1, range_options, output_type, ctx)
     df1 = read_df_to_datafusion(my_ctx, df1)
     df2 = read_df_to_datafusion(my_ctx, df2)
 

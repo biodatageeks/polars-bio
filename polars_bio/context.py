@@ -1,4 +1,5 @@
 import datetime
+
 import datafusion
 
 from polars_bio.polars_bio import BioSessionContext
@@ -37,7 +38,9 @@ class Context:
         self.ctx.set_option(key, value)
         self.config.set(key, value)
 
+
 def set_option(key, value):
     Context().set_option(key, value)
+
 
 ctx = Context().ctx

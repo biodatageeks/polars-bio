@@ -41,7 +41,7 @@ def range_operation_scan_wrapper(
     read_options1: Union[ReadOptions, None] = None,
     read_options2: Union[ReadOptions, None] = None,
     limit: Union[int, None] = None,
-) -> datafusion.dataframe:
+) -> datafusion.DataFrame:
     if range_options.range_op != RangeOp.CountOverlaps:
         return range_operation_scan(
             ctx, df1, df2, range_options, read_options1, read_options2, limit

@@ -5,7 +5,6 @@ RIGHT_TABLE = "s2"
 
 
 def do_range_operation(ctx, range_options):
-    streaming = range_options.streaming
     if range_options.range_op == RangeOp.CountOverlaps:
         return do_count_overlaps(ctx, range_options)
 

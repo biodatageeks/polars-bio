@@ -139,6 +139,9 @@ PD_COUNT_OVERLAPS_DF1 = pd.read_csv(DF_COUNT_OVERLAPS_PATH1)
 PD_COUNT_OVERLAPS_DF2 = pd.read_csv(DF_COUNT_OVERLAPS_PATH2)
 
 
+BIO_DF_PATH1 = f"{DATA_DIR}/exons/*.parquet"
+BIO_DF_PATH2 = f"{DATA_DIR}/fBrain-DS14718/*.parquet"
+
 BIO_PD_DF1 = pd.read_parquet(f"{DATA_DIR}/exons/")
 BIO_PD_DF2 = pd.read_parquet(f"{DATA_DIR}/fBrain-DS14718/")
 
