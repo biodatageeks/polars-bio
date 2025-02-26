@@ -5,6 +5,8 @@
 
 ![overlap-single.png](assets/nearest-single.png)
 
+![count-overlaps-single.png](assets/count-overlaps-single.png)
+
 ## Parallel performance 🏃‍🏃‍
 ![overlap-parallel.png](assets/overlap-parallel.png)
 

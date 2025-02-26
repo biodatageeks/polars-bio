@@ -70,7 +70,7 @@ impl TableFunctionImpl for CountOverlapsFunction {
         };
 
         let provider = CountOverlapsProvider {
-            session: self.session.clone(),
+            session: Arc::clone(&self.session),
             left_table: left_table.clone(),
             right_table: right_table.clone(),
             columns_1: (contig_col_1.clone(), start_col_1.clone(), end_col_1.clone()),
@@ -118,7 +118,7 @@ impl TableProvider for CountOverlapsProvider {
     ) -> Result<Arc<dyn ExecutionPlan>> {
         Ok(Arc::new(CountOverlapsExec {
             schema: self.schema().clone(),
-            session: self.session.clone(),
+            session: Arc::clone(&self.session),
             left_table: self.left_table.clone(),
             right_table: self.right_table.clone(),
             columns_1: self.columns_1.clone(),
@@ -186,7 +186,7 @@ impl ExecutionPlan for CountOverlapsExec {
         _context: Arc<TaskContext>,
     ) -> Result<SendableRecordBatchStream> {
         let fut = get_stream(
-            self.session.clone(),
+            Arc::clone(&self.session),
             self.left_table.clone(),
             self.right_table.clone(),
             self.columns_1.clone(),
@@ -260,6 +260,15 @@ async fn get_stream(
     columns_1: (String, String, String),
     columns_2: (String, String, String),
 ) -> Result<SendableRecordBatchStream> {
+    println!(
+        "{}",
+        session
+            .state()
+            .config()
+            .options()
+            .execution
+            .target_partitions
+    );
     let left_table = session.table(left_table).await?.collect().await?;
     let trees = build_coitree_from_batches(left_table, columns_1.clone());
     let right_table = session.table(right_table);

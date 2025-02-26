@@ -19,6 +19,8 @@ It provides a DataFrame API for genomics data and is designed to be blazing fast
 
 ![overlap-single.png](docs/assets/nearest-single.png)
 
+![count-overlaps-single.png](docs/assets/count-overlaps-single.png)
+
 ## Parallel performance 🏃‍🏃‍
 ![overlap-parallel.png](docs/assets/overlap-parallel.png)
 
