@@ -1,8 +1,4 @@
-use std::fmt::format;
-use std::sync::Arc;
-
-use datafusion::common::TableReference;
-use datafusion::execution::SendableRecordBatchStream;
+use datafusion::catalog_common::TableReference;
 use exon::ExonSession;
 use log::{debug, info};
 use sequila_core::session_context::{Algorithm, SequilaConfig};
@@ -10,9 +6,7 @@ use tokio::runtime::Runtime;
 
 use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions};
-use crate::query::{
-    count_overlaps_naive_query, count_overlaps_query, nearest_query, overlap_query,
-};
+use crate::query::{count_overlaps_query, nearest_query, overlap_query};
 use crate::utils::default_cols_to_string;
 use crate::{DEFAULT_COLUMN_NAMES, LEFT_TABLE, RIGHT_TABLE};
 
@@ -124,7 +118,7 @@ async fn do_count_overlaps(
 
 async fn do_count_overlaps_naive(
     ctx: &ExonSession,
-    range_opts: RangeOptions,
+    _range_opts: RangeOptions,
 ) -> datafusion::dataframe::DataFrame {
     let query = format!(
         "SELECT * FROM count_overlaps('{}', '{}')",
