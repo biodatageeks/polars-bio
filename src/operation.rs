@@ -118,11 +118,20 @@ async fn do_count_overlaps(
 
 async fn do_count_overlaps_naive(
     ctx: &ExonSession,
-    _range_opts: RangeOptions,
+    range_opts: RangeOptions,
 ) -> datafusion::dataframe::DataFrame {
+    let columns_1 = range_opts.columns_1.unwrap();
+    let columns_2 = range_opts.columns_2.unwrap();
     let query = format!(
-        "SELECT * FROM count_overlaps('{}', '{}')",
-        LEFT_TABLE, RIGHT_TABLE
+        "SELECT * FROM count_overlaps('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}')",
+        LEFT_TABLE,
+        RIGHT_TABLE,
+        columns_1[0],
+        columns_1[1],
+        columns_1[2],
+        columns_2[0],
+        columns_2[1],
+        columns_2[2]
     );
     debug!("Query: {}", query);
     ctx.sql(&query).await.unwrap()

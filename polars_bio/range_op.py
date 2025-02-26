@@ -202,8 +202,8 @@ def count_overlaps(
             genomic intervals, provided separately for each set.
         on_cols: List of additional column names to join on. default is None.
         output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
+        naive_query: If True, use naive query for counting overlaps based on overlaps.
         streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming-out-of-core-processing) engine.
-        naive_query **EXPERIMENTAL** If True, use naive query for counting overlaps based on overlaps. Unlike Bioframe and the default algorithm it does only return the number unique intervals with sum of overlaps, i.e. if we have on the query side the same interval 2 times it will only return it once with the sum of overlaps - Bioframe returns the interval 2 times with the same overlap.
     Returns:
         **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
