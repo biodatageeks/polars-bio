@@ -1,4 +1,8 @@
+use std::fmt::format;
+use std::sync::Arc;
+
 use datafusion::common::TableReference;
+use datafusion::execution::SendableRecordBatchStream;
 use exon::ExonSession;
 use log::{debug, info};
 use sequila_core::session_context::{Algorithm, SequilaConfig};
@@ -122,9 +126,10 @@ async fn do_count_overlaps_naive(
     ctx: &ExonSession,
     range_opts: RangeOptions,
 ) -> datafusion::dataframe::DataFrame {
-    let query = prepare_query(count_overlaps_naive_query, range_opts, ctx)
-        .await
-        .to_string();
+    let query = format!(
+        "SELECT * FROM count_overlaps('{}', '{}')",
+        LEFT_TABLE, RIGHT_TABLE
+    );
     debug!("Query: {}", query);
     ctx.sql(&query).await.unwrap()
 }

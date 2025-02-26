@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use datafusion::config::ConfigOptions;
 use datafusion::prelude::SessionConfig;
@@ -7,6 +8,8 @@ use exon::ExonSession;
 use log::debug;
 use pyo3::{pyclass, pymethods, PyResult};
 use sequila_core::session_context::SequilaConfig;
+
+use crate::udtf::CountOverlapsFunction;
 
 #[pyclass(name = "BioSessionContext")]
 // #[derive(Clone)]
@@ -24,6 +27,10 @@ impl PyBioSessionContext {
     pub fn new(seed: String) -> PyResult<Self> {
         let ctx = create_context().unwrap();
         let session_config: HashMap<String, String> = HashMap::new();
+        ctx.session.register_udtf(
+            "count_overlaps",
+            Arc::new(CountOverlapsFunction::new(ctx.session.clone())),
+        );
 
         Ok(PyBioSessionContext {
             ctx,

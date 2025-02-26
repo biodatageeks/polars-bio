@@ -160,6 +160,34 @@ fn stream_range_operation_scan(
     })
 }
 
+// #[pyfunction]
+// #[pyo3(signature = (py_ctx, df_path1, read_options1=None, limit=None))]
+// fn unary_operation_scan(
+//     py: Python<'_>,
+//     py_ctx: &PyBioSessionContext,
+//     df_path1: String,
+//     read_options1: Option<ReadOptions>,
+//     limit: Option<usize>
+// ) -> PyResult<PyDataFrame> {
+//     py.allow_threads(|| {
+//         let rt = Runtime::new().unwrap();
+//         let ctx = &py_ctx.ctx;
+//
+//         rt.block_on(register_table(
+//             ctx,
+//             &df_path1,
+//             LEFT_TABLE,
+//             get_input_format(&df_path1),
+//             read_options1,
+//         ));
+//         let df = rt.block_on(ctx.sql(&format!("SELECT * FROM {}", LEFT_TABLE))).unwrap();
+//         match limit {
+//             Some(l) => Ok(PyDataFrame::new(df.limit(0, Some(l))?)),
+//             _ => Ok(PyDataFrame::new(df)),
+//         }
+//     })
+// }
+
 #[pyfunction]
 #[pyo3(signature = (py_ctx, path, input_format, read_options=None))]
 fn py_register_table(
@@ -253,6 +281,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_scan_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
+    // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;
