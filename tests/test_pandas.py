@@ -67,6 +67,7 @@ class TestCountOverlapsPandas:
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         overlap_filter=FilterOp.Weak,
+        naive_query=False,
     )
 
     def test_count_overlaps_count(self):

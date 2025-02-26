@@ -61,6 +61,7 @@ class TestBioframe:
         cols2=("contig", "pos_start", "pos_end"),
         overlap_filter=FilterOp.Strict,
         output_type="pandas.DataFrame",
+        naive_query=False,
     )
 
     result_count_overlaps_naive = pb.count_overlaps(

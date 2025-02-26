@@ -63,6 +63,7 @@ class PolarsRangesOperations:
         cols1=["chrom", "start", "end"],
         cols2=["chrom", "start", "end"],
         on_cols: Union[list[str], None] = None,
+        naive_query: bool = True,
     ) -> pl.LazyFrame:
         """
         !!! note
@@ -76,6 +77,7 @@ class PolarsRangesOperations:
             cols1=cols1,
             cols2=cols2,
             on_cols=on_cols,
+            naive_query=naive_query,
         )
 
     def merge(

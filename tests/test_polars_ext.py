@@ -152,7 +152,11 @@ class TestPolarsExt:
             .reset_index(drop=True)
         )
         df_3 = (
-            bf.count_overlaps(df_1, df_2, suffixes=("", "_"))
+            bf.count_overlaps(
+                df_1,
+                df_2,
+                suffixes=("", "_"),
+            )
             .sort_values(by=["chrom", "start", "end"])
             .reset_index(drop=True)
         )
@@ -160,7 +164,9 @@ class TestPolarsExt:
         df_4 = (
             pl.DataFrame(df_1)
             .lazy()
-            .pb.count_overlaps(pl.DataFrame(df_2).lazy(), suffixes=("", "_"))
+            .pb.count_overlaps(
+                pl.DataFrame(df_2).lazy(), suffixes=("", "_"), naive_query=False
+            )
             .collect()
             .to_pandas()
             .sort_values(by=["chrom", "start", "end"])

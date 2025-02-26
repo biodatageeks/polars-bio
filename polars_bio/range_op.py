@@ -178,13 +178,12 @@ def count_overlaps(
     df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     overlap_filter: FilterOp = FilterOp.Strict,
     suffixes: tuple[str, str] = ("", "_"),
-    return_input: bool = True,
     cols1: Union[list[str], None] = ["chrom", "start", "end"],
     cols2: Union[list[str], None] = ["chrom", "start", "end"],
     on_cols: Union[list[str], None] = None,
     output_type: str = "polars.LazyFrame",
     streaming: bool = False,
-    naive_query: bool = False,
+    naive_query: bool = True,
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
     """
     Count pairs of overlapping genomic intervals.
@@ -195,7 +194,6 @@ def count_overlaps(
         df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED  and Parquet are supported.
         overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict).
         suffixes: Suffixes for the columns of the two overlapped sets.
-        return_input: If true, return input.
         cols1: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set.
         cols2:  The names of columns containing the chromosome, start and end of the
