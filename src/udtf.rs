@@ -13,6 +13,7 @@ use datafusion::datasource::function::TableFunctionImpl;
 use datafusion::datasource::TableType;
 use datafusion::execution::{SendableRecordBatchStream, TaskContext};
 use datafusion::physical_expr::{EquivalenceProperties, Partitioning};
+use datafusion::physical_plan::repartition::RepartitionExec;
 use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
 use datafusion::physical_plan::{
     DisplayAs, DisplayFormatType, ExecutionMode, ExecutionPlan, PlanProperties,
@@ -116,16 +117,33 @@ impl TableProvider for CountOverlapsProvider {
         _filters: &[Expr],
         _limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
+        let target_partitions = self
+            .session
+            .state()
+            .config()
+            .options()
+            .execution
+            .target_partitions;
+        let left_table = self
+            .session
+            .table(self.left_table.clone())
+            .await?
+            .collect()
+            .await?;
+        let trees = Arc::new(build_coitree_from_batches(
+            left_table,
+            self.columns_1.clone(),
+        ));
         Ok(Arc::new(CountOverlapsExec {
             schema: self.schema().clone(),
             session: Arc::clone(&self.session),
-            left_table: self.left_table.clone(),
+            trees,
             right_table: self.right_table.clone(),
             columns_1: self.columns_1.clone(),
             columns_2: self.columns_2.clone(),
             cache: PlanProperties::new(
                 EquivalenceProperties::new(self.schema().clone()),
-                Partitioning::UnknownPartitioning(1),
+                Partitioning::UnknownPartitioning(target_partitions),
                 ExecutionMode::Bounded,
             ),
         }))
@@ -135,7 +153,7 @@ impl TableProvider for CountOverlapsProvider {
 struct CountOverlapsExec {
     schema: SchemaRef,
     session: Arc<SessionContext>,
-    left_table: String,
+    trees: Arc<FnvHashMap<String, COITree<(), u32>>>,
     right_table: String,
     columns_1: (String, String, String),
     columns_2: (String, String, String),
@@ -182,15 +200,18 @@ impl ExecutionPlan for CountOverlapsExec {
 
     fn execute(
         &self,
-        _partition: usize,
-        _context: Arc<TaskContext>,
+        partition: usize,
+        context: Arc<TaskContext>,
     ) -> Result<SendableRecordBatchStream> {
         let fut = get_stream(
             Arc::clone(&self.session),
-            self.left_table.clone(),
+            self.trees.clone(),
             self.right_table.clone(),
             self.columns_1.clone(),
             self.columns_2.clone(),
+            self.cache.partitioning.partition_count(),
+            partition,
+            context,
         );
         let stream = futures::stream::once(fut).try_flatten();
         let schema = self.schema.clone();
@@ -255,31 +276,28 @@ fn get_join_col_arrays(
 
 async fn get_stream(
     session: Arc<SessionContext>,
-    left_table: String,
+    trees: Arc<FnvHashMap<String, COITree<(), u32>>>,
     right_table: String,
-    columns_1: (String, String, String),
+    _columns_1: (String, String, String),
     columns_2: (String, String, String),
+    target_partitions: usize,
+    partition: usize,
+    context: Arc<TaskContext>,
 ) -> Result<SendableRecordBatchStream> {
-    println!(
-        "{}",
-        session
-            .state()
-            .config()
-            .options()
-            .execution
-            .target_partitions
-    );
-    let left_table = session.table(left_table).await?.collect().await?;
-    let trees = build_coitree_from_batches(left_table, columns_1.clone());
     let right_table = session.table(right_table);
-    let stream = right_table.await?.execute_stream().await?;
-    let mut fields = stream.schema().fields().to_vec();
+    let table_stream = right_table.await?;
+    let plan = table_stream.create_physical_plan().await?;
+    let repartition_stream =
+        RepartitionExec::try_new(plan, Partitioning::RoundRobinBatch(target_partitions))?;
+
+    let partition_stream = repartition_stream.execute(partition, context)?;
+    let mut fields = partition_stream.schema().fields().to_vec();
     let new_field = Field::new("count", DataType::Int64, false);
     fields.push(FieldRef::new(new_field));
     let new_schema = Arc::new(Schema::new(fields).clone());
     let new_schema_out = SchemaRef::from(new_schema.clone());
 
-    let iter = stream.map(move |rb| match rb {
+    let iter = partition_stream.map(move |rb| match rb {
         Ok(rb) => {
             let (contig, pos_start, pos_end) = get_join_col_arrays(&rb, columns_2.clone());
             let mut count_arr = Vec::with_capacity(rb.num_rows());
@@ -308,5 +326,4 @@ async fn get_stream(
     let adapted_stream =
         RecordBatchStreamAdapter::new(new_schema_out, Box::pin(iter) as BoxStream<_>);
     Ok(Box::pin(adapted_stream))
-    // Wrap it in the adapter to get a SendableRecordBatchStream.
 }
