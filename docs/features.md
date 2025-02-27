@@ -2,17 +2,18 @@
 
 ### Genomic ranges operations
 
-| Features                                          | Bioframe           | polars-bio         | PyRanges           | Pybedtools         | PyGenomics         | GenomicRanges      |
-|---------------------------------------------------|--------------------|--------------------|--------------------|--------------------|--------------------|--------------------|
-| [overlap](api.md#polars_bio.overlap)              | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| [nearest](api.md#polars_bio.nearest)              | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
-| cluster                                           | :white_check_mark: |                    | :white_check_mark: | :white_check_mark: |                    |                    |
-| merge                                             | :white_check_mark: |                    | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
-| complement                                        | :white_check_mark: | :construction:     |                    | :white_check_mark: | :white_check_mark: |                    |
-| coverage                                          | :white_check_mark: |                    | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
-| [expand](api.md#polars_bio.LazyFrame.expand)                                 | :white_check_mark: | :white_check_mark:     | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
-| [sort](api.md#polars_bio.LazyFrame.sort_bedframe) | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
-| [read_table](api.md#polars_bio.read_table)        | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
+| Features                                           | Bioframe           | polars-bio         | PyRanges           | Pybedtools         | PyGenomics         | GenomicRanges      |
+|----------------------------------------------------|--------------------|--------------------|--------------------|--------------------|--------------------|--------------------|
+| [overlap](api.md#polars_bio.overlap)               | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [nearest](api.md#polars_bio.nearest)               | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
+| [count_overlaps](api.md#polars_bio.count_overlaps) | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| cluster                                            | :white_check_mark: |                    | :white_check_mark: | :white_check_mark: |                    |                    |
+| [merge](api.md#polars_bio.merge)                   | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
+| complement                                         | :white_check_mark: | :construction:     |                    | :white_check_mark: | :white_check_mark: |                    |
+| coverage                                           | :white_check_mark: |                    | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
+| [expand](api.md#polars_bio.LazyFrame.expand)       | :white_check_mark: | :white_check_mark:     | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
+| [sort](api.md#polars_bio.LazyFrame.sort_bedframe)  | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
+| [read_table](api.md#polars_bio.read_table)         | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 
 
 #### API comparison between libraries
