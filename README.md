@@ -25,6 +25,8 @@ It provides a DataFrame API for genomics data and is designed to be blazing fast
 ![overlap-parallel.png](docs/assets/overlap-parallel.png)
 
 ![overlap-parallel.png](docs/assets/nearest-parallel.png)
+
+![count-overlaps-parallel.png](docs/assets/count-overlaps-parallel.png)
 ## Key Features
 * optimized for [peformance](https://biodatageeks.org/polars-bio/performance/) and large-scale genomics datasets
 * popular genomics [operations](https://biodatageeks.org/polars-bio/features/#genomic-ranges-operations) with a DataFrame API (both [Pandas](https://pandas.pydata.org/) and [polars](https://pola.rs/))

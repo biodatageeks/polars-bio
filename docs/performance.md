@@ -11,6 +11,8 @@
 ![overlap-parallel.png](assets/overlap-parallel.png)
 
 ![overlap-parallel.png](assets/nearest-parallel.png)
+
+![count-overlaps-parallel.png](assets/count-overlaps-parallel.png)
 ## Benchmarks 🧪
 ### Detailed results shortcuts 👨‍🔬
 - [Binary operations](#binary-operations)
