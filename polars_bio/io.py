@@ -59,7 +59,7 @@ def read_vcf(
     info_fields: Union[list[str], None] = None,
     thread_num: int = 1,
     streaming: bool = False,
-) -> Union[pl.LazyFrame | pl.DataFrame]:
+) -> Union[pl.LazyFrame, pl.DataFrame]:
     """
     Read a VCF file into a LazyFrame.
 
