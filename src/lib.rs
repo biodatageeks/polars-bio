@@ -180,7 +180,8 @@ fn py_register_table(
             .unwrap()
             .to_string()
             .replace(&format!(".{}", input_format).to_string().to_lowercase(), "")
-            .replace(".", "_");
+            .replace(".", "_")
+            .replace("-", "_");
         rt.block_on(register_table(
             ctx,
             &path,
