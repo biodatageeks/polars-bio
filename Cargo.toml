@@ -36,7 +36,7 @@ polars-python = { git = "https://github.com/mwiewior/polars.git" , rev = "9d4fca
 
 #exon ="0.32.4"
 exon = { git = "https://github.com/mwiewior/exon.git", rev="d134d923e6c592a9972d93215a12c759c70a7ed5"}
-datafusion-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git/", rev = "8603e6e3c41fce7c805d65815c76e8d554caa2eb"}
+datafusion-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git/", rev = "9e92efd0f5e9633aa0d4fc5fe4f138f58520db8d"}
 async-trait = "0.1.86"
 futures = "0.3.31"
 coitrees = "0.4.0"
