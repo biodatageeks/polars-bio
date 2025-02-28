@@ -160,34 +160,6 @@ fn stream_range_operation_scan(
     })
 }
 
-// #[pyfunction]
-// #[pyo3(signature = (py_ctx, df_path1, read_options1=None, limit=None))]
-// fn unary_operation_scan(
-//     py: Python<'_>,
-//     py_ctx: &PyBioSessionContext,
-//     df_path1: String,
-//     read_options1: Option<ReadOptions>,
-//     limit: Option<usize>
-// ) -> PyResult<PyDataFrame> {
-//     py.allow_threads(|| {
-//         let rt = Runtime::new().unwrap();
-//         let ctx = &py_ctx.ctx;
-//
-//         rt.block_on(register_table(
-//             ctx,
-//             &df_path1,
-//             LEFT_TABLE,
-//             get_input_format(&df_path1),
-//             read_options1,
-//         ));
-//         let df = rt.block_on(ctx.sql(&format!("SELECT * FROM {}", LEFT_TABLE))).unwrap();
-//         match limit {
-//             Some(l) => Ok(PyDataFrame::new(df.limit(0, Some(l))?)),
-//             _ => Ok(PyDataFrame::new(df)),
-//         }
-//     })
-// }
-
 #[pyfunction]
 #[pyo3(signature = (py_ctx, path, input_format, read_options=None))]
 fn py_register_table(
@@ -253,6 +225,47 @@ fn py_scan_table(
     })
 }
 
+#[pyfunction]
+#[pyo3(signature = (py_ctx, table_name))]
+fn py_stream_scan_table(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    table_name: String,
+) -> PyResult<PyLazyFrame> {
+    #[allow(clippy::useless_conversion)]
+    py.allow_threads(|| {
+        let rt = Runtime::new().unwrap();
+        let ctx = &py_ctx.ctx;
+
+        let df = rt.block_on(ctx.session.table(&table_name))?;
+        let schema = df.schema().as_arrow();
+        let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
+        debug!("Schema: {:?}", polars_schema);
+        let args = ScanArgsAnonymous {
+            schema: Some(Arc::new(polars_schema)),
+            name: "SCAN polars-bio",
+            ..ScanArgsAnonymous::default()
+        };
+        debug!(
+            "{}",
+            ctx.session
+                .state()
+                .config()
+                .options()
+                .execution
+                .target_partitions
+        );
+        let stream = rt.block_on(df.execute_stream()).unwrap();
+        let scan = RangeOperationScan {
+            df_iter: Arc::new(Mutex::new(stream)),
+            rt: Runtime::new().unwrap(),
+        };
+        let function = Arc::new(scan);
+        let lf = LazyFrame::anonymous_scan(function, args).map_err(PyPolarsErr::from)?;
+        Ok(lf.into())
+    })
+}
+
 //TODO: not exposed Polars used for now
 #[pyfunction]
 fn py_read_table(
@@ -281,6 +294,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_scan_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_stream_scan_table, m)?)?;
     // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;

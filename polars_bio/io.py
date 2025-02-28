@@ -12,9 +12,11 @@ from polars_bio.polars_bio import (
     VcfReadOptions,
     py_register_table,
     py_scan_table,
+    py_stream_scan_table,
 )
 
 from .context import ctx
+from .range_op_helpers import stream_wrapper
 
 
 def read_bam(path: str) -> pl.LazyFrame:
@@ -53,8 +55,11 @@ def read_bam(path: str) -> pl.LazyFrame:
 
 
 def read_vcf(
-    path: str, info_fields: Union[list[str], None] = None, thread_num: int = 1
-) -> pl.LazyFrame:
+    path: str,
+    info_fields: Union[list[str], None] = None,
+    thread_num: int = 1,
+    streaming: bool = False,
+) -> Union[pl.LazyFrame | pl.DataFrame]:
     """
     Read a VCF file into a LazyFrame.
 
@@ -62,10 +67,14 @@ def read_vcf(
         path: The path to the VCF file.
         info_fields: The fields to read from the INFO column.
         thread_num: The number of threads to use for reading the VCF file.
+        streaming: Whether to read the VCF file in streaming mode.
     """
     vcf_read_options = VcfReadOptions(info_fields=info_fields, thread_num=thread_num)
     read_options = ReadOptions(vcf_read_options=vcf_read_options)
-    return file_lazy_scan(path, InputFormat.Vcf, read_options)
+    if streaming:
+        return read_file(path, InputFormat.Vcf, read_options, streaming)
+    else:
+        return file_lazy_scan(path, InputFormat.Vcf, read_options)
 
 
 def read_fasta(path: str) -> pl.LazyFrame:
@@ -143,8 +152,11 @@ def file_lazy_scan(
 
 
 def read_file(
-    path: str, input_format: InputFormat, read_options: ReadOptions
-) -> pl.DataFrame:
+    path: str,
+    input_format: InputFormat,
+    read_options: ReadOptions,
+    streaming: bool = False,
+) -> Union[pl.LazyFrame, pl.DataFrame]:
     """
     Read a file into a DataFrame.
 
@@ -154,6 +166,8 @@ def read_file(
         The path to the file.
     input_format : InputFormat
         The input format of the file.
+    read_options : ReadOptions, e.g. VcfReadOptions
+    streaming: Whether to read the file in streaming mode.
 
     Returns
     -------
@@ -161,7 +175,10 @@ def read_file(
         The DataFrame.
     """
     table = py_register_table(ctx, path, input_format, read_options)
-    return py_scan_table(ctx, table.name)
+    if streaming:
+        return stream_wrapper(py_stream_scan_table(ctx, table.name))
+    else:
+        return py_scan_table(ctx, table.name)
 
 
 def read_table(path: str, schema: Dict = None, **kwargs) -> pl.LazyFrame:
