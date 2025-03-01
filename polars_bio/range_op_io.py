@@ -15,8 +15,8 @@ from polars_bio.polars_bio import (
     InputFormat,
     RangeOptions,
     ReadOptions,
+    py_read_table,
     py_register_table,
-    py_scan_table,
 )
 
 from .range_wrappers import range_operation_frame_wrapper, range_operation_scan_wrapper
@@ -107,13 +107,8 @@ def _get_schema(
     read_options: Union[ReadOptions, None] = None,
 ) -> pl.Schema:
     ext = Path(path).suffixes
-    if ext[-1] == ".parquet":
-        df = pl.read_parquet(path)
-    elif ".csv" in ext:
-        df = pl.read_csv(path)
-    elif ".vcf" in ext:
-        table = py_register_table(ctx, path, InputFormat.Vcf, read_options)
-        df: DataFrame = py_scan_table(ctx, table.name)
+    if len(ext) == 0:
+        df: DataFrame = py_read_table(ctx, path)
         arrow_schema = df.schema()
         empty_table = pa.Table.from_arrays(
             [pa.array([], type=field.type) for field in arrow_schema],
@@ -121,6 +116,19 @@ def _get_schema(
         )
         df = pl.from_arrow(empty_table)
 
+    elif ext[-1] == ".parquet":
+        df = pl.read_parquet(path)
+    elif ".csv" in ext:
+        df = pl.read_csv(path)
+    elif ".vcf" in ext:
+        table = py_register_table(ctx, path, None, InputFormat.Vcf, read_options)
+        df: DataFrame = py_read_table(ctx, table.name)
+        arrow_schema = df.schema()
+        empty_table = pa.Table.from_arrays(
+            [pa.array([], type=field.type) for field in arrow_schema],
+            schema=arrow_schema,
+        )
+        df = pl.from_arrow(empty_table)
     else:
         raise ValueError("Only CSV and Parquet files are supported")
     if suffix is not None:

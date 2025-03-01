@@ -12,7 +12,6 @@ use std::sync::{Arc, Mutex};
 
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
-use datafusion::prelude::CsvReadOptions;
 use datafusion_python::dataframe::PyDataFrame;
 use log::{debug, error, info};
 use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
@@ -26,7 +25,7 @@ use crate::operation::do_range_operation;
 use crate::option::{
     BioTable, FilterOp, InputFormat, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
 };
-use crate::scan::{get_input_format, register_frame, register_table};
+use crate::scan::{maybe_register_table, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
 use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
 
@@ -50,22 +49,31 @@ fn range_operation_frame(
     register_frame(py_ctx, df2, RIGHT_TABLE.to_string());
     match limit {
         Some(l) => Ok(PyDataFrame::new(
-            do_range_operation(ctx, &rt, range_options).limit(0, Some(l))?,
+            do_range_operation(
+                ctx,
+                &rt,
+                range_options,
+                LEFT_TABLE.to_string(),
+                RIGHT_TABLE.to_string(),
+            )
+            .limit(0, Some(l))?,
         )),
         _ => Ok(PyDataFrame::new(do_range_operation(
             ctx,
             &rt,
             range_options,
+            LEFT_TABLE.to_string(),
+            RIGHT_TABLE.to_string(),
         ))),
     }
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path1, df_path2, range_options, read_options1=None, read_options2=None, limit=None))]
+#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None, limit=None))]
 fn range_operation_scan(
     py_ctx: &PyBioSessionContext,
-    df_path1: String,
-    df_path2: String,
+    df_path_or_table1: String,
+    df_path_or_table2: String,
     range_options: RangeOptions,
     read_options1: Option<ReadOptions>,
     read_options2: Option<ReadOptions>,
@@ -74,39 +82,42 @@ fn range_operation_scan(
     #[allow(clippy::useless_conversion)]
     let rt = Runtime::new()?;
     let ctx = &py_ctx.ctx;
-    rt.block_on(register_table(
-        ctx,
-        &df_path1,
-        LEFT_TABLE,
-        get_input_format(&df_path1),
+    let left_table = maybe_register_table(
+        df_path_or_table1,
+        &LEFT_TABLE.to_string(),
         read_options1,
-    ));
-    rt.block_on(register_table(
         ctx,
-        &df_path2,
-        RIGHT_TABLE,
-        get_input_format(&df_path2),
+        &rt,
+    );
+    let right_table = maybe_register_table(
+        df_path_or_table2,
+        &RIGHT_TABLE.to_string(),
         read_options2,
-    ));
+        ctx,
+        &rt,
+    );
     match limit {
         Some(l) => Ok(PyDataFrame::new(
-            do_range_operation(ctx, &rt, range_options).limit(0, Some(l))?,
+            do_range_operation(ctx, &rt, range_options, left_table, right_table)
+                .limit(0, Some(l))?,
         )),
         _ => Ok(PyDataFrame::new(do_range_operation(
             ctx,
             &rt,
             range_options,
+            left_table,
+            right_table,
         ))),
     }
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path1, df_path2, range_options, read_options1=None, read_options2=None))]
+#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None))]
 fn stream_range_operation_scan(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
-    df_path1: String,
-    df_path2: String,
+    df_path_or_table1: String,
+    df_path_or_table2: String,
     range_options: RangeOptions,
     read_options1: Option<ReadOptions>,
     read_options2: Option<ReadOptions>,
@@ -115,23 +126,24 @@ fn stream_range_operation_scan(
     py.allow_threads(|| {
         let rt = Runtime::new().unwrap();
         let ctx = &py_ctx.ctx;
+        // check if the input has an extension
 
-        rt.block_on(register_table(
-            ctx,
-            &df_path1,
-            LEFT_TABLE,
-            get_input_format(&df_path1),
+        let left_table = maybe_register_table(
+            df_path_or_table1,
+            &LEFT_TABLE.to_string(),
             read_options1,
-        ));
-        rt.block_on(register_table(
             ctx,
-            &df_path2,
-            RIGHT_TABLE,
-            get_input_format(&df_path2),
+            &rt,
+        );
+        let right_table = maybe_register_table(
+            df_path_or_table2,
+            &RIGHT_TABLE.to_string(),
             read_options2,
-        ));
+            ctx,
+            &rt,
+        );
 
-        let df = do_range_operation(ctx, &rt, range_options);
+        let df = do_range_operation(ctx, &rt, range_options, left_table, right_table);
         let schema = df.schema().as_arrow();
         let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
         debug!("Schema: {:?}", polars_schema);
@@ -161,11 +173,12 @@ fn stream_range_operation_scan(
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, path, input_format, read_options=None))]
+#[pyo3(signature = (py_ctx, path, name, input_format, read_options=None))]
 fn py_register_table(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
     path: String,
+    name: Option<String>,
     input_format: InputFormat,
     read_options: Option<ReadOptions>,
 ) -> PyResult<Option<BioTable>> {
@@ -173,15 +186,19 @@ fn py_register_table(
     py.allow_threads(|| {
         let rt = Runtime::new().unwrap();
         let ctx = &py_ctx.ctx;
-        let table_name = path
-            .to_lowercase()
-            .split('/')
-            .last()
-            .unwrap()
-            .to_string()
-            .replace(&format!(".{}", input_format).to_string().to_lowercase(), "")
-            .replace(".", "_")
-            .replace("-", "_");
+
+        let table_name = match name {
+            Some(name) => name,
+            None => path
+                .to_lowercase()
+                .split('/')
+                .last()
+                .unwrap()
+                .to_string()
+                .replace(&format!(".{}", input_format).to_string().to_lowercase(), "")
+                .replace(".", "_")
+                .replace("-", "_"),
+        };
         rt.block_on(register_table(
             ctx,
             &path,
@@ -210,18 +227,17 @@ fn py_register_table(
 }
 
 #[pyfunction]
-fn py_scan_table(
+#[pyo3(signature = (py_ctx, sql_text))]
+fn py_read_sql(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
-    table_name: String,
+    sql_text: String,
 ) -> PyResult<PyDataFrame> {
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
         let rt = Runtime::new().unwrap();
         let ctx = &py_ctx.ctx;
-        let df = rt
-            .block_on(ctx.sql(&format!("SELECT * FROM {}", table_name)))
-            .unwrap();
+        let df = rt.block_on(ctx.sql(&sql_text)).unwrap();
         Ok(PyDataFrame::new(df))
     })
 }
@@ -267,21 +283,20 @@ fn py_stream_scan_table(
     })
 }
 
-//TODO: not exposed Polars used for now
 #[pyfunction]
+#[pyo3(signature = (py_ctx, table_name))]
 fn py_read_table(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
-    path: String,
+    table_name: String,
 ) -> PyResult<PyDataFrame> {
+    #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
         let rt = Runtime::new().unwrap();
         let ctx = &py_ctx.ctx;
-        let options = CsvReadOptions::default()
-            .delimiter(b'\t')
-            .file_extension("bed")
-            .has_header(false);
-        let df = rt.block_on(ctx.session.read_csv(&path, options))?;
+        let df = rt
+            .block_on(ctx.sql(&format!("SELECT * FROM {}", table_name)))
+            .unwrap();
         Ok(PyDataFrame::new(df))
     })
 }
@@ -292,9 +307,10 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
     m.add_function(wrap_pyfunction!(stream_range_operation_scan, m)?)?;
-    m.add_function(wrap_pyfunction!(py_scan_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_read_sql, m)?)?;
     m.add_function(wrap_pyfunction!(py_stream_scan_table, m)?)?;
     // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;

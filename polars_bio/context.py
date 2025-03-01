@@ -25,7 +25,10 @@ class Context:
     def __init__(self):
         logger.info("Creating BioSessionContext")
         self.ctx = BioSessionContext(seed=str(datetime.datetime.now().timestamp()))
-        init_conf = {"datafusion.execution.target_partitions": "1"}
+        init_conf = {
+            "datafusion.execution.target_partitions": "1",
+            "datafusion.execution.parquet.schema_force_view_types": "true",
+        }
         for k, v in init_conf.items():
             self.ctx.set_option(k, v)
         self.ctx.set_option("sequila.interval_join_algorithm", "coitrees")

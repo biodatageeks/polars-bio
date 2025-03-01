@@ -31,11 +31,11 @@ def range_operation(
         supported_exts = set([".parquet", ".csv", ".bed", ".vcf"])
         ext1 = set(Path(df1).suffixes)
         assert (
-            len(supported_exts.intersection(ext1)) > 0
+            len(supported_exts.intersection(ext1)) > 0 or len(ext1) == 0
         ), "Dataframe1 must be a Parquet, a BED or CSV or VCF file"
         ext2 = set(Path(df2).suffixes)
         assert (
-            len(supported_exts.intersection(ext2)) > 0
+            len(supported_exts.intersection(ext2)) > 0 or len(ext2) == 0
         ), "Dataframe2 must be a Parquet, a BED or CSV or VCF file"
         # use suffixes to avoid column name conflicts
         if range_options.streaming:

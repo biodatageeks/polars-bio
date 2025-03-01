@@ -9,6 +9,8 @@ use datafusion::datasource::MemTable;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions};
 use datafusion_vcf::table_provider::VcfTableProvider;
 use exon::ExonSession;
+use tokio::runtime::Runtime;
+use tracing::debug;
 
 use crate::context::PyBioSessionContext;
 use crate::option::{InputFormat, ReadOptions, VcfReadOptions};
@@ -123,4 +125,32 @@ pub(crate) async fn register_table(
         },
     };
     table_name.to_string()
+}
+
+pub(crate) fn maybe_register_table(
+    df_path_or_table: String,
+    default_table: &String,
+    read_options: Option<ReadOptions>,
+    ctx: &ExonSession,
+    rt: &Runtime,
+) -> String {
+    let ext: Vec<&str> = df_path_or_table.split('.').collect();
+    debug!("ext: {:?}", ext);
+    if ext.len() == 1 {
+        return df_path_or_table;
+    }
+    match ext.last() {
+        Some(_ext) => {
+            rt.block_on(register_table(
+                ctx,
+                &df_path_or_table,
+                default_table,
+                get_input_format(&df_path_or_table),
+                read_options,
+            ));
+            default_table.to_string()
+        },
+        _ => df_path_or_table,
+    }
+    .to_string()
 }

@@ -1,5 +1,4 @@
 use crate::operation::{format_non_join_tables, QueryParams};
-use crate::{LEFT_TABLE, RIGHT_TABLE};
 
 pub(crate) fn nearest_query(query_params: QueryParams) -> String {
     let query = format!(
@@ -74,8 +73,8 @@ pub(crate) fn nearest_query(query_params: QueryParams) -> String {
         query_params.columns_1[1], // b.pos_end <= a.pos_start
         query_params.columns_2[2],
         query_params.columns_1[1], // a.pos_start-b.pos_end
-        RIGHT_TABLE,
-        LEFT_TABLE,
+        query_params.right_table,
+        query_params.left_table,
         query_params.columns_1[0],
         query_params.columns_2[0], // contig
         query_params.columns_1[2],
@@ -147,8 +146,8 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
         } else {
             "".to_string()
         },
-        LEFT_TABLE,
-        RIGHT_TABLE,
+        query_params.left_table,
+        query_params.right_table,
         query_params.columns_1[0],
         query_params.columns_2[0], // contig
         query_params.columns_1[2],
@@ -219,11 +218,11 @@ pub(crate) fn count_overlaps_query(query_params: QueryParams) -> String {
         query_params.columns_2[0],
         query_params.columns_2[1],
         query_params.columns_2[2],
-        RIGHT_TABLE,
+        query_params.right_table,
         query_params.columns_1[0],
         query_params.columns_1[2],
         query_params.columns_1[1],
-        LEFT_TABLE,
+        query_params.left_table,
     );
     query
 }
