@@ -69,7 +69,7 @@ def read_vcf(
     Parameters:
         path: The path to the VCF file.
         info_fields: The fields to read from the INFO column.
-        thread_num: The number of threads to use for reading the VCF file. Used *only* for parallel decompression of BGZF blocks.
+        thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
         streaming: Whether to read the VCF file in streaming mode.
     """
     vcf_read_options = VcfReadOptions(info_fields=info_fields, thread_num=thread_num)
@@ -141,46 +141,6 @@ def lazy_scan(df: Union[pl.DataFrame, pl.LazyFrame]) -> pl.LazyFrame:
     return register_io_source(_overlap_source, schema=arrow_schema)
 
 
-# def lazy_scan(
-#     path: str, input_format: InputFormat, read_options: ReadOptions
-# ) -> pl.LazyFrame:
-#     df_lazy: DataFrame = read_file(path, input_format, read_options)
-#     arrow_schema = df_lazy.schema()
-#
-#     def _overlap_source(
-#         with_columns: Union[pl.Expr, None],
-#         predicate: Union[pl.Expr, None],
-#         n_rows: Union[int, None],
-#         _batch_size: Union[int, None],
-#     ) -> Iterator[pl.DataFrame]:
-#         if n_rows and n_rows < 8192:  # 8192 is the default batch size in datafusion
-#             df = df_lazy.execute_stream().next().to_pyarrow()
-#             df = pl.DataFrame(df).limit(n_rows)
-#             if predicate is not None:
-#                 df = df.filter(predicate)
-#             # TODO: We can push columns down to the DataFusion plan in the future,
-#             #  but for now we'll do it here.
-#             if with_columns is not None:
-#                 df = df.select(with_columns)
-#             yield df
-#             return
-#         df_stream = df_lazy.execute_stream()
-#         progress_bar = tqdm(unit="rows")
-#         for r in df_stream:
-#             py_df = r.to_pyarrow()
-#             df = pl.DataFrame(py_df)
-#             if predicate is not None:
-#                 df = df.filter(predicate)
-#             # TODO: We can push columns down to the DataFusion plan in the future,
-#             #  but for now we'll do it here.
-#             if with_columns is not None:
-#                 df = df.select(with_columns)
-#             progress_bar.update(len(df))
-#             yield df
-#
-#     return register_io_source(_overlap_source, schema=arrow_schema)
-
-
 def read_file(
     path: str,
     input_format: InputFormat,
@@ -248,7 +208,8 @@ def register_vcf(
         path: The path to the VCF file.
         name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
         info_fields: The fields to read from the INFO column.
-        thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks.
+        thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
+
     !!! Example
           ```python
           import polars_bio as pb

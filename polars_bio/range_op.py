@@ -131,8 +131,8 @@ def nearest(
     Bioframe inspired API.
 
     Parameters:
-        df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED  and Parquet are supported.
-        df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED  and Parquet are supported.
+        df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
+        df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
         overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict).
         cols1: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set.
@@ -190,8 +190,8 @@ def count_overlaps(
     Bioframe inspired API.
 
     Parameters:
-        df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED and Parquet are supported.
-        df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED  and Parquet are supported.
+        df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
+        df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
         overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict).
         suffixes: Suffixes for the columns of the two overlapped sets.
         cols1: The names of columns containing the chromosome, start and end of the
