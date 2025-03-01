@@ -15,8 +15,8 @@ from polars_bio.polars_bio import (
     InputFormat,
     RangeOptions,
     ReadOptions,
+    py_read_table,
     py_register_table,
-    py_scan_table,
 )
 
 from .range_wrappers import range_operation_frame_wrapper, range_operation_scan_wrapper
@@ -112,8 +112,8 @@ def _get_schema(
     elif ".csv" in ext:
         df = pl.read_csv(path)
     elif ".vcf" in ext:
-        table = py_register_table(ctx, path, InputFormat.Vcf, read_options)
-        df: DataFrame = py_scan_table(ctx, table.name)
+        table = py_register_table(ctx, path, None, InputFormat.Vcf, read_options)
+        df: DataFrame = py_read_table(ctx, table.name)
         arrow_schema = df.schema()
         empty_table = pa.Table.from_arrays(
             [pa.array([], type=field.type) for field in arrow_schema],

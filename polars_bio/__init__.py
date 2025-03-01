@@ -1,7 +1,15 @@
 from polars_bio.polars_bio import InputFormat, ReadOptions, VcfReadOptions
 
 from .context import ctx, set_option
-from .io import read_bam, read_fasta, read_fastq, read_table, read_vcf
+from .io import (
+    read_bam,
+    read_fasta,
+    read_fastq,
+    read_table,
+    read_vcf,
+    register_vcf,
+    sql,
+)
 from .polars_ext import PolarsRangesOperations as LazyFrame
 from .range_op import FilterOp, count_overlaps, merge, nearest, overlap
 from .range_viz import visualize_intervals
@@ -23,6 +31,8 @@ __all__ = [
     "read_fasta",
     "read_fastq",
     "read_table",
+    "register_vcf",
+    "sql",
     "InputFormat",
     "LazyFrame",
     "ReadOptions",
