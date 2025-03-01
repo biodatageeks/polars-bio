@@ -51,7 +51,8 @@ This table compares the API of the libraries. The table is not exhaustive and on
 | Indexed BAM                           | :construction:     |
 
 
-
+### SQL-powered data processing
+polars-bio provides a SQL-like API for bioinformatic data querying or manipulation.
 
 
 ### Parallel engine and streaming processing 🏎️
@@ -125,7 +126,7 @@ shape: (5, 6)
 
 
 
-#### DataFrames support
+### DataFrames support
 | I/O              | Bioframe           | polars-bio             | PyRanges           | Pybedtools | PyGenomics | GenomicRanges          |
 |------------------|--------------------|------------------------|--------------------|------------|------------|------------------------|
 | Pandas DataFrame | :white_check_mark: | :white_check_mark:     | :white_check_mark: |            |            | :white_check_mark:     |
