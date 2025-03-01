@@ -25,7 +25,7 @@ use crate::operation::do_range_operation;
 use crate::option::{
     BioTable, FilterOp, InputFormat, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
 };
-use crate::scan::{get_input_format, register_frame, register_table};
+use crate::scan::{maybe_register_table, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
 use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
 
@@ -49,22 +49,31 @@ fn range_operation_frame(
     register_frame(py_ctx, df2, RIGHT_TABLE.to_string());
     match limit {
         Some(l) => Ok(PyDataFrame::new(
-            do_range_operation(ctx, &rt, range_options).limit(0, Some(l))?,
+            do_range_operation(
+                ctx,
+                &rt,
+                range_options,
+                LEFT_TABLE.to_string(),
+                RIGHT_TABLE.to_string(),
+            )
+            .limit(0, Some(l))?,
         )),
         _ => Ok(PyDataFrame::new(do_range_operation(
             ctx,
             &rt,
             range_options,
+            LEFT_TABLE.to_string(),
+            RIGHT_TABLE.to_string(),
         ))),
     }
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path1, df_path2, range_options, read_options1=None, read_options2=None, limit=None))]
+#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None, limit=None))]
 fn range_operation_scan(
     py_ctx: &PyBioSessionContext,
-    df_path1: String,
-    df_path2: String,
+    df_path_or_table1: String,
+    df_path_or_table2: String,
     range_options: RangeOptions,
     read_options1: Option<ReadOptions>,
     read_options2: Option<ReadOptions>,
@@ -73,39 +82,42 @@ fn range_operation_scan(
     #[allow(clippy::useless_conversion)]
     let rt = Runtime::new()?;
     let ctx = &py_ctx.ctx;
-    rt.block_on(register_table(
-        ctx,
-        &df_path1,
-        LEFT_TABLE,
-        get_input_format(&df_path1),
+    let left_table = maybe_register_table(
+        df_path_or_table1,
+        &LEFT_TABLE.to_string(),
         read_options1,
-    ));
-    rt.block_on(register_table(
         ctx,
-        &df_path2,
-        RIGHT_TABLE,
-        get_input_format(&df_path2),
+        &rt,
+    );
+    let right_table = maybe_register_table(
+        df_path_or_table2,
+        &RIGHT_TABLE.to_string(),
         read_options2,
-    ));
+        ctx,
+        &rt,
+    );
     match limit {
         Some(l) => Ok(PyDataFrame::new(
-            do_range_operation(ctx, &rt, range_options).limit(0, Some(l))?,
+            do_range_operation(ctx, &rt, range_options, left_table, right_table)
+                .limit(0, Some(l))?,
         )),
         _ => Ok(PyDataFrame::new(do_range_operation(
             ctx,
             &rt,
             range_options,
+            left_table,
+            right_table,
         ))),
     }
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path1, df_path2, range_options, read_options1=None, read_options2=None))]
+#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None))]
 fn stream_range_operation_scan(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
-    df_path1: String,
-    df_path2: String,
+    df_path_or_table1: String,
+    df_path_or_table2: String,
     range_options: RangeOptions,
     read_options1: Option<ReadOptions>,
     read_options2: Option<ReadOptions>,
@@ -114,23 +126,24 @@ fn stream_range_operation_scan(
     py.allow_threads(|| {
         let rt = Runtime::new().unwrap();
         let ctx = &py_ctx.ctx;
+        // check if the input has an extension
 
-        rt.block_on(register_table(
-            ctx,
-            &df_path1,
-            LEFT_TABLE,
-            get_input_format(&df_path1),
+        let left_table = maybe_register_table(
+            df_path_or_table1,
+            &LEFT_TABLE.to_string(),
             read_options1,
-        ));
-        rt.block_on(register_table(
             ctx,
-            &df_path2,
-            RIGHT_TABLE,
-            get_input_format(&df_path2),
+            &rt,
+        );
+        let right_table = maybe_register_table(
+            df_path_or_table2,
+            &RIGHT_TABLE.to_string(),
             read_options2,
-        ));
+            ctx,
+            &rt,
+        );
 
-        let df = do_range_operation(ctx, &rt, range_options);
+        let df = do_range_operation(ctx, &rt, range_options, left_table, right_table);
         let schema = df.schema().as_arrow();
         let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
         debug!("Schema: {:?}", polars_schema);

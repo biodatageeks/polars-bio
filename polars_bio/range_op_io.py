@@ -107,7 +107,16 @@ def _get_schema(
     read_options: Union[ReadOptions, None] = None,
 ) -> pl.Schema:
     ext = Path(path).suffixes
-    if ext[-1] == ".parquet":
+    if len(ext) == 0:
+        df: DataFrame = py_read_table(ctx, path)
+        arrow_schema = df.schema()
+        empty_table = pa.Table.from_arrays(
+            [pa.array([], type=field.type) for field in arrow_schema],
+            schema=arrow_schema,
+        )
+        df = pl.from_arrow(empty_table)
+
+    elif ext[-1] == ".parquet":
         df = pl.read_parquet(path)
     elif ".csv" in ext:
         df = pl.read_csv(path)
@@ -120,7 +129,6 @@ def _get_schema(
             schema=arrow_schema,
         )
         df = pl.from_arrow(empty_table)
-
     else:
         raise ValueError("Only CSV and Parquet files are supported")
     if suffix is not None:

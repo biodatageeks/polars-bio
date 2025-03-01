@@ -8,7 +8,7 @@ use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions};
 use crate::query::{count_overlaps_query, nearest_query, overlap_query};
 use crate::utils::default_cols_to_string;
-use crate::{DEFAULT_COLUMN_NAMES, LEFT_TABLE, RIGHT_TABLE};
+use crate::DEFAULT_COLUMN_NAMES;
 
 pub(crate) struct QueryParams {
     pub sign: String,
@@ -17,11 +17,15 @@ pub(crate) struct QueryParams {
     pub columns_2: Vec<String>,
     pub other_columns_1: Vec<String>,
     pub other_columns_2: Vec<String>,
+    pub left_table: String,
+    pub right_table: String,
 }
 pub(crate) fn do_range_operation(
     ctx: &ExonSession,
     rt: &Runtime,
     range_options: RangeOptions,
+    left_table: String,
+    right_table: String,
 ) -> datafusion::dataframe::DataFrame {
     // defaults
     match &range_options.overlap_alg {
@@ -62,13 +66,23 @@ pub(crate) fn do_range_operation(
             .target_partitions
     );
     match range_options.range_op {
-        RangeOp::Overlap => rt.block_on(do_overlap(ctx, range_options)),
+        RangeOp::Overlap => rt.block_on(do_overlap(ctx, range_options, left_table, right_table)),
         RangeOp::Nearest => {
             set_option_internal(ctx, "sequila.interval_join_algorithm", "coitreesnearest");
-            rt.block_on(do_nearest(ctx, range_options))
+            rt.block_on(do_nearest(ctx, range_options, left_table, right_table))
         },
-        RangeOp::CountOverlaps => rt.block_on(do_count_overlaps(ctx, range_options)),
-        RangeOp::CountOverlapsNaive => rt.block_on(do_count_overlaps_naive(ctx, range_options)),
+        RangeOp::CountOverlaps => rt.block_on(do_count_overlaps(
+            ctx,
+            range_options,
+            left_table,
+            right_table,
+        )),
+        RangeOp::CountOverlapsNaive => rt.block_on(do_count_overlaps_naive(
+            ctx,
+            range_options,
+            left_table,
+            right_table,
+        )),
 
         _ => panic!("Unsupported operation"),
     }
@@ -77,8 +91,10 @@ pub(crate) fn do_range_operation(
 async fn do_nearest(
     ctx: &ExonSession,
     range_opts: RangeOptions,
+    left_table: String,
+    right_table: String,
 ) -> datafusion::dataframe::DataFrame {
-    let query = prepare_query(nearest_query, range_opts, ctx)
+    let query = prepare_query(nearest_query, range_opts, ctx, left_table, right_table)
         .await
         .to_string();
     debug!("Query: {}", query);
@@ -88,8 +104,10 @@ async fn do_nearest(
 async fn do_overlap(
     ctx: &ExonSession,
     range_opts: RangeOptions,
+    left_table: String,
+    right_table: String,
 ) -> datafusion::dataframe::DataFrame {
-    let query = prepare_query(overlap_query, range_opts, ctx)
+    let query = prepare_query(overlap_query, range_opts, ctx, left_table, right_table)
         .await
         .to_string();
     debug!("Query: {}", query);
@@ -108,10 +126,18 @@ async fn do_overlap(
 async fn do_count_overlaps(
     ctx: &ExonSession,
     range_opts: RangeOptions,
+    left_table: String,
+    right_table: String,
 ) -> datafusion::dataframe::DataFrame {
-    let query = prepare_query(count_overlaps_query, range_opts, ctx)
-        .await
-        .to_string();
+    let query = prepare_query(
+        count_overlaps_query,
+        range_opts,
+        ctx,
+        left_table,
+        right_table,
+    )
+    .await
+    .to_string();
     debug!("Query: {}", query);
     ctx.sql(&query).await.unwrap()
 }
@@ -119,13 +145,15 @@ async fn do_count_overlaps(
 async fn do_count_overlaps_naive(
     ctx: &ExonSession,
     range_opts: RangeOptions,
+    left_table: String,
+    right_table: String,
 ) -> datafusion::dataframe::DataFrame {
     let columns_1 = range_opts.columns_1.unwrap();
     let columns_2 = range_opts.columns_2.unwrap();
     let query = format!(
         "SELECT * FROM count_overlaps('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}')",
-        LEFT_TABLE,
-        RIGHT_TABLE,
+        left_table,
+        right_table,
         columns_1[0],
         columns_1[1],
         columns_1[2],
@@ -172,6 +200,8 @@ pub(crate) async fn prepare_query(
     query: fn(QueryParams) -> String,
     range_opts: RangeOptions,
     ctx: &ExonSession,
+    left_table: String,
+    right_table: String,
 ) -> String {
     let sign = match range_opts.filter_op.unwrap() {
         FilterOp::Weak => "=".to_string(),
@@ -191,9 +221,9 @@ pub(crate) async fn prepare_query(
     };
 
     let left_table_columns =
-        get_non_join_columns(LEFT_TABLE.to_string(), columns_1.clone(), ctx).await;
+        get_non_join_columns(left_table.to_string(), columns_1.clone(), ctx).await;
     let right_table_columns =
-        get_non_join_columns(RIGHT_TABLE.to_string(), columns_2.clone(), ctx).await;
+        get_non_join_columns(right_table.to_string(), columns_2.clone(), ctx).await;
 
     let query_params = QueryParams {
         sign,
@@ -202,6 +232,8 @@ pub(crate) async fn prepare_query(
         columns_2,
         other_columns_1: left_table_columns,
         other_columns_2: right_table_columns,
+        left_table,
+        right_table,
     };
 
     query(query_params)
