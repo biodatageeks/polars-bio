@@ -13,7 +13,8 @@ from polars_bio.polars_bio import (
     py_read_sql,
     py_read_table,
     py_register_table,
-    py_stream_scan_table,
+    py_scan_sql,
+    py_scan_table,
 )
 
 from .context import ctx
@@ -205,7 +206,7 @@ def read_file(
     """
     table = py_register_table(ctx, path, None, input_format, read_options)
     if streaming:
-        return stream_wrapper(py_stream_scan_table(ctx, table.name))
+        return stream_wrapper(py_scan_table(ctx, table.name))
     else:
         return py_read_table(ctx, table.name)
 
@@ -262,12 +263,13 @@ def register_vcf(
     py_register_table(ctx, path, name, InputFormat.Vcf, read_options)
 
 
-def sql(query: str) -> pl.LazyFrame:
+def sql(query: str, streaming: bool = False) -> pl.LazyFrame:
     """
     Execute a SQL query on the registered tables.
 
     Parameters:
         query: The SQL query.
+        streaming: Whether to execute the query in streaming mode.
 
     !!! Example
           ```python
@@ -276,5 +278,8 @@ def sql(query: str) -> pl.LazyFrame:
           pb.sql("SELECT * FROM gnomad_v4_1_sv LIMIT 5").collect()
           ```
     """
-    df = py_read_sql(ctx, query)
-    return lazy_scan(df)
+    if streaming:
+        return stream_wrapper(py_scan_sql(ctx, query))
+    else:
+        df = py_read_sql(ctx, query)
+        return lazy_scan(df)

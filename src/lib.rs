@@ -243,8 +243,49 @@ fn py_read_sql(
 }
 
 #[pyfunction]
+#[pyo3(signature = (py_ctx, sql_text))]
+fn py_scan_sql(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    sql_text: String,
+) -> PyResult<PyLazyFrame> {
+    #[allow(clippy::useless_conversion)]
+    py.allow_threads(|| {
+        let rt = Runtime::new().unwrap();
+        let ctx = &py_ctx.ctx;
+
+        let df = rt.block_on(ctx.session.sql(&sql_text))?;
+        let schema = df.schema().as_arrow();
+        let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
+        debug!("Schema: {:?}", polars_schema);
+        let args = ScanArgsAnonymous {
+            schema: Some(Arc::new(polars_schema)),
+            name: "SCAN polars-bio",
+            ..ScanArgsAnonymous::default()
+        };
+        debug!(
+            "{}",
+            ctx.session
+                .state()
+                .config()
+                .options()
+                .execution
+                .target_partitions
+        );
+        let stream = rt.block_on(df.execute_stream()).unwrap();
+        let scan = RangeOperationScan {
+            df_iter: Arc::new(Mutex::new(stream)),
+            rt: Runtime::new().unwrap(),
+        };
+        let function = Arc::new(scan);
+        let lf = LazyFrame::anonymous_scan(function, args).map_err(PyPolarsErr::from)?;
+        Ok(lf.into())
+    })
+}
+
+#[pyfunction]
 #[pyo3(signature = (py_ctx, table_name))]
-fn py_stream_scan_table(
+fn py_scan_table(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
     table_name: String,
@@ -311,7 +352,8 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_sql, m)?)?;
-    m.add_function(wrap_pyfunction!(py_stream_scan_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_scan_sql, m)?)?;
+    m.add_function(wrap_pyfunction!(py_scan_table, m)?)?;
     // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
