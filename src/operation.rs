@@ -151,7 +151,7 @@ async fn do_count_overlaps_naive(
     let columns_1 = range_opts.columns_1.unwrap();
     let columns_2 = range_opts.columns_2.unwrap();
     let query = format!(
-        "SELECT * FROM count_overlaps('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}')",
+        "SELECT * FROM count_overlaps('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}' , false )",
         left_table,
         right_table,
         columns_1[0],

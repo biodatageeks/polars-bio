@@ -18,15 +18,35 @@ class TestIOBAM:
 
 
 class TestIOVCF:
-    df = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf.bgz").collect()
+    df_bgz = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf.bgz").collect()
+    df_none = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf").collect()
+    df_gcs_bgz = (
+        pb.read_vcf(
+            "gs://gcp-public-data--gnomad/release/4.1/vcf/exomes/gnomad.exomes.v4.1.sites.chr21.vcf.bgz"
+        )
+        .limit(3)
+        .collect()
+    )
+    df_gcs_none = (
+        pb.read_vcf(
+            "gs://genomics-public-data/platinum-genomes/vcf/NA12878_S1.genome.vcf"
+        )
+        .limit(5)
+        .collect()
+    )
 
     def test_count(self):
-        assert len(self.df) == 2
+        assert len(self.df_none) == 2
+        assert len(self.df_bgz) == 2
+        assert len(self.df_gcs_bgz) == 3
+        assert len(self.df_gcs_none) == 5
 
     def test_fields(self):
-        assert self.df["chrom"][0] == "21"
-        assert self.df["start"][1] == 26965148
-        assert self.df["ref"][0] == "G"
+        assert self.df_bgz["chrom"][0] == "21" and self.df_none["chrom"][0] == "21"
+        assert (
+            self.df_bgz["start"][1] == 26965148 and self.df_none["start"][1] == 26965148
+        )
+        assert self.df_bgz["ref"][0] == "G" and self.df_none["ref"][0] == "G"
 
 
 class TestIOBED:

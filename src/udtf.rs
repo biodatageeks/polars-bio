@@ -70,12 +70,17 @@ impl TableFunctionImpl for CountOverlapsFunction {
             return plan_err!("8. argument must be an a column name");
         };
 
+        let Some(Expr::Literal(ScalarValue::Boolean(Some(coverage)))) = exprs.get(8) else {
+            return plan_err!("8. argument must be an a column name");
+        };
+
         let provider = CountOverlapsProvider {
             session: Arc::clone(&self.session),
             left_table: left_table.clone(),
             right_table: right_table.clone(),
             columns_1: (contig_col_1.clone(), start_col_1.clone(), end_col_1.clone()),
             columns_2: (contig_col_2.clone(), start_col_2.clone(), end_col_2.clone()),
+            coverage: coverage.clone(),
         };
 
         Ok(Arc::new(provider))
@@ -88,6 +93,7 @@ struct CountOverlapsProvider {
     right_table: String,
     columns_1: (String, String, String),
     columns_2: (String, String, String),
+    coverage: bool,
 }
 
 impl Debug for CountOverlapsProvider {
@@ -141,6 +147,7 @@ impl TableProvider for CountOverlapsProvider {
             right_table: self.right_table.clone(),
             columns_1: self.columns_1.clone(),
             columns_2: self.columns_2.clone(),
+            coverage: self.coverage.clone(),
             cache: PlanProperties::new(
                 EquivalenceProperties::new(self.schema().clone()),
                 Partitioning::UnknownPartitioning(target_partitions),
@@ -157,6 +164,7 @@ struct CountOverlapsExec {
     right_table: String,
     columns_1: (String, String, String),
     columns_2: (String, String, String),
+    coverage: bool,
     cache: PlanProperties,
 }
 
@@ -209,6 +217,7 @@ impl ExecutionPlan for CountOverlapsExec {
             self.right_table.clone(),
             self.columns_1.clone(),
             self.columns_2.clone(),
+            self.coverage.clone(),
             self.cache.partitioning.partition_count(),
             partition,
             context,
@@ -274,12 +283,35 @@ fn get_join_col_arrays(
     (contig_arr, start_arr, end_arr)
 }
 
+fn get_coverage(tree: &COITree<(), u32>, start: i32, end: i32) -> i64 {
+    let mut max_coverage = 0;
+    let start = start + 1;
+    let end = end - 1;
+    // tree.query(start, end, |node|
+    //     {
+    //         if end < node.last() {
+    //             let coverage =  node.last() - start;
+    //             if coverage > max_coverage {
+    //                 max_coverage = coverage;
+    //             }
+    //         }
+    //         else {
+    //             let coverage = end - start;
+    //             if coverage > max_coverage {
+    //                 max_coverage = coverage;
+    //             }
+    //         }
+    //     });
+    max_coverage
+}
+
 async fn get_stream(
     session: Arc<SessionContext>,
     trees: Arc<FnvHashMap<String, COITree<(), u32>>>,
     right_table: String,
     _columns_1: (String, String, String),
     columns_2: (String, String, String),
+    coverage: bool,
     target_partitions: usize,
     partition: usize,
     context: Arc<TaskContext>,
@@ -311,7 +343,10 @@ async fn get_stream(
                     count_arr.push(0);
                     continue;
                 }
-                let count = tree.unwrap().query_count(pos_start + 1, pos_end - 1);
+                let count = match coverage {
+                    true => todo!("coverage"),
+                    false => tree.unwrap().query_count(pos_start + 1, pos_end - 1),
+                };
                 count_arr.push(count as i64);
             }
             let count_arr = Arc::new(Int64Array::from(count_arr));
