@@ -158,21 +158,27 @@ pub struct VcfReadOptions {
     pub format_fields: Option<Vec<String>>,
     #[pyo3(get, set)]
     pub thread_num: Option<usize>,
+    pub chunk_size: Option<usize>,
+    pub concurrent_fetches: Option<usize>,
 }
 
 #[pymethods]
 impl VcfReadOptions {
     #[new]
-    #[pyo3(signature = (info_fields=None, format_fields=None, thread_num=None))]
+    #[pyo3(signature = (info_fields=None, format_fields=None, thread_num=None, chunk_size=None, concurrent_fetches=None))]
     pub fn new(
         info_fields: Option<Vec<String>>,
         format_fields: Option<Vec<String>>,
         thread_num: Option<usize>,
+        chunk_size: Option<usize>,
+        concurrent_fetches: Option<usize>,
     ) -> Self {
         VcfReadOptions {
             info_fields,
             format_fields,
             thread_num,
+            chunk_size,
+            concurrent_fetches,
         }
     }
     #[staticmethod]
@@ -181,6 +187,8 @@ impl VcfReadOptions {
             info_fields: None,
             format_fields: None,
             thread_num: Some(1),
+            chunk_size: Some(64),
+            concurrent_fetches: Some(8),
         }
     }
 }

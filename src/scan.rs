@@ -104,8 +104,8 @@ pub(crate) async fn register_table(
                 vcf_read_options.info_fields,
                 vcf_read_options.format_fields,
                 vcf_read_options.thread_num,
-                None,
-                None,
+                vcf_read_options.chunk_size,
+                vcf_read_options.concurrent_fetches,
             )
             .unwrap();
             ctx.session

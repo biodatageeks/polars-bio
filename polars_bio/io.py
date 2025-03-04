@@ -61,6 +61,8 @@ def read_vcf(
     path: str,
     info_fields: Union[list[str], None] = None,
     thread_num: int = 1,
+    chunk_size: int = 64,
+    concurrent_fetches: int = 8,
     streaming: bool = False,
 ) -> Union[pl.LazyFrame, pl.DataFrame]:
     """
@@ -70,9 +72,16 @@ def read_vcf(
         path: The path to the VCF file.
         info_fields: The fields to read from the INFO column.
         thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
+        chunk_size: The size of a chunk when reading from an object store.
+        concurrent_fetches: The number of concurrent fetches when reading from an object store.
         streaming: Whether to read the VCF file in streaming mode.
     """
-    vcf_read_options = VcfReadOptions(info_fields=info_fields, thread_num=thread_num)
+    vcf_read_options = VcfReadOptions(
+        info_fields=info_fields,
+        thread_num=thread_num,
+        chunk_size=chunk_size,
+        concurrent_fetches=concurrent_fetches,
+    )
     read_options = ReadOptions(vcf_read_options=vcf_read_options)
     if streaming:
         return read_file(path, InputFormat.Vcf, read_options, streaming)
@@ -200,6 +209,8 @@ def register_vcf(
     name: Union[str, None] = None,
     info_fields: Union[list[str], None] = None,
     thread_num: int = 1,
+    chunk_size: int = 64,
+    concurrent_fetches: int = 8,
 ) -> None:
     """
     Register a VCF file as a Datafusion table.
@@ -209,6 +220,8 @@ def register_vcf(
         name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
         info_fields: The fields to read from the INFO column.
         thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
+        chunk_size: The size of a chunk when reading from an object store.
+        concurrent_fetches: The number of concurrent fetches when reading from an object store.
 
     !!! Example
           ```python
@@ -219,7 +232,12 @@ def register_vcf(
             INFO:polars_bio:Table: gnomad_v4_1_sv_sites_gz registered for path: /tmp/gnomad.v4.1.sv.sites.vcf.gz
          ```
     """
-    vcf_read_options = VcfReadOptions(info_fields=info_fields, thread_num=thread_num)
+    vcf_read_options = VcfReadOptions(
+        info_fields=info_fields,
+        thread_num=thread_num,
+        chunk_size=chunk_size,
+        concurrent_fetches=concurrent_fetches,
+    )
     read_options = ReadOptions(vcf_read_options=vcf_read_options)
     py_register_table(ctx, path, name, InputFormat.Vcf, read_options)
 
