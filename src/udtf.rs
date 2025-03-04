@@ -283,27 +283,27 @@ fn get_join_col_arrays(
     (contig_arr, start_arr, end_arr)
 }
 
-fn get_coverage(tree: &COITree<(), u32>, start: i32, end: i32) -> i64 {
-    let mut max_coverage = 0;
-    let start = start + 1;
-    let end = end - 1;
-    // tree.query(start, end, |node|
-    //     {
-    //         if end < node.last() {
-    //             let coverage =  node.last() - start;
-    //             if coverage > max_coverage {
-    //                 max_coverage = coverage;
-    //             }
-    //         }
-    //         else {
-    //             let coverage = end - start;
-    //             if coverage > max_coverage {
-    //                 max_coverage = coverage;
-    //             }
-    //         }
-    //     });
-    max_coverage
-}
+// fn get_coverage(tree: &COITree<(), u32>, start: i32, end: i32) -> i64 {
+//     let mut max_coverage = 0;
+//     let start = start + 1;
+//     let end = end - 1;
+//     // tree.query(start, end, |node|
+//     //     {
+//     //         if end < node.last() {
+//     //             let coverage =  node.last() - start;
+//     //             if coverage > max_coverage {
+//     //                 max_coverage = coverage;
+//     //             }
+//     //         }
+//     //         else {
+//     //             let coverage = end - start;
+//     //             if coverage > max_coverage {
+//     //                 max_coverage = coverage;
+//     //             }
+//     //         }
+//     //     });
+//     max_coverage
+// }
 
 async fn get_stream(
     session: Arc<SessionContext>,

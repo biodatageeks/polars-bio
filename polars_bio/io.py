@@ -72,7 +72,7 @@ def read_vcf(
         path: The path to the VCF file.
         info_fields: The fields to read from the INFO column.
         thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
-        chunk_size: The size of a chunk when reading from an object store.
+        chunk_size: The size in MB of a chunk when reading from an object store.
         concurrent_fetches: The number of concurrent fetches when reading from an object store.
         streaming: Whether to read the VCF file in streaming mode.
     """
@@ -220,7 +220,7 @@ def register_vcf(
         name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
         info_fields: The fields to read from the INFO column.
         thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
-        chunk_size: The size of a chunk when reading from an object store.
+        chunk_size: The size in MB of a chunk when reading from an object store.
         concurrent_fetches: The number of concurrent fetches when reading from an object store.
 
     !!! Example
