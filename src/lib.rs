@@ -12,7 +12,9 @@ use std::sync::{Arc, Mutex};
 
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
+use datafusion::datasource::MemTable;
 use datafusion_python::dataframe::PyDataFrame;
+use datafusion_vcf::storage::VcfReader;
 use log::{debug, error, info};
 use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
 use polars_python::error::PyPolarsErr;
@@ -342,18 +344,43 @@ fn py_read_table(
     })
 }
 
+#[pyfunction]
+#[pyo3(signature = (py_ctx, path))]
+fn py_describe_vcf(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    path: String,
+) -> PyResult<PyDataFrame> {
+    py.allow_threads(|| {
+        let rt = Runtime::new().unwrap();
+        let ctx = &py_ctx.ctx.session;
+
+        let df = rt.block_on(async {
+            let mut reader = VcfReader::new(path, None, Some(64), Some(8)).await;
+            let rb = reader.describe().await.unwrap();
+            let mem_table = MemTable::try_new(rb.schema().clone(), vec![vec![rb]]).unwrap();
+            let random_table_name = format!("vcf_schema_{}", rand::random::<u32>());
+            ctx.register_table(random_table_name.clone(), Arc::new(mem_table))
+                .unwrap();
+            let df = ctx.table(random_table_name).await.unwrap();
+            df
+        });
+        Ok(PyDataFrame::new(df))
+    })
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
     m.add_function(wrap_pyfunction!(stream_range_operation_scan, m)?)?;
-    m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_sql, m)?)?;
     m.add_function(wrap_pyfunction!(py_scan_sql, m)?)?;
     m.add_function(wrap_pyfunction!(py_scan_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;

@@ -2141,7 +2141,7 @@ dependencies = [
 [[package]]
 name = "datafusion-vcf"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git/?rev=290df122121b90c02bd07260f1f4539e254a82d7#290df122121b90c02bd07260f1f4539e254a82d7"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git/?rev=4d7e72b4588025d3a020b1a55a16f6484ad846d9#4d7e72b4588025d3a020b1a55a16f6484ad846d9"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -5422,6 +5422,7 @@ dependencies = [
  "polars-python",
  "pyo3",
  "pyo3-log",
+ "rand",
  "sequila-core",
  "tokio",
  "tracing",

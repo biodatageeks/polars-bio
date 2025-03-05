@@ -10,6 +10,7 @@ from polars_bio.polars_bio import (
     InputFormat,
     ReadOptions,
     VcfReadOptions,
+    py_describe_vcf,
     py_read_sql,
     py_read_table,
     py_register_table,
@@ -202,6 +203,39 @@ def read_table(path: str, schema: Dict = None, **kwargs) -> pl.LazyFrame:
         for i, c in enumerate(columns):
             df = df.rename({f"column_{i+1}": c})
     return df
+
+
+def describe_vcf(path: str) -> pl.DataFrame:
+    """
+    Describe VCF INFO schema.
+
+    Parameters:
+        path: The path to the VCF file.
+
+    !!! Example
+        ```python
+            import polars_bio as pb
+            vcf_1 = "gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz"
+            pb.describe_vcf(vcf_1).sort("name").limit(5)
+        ```
+
+        ```shell
+            shape: (5, 3)
+            ┌───────────┬─────────┬──────────────────────────────────────────────────────────────────────────────────────┐
+            │ name      ┆ type    ┆ description                                                                          │
+            │ ---       ┆ ---     ┆ ---                                                                                  │
+            │ str       ┆ str     ┆ str                                                                                  │
+            ╞═══════════╪═════════╪══════════════════════════════════════════════════════════════════════════════════════╡
+            │ ac        ┆ Integer ┆ Number of non-reference alleles observed (biallelic sites only).                     │
+            │ ac_afr    ┆ Integer ┆ Number of non-reference African-American alleles observed (biallelic sites only).    │
+            │ ac_afr_xx ┆ Integer ┆ Number of non-reference African-American XX alleles observed (biallelic sites only). │
+            │ ac_afr_xy ┆ Integer ┆ Number of non-reference African-American XY alleles observed (biallelic sites only). │
+            │ ac_ami    ┆ Integer ┆ Number of non-reference Amish alleles observed (biallelic sites only).               │
+            └───────────┴─────────┴──────────────────────────────────────────────────────────────────────────────────────┘
+
+        ```
+    """
+    return py_describe_vcf(ctx, path).to_polars()
 
 
 def register_vcf(
