@@ -14,6 +14,7 @@ from polars_bio.polars_bio import (
     py_read_sql,
     py_read_table,
     py_register_table,
+    py_register_view,
     py_scan_sql,
     py_scan_table,
 )
@@ -274,6 +275,41 @@ def register_vcf(
     )
     read_options = ReadOptions(vcf_read_options=vcf_read_options)
     py_register_table(ctx, path, name, InputFormat.Vcf, read_options)
+
+
+def register_view(name: str, query: str) -> None:
+    """
+    Register a query as a Datafusion view. This view can be used in genomic ranges operations,
+    such as overlap, nearest, and count_overlaps. It is useful for filtering, transforming, and aggregating data
+    prior to the range operation. When combined with the range operation, it can be used to perform complex in a streaming fashion end-to-end.
+
+    Parameters:
+        name: The name of the table.
+        query: The SQL query.
+
+    !!! Example
+          ```python
+          import polars_bio as pb
+          pb.register_vcf("gs://gcp-public-data--gnomad/release/4.1/vcf/exomes/gnomad.exomes.v4.1.sites.chr21.vcf.bgz", "gnomad_sv")
+          pb.register_view("v_gnomad_sv", "SELECT replace(chrom,'chr', '') AS chrom, start, end FROM gnomad_sv")
+          pb.sql("SELECT * FROM v_gnomad_sv").limit(5).collect()
+          ```
+          ```shell
+            shape: (5, 3)
+            ┌───────┬─────────┬─────────┐
+            │ chrom ┆ start   ┆ end     │
+            │ ---   ┆ ---     ┆ ---     │
+            │ str   ┆ u32     ┆ u32     │
+            ╞═══════╪═════════╪═════════╡
+            │ 21    ┆ 5031905 ┆ 5031905 │
+            │ 21    ┆ 5031905 ┆ 5031905 │
+            │ 21    ┆ 5031909 ┆ 5031909 │
+            │ 21    ┆ 5031911 ┆ 5031911 │
+            │ 21    ┆ 5031911 ┆ 5031911 │
+            └───────┴─────────┴─────────┘
+          ```
+    """
+    py_register_view(ctx, name, query)
 
 
 def sql(query: str, streaming: bool = False) -> pl.LazyFrame:

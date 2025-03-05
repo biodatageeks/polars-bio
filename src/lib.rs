@@ -369,6 +369,23 @@ fn py_describe_vcf(
     })
 }
 
+#[pyfunction]
+#[pyo3(signature = (py_ctx, name, query))]
+fn py_register_view(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    name: String,
+    query: String,
+) -> PyResult<()> {
+    py.allow_threads(|| {
+        let rt = Runtime::new().unwrap();
+        let ctx = &py_ctx.ctx;
+        rt.block_on(ctx.sql(&format!("CREATE OR REPLACE VIEW {} AS {}", name, query)))
+            .unwrap();
+        Ok(())
+    })
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -381,6 +398,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_scan_sql, m)?)?;
     m.add_function(wrap_pyfunction!(py_scan_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
+    m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;

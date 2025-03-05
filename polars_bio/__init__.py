@@ -9,6 +9,7 @@ from .io import (
     read_table,
     read_vcf,
     register_vcf,
+    register_view,
     sql,
 )
 from .polars_ext import PolarsRangesOperations as LazyFrame
@@ -34,6 +35,7 @@ __all__ = [
     "read_table",
     "register_vcf",
     "describe_vcf",
+    "register_view",
     "sql",
     "InputFormat",
     "LazyFrame",
