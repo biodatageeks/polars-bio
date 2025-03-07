@@ -2,7 +2,7 @@ from typing import Dict, Iterator, Union
 
 import polars as pl
 from bioframe import SCHEMAS
-from datafusion import DataFrame
+from datafusion import DataFrame, SessionContext
 from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
 
@@ -11,6 +11,7 @@ from polars_bio.polars_bio import (
     ReadOptions,
     VcfReadOptions,
     py_describe_vcf,
+    py_from_polars,
     py_read_sql,
     py_read_table,
     py_register_table,
@@ -63,8 +64,8 @@ def read_vcf(
     path: str,
     info_fields: Union[list[str], None] = None,
     thread_num: int = 1,
-    chunk_size: int = 64,
-    concurrent_fetches: int = 8,
+    chunk_size: int = 8,
+    concurrent_fetches: int = 1,
     streaming: bool = False,
 ) -> Union[pl.LazyFrame, pl.DataFrame]:
     """
@@ -74,12 +75,12 @@ def read_vcf(
         path: The path to the VCF file.
         info_fields: The fields to read from the INFO column.
         thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
-        chunk_size: The size in MB of a chunk when reading from an object store.
-        concurrent_fetches: The number of concurrent fetches when reading from an object store.
+        chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+        concurrent_fetches: The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
         streaming: Whether to read the VCF file in streaming mode.
     """
     vcf_read_options = VcfReadOptions(
-        info_fields=info_fields,
+        info_fields=_cleanse_infos(info_fields),
         thread_num=thread_num,
         chunk_size=chunk_size,
         concurrent_fetches=concurrent_fetches,
@@ -255,8 +256,8 @@ def register_vcf(
         name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
         info_fields: The fields to read from the INFO column.
         thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
-        chunk_size: The size in MB of a chunk when reading from an object store.
-        concurrent_fetches: The number of concurrent fetches when reading from an object store.
+        chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale operations, it is recommended to decrease this value to 1-2.
+        concurrent_fetches: The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale operations, it is recommended to decrease this value to 1-2.
 
     !!! Example
           ```python
@@ -268,7 +269,7 @@ def register_vcf(
          ```
     """
     vcf_read_options = VcfReadOptions(
-        info_fields=info_fields,
+        info_fields=_cleanse_infos(info_fields),
         thread_num=thread_num,
         chunk_size=chunk_size,
         concurrent_fetches=concurrent_fetches,
@@ -332,3 +333,49 @@ def sql(query: str, streaming: bool = False) -> pl.LazyFrame:
     else:
         df = py_read_sql(ctx, query)
         return lazy_scan(df)
+
+
+def from_polars(name: str, df: Union[pl.DataFrame, pl.LazyFrame]) -> None:
+    """
+    Register a Polars DataFrame as a DataFusion table.
+
+    Parameters:
+        name: The name of the table.
+        df: The Polars DataFrame.
+    !!! Example
+        ```python
+        import polars as pl
+        import polars_bio as pb
+        df = pl.DataFrame({
+            "a": [1, 2, 3],
+            "b": [4, 5, 6]
+        })
+        pb.from_polars("test_df", df)
+        pb.sql("SELECT * FROM test_df").collect()
+        ```
+        ```shell
+        3rows [00:00, 2978.91rows/s]
+        shape: (3, 2)
+        ┌─────┬─────┐
+        │ a   ┆ b   │
+        │ --- ┆ --- │
+        │ i64 ┆ i64 │
+        ╞═════╪═════╡
+        │ 1   ┆ 4   │
+        │ 2   ┆ 5   │
+        │ 3   ┆ 6   │
+        └─────┴─────┘
+        ```
+    """
+    reader = (
+        df.to_arrow()
+        if isinstance(df, pl.DataFrame)
+        else df.collect().to_arrow().to_reader()
+    )
+    py_from_polars(ctx, name, reader)
+
+
+def _cleanse_infos(t: Union[list[str], None]) -> Union[list[str], None]:
+    if t is None:
+        return None
+    return [x.upper().strip() for x in t]

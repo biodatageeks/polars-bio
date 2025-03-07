@@ -3,6 +3,7 @@ from polars_bio.polars_bio import InputFormat, ReadOptions, VcfReadOptions
 from .context import ctx, set_option
 from .io import (
     describe_vcf,
+    from_polars,
     read_bam,
     read_fasta,
     read_fastq,
@@ -36,6 +37,7 @@ __all__ = [
     "register_vcf",
     "describe_vcf",
     "register_view",
+    "from_polars",
     "sql",
     "InputFormat",
     "LazyFrame",

@@ -12,6 +12,7 @@ from polars_bio.polars_bio import (
     stream_range_operation_scan,
 )
 
+from .constants import TMP_CATALOG_DIR
 from .logging import logger
 from .range_op_io import _df_to_arrow, _get_schema, _rename_columns, range_lazy_scan
 from .range_wrappers import range_operation_frame_wrapper, range_operation_scan_wrapper
@@ -145,9 +146,10 @@ def stream_wrapper(pyldf):
     return pl.LazyFrame._from_pyldf(pyldf)
 
 
-def tmp_cleanup(seed):
-    # remove s1, s2 temp parquet files
-    logger.info(f"Cleaning up temp files for seed: '{seed}'")
-    for f in ["s1", "s2"]:
-        path = Path(f"{f}-{seed}.parquet")
+def tmp_cleanup(session_catalog_path: str):
+    # remove temp parquet files
+    logger.info(f"Cleaning up temp files for catalog path: '{session_catalog_path}'")
+    path = Path(session_catalog_path)
+    for path in path.glob("*.parquet"):
         path.unlink(missing_ok=True)
+    path.rmdir()
