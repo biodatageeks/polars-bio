@@ -17,6 +17,15 @@ class TestIOBAM:
         assert self.df["cigar"][4] == "101M"
 
 
+class TestIOVCFInfo:
+    vcf_big = "gs://gcp-public-data--gnomad/release/2.1.1/liftover_grch38/vcf/genomes/gnomad.genomes.r2.1.1.sites.liftover_grch38.vcf.bgz"
+    vcf_infos_mixed_cases = (
+        pb.read_vcf(vcf_big, info_fields=["AF", "vep"], thread_num=1).limit(1).collect()
+    )
+
+    assert len(vcf_infos_mixed_cases) == 1
+
+
 class TestIOVCF:
     df_bgz = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf.bgz").collect()
     df_none = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf").collect()

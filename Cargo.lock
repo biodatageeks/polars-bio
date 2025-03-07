@@ -2141,7 +2141,7 @@ dependencies = [
 [[package]]
 name = "datafusion-vcf"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git/?rev=4d7e72b4588025d3a020b1a55a16f6484ad846d9#4d7e72b4588025d3a020b1a55a16f6484ad846d9"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git/?rev=cc38b4ac3fe2d252245200422930fa879e92b92d#cc38b4ac3fe2d252245200422930fa879e92b92d"
 dependencies = [
  "async-stream",
  "async-trait",

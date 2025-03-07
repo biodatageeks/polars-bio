@@ -378,4 +378,4 @@ def from_polars(name: str, df: Union[pl.DataFrame, pl.LazyFrame]) -> None:
 def _cleanse_infos(t: Union[list[str], None]) -> Union[list[str], None]:
     if t is None:
         return None
-    return [x.upper().strip() for x in t]
+    return [x.strip() for x in t]
