@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "polars-bio"
-version = "0.7.3"
+version = "0.7.4"
 description = "Blazing fast genomic operations on large Python dataframes"
 authors = []
 requires-python = ">=3.9"

@@ -9,9 +9,9 @@ pub(crate) fn nearest_query(query_params: QueryParams) -> String {
             a.{} AS {}{}, -- pos_end
             b.{} AS {}{}, -- contig
             b.{} AS {}{}, -- pos_start
-            b.{} AS {}{},  -- pos_end
+            b.{} AS {}{}  -- pos_end
             {}
-            {}
+            {},
        CAST(
        CASE WHEN b.{} >= a.{}
             THEN
@@ -52,16 +52,16 @@ pub(crate) fn nearest_query(query_params: QueryParams) -> String {
                     "a".to_string(),
                     query_params.suffixes.0.clone(),
                 )
-                + ","
         } else {
             "".to_string()
         },
         if !query_params.other_columns_2.is_empty() {
-            format_non_join_tables(
-                query_params.other_columns_2.clone(),
-                "b".to_string(),
-                query_params.suffixes.1.clone(),
-            )
+            ",".to_string()
+                + &format_non_join_tables(
+                    query_params.other_columns_2.clone(),
+                    "b".to_string(),
+                    query_params.suffixes.1.clone(),
+                )
         } else {
             "".to_string()
         },
@@ -100,7 +100,7 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
                 {}
                 {}
             FROM
-                {} a, {} b
+                {} AS a, {} AS b
             WHERE
                 a.{}=b.{}
             AND
@@ -133,16 +133,16 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
                     "a".to_string(),
                     query_params.suffixes.0.clone(),
                 )
-                + ","
         } else {
             "".to_string()
         },
         if !query_params.other_columns_2.is_empty() {
-            format_non_join_tables(
-                query_params.other_columns_2.clone(),
-                "b".to_string(),
-                query_params.suffixes.1.clone(),
-            )
+            ",".to_string()
+                + &format_non_join_tables(
+                    query_params.other_columns_2.clone(),
+                    "b".to_string(),
+                    query_params.suffixes.1.clone(),
+                )
         } else {
             "".to_string()
         },
