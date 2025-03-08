@@ -21,7 +21,7 @@ def range_operation_frame_wrapper(
     df2,
     range_options: RangeOptions,
     limit: Union[int, None] = None,
-) -> datafusion.dataframe:
+) -> datafusion.DataFrame:
     if range_options.range_op != RangeOp.CountOverlaps:
         return range_operation_frame(ctx, df1, df2, range_options)
     py_ctx = datafusion.SessionContext()

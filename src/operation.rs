@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use datafusion::catalog_common::TableReference;
 use exon::ExonSession;
 use log::{debug, info};
@@ -7,6 +9,7 @@ use tokio::runtime::Runtime;
 use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions};
 use crate::query::{count_overlaps_query, nearest_query, overlap_query};
+use crate::udtf::CountOverlapsProvider;
 use crate::utils::default_cols_to_string;
 use crate::DEFAULT_COLUMN_NAMES;
 
@@ -150,17 +153,30 @@ async fn do_count_overlaps_naive(
 ) -> datafusion::dataframe::DataFrame {
     let columns_1 = range_opts.columns_1.unwrap();
     let columns_2 = range_opts.columns_2.unwrap();
-    let query = format!(
-        "SELECT * FROM count_overlaps('{}', '{}', '{}', '{}', '{}', '{}', '{}', '{}' , false )",
+    let session = &ctx.session;
+    let right_table_ref = TableReference::from(right_table.clone());
+    let right_schema = session
+        .table(right_table_ref.clone())
+        .await
+        .unwrap()
+        .schema()
+        .as_arrow()
+        .clone();
+    let count_overlaps_provider = CountOverlapsProvider::new(
+        Arc::new(session.clone()),
         left_table,
         right_table,
-        columns_1[0],
-        columns_1[1],
-        columns_1[2],
-        columns_2[0],
-        columns_2[1],
-        columns_2[2]
+        right_schema,
+        columns_1,
+        columns_2,
+        range_opts.filter_op.unwrap(),
+        false,
     );
+    session.deregister_table("count_overlaps").unwrap();
+    session
+        .register_table("count_overlaps", Arc::new(count_overlaps_provider))
+        .unwrap();
+    let query = "SELECT * FROM count_overlaps";
     debug!("Query: {}", query);
     ctx.sql(&query).await.unwrap()
 }

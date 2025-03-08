@@ -60,13 +60,17 @@ fn range_operation_frame(
             )
             .limit(0, Some(l))?,
         )),
-        _ => Ok(PyDataFrame::new(do_range_operation(
-            ctx,
-            &rt,
-            range_options,
-            LEFT_TABLE.to_string(),
-            RIGHT_TABLE.to_string(),
-        ))),
+        _ => {
+            let df = do_range_operation(
+                ctx,
+                &rt,
+                range_options,
+                LEFT_TABLE.to_string(),
+                RIGHT_TABLE.to_string(),
+            );
+            let py_df = PyDataFrame::new(df);
+            Ok(py_df)
+        },
     }
 }
 

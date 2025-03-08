@@ -1,15 +1,15 @@
 use std::any::Any;
-use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
-use arrow_array::{Array, Int32Array, Int64Array, RecordBatch, StringViewArray};
+use arrow_array::{
+    Array, GenericStringArray, Int32Array, Int64Array, RecordBatch, StringArray, StringViewArray,
+};
 use arrow_schema::{DataType, Field, FieldRef, Schema, SchemaRef};
 use async_trait::async_trait;
 use coitrees::{COITree, Interval, IntervalTree};
 use datafusion::catalog::{Session, TableProvider};
-use datafusion::common::{plan_err, Result, ScalarValue};
-use datafusion::datasource::function::TableFunctionImpl;
+use datafusion::common::Result;
 use datafusion::datasource::TableType;
 use datafusion::execution::{SendableRecordBatchStream, TaskContext};
 use datafusion::physical_expr::{EquivalenceProperties, Partitioning};
@@ -22,78 +22,58 @@ use datafusion::prelude::{Expr, SessionContext};
 use fnv::FnvHashMap;
 use futures_util::stream::BoxStream;
 use futures_util::{StreamExt, TryStreamExt};
+use polars_arrow::array::{Utf8Array, Utf8ViewArray};
+use polars_arrow::legacy::prelude::LargeStringArray;
 
-pub struct CountOverlapsFunction {
-    session: Arc<SessionContext>,
-}
+use crate::option::FilterOp;
 
-impl CountOverlapsFunction {
-    pub fn new(session: SessionContext) -> Self {
-        Self {
-            session: Arc::new(session),
-        }
-    }
-}
-
-impl Debug for CountOverlapsFunction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("CountOverlapsFunction")
-            .field("session", &"<SessionContext>")
-            .finish()
-    }
-}
-
-impl TableFunctionImpl for CountOverlapsFunction {
-    fn call(&self, exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
-        let Some(Expr::Literal(ScalarValue::Utf8(Some(left_table)))) = exprs.get(0) else {
-            return plan_err!("1. argument must be an table name");
-        };
-        let Some(Expr::Literal(ScalarValue::Utf8(Some(right_table)))) = exprs.get(1) else {
-            return plan_err!("2. argument must be an table name");
-        };
-        let Some(Expr::Literal(ScalarValue::Utf8(Some(contig_col_1)))) = exprs.get(2) else {
-            return plan_err!("3. argument must be an a column name");
-        };
-        let Some(Expr::Literal(ScalarValue::Utf8(Some(start_col_1)))) = exprs.get(3) else {
-            return plan_err!("4. argument must be an a column name");
-        };
-        let Some(Expr::Literal(ScalarValue::Utf8(Some(end_col_1)))) = exprs.get(4) else {
-            return plan_err!("5. argument must be an a column name");
-        };
-        let Some(Expr::Literal(ScalarValue::Utf8(Some(contig_col_2)))) = exprs.get(5) else {
-            return plan_err!("6. argument must be an a column name");
-        };
-        let Some(Expr::Literal(ScalarValue::Utf8(Some(start_col_2)))) = exprs.get(6) else {
-            return plan_err!("7. argument must be an a column name");
-        };
-        let Some(Expr::Literal(ScalarValue::Utf8(Some(end_col_2)))) = exprs.get(7) else {
-            return plan_err!("8. argument must be an a column name");
-        };
-
-        let Some(Expr::Literal(ScalarValue::Boolean(Some(coverage)))) = exprs.get(8) else {
-            return plan_err!("8. argument must be an a column name");
-        };
-
-        let provider = CountOverlapsProvider {
-            session: Arc::clone(&self.session),
-            left_table: left_table.clone(),
-            right_table: right_table.clone(),
-            columns_1: (contig_col_1.clone(), start_col_1.clone(), end_col_1.clone()),
-            columns_2: (contig_col_2.clone(), start_col_2.clone(), end_col_2.clone()),
-            coverage: coverage.clone(),
-        };
-
-        Ok(Arc::new(provider))
-    }
-}
-
-struct CountOverlapsProvider {
+pub struct CountOverlapsProvider {
     session: Arc<SessionContext>,
     left_table: String,
     right_table: String,
     columns_1: (String, String, String),
     columns_2: (String, String, String),
+    filter_op: FilterOp,
     coverage: bool,
+    schema: SchemaRef,
+}
+
+impl CountOverlapsProvider {
+    pub fn new(
+        session: Arc<SessionContext>,
+        left_table: String,
+        right_table: String,
+        right_table_schema: Schema,
+        columns_1: Vec<String>,
+        columns_2: Vec<String>,
+        filter_op: FilterOp,
+        coverage: bool,
+    ) -> Self {
+        Self {
+            session,
+            left_table,
+            right_table,
+            schema: {
+                let mut fields = right_table_schema.fields().to_vec();
+                let new_field = Field::new("count", DataType::Int64, false);
+                fields.push(FieldRef::new(new_field));
+                let new_schema = Arc::new(Schema::new(fields).clone());
+                SchemaRef::from(new_schema.clone())
+            },
+            columns_1: (
+                columns_1[0].clone(),
+                columns_1[1].clone(),
+                columns_1[2].clone(),
+            ),
+            columns_2: (
+                columns_2[0].clone(),
+                columns_2[1].clone(),
+                columns_2[2].clone(),
+            ),
+            filter_op,
+            coverage,
+        }
+    }
 }
 
 impl Debug for CountOverlapsProvider {
@@ -109,7 +89,7 @@ impl TableProvider for CountOverlapsProvider {
     }
 
     fn schema(&self) -> SchemaRef {
-        SchemaRef::from(Schema::empty())
+        self.schema.clone()
     }
 
     fn table_type(&self) -> TableType {
@@ -147,6 +127,7 @@ impl TableProvider for CountOverlapsProvider {
             right_table: self.right_table.clone(),
             columns_1: self.columns_1.clone(),
             columns_2: self.columns_2.clone(),
+            filter_op: self.filter_op.clone(),
             coverage: self.coverage.clone(),
             cache: PlanProperties::new(
                 EquivalenceProperties::new(self.schema().clone()),
@@ -164,6 +145,7 @@ struct CountOverlapsExec {
     right_table: String,
     columns_1: (String, String, String),
     columns_2: (String, String, String),
+    filter_op: FilterOp,
     coverage: bool,
     cache: PlanProperties,
 }
@@ -215,8 +197,10 @@ impl ExecutionPlan for CountOverlapsExec {
             Arc::clone(&self.session),
             self.trees.clone(),
             self.right_table.clone(),
+            self.schema.clone(),
             self.columns_1.clone(),
             self.columns_2.clone(),
+            self.filter_op.clone(),
             self.coverage.clone(),
             self.cache.partitioning.partition_count(),
             partition,
@@ -241,8 +225,8 @@ fn build_coitree_from_batches(
 
         for i in 0..batch.num_rows() {
             let contig = contig_arr.value(i).to_string();
-            let pos_start = start_arr.value(i);
-            let pos_end = end_arr.value(i);
+            let pos_start = start_arr.value(i) as i32;
+            let pos_end = end_arr.value(i) as i32;
             let node_arr = if let Some(node_arr) = nodes.get_mut(&contig) {
                 node_arr
             } else {
@@ -258,28 +242,136 @@ fn build_coitree_from_batches(
     trees
 }
 
+enum ContigArray<'a> {
+    GenericString(&'a GenericStringArray<i64>),
+    Utf8View(&'a StringViewArray),
+    Utf8(&'a GenericStringArray<i32>),
+}
+
+impl ContigArray<'_> {
+    fn value(&self, i: usize) -> &str {
+        match self {
+            ContigArray::GenericString(arr) => arr.value(i),
+            ContigArray::Utf8View(arr) => arr.value(i),
+            ContigArray::Utf8(arr) => arr.value(i),
+        }
+    }
+}
+
+enum PosArray<'a> {
+    Int32(&'a Int32Array),
+    Int64(&'a Int64Array),
+}
+
+impl PosArray<'_> {
+    fn value(&self, i: usize) -> i32 {
+        match self {
+            PosArray::Int32(arr) => arr.value(i),
+            PosArray::Int64(arr) => arr.value(i) as i32,
+        }
+    }
+}
+
 fn get_join_col_arrays(
     batch: &RecordBatch,
     columns: (String, String, String),
-) -> (&StringViewArray, &Int32Array, &Int32Array) {
-    let contig_arr = batch
-        .column_by_name(&columns.0)
-        .unwrap()
-        .as_any()
-        .downcast_ref::<StringViewArray>()
-        .unwrap();
-    let start_arr = batch
-        .column_by_name(&columns.1)
-        .unwrap()
-        .as_any()
-        .downcast_ref::<Int32Array>()
-        .unwrap();
-    let end_arr = batch
-        .column_by_name(&columns.2)
-        .unwrap()
-        .as_any()
-        .downcast_ref::<Int32Array>()
-        .unwrap();
+) -> (ContigArray, PosArray, PosArray) {
+    let contig_arr = match batch.column_by_name(&columns.0).unwrap().data_type() {
+        DataType::LargeUtf8 => {
+            let contig_arr = batch
+                .column_by_name(&columns.0)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<GenericStringArray<i64>>()
+                .unwrap();
+            ContigArray::GenericString(contig_arr)
+        },
+        DataType::Utf8View => {
+            let contig_arr = batch
+                .column_by_name(&columns.0)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<StringViewArray>()
+                .unwrap();
+            ContigArray::Utf8View(contig_arr)
+        },
+        DataType::Utf8 => {
+            let contig_arr = batch
+                .column_by_name(&columns.0)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<GenericStringArray<i32>>()
+                .unwrap();
+            ContigArray::Utf8(contig_arr)
+        },
+        _ => todo!(),
+    };
+
+    let start_arr = match batch.column_by_name(&columns.1).unwrap().data_type() {
+        DataType::Int32 => {
+            let start_arr = batch
+                .column_by_name(&columns.1)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap();
+            PosArray::Int32(start_arr)
+        },
+        DataType::Int64 => {
+            let start_arr = batch
+                .column_by_name(&columns.1)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap();
+            PosArray::Int64(start_arr)
+        },
+        _ => todo!(),
+    };
+
+    let end_arr = match batch.column_by_name(&columns.2).unwrap().data_type() {
+        DataType::Int32 => {
+            let end_arr = batch
+                .column_by_name(&columns.2)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<Int32Array>()
+                .unwrap();
+            PosArray::Int32(end_arr)
+        },
+        DataType::Int64 => {
+            let end_arr = batch
+                .column_by_name(&columns.2)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap();
+            PosArray::Int64(end_arr)
+        },
+        _ => todo!(),
+    };
+
+    //Utf8View -> StringViewArray
+    //LargeUtf8 -> LargeStringArray
+    // println!("{:?}", batch.schema());
+    // let contig_arr = batch
+    //     .column_by_name(&columns.0)
+    //     .unwrap()
+    //     .as_any()
+    //     .downcast_ref::<GenericStringArray<i64>>()
+    //     .unwrap();
+    // let start_arr = batch
+    //     .column_by_name(&columns.1)
+    //     .unwrap()
+    //     .as_any()
+    //     .downcast_ref::<Int64Array>()
+    //     .unwrap();
+    // let end_arr = batch
+    //     .column_by_name(&columns.2)
+    //     .unwrap()
+    //     .as_any()
+    //     .downcast_ref::<Int64Array>()
+    //     .unwrap();
     (contig_arr, start_arr, end_arr)
 }
 
@@ -309,8 +401,10 @@ async fn get_stream(
     session: Arc<SessionContext>,
     trees: Arc<FnvHashMap<String, COITree<(), u32>>>,
     right_table: String,
+    new_schema: SchemaRef,
     _columns_1: (String, String, String),
     columns_2: (String, String, String),
+    filter_op: FilterOp,
     coverage: bool,
     target_partitions: usize,
     partition: usize,
@@ -323,11 +417,7 @@ async fn get_stream(
         RepartitionExec::try_new(plan, Partitioning::RoundRobinBatch(target_partitions))?;
 
     let partition_stream = repartition_stream.execute(partition, context)?;
-    let mut fields = partition_stream.schema().fields().to_vec();
-    let new_field = Field::new("count", DataType::Int64, false);
-    fields.push(FieldRef::new(new_field));
-    let new_schema = Arc::new(Schema::new(fields).clone());
-    let new_schema_out = SchemaRef::from(new_schema.clone());
+    let new_schema_out = new_schema.clone();
 
     let iter = partition_stream.map(move |rb| match rb {
         Ok(rb) => {
@@ -345,7 +435,13 @@ async fn get_stream(
                 }
                 let count = match coverage {
                     true => todo!("coverage"),
-                    false => tree.unwrap().query_count(pos_start + 1, pos_end - 1),
+                    false => {
+                        if filter_op == FilterOp::Strict {
+                            tree.unwrap().query_count(pos_start + 1, pos_end - 1)
+                        } else {
+                            tree.unwrap().query_count(pos_start, pos_end)
+                        }
+                    },
                 };
                 count_arr.push(count as i64);
             }

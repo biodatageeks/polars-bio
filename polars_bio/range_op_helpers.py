@@ -58,7 +58,6 @@ def range_operation(
             merged_schema = pl.Schema(
                 {**_get_schema(df1, ctx, None, read_options1), **{"count": pl.Int32}}
             )
-            # print(merged_schema)
         else:
             df_schema1 = _get_schema(df1, ctx, range_options.suffixes[0], read_options1)
             df_schema2 = _get_schema(df2, ctx, range_options.suffixes[1], read_options2)
@@ -121,9 +120,10 @@ def range_operation(
                 raise ValueError(
                     "Input and output dataframes must be of the same type: either polars or pandas"
                 )
-            return range_operation_frame_wrapper(
-                ctx, df1, df2, range_options
-            ).to_pandas()
+            df = range_operation_frame_wrapper(ctx, df1, df2, range_options)
+            print(range_options.range_op)
+            print(df.schema())
+            return df.to_pandas()
     else:
         raise ValueError(
             "Both dataframes must be of the same type: either polars or pandas or a path to a file"
