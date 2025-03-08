@@ -10,7 +10,7 @@
 | cluster                                            | :white_check_mark: |                    | :white_check_mark: | :white_check_mark: |                    |                    |
 | [merge](api.md#polars_bio.merge)                   | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 | complement                                         | :white_check_mark: | :construction:     |                    | :white_check_mark: | :white_check_mark: |                    |
-| coverage                                           | :white_check_mark: |                    | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
+| [coverage](api.md#polars_bio.coverage)             | :white_check_mark: |  :white_check_mark:                  | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 | [expand](api.md#polars_bio.LazyFrame.expand)       | :white_check_mark: | :white_check_mark:     | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 | [sort](api.md#polars_bio.LazyFrame.sort_bedframe)  | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 | [read_table](api.md#polars_bio.read_table)         | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |

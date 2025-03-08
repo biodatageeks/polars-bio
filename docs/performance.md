@@ -7,12 +7,16 @@
 
 ![count-overlaps-single.png](assets/count-overlaps-single.png)
 
+![coverage-single.png](assets/coverage-single.png)
+
 ## Parallel performance 🏃‍🏃‍
 ![overlap-parallel.png](assets/overlap-parallel.png)
 
 ![overlap-parallel.png](assets/nearest-parallel.png)
 
 ![count-overlaps-parallel.png](assets/count-overlaps-parallel.png)
+
+![coverage-parallel.png](assets/coverage-parallel.png)
 ## Benchmarks 🧪
 ### Detailed results shortcuts 👨‍🔬
 - [Binary operations](#binary-operations)
