@@ -1,5 +1,10 @@
+import bioframe as bf
 import pandas as pd
 from _expected import (
+    BIO_DF_PATH1,
+    BIO_DF_PATH2,
+    BIO_PD_DF1,
+    BIO_PD_DF2,
     DF_COUNT_OVERLAPS_PATH1,
     DF_COUNT_OVERLAPS_PATH2,
     DF_MERGE_PATH,
@@ -100,4 +105,33 @@ class TestMergeNative:
             drop=True
         )
         expected = PD_DF_MERGE
+        pd.testing.assert_frame_equal(result, expected)
+
+
+class TestCoverageNative:
+    result = pb.coverage(
+        BIO_DF_PATH1,
+        BIO_DF_PATH2,
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
+        output_type="pandas.DataFrame",
+        overlap_filter=FilterOp.Strict,
+    )
+    result_bio = bf.coverage(
+        BIO_PD_DF1,
+        BIO_PD_DF2,
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
+        suffixes=("_1", "_2"),
+    )
+
+    def test_coverage_count(self):
+        print(self.result)
+        assert len(self.result) == len(self.result_bio)
+
+    def test_coverage_schema_rows(self):
+        result = self.result.sort_values(by=list(self.result.columns)).reset_index(
+            drop=True
+        )
+        expected = self.result_bio.astype({"coverage": "int64"})
         pd.testing.assert_frame_equal(result, expected)

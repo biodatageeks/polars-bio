@@ -170,3 +170,45 @@ class TestBioframe:
             by=list(self.result_merge.columns)
         ).reset_index(drop=True)
         pd.testing.assert_frame_equal(result, expected)
+
+    def test_coverage_count(self):
+        result = pb.coverage(
+            BIO_PD_DF1,
+            BIO_PD_DF2,
+            cols1=("contig", "pos_start", "pos_end"),
+            cols2=("contig", "pos_start", "pos_end"),
+            output_type="pandas.DataFrame",
+            overlap_filter=FilterOp.Strict,
+        )
+        result_bio = bf.coverage(
+            BIO_PD_DF1,
+            BIO_PD_DF2,
+            cols1=("contig", "pos_start", "pos_end"),
+            cols2=("contig", "pos_start", "pos_end"),
+            suffixes=("_1", "_2"),
+        )
+        assert len(result) == len(result_bio)
+
+    def test_coverage_schema_rows(self):
+        result = pb.coverage(
+            BIO_PD_DF1,
+            BIO_PD_DF2,
+            cols1=("contig", "pos_start", "pos_end"),
+            cols2=("contig", "pos_start", "pos_end"),
+            output_type="pandas.DataFrame",
+            overlap_filter=FilterOp.Strict,
+        )
+        result_bio = bf.coverage(
+            BIO_PD_DF1,
+            BIO_PD_DF2,
+            cols1=("contig", "pos_start", "pos_end"),
+            cols2=("contig", "pos_start", "pos_end"),
+            suffixes=("_1", "_2"),
+        )
+        expected = (
+            result_bio.sort_values(by=list(result.columns))
+            .reset_index(drop=True)
+            .astype({"coverage": "int64"})
+        )
+        result = result.sort_values(by=list(result.columns)).reset_index(drop=True)
+        pd.testing.assert_frame_equal(result, expected)
