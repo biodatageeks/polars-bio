@@ -222,3 +222,18 @@ class PolarsRangesOperations:
         if midsk in schema:
             df = df.drop(midsk)
         return df
+
+    def coverage(
+        self,
+        other_df: pl.LazyFrame,
+        cols1=["chrom", "start", "end"],
+        cols2=["chrom", "start", "end"],
+        suffixes: tuple[str, str] = ("_1", "_2"),
+    ) -> pl.LazyFrame:
+        """
+        !!! note
+            Alias for [coverage](api.md#polars_bio.coverage)
+        """
+        return pb.coverage(
+            self._ldf, other_df, cols1=cols1, cols2=cols2, suffixes=suffixes
+        )
