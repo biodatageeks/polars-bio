@@ -3,7 +3,7 @@ use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use arrow_array::{
-    Array, GenericStringArray, Int32Array, Int64Array, RecordBatch, StringArray, StringViewArray,
+    Array, GenericStringArray, Int32Array, Int64Array, RecordBatch, StringViewArray,
 };
 use arrow_schema::{DataType, Field, FieldRef, Schema, SchemaRef};
 use async_trait::async_trait;
@@ -22,8 +22,6 @@ use datafusion::prelude::{Expr, SessionContext};
 use fnv::FnvHashMap;
 use futures_util::stream::BoxStream;
 use futures_util::{StreamExt, TryStreamExt};
-use polars_arrow::array::{Utf8Array, Utf8ViewArray};
-use polars_arrow::legacy::prelude::LargeStringArray;
 
 use crate::option::FilterOp;
 
