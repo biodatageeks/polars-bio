@@ -80,11 +80,19 @@ pub(crate) fn do_range_operation(
             left_table,
             right_table,
         )),
-        RangeOp::CountOverlapsNaive => rt.block_on(do_count_overlaps_naive(
+        RangeOp::CountOverlapsNaive => rt.block_on(do_count_overlaps_coverage_naive(
             ctx,
             range_options,
             left_table,
             right_table,
+            false,
+        )),
+        RangeOp::Coverage => rt.block_on(do_count_overlaps_coverage_naive(
+            ctx,
+            range_options,
+            left_table,
+            right_table,
+            true,
         )),
 
         _ => panic!("Unsupported operation"),
@@ -145,11 +153,12 @@ async fn do_count_overlaps(
     ctx.sql(&query).await.unwrap()
 }
 
-async fn do_count_overlaps_naive(
+async fn do_count_overlaps_coverage_naive(
     ctx: &ExonSession,
     range_opts: RangeOptions,
     left_table: String,
     right_table: String,
+    coverage: bool,
 ) -> datafusion::dataframe::DataFrame {
     let columns_1 = range_opts.columns_1.unwrap();
     let columns_2 = range_opts.columns_2.unwrap();
@@ -170,13 +179,14 @@ async fn do_count_overlaps_naive(
         columns_1,
         columns_2,
         range_opts.filter_op.unwrap(),
-        false,
+        coverage,
     );
-    session.deregister_table("count_overlaps").unwrap();
+    let table_name = "count_overlaps_coverage".to_string();
+    session.deregister_table(table_name.clone()).unwrap();
     session
-        .register_table("count_overlaps", Arc::new(count_overlaps_provider))
+        .register_table(table_name.clone(), Arc::new(count_overlaps_provider))
         .unwrap();
-    let query = "SELECT * FROM count_overlaps";
+    let query = format!("SELECT * FROM {}", table_name);
     debug!("Query: {}", query);
     ctx.sql(&query).await.unwrap()
 }

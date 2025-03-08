@@ -58,6 +58,10 @@ def range_operation(
             merged_schema = pl.Schema(
                 {**_get_schema(df1, ctx, None, read_options1), **{"count": pl.Int32}}
             )
+        elif range_options.range_op == RangeOp.Coverage:
+            merged_schema = pl.Schema(
+                {**_get_schema(df1, ctx, None, read_options1), **{"coverage": pl.Int32}}
+            )
         else:
             df_schema1 = _get_schema(df1, ctx, range_options.suffixes[0], read_options1)
             df_schema2 = _get_schema(df2, ctx, range_options.suffixes[1], read_options2)

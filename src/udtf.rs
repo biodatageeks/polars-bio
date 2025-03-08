@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::cmp::{max, min};
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
@@ -53,7 +54,8 @@ impl CountOverlapsProvider {
             right_table,
             schema: {
                 let mut fields = right_table_schema.fields().to_vec();
-                let new_field = Field::new("count", DataType::Int64, false);
+                let name = if coverage { "coverage" } else { "count" };
+                let new_field = Field::new(name, DataType::Int64, false);
                 fields.push(FieldRef::new(new_field));
                 let new_schema = Arc::new(Schema::new(fields).clone());
                 SchemaRef::from(new_schema.clone())
@@ -117,6 +119,7 @@ impl TableProvider for CountOverlapsProvider {
         let trees = Arc::new(build_coitree_from_batches(
             left_table,
             self.columns_1.clone(),
+            self.coverage,
         ));
         Ok(Arc::new(CountOverlapsExec {
             schema: self.schema().clone(),
@@ -212,9 +215,40 @@ impl ExecutionPlan for CountOverlapsExec {
 
 type IntervalHashMap = FnvHashMap<String, Vec<Interval<()>>>;
 
+fn merge_intervals(mut intervals: Vec<Interval<()>>) -> Vec<Interval<()>> {
+    // Return early if there are no intervals.
+    if intervals.is_empty() {
+        return vec![];
+    }
+
+    // Sort intervals by their start time.
+    intervals.sort_by(|a, b| a.first.cmp(&b.first));
+
+    // Initialize merged intervals with the first interval.
+    let mut merged = Vec::new();
+    let mut current = intervals[0];
+
+    // Iterate over the rest of the intervals.
+    for interval in intervals.into_iter().skip(1) {
+        if interval.first <= current.last {
+            // Overlapping intervals; merge them by extending the current interval.
+            current.last = current.last.max(interval.last);
+        } else {
+            // No overlap: push the current interval and update it.
+            merged.push(current);
+            current = interval;
+        }
+    }
+    // Push the last interval.
+    merged.push(current);
+
+    merged
+}
+
 fn build_coitree_from_batches(
     batches: Vec<RecordBatch>,
     columns: (String, String, String),
+    coverage: bool,
 ) -> FnvHashMap<String, COITree<(), u32>> {
     let mut nodes = IntervalHashMap::default();
 
@@ -235,7 +269,11 @@ fn build_coitree_from_batches(
     }
     let mut trees = FnvHashMap::<String, COITree<(), u32>>::default();
     for (seqname, seqname_nodes) in nodes {
-        trees.insert(seqname, COITree::new(&seqname_nodes));
+        if !coverage {
+            trees.insert(seqname, COITree::new(&seqname_nodes));
+        } else {
+            trees.insert(seqname, COITree::new(&merge_intervals(seqname_nodes)));
+        }
     }
     trees
 }
@@ -349,51 +387,17 @@ fn get_join_col_arrays(
         _ => todo!(),
     };
 
-    //Utf8View -> StringViewArray
-    //LargeUtf8 -> LargeStringArray
-    // println!("{:?}", batch.schema());
-    // let contig_arr = batch
-    //     .column_by_name(&columns.0)
-    //     .unwrap()
-    //     .as_any()
-    //     .downcast_ref::<GenericStringArray<i64>>()
-    //     .unwrap();
-    // let start_arr = batch
-    //     .column_by_name(&columns.1)
-    //     .unwrap()
-    //     .as_any()
-    //     .downcast_ref::<Int64Array>()
-    //     .unwrap();
-    // let end_arr = batch
-    //     .column_by_name(&columns.2)
-    //     .unwrap()
-    //     .as_any()
-    //     .downcast_ref::<Int64Array>()
-    //     .unwrap();
     (contig_arr, start_arr, end_arr)
 }
 
-// fn get_coverage(tree: &COITree<(), u32>, start: i32, end: i32) -> i64 {
-//     let mut max_coverage = 0;
-//     let start = start + 1;
-//     let end = end - 1;
-//     // tree.query(start, end, |node|
-//     //     {
-//     //         if end < node.last() {
-//     //             let coverage =  node.last() - start;
-//     //             if coverage > max_coverage {
-//     //                 max_coverage = coverage;
-//     //             }
-//     //         }
-//     //         else {
-//     //             let coverage = end - start;
-//     //             if coverage > max_coverage {
-//     //                 max_coverage = coverage;
-//     //             }
-//     //         }
-//     //     });
-//     max_coverage
-// }
+fn get_coverage(tree: &COITree<(), u32>, start: i32, end: i32) -> i32 {
+    let mut coverage = 0;
+    tree.query(start, end, |node| {
+        let overlap = max(1, min(end + 1, node.last) - max(start - 1, node.first));
+        coverage += overlap;
+    });
+    coverage
+}
 
 async fn get_stream(
     session: Arc<SessionContext>,
@@ -432,12 +436,18 @@ async fn get_stream(
                     continue;
                 }
                 let count = match coverage {
-                    true => todo!("coverage"),
+                    true => {
+                        if filter_op == FilterOp::Strict {
+                            get_coverage(tree.unwrap(), pos_start + 1, pos_end - 1)
+                        } else {
+                            get_coverage(tree.unwrap(), pos_start, pos_end)
+                        }
+                    },
                     false => {
                         if filter_op == FilterOp::Strict {
-                            tree.unwrap().query_count(pos_start + 1, pos_end - 1)
+                            tree.unwrap().query_count(pos_start + 1, pos_end - 1) as i32
                         } else {
-                            tree.unwrap().query_count(pos_start, pos_end)
+                            tree.unwrap().query_count(pos_start, pos_end) as i32
                         }
                     },
                 };
