@@ -26,12 +26,16 @@ It is designed to be easy to use, fast and memory efficient with a focus on geno
 
 ![count-overlaps-single.png](assets/count-overlaps-single.png)
 
+![coverage-single.png](assets/coverage-single.png)
+
 ## Parallel performance 🏃‍🏃‍
 ![overlap-parallel.png](assets/overlap-parallel.png)
 
 ![overlap-parallel.png](assets/nearest-parallel.png)
 
 ![count-overlaps-parallel.png](assets/count-overlaps-parallel.png)
+
+![coverage-parallel.png](assets/coverage-parallel.png)
 
 
 [//]: # (* support for common genomics file formats &#40;VCF, BAM and FASTQ&#41;)
