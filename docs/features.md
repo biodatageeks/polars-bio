@@ -102,55 +102,78 @@ pb.register_vcf("gs://gcp-public-data--gnomad/release/2.1.1/liftover_grch38/vcf/
 pb.register_vcf("gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz", "gnomad_sv")
 pb.overlap("gnomad_sv", "gnomad_big", streaming=True).sink_parquet("/tmp/overlap.parquet")
 ```
-It is  especially useful when combined with [SQL](features.md#sql-powered-data-processing) support for preprocessing and [streaming](features.md#streaming-) processing capabilities.
+It is  especially useful when combined with [SQL](features.md#sql-powered-data-processing) support for preprocessing and [streaming](features.md#streaming) processing capabilities.
 
 ## Streaming 🚂
-polars-bio supports out-of-core processing with Polars LazyFrame [streaming](https://docs.pola.rs/user-guide/concepts/_streaming/) option.
+polars-bio supports out-of-core processing with Apache DataFusion async [streams](https://docs.rs/datafusion/46.0.0/datafusion/physical_plan/trait.ExecutionPlan.html#tymethod.execute) and Polars LazyFrame [streaming](https://docs.pola.rs/user-guide/concepts/_streaming/) option.
 It can bring  significant speedup as well reduction in memory usage allowing to process large datasets that do not fit in memory.
 See our benchmark [results](performance.md#calculate-overlaps-and-export-to-a-csv-file-7-8).
+There are 2 ways of using streaming mode:
 
-```python
-import os
-import polars_bio as pb
-os.environ['BENCH_DATA_ROOT'] = "/Users/mwiewior/research/data/databio"
-os.environ['POLARS_MAX_THREADS'] = "1"
-os.environ['POLARS_VERBOSE'] = "1"
+1. By setting the `output_type` to `datafusion.DataFrame` and using the Python DataFrame [API](https://datafusion.apache.org/python/autoapi/datafusion/dataframe/index.html), including methods such as [count](https://datafusion.apache.org/python/autoapi/datafusion/dataframe/index.html#datafusion.dataframe.DataFrame.count), [write_parquet](https://datafusion.apache.org/python/autoapi/datafusion/dataframe/index.html#datafusion.dataframe.DataFrame.write_parquet) or [write_csv](https://datafusion.apache.org/python/autoapi/datafusion/dataframe/index.html#datafusion.dataframe.DataFrame.write_csv) or [write_json](https://datafusion.apache.org/python/autoapi/datafusion/dataframe/index.html#datafusion.dataframe.DataFrame.write_json). In this option you completely bypass the polars streaming engine.
 
-cols=["contig", "pos_start", "pos_end"]
-BENCH_DATA_ROOT = os.getenv('BENCH_DATA_ROOT', '/data/bench_data/databio')
-df_1 = f"{BENCH_DATA_ROOT}/exons/*.parquet"
-df_2 =  f"{BENCH_DATA_ROOT}/exons/*.parquet"
-pb.overlap(df_1, df_2, cols1=cols, cols2=cols, streaming=True).collect(streaming=True).limit()
-```
+    ```python
+    import polars_bio as pb
+    import polars as pl
+    pb.overlap("/tmp/gnomad.v4.1.sv.sites.parquet", "/tmp/gnomad.exomes.v4.1.sites.chr1.parquet", output_type="datafusion.DataFrame").write_parquet("/tmp/overlap.parquet")
+    >>> pl.scan_parquet("/tmp/overlap.parquet").collect().count()
+    shape: (1, 6)
+    ┌────────────┬────────────┬────────────┬────────────┬────────────┬────────────┐
+    │ chrom_1    ┆ start_1    ┆ end_1      ┆ chrom_2    ┆ start_2    ┆ end_2      │
+    │ ---        ┆ ---        ┆ ---        ┆ ---        ┆ ---        ┆ ---        │
+    │ u32        ┆ u32        ┆ u32        ┆ u32        ┆ u32        ┆ u32        │
+    ╞════════════╪════════════╪════════════╪════════════╪════════════╪════════════╡
+    │ 2629727337 ┆ 2629727337 ┆ 2629727337 ┆ 2629727337 ┆ 2629727337 ┆ 2629727337 │
+    └────────────┴────────────┴────────────┴────────────┴────────────┴────────────┘
+    ```
 
-```bash
-INFO:polars_bio.operation:Running in streaming mode...
-INFO:polars_bio.operation:Running Overlap operation with algorithm Coitrees and 1 thread(s)...
-'STREAMING:\n  Anonymous SCAN []\n  PROJECT */6 COLUMNS'
-```
+    !!! tip
+        If you only need to write the results as fast as possible into one of the above file formats or quickly get the row count, then it is in the most cases the **best** option.
 
-```python
-pb.overlap(df_1, df_2, cols1=cols, cols2=cols, streaming=True).collect(streaming=True).limit()
-```
-```bash
-INFO:polars_bio.operation:Running in streaming mode...
-INFO:polars_bio.operation:Running Overlap operation with algorithm Coitrees and 1 thread(s)...
-RUN STREAMING PIPELINE
-[anonymous -> ordered_sink]
-shape: (5, 6)
-┌──────────┬─────────────┬───────────┬──────────┬─────────────┬───────────┐
-│ contig_1 ┆ pos_start_1 ┆ pos_end_1 ┆ contig_2 ┆ pos_start_2 ┆ pos_end_2 │
-│ ---      ┆ ---         ┆ ---       ┆ ---      ┆ ---         ┆ ---       │
-│ str      ┆ i32         ┆ i32       ┆ str      ┆ i32         ┆ i32       │
-╞══════════╪═════════════╪═══════════╪══════════╪═════════════╪═══════════╡
-│ chr1     ┆ 11873       ┆ 12227     ┆ chr1     ┆ 11873       ┆ 12227     │
-│ chr1     ┆ 12612       ┆ 12721     ┆ chr1     ┆ 12612       ┆ 12721     │
-│ chr1     ┆ 13220       ┆ 14409     ┆ chr1     ┆ 13220       ┆ 14409     │
-│ chr1     ┆ 14361       ┆ 14829     ┆ chr1     ┆ 13220       ┆ 14409     │
-│ chr1     ┆ 13220       ┆ 14409     ┆ chr1     ┆ 14361       ┆ 14829     │
-└──────────┴─────────────┴───────────┴──────────┴─────────────┴───────────┘
 
-```
+2. With the `streaming` option in the operation - using polars streaming (**experimental** and check limitations).:
+    ```python
+    import os
+    import polars_bio as pb
+    os.environ['BENCH_DATA_ROOT'] = "/Users/mwiewior/research/data/databio"
+    os.environ['POLARS_MAX_THREADS'] = "1"
+    os.environ['POLARS_VERBOSE'] = "1"
+
+    cols=["contig", "pos_start", "pos_end"]
+    BENCH_DATA_ROOT = os.getenv('BENCH_DATA_ROOT', '/data/bench_data/databio')
+    df_1 = f"{BENCH_DATA_ROOT}/exons/*.parquet"
+    df_2 =  f"{BENCH_DATA_ROOT}/exons/*.parquet"
+    pb.overlap(df_1, df_2, cols1=cols, cols2=cols, streaming=True).collect(streaming=True).limit()
+    ```
+
+    ```bash
+    INFO:polars_bio.operation:Running in streaming mode...
+    INFO:polars_bio.operation:Running Overlap operation with algorithm Coitrees and 1 thread(s)...
+    'STREAMING:\n  Anonymous SCAN []\n  PROJECT */6 COLUMNS'
+    ```
+
+    ```python
+    pb.overlap(df_1, df_2, cols1=cols, cols2=cols, streaming=True).collect(streaming=True).limit()
+    ```
+    ```bash
+    INFO:polars_bio.operation:Running in streaming mode...
+    INFO:polars_bio.operation:Running Overlap operation with algorithm Coitrees and 1 thread(s)...
+    RUN STREAMING PIPELINE
+    [anonymous -> ordered_sink]
+    shape: (5, 6)
+    ┌──────────┬─────────────┬───────────┬──────────┬─────────────┬───────────┐
+    │ contig_1 ┆ pos_start_1 ┆ pos_end_1 ┆ contig_2 ┆ pos_start_2 ┆ pos_end_2 │
+    │ ---      ┆ ---         ┆ ---       ┆ ---      ┆ ---         ┆ ---       │
+    │ str      ┆ i32         ┆ i32       ┆ str      ┆ i32         ┆ i32       │
+    ╞══════════╪═════════════╪═══════════╪══════════╪═════════════╪═══════════╡
+    │ chr1     ┆ 11873       ┆ 12227     ┆ chr1     ┆ 11873       ┆ 12227     │
+    │ chr1     ┆ 12612       ┆ 12721     ┆ chr1     ┆ 12612       ┆ 12721     │
+    │ chr1     ┆ 13220       ┆ 14409     ┆ chr1     ┆ 13220       ┆ 14409     │
+    │ chr1     ┆ 14361       ┆ 14829     ┆ chr1     ┆ 13220       ┆ 14409     │
+    │ chr1     ┆ 13220       ┆ 14409     ┆ chr1     ┆ 14361       ┆ 14829     │
+    └──────────┴─────────────┴───────────┴──────────┴─────────────┴───────────┘
+
+    ```
 
 
 !!! Limitations

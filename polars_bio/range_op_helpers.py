@@ -85,6 +85,13 @@ def range_operation(
                 ctx, df1, df2, range_options, read_options1, read_options2
             )
             return result.to_pandas()
+        elif output_type == "datafusion.DataFrame":
+            from datafusion._internal import SessionContext as SessionContextInternal
+
+            a = SessionContextInternal()
+            return range_operation_scan_wrapper(
+                ctx, df1, df2, range_options, read_options1, read_options2
+            )
         else:
             raise ValueError(
                 "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
@@ -141,6 +148,7 @@ def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how):
         "polars.LazyFrame",
         "polars.DataFrame",
         "pandas.DataFrame",
+        "datafusion.DataFrame",
     ], "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
 
     assert how in ["inner"], "Only inner join is supported"

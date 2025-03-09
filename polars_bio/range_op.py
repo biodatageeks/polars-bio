@@ -35,7 +35,7 @@ def overlap(
     streaming: bool = False,
     read_options1: Union[ReadOptions, None] = None,
     read_options2: Union[ReadOptions, None] = None,
-) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
+) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
     """
     Find pairs of overlapping genomic intervals.
     Bioframe inspired API.
@@ -52,8 +52,8 @@ def overlap(
         suffixes: Suffixes for the columns of the two overlapped sets.
         on_cols: List of additional column names to join on. default is None.
         algorithm: The algorithm to use for the overlap operation.
-        output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
-        streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming-out-of-core-processing) engine.
+        output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
+        streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming) engine.
         read_options1: Additional options for reading the input files.
         read_options2: Additional options for reading the input files.
 
@@ -125,7 +125,7 @@ def nearest(
     output_type: str = "polars.LazyFrame",
     streaming: bool = False,
     read_options: Union[ReadOptions, None] = None,
-) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
+) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
     """
     Find pairs of closest genomic intervals.
     Bioframe inspired API.
@@ -140,8 +140,8 @@ def nearest(
             genomic intervals, provided separately for each set.
         suffixes: Suffixes for the columns of the two overlapped sets.
         on_cols: List of additional column names to join on. default is None.
-        output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
-        streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming-out-of-core-processing) engine.
+        output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
+        streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming) engine.
         read_options: Additional options for reading the input files.
 
 
@@ -184,7 +184,7 @@ def coverage(
     output_type: str = "polars.LazyFrame",
     streaming: bool = False,
     read_options: Union[ReadOptions, None] = None,
-) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
+) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
     """
     Calculate intervals coverage.
     Bioframe inspired API.
@@ -199,8 +199,8 @@ def coverage(
             genomic intervals, provided separately for each set.
         suffixes: Suffixes for the columns of the two overlapped sets.
         on_cols: List of additional column names to join on. default is None.
-        output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
-        streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming-out-of-core-processing) engine.
+        output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
+        streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming) engine.
         read_options: Additional options for reading the input files.
 
 
@@ -243,7 +243,7 @@ def count_overlaps(
     output_type: str = "polars.LazyFrame",
     streaming: bool = False,
     naive_query: bool = True,
-) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
+) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
     """
     Count pairs of overlapping genomic intervals.
     Bioframe inspired API.
@@ -258,9 +258,9 @@ def count_overlaps(
         cols2:  The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set.
         on_cols: List of additional column names to join on. default is None.
-        output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
+        output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
         naive_query: If True, use naive query for counting overlaps based on overlaps.
-        streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming-out-of-core-processing) engine.
+        streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming) engine.
     Returns:
         **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
@@ -411,7 +411,7 @@ def merge(
     on_cols: Union[list[str], None] = None,
     output_type: str = "polars.LazyFrame",
     streaming: bool = False,
-) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
+) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
     """
     Merge overlapping intervals. It is assumed that start < end.
 
@@ -422,8 +422,8 @@ def merge(
         cols: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set.
         on_cols: List of additional column names for clustering. default is None.
-        output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" are also supported.
-        streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming-out-of-core-processing) engine.
+        output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
+        streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming) engine.
 
     Returns:
         **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
