@@ -216,24 +216,25 @@ def describe_vcf(path: str) -> pl.DataFrame:
 
     !!! Example
         ```python
-            import polars_bio as pb
-            vcf_1 = "gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz"
-            pb.describe_vcf(vcf_1).sort("name").limit(5)
+        import polars_bio as pb
+        vcf_1 = "gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz"
+        pb.describe_vcf(vcf_1).sort("name").limit(5)
         ```
 
         ```shell
             shape: (5, 3)
-            ┌───────────┬─────────┬──────────────────────────────────────────────────────────────────────────────────────┐
-            │ name      ┆ type    ┆ description                                                                          │
-            │ ---       ┆ ---     ┆ ---                                                                                  │
-            │ str       ┆ str     ┆ str                                                                                  │
-            ╞═══════════╪═════════╪══════════════════════════════════════════════════════════════════════════════════════╡
-            │ ac        ┆ Integer ┆ Number of non-reference alleles observed (biallelic sites only).                     │
-            │ ac_afr    ┆ Integer ┆ Number of non-reference African-American alleles observed (biallelic sites only).    │
-            │ ac_afr_xx ┆ Integer ┆ Number of non-reference African-American XX alleles observed (biallelic sites only). │
-            │ ac_afr_xy ┆ Integer ┆ Number of non-reference African-American XY alleles observed (biallelic sites only). │
-            │ ac_ami    ┆ Integer ┆ Number of non-reference Amish alleles observed (biallelic sites only).               │
-            └───────────┴─────────┴──────────────────────────────────────────────────────────────────────────────────────┘
+        ┌───────────┬─────────┬──────────────────────────────────────────────────────────────────────────────────────┐
+        │ name      ┆ type    ┆ description                                                                          │
+        │ ---       ┆ ---     ┆ ---                                                                                  │
+        │ str       ┆ str     ┆ str                                                                                  │
+        ╞═══════════╪═════════╪══════════════════════════════════════════════════════════════════════════════════════╡
+        │ AC        ┆ Integer ┆ Number of non-reference alleles observed (biallelic sites only).                     │
+        │ AC_XX     ┆ Integer ┆ Number of non-reference XX alleles observed (biallelic sites only).                  │
+        │ AC_XY     ┆ Integer ┆ Number of non-reference XY alleles observed (biallelic sites only).                  │
+        │ AC_afr    ┆ Integer ┆ Number of non-reference African-American alleles observed (biallelic sites only).    │
+        │ AC_afr_XX ┆ Integer ┆ Number of non-reference African-American XX alleles observed (biallelic sites only). │
+        └───────────┴─────────┴──────────────────────────────────────────────────────────────────────────────────────┘
+
 
         ```
     """
@@ -256,8 +257,8 @@ def register_vcf(
         name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
         info_fields: The fields to read from the INFO column.
         thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
-        chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale operations, it is recommended to decrease this value to 1-2.
-        concurrent_fetches: The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale operations, it is recommended to decrease this value to 1-2.
+        chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to 8-16.
+        concurrent_fetches: The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to 1-2.
 
     !!! Example
           ```python

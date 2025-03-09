@@ -1,6 +1,4 @@
-## Features
-
-### Genomic ranges operations
+## Genomic ranges operations
 
 | Features                                           | Bioframe           | polars-bio         | PyRanges           | Pybedtools         | PyGenomics         | GenomicRanges      |
 |----------------------------------------------------|--------------------|--------------------|--------------------|--------------------|--------------------|--------------------|
@@ -16,7 +14,7 @@
 | [read_table](api.md#polars_bio.read_table)         | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 
 
-#### API comparison between libraries
+### API comparison between libraries
 There is no standard API for genomic ranges operations in Python.
 This table compares the API of the libraries. The table is not exhaustive and only shows the most common operations used in benchmarking.
 
@@ -36,7 +34,7 @@ This table compares the API of the libraries. The table is not exhaustive and on
 5. **select="arbitrary"** was used to obtain a comparable output.
 
 
-#### File formats support
+### File formats support
 
 | Format                                | Support level      |
 |---------------------------------------|--------------------|
@@ -51,7 +49,7 @@ This table compares the API of the libraries. The table is not exhaustive and on
 | Indexed BAM                           | :construction:     |
 
 
-### SQL-powered data processing
+## SQL-powered data processing
 polars-bio provides a SQL-like API for bioinformatic data querying or manipulation.
 Check [SQL reference](https://datafusion.apache.org/user-guide/sql/index.html) for more details.
 
@@ -60,7 +58,14 @@ import polars_bio as pb
 pb.register_vcf("gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz", "gnomad_sv", thread_num=1, info_fields=["SVTYPE", "SVLEN"])
 pb.sql("SELECT * FROM gnomad_sv WHERE SVTYPE = 'DEL' AND SVLEN > 1000").limit(3).collect()
 ```
-```text
+
+You can use [view](api.md/#polars_bio.register_view) mechanism to create a virtual table from a DataFrame that contain preprocessing steps and reuse it in multiple steps.
+To avoid materializing the intermediate results in memory, you can turn on [streaming](api.md#polars_bio.sql) flag.
+
+```python
+
+
+```shell
 shape: (3, 10)
 ┌───────┬───────┬───────┬────────────────────────────────┬───┬───────┬────────────┬────────┬───────┐
 │ chrom ┆ start ┆ end   ┆ id                             ┆ … ┆ qual  ┆ filter     ┆ svtype ┆ svlen │
@@ -74,7 +79,7 @@ shape: (3, 10)
 
 ```
 
-### Parallel engine and streaming processing 🏎️
+## Parallel engine 🏎️
 It is straightforward to parallelize operations in polars-bio. The library is built on top of [Apache DataFusion](https://datafusion.apache.org/)  you can set
 the degree of parallelism using the `datafusion.execution.target_partitions` option, e.g.:
 ```python
@@ -88,7 +93,18 @@ pb.set_option("datafusion.execution.target_partitions", "8")
     4. See  the other configuration settings in the Apache DataFusion [documentation](https://datafusion.apache.org/user-guide/configs.html).
 
 
-#### Streaming (out-of-core processing) [Exeprimental]🧪
+## Cloud storage ☁️
+polars-bio supports direct streamed reading from cloud storages (e.g. S3, GCS) enabling processing large-scale genomics data without materializing in memory.
+```python
+import polars_bio as pb
+## Register VCF files from Google Cloud Storage that will be streamed - no need to download them to the local disk, size ~0.8TB
+pb.register_vcf("gs://gcp-public-data--gnomad/release/2.1.1/liftover_grch38/vcf/genomes/gnomad.genomes.r2.1.1.sites.liftover_grch38.vcf.bgz", "gnomad_big")
+pb.register_vcf("gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz", "gnomad_sv")
+pb.overlap("gnomad_sv", "gnomad_big", streaming=True).sink_parquet("/tmp/overlap.parquet")
+```
+It is  especially useful when combined with [SQL](features.md#sql-powered-data-processing) support for preprocessing and [streaming](features.md#streaming-) processing capabilities.
+
+## Streaming 🚂
 polars-bio supports out-of-core processing with Polars LazyFrame [streaming](https://docs.pola.rs/user-guide/concepts/_streaming/) option.
 It can bring  significant speedup as well reduction in memory usage allowing to process large datasets that do not fit in memory.
 See our benchmark [results](performance.md#calculate-overlaps-and-export-to-a-csv-file-7-8).
@@ -145,7 +161,7 @@ shape: (5, 6)
 
 
 
-### DataFrames support
+## DataFrames support
 | I/O              | Bioframe           | polars-bio             | PyRanges           | Pybedtools | PyGenomics | GenomicRanges          |
 |------------------|--------------------|------------------------|--------------------|------------|------------|------------------------|
 | Pandas DataFrame | :white_check_mark: | :white_check_mark:     | :white_check_mark: |            |            | :white_check_mark:     |
