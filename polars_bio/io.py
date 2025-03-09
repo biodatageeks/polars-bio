@@ -257,8 +257,8 @@ def register_vcf(
         name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
         info_fields: The fields to read from the INFO column.
         thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
-        chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to 8-16.
-        concurrent_fetches: The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to 1-2.
+        chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
+        concurrent_fetches: The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
 
     !!! Example
           ```python
@@ -266,9 +266,12 @@ def register_vcf(
           pb.register_vcf("/tmp/gnomad.v4.1.sv.sites.vcf.gz")
           ```
          ```shell
-            INFO:polars_bio:Table: gnomad_v4_1_sv_sites_gz registered for path: /tmp/gnomad.v4.1.sv.sites.vcf.gz
+         INFO:polars_bio:Table: gnomad_v4_1_sv_sites_gz registered for path: /tmp/gnomad.v4.1.sv.sites.vcf.gz
          ```
+    !!! tip
+        `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the VCF file. As a rule of thumb for large scale operations (reading a whole VCF), it is recommended to the default values.
     """
+
     vcf_read_options = VcfReadOptions(
         info_fields=_cleanse_infos(info_fields),
         thread_num=thread_num,
