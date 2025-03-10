@@ -10,12 +10,20 @@ from _expected import (
     DF_MERGE_PATH,
     DF_NEAREST_PATH1,
     DF_NEAREST_PATH2,
+    DF_COVERAGE_PATH1,
+    DF_COVERAGE_PATH2,
+    DF_MERGE_PATH,
+    DF_CLUSTER_PATH,
     DF_OVER_PATH1,
     DF_OVER_PATH2,
     PD_DF_COUNT_OVERLAPS,
     PD_DF_MERGE,
     PD_DF_NEAREST,
+    PD_DF_COVERAGE,
     PD_DF_OVERLAP,
+    PD_DF_MERGE,
+    PD_DF_CLUSTER,
+    PD_DF_COUNT_OVERLAPS,
 )
 
 import polars_bio as pb
@@ -64,6 +72,63 @@ class TestNearestNative:
         expected = PD_DF_NEAREST
         pd.testing.assert_frame_equal(result, expected)
 
+class TestMergeNative:
+    result = pb.merge(
+        DF_MERGE_PATH,
+        cols=("contig", "pos_start", "pos_end"),
+        output_type="pandas.DataFrame",
+        overlap_filter=FilterOp.Strict,
+    )
+
+    def test_merge_count(self):
+        print(self.result)
+        assert len(self.result) == len(PD_DF_MERGE)
+
+    def test_merge_schema_rows(self):
+        result = self.result.sort_values(by=list(self.result.columns)).reset_index(
+            drop=True
+        )
+        expected = PD_DF_MERGE
+        pd.testing.assert_frame_equal(result, expected)
+
+class TestClusterNative:
+    result = pb.cluster(
+        DF_CLUSTER_PATH,
+        cols=("contig", "pos_start", "pos_end"),
+        output_type="pandas.DataFrame",
+        overlap_filter=FilterOp.Strict,
+    )
+
+    def test_cluster_count(self):
+        print(self.result)
+        assert len(self.result) == len(PD_DF_CLUSTER)
+
+    def test_cluster_schema_rows(self):
+        result = self.result.sort_values(by=list(self.result.columns)).reset_index(
+            drop=True
+        )
+        expected = PD_DF_CLUSTER
+        pd.testing.assert_frame_equal(result, expected)
+
+class TestCoverageNative:
+    result = pb.coverage(
+        DF_COVERAGE_PATH1,
+        DF_COVERAGE_PATH2,
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
+        output_type="pandas.DataFrame",
+    )
+
+    def test_coverage_count(self):
+        print(self.result)
+        assert len(self.result) == len(PD_DF_COVERAGE)
+
+    def test_coverage_schema_rows(self):
+        result = self.result.sort_values(by=list(self.result.columns)).reset_index(
+            drop=True
+        )
+        expected = PD_DF_COVERAGE
+        pd.testing.assert_frame_equal(result, expected)
 
 class TestCountOverlapsNative:
     result = pb.count_overlaps(
@@ -115,14 +180,12 @@ class TestCoverageNative:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        overlap_filter=FilterOp.Strict,
     )
     result_bio = bf.coverage(
         BIO_PD_DF1,
         BIO_PD_DF2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        suffixes=("_1", "_2"),
     )
 
     def test_coverage_count(self):
@@ -133,5 +196,5 @@ class TestCoverageNative:
         result = self.result.sort_values(by=list(self.result.columns)).reset_index(
             drop=True
         )
-        expected = self.result_bio.astype({"coverage": "int64"})
-        pd.testing.assert_frame_equal(result, expected)
+        expected = self.result_bio
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False)

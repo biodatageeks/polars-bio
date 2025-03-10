@@ -16,14 +16,17 @@ def get_py_ctx() -> datafusion.context.SessionContext:
 
 def read_df_to_datafusion(
     py_ctx: datafusion.context.SessionContext,
-    df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-) -> datafusion.dataframe:
+    df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame, datafusion.dataframe.DataFrame]
+) -> datafusion.dataframe.DataFrame:
+
     if isinstance(df, pl.DataFrame):
         return py_ctx.from_polars(df)
     elif isinstance(df, pd.DataFrame):
         return py_ctx.from_pandas(df)
     elif isinstance(df, pl.LazyFrame):
         return py_ctx.from_polars(df.collect())
+    elif isinstance(df, datafusion.dataframe.DataFrame):
+        return df
     elif isinstance(df, str):
         ext = Path(df).suffix
         if ext == ".csv":
@@ -46,8 +49,9 @@ def read_df_to_datafusion(
             return py_ctx.read_parquet(df)
     raise ValueError("Invalid `df` argument.")
 
-
-def df_to_lazyframe(df: datafusion.DataFrame) -> pl.LazyFrame:
+def df_to_lazyframe(
+    df: datafusion.dataframe.DataFrame
+) -> pl.LazyFrame:
     # TODO: make it actually lazy
     """
     def _get_lazy(
@@ -63,8 +67,10 @@ def df_to_lazyframe(df: datafusion.DataFrame) -> pl.LazyFrame:
 
 
 def convert_result(
-    df: datafusion.DataFrame, output_type: str, streaming: bool
-) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
+    df: datafusion.dataframe.DataFrame,
+    output_type: str,
+    streaming: bool
+) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.dataframe.DataFrame]:
     # TODO: implement streaming
     if streaming:
         # raise NotImplementedError("streaming is not implemented")
@@ -75,4 +81,6 @@ def convert_result(
         return df.to_pandas()
     elif output_type == "polars.LazyFrame":
         return df_to_lazyframe(df)
+    elif output_type == "datafusion.DataFrame":
+        return df
     raise ValueError("Invalid `output_type` argument")
