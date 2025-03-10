@@ -60,7 +60,7 @@ pb.sql("SELECT * FROM gnomad_sv WHERE SVTYPE = 'DEL' AND SVLEN > 1000").limit(3)
 ```
 
 You can use [view](api.md/#polars_bio.register_view) mechanism to create a virtual table from a DataFrame that contain preprocessing steps and reuse it in multiple steps.
-To avoid materializing the intermediate results in memory, you can turn on [streaming](api.md#polars_bio.sql) flag.
+To avoid materializing the intermediate results in memory, you can run your processing in  [streaming](features.md#streaming) mode.
 
 ```python
 
