@@ -15,7 +15,7 @@ It is designed to be easy to use, fast and memory efficient with a focus on geno
 * popular genomics [operations](features.md#genomic-ranges-operations) with a DataFrame API (both [Pandas](https://pandas.pydata.org/) and [polars](https://pola.rs/))
 * [SQL](features.md#sql-powered-data-processing)-powered bioinformatic data querying or manipulation/pre-processing
 * native parallel engine powered by Apache DataFusion and [sequila-native](https://github.com/biodatageeks/sequila-native)
-* [out-of-core/streaming](features.md#streaming-out-of-core-processing-exeprimental) processing (for data too large to fit into a computer's main memory)  with [Apache DataFusion](https://datafusion.apache.org/) and [polars](https://pola.rs/)
+* [out-of-core/streaming](features.md#streaming) processing (for data too large to fit into a computer's main memory)  with [Apache DataFusion](https://datafusion.apache.org/) and [polars](https://pola.rs/)
 * support for *federated* and *streamed* reading data from [cloud storages](features.md/#cloud-storage) (e.g. S3, GCS) enabling processing large-scale genomics data without materializing in memory
 * zero-copy data exchange with [Apache Arrow](https://arrow.apache.org/)
 * bioinformatics file [formats](features.md#file-formats-support) with [noodles](https://github.com/zaeleus/noodles) and [exon](https://github.com/wheretrue/exon)
@@ -261,7 +261,7 @@ pb.register_vcf("/tmp/gnomad.v4.1.sv.sites.vcf.gz", "gnomad_site_local", thread_
 pb.sql("SELECT chrom, start, end FROM gnomad_site_local", streaming=True).sink_parquet("/tmp/gnomad.v4.1.sv.sites.parquet")
 pb.register_vcf("/tmp/gnomad.exomes.v4.1.sites.chr1.vcf.bgz", "gnomad_exomes_local", thread_num=4)
 
-pb.sql("SELECT chrom, start, end FROM gnomad_exomes_local", streaming=True).sink_parquet("/tmp/gnomad.exomes.v4.1.sites.chr21.parquet")
+pb.sql("SELECT chrom, start, end FROM gnomad_exomes_local", streaming=True).sink_parquet("/tmp/gnomad.exomes.v4.1.sites.chr1.parquet")
 ```
 As you can see we used the `streaming=True` parameter to enable the streaming mode. This mode is useful when you want to process data that is too large to fit into memory.
 See [streaming](features.md#streaming) for more details.
