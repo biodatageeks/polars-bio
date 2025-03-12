@@ -19,14 +19,18 @@ class TestBioframe:
         suffixes=("_1", "_3"),
         overlap_filter=FilterOp.Strict,
     )
-    result_overlap_lf = pb.overlap(
-        BIO_PD_DF1,
-        BIO_PD_DF2,
-        cols1=("contig", "pos_start", "pos_end"),
-        cols2=("contig", "pos_start", "pos_end"),
-        output_type="polars.LazyFrame",
-        suffixes=("_1", "_3"),
-        overlap_filter=FilterOp.Strict,
+    result_overlap_lf = (
+        pb.overlap(
+            BIO_PD_DF1,
+            BIO_PD_DF2,
+            cols1=("contig", "pos_start", "pos_end"),
+            cols2=("contig", "pos_start", "pos_end"),
+            output_type="polars.LazyFrame",
+            suffixes=("_1", "_3"),
+            overlap_filter=FilterOp.Strict,
+        )
+        .collect()
+        .to_pandas()
     )
 
     result_bio_overlap = bf.overlap(
@@ -99,7 +103,7 @@ class TestBioframe:
 
     def test_overlap_count(self):
         assert len(self.result_overlap) == len(self.result_bio_overlap)
-        assert len(self.result_overlap_lf.collect()) == len(self.result_bio_overlap)
+        assert len(self.result_overlap_lf) == len(self.result_bio_overlap)
 
     def test_overlap_schema_rows(self):
         expected = self.result_bio_overlap.sort_values(
@@ -108,7 +112,11 @@ class TestBioframe:
         result = self.result_overlap.sort_values(
             by=list(self.result_overlap.columns)
         ).reset_index(drop=True)
+        result_lf = self.result_overlap_lf.sort_values(
+            by=list(self.result_overlap_lf.columns)
+        ).reset_index(drop=True)
         pd.testing.assert_frame_equal(result, expected)
+        pd.testing.assert_frame_equal(result_lf, expected)
 
     def test_nearest_count(self):
         assert len(self.result_nearest) == len(self.result_bio_nearest)
