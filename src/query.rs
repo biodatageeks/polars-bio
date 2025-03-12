@@ -100,7 +100,7 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
                 {}
                 {}
             FROM
-                {} AS b, {} AS a
+                {} AS a, {} AS b
             WHERE
                 a.{}=b.{}
             AND
@@ -146,8 +146,8 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
         } else {
             "".to_string()
         },
-        query_params.left_table,
         query_params.right_table,
+        query_params.left_table,
         query_params.columns_1[0],
         query_params.columns_2[0], // contig
         query_params.columns_1[2],
