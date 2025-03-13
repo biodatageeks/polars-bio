@@ -2358,7 +2358,7 @@ checksum = "b90ca2580b73ab6a1f724b76ca11ab632df820fd6040c336200d2c1df7b3c82c"
 [[package]]
 name = "exon"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "async-trait",
@@ -2402,7 +2402,7 @@ dependencies = [
 [[package]]
 name = "exon-bam"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "exon-common",
@@ -2416,7 +2416,7 @@ dependencies = [
 [[package]]
 name = "exon-bcf"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "exon-common",
@@ -2430,7 +2430,7 @@ dependencies = [
 [[package]]
 name = "exon-bed"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "bstr",
@@ -2444,7 +2444,7 @@ dependencies = [
 [[package]]
 name = "exon-common"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "datafusion",
@@ -2457,7 +2457,7 @@ dependencies = [
 [[package]]
 name = "exon-cram"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "coitrees",
@@ -2473,7 +2473,7 @@ dependencies = [
 [[package]]
 name = "exon-fasta"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "exon-common",
@@ -2486,7 +2486,7 @@ dependencies = [
 [[package]]
 name = "exon-fastq"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "exon-common",
@@ -2499,7 +2499,7 @@ dependencies = [
 [[package]]
 name = "exon-fcs"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "byteorder",
@@ -2512,7 +2512,7 @@ dependencies = [
 [[package]]
 name = "exon-genbank"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "exon-common",
@@ -2525,7 +2525,7 @@ dependencies = [
 [[package]]
 name = "exon-gff"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "exon-common",
@@ -2538,7 +2538,7 @@ dependencies = [
 [[package]]
 name = "exon-gtf"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "exon-common",
@@ -2551,7 +2551,7 @@ dependencies = [
 [[package]]
 name = "exon-io"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "async-trait",
  "aws-config",
@@ -2564,7 +2564,7 @@ dependencies = [
 [[package]]
 name = "exon-mzml"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "base64 0.22.1",
@@ -2581,7 +2581,7 @@ dependencies = [
 [[package]]
 name = "exon-sam"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "exon-common",
@@ -2594,7 +2594,7 @@ dependencies = [
 [[package]]
 name = "exon-sdf"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "exon-common",
@@ -2608,7 +2608,7 @@ dependencies = [
 [[package]]
 name = "exon-vcf"
 version = "0.32.4"
-source = "git+https://github.com/mwiewior/exon.git?rev=d134d923e6c592a9972d93215a12c759c70a7ed5#d134d923e6c592a9972d93215a12c759c70a7ed5"
+source = "git+https://github.com/mwiewior/exon.git?rev=2724db45a3d65cfbf9ec7f3371836f8b362d42ff#2724db45a3d65cfbf9ec7f3371836f8b362d42ff"
 dependencies = [
  "arrow",
  "exon-common",
@@ -6297,7 +6297,7 @@ checksum = "a3f0bf26fd526d2a95683cd0f87bf103b8539e2ca1ef48ce002d67aad59aa0b4"
 [[package]]
 name = "sequila-core"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/sequila-native.git?rev=43453dca320cc25a02f440850e3b947b813785c3#43453dca320cc25a02f440850e3b947b813785c3"
+source = "git+https://github.com/biodatageeks/sequila-native.git?rev=e7b8b7a1127c0b8a61d12c8be02819b765db0381#e7b8b7a1127c0b8a61d12c8be02819b765db0381"
 dependencies = [
  "ahash",
  "async-trait",
