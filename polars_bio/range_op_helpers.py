@@ -149,7 +149,7 @@ def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how):
         "polars.DataFrame",
         "pandas.DataFrame",
         "datafusion.DataFrame",
-    ], "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
+    ], "Only polars.LazyFrame, polars.DataFrame, datafusion.DataFrame, and pandas.DataFrame are supported"
 
     assert how in ["inner"], "Only inner join is supported"
 
