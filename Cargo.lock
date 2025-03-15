@@ -5398,7 +5398,7 @@ dependencies = [
 
 [[package]]
 name = "polars_bio"
-version = "0.8.2"
+version = "0.8.3"
 dependencies = [
  "arrow",
  "arrow-array",
