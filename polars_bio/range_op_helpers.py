@@ -45,7 +45,7 @@ def range_operation(
 
             ctx.set_option("datafusion.execution.target_partitions", "1", False)
             ctx.set_option(
-                "datafusion.execution.parquet.schema_force_view_types", "true", True
+                "datafusion.execution.parquet.schema_force_view_types", "false", True
             )
             return stream_wrapper(
                 stream_range_operation_scan(
