@@ -47,6 +47,7 @@ datafusion = "^43.1.0"
 bioframe = "^0.7.2"
 tqdm = "^4.67.1"
 
+
 [tool.poetry.dev-dependencies]
 pytest = "^8.3.3"
 pytest-cov = "^6.0.0"
@@ -60,6 +61,8 @@ mkdocs-jupyter = "^0.25.1"
 mkdocs-material = "^9.5.48"
 mike = "^2.1.3"
 mkdocstrings-python = "^1.12.2"
+mkdocs-table-reader-plugin = "^3.1.0"
+mkdocstrings = "0.27.0"
 markdown-exec = "^1.10.0"
 mkdocs-with-pdf = "^0.9.3"
 mypy = "^1.13.0"
@@ -68,6 +71,7 @@ jupyter_client = "^8.6.3"
 psutil = "^6.1.1"
 rich = "^13.9.4"
 tqdm = "^4.67.1"
+
 
 ## only for benchmarking
 pyranges = {git = "https://github.com/pyranges/pyranges.git", rev = "4f0a153336e7153cdfea15b141ce4ea35a24e233" }

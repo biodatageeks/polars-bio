@@ -360,8 +360,8 @@ Output size: 307,184,634
 
 - cpu architecture: `x86_64`
 - cpu name: `INTEL(R) XEON(R) PLATINUM 8581C CPU @ 2.30GHz`
-- cpu cores: `4`
-- memory: `61 GB`
+- cpu cores: `22`
+- memory: `86 GB`
 - kernel: `#27~22.04.1-Ubuntu SMP Tue Jul 16 23:03:39 UTC 2024`
 - system: `Linux`
 - os-release: `Linux-6.5.0-1025-gcp-x86_64-with-glibc2.35`

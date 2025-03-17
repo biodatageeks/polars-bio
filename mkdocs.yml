@@ -12,6 +12,7 @@ nav:
       - 🚀 Performance: performance.md
       - ⚙️ API reference: api.md
       - ❓ FAQ : faq.md
+#      - 🔬 Supplementary material: supplement.md
 
   - Quick start: quickstart.md
   - Features: features.md
@@ -20,6 +21,7 @@ nav:
   - Performance: performance.md
   - API reference: api.md
   - FAQ : faq.md
+  - 🔬 Supplementary material: supplement.md
 
 plugins:
   - search
@@ -33,6 +35,7 @@ plugins:
           options:
             docstring_style: google
   - markdown-exec
+  - table-reader
 theme:
   name: material
   logo: assets/logo.png
