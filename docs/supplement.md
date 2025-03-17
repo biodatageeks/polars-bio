@@ -79,7 +79,7 @@ for p in test_platforms:
 
 ```
 ### End to end tests
-Results for parallel operations with 1, 2, 4, 6 and 8 threads.
+Results for an end-to-end test with calculating overlaps and saving results to a CSV file.
 ```python exec="true"
 import pandas as pd
 BRANCH="master"
