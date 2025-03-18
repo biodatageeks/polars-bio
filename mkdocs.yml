@@ -36,6 +36,7 @@ plugins:
             docstring_style: google
   - markdown-exec
   - table-reader
+  - mkdocs_matplotlib
 theme:
   name: material
   logo: assets/logo.png
