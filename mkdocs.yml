@@ -12,7 +12,7 @@ nav:
       - 🚀 Performance: performance.md
       - ⚙️ API reference: api.md
       - ❓ FAQ : faq.md
-#      - 🔬 Supplementary material: supplement.md
+      - 🔬 Supplementary material: supplement.md
 
   - Quick start: quickstart.md
   - Features: features.md
