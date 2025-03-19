@@ -1,6 +1,9 @@
 
 ## Benchmark setup
 
+### Code and  benchmarking scenarios
+[Repository](https://github.com/biodatageeks/polars-bio-bench)
+
 ### Operating System, CPU, and Memory
 
 #### macOS
