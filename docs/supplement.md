@@ -4,7 +4,7 @@
 ### Code and  benchmarking scenarios
 [Repository](https://github.com/biodatageeks/polars-bio-bench)
 
-### Operating System, CPU, and Memory
+### Operating systems and hardware configurations
 
 #### macOS
 
@@ -34,8 +34,12 @@
 
 ### Software
 
-* [Tools and versions](performance.md#test-libraries)
-* [Datasets](performance.md#test-datasets)
+[Tools and versions](performance.md#test-libraries)
+
+
+### Data
+
+[Datasets](performance.md#test-datasets)
 
 ### Single thread results
 Results for `overlap`, `nearest`, `count-overlaps`, and `coverage` operations with single-thread performance on `apple-m3-max` and `gcp-linux` platforms.
