@@ -58,7 +58,7 @@
     Some tests were not conducted for all libraries in case of poor performance of specific tools, e.g. `pybedtools`, `PyGenomics` and `GenomicRanges` for the largest outputs.
 
 ### Output compatibility 🖥️
-See [API comparison](../features/#api-comparison-between-libraries) for more details on parameters used in the benchmark.
+See [API comparison](features.md/#api-comparison-between-libraries) for more details on parameters used in the benchmark.
 ## Binary operations
 
 

@@ -14,6 +14,9 @@
 | [read_table](api.md#polars_bio.read_table)         | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 
 
+## Coordinate systems support
+polars-bio supports both 0-based and 1-based coordinate systems. Please check `overlap_filter` parameter of a given operation to choose the appropriate coordinate system, e.g. [overlap](api.md#polars_bio.overlap) operation.
+
 ### API comparison between libraries
 There is no standard API for genomic ranges operations in Python.
 This table compares the API of the libraries. The table is not exhaustive and only shows the most common operations used in benchmarking.

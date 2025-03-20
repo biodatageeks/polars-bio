@@ -44,7 +44,7 @@ def overlap(
         df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
         df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
         how: How to handle the overlaps on the two dataframes. inner: use intersection of the set of intervals from df1 and df2, optional.
-        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict).
+        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). Strict for **0-based**, Weak for **1-based** coordinate systems.
         cols1: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set.
         cols2:  The names of columns containing the chromosome, start and end of the
@@ -133,7 +133,7 @@ def nearest(
     Parameters:
         df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
         df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
-        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict).
+        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). Strict for **0-based**, Weak for **1-based** coordinate systems.
         cols1: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set.
         cols2:  The names of columns containing the chromosome, start and end of the
@@ -192,7 +192,7 @@ def coverage(
     Parameters:
         df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
         df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
-        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict).
+        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). Strict for **0-based**, Weak for **1-based** coordinate systems.
         cols1: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set.
         cols2:  The names of columns containing the chromosome, start and end of the
@@ -251,7 +251,7 @@ def count_overlaps(
     Parameters:
         df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
         df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
-        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict).
+        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). Strict for **0-based**, Weak for **1-based** coordinate systems.
         suffixes: Suffixes for the columns of the two overlapped sets.
         cols1: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set.
@@ -418,7 +418,7 @@ def merge(
 
     Parameters:
         df: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED  and Parquet are supported.
-        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict).
+        overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). Strict for **0-based**, Weak for **1-based** coordinate systems.
         cols: The names of columns containing the chromosome, start and end of the
             genomic intervals, provided separately for each set.
         on_cols: List of additional column names for clustering. default is None.

@@ -78,6 +78,9 @@ def read_vcf(
         chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
         concurrent_fetches: The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
         streaming: Whether to read the VCF file in streaming mode.
+
+    !!! note
+        VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
     """
     vcf_read_options = VcfReadOptions(
         info_fields=_cleanse_infos(info_fields),
@@ -259,6 +262,9 @@ def register_vcf(
         thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
         chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
         concurrent_fetches: The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+
+    !!! note
+        VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
 
     !!! Example
           ```python
