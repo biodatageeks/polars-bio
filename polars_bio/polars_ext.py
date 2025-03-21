@@ -54,6 +54,59 @@ class PolarsRangesOperations:
             cols1=cols1,
             cols2=cols2,
         )
+    
+    def coverage(
+        self,
+        other_df: pl.LazyFrame,
+        suffixes: tuple[str, str] = ("", "_"),
+        cols1=["chrom", "start", "end"],
+        cols2=["chrom", "start", "end"],
+    ) -> pl.LazyFrame:
+        """
+        !!! note
+            Alias for [coverage](api.md#polars_bio.coverage)
+        """
+        return pb.coverage(
+            self._ldf,
+            other_df,
+            suffixes=suffixes,
+            cols1=cols1,
+            cols2=cols2,
+        )
+
+    def merge(
+        self,
+        overlap_filter: FilterOp = FilterOp.Strict,
+        min_dist: float = 0,
+        cols: Union[list[str], None] = None,
+    ) -> pl.LazyFrame:
+        """
+        !!! note
+            Alias for [merge](api.md#polars_bio.merge)
+        """
+        return pb.merge(
+            self._ldf,
+            overlap_filter=overlap_filter,
+            min_dist=min_dist,
+            cols=cols
+        )
+    
+    def cluster(
+        self,
+        overlap_filter: FilterOp = FilterOp.Strict,
+        min_dist: float = 0,
+        cols: Union[list[str], None] = None,
+    ) -> pl.LazyFrame:
+        """
+        !!! note
+            Alias for [cluster](api.md#polars_bio.cluster)
+        """
+        return pb.cluster(
+            self._ldf,
+            overlap_filter=overlap_filter,
+            min_dist=min_dist,
+            cols=cols
+        )
 
     def count_overlaps(
         self,
