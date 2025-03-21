@@ -1,4 +1,7 @@
 
+## Supplemental material
+This document provides additional information about the benchmarking setup, data, and results that were presented in the manuscript.
+
 ## Benchmark setup
 
 ### Code and  benchmarking scenarios
@@ -34,12 +37,35 @@
 
 ### Software
 
-[Tools and versions](performance.md#test-libraries)
+- [Bioframe](https://github.com/open2c/bioframe)-0.7.2
+- [PyRanges0](https://github.com/pyranges/pyranges)-0.0.132
+- [PyRanges1](https://github.com/pyranges/pyranges_1.x)-[e634a11](https://github.com/mwiewior/pyranges1/commit/e634a110e7c00d7c5458d69d5e39bec41d23a2fe)
+- [pybedtools](https://github.com/daler/pybedtools)-0.10.0
+- [PyGenomics](https://gitlab.com/gtamazian/pygenomics)-0.1.1
+- [GenomicRanges](https://github.com/BiocPy/GenomicRanges)-0.5.0
 
 
 ### Data
 
-[Datasets](performance.md#test-datasets)
+[AIList](https://github.com/databio/AIList) dataset was used for benchmarking.
+
+|Dataset#  | Name            | Size(x1000) | Non-flatness |
+|:---------|:----------------|:------------|:-------------|
+|0         | chainRn4        | 2,351       | 6            |
+|1         | fBrain          | 199         | 1            |
+|2         | exons           | 439         | 2            |
+|3         | chainOrnAna1    | 1,957       | 6            |
+|4         | chainVicPac2    | 7,684       | 8            |
+|5         | chainXenTro3Link| 50,981      | 7            |
+|6         | chainMonDom5Link| 128,187     | 7            |
+|7         | ex-anno         | 1,194       | 2            |
+|8         | ex-rna          | 9,945       | 7            |
+
+!!! note
+    Test dataset in *Parquet* format can be downloaded from:
+
+    * [databio.zip](https://drive.google.com/file/d/1lctmude31mSAh9fWjI60K1bDrbeDPGfm/view?usp=sharing)
+
 
 ### Single thread results
 Results for `overlap`, `nearest`, `count-overlaps`, and `coverage` operations with single-thread performance on `apple-m3-max` and `gcp-linux` platforms.
