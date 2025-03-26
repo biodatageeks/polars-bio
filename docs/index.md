@@ -25,8 +25,25 @@ It is designed to be easy to use, fast and memory efficient with a focus on geno
 
 See [quick start](quickstart.md) for the installation options.
 
-## Example
+## Citing
 
+If you use **polars-bio** in your work, please cite:
+
+```bibtex
+@article {Wiewiorka2025.03.21.644629,
+	author = {Wiewiorka, Marek and Khamutou, Pavel and Zbysinski, Marek and Gambin, Tomasz},
+	title = {polars-bio - fast, scalable and out-of-core operations on large genomic interval datasets},
+	elocation-id = {2025.03.21.644629},
+	year = {2025},
+	doi = {10.1101/2025.03.21.644629},
+	publisher = {Cold Spring Harbor Laboratory},
+	URL = {https://www.biorxiv.org/content/early/2025/03/25/2025.03.21.644629},
+	eprint = {https://www.biorxiv.org/content/early/2025/03/25/2025.03.21.644629.full.pdf},
+	journal = {bioRxiv}
+}
+```
+
+## Example
 
 ### Discovering genomics data in VCF files
 ```python
