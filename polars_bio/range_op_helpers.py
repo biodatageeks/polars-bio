@@ -97,14 +97,7 @@ def range_operation(
             raise ValueError(
                 "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
             )
-    elif (
-        (isinstance(df1, pl.DataFrame)
-        or isinstance(df1, pl.LazyFrame)
-        or isinstance(df1, pd.DataFrame))
-        and (isinstance(df2, pl.DataFrame)
-        or isinstance(df2, pl.LazyFrame)
-        or isinstance(df2, pd.DataFrame))
-    ):
+    else:
         if output_type == "polars.LazyFrame":
             merged_schema = pl.Schema(
                 {
@@ -125,10 +118,6 @@ def range_operation(
                 raise ValueError(
                     "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
                 )
-    else:
-        raise ValueError(
-            "Dataframes must both be paths to files or both be pandas/polars frames"
-        )
 
 
 def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how):

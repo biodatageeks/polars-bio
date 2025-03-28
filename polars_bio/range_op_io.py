@@ -17,6 +17,9 @@ from polars_bio.polars_bio import (
     ReadOptions,
     py_read_table,
     py_register_table,
+    stream_range_operation_scan,
+    range_operation_frame,
+    range_operation_scan,
 )
 
 
