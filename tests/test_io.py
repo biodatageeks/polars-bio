@@ -1,6 +1,14 @@
 import bioframe as bf
 import pandas as pd
-from _expected import DATA_DIR
+from _expected import (
+    DATA_DIR,
+    PD_OVERLAP_DF1,
+    PL_DF1,
+    PD_OVERLAP_DF2,
+    PL_DF2,
+    PD_DF_OVERLAP,
+    PL_DF_OVERLAP,
+)
 
 import polars_bio as pb
 
