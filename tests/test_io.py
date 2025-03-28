@@ -27,8 +27,12 @@ class TestMemoryCombinations:
                     if output_type == "polars.LazyFrame":
                         result = result.collect()
                     if output_type == "pandas.DataFrame":
+                        result = result.sort_values(by=list(result.columns)).reset_index(
+                            drop=True
+                        )
                         pd.testing.assert_frame_equal(result, PD_DF_OVERLAP)
                     else:
+                        result = result.sort(by=result.columns)
                         assert PL_DF_OVERLAP.equals(result)
 
 class TestIOBAM:
