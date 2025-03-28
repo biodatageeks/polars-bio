@@ -4,6 +4,23 @@ from _expected import DATA_DIR
 
 import polars_bio as pb
 
+class TestMemoryCombinations:
+    def test_frames(self):
+        for df1 in [PD_OVERLAP_DF1, PL_DF1, PL_DF1.lazy()]:
+            for df2 in [PD_OVERLAP_DF2, PL_DF2, PL_DF2.lazy()]:
+                for output_type in ["pandas.DataFrame", "polars.DataFrame", "polars.LazyFrame"]:
+                    result = pb.overlap(df1, df2,
+                        cols1=("contig", "pos_start", "pos_end"),
+                        cols2=("contig", "pos_start", "pos_end"),
+                        output_type=output_type,
+                        overlap_filter=FilterOp.Weak,
+                    )
+                    if output_type == "polars.LazyFrame":
+                        result = result.collect()
+                    if output_type == "pandas.DataFrame":
+                        pd.testing.assert_frame_equal(result, PD_DF_OVERLAP)
+                    else:
+                        assert PL_DF_OVERLAP.equals(result)
 
 class TestIOBAM:
     df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam").collect()

@@ -314,14 +314,14 @@ def count_overlaps(
     df1 = read_df_to_datafusion(my_ctx, df1)
     df2 = read_df_to_datafusion(my_ctx, df2)
 
-    # TODO: guarantee no collisions
-    s1start_s2end = "s1starts2end"
-    s1end_s2start = "s1ends2start"
-    contig = "contig"
-    count = "count"
-    starts = "starts"
-    ends = "ends"
-    is_s1 = "is_s1"
+    curr_cols = set(df1.schema().names) | set(df2.schema().names)
+    s1start_s2end = prevent_column_collision("s1starts2end", curr_cols)
+    s1end_s2start = prevent_column_collision("s1ends2start", curr_cols)
+    contig = prevent_column_collision("contig", curr_cols)
+    count = prevent_column_collision("count", curr_cols)
+    starts = prevent_column_collision("starts", curr_cols)
+    ends = prevent_column_collision("ends", curr_cols)
+    is_s1 = prevent_column_collision("is_s1", curr_cols)
     suff, _ = suffixes
     df1, df2 = df2, df1
     df1 = df1.select(
@@ -449,11 +449,12 @@ def merge(
     df_schema = df.schema()
     start_type = df_schema.field(start).type
     end_type = df_schema.field(end).type
-    # TODO: make sure to avoid conflicting column names
-    start_end = "start_end"
-    is_start_end = "is_start_or_end"
-    current_intervals = "current_intervals"
-    n_intervals = "n_intervals"
+    
+    curr_cols = set(df_schema.names)
+    start_end = prevent_column_collision("start_end", curr_cols)
+    is_start_end = prevent_column_collision("is_start_or_end", curr_cols)
+    current_intervals = prevent_column_collision("current_intervals", curr_cols)
+    n_intervals = prevent_column_collision("n_intervals", curr_cols)
 
     end_positions = df.select(
         *(
