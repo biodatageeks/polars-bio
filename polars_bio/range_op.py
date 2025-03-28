@@ -10,7 +10,7 @@ from polars_bio.polars_bio import ReadOptions
 
 from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import ctx
-from .interval_op_helpers import convert_result, get_py_ctx, read_df_to_datafusion
+from .interval_op_helpers import convert_result, get_py_ctx, prevent_column_collision, read_df_to_datafusion
 from .range_op_helpers import _validate_overlap_input, range_operation
 
 __all__ = ["overlap", "nearest", "count_overlaps", "merge"]
