@@ -5,10 +5,6 @@ use datafusion::arrow::array::RecordBatch;
 use polars::prelude::{PlSmallStr, PolarsError};
 use polars_core::prelude::{CompatLevel, DataFrame, Series};
 
-pub(crate) fn default_cols_to_string(s: &[&str; 3]) -> Vec<String> {
-    s.iter().map(|x| x.to_string()).collect()
-}
-
 fn convert_arrow_rs_field_to_polars_arrow_field(
     arrow_rs_field: &arrow_schema::Field,
 ) -> Result<polars_arrow::datatypes::Field, &str> {

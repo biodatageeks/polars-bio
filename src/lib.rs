@@ -35,7 +35,6 @@ use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
 
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
-const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
 
 #[pyfunction]
 #[pyo3(signature = (py_ctx, df1, df2, range_options, limit=None))]

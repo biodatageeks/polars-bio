@@ -1,4 +1,4 @@
-use crate::operation::{format_non_join_tables, QueryParams};
+use crate::operation::QueryParams;
 
 
 pub(crate) fn count_overlaps_query(query_params: QueryParams) -> String {

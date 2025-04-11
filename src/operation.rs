@@ -18,8 +18,6 @@ pub(crate) struct QueryParams {
     pub suffixes: (String, String),
     pub columns_1: Vec<String>,
     pub columns_2: Vec<String>,
-    pub other_columns_1: Vec<String>,
-    pub other_columns_2: Vec<String>,
     pub left_table: String,
     pub right_table: String,
 }
