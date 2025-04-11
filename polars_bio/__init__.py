@@ -1,4 +1,4 @@
-from polars_bio.polars_bio import InputFormat, ReadOptions, VcfReadOptions
+from polars_bio.polars_bio import InputFormat, ReadOptions, VcfReadOptions, FilterOp
 
 from .context import ctx, set_option
 from .io import (
@@ -14,7 +14,11 @@ from .io import (
     sql,
 )
 from .polars_ext import PolarsRangesOperations as LazyFrame
-from .range_op import FilterOp, count_overlaps, coverage, merge, nearest, overlap
+from .count_overlaps import count_overlaps
+from .coverage import coverage
+from .merge import merge
+from .nearest import nearest
+from .overlap import overlap
 from .range_viz import visualize_intervals
 
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
