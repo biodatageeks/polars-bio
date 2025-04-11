@@ -8,11 +8,10 @@ use tokio::runtime::Runtime;
 
 use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions};
-use crate::query::{count_overlaps_query, overlap_query};
+use crate::query::count_overlaps_query;
 use crate::udtf::CountOverlapsProvider;
-use crate::utils::default_cols_to_string;
-use crate::DEFAULT_COLUMN_NAMES;
 use crate::nearest::do_nearest;
+use crate::overlap::do_overlap;
 
 pub(crate) struct QueryParams {
     pub sign: String,
@@ -70,16 +69,25 @@ pub(crate) fn do_range_operation(
             .target_partitions
     );
     match range_options.range_op {
-        RangeOp::Overlap => rt.block_on(do_overlap(ctx, range_options, left_table, right_table)),
+        RangeOp::Overlap => rt.block_on(do_overlap(
+            ctx,
+            left_table,
+            right_table,
+            range_options.filter_op,
+            range_options.suffixes,
+            range_options.columns_1,
+            range_options.columns_2,
+        )),
         RangeOp::Nearest => {
             set_option_internal(ctx, "sequila.interval_join_algorithm", "coitreesnearest");
-            rt.block_on(do_nearest(ctx,
-                 left_table,
-                 right_table,
-                 range_options.filter_op,
-                 range_options.suffixes,
-                 range_options.columns_1,
-                 range_options.columns_2,
+            rt.block_on(do_nearest(
+                ctx,
+                left_table,
+                right_table,
+                range_options.filter_op,
+                range_options.suffixes,
+                range_options.columns_1,
+                range_options.columns_2,
             ))
         },
         RangeOp::CountOverlaps => rt.block_on(do_count_overlaps(
@@ -105,28 +113,6 @@ pub(crate) fn do_range_operation(
 
         _ => panic!("Unsupported operation"),
     }
-}
-
-async fn do_overlap(
-    ctx: &ExonSession,
-    range_opts: RangeOptions,
-    left_table: String,
-    right_table: String,
-) -> datafusion::dataframe::DataFrame {
-    let query = prepare_query(overlap_query, range_opts, ctx, left_table, right_table)
-        .await
-        .to_string();
-    debug!("Query: {}", query);
-    debug!(
-        "{}",
-        ctx.session
-            .state()
-            .config()
-            .options()
-            .execution
-            .target_partitions
-    );
-    ctx.sql(&query).await.unwrap()
 }
 
 async fn do_count_overlaps(

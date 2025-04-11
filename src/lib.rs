@@ -7,6 +7,7 @@ mod streaming;
 mod udtf;
 mod utils;
 mod nearest;
+mod overlap;
 
 use std::string::ToString;
 use std::sync::{Arc, Mutex};

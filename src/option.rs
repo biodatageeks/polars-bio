@@ -52,7 +52,7 @@ impl RangeOptions {
 }
 impl std::fmt::Display for RangeOptions {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "streaming {}", self.streaming.unwrap_or(false))
+        write!(f, "streaming {}", self.streaming)
     }
 }
 
