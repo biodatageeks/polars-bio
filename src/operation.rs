@@ -12,6 +12,7 @@ use crate::query::{count_overlaps_query, nearest_query, overlap_query};
 use crate::udtf::CountOverlapsProvider;
 use crate::utils::default_cols_to_string;
 use crate::DEFAULT_COLUMN_NAMES;
+use crate::nearest::do_nearest;
 
 pub(crate) struct QueryParams {
     pub sign: String,
@@ -72,7 +73,29 @@ pub(crate) fn do_range_operation(
         RangeOp::Overlap => rt.block_on(do_overlap(ctx, range_options, left_table, right_table)),
         RangeOp::Nearest => {
             set_option_internal(ctx, "sequila.interval_join_algorithm", "coitreesnearest");
-            rt.block_on(do_nearest(ctx, range_options, left_table, right_table))
+
+            // TODO: require all of these fields to be set (not optional) 
+            let overlap_filter = range_options.filter_op.unwrap();
+            let suffixes = match range_opts.suffixes {
+                Some((s1, s2)) => (s1, s2),
+                _ => ("_1".to_string(), "_2".to_string()),
+            };
+            let columns_1 = match range_opts.columns_1 {
+                Some(cols) => cols,
+                _ => default_cols_to_string(&DEFAULT_COLUMN_NAMES),
+            };
+            let columns_2 = match range_opts.columns_2 {
+                Some(cols) => cols,
+                _ => default_cols_to_string(&DEFAULT_COLUMN_NAMES),
+            };
+            rt.block_on(do_nearest(ctx,
+                 left_table,
+                 right_table,
+                 overlap_filter,
+                 suffixes,
+                 columns_1,
+                 columns_2,
+            ))
         },
         RangeOp::CountOverlaps => rt.block_on(do_count_overlaps(
             ctx,
@@ -97,19 +120,6 @@ pub(crate) fn do_range_operation(
 
         _ => panic!("Unsupported operation"),
     }
-}
-
-async fn do_nearest(
-    ctx: &ExonSession,
-    range_opts: RangeOptions,
-    left_table: String,
-    right_table: String,
-) -> datafusion::dataframe::DataFrame {
-    let query = prepare_query(nearest_query, range_opts, ctx, left_table, right_table)
-        .await
-        .to_string();
-    debug!("Query: {}", query);
-    ctx.sql(&query).await.unwrap()
 }
 
 async fn do_overlap(
