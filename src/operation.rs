@@ -155,8 +155,8 @@ async fn do_count_overlaps_coverage_naive(
     right_table: String,
     coverage: bool,
 ) -> datafusion::dataframe::DataFrame {
-    let columns_1 = range_opts.columns_1.unwrap();
-    let columns_2 = range_opts.columns_2.unwrap();
+    let columns_1 = range_opts.columns_1;
+    let columns_2 = range_opts.columns_2;
     let session = &ctx.session;
     let right_table_ref = TableReference::from(right_table.clone());
     let right_schema = session
@@ -173,7 +173,7 @@ async fn do_count_overlaps_coverage_naive(
         right_schema,
         columns_1,
         columns_2,
-        range_opts.filter_op.unwrap(),
+        range_opts.filter_op,
         coverage,
     );
     let table_name = "count_overlaps_coverage".to_string();
@@ -186,7 +186,7 @@ async fn do_count_overlaps_coverage_naive(
     ctx.sql(&query).await.unwrap()
 }
 
-async fn get_non_join_columns(
+pub(crate) async fn get_non_join_columns(
     table_name: String,
     join_columns: Vec<String>,
     ctx: &ExonSession,
@@ -224,22 +224,13 @@ pub(crate) async fn prepare_query(
     left_table: String,
     right_table: String,
 ) -> String {
-    let sign = match range_opts.filter_op.unwrap() {
+    let sign = match range_opts.filter_op {
         FilterOp::Weak => "=".to_string(),
         _ => "".to_string(),
     };
-    let suffixes = match range_opts.suffixes {
-        Some((s1, s2)) => (s1, s2),
-        _ => ("_1".to_string(), "_2".to_string()),
-    };
-    let columns_1 = match range_opts.columns_1 {
-        Some(cols) => cols,
-        _ => default_cols_to_string(&DEFAULT_COLUMN_NAMES),
-    };
-    let columns_2 = match range_opts.columns_2 {
-        Some(cols) => cols,
-        _ => default_cols_to_string(&DEFAULT_COLUMN_NAMES),
-    };
+    let suffixes = range_opts.suffixes;
+    let columns_1 = range_opts.columns_1;
+    let columns_2 = range_opts.columns_2;
 
     let left_table_columns =
         get_non_join_columns(left_table.to_string(), columns_1.clone(), ctx).await;

@@ -23,7 +23,6 @@ pub(crate) fn operation_preconfig(
     }
     info!(
         "Running with algorithm {} and {} thread(s)...",
-        range_options.range_op,
         ctx.session
             .state()
             .config()

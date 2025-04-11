@@ -1,7 +1,7 @@
 use exon::ExonSession;
-use log::info;
+use log::debug;
 use crate::option::FilterOp;
-use crate::operation::format_non_join_tables;
+use crate::operation::{format_non_join_tables, get_non_join_columns};
 
 
 pub(crate) async fn do_nearest(
@@ -13,13 +13,13 @@ pub(crate) async fn do_nearest(
     columns_1: Vec<String>,
     columns_2: Vec<String>,
 ) -> datafusion::dataframe::DataFrame {
-    let sign = match range_opts.filter_op.unwrap() {
+    let sign = match overlap_filter {
         FilterOp::Weak => "=".to_string(),
         _ => "".to_string(),
     };
-    let left_table_columns =
+    let other_columns_1 =
         get_non_join_columns(left_table.to_string(), columns_1.clone(), ctx).await;
-    let right_table_columns =
+    let other_columns_2 =
         get_non_join_columns(right_table.to_string(), columns_2.clone(), ctx).await;
     let query = format!(
         r#"
