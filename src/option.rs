@@ -8,35 +8,35 @@ pub struct RangeOptions {
     #[pyo3(get, set)]
     pub range_op: RangeOp,
     #[pyo3(get, set)]
-    pub filter_op: Option<FilterOp>,
+    pub filter_op: FilterOp,
     #[pyo3(get, set)]
-    pub suffixes: Option<(String, String)>,
+    pub suffixes: (String, String),
     #[pyo3(get, set)]
-    pub columns_1: Option<Vec<String>>,
+    pub columns_1: Vec<String>,
     #[pyo3(get, set)]
-    pub columns_2: Option<Vec<String>>,
+    pub columns_2: Vec<String>,
     #[pyo3(get, set)]
     on_cols: Option<Vec<String>>,
     #[pyo3(get, set)]
     pub overlap_alg: Option<String>,
     #[pyo3(get, set)]
-    pub streaming: Option<bool>,
+    pub streaming: bool,
 }
 
 #[pymethods]
 impl RangeOptions {
     #[allow(clippy::too_many_arguments)]
     #[new]
-    #[pyo3(signature = (range_op, filter_op=None, suffixes=None, columns_1=None, columns_2=None, on_cols=None, overlap_alg=None, streaming=None))]
+    #[pyo3(signature = (range_op, filter_op, suffixes, columns_1, columns_2, streaming, on_cols=None, overlap_alg=None))]
     pub fn new(
         range_op: RangeOp,
-        filter_op: Option<FilterOp>,
-        suffixes: Option<(String, String)>,
-        columns_1: Option<Vec<String>>,
-        columns_2: Option<Vec<String>>,
+        filter_op: FilterOp,
+        suffixes: (String, String),
+        columns_1: Vec<String>,
+        columns_2: Vec<String>,
+        streaming: bool,
         on_cols: Option<Vec<String>>,
         overlap_alg: Option<String>,
-        streaming: Option<bool>,
     ) -> Self {
         RangeOptions {
             range_op,
