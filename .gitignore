@@ -7,6 +7,7 @@ venv
 *.dll
 *.pyd
 
+.vscode
 .idea
 sandbox/
 .DS_Store
@@ -16,3 +17,5 @@ benchmark/src/results
 benchmark/src/results/overlap
 mprofile*dat
 *csv
+
+poetry.lock
