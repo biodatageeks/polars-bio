@@ -1,105 +1,98 @@
+use arrow::array::StringArray;
+use arrow::record_batch::RecordBatch;
+use polars::prelude::*;
+use std::collections::HashMap;
 
-
-use arrow::array::{ArrayRef, Float64Array, UInt32Array};
-use datafusion::physical_plan::aggregates::AggregateFunction;
-use datafusion::scalar::ScalarValue;
-use serde_json::{Value, json};
-
-#[derive(Debug)]
-pub struct BaseQualityMetrics {
-    position_counts: Vec<PositionStats>,
-    warning_status: String,
+fn compute_quartiles(sorted: &mut [i32]) -> (f64, f64, f64, f64, f64) {
+    let len = sorted.len();
+    if len == 0 {
+        return (0.0, 0.0, 0.0, 0.0, 0.0);
+    }
+    sorted.sort_unstable();
+    let median = |slice: &[i32]| -> f64 {
+        let mid = slice.len() / 2;
+        if slice.len() % 2 == 0 {
+            (slice[mid - 1] + slice[mid]) as f64 / 2.0
+        } else {
+            slice[mid] as f64
+        }
+    };
+    let q2 = median(sorted);
+    let q1 = median(&sorted[..len / 2]);
+    let q3 = median(&sorted[(len + 1) / 2..]);
+    (
+        *sorted.first().unwrap() as f64,
+        q1,
+        q2,
+        q3,
+        *sorted.last().unwrap() as f64,
+    )
 }
 
-#[derive(Debug, Default)]
-struct PositionStats {
-    sum: u64,
-    count: u64,
-    quality_counts: [u32; 41], // Phred scores 0-40
-    min: u8,
-    max: u8,
-}
+pub fn compute_base_quality(rb: &RecordBatch) -> Result<DataFrame, PolarsError> {
+    let qual_array = rb
+        .column_by_name("qual")
+        .ok_or_else(|| PolarsError::ComputeError("Missing 'qual' column".into()))?
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .ok_or_else(|| PolarsError::SchemaMismatch("Expected 'qual' to be StringArray".into()))?;
 
-impl BaseQualityMetrics {
-    pub fn new() -> Self {
-        Self {
-            position_counts: Vec::new(),
-            warning_status: "pass".to_string(),
-        }
+    let mut pos_quality_map: HashMap<usize, Vec<i32>> = HashMap::new();
+
+    qual_array
+        .iter()
+        .enumerate()
+        .filter_map(|(i, opt_qual)| opt_qual.map(|qual| (i, qual)))
+        .for_each(|(i, qual)| {
+            let quality_values = qual
+                .chars()
+                .map(|ch| ch as i32) // or subtract 33 if using Phred+33 encoding
+                .collect::<Vec<_>>();
+
+            pos_quality_map
+                .entry(i)
+                .or_insert_with(Vec::new)
+                .extend(quality_values);
+        });
+
+    let mut positions: Vec<u32> = Vec::new();
+    let mut averages: Vec<f64> = Vec::new();
+    let mut q1s: Vec<f64> = Vec::new();
+    let mut medians: Vec<f64> = Vec::new();
+    let mut q3s: Vec<f64> = Vec::new();
+    let mut mins: Vec<f64> = Vec::new();
+    let mut maxs: Vec<f64> = Vec::new();
+    let mut warning_status: Vec<&str> = Vec::new();
+
+    for (pos, values) in pos_quality_map.iter_mut() {
+        let avg = values.iter().copied().sum::<i32>() as f64 / values.len() as f64;
+        let (min, q1, median, q3, max) = compute_quartiles(values);
+        positions.push(*pos as u32);
+        averages.push(avg);
+        q1s.push(q1);
+        medians.push(median);
+        q3s.push(q3);
+        mins.push(min);
+        maxs.push(max);
+        warning_status.push(if avg < 20.0 {
+            "Low"
+        } else if avg > 40.0 {
+            "High"
+        } else {
+            "Normal"
+        });
     }
 
-    pub fn update(&mut self, position: usize, quality_scores: &[u8]) {
-        if position >= self.position_counts.len() {
-            self.position_counts.resize(position + 1, PositionStats::default());
-        }
+    let df = DataFrame::new(vec![
+        Series::new("position".into(), positions).into(),
+        Series::new("average".into(), averages).into(),
+        Series::new("q1".into(), q1s).into(),
+        Series::new("median".into(), medians).into(),
+        Series::new("q3".into(), q3s).into(),
+        Series::new("min".into(), mins).into(),
+        Series::new("max".into(), maxs).into(),
+        Series::new("warning_status".into(), warning_status).into(),
+    ])?;
 
-        let stats = &mut self.position_counts[position];
-        for &q in quality_scores {
-            let phred = q - 33; // Convert ASCII to Phred score
-            stats.sum += phred as u64;
-            stats.count += 1;
-            stats.quality_counts[phred as usize] += 1;
-            stats.min = stats.min.min(phred);
-            stats.max = stats.max.max(phred);
-        }
-    }
-
-    pub fn finalize(mut self) -> Value {
-        let mut base_per_pos_data = Vec::new();
-        
-        for (pos, stats) in self.position_counts.iter().enumerate() {
-            let values = self.calculate_quartiles(stats);
-            let median = values[2];
-            
-            if median <= 20.0 {
-                self.warning_status = "fail".to_string();
-            } else if median <= 25.0 && self.warning_status != "fail" {
-                self.warning_status = "warn".to_string();
-            }
-
-            base_per_pos_data.push(json!({
-                "pos": pos,
-                "average": stats.sum as f64 / stats.count as f64,
-                "upper": values[4],
-                "lower": values[0],
-                "q1": values[1],
-                "q3": values[3],
-                "median": median
-            }));
-        }
-
-        json!({
-            "base_quality_warn": self.warning_status,
-            "base_per_pos_data": base_per_pos_data,
-            "plots": self.generate_plots()
-        })
-    }
-
-    fn calculate_quartiles(&self, stats: &PositionStats) -> [f64; 5] {
-        // Weighted percentile calculation without expanding array
-        let mut positions = Vec::new();
-        let total = stats.count as f64;
-        
-        for (score, &count) in stats.quality_counts.iter().enumerate() {
-            if count > 0 {
-                positions.push((score as f64, count as f64));
-            }
-        }
-        
-        // Implement linear interpolation for percentiles
-        [0.0, 25.0, 50.0, 75.0, 100.0].map(|p| {
-            let rank = (p / 100.0) * (total - 1.0);
-            // ... percentile calculation logic ...
-        })
-    }
-
-    fn generate_plots(&self) -> Value {
-        // Load template from specs file
-        let mut specs: Value = serde_json::from_str(
-            include_str!("report/quality_per_pos_specs.json")
-        ).unwrap();
-        
-        specs["data"]["values"] = json!(self.base_per_pos_data);
-        json!({ /* Plot configuration */ })
-    }
+    Ok(df)
 }

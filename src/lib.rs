@@ -6,6 +6,7 @@ mod scan;
 mod streaming;
 mod udtf;
 mod utils;
+mod base_quality;
 
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
@@ -30,6 +31,7 @@ use crate::option::{
 use crate::scan::{maybe_register_table, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
 use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
+use crate::base_quality::compute_base_quality;
 
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
@@ -403,6 +405,49 @@ fn py_from_polars(
     })
 }
 
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, df_path_or_table, read_options=None, limit=None))]
+fn py_base_quality(
+    py_ctx: &PyBioSessionContext,
+    df_path_or_table: String,
+    read_options: Option<ReadOptions>,
+    limit: Option<usize>,
+) -> PyResult<PyDataFrame> {
+    let rt = Runtime::new()?;
+    let ctx = &py_ctx.ctx;
+
+    // Resolve the input to a DataFusion DataFrame (either from a path or table name)
+    let table = maybe_register_table(
+        df_path_or_table,
+        &"base_quality_table".to_string(), // temp name
+        read_options,
+        ctx,
+        &rt,
+    );
+
+    // Collect Arrow RecordBatches from the DataFusion DataFrame
+    let record_batches = rt
+        .block_on(table)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Error collecting RecordBatches: {}", e)))?;
+
+    // Run base quality analysis on each batch and merge
+    let combined_df = record_batches
+        .iter()
+        .map(|rb| compute_base_quality(rb))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Base quality error: {}", e)))?
+        .into_iter()
+        .reduce(|mut a, b| {
+            a.vstack_mut(&b).unwrap();
+            a
+        })
+        .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("No data to process"))?;
+
+    Ok(PyDataFrame::from(combined_df))
+}
+
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -417,6 +462,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
+    m.add_function(wrap_pyfunction!(py_base_quality, m)?)?;
     // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
