@@ -7,6 +7,7 @@ mod streaming;
 mod udtf;
 mod utils;
 mod nearest;
+mod count_overlaps;
 mod overlap;
 
 use std::string::ToString;

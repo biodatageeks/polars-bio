@@ -2,7 +2,7 @@ use exon::ExonSession;
 use crate::option::FilterOp;
 
 
-async fn do_count_overlaps_coverage_naive(
+pub(crate) async fn do_count_overlaps_coverage_naive(
     ctx: &ExonSession,
     left_table: String,
     right_table: String,

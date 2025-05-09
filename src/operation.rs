@@ -12,6 +12,7 @@ use crate::query::count_overlaps_query;
 use crate::udtf::CountOverlapsProvider;
 use crate::nearest::do_nearest;
 use crate::overlap::do_overlap;
+use crate::count_overlaps::do_count_overlaps_coverage_naive;
 
 pub(crate) struct QueryParams {
     pub sign: String,
