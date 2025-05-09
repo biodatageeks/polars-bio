@@ -88,12 +88,6 @@ pub(crate) fn do_range_operation(
                 range_options.columns_2,
             ))
         },
-        RangeOp::CountOverlaps => rt.block_on(do_count_overlaps(
-            ctx,
-            range_options,
-            left_table,
-            right_table,
-        )),
         RangeOp::CountOverlapsNaive => rt.block_on(do_count_overlaps_coverage_naive(
             ctx,
             range_options,
@@ -113,62 +107,6 @@ pub(crate) fn do_range_operation(
     }
 }
 
-async fn do_count_overlaps(
-    ctx: &ExonSession,
-    range_opts: RangeOptions,
-    left_table: String,
-    right_table: String,
-) -> datafusion::dataframe::DataFrame {
-    let query = prepare_query(
-        count_overlaps_query,
-        range_opts,
-        ctx,
-        left_table,
-        right_table,
-    )
-    .await
-    .to_string();
-    debug!("Query: {}", query);
-    ctx.sql(&query).await.unwrap()
-}
-
-async fn do_count_overlaps_coverage_naive(
-    ctx: &ExonSession,
-    range_opts: RangeOptions,
-    left_table: String,
-    right_table: String,
-    coverage: bool,
-) -> datafusion::dataframe::DataFrame {
-    let columns_1 = range_opts.columns_1;
-    let columns_2 = range_opts.columns_2;
-    let session = &ctx.session;
-    let right_table_ref = TableReference::from(right_table.clone());
-    let right_schema = session
-        .table(right_table_ref.clone())
-        .await
-        .unwrap()
-        .schema()
-        .as_arrow()
-        .clone();
-    let count_overlaps_provider = CountOverlapsProvider::new(
-        Arc::new(session.clone()),
-        left_table,
-        right_table,
-        right_schema,
-        columns_1,
-        columns_2,
-        range_opts.filter_op,
-        coverage,
-    );
-    let table_name = "count_overlaps_coverage".to_string();
-    session.deregister_table(table_name.clone()).unwrap();
-    session
-        .register_table(table_name.clone(), Arc::new(count_overlaps_provider))
-        .unwrap();
-    let query = format!("SELECT * FROM {}", table_name);
-    debug!("Query: {}", query);
-    ctx.sql(&query).await.unwrap()
-}
 
 pub(crate) async fn get_non_join_columns(
     table_name: String,
@@ -199,38 +137,4 @@ pub(crate) fn format_non_join_tables(
         .map(|c| format!("{}.{} as {}{}", table_alias, c, c, suffix))
         .collect::<Vec<String>>()
         .join(", ")
-}
-
-pub(crate) async fn prepare_query(
-    query: fn(QueryParams) -> String,
-    range_opts: RangeOptions,
-    ctx: &ExonSession,
-    left_table: String,
-    right_table: String,
-) -> String {
-    let sign = match range_opts.filter_op {
-        FilterOp::Weak => "=".to_string(),
-        _ => "".to_string(),
-    };
-    let suffixes = range_opts.suffixes;
-    let columns_1 = range_opts.columns_1;
-    let columns_2 = range_opts.columns_2;
-
-    let left_table_columns =
-        get_non_join_columns(left_table.to_string(), columns_1.clone(), ctx).await;
-    let right_table_columns =
-        get_non_join_columns(right_table.to_string(), columns_2.clone(), ctx).await;
-
-    let query_params = QueryParams {
-        sign,
-        suffixes,
-        columns_1,
-        columns_2,
-        other_columns_1: left_table_columns,
-        other_columns_2: right_table_columns,
-        left_table,
-        right_table,
-    };
-
-    query(query_params)
 }
