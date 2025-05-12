@@ -14,12 +14,16 @@ use std::sync::{Arc, Mutex};
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
 use datafusion::datasource::MemTable;
+use datafusion::prelude::{SessionConfig, SessionContext};
 use datafusion_python::dataframe::PyDataFrame;
 use datafusion_vcf::storage::VcfReader;
 use log::{debug, error, info};
 use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
 use polars_python::error::PyPolarsErr;
 use polars_python::lazyframe::PyLazyFrame;
+// use polars::error::PolarsError;
+use polars_core::utils::Container;
+use polars::prelude::*;
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
 
@@ -407,44 +411,69 @@ fn py_from_polars(
 
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path_or_table, read_options=None, limit=None))]
+#[pyo3(signature = (py_ctx, df_path_or_table, read_options=None, limit=None, target_partitions=None))]
 fn py_base_quality(
     py_ctx: &PyBioSessionContext,
     df_path_or_table: String,
     read_options: Option<ReadOptions>,
     limit: Option<usize>,
+    target_partitions: Option<usize>,
 ) -> PyResult<PyDataFrame> {
-    let rt = Runtime::new()?;
-    let ctx = &py_ctx.ctx;
+    // Set up DataFusion config with optional parallelism
+    let mut config = SessionConfig::new();
+    if let Some(tp) = target_partitions {
+        config = config.with_target_partitions(tp);
+    }
+    py_ctx.ctx.session = SessionContext::new_with_config(config);
 
-    // Resolve the input to a DataFusion DataFrame (either from a path or table name)
-    let table = maybe_register_table(
+    let rt = Runtime::new()?;
+
+    // Register table with configured context
+    let table_name = "base_quality_table".to_string();
+
+    let _ = maybe_register_table(
         df_path_or_table,
-        &"base_quality_table".to_string(), // temp name
+        &table_name,
         read_options,
-        ctx,
-        &rt,
+        &py_ctx.ctx,
+        &rt,           // Pass the runtime
     );
 
-    // Collect Arrow RecordBatches from the DataFusion DataFrame
-    let record_batches = rt
-        .block_on(table)
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Error collecting RecordBatches: {}", e)))?;
+    // Resolve the input to a DataFusion DataFrame
+    let ctx = &py_ctx.ctx.session;
+    let df = rt.block_on(ctx.table(&*table_name))?; // Dereference to &str
 
-    // Run base quality analysis on each batch and merge
-    let combined_df = record_batches
+    // Process batches
+    let record_batches = rt.block_on(df.collect())?;
+
+    // Process batches and merge results
+    let mut combined_df: Vec<_> = record_batches
         .iter()
         .map(|rb| compute_base_quality(rb))
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(format!("Base quality error: {}", e)))?
+        .collect();
+
+    // Vertically concatenate all DataFrames
+    let mut final_df = combined_df
         .into_iter()
         .reduce(|mut a, b| {
-            a.vstack_mut(&b).unwrap();
+            a.vstack(&b).expect("Failed to concatenate DataFrames");
             a
         })
-        .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyValueError, _>("No data to process"))?;
+        .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("No data to process"))?;
 
-    Ok(PyDataFrame::from(combined_df))
+    // Convert Polars DataFrame to Arrow RecordBatch
+    final_df.as_single_chunk_par(); // Ensure single chunk
+    let record_batch = final_df
+        .n_chunks()
+        .first()
+        .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("No data available"))?
+        .clone();
+
+    // Create DataFusion DataFrame from RecordBatch
+    let df = ctx.read_batch(record_batch)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+    Ok(PyDataFrame::new(df))
 }
 
 

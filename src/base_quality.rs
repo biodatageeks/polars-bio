@@ -29,13 +29,13 @@ fn compute_quartiles(sorted: &mut [i32]) -> (f64, f64, f64, f64, f64) {
     )
 }
 
-pub fn compute_base_quality(rb: &RecordBatch) -> Result<DataFrame, PolarsError> {
+pub fn compute_base_quality(rb: &RecordBatch) -> DataFrame {
     let qual_array = rb
         .column_by_name("qual")
-        .ok_or_else(|| PolarsError::ComputeError("Missing 'qual' column".into()))?
+        .expect("QUAL column not found")
         .as_any()
         .downcast_ref::<StringArray>()
-        .ok_or_else(|| PolarsError::SchemaMismatch("Expected 'qual' to be StringArray".into()))?;
+        .expect("QUAL column is not a StringArray");
 
     let mut pos_quality_map: HashMap<usize, Vec<i32>> = HashMap::new();
 
@@ -92,7 +92,7 @@ pub fn compute_base_quality(rb: &RecordBatch) -> Result<DataFrame, PolarsError> 
         Series::new("min".into(), mins).into(),
         Series::new("max".into(), maxs).into(),
         Series::new("warning_status".into(), warning_status).into(),
-    ])?;
+    ]);
 
-    Ok(df)
+    df.expect("REASON")
 }
