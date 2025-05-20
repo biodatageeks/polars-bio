@@ -4,6 +4,7 @@ use datafusion::catalog_common::TableReference;
 use exon::ExonSession;
 use log::{debug, info};
 use sequila_core::session_context::{Algorithm, SequilaConfig};
+use serde_json::json;
 use tokio::runtime::Runtime;
 
 use crate::context::set_option_internal;
@@ -189,6 +190,138 @@ async fn do_count_overlaps_coverage_naive(
     let query = format!("SELECT * FROM {}", table_name);
     debug!("Query: {}", query);
     ctx.sql(&query).await.unwrap()
+}
+
+pub(crate) async fn do_base_sequence_quality(
+    ctx: &ExonSession,
+    table: String,
+) -> serde_json::Value {
+    let query = format!("SELECT quality_scores FROM {}", table);
+    debug!("Query: {}", query);
+    let batches = ctx.sql(&query).await.unwrap().collect().await.unwrap();
+
+    let mut base_quality_count: std::collections::HashMap<usize, Vec<usize>> =
+        std::collections::HashMap::new();
+
+    use std::any::type_name_of_val;
+
+    for batch in batches {
+        let col_idx = batch
+            .schema()
+            .fields()
+            .iter()
+            .position(|f| f.name() == "quality_scores")
+            .expect("Column 'quality_scores' not found");
+        let array = batch.column(col_idx);
+        for i in 0..array.len() {
+            if array.is_null(i) {
+                continue;
+            }
+            let quality_str = if let Some(string_array) =
+                array.as_any().downcast_ref::<arrow_array::StringArray>()
+            {
+                string_array.value(i)
+            } else if let Some(large_string_array) = array
+                .as_any()
+                .downcast_ref::<arrow_array::LargeStringArray>()
+            {
+                large_string_array.value(i)
+            } else if let Some(generic_string_array_i64) = array
+                .as_any()
+                .downcast_ref::<arrow_array::GenericStringArray<i64>>(
+            ) {
+                generic_string_array_i64.value(i)
+            } else if let Some(generic_string_array_i32) = array
+                .as_any()
+                .downcast_ref::<arrow_array::GenericStringArray<i32>>(
+            ) {
+                generic_string_array_i32.value(i)
+            } else if let Some(string_view_array) = array
+                .as_any()
+                .downcast_ref::<arrow_array::StringViewArray>()
+            {
+                string_view_array.value(i)
+            } else {
+                panic!(
+                    "Column 'quality_scores' has unsupported array type: {:?} (concrete Rust type: {})",
+                    array.data_type(),
+                    type_name_of_val(array)
+                );
+            };
+
+            for (pos, qchar) in quality_str.chars().enumerate() {
+                let qscore = qchar as usize - 33;
+                let rec = base_quality_count
+                    .entry(pos)
+                    .or_insert_with(|| vec![0_usize; 94]);
+                if qscore < 94 {
+                    rec[qscore] += 1;
+                }
+            }
+        }
+    }
+
+    fn quartiles(counts: &[usize]) -> Vec<f32> {
+        let mut expanded = Vec::new();
+        for (q, &c) in counts.iter().enumerate() {
+            for _ in 0..c {
+                expanded.push(q as f32 + 33.0);
+            }
+        }
+        if expanded.is_empty() {
+            return vec![0.0; 5];
+        }
+        expanded.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let n = expanded.len();
+        let q = |p: f32| {
+            let idx = (p * (n - 1) as f32).round() as usize;
+            expanded[idx]
+        };
+        vec![
+            q(0.0),  // min
+            q(0.25), // Q1
+            q(0.5),  // median
+            q(0.75), // Q3
+            q(1.0),  // max
+        ]
+    }
+
+    let mut base_quality_warn = "pass";
+    let mut base_per_pos_data = Vec::new();
+    for (position, qualities) in base_quality_count.iter() {
+        let (sum, len) = qualities
+            .iter()
+            .enumerate()
+            .fold((0_usize, 0_usize), |(s, l), (q, c)| {
+                (s + (q + 33) * c, l + c)
+            });
+        let avg = if len > 0 {
+            sum as f64 / len as f64
+        } else {
+            0.0
+        };
+        let values = quartiles(qualities);
+        let median = values[2];
+        if median <= 20.0 {
+            base_quality_warn = "fail";
+        } else if median <= 25.0 && base_quality_warn != "fail" {
+            base_quality_warn = "warn";
+        }
+        base_per_pos_data.push(json!({
+            "pos": position,
+            "average": avg,
+            "upper": values[4],
+            "lower": values[0],
+            "q1": values[1],
+            "q3": values[3],
+            "median": values[2],
+        }));
+    }
+
+    json!({
+        "base_quality_warn": base_quality_warn,
+        "base_per_pos_data": base_per_pos_data
+    })
 }
 
 async fn get_non_join_columns(

@@ -16,6 +16,7 @@ use datafusion::datasource::MemTable;
 use datafusion_python::dataframe::PyDataFrame;
 use datafusion_vcf::storage::VcfReader;
 use log::{debug, error, info};
+use operation::do_base_sequence_quality;
 use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
 use polars_python::error::PyPolarsErr;
 use polars_python::lazyframe::PyLazyFrame;
@@ -30,6 +31,9 @@ use crate::option::{
 use crate::scan::{maybe_register_table, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
 use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
+
+use pyo3::types::PyString;
+use serde_json::Value;
 
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
@@ -403,6 +407,36 @@ fn py_from_polars(
     })
 }
 
+#[pyfunction]
+#[pyo3(signature = (py_ctx, path))]
+fn my_scan(py: Python<'_>, py_ctx: &PyBioSessionContext, path: String) -> PyResult<PyObject> {
+    let rt = Runtime::new()?;
+    let ctx = &py_ctx.ctx;
+    let _table = maybe_register_table(path, &LEFT_TABLE.to_string(), None, ctx, &rt);
+    let result: Value = rt.block_on(do_base_sequence_quality(ctx, LEFT_TABLE.to_string()));
+
+    let json_str = serde_json::to_string(&result).unwrap();
+    let py_str = PyString::new_bound(py, &json_str);
+    Ok(py_str.into_py(py))
+}
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, df))]
+fn my_frame(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    df: PyArrowType<ArrowArrayStreamReader>,
+) -> PyResult<PyObject> {
+    let rt = Runtime::new().unwrap();
+    let ctx = &py_ctx.ctx;
+    register_frame(py_ctx, df, LEFT_TABLE.to_string());
+    let result: Value = rt.block_on(do_base_sequence_quality(ctx, LEFT_TABLE.to_string()));
+
+    let json_str = serde_json::to_string(&result).unwrap();
+    let py_str = PyString::new_bound(py, &json_str);
+    Ok(py_str.into_py(py))
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -417,6 +451,8 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
+    m.add_function(wrap_pyfunction!(my_frame, m)?)?;
+    m.add_function(wrap_pyfunction!(my_scan, m)?)?;
     // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
