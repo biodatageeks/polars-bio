@@ -6,6 +6,7 @@ mod scan;
 mod streaming;
 mod udtf;
 mod utils;
+mod base_quality;
 
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
@@ -13,12 +14,16 @@ use std::sync::{Arc, Mutex};
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
 use datafusion::datasource::MemTable;
+use datafusion::prelude::{SessionConfig, SessionContext};
 use datafusion_python::dataframe::PyDataFrame;
 use datafusion_vcf::storage::VcfReader;
 use log::{debug, error, info};
 use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
 use polars_python::error::PyPolarsErr;
 use polars_python::lazyframe::PyLazyFrame;
+// use polars::error::PolarsError;
+use polars_core::utils::Container;
+use polars::prelude::*;
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
 
@@ -30,6 +35,7 @@ use crate::option::{
 use crate::scan::{maybe_register_table, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
 use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
+use crate::base_quality::compute_base_quality;
 
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
@@ -403,6 +409,74 @@ fn py_from_polars(
     })
 }
 
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, df_path_or_table, read_options=None, limit=None, target_partitions=None))]
+fn py_base_quality(
+    py_ctx: &PyBioSessionContext,
+    df_path_or_table: String,
+    read_options: Option<ReadOptions>,
+    limit: Option<usize>,
+    target_partitions: Option<usize>,
+) -> PyResult<PyDataFrame> {
+    // Set up DataFusion config with optional parallelism
+    let mut config = SessionConfig::new();
+    if let Some(tp) = target_partitions {
+        config = config.with_target_partitions(tp);
+    }
+    py_ctx.ctx.session = SessionContext::new_with_config(config);
+
+    let rt = Runtime::new()?;
+
+    // Register table with configured context
+    let table_name = "base_quality_table".to_string();
+
+    let _ = maybe_register_table(
+        df_path_or_table,
+        &table_name,
+        read_options,
+        &py_ctx.ctx,
+        &rt,           // Pass the runtime
+    );
+
+    // Resolve the input to a DataFusion DataFrame
+    let ctx = &py_ctx.ctx.session;
+    let df = rt.block_on(ctx.table(&*table_name))?; // Dereference to &str
+
+    // Process batches
+    let record_batches = rt.block_on(df.collect())?;
+
+    // Process batches and merge results
+    let mut combined_df: Vec<_> = record_batches
+        .iter()
+        .map(|rb| compute_base_quality(rb))
+        .collect();
+
+    // Vertically concatenate all DataFrames
+    let mut final_df = combined_df
+        .into_iter()
+        .reduce(|mut a, b| {
+            a.vstack(&b).expect("Failed to concatenate DataFrames");
+            a
+        })
+        .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("No data to process"))?;
+
+    // Convert Polars DataFrame to Arrow RecordBatch
+    final_df.as_single_chunk_par(); // Ensure single chunk
+    let record_batch = final_df
+        .n_chunks()
+        .first()
+        .ok_or_else(|| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>("No data available"))?
+        .clone();
+
+    // Create DataFusion DataFrame from RecordBatch
+    let df = ctx.read_batch(record_batch)
+        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+
+    Ok(PyDataFrame::new(df))
+}
+
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -417,6 +491,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
+    m.add_function(wrap_pyfunction!(py_base_quality, m)?)?;
     // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
