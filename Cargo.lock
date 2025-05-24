@@ -5423,6 +5423,7 @@ dependencies = [
  "pyo3",
  "pyo3-log",
  "rand",
+ "rayon",
  "sequila-core",
  "tokio",
  "tracing",

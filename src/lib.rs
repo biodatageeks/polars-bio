@@ -6,9 +6,12 @@ mod scan;
 mod streaming;
 mod udtf;
 mod utils;
+mod fastq;
 
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
+
+use pyo3::types::PyModule;
 
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
@@ -403,9 +406,21 @@ fn py_from_polars(
     })
 }
 
+#[pyfunction]
+#[pyo3(signature = (path, partitions))]
+fn compute_quality_stats(py: Python, path: String, partitions: usize) -> PyResult<PyObject> {
+    let df = fastq::process_fastq(&path, partitions)?;
+
+    let pandas = PyModule::import_bound(py, "pandas")?;
+    let df_dict = df.to_py_dict(py);
+    let py_df = pandas.getattr("DataFrame")?.call((df_dict,), None)?;
+    Ok(py_df.to_object(py))
+}
+
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
-    pyo3_log::init();
+    //pyo3_log::init();
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
     m.add_function(wrap_pyfunction!(stream_range_operation_scan, m)?)?;
@@ -417,6 +432,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_quality_stats, m)?)?;
     // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
