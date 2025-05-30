@@ -5424,7 +5424,6 @@ dependencies = [
  "pyo3-log",
  "rand",
  "sequila-core",
- "serde_json",
  "tokio",
  "tracing",
 ]
