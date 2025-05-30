@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use arrow_array::{Array, StructArray};
 use datafusion::catalog_common::TableReference;
 use exon::ExonSession;
 use log::{debug, info};
@@ -189,6 +190,37 @@ async fn do_count_overlaps_coverage_naive(
     let query = format!("SELECT * FROM {}", table_name);
     debug!("Query: {}", query);
     ctx.sql(&query).await.unwrap()
+}
+
+pub(crate) async fn do_base_sequence_quality(
+    ctx: &ExonSession,
+    table: &String,
+) -> Option<StructArray> {
+    let query = format!(
+        "SELECT base_sequence_quality(quality_scores) as result FROM {}",
+        table
+    );
+    debug!("Query: {}", query);
+    let batches = ctx.sql(&query).await.unwrap().collect().await.unwrap();
+
+    if let Some(batch) = batches.get(0) {
+        let col_idx = batch
+            .schema()
+            .fields()
+            .iter()
+            .position(|f| f.name() == "result")
+            .expect("Column 'result' not found");
+        let array = batch.column(col_idx);
+
+        if array.len() > 0 && !array.is_null(0) {
+            if let Some(struct_array) = array.as_any().downcast_ref::<StructArray>() {
+                return Some(struct_array.clone());
+            } else {
+                panic!("Unsupported result type: {:?}", array.data_type());
+            }
+        }
+    }
+    None
 }
 
 async fn get_non_join_columns(

@@ -1,12 +1,17 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
+use datafusion::arrow::datatypes::DataType;
 use datafusion::config::ConfigOptions;
+use datafusion::logical_expr::{create_udaf, AggregateUDF, Volatility};
 use datafusion::prelude::SessionConfig;
 use exon::config::ExonConfigExtension;
 use exon::ExonSession;
 use log::debug;
 use pyo3::{pyclass, pymethods, PyResult};
 use sequila_core::session_context::SequilaConfig;
+
+use crate::udaf::{base_quality_result_type, QualityScoresStats};
 
 #[pyclass(name = "BioSessionContext")]
 // #[derive(Clone)]
@@ -25,7 +30,7 @@ impl PyBioSessionContext {
     pub fn new(seed: String, catalog_dir: String) -> PyResult<Self> {
         let ctx = create_context().unwrap();
         let session_config: HashMap<String, String> = HashMap::new();
-
+        ctx.session.register_udaf(make_base_sequence_quality_udaf());
         Ok(PyBioSessionContext {
             ctx,
             session_config,
@@ -86,4 +91,15 @@ fn create_context() -> exon::Result<ExonSession> {
         .with_information_schema(true);
 
     ExonSession::with_config_exon(config)
+}
+
+pub fn make_base_sequence_quality_udaf() -> AggregateUDF {
+    create_udaf(
+        "base_sequence_quality", // nazwa funkcji w SQL
+        vec![DataType::Utf8],    // typ wejściowy
+        Arc::new(base_quality_result_type()),
+        Volatility::Immutable,
+        Arc::new(|_| Ok(Box::new(QualityScoresStats::new()))),
+        Arc::new(vec![]),
+    )
 }
