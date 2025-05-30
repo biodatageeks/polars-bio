@@ -4,12 +4,14 @@ mod option;
 mod query;
 mod scan;
 mod streaming;
+mod udaf;
 mod udtf;
 mod utils;
 
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
 
+use arrow::array::*;
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
 use datafusion::datasource::MemTable;
@@ -21,6 +23,8 @@ use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
 use polars_python::error::PyPolarsErr;
 use polars_python::lazyframe::PyLazyFrame;
 use pyo3::prelude::*;
+use pyo3::types::{PyDict, PyList};
+use scan::deregister_table;
 use tokio::runtime::Runtime;
 
 use crate::context::PyBioSessionContext;
@@ -32,11 +36,9 @@ use crate::scan::{maybe_register_table, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
 use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
 
-use pyo3::types::PyString;
-use serde_json::Value;
-
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
+const DEFAULT_TABLE_NAME: &str = "unnamed_table";
 const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
 
 #[pyfunction]
@@ -407,34 +409,128 @@ fn py_from_polars(
     })
 }
 
+fn struct_array_to_pydict(py: Python<'_>, struct_array: &StructArray) -> PyResult<PyObject> {
+    let warn_array = struct_array
+        .column_by_name("base_quality_warn")
+        .and_then(|a| a.as_any().downcast_ref::<StringArray>())
+        .unwrap();
+
+    let base_per_pos_array = struct_array
+        .column_by_name("base_per_pos_data")
+        .and_then(|a| a.as_any().downcast_ref::<ListArray>())
+        .unwrap();
+
+    let struct_array = base_per_pos_array
+        .values()
+        .as_any()
+        .downcast_ref::<StructArray>()
+        .unwrap();
+
+    let mut base_per_pos_data = Vec::new();
+    for i in 0..base_per_pos_array.value_length(0) {
+        let mut row = std::collections::HashMap::new();
+
+        let pos = struct_array
+            .column_by_name("pos")
+            .and_then(|a| a.as_any().downcast_ref::<Int64Array>())
+            .unwrap()
+            .value(i as usize);
+        let average = struct_array
+            .column_by_name("average")
+            .and_then(|a| a.as_any().downcast_ref::<Float64Array>())
+            .unwrap()
+            .value(i as usize);
+        let median = struct_array
+            .column_by_name("median")
+            .and_then(|a| a.as_any().downcast_ref::<Float64Array>())
+            .unwrap()
+            .value(i as usize);
+        let q1 = struct_array
+            .column_by_name("q1")
+            .and_then(|a| a.as_any().downcast_ref::<Float64Array>())
+            .unwrap()
+            .value(i as usize);
+        let q3 = struct_array
+            .column_by_name("q3")
+            .and_then(|a| a.as_any().downcast_ref::<Float64Array>())
+            .unwrap()
+            .value(i as usize);
+        let lower = struct_array
+            .column_by_name("lower")
+            .and_then(|a| a.as_any().downcast_ref::<Float64Array>())
+            .unwrap()
+            .value(i as usize);
+        let upper = struct_array
+            .column_by_name("upper")
+            .and_then(|a| a.as_any().downcast_ref::<Float64Array>())
+            .unwrap()
+            .value(i as usize);
+
+        row.insert("pos", pos.into_py(py));
+        row.insert("average", average.into_py(py));
+        row.insert("median", median.into_py(py));
+        row.insert("q1", q1.into_py(py));
+        row.insert("q3", q3.into_py(py));
+        row.insert("lower", lower.into_py(py));
+        row.insert("upper", upper.into_py(py));
+
+        base_per_pos_data.push(row.into_py(py).to_object(py));
+    }
+
+    let result_dict = PyDict::new_bound(py);
+    result_dict.set_item("base_quality_warn", warn_array.value(0))?;
+    result_dict.set_item(
+        "base_per_pos_data",
+        PyList::new_bound(py, base_per_pos_data),
+    )?;
+
+    Ok(result_dict.to_object(py))
+}
+
+fn handle_base_sequence_quality<'a, F>(
+    py: Python<'a>,
+    py_ctx: &PyBioSessionContext,
+    table_name: &str,
+    register_fn: F,
+) -> PyResult<PyObject>
+where
+    F: FnOnce(&PyBioSessionContext, &str, &Runtime),
+{
+    let ctx = &py_ctx.ctx;
+    let rt = Runtime::new().unwrap();
+    register_fn(py_ctx, table_name, &rt);
+    let result_opt = rt.block_on(do_base_sequence_quality(ctx, &table_name.to_string()));
+    deregister_table(ctx, table_name);
+    if let Some(struct_array) = result_opt {
+        struct_array_to_pydict(py, &struct_array)
+    } else {
+        Ok(py.None())
+    }
+}
+
 #[pyfunction]
 #[pyo3(signature = (py_ctx, path))]
-fn my_scan(py: Python<'_>, py_ctx: &PyBioSessionContext, path: String) -> PyResult<PyObject> {
-    let rt = Runtime::new()?;
-    let ctx = &py_ctx.ctx;
-    let _table = maybe_register_table(path, &LEFT_TABLE.to_string(), None, ctx, &rt);
-    let result: Value = rt.block_on(do_base_sequence_quality(ctx, LEFT_TABLE.to_string()));
-
-    let json_str = serde_json::to_string(&result).unwrap();
-    let py_str = PyString::new_bound(py, &json_str);
-    Ok(py_str.into_py(py))
+fn base_sequance_quality_scan(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    path: String,
+) -> PyResult<PyObject> {
+    handle_base_sequence_quality(py, py_ctx, DEFAULT_TABLE_NAME, |py_ctx, table_name, rt| {
+        let ctx = &py_ctx.ctx;
+        maybe_register_table(path, &table_name.to_string(), None, ctx, rt);
+    })
 }
 
 #[pyfunction]
 #[pyo3(signature = (py_ctx, df))]
-fn my_frame(
+fn base_sequance_quality_frame(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
     df: PyArrowType<ArrowArrayStreamReader>,
 ) -> PyResult<PyObject> {
-    let rt = Runtime::new().unwrap();
-    let ctx = &py_ctx.ctx;
-    register_frame(py_ctx, df, LEFT_TABLE.to_string());
-    let result: Value = rt.block_on(do_base_sequence_quality(ctx, LEFT_TABLE.to_string()));
-
-    let json_str = serde_json::to_string(&result).unwrap();
-    let py_str = PyString::new_bound(py, &json_str);
-    Ok(py_str.into_py(py))
+    handle_base_sequence_quality(py, py_ctx, DEFAULT_TABLE_NAME, |py_ctx, table_name, _rt| {
+        register_frame(py_ctx, df, table_name.to_string());
+    })
 }
 
 #[pymodule]
@@ -451,9 +547,8 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
-    m.add_function(wrap_pyfunction!(my_frame, m)?)?;
-    m.add_function(wrap_pyfunction!(my_scan, m)?)?;
-    // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
+    m.add_function(wrap_pyfunction!(base_sequance_quality_frame, m)?)?;
+    m.add_function(wrap_pyfunction!(base_sequance_quality_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;
