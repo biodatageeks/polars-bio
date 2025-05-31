@@ -13,8 +13,9 @@ use std::sync::{Arc, Mutex};
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
 use datafusion::datasource::MemTable;
+use datafusion_bio_format_core::object_storage::ObjectStorageOptions;
+use datafusion_bio_format_vcf::storage::VcfReader;
 use datafusion_python::dataframe::PyDataFrame;
-use datafusion_vcf::storage::VcfReader;
 use log::{debug, error, info};
 use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
 use polars_python::error::PyPolarsErr;
@@ -25,7 +26,8 @@ use tokio::runtime::Runtime;
 use crate::context::PyBioSessionContext;
 use crate::operation::do_range_operation;
 use crate::option::{
-    BioTable, FilterOp, InputFormat, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
+    pyobject_storage_options_to_object_storage_options, BioTable, FilterOp, InputFormat,
+    PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
 };
 use crate::scan::{maybe_register_table, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
@@ -349,18 +351,27 @@ fn py_read_table(
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, path))]
+#[pyo3(signature = (py_ctx, path, object_storage_options=None))]
 fn py_describe_vcf(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
     path: String,
+    object_storage_options: Option<PyObjectStorageOptions>,
 ) -> PyResult<PyDataFrame> {
     py.allow_threads(|| {
         let rt = Runtime::new().unwrap();
         let ctx = &py_ctx.ctx.session;
+        let object_storage_options =
+            pyobject_storage_options_to_object_storage_options(object_storage_options);
+        // Set a default chunk size of 8MB if not provided and concurrent fetches to 1 to speed up header retrieval
+        let desc_object_storage_options = ObjectStorageOptions {
+            chunk_size: Some(8),
+            concurrent_fetches: Some(1),
+            ..object_storage_options.unwrap()
+        };
 
         let df = rt.block_on(async {
-            let mut reader = VcfReader::new(path, None, Some(8), Some(1)).await;
+            let mut reader = VcfReader::new(path, None, Some(desc_object_storage_options)).await;
             let rb = reader.describe().await.unwrap();
             let mem_table = MemTable::try_new(rb.schema().clone(), vec![vec![rb]]).unwrap();
             let random_table_name = format!("vcf_schema_{}", rand::random::<u32>());
@@ -425,5 +436,6 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<InputFormat>()?;
     m.add_class::<ReadOptions>()?;
     m.add_class::<VcfReadOptions>()?;
+    m.add_class::<PyObjectStorageOptions>()?;
     Ok(())
 }

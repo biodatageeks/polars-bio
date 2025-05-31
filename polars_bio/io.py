@@ -8,6 +8,7 @@ from tqdm.auto import tqdm
 
 from polars_bio.polars_bio import (
     InputFormat,
+    PyObjectStorageOptions,
     ReadOptions,
     VcfReadOptions,
     py_describe_vcf,
@@ -66,6 +67,8 @@ def read_vcf(
     thread_num: int = 1,
     chunk_size: int = 8,
     concurrent_fetches: int = 1,
+    allow_anonymous: bool = False,
+    enable_request_payer=False,
     streaming: bool = False,
 ) -> Union[pl.LazyFrame, pl.DataFrame]:
     """
@@ -77,16 +80,24 @@ def read_vcf(
         thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
         chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
         concurrent_fetches: The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+        allow_anonymous: Whether to allow anonymous access to object storage.
+        enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
         streaming: Whether to read the VCF file in streaming mode.
 
     !!! note
         VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
     """
+    object_storage_options = PyObjectStorageOptions(
+        allow_anonymous=allow_anonymous,
+        enable_request_payer=enable_request_payer,
+        chunk_size=chunk_size,
+        concurrent_fetches=concurrent_fetches,
+    )
+
     vcf_read_options = VcfReadOptions(
         info_fields=_cleanse_infos(info_fields),
         thread_num=thread_num,
-        chunk_size=chunk_size,
-        concurrent_fetches=concurrent_fetches,
+        object_storage_options=object_storage_options,
     )
     read_options = ReadOptions(vcf_read_options=vcf_read_options)
     if streaming:
@@ -251,6 +262,8 @@ def register_vcf(
     thread_num: int = 1,
     chunk_size: int = 64,
     concurrent_fetches: int = 8,
+    allow_anonymous: bool = False,
+    enable_request_payer=False,
 ) -> None:
     """
     Register a VCF file as a Datafusion table.
@@ -262,7 +275,8 @@ def register_vcf(
         thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
         chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
         concurrent_fetches: The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
-
+        allow_anonymous: Whether to allow anonymous access to object storage.
+        enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
     !!! note
         VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
 
@@ -278,11 +292,17 @@ def register_vcf(
         `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the VCF file. As a rule of thumb for large scale operations (reading a whole VCF), it is recommended to the default values.
     """
 
+    object_storage_options = PyObjectStorageOptions(
+        allow_anonymous=allow_anonymous,
+        enable_request_payer=enable_request_payer,
+        chunk_size=chunk_size,
+        concurrent_fetches=concurrent_fetches,
+    )
+
     vcf_read_options = VcfReadOptions(
         info_fields=_cleanse_infos(info_fields),
         thread_num=thread_num,
-        chunk_size=chunk_size,
-        concurrent_fetches=concurrent_fetches,
+        object_storage_options=object_storage_options,
     )
     read_options = ReadOptions(vcf_read_options=vcf_read_options)
     py_register_table(ctx, path, name, InputFormat.Vcf, read_options)

@@ -42,10 +42,12 @@ def range_operation_scan_wrapper(
     read_options2: Union[ReadOptions, None] = None,
     limit: Union[int, None] = None,
 ) -> datafusion.DataFrame:
+
     if range_options.range_op != RangeOp.CountOverlaps:
         return range_operation_scan(
             ctx, df1, df2, range_options, read_options1, read_options2, limit
         )
+    # TODO: Legacy implementation, remove in future
     py_ctx = datafusion.SessionContext()
     register_file(py_ctx, df1, LEFT_TABLE)
     register_file(py_ctx, df2, RIGHT_TABLE)

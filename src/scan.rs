@@ -7,7 +7,7 @@ use arrow::pyarrow::PyArrowType;
 use datafusion::dataframe::DataFrameWriteOptions;
 use datafusion::datasource::MemTable;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions};
-use datafusion_vcf::table_provider::VcfTableProvider;
+use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
 use exon::ExonSession;
 use tokio::runtime::Runtime;
 use tracing::debug;
@@ -102,8 +102,7 @@ pub(crate) async fn register_table(
                 vcf_read_options.info_fields,
                 vcf_read_options.format_fields,
                 vcf_read_options.thread_num,
-                vcf_read_options.chunk_size,
-                vcf_read_options.concurrent_fetches,
+                vcf_read_options.object_storage_options.clone(),
             )
             .unwrap();
             ctx.session
