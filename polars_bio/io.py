@@ -227,18 +227,22 @@ def read_table(path: str, schema: Dict = None, **kwargs) -> pl.LazyFrame:
     return df
 
 
-def describe_vcf(path: str) -> pl.DataFrame:
+def describe_vcf(
+    path: str, allow_anonymous: bool = False, enable_request_payer: bool = False
+) -> pl.DataFrame:
     """
     Describe VCF INFO schema.
 
     Parameters:
         path: The path to the VCF file.
+        allow_anonymous: Whether to allow anonymous access to object storage.
+        enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
 
     !!! Example
         ```python
         import polars_bio as pb
         vcf_1 = "gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz"
-        pb.describe_vcf(vcf_1).sort("name").limit(5)
+        pb.describe_vcf(vcf_1, allow_anonymous=True).sort("name").limit(5)
         ```
 
         ```shell
@@ -258,7 +262,15 @@ def describe_vcf(path: str) -> pl.DataFrame:
 
         ```
     """
-    return py_describe_vcf(ctx, path).to_polars()
+    object_storage_options = PyObjectStorageOptions(
+        allow_anonymous=allow_anonymous,
+        enable_request_payer=enable_request_payer,
+        chunk_size=8,
+        concurrent_fetches=1,
+        max_retries=1,
+        timeout=10,
+    )
+    return py_describe_vcf(ctx, path, object_storage_options).to_polars()
 
 
 def register_vcf(

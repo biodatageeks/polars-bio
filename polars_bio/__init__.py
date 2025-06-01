@@ -1,4 +1,6 @@
-from polars_bio.polars_bio import InputFormat, ReadOptions, VcfReadOptions
+from polars_bio.polars_bio import InputFormat
+from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
+from polars_bio.polars_bio import ReadOptions, VcfReadOptions
 
 from .context import ctx, set_option
 from .io import (
@@ -44,5 +46,6 @@ __all__ = [
     "LazyFrame",
     "ReadOptions",
     "VcfReadOptions",
+    "ObjectStorageOptions",
     "set_option",
 ]
