@@ -69,6 +69,8 @@ def read_vcf(
     concurrent_fetches: int = 1,
     allow_anonymous: bool = False,
     enable_request_payer=False,
+    max_retries: int = 5,
+    timeout: int = 300,
     streaming: bool = False,
 ) -> Union[pl.LazyFrame, pl.DataFrame]:
     """
@@ -82,6 +84,8 @@ def read_vcf(
         concurrent_fetches: The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
         allow_anonymous: Whether to allow anonymous access to object storage.
         enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+        max_retries:  The maximum number of retries for reading the file from object storage.
+        timeout: The timeout in seconds for reading the file from object storage.
         streaming: Whether to read the VCF file in streaming mode.
 
     !!! note
@@ -92,6 +96,8 @@ def read_vcf(
         enable_request_payer=enable_request_payer,
         chunk_size=chunk_size,
         concurrent_fetches=concurrent_fetches,
+        max_retries=max_retries,
+        timeout=timeout,
     )
 
     vcf_read_options = VcfReadOptions(
@@ -263,6 +269,8 @@ def register_vcf(
     chunk_size: int = 64,
     concurrent_fetches: int = 8,
     allow_anonymous: bool = False,
+    max_retries: int = 5,
+    timeout: int = 300,
     enable_request_payer=False,
 ) -> None:
     """
@@ -277,6 +285,8 @@ def register_vcf(
         concurrent_fetches: The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
         allow_anonymous: Whether to allow anonymous access to object storage.
         enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+        max_retries:  The maximum number of retries for reading the file from object storage.
+        timeout: The timeout in seconds for reading the file from object storage.
     !!! note
         VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
 
@@ -297,6 +307,8 @@ def register_vcf(
         enable_request_payer=enable_request_payer,
         chunk_size=chunk_size,
         concurrent_fetches=concurrent_fetches,
+        max_retries=max_retries,
+        timeout=timeout,
     )
 
     vcf_read_options = VcfReadOptions(

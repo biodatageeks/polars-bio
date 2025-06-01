@@ -9,6 +9,7 @@ use datafusion::datasource::MemTable;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions};
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
 use exon::ExonSession;
+use log::info;
 use tokio::runtime::Runtime;
 use tracing::debug;
 
@@ -97,6 +98,10 @@ pub(crate) async fn register_table(
                 },
                 _ => VcfReadOptions::default(),
             };
+            info!(
+                "Registering VCF table {} with options: {:?}",
+                table_name, vcf_read_options
+            );
             let table_provider = VcfTableProvider::new(
                 path.to_string(),
                 vcf_read_options.info_fields,

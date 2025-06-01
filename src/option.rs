@@ -161,23 +161,31 @@ pub struct PyObjectStorageOptions {
     pub allow_anonymous: bool,
     #[pyo3(get, set)]
     pub enable_request_payer: bool,
+    #[pyo3(get, set)]
+    pub max_retries: Option<usize>,
+    #[pyo3(get, set)]
+    pub timeout: Option<usize>,
 }
 
 #[pymethods]
 impl PyObjectStorageOptions {
     #[new]
-    #[pyo3(signature = (allow_anonymous, enable_request_payer, chunk_size=None, concurrent_fetches=None))]
+    #[pyo3(signature = (allow_anonymous, enable_request_payer, chunk_size=None, concurrent_fetches=None, max_retries=None, timeout=None))]
     pub fn new(
         allow_anonymous: bool,
         enable_request_payer: bool,
         chunk_size: Option<usize>,
         concurrent_fetches: Option<usize>,
+        max_retries: Option<usize>,
+        timeout: Option<usize>,
     ) -> Self {
         PyObjectStorageOptions {
-            chunk_size,
-            concurrent_fetches,
             allow_anonymous,
             enable_request_payer,
+            chunk_size,
+            concurrent_fetches,
+            max_retries,
+            timeout,
         }
     }
 }
@@ -190,6 +198,8 @@ pub fn pyobject_storage_options_to_object_storage_options(
         concurrent_fetches: opts.concurrent_fetches,
         allow_anonymous: opts.allow_anonymous,
         enable_request_payer: opts.enable_request_payer,
+        max_retries: opts.max_retries,
+        timeout: opts.timeout,
     })
 }
 
@@ -235,6 +245,8 @@ impl VcfReadOptions {
                 concurrent_fetches: Some(4),
                 allow_anonymous: false,
                 enable_request_payer: false,
+                max_retries: Some(5),
+                timeout: Some(300), // 300 seconds
             }),
         }
     }

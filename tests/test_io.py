@@ -20,7 +20,11 @@ class TestIOBAM:
 class TestIOVCFInfo:
     vcf_big = "gs://gcp-public-data--gnomad/release/2.1.1/liftover_grch38/vcf/genomes/gnomad.genomes.r2.1.1.sites.liftover_grch38.vcf.bgz"
     vcf_infos_mixed_cases = (
-        pb.read_vcf(vcf_big, info_fields=["AF", "vep"], thread_num=1).limit(1).collect()
+        pb.read_vcf(
+            vcf_big, info_fields=["AF", "vep"], thread_num=1, allow_anonymous=True
+        )
+        .limit(1)
+        .collect()
     )
 
     def test_count(self):
@@ -30,14 +34,24 @@ class TestIOVCFInfo:
 class TestVCFViewsOperations:
     def test_view(self):
         vcf_big = "gs://gcp-public-data--gnomad/release/2.1.1/liftover_grch38/vcf/genomes/gnomad.genomes.r2.1.1.sites.liftover_grch38.vcf.bgz"
-        pb.register_vcf(vcf_big, "gnomad_big", info_fields=["AF", "vep"], thread_num=1)
+        pb.register_vcf(
+            vcf_big,
+            "gnomad_big",
+            info_fields=["AF", "vep"],
+            thread_num=1,
+            allow_anonymous=True,
+        )
         pb.register_view(
             "v_gnomad_big",
             "SELECT chrom, start, end, split_part(vep, '|', 3) AS impact from gnomad_big where array_element(af,1)=0 and split_part(vep, '|', 3) in ('HIGH', 'MODERATE') limit 10",
         )
         vcf_sv = "gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz"
         pb.register_vcf(
-            vcf_sv, "gnomad_sv", thread_num=1, info_fields=["SVTYPE", "SVLEN"]
+            vcf_sv,
+            "gnomad_sv",
+            thread_num=1,
+            info_fields=["SVTYPE", "SVLEN"],
+            allow_anonymous=True,
         )
         pb.register_view(
             "v_gnomad_sv", "SELECT chrom, start, end FROM gnomad_sv limit 100"
@@ -52,14 +66,16 @@ class TestIOVCF:
     df_none = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf").collect()
     df_gcs_bgz = (
         pb.read_vcf(
-            "gs://gcp-public-data--gnomad/release/4.1/vcf/exomes/gnomad.exomes.v4.1.sites.chr21.vcf.bgz"
+            "gs://gcp-public-data--gnomad/release/4.1/vcf/exomes/gnomad.exomes.v4.1.sites.chr21.vcf.bgz",
+            allow_anonymous=True,
         )
         .limit(3)
         .collect()
     )
     df_gcs_none = (
         pb.read_vcf(
-            "gs://genomics-public-data/platinum-genomes/vcf/NA12878_S1.genome.vcf"
+            "gs://genomics-public-data/platinum-genomes/vcf/NA12878_S1.genome.vcf",
+            allow_anonymous=True,
         )
         .limit(5)
         .collect()
