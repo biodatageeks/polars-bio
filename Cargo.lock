@@ -1798,6 +1798,7 @@ dependencies = [
  "opendal",
  "tokio",
  "tokio-util",
+ "url",
 ]
 
 [[package]]
@@ -4647,6 +4648,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
  "uuid",
 ]

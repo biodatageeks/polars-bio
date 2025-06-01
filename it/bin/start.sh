@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
-source bin/env.sh
+set -a
+source bin/.env
+
+#################### S3 Setup
+
 docker-compose -f docker-compose.yml up -d
+sleep 5
 
 ### Set alias
 docker exec -it minio mc alias set local http://host.docker.internal:9000 test_user test_secret
@@ -27,3 +32,30 @@ docker exec -it minio mc admin policy create local polarsbio-readonly /test_data
 docker exec -it minio mc admin policy attach local polarsbio-readonly --user=$AWS_ACCESS_KEY_ID
 
 docker exec -it minio mc anonymous set-json /test_data/policy-anonymous.json local/polarsbiopublic
+
+
+########### Azure blob storage
+docker run -p 10000:10000 --name azurite -d  mcr.microsoft.com/azure-storage/azurite
+
+az storage container create \
+  --name polarsbio \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --connection-string "DefaultEndpointsProtocol=http;AccountName=$AZURE_STORAGE_ACCOUNT;AccountKey=$AZURE_STORAGE_KEY;BlobEndpoint=$AZURE_ENDPOINT_URL;"
+
+
+az storage blob upload \
+  --container-name polarsbio \
+  --name vep.vcf.bgz\
+  --file data/vep.vcf.bgz \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --overwrite \
+  --connection-string "DefaultEndpointsProtocol=http;AccountName=$AZURE_STORAGE_ACCOUNT;AccountKey=$AZURE_STORAGE_KEY;BlobEndpoint=$AZURE_ENDPOINT_URL;"
+
+az storage blob list \
+  --container-name polarsbio \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --connection-string "DefaultEndpointsProtocol=http;AccountName=$AZURE_STORAGE_ACCOUNT;AccountKey=$AZURE_STORAGE_KEY;BlobEndpoint=$AZURE_ENDPOINT_URL;" \
+  --output table

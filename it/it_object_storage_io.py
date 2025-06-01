@@ -5,7 +5,19 @@ import pytest
 import polars_bio as pb
 
 
-class TestIOVCFInfo:
+class TestIOVCFAZBLOB:
+    vcf_big = "http://127.0.0.1:10000/devstoreaccount1/polarsbio/vep.vcf.bgz"
+    vcf_infos_mixed_cases = (
+        pb.read_vcf(vcf_big, info_fields=[], thread_num=1, allow_anonymous=False)
+        .limit(1)
+        .collect()
+    )
+
+    def test_count(self):
+        assert len(self.vcf_infos_mixed_cases) == 1
+
+
+class TestIOVCFS3:
     vcf_priv = "s3://polarsbio/vep.vcf.bgz"
     vcf_pub = "s3://polarsbiopublic/vep.vcf.bgz"
     vcf_aws_pub = "s3://gnomad-public-us-east-1/release/4.1/vcf/exomes/gnomad.exomes.v4.1.sites.chr21.vcf.bgz"
@@ -54,7 +66,7 @@ class TestIOVCFInfo:
         assert len(vcf_infos_mixed_cases) == 1
 
 
-class TestIOVCFInfo:
+class TestIOVCFGCS:
     vcf_big = "gs://gcp-public-data--gnomad/release/2.1.1/liftover_grch38/vcf/genomes/gnomad.genomes.r2.1.1.sites.liftover_grch38.vcf.bgz"
     vcf_infos_mixed_cases = (
         pb.read_vcf(
@@ -98,7 +110,7 @@ class TestVCFViewsOperations:
         assert len(pb.overlap("v_gnomad_sv", "v_gnomad_big").collect()) == 43
 
 
-class TestIOVCF:
+class TestIOVCFGCSStream:
     df_gcs_bgz = (
         pb.read_vcf(
             "gs://gcp-public-data--gnomad/release/4.1/vcf/exomes/gnomad.exomes.v4.1.sites.chr21.vcf.bgz",
