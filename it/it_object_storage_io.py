@@ -131,3 +131,29 @@ class TestIOVCFGCSStream:
     def test_count(self):
         assert len(self.df_gcs_bgz) == 3
         assert len(self.df_gcs_none) == 5
+
+
+class TestIOVCFAuth:
+
+    def test_count_auth(self):
+        df_gcs_auth = (
+            pb.read_vcf(
+                "gs://polars-bio-it/vep.vcf.bgz", allow_anonymous=True, max_retries=1
+            )
+            .limit(1)
+            .collect()
+        )
+        assert len(df_gcs_auth) == 1
+
+    @pytest.mark.xfail(strict=True)
+    def test_count_anonymous(self):
+        os.unsetenv("GOOGLE_APPLICATION_CREDENTIALS")
+        df_gcs_anonymous = (
+            pb.read_vcf(
+                "gs://polars-bio-it/vep.vcf.bgz", allow_anonymous=True, max_retries=1
+            )
+            .limit(1)
+            .collect()
+        )
+
+        assert len(df_gcs_anonymous) == 1

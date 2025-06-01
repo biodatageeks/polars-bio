@@ -1,7 +1,7 @@
 ## Prerequisites
 * azure CLI
 * Docker
-
+For GCP authentication testing you need to have
 ### Start the environment
 ```bash
 source bin/start.sh
