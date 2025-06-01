@@ -68,7 +68,7 @@ def read_vcf(
     chunk_size: int = 8,
     concurrent_fetches: int = 1,
     allow_anonymous: bool = False,
-    enable_request_payer=False,
+    enable_request_payer: bool = False,
     max_retries: int = 5,
     timeout: int = 300,
     streaming: bool = False,
@@ -271,7 +271,7 @@ def register_vcf(
     allow_anonymous: bool = False,
     max_retries: int = 5,
     timeout: int = 300,
-    enable_request_payer=False,
+    enable_request_payer: bool = False,
 ) -> None:
     """
     Register a VCF file as a Datafusion table.
