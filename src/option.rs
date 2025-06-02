@@ -1,6 +1,6 @@
 use std::fmt;
 
-use datafusion_bio_format_core::object_storage::ObjectStorageOptions;
+use datafusion_bio_format_core::object_storage::{CompressionType, ObjectStorageOptions};
 use pyo3::{pyclass, pymethods};
 
 #[pyclass(name = "RangeOptions")]
@@ -165,15 +165,18 @@ pub struct PyObjectStorageOptions {
     pub max_retries: Option<usize>,
     #[pyo3(get, set)]
     pub timeout: Option<usize>,
+    #[pyo3(get, set)]
+    pub compression_type: String,
 }
 
 #[pymethods]
 impl PyObjectStorageOptions {
     #[new]
-    #[pyo3(signature = (allow_anonymous, enable_request_payer, chunk_size=None, concurrent_fetches=None, max_retries=None, timeout=None))]
+    #[pyo3(signature = (allow_anonymous, enable_request_payer, compression_type, chunk_size=None, concurrent_fetches=None, max_retries=None, timeout=None, ))]
     pub fn new(
         allow_anonymous: bool,
         enable_request_payer: bool,
+        compression_type: String,
         chunk_size: Option<usize>,
         concurrent_fetches: Option<usize>,
         max_retries: Option<usize>,
@@ -182,6 +185,7 @@ impl PyObjectStorageOptions {
         PyObjectStorageOptions {
             allow_anonymous,
             enable_request_payer,
+            compression_type,
             chunk_size,
             concurrent_fetches,
             max_retries,
@@ -200,6 +204,7 @@ pub fn pyobject_storage_options_to_object_storage_options(
         enable_request_payer: opts.enable_request_payer,
         max_retries: opts.max_retries,
         timeout: opts.timeout,
+        compression_type: Some(CompressionType::from_string(opts.compression_type)),
     })
 }
 
@@ -247,6 +252,7 @@ impl VcfReadOptions {
                 enable_request_payer: false,
                 max_retries: Some(5),
                 timeout: Some(300), // 300 seconds
+                compression_type: Some(CompressionType::AUTO),
             }),
         }
     }

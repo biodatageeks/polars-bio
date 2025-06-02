@@ -71,6 +71,7 @@ def read_vcf(
     enable_request_payer: bool = False,
     max_retries: int = 5,
     timeout: int = 300,
+    compression_type: str = "auto",
     streaming: bool = False,
 ) -> Union[pl.LazyFrame, pl.DataFrame]:
     """
@@ -86,6 +87,7 @@ def read_vcf(
         enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
         max_retries:  The maximum number of retries for reading the file from object storage.
         timeout: The timeout in seconds for reading the file from object storage.
+        compression_type: The compression type of the VCF file. If not specified, it will be detected automatically. For presigned URLs, you need to specify the compression type explicitly, e.g. `compression="bgz"`.
         streaming: Whether to read the VCF file in streaming mode.
 
     !!! note
@@ -98,6 +100,7 @@ def read_vcf(
         concurrent_fetches=concurrent_fetches,
         max_retries=max_retries,
         timeout=timeout,
+        compression_type=compression_type,
     )
 
     vcf_read_options = VcfReadOptions(
@@ -228,15 +231,19 @@ def read_table(path: str, schema: Dict = None, **kwargs) -> pl.LazyFrame:
 
 
 def describe_vcf(
-    path: str, allow_anonymous: bool = False, enable_request_payer: bool = False
+    path: str,
+    allow_anonymous: bool = False,
+    enable_request_payer: bool = False,
+    compression_type: str = "auto",
 ) -> pl.DataFrame:
     """
     Describe VCF INFO schema.
 
     Parameters:
         path: The path to the VCF file.
-        allow_anonymous: Whether to allow anonymous access to object storage.
+        allow_anonymous: Whether to allow anonymous access to object storage (GCS and S3 supported).
         enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+        compression_type: The compression type of the VCF file. If not specified, it will be detected automatically. For presigned URLs, you need to specify the compression type explicitly, e.g. `compression="bgz"`.
 
     !!! Example
         ```python
@@ -269,6 +276,7 @@ def describe_vcf(
         concurrent_fetches=1,
         max_retries=1,
         timeout=10,
+        compression_type=compression_type,
     )
     return py_describe_vcf(ctx, path, object_storage_options).to_polars()
 
@@ -284,6 +292,7 @@ def register_vcf(
     max_retries: int = 5,
     timeout: int = 300,
     enable_request_payer: bool = False,
+    compression_type: str = "auto",
 ) -> None:
     """
     Register a VCF file as a Datafusion table.
@@ -297,6 +306,7 @@ def register_vcf(
         concurrent_fetches: The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
         allow_anonymous: Whether to allow anonymous access to object storage.
         enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+        compression_type: The compression type of the VCF file. If not specified, it will be detected automatically. For presigned URLs, you need to specify the compression type explicitly, e.g. `compression="bgz"`.
         max_retries:  The maximum number of retries for reading the file from object storage.
         timeout: The timeout in seconds for reading the file from object storage.
     !!! note
@@ -321,6 +331,7 @@ def register_vcf(
         concurrent_fetches=concurrent_fetches,
         max_retries=max_retries,
         timeout=timeout,
+        compression_type=compression_type,
     )
 
     vcf_read_options = VcfReadOptions(
