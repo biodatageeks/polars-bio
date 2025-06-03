@@ -110,6 +110,9 @@ pb.overlap("gnomad_sv", "gnomad_big", streaming=True).sink_parquet("/tmp/overlap
 ```
 It is  especially useful when combined with [SQL](features.md#sql-powered-data-processing) support for preprocessing and [streaming](features.md#streaming) processing capabilities.
 
+!!! tip
+    If you access cloud storage with authentication provided, please make sure the `allow_anonymous` parameter is set to `False` in the read/describe/register_table functions.
+
 ### Supported features
 
 | Feature              | AWS S3             | Google Cloud Storage | Azure Blob Storage |
