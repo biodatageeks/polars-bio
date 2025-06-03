@@ -82,13 +82,12 @@ def read_vcf(
         info_fields: The fields to read from the INFO column.
         thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
         chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-        concurrent_fetches: The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
-        allow_anonymous: Whether to allow anonymous access to object storage.
-        enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+        concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+        allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+        enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
         max_retries:  The maximum number of retries for reading the file from object storage.
         timeout: The timeout in seconds for reading the file from object storage.
-        compression_type: The compression type of the VCF file. If not specified, it will be detected automatically. For presigned URLs, you need to specify the compression type explicitly, e.g. `compression="bgz"`.
-        streaming: Whether to read the VCF file in streaming mode.
+        compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension.  Other supported compression types are `bgz`, `gz`.        streaming: Whether to read the VCF file in streaming mode.
 
     !!! note
         VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -243,7 +242,7 @@ def describe_vcf(
         path: The path to the VCF file.
         allow_anonymous: Whether to allow anonymous access to object storage (GCS and S3 supported).
         enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
-        compression_type: The compression type of the VCF file. If not specified, it will be detected automatically. For presigned URLs, you need to specify the compression type explicitly, e.g. `compression="bgz"`.
+        compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension.  Other supported compression types are `bgz`, `gz`.
 
     !!! Example
         ```python
@@ -303,10 +302,10 @@ def register_vcf(
         info_fields: The fields to read from the INFO column.
         thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
         chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
-        concurrent_fetches: The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
-        allow_anonymous: Whether to allow anonymous access to object storage.
-        enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
-        compression_type: The compression type of the VCF file. If not specified, it will be detected automatically. For presigned URLs, you need to specify the compression type explicitly, e.g. `compression="bgz"`.
+        concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+        allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+        enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+        compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension.  Other supported compression types are `bgz`, `gz`.
         max_retries:  The maximum number of retries for reading the file from object storage.
         timeout: The timeout in seconds for reading the file from object storage.
     !!! note

@@ -56,7 +56,7 @@ def overlap(
             genomic intervals, provided separately for each set.
         suffixes: Suffixes for the columns of the two overlapped sets.
         on_cols: List of additional column names to join on. default is None.
-        algorithm: The algorithm to use for the overlap operation.
+        algorithm: The algorithm to use for the overlap operation. Available options: Coitrees, IntervalTree, ArrayIntervalTree, Lapper
         output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
         streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming) engine.
         read_options1: Additional options for reading the input files.

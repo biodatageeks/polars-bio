@@ -1,6 +1,6 @@
 import logging
 
 logging.basicConfig()
-logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.WARN)
 logger = logging.getLogger("polars_bio")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
