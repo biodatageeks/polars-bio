@@ -17,11 +17,10 @@ from polars_bio.polars_bio import (
     ReadOptions,
     py_read_table,
     py_register_table,
-    stream_range_operation_scan,
     range_operation_frame,
     range_operation_scan,
+    stream_range_operation_scan,
 )
-
 
 
 def range_lazy_scan(
@@ -145,6 +144,7 @@ def _get_column_index(table, column_name):
         return table.schema.names.index(column_name)
     except ValueError:
         raise KeyError(f"Column '{column_name}' not found in the table.")
+
 
 def _df_to_reader(
     df: Union[pl.DataFrame, pd.DataFrame, pl.LazyFrame],

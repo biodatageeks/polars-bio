@@ -10,7 +10,12 @@ from polars_bio.polars_bio import ReadOptions
 
 from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import ctx
-from .interval_op_helpers import convert_result, get_py_ctx, prevent_column_collision, read_df_to_datafusion
+from .interval_op_helpers import (
+    convert_result,
+    get_py_ctx,
+    prevent_column_collision,
+    read_df_to_datafusion,
+)
 from .range_op_helpers import _validate_overlap_input, range_operation
 
 __all__ = ["overlap", "nearest", "count_overlaps", "merge"]
@@ -449,7 +454,7 @@ def merge(
     df_schema = df.schema()
     start_type = df_schema.field(start).type
     end_type = df_schema.field(end).type
-    
+
     curr_cols = set(df_schema.names)
     start_end = prevent_column_collision("start_end", curr_cols)
     is_start_end = prevent_column_collision("is_start_or_end", curr_cols)

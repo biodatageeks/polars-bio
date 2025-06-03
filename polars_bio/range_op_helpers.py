@@ -9,9 +9,9 @@ from polars_bio.polars_bio import (
     RangeOp,
     RangeOptions,
     ReadOptions,
-    stream_range_operation_scan,
     range_operation_frame,
     range_operation_scan,
+    stream_range_operation_scan,
 )
 
 from .constants import TMP_CATALOG_DIR

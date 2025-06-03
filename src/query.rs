@@ -159,4 +159,3 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
     );
     query
 }
-

@@ -9,6 +9,7 @@ from typing_extensions import Union
 from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import Context
 
+
 def prevent_column_collision(
     new_col: str,
     current_cols: set[str],
@@ -21,6 +22,7 @@ def prevent_column_collision(
         i += 1
     current_cols.add(new_col + str(i))
     return new_col + str(i)
+
 
 def get_py_ctx() -> datafusion.context.SessionContext:
     return datafusion.context.SessionContext(Context().config)
