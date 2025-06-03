@@ -67,7 +67,7 @@ def read_vcf(
     thread_num: int = 1,
     chunk_size: int = 8,
     concurrent_fetches: int = 1,
-    allow_anonymous: bool = False,
+    allow_anonymous: bool = True,
     enable_request_payer: bool = False,
     max_retries: int = 5,
     timeout: int = 300,
@@ -232,7 +232,7 @@ def read_table(path: str, schema: Dict = None, **kwargs) -> pl.LazyFrame:
 
 def describe_vcf(
     path: str,
-    allow_anonymous: bool = False,
+    allow_anonymous: bool = True,
     enable_request_payer: bool = False,
     compression_type: str = "auto",
 ) -> pl.DataFrame:
@@ -288,7 +288,7 @@ def register_vcf(
     thread_num: int = 1,
     chunk_size: int = 64,
     concurrent_fetches: int = 8,
-    allow_anonymous: bool = False,
+    allow_anonymous: bool = True,
     max_retries: int = 5,
     timeout: int = 300,
     enable_request_payer: bool = False,
