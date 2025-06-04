@@ -156,7 +156,3 @@ pub(crate) fn maybe_register_table(
     }
     .to_string()
 }
-
-pub(crate) fn deregister_table(ctx: &ExonSession, table_name: &str) {
-    let _ = ctx.session.deregister_table(table_name);
-}

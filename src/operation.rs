@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use arrow_array::{Array, StructArray};
 use datafusion::catalog_common::TableReference;
 use exon::ExonSession;
 use log::{debug, info};
 use sequila_core::session_context::{Algorithm, SequilaConfig};
 use tokio::runtime::Runtime;
 
+use crate::base_sequence_quality::BaseSequenceQualityProvider;
 use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions};
 use crate::query::{count_overlaps_query, nearest_query, overlap_query};
@@ -194,33 +194,20 @@ async fn do_count_overlaps_coverage_naive(
 
 pub(crate) async fn do_base_sequence_quality(
     ctx: &ExonSession,
-    table: &String,
-) -> Option<StructArray> {
-    let query = format!(
-        "SELECT base_sequence_quality(quality_scores) as result FROM {}",
-        table
-    );
+    table: String,
+    column: String,
+) -> datafusion::dataframe::DataFrame {
+    let session = &ctx.session;
+    let provider =
+        BaseSequenceQualityProvider::new(Arc::new(session.clone()), table.clone(), column.clone());
+    let table_name = format!("{}_base_sequence_quality", table);
+    ctx.session.deregister_table(table_name.clone()).ok();
+    ctx.session
+        .register_table(table_name.clone(), Arc::new(provider))
+        .unwrap();
+    let query = format!("SELECT * FROM {}", table_name);
     debug!("Query: {}", query);
-    let batches = ctx.sql(&query).await.unwrap().collect().await.unwrap();
-
-    if let Some(batch) = batches.get(0) {
-        let col_idx = batch
-            .schema()
-            .fields()
-            .iter()
-            .position(|f| f.name() == "result")
-            .expect("Column 'result' not found");
-        let array = batch.column(col_idx);
-
-        if array.len() > 0 && !array.is_null(0) {
-            if let Some(struct_array) = array.as_any().downcast_ref::<StructArray>() {
-                return Some(struct_array.clone());
-            } else {
-                panic!("Unsupported result type: {:?}", array.data_type());
-            }
-        }
-    }
-    None
+    ctx.sql(&query).await.unwrap()
 }
 
 async fn get_non_join_columns(

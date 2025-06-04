@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Union
+import datafusion
 import polars as pl
 import pandas as pd
 import pyarrow as pa
@@ -10,19 +11,42 @@ from polars_bio.polars_bio import (
 )
 
 
-def base_sequence_quality(df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame]):
+def base_sequence_quality(
+    df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+    quality_scores_column: str = "quality_scores",
+    output_type: str = "polars.DataFrame",
+) -> Union[pl.DataFrame, pd.DataFrame]:
+    """
+    Compute base sequence quality statistics from various dataframe/file types.
+
+    Args:
+        df: Input data as a file path or dataframe.
+        quality_scores_column: Name of the column with quality scores.
+        output_type: Output type, either "polars.DataFrame" or "pandas.DataFrame".
+
+    Returns:
+        DataFrame with base sequence quality statistics.
+    """
     if isinstance(df, str):
-        supported_exts = set([".parquet", ".csv", ".bed", ".vcf", ".fastq"])
+        supported_exts = {".parquet", ".csv", ".bed", ".vcf", ".fastq"}
         ext = set(Path(df).suffixes)
-        assert (
-            len(supported_exts.intersection(ext)) > 0 or len(ext) == 0
-        ), "Dataframe1 must be a Parquet, CSV, BED, VCF, or FASTQ file."
-        return base_sequance_quality_scan(ctx, df)
+        if not (supported_exts & ext or not ext):
+            raise ValueError("Input file must be a Parquet, CSV, BED, VCF, or FASTQ file.")
+        result: datafusion.DataFrame = base_sequance_quality_scan(ctx, df, quality_scores_column)
     else:
-        if isinstance(df, pl.DataFrame):
-            df = df.to_arrow().to_reader()
+        if isinstance(df, pl.LazyFrame):
+            arrow_table = df.collect().to_arrow()
+        elif isinstance(df, pl.DataFrame):
+            arrow_table = df.to_arrow()
         elif isinstance(df, pd.DataFrame):
-            df = pa.Table.from_pandas(df)
-        elif isinstance(df, pl.LazyFrame):
-            df = df.collect().to_arrow().to_reader()
-        return base_sequance_quality_frame(ctx, df)
+            arrow_table = pa.Table.from_pandas(df)
+        else:
+            raise TypeError("Unsupported dataframe type.")
+        result: datafusion.DataFrame = base_sequance_quality_frame(ctx, arrow_table, quality_scores_column)
+
+    if output_type == "polars.DataFrame":
+        return result.to_polars()
+    elif output_type == "pandas.DataFrame":
+        return result.to_pandas()
+    else:
+        raise ValueError("output_type must be 'polars.DataFrame' or 'pandas.DataFrame'")
