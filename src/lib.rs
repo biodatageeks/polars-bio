@@ -1,7 +1,8 @@
-mod base_sequence_quality;
+mod sequence_quality_histogram;
 mod context;
 mod operation;
 mod option;
+mod quantile_stats;
 mod query;
 mod scan;
 mod streaming;
@@ -406,28 +407,6 @@ fn py_from_polars(
     })
 }
 
-fn handle_base_sequence_quality<'a, F>(
-    _py: Python<'a>,
-    py_ctx: &PyBioSessionContext,
-    table_name: &str,
-    column: &str,
-    register_fn: F,
-) -> PyResult<PyDataFrame>
-where
-    F: FnOnce(&PyBioSessionContext, &str, &Runtime),
-{
-    let ctx = &py_ctx.ctx;
-    let rt = Runtime::new().unwrap();
-    register_fn(py_ctx, table_name, &rt);
-    let data_frame = rt.block_on(do_base_sequence_quality(
-        ctx,
-        table_name.to_string(),
-        column.to_string(),
-    ));
-    // deregister_table(ctx, table_name);
-    Ok(PyDataFrame::new(data_frame))
-}
-
 #[pyfunction]
 #[pyo3(signature = (py_ctx, path, column))]
 fn base_sequance_quality_scan(
@@ -436,16 +415,17 @@ fn base_sequance_quality_scan(
     path: String,
     column: String,
 ) -> PyResult<PyDataFrame> {
-    handle_base_sequence_quality(
-        py,
-        py_ctx,
-        DEFAULT_TABLE_NAME,
-        &column,
-        |py_ctx, table_name, rt| {
-            let ctx = &py_ctx.ctx;
-            maybe_register_table(path, &table_name.to_string(), None, ctx, rt);
-        },
-    )
+    py.allow_threads(|| {
+        let ctx = &py_ctx.ctx;
+        let rt = Runtime::new().unwrap();
+        maybe_register_table(path, &DEFAULT_TABLE_NAME.to_string(), None, ctx, &rt);
+        let data_frame = rt.block_on(do_base_sequence_quality(
+            ctx,
+            DEFAULT_TABLE_NAME.to_string(),
+            column.to_string(),
+        ));
+        Ok(PyDataFrame::new(data_frame))
+    })
 }
 
 #[pyfunction]
@@ -456,15 +436,17 @@ fn base_sequance_quality_frame(
     df: PyArrowType<ArrowArrayStreamReader>,
     column: String,
 ) -> PyResult<PyDataFrame> {
-    handle_base_sequence_quality(
-        py,
-        py_ctx,
-        DEFAULT_TABLE_NAME,
-        &column,
-        |py_ctx, table_name, _rt| {
-            register_frame(py_ctx, df, table_name.to_string());
-        },
-    )
+    py.allow_threads(|| {
+        let ctx = &py_ctx.ctx;
+        let rt = Runtime::new().unwrap();
+        register_frame(py_ctx, df, DEFAULT_TABLE_NAME.to_string());
+        let data_frame = rt.block_on(do_base_sequence_quality(
+            ctx,
+            DEFAULT_TABLE_NAME.to_string(),
+            column.to_string(),
+        ));
+        Ok(PyDataFrame::new(data_frame))
+    })
 }
 
 #[pymodule]

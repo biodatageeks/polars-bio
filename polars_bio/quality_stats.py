@@ -15,6 +15,7 @@ def base_sequence_quality(
     df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     quality_scores_column: str = "quality_scores",
     output_type: str = "polars.DataFrame",
+    target_partitions: int = 8,
 ) -> Union[pl.DataFrame, pd.DataFrame]:
     """
     Compute base sequence quality statistics from various dataframe/file types.
@@ -27,12 +28,20 @@ def base_sequence_quality(
     Returns:
         DataFrame with base sequence quality statistics.
     """
+    ctx.set_option(
+        "datafusion.execution.target_partitions", str(target_partitions), False
+    )
+
     if isinstance(df, str):
         supported_exts = {".parquet", ".csv", ".bed", ".vcf", ".fastq"}
         ext = set(Path(df).suffixes)
         if not (supported_exts & ext or not ext):
-            raise ValueError("Input file must be a Parquet, CSV, BED, VCF, or FASTQ file.")
-        result: datafusion.DataFrame = base_sequance_quality_scan(ctx, df, quality_scores_column)
+            raise ValueError(
+                "Input file must be a Parquet, CSV, BED, VCF, or FASTQ file."
+            )
+        result: datafusion.DataFrame = base_sequance_quality_scan(
+            ctx, df, quality_scores_column
+        )
     else:
         if isinstance(df, pl.LazyFrame):
             arrow_table = df.collect().to_arrow()
@@ -42,7 +51,9 @@ def base_sequence_quality(
             arrow_table = pa.Table.from_pandas(df)
         else:
             raise TypeError("Unsupported dataframe type.")
-        result: datafusion.DataFrame = base_sequance_quality_frame(ctx, arrow_table, quality_scores_column)
+        result: datafusion.DataFrame = base_sequance_quality_frame(
+            ctx, arrow_table, quality_scores_column
+        )
 
     if output_type == "polars.DataFrame":
         return result.to_polars()
