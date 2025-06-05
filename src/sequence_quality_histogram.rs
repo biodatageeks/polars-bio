@@ -20,7 +20,7 @@ use datafusion::physical_plan::{
 };
 use datafusion::prelude::{col, SessionContext};
 use futures::stream::BoxStream;
-use futures::{StreamExt, TryStreamExt};
+use futures::TryStreamExt;
 pub struct SequenceQualityHistogramProvider {
     session: Arc<SessionContext>,
     table_name: String,
@@ -171,7 +171,7 @@ async fn get_stream(
     partition: usize,
     context: Arc<TaskContext>,
     new_schema: SchemaRef,
-) -> Result<SendableRecordBatchStream> {
+) -> Result<SendableRecordBatchStream, DataFusionError> {
     let df = session
         .table(table_name.clone())
         .await?
@@ -182,12 +182,9 @@ async fn get_stream(
     let repartition_stream =
         RepartitionExec::try_new(plan, Partitioning::RoundRobinBatch(target_partitions))?;
 
-    let mut partition_stream = repartition_stream.execute(partition, context)?;
+    let partition_stream = repartition_stream.execute(partition, context)?;
 
-    let mut pos_map: HashMap<usize, Vec<u64>> = HashMap::new();
-
-    while let Some(batch_result) = partition_stream.next().await {
-        let batch = batch_result?;
+    let final_pos_map = partition_stream.try_fold(HashMap::new(), |mut pos_map, batch| async move {
         let col = batch.column(0); // tylko jedna kolumna
 
         let col = arrow::compute::cast(col, &DataType::Utf8)
@@ -198,27 +195,27 @@ async fn get_stream(
             .downcast_ref::<StringArray>()
             .ok_or_else(|| DataFusionError::Internal("Expected StringArray".into()))?;
 
-        for row in 0..col.len() {
-            if col.is_null(row) {
-                continue;
-            }
-            let s = col.value(row);
-            for (pos, byte) in s.bytes().enumerate() {
-                if let Some(score) = decode_score(byte as char) {
-                    let entry = pos_map.entry(pos).or_insert_with(|| vec![0u64; 94]);
-                    if (score as usize) < entry.len() {
-                        entry[score as usize] += 1;
+        col.iter().for_each(|s_opt| {
+            if let Some(s) = s_opt {
+                s.bytes().enumerate().for_each(|(pos, byte)| {
+                    if let Some(score) = decode_score(byte as char) {
+                        let entry = pos_map.entry(pos).or_insert_with(|| vec![0u64; 94]);
+                        if (score as usize) < entry.len() {
+                            entry[score as usize] += 1;
+                        }
                     }
-                }
+                });
             }
-        }
-    }
+        });
+
+        Ok(pos_map)
+    }).await?;
 
     let mut positions = Vec::new();
     let mut scores = Vec::new();
     let mut counts = Vec::new();
 
-    for (pos, counts_vec) in pos_map {
+    for (pos, counts_vec) in final_pos_map {
         for (score, &count) in counts_vec.iter().enumerate() {
             if count > 0 {
                 positions.push(pos as u64);
@@ -234,7 +231,7 @@ async fn get_stream(
         new_schema.clone(),
         vec![pos_array, score_array, count_array],
     )
-    .unwrap();
+    .map_err(|e| DataFusionError::Internal(format!("Error creating RecordBatch: {e}")))?;
 
     let iter = futures::stream::once(async move { Ok(new_batch) });
 
