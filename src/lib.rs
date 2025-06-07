@@ -6,7 +6,6 @@ mod scan;
 mod streaming;
 mod udtf;
 mod utils;
-mod fastq;
 
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
@@ -24,6 +23,7 @@ use polars_python::error::PyPolarsErr;
 use polars_python::lazyframe::PyLazyFrame;
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
+use operation::calc_base_sequence_quality;
 
 use crate::context::PyBioSessionContext;
 use crate::operation::do_range_operation;
@@ -37,6 +37,7 @@ use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
 const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
+const DEFAULT_TABLE_NAME: &str = "default_table_name";
 
 #[pyfunction]
 #[pyo3(signature = (py_ctx, df1, df2, range_options, limit=None))]
@@ -406,15 +407,67 @@ fn py_from_polars(
     })
 }
 
-#[pyfunction]
-#[pyo3(signature = (path, partitions))]
-fn compute_quality_stats(py: Python, path: String, partitions: usize) -> PyResult<PyObject> {
-    let df = fastq::process_fastq(&path, partitions)?;
 
-    let pandas = PyModule::import_bound(py, "pandas")?;
-    let df_dict = df.to_py_dict(py);
-    let py_df = pandas.getattr("DataFrame")?.call((df_dict,), None)?;
-    Ok(py_df.to_object(py))
+#[pyfunction]
+#[pyo3(signature = (py_ctx, path, column))]
+fn calc_base_sequance_quality_from_file(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    path: String,
+    column: String,
+) -> PyResult<PyDataFrame> {
+    py.allow_threads(|| {
+        let ctx = &py_ctx.ctx;
+        let rt = Runtime::new().unwrap();
+        maybe_register_table(
+            path,
+            &DEFAULT_TABLE_NAME.to_string(),
+            None,
+            ctx,
+            &rt
+        );
+        let df = rt
+            .block_on(calc_base_sequence_quality(
+                ctx,
+                DEFAULT_TABLE_NAME.to_string(),
+                column.to_string(),
+            ))
+            .map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    format!("DataFusion execution failed: {e}")
+                )
+            })?;
+
+        Ok(PyDataFrame::new(df))
+    })
+}
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, df, column))]
+fn calc_base_sequance_quality_from_frame(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    df: PyArrowType<ArrowArrayStreamReader>,
+    column: String,
+) -> PyResult<PyDataFrame> {
+    py.allow_threads(|| {
+        let ctx = &py_ctx.ctx;
+        let rt = Runtime::new().unwrap();
+        register_frame(py_ctx, df, DEFAULT_TABLE_NAME.to_string());
+        let df = rt
+            .block_on(calc_base_sequence_quality(
+                ctx,
+                DEFAULT_TABLE_NAME.to_string(),
+                column.to_string(),
+            ))
+            .map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    format!("DataFusion execution failed: {e}")
+                )
+            })?;
+
+        Ok(PyDataFrame::new(df))
+    })
 }
 
 
@@ -432,8 +485,9 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
-    m.add_function(wrap_pyfunction!(compute_quality_stats, m)?)?;
     // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
+    m.add_function(wrap_pyfunction!(calc_base_sequance_quality_from_file, m)?)?;
+    m.add_function(wrap_pyfunction!(calc_base_sequance_quality_from_frame, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;

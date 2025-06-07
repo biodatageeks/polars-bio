@@ -61,7 +61,10 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         InputFormat::Bed
     } else if path.ends_with(".vcf") || path.ends_with(".vcf.gz") || path.ends_with(".vcf.bgz") {
         InputFormat::Vcf
-    } else {
+    } else if path.ends_with(".fastq"){
+        InputFormat::Fastq
+    }   
+    else {
         panic!("Unsupported format")
     }
 }
