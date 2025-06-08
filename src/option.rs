@@ -137,14 +137,22 @@ impl fmt::Display for InputFormat {
 pub struct ReadOptions {
     #[pyo3(get, set)]
     pub vcf_read_options: Option<VcfReadOptions>,
+    #[pyo3(get, set)]
+    pub gff_read_options: Option<GffReadOptions>,
 }
 
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None))]
-    pub fn new(vcf_read_options: Option<VcfReadOptions>) -> Self {
-        ReadOptions { vcf_read_options }
+    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None))]
+    pub fn new(
+        vcf_read_options: Option<VcfReadOptions>,
+        gff_read_options: Option<GffReadOptions>,
+    ) -> Self {
+        ReadOptions {
+            vcf_read_options,
+            gff_read_options,
+        }
     }
 }
 
@@ -242,6 +250,46 @@ impl VcfReadOptions {
         VcfReadOptions {
             info_fields: None,
             format_fields: None,
+            thread_num: Some(1),
+            object_storage_options: Some(ObjectStorageOptions {
+                chunk_size: Some(1024 * 1024), // 1MB
+                concurrent_fetches: Some(4),
+                allow_anonymous: false,
+                enable_request_payer: false,
+                max_retries: Some(5),
+                timeout: Some(300), // 300 seconds
+                compression_type: Some(CompressionType::AUTO),
+            }),
+        }
+    }
+}
+
+#[pyclass(name = "GffReadOptions")]
+#[derive(Clone, Debug)]
+pub struct GffReadOptions {
+    #[pyo3(get, set)]
+    pub thread_num: Option<usize>,
+    pub object_storage_options: Option<ObjectStorageOptions>,
+}
+
+#[pymethods]
+impl GffReadOptions {
+    #[new]
+    #[pyo3(signature = (thread_num=None, object_storage_options=None))]
+    pub fn new(
+        thread_num: Option<usize>,
+        object_storage_options: Option<PyObjectStorageOptions>,
+    ) -> Self {
+        GffReadOptions {
+            thread_num,
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
+        }
+    }
+    #[staticmethod]
+    pub fn default() -> Self {
+        GffReadOptions {
             thread_num: Some(1),
             object_storage_options: Some(ObjectStorageOptions {
                 chunk_size: Some(1024 * 1024), // 1MB

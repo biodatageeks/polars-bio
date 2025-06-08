@@ -101,6 +101,7 @@ class TestVCFViewsOperations:
             thread_num=1,
             info_fields=["SVTYPE", "SVLEN"],
             allow_anonymous=True,
+            compression_type="bgz",  # override compression type - gz indicates that the file is gzipped, but it is actually bgzipped
         )
         pb.register_view(
             "v_gnomad_sv", "SELECT chrom, start, end FROM gnomad_sv limit 100"
