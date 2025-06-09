@@ -32,6 +32,7 @@ class Context:
         init_conf = {
             "datafusion.execution.target_partitions": "1",
             "datafusion.execution.parquet.schema_force_view_types": "true",
+            "datafusion.execution.skip_physical_aggregate_schema_check": "true",
         }
         for k, v in init_conf.items():
             self.ctx.set_option(k, v)
