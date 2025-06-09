@@ -135,6 +135,10 @@ class TestIOGFF:
         assert self.df_bgz["chrom"][0] == "chr1" and self.df_none["chrom"][0] == "chr1"
         assert self.df_bgz["start"][1] == 11869 and self.df_none["start"][1] == 11869
         assert self.df_bgz["type"][2] == "exon" and self.df_none["type"][2] == "exon"
+        assert self.df_bgz["attributes"][0][0] == {
+            "tag": "ID",
+            "value": "ENSG00000223972.5",
+        }
 
     def test_register_table(self):
         pb.register_gff(
