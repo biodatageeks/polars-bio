@@ -1,6 +1,3 @@
-
-## API structure
-
 There are 2 ways of using polars-bio API:
 
 * directly on a Polars LazyFrame under a registered `pb` [namespace](https://docs.pola.rs/api/python/stable/reference/api/polars.api.register_lazyframe_namespace.html#polars.api.register_lazyframe_namespace)

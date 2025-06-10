@@ -67,19 +67,6 @@ class TestIOBED:
         assert self.df["end"][2] == 8000
 
 
-class TestFastq:
-    df = pb.read_fastq(f"{DATA_DIR}/io/fastq/test.fastq").collect()
-
-    def test_count(self):
-        assert len(self.df) == 2
-
-    def test_fields(self):
-        sequences = self.df
-        assert sequences["name"][0] == "SEQ_ID_1"
-        assert sequences["quality_scores"][0] == "!''*((((***+))%%%++)(%%%%).1***-+*"
-        assert sequences["sequence"][1] == "AGTACACTGGT"
-
-
 class TestFasta:
     df = pb.read_fasta(f"{DATA_DIR}/io/fasta/test.fasta").collect()
 
@@ -119,6 +106,30 @@ class TestIOVCF:
             self.df_bgz["start"][1] == 26965148 and self.df_none["start"][1] == 26965148
         )
         assert self.df_bgz["ref"][0] == "G" and self.df_none["ref"][0] == "G"
+
+
+class TestFastq:
+    df_bgz = pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.bgz").collect()
+    df_gz = pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.gz").collect()
+    df_none = pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq").collect()
+
+    def test_count(self):
+        assert len(self.df_none) == 200
+        assert len(self.df_bgz) == 200
+        assert len(self.df_gz) == 200
+
+    def test_fields(self):
+        sequences = self.df_bgz
+        assert sequences["name"][1] == "SRR9130495.2"
+        assert (
+            sequences["quality_scores"][2]
+            == "@@@DDDFFHHHFHBHIIGJIJIIJIIIEHGIGIJJIIGGIIIJIIJIJIIIIIHIJJIIJJIGHGIJJIGGHC=#-#-5?EBEFFFDEEEFEAEDBCCCDC"
+        )
+        assert (
+            sequences["sequence"][3]
+            == "GGGAGGCGCCCCGACCGGCCAGGGCGTGAGCCCCAGCCCCAGCGCCATCCTGGAGCGGCGCGACGTGAAGCCAGATGAGGACCTGGCGGGCAAGGCTGGCG"
+        )
+        assert sequences["description"][4] == "D00236:723:HG32CBCX2:1:1108:1605:1988/1"
 
 
 class TestIOGFF:

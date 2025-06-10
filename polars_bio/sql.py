@@ -1,0 +1,263 @@
+from typing import Union
+
+import polars as pl
+
+from polars_bio.polars_bio import (
+    FastqReadOptions,
+    GffReadOptions,
+    InputFormat,
+    PyObjectStorageOptions,
+    ReadOptions,
+    VcfReadOptions,
+    py_describe_vcf,
+    py_from_polars,
+    py_read_sql,
+    py_read_table,
+    py_register_table,
+    py_register_view,
+    py_scan_sql,
+    py_scan_table,
+)
+
+from .context import ctx
+from .io import _cleanse_fields, lazy_scan
+from .range_op_helpers import stream_wrapper
+
+
+class SQL:
+    @staticmethod
+    def register_vcf(
+        path: str,
+        name: Union[str, None] = None,
+        info_fields: Union[list[str], None] = None,
+        thread_num: int = 1,
+        chunk_size: int = 64,
+        concurrent_fetches: int = 8,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+    ) -> None:
+        """
+        Register a VCF file as a Datafusion table.
+
+        Parameters:
+            path: The path to the VCF file.
+            name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
+            info_fields: The fields to read from the INFO column.
+            thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
+            chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+        !!! note
+            VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
+
+        !!! Example
+              ```python
+              import polars_bio as pb
+              pb.register_vcf("/tmp/gnomad.v4.1.sv.sites.vcf.gz")
+              ```
+             ```shell
+             INFO:polars_bio:Table: gnomad_v4_1_sv_sites_gz registered for path: /tmp/gnomad.v4.1.sv.sites.vcf.gz
+             ```
+        !!! tip
+            `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the VCF file. As a rule of thumb for large scale operations (reading a whole VCF), it is recommended to the default values.
+        """
+
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        vcf_read_options = VcfReadOptions(
+            info_fields=_cleanse_fields(info_fields),
+            thread_num=thread_num,
+            object_storage_options=object_storage_options,
+        )
+        read_options = ReadOptions(vcf_read_options=vcf_read_options)
+        py_register_table(ctx, path, name, InputFormat.Vcf, read_options)
+
+    @staticmethod
+    def register_gff(
+        path: str,
+        name: Union[str, None] = None,
+        attr_fields: Union[list[str], None] = None,
+        thread_num: int = 1,
+        chunk_size: int = 64,
+        concurrent_fetches: int = 8,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+    ) -> None:
+        """
+        Register a GFF file as a Datafusion table.
+
+        Parameters:
+            path: The path to the GFF file.
+            name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
+            attr_fields: The fields to unnest from the `attributes` column. If not specified, all fields swill be rendered as `attributes` column containing an array of structures `{'tag':'xxx', 'value':'yyy'}`.
+            thread_num: The number of threads to use for reading the GFF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
+            chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            compression_type: The compression type of the GFF file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compression is supported ('bgz' and 'gz').
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+        !!! note
+            GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
+
+        !!! Example
+              ```python
+              import polars_bio as pb
+              pb.register_gff("/tmp/gencode.v38.annotation.gff3.bgz")
+              ```
+             ```shell
+             INFO:polars_bio:Table: gencode_v38_annotation3_bgz registered for path: /tmp/gencode.v38.annotation.gff3.bgz
+             ```
+        !!! tip
+            `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the GFF file. As a rule of thumb for large scale operations (reading a whole GFF), it is recommended to the default values.
+        """
+
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        gff_read_options = GffReadOptions(
+            attr_fields=_cleanse_fields(attr_fields),
+            thread_num=thread_num,
+            object_storage_options=object_storage_options,
+        )
+        read_options = ReadOptions(gff_read_options=gff_read_options)
+        py_register_table(ctx, path, name, InputFormat.Gff, read_options)
+
+    @staticmethod
+    def register_fastq(
+        path: str,
+        name: Union[str, None] = None,
+        thread_num: int = 1,
+        chunk_size: int = 64,
+        concurrent_fetches: int = 8,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+    ) -> None:
+        """
+        Register a FASTQ file as a Datafusion table.
+
+        Parameters:
+            path: The path to the FASTQ file.
+            name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
+            thread_num: The number of threads to use for reading the GFF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
+            chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compression is supported ('bgz' and 'gz').
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+
+        !!! Example
+              ```python
+
+              ```
+             ```shell
+
+             ```
+        !!! tip
+            `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the GFF file. As a rule of thumb for large scale operations (reading a whole GFF), it is recommended to the default values.
+        """
+
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        fastq_read_options = FastqReadOptions(
+            thread_num=thread_num,
+            object_storage_options=object_storage_options,
+        )
+        read_options = ReadOptions(fastq_read_options=fastq_read_options)
+        py_register_table(ctx, path, name, InputFormat.Fastq, read_options)
+
+    @staticmethod
+    def register_view(name: str, query: str) -> None:
+        """
+        Register a query as a Datafusion view. This view can be used in genomic ranges operations,
+        such as overlap, nearest, and count_overlaps. It is useful for filtering, transforming, and aggregating data
+        prior to the range operation. When combined with the range operation, it can be used to perform complex in a streaming fashion end-to-end.
+
+        Parameters:
+            name: The name of the table.
+            query: The SQL query.
+
+        !!! Example
+              ```python
+              import polars_bio as pb
+              pb.register_vcf("gs://gcp-public-data--gnomad/release/4.1/vcf/exomes/gnomad.exomes.v4.1.sites.chr21.vcf.bgz", "gnomad_sv")
+              pb.register_view("v_gnomad_sv", "SELECT replace(chrom,'chr', '') AS chrom, start, end FROM gnomad_sv")
+              pb.sql("SELECT * FROM v_gnomad_sv").limit(5).collect()
+              ```
+              ```shell
+                shape: (5, 3)
+                ┌───────┬─────────┬─────────┐
+                │ chrom ┆ start   ┆ end     │
+                │ ---   ┆ ---     ┆ ---     │
+                │ str   ┆ u32     ┆ u32     │
+                ╞═══════╪═════════╪═════════╡
+                │ 21    ┆ 5031905 ┆ 5031905 │
+                │ 21    ┆ 5031905 ┆ 5031905 │
+                │ 21    ┆ 5031909 ┆ 5031909 │
+                │ 21    ┆ 5031911 ┆ 5031911 │
+                │ 21    ┆ 5031911 ┆ 5031911 │
+                └───────┴─────────┴─────────┘
+              ```
+        """
+        py_register_view(ctx, name, query)
+
+    @staticmethod
+    def sql(query: str, streaming: bool = False) -> pl.LazyFrame:
+        """
+        Execute a SQL query on the registered tables.
+
+        Parameters:
+            query: The SQL query.
+            streaming: Whether to execute the query in streaming mode.
+
+        !!! Example
+              ```python
+              import polars_bio as pb
+              pb.register_vcf("/tmp/gnomad.v4.1.sv.sites.vcf.gz", "gnomad_v4_1_sv")
+              pb.sql("SELECT * FROM gnomad_v4_1_sv LIMIT 5").collect()
+              ```
+        """
+        if streaming:
+            return stream_wrapper(py_scan_sql(ctx, query))
+        else:
+            df = py_read_sql(ctx, query)
+            return lazy_scan(df)

@@ -1790,7 +1790,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-core"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=751aba5e1f1e65da6e9fb87c1f82957aebd4e48a#751aba5e1f1e65da6e9fb87c1f82957aebd4e48a"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=27eb6ad085df21df71e4ce03d17fbc655d33dbe0#27eb6ad085df21df71e4ce03d17fbc655d33dbe0"
 dependencies = [
  "async-compression",
  "bytes",
@@ -1806,9 +1806,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "datafusion-bio-format-fastq"
+version = "0.1.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=27eb6ad085df21df71e4ce03d17fbc655d33dbe0#27eb6ad085df21df71e4ce03d17fbc655d33dbe0"
+dependencies = [
+ "async-compression",
+ "async-stream",
+ "async-trait",
+ "bytes",
+ "datafusion",
+ "datafusion-bio-format-core",
+ "futures",
+ "futures-util",
+ "log",
+ "noodles 0.93.0",
+ "noodles-fastq 0.19.0",
+ "opendal",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
 name = "datafusion-bio-format-gff"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=751aba5e1f1e65da6e9fb87c1f82957aebd4e48a#751aba5e1f1e65da6e9fb87c1f82957aebd4e48a"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=27eb6ad085df21df71e4ce03d17fbc655d33dbe0#27eb6ad085df21df71e4ce03d17fbc655d33dbe0"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1821,7 +1842,6 @@ dependencies = [
  "futures-util",
  "log",
  "noodles 0.93.0",
- "noodles-fastq 0.19.0",
  "noodles-gff 0.50.0",
  "opendal",
  "tokio",
@@ -1831,7 +1851,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-vcf"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=751aba5e1f1e65da6e9fb87c1f82957aebd4e48a#751aba5e1f1e65da6e9fb87c1f82957aebd4e48a"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=27eb6ad085df21df71e4ce03d17fbc655d33dbe0#27eb6ad085df21df71e4ce03d17fbc655d33dbe0"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -5656,6 +5676,7 @@ dependencies = [
  "coitrees",
  "datafusion",
  "datafusion-bio-format-core",
+ "datafusion-bio-format-fastq",
  "datafusion-bio-format-gff",
  "datafusion-bio-format-vcf",
  "datafusion-python",

@@ -7,6 +7,7 @@ use arrow::pyarrow::PyArrowType;
 use datafusion::dataframe::DataFrameWriteOptions;
 use datafusion::datasource::MemTable;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions};
+use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
 use exon::ExonSession;
@@ -15,7 +16,7 @@ use tokio::runtime::Runtime;
 use tracing::debug;
 
 use crate::context::PyBioSessionContext;
-use crate::option::{GffReadOptions, InputFormat, ReadOptions, VcfReadOptions};
+use crate::option::{FastqReadOptions, GffReadOptions, InputFormat, ReadOptions, VcfReadOptions};
 
 const MAX_IN_MEMORY_ROWS: usize = 1024 * 1024;
 
@@ -93,6 +94,28 @@ pub(crate) async fn register_table(
                 .await
                 .unwrap()
         },
+        InputFormat::Fastq => {
+            let fastq_read_options = match &read_options {
+                Some(options) => match options.clone().fastq_read_options {
+                    Some(fastq_read_options) => fastq_read_options,
+                    _ => FastqReadOptions::default(),
+                },
+                _ => FastqReadOptions::default(),
+            };
+            info!(
+                "Registering FASTQ table {} with options: {:?}",
+                table_name, fastq_read_options
+            );
+            let table_provider = FastqTableProvider::new(
+                path.to_string(),
+                fastq_read_options.thread_num,
+                fastq_read_options.object_storage_options.clone(),
+            )
+            .unwrap();
+            ctx.session
+                .register_table(table_name, Arc::new(table_provider))
+                .expect("Failed to register VCF table");
+        },
         InputFormat::Vcf => {
             let vcf_read_options = match &read_options {
                 Some(options) => match options.clone().vcf_read_options {
@@ -142,7 +165,6 @@ pub(crate) async fn register_table(
         },
         InputFormat::Bam
         | InputFormat::Cram
-        | InputFormat::Fastq
         | InputFormat::Fasta
         | InputFormat::Bed
         | InputFormat::Gtf => ctx
