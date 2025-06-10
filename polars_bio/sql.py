@@ -120,13 +120,30 @@ class SQL:
             GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
 
         !!! Example
-              ```python
-              import polars_bio as pb
-              pb.register_gff("/tmp/gencode.v38.annotation.gff3.bgz")
-              ```
-             ```shell
-             INFO:polars_bio:Table: gencode_v38_annotation3_bgz registered for path: /tmp/gencode.v38.annotation.gff3.bgz
-             ```
+            ```shell
+            wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_38/gencode.v38.annotation.gff3.gz -O /tmp/gencode.v38.annotation.gff3.gz
+            ```
+            ```python
+            import polars_bio as pb
+            pb.register_gff("/tmp/gencode.v38.annotation.gff3.gz", "gencode_v38_annotation3_bgz", attr_fields=["ID", "Parent"])
+            pb.sql("SELECT `Parent`, count(*) AS cnt FROM gencode_v38_annotation3_bgz GROUP BY `Parent`").limit(5).collect()
+            ```
+            ```shell
+
+            shape: (5, 2)
+            ┌───────────────────┬───────┐
+            │ Parent            ┆ cnt   │
+            │ ---               ┆ ---   │
+            │ str               ┆ i64   │
+            ╞═══════════════════╪═══════╡
+            │ null              ┆ 60649 │
+            │ ENSG00000223972.5 ┆ 2     │
+            │ ENST00000456328.2 ┆ 3     │
+            │ ENST00000450305.2 ┆ 6     │
+            │ ENSG00000227232.5 ┆ 1     │
+            └───────────────────┴───────┘
+
+            ```
         !!! tip
             `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the GFF file. As a rule of thumb for large scale operations (reading a whole GFF), it is recommended to the default values.
         """
@@ -178,12 +195,30 @@ class SQL:
             timeout: The timeout in seconds for reading the file from object storage.
 
         !!! Example
-              ```python
+            ```python
+              import polars_bio as pb
+              pb.register_fastq("gs://genomics-public-data/platinum-genomes/fastq/ERR194146.fastq.gz", "test_fastq")
+              pb.sql("SELECT name, description FROM test_fastq WHERE name LIKE 'ERR194146%'").limit(5).collect()
+            ```
 
-              ```
-             ```shell
+            ```shell
 
-             ```
+              shape: (5, 2)
+            ┌─────────────────────┬─────────────────────────────────┐
+            │ name                ┆ description                     │
+            │ ---                 ┆ ---                             │
+            │ str                 ┆ str                             │
+            ╞═════════════════════╪═════════════════════════════════╡
+            │ ERR194146.812444541 ┆ HSQ1008:141:D0CC8ACXX:2:1204:1… │
+            │ ERR194146.812444542 ┆ HSQ1008:141:D0CC8ACXX:4:1206:1… │
+            │ ERR194146.812444543 ┆ HSQ1008:141:D0CC8ACXX:3:2104:5… │
+            │ ERR194146.812444544 ┆ HSQ1008:141:D0CC8ACXX:3:2204:1… │
+            │ ERR194146.812444545 ┆ HSQ1008:141:D0CC8ACXX:3:1304:3… │
+            └─────────────────────┴─────────────────────────────────┘
+
+            ```
+
+
         !!! tip
             `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the GFF file. As a rule of thumb for large scale operations (reading a whole GFF), it is recommended to the default values.
         """

@@ -148,6 +148,56 @@ class IOOperations:
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
             streaming: Whether to read the GFF file in streaming mode.
 
+
+        !!! Example
+            ```shell
+            wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_38/gencode.v38.annotation.gff3.gz -O /tmp/gencode.v38.annotation.gff3.gz
+            ```
+            Read a GFF file **without** unnesting attributes:
+            ```python
+            import polars_bio as pb
+            gff_path = "/tmp/gencode.v38.annotation.gff3.gz"
+            pb.read_gff(gff_path).limit(5).collect()
+            ```
+
+            ```shell
+
+            shape: (5, 9)
+            ┌───────┬───────┬───────┬────────────┬───┬───────┬────────┬───────┬─────────────────────────────────┐
+            │ chrom ┆ start ┆ end   ┆ type       ┆ … ┆ score ┆ strand ┆ phase ┆ attributes                      │
+            │ ---   ┆ ---   ┆ ---   ┆ ---        ┆   ┆ ---   ┆ ---    ┆ ---   ┆ ---                             │
+            │ str   ┆ u32   ┆ u32   ┆ str        ┆   ┆ f32   ┆ str    ┆ u32   ┆ list[struct[2]]                 │
+            ╞═══════╪═══════╪═══════╪════════════╪═══╪═══════╪════════╪═══════╪═════════════════════════════════╡
+            │ chr1  ┆ 11869 ┆ 14409 ┆ gene       ┆ … ┆ null  ┆ +      ┆ null  ┆ [{"ID","ENSG00000223972.5"}, {… │
+            │ chr1  ┆ 11869 ┆ 14409 ┆ transcript ┆ … ┆ null  ┆ +      ┆ null  ┆ [{"ID","ENST00000456328.2"}, {… │
+            │ chr1  ┆ 11869 ┆ 12227 ┆ exon       ┆ … ┆ null  ┆ +      ┆ null  ┆ [{"ID","exon:ENST00000456328.2… │
+            │ chr1  ┆ 12613 ┆ 12721 ┆ exon       ┆ … ┆ null  ┆ +      ┆ null  ┆ [{"ID","exon:ENST00000456328.2… │
+            │ chr1  ┆ 13221 ┆ 14409 ┆ exon       ┆ … ┆ null  ┆ +      ┆ null  ┆ [{"ID","exon:ENST00000456328.2… │
+            └───────┴───────┴───────┴────────────┴───┴───────┴────────┴───────┴─────────────────────────────────┘
+
+            ```
+
+            Read a GFF file **with** unnesting attributes:
+            ```python
+            import polars_bio as pb
+            gff_path = "/tmp/gencode.v38.annotation.gff3.gz"
+            pb.read_gff(gff_path, attr_fields=["ID", "havana_transcript"]).limit(5).collect()
+            ```
+            ```shell
+
+            shape: (5, 10)
+            ┌───────┬───────┬───────┬────────────┬───┬────────┬───────┬──────────────────────────┬──────────────────────┐
+            │ chrom ┆ start ┆ end   ┆ type       ┆ … ┆ strand ┆ phase ┆ ID                       ┆ havana_transcript    │
+            │ ---   ┆ ---   ┆ ---   ┆ ---        ┆   ┆ ---    ┆ ---   ┆ ---                      ┆ ---                  │
+            │ str   ┆ u32   ┆ u32   ┆ str        ┆   ┆ str    ┆ u32   ┆ str                      ┆ str                  │
+            ╞═══════╪═══════╪═══════╪════════════╪═══╪════════╪═══════╪══════════════════════════╪══════════════════════╡
+            │ chr1  ┆ 11869 ┆ 14409 ┆ gene       ┆ … ┆ +      ┆ null  ┆ ENSG00000223972.5        ┆ null                 │
+            │ chr1  ┆ 11869 ┆ 14409 ┆ transcript ┆ … ┆ +      ┆ null  ┆ ENST00000456328.2        ┆ OTTHUMT00000362751.1 │
+            │ chr1  ┆ 11869 ┆ 12227 ┆ exon       ┆ … ┆ +      ┆ null  ┆ exon:ENST00000456328.2:1 ┆ OTTHUMT00000362751.1 │
+            │ chr1  ┆ 12613 ┆ 12721 ┆ exon       ┆ … ┆ +      ┆ null  ┆ exon:ENST00000456328.2:2 ┆ OTTHUMT00000362751.1 │
+            │ chr1  ┆ 13221 ┆ 14409 ┆ exon       ┆ … ┆ +      ┆ null  ┆ exon:ENST00000456328.2:3 ┆ OTTHUMT00000362751.1 │
+            └───────┴───────┴───────┴────────────┴───┴────────┴───────┴──────────────────────────┴──────────────────────┘
+            ```
         !!! note
             GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
         """
@@ -211,7 +261,26 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
             streaming: Whether to read the FASTQ file in streaming mode.
+
+        !!! Example
+
+            ```python
+            import polars_bio as pb
+            pb.read_fastq("gs://genomics-public-data/platinum-genomes/fastq/ERR194146.fastq.gz").limit(1).collect()
+            ```
+            ```shell
+            shape: (1, 4)
+            ┌─────────────────────┬─────────────────────────────────┬─────────────────────────────────┬─────────────────────────────────┐
+            │ name                ┆ description                     ┆ sequence                        ┆ quality_scores                  │
+            │ ---                 ┆ ---                             ┆ ---                             ┆ ---                             │
+            │ str                 ┆ str                             ┆ str                             ┆ str                             │
+            ╞═════════════════════╪═════════════════════════════════╪═════════════════════════════════╪═════════════════════════════════╡
+            │ ERR194146.812444541 ┆ HSQ1008:141:D0CC8ACXX:2:1204:1… ┆ TGGAAGGTTCTCGAAAAAAATGGAATCGAA… ┆ ?@;DDBDDBHF??FFB@B)1:CD3*:?DFF… │
+            └─────────────────────┴─────────────────────────────────┴─────────────────────────────────┴─────────────────────────────────┘
+
+            ```
         """
+
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
             enable_request_payer=enable_request_payer,
