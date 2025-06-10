@@ -146,3 +146,21 @@ class TestIOGFF:
         )
         count = pb.sql("select count(*) as cnt from test_gff3").collect()
         assert count["cnt"][0] == 3
+
+    def test_register_gff_unnest(self):
+        pb.register_gff(
+            f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.bgz",
+            "test_gff3_unnest",
+            attr_fields=["ID", "havana_transcript"],
+        )
+        count = pb.sql(
+            "select count(*) as cnt from test_gff3_unnest where `ID` = 'ENSG00000223972.5'"
+        ).collect()
+        assert count["cnt"][0] == 1
+
+        projection = pb.sql(
+            "select `ID`, `havana_transcript` from test_gff3_unnest"
+        ).collect()
+        assert projection["ID"][0] == "ENSG00000223972.5"
+        assert projection["havana_transcript"][0] == None
+        assert projection["havana_transcript"][1] == "OTTHUMT00000362751.1"

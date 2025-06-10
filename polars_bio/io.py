@@ -105,7 +105,7 @@ def read_vcf(
     )
 
     vcf_read_options = VcfReadOptions(
-        info_fields=_cleanse_infos(info_fields),
+        info_fields=_cleanse_fields(info_fields),
         thread_num=thread_num,
         object_storage_options=object_storage_options,
     )
@@ -119,6 +119,7 @@ def read_vcf(
 
 def read_gff(
     path: str,
+    attr_fields: Union[list[str], None] = None,
     thread_num: int = 1,
     chunk_size: int = 8,
     concurrent_fetches: int = 1,
@@ -134,6 +135,7 @@ def read_gff(
 
     Parameters:
         path: The path to the GFF file.
+        attr_fields: The fields to unnest from the `attributes` column. If not specified, all fields swill be rendered as `attributes` column containing an array of structures `{'tag':'xxx', 'value':'yyy'}`.
         thread_num: The number of threads to use for reading the GFF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
         chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
         concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -158,6 +160,7 @@ def read_gff(
     )
 
     gff_read_options = GffReadOptions(
+        attr_fields=_cleanse_fields(attr_fields),
         thread_num=thread_num,
         object_storage_options=object_storage_options,
     )
@@ -388,7 +391,7 @@ def register_vcf(
     )
 
     vcf_read_options = VcfReadOptions(
-        info_fields=_cleanse_infos(info_fields),
+        info_fields=_cleanse_fields(info_fields),
         thread_num=thread_num,
         object_storage_options=object_storage_options,
     )
@@ -399,6 +402,7 @@ def register_vcf(
 def register_gff(
     path: str,
     name: Union[str, None] = None,
+    attr_fields: Union[list[str], None] = None,
     thread_num: int = 1,
     chunk_size: int = 64,
     concurrent_fetches: int = 8,
@@ -414,6 +418,7 @@ def register_gff(
     Parameters:
         path: The path to the GFF file.
         name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
+        attr_fields: The fields to unnest from the `attributes` column. If not specified, all fields swill be rendered as `attributes` column containing an array of structures `{'tag':'xxx', 'value':'yyy'}`.
         thread_num: The number of threads to use for reading the GFF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
         chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
         concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
@@ -448,6 +453,7 @@ def register_gff(
     )
 
     gff_read_options = GffReadOptions(
+        attr_fields=_cleanse_fields(attr_fields),
         thread_num=thread_num,
         object_storage_options=object_storage_options,
     )
@@ -552,7 +558,7 @@ def from_polars(name: str, df: Union[pl.DataFrame, pl.LazyFrame]) -> None:
     py_from_polars(ctx, name, reader)
 
 
-def _cleanse_infos(t: Union[list[str], None]) -> Union[list[str], None]:
+def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
     if t is None:
         return None
     return [x.strip() for x in t]

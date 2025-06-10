@@ -131,6 +131,7 @@ pub(crate) async fn register_table(
             );
             let table_provider = GffTableProvider::new(
                 path.to_string(),
+                gff_read_options.attr_fields,
                 gff_read_options.thread_num,
                 gff_read_options.object_storage_options.clone(),
             )
