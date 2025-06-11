@@ -3,10 +3,12 @@ from typing import Dict, Iterator, Union
 import polars as pl
 from bioframe import SCHEMAS
 from datafusion import DataFrame, SessionContext
+from jupyterlab.utils import deprecated
 from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
 
 from polars_bio.polars_bio import (
+    BamReadOptions,
     FastqReadOptions,
     GffReadOptions,
     InputFormat,
@@ -28,17 +30,6 @@ from .range_op_helpers import stream_wrapper
 
 
 class IOOperations:
-
-    @staticmethod
-    def read_bam(path: str) -> pl.LazyFrame:
-        """
-        Read a BAM file into a LazyFrame.
-
-        Parameters:
-            path: The path to the BAM file.
-        """
-        df = read_file(path, InputFormat.Bam, None)
-        return lazy_scan(df)
 
     # TODO handling reference
     # def read_cram(path: str) -> pl.LazyFrame:
@@ -221,6 +212,62 @@ class IOOperations:
             return read_file(path, InputFormat.Gff, read_options, streaming)
         else:
             df = read_file(path, InputFormat.Gff, read_options)
+            return lazy_scan(df)
+
+    @staticmethod
+    def read_bam(
+        path: str,
+        thread_num: int = 1,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        streaming: bool = False,
+    ) -> Union[pl.LazyFrame, pl.DataFrame]:
+        """
+        Read a BAM file into a LazyFrame.
+
+        Parameters:
+            path: The path to the BAM file.
+            thread_num: The number of threads to use for reading the BAM file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the BAM file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            streaming: Whether to read the BAM file in streaming mode.
+
+
+        !!! Example
+
+            ```
+        !!! note
+            BAM reader uses **1-based** coordinate system for the `start` and `end` columns.
+        """
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        bam_read_options = BamReadOptions(
+            thread_num=thread_num,
+            object_storage_options=object_storage_options,
+        )
+        read_options = ReadOptions(bam_read_options=bam_read_options)
+        if streaming:
+            return read_file(path, InputFormat.Bam, read_options, streaming)
+        else:
+            df = read_file(path, InputFormat.Bam, read_options)
             return lazy_scan(df)
 
     @staticmethod

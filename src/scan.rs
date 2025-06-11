@@ -7,6 +7,7 @@ use arrow::pyarrow::PyArrowType;
 use datafusion::dataframe::DataFrameWriteOptions;
 use datafusion::datasource::MemTable;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions};
+use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
@@ -16,7 +17,9 @@ use tokio::runtime::Runtime;
 use tracing::debug;
 
 use crate::context::PyBioSessionContext;
-use crate::option::{FastqReadOptions, GffReadOptions, InputFormat, ReadOptions, VcfReadOptions};
+use crate::option::{
+    BamReadOptions, FastqReadOptions, GffReadOptions, InputFormat, ReadOptions, VcfReadOptions,
+};
 
 const MAX_IN_MEMORY_ROWS: usize = 1024 * 1024;
 
@@ -163,11 +166,29 @@ pub(crate) async fn register_table(
                 .register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register GFF table");
         },
-        InputFormat::Bam
-        | InputFormat::Cram
-        | InputFormat::Fasta
-        | InputFormat::Bed
-        | InputFormat::Gtf => ctx
+        InputFormat::Bam => {
+            let bam_read_options = match &read_options {
+                Some(options) => match options.clone().bam_read_options {
+                    Some(bam_read_options) => bam_read_options,
+                    _ => BamReadOptions::default(),
+                },
+                _ => BamReadOptions::default(),
+            };
+            info!(
+                "Registering BAM table {} with options: {:?}",
+                table_name, bam_read_options
+            );
+            let table_provider = BamTableProvider::new(
+                path.to_string(),
+                bam_read_options.thread_num,
+                bam_read_options.object_storage_options.clone(),
+            )
+            .unwrap();
+            ctx.session
+                .register_table(table_name, Arc::new(table_provider))
+                .expect("Failed to register GFF table");
+        },
+        InputFormat::Cram | InputFormat::Fasta | InputFormat::Bed | InputFormat::Gtf => ctx
             .register_exon_table(table_name, path, &format.to_string())
             .await
             .unwrap(),

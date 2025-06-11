@@ -51,8 +51,16 @@ class TestIOBAM:
 
     def test_fields(self):
         assert self.df["name"][2] == "20FUKAAXX100202:1:22:19822:80281"
-        assert self.df["flag"][3] == 1123
+        assert self.df["flags"][3] == 1123
         assert self.df["cigar"][4] == "101M"
+        assert (
+            self.df["sequence"][4]
+            == "TAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACC"
+        )
+        assert (
+            self.df["quality_scores"][4]
+            == "CCDACCDCDABBDCDABBDCDABBDCDABBDCD?BBCCDABBCCDABBACDA?BDCAABBDBDA.=?><;CBB2@:;??:D>?5BAC??=DC;=5=?8:76"
+        )
 
 
 class TestIOBED:
