@@ -40,6 +40,19 @@ if __name__ == "__main__":
     # test_with_file()  # odkomentuj jak masz example.fastq
 
 
+def test_with_invalid_input_type():
+    try:
+        cacl_base_seq_quality(12345)
+    except TypeError as e:
+        print("Działa - TypeError:", e)
+
+def test_with_invalid_output_type():
+    try:
+        df = pl.DataFrame({"quality_scores": ["!!!"]})
+        cacl_base_seq_quality(df, output_type="wrong_type")
+    except ValueError as e:
+        print("Działa - ValueError:", e)
+
 import timeit
 
 execution_time = timeit.timeit(
