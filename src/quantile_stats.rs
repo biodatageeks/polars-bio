@@ -235,24 +235,26 @@ fn calculate_histogram_stats(hist: &[u64]) -> Option<(f64, f64, f64, f64, f64, f
 
     fn quantile(hist: &[u64], quantile: f64, total: u64) -> f64 {
         let target = quantile * (total - 1) as f64;
+        let target_ = target.floor();
+        let delta = target - target_;
+        let n = target_ as u64 + 1;
+        let mut lo = None;
         let mut acc = 0u64;
-        let mut prev_idx = 0usize;
-        for (idx, &count) in hist.iter().enumerate() {
-            if count == 0 {
-                continue;
-            }
-            if (acc as f64) <= target && (acc + count) as f64 > target {
-                let delta = target - acc as f64;
-                if count > 1 && delta > 0.0 {
-                    return idx as f64 + delta / count as f64;
-                } else {
-                    return idx as f64;
-                }
+        for (hi, &count) in hist.iter().enumerate().filter(|(_, &count)| count > 0) {
+            if acc == n && lo.is_some() {
+                let lo = lo.unwrap() as f64;
+                return  (lo + (hi as f64 - lo) * delta) as f64;
+            } else if acc + count > n {
+                return  hi as f64;
             }
             acc += count;
-            prev_idx = idx;
+            lo = Some(hi);
         }
-        prev_idx as f64
+
+        hist.iter().enumerate().fold(
+            0_usize,
+            |acc, (value, &count)| if count > 0 { value } else { acc },
+        ) as f64
     }
 
     let q1 = quantile(hist, 0.25, total_count);

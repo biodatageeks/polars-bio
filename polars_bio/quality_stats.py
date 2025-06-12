@@ -12,7 +12,7 @@ from polars_bio.polars_bio import (
 
 
 def base_sequence_quality(
-    df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+    df: Union[str, Path, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     quality_scores_column: str = "quality_scores",
     output_type: str = "polars.DataFrame",
     target_partitions: int = 8,
@@ -32,7 +32,8 @@ def base_sequence_quality(
         "datafusion.execution.target_partitions", str(target_partitions), False
     )
 
-    if isinstance(df, str):
+    if isinstance(df, (str, Path)):
+        df = str(df)
         supported_exts = {".parquet", ".csv", ".bed", ".vcf", ".fastq"}
         ext = set(Path(df).suffixes)
         if not (supported_exts & ext or not ext):
