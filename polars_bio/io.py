@@ -224,7 +224,6 @@ class IOOperations:
         enable_request_payer: bool = False,
         max_retries: int = 5,
         timeout: int = 300,
-        compression_type: str = "auto",
         streaming: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame]:
         """
@@ -239,15 +238,35 @@ class IOOperations:
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
-            compression_type: The compression type of the BAM file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
             streaming: Whether to read the BAM file in streaming mode.
-
 
         !!! Example
 
             ```
+            import polars_bio as pb
+            bam = pb.read_bam("gs://genomics-public-data/1000-genomes/bam/HG00096.mapped.ILLUMINA.bwa.GBR.low_coverage.20120522.bam").limit(3)
+            bam.collect()
+            ```
+            ```shell
+            INFO:polars_bio:Table: hg00096_mapped_illumina_bwa_gbr_low_coverage_20120522 registered for path: gs://genomics-public-data/1000-genomes/bam/HG00096.mapped.ILLUMINA.bwa.GBR.low_coverage.20120522.bam
+            shape: (3, 11)
+            ┌────────────────────┬───────┬───────┬───────┬───┬────────────┬────────────┬─────────────────────────────────┬─────────────────────────────────┐
+            │ name               ┆ chrom ┆ start ┆ end   ┆ … ┆ mate_chrom ┆ mate_start ┆ sequence                        ┆ quality_scores                  │
+            │ ---                ┆ ---   ┆ ---   ┆ ---   ┆   ┆ ---        ┆ ---        ┆ ---                             ┆ ---                             │
+            │ str                ┆ str   ┆ u32   ┆ u32   ┆   ┆ str        ┆ u32        ┆ str                             ┆ str                             │
+            ╞════════════════════╪═══════╪═══════╪═══════╪═══╪════════════╪════════════╪═════════════════════════════════╪═════════════════════════════════╡
+            │ SRR062634.9882510  ┆ chr1  ┆ 10001 ┆ 10044 ┆ … ┆ chr1       ┆ 10069      ┆ TAACCCTAACCCTACCCTAACCCTAACCCT… ┆ 0<>=/0E:7;08FBDIF9;2%=<>+FCDDA… │
+            │ SRR062641.21956756 ┆ chr1  ┆ 10001 ┆ 10049 ┆ … ┆ chr1       ┆ 10051      ┆ TAACCCTACCCTAACCCTAACCCTAACCCT… ┆ 0=MLOOPNNPPJHPOQQROQPQQRIQPRJB… │
+            │ SRR062641.13613107 ┆ chr1  ┆ 10002 ┆ 10072 ┆ … ┆ chr1       ┆ 10110      ┆ AACCCTAACCCCTAACCCCTAACCCCTAAC… ┆ 0KKNPQOQOQIQRPQPRRRRPQPRRRRPRF… │
+            └────────────────────┴───────┴───────┴───────┴───┴────────────┴────────────┴─────────────────────────────────┴─────────────────────────────────┘
+            ```
+            ``` python
+            bam.collect_schema()
+            Schema({'name': String, 'chrom': String, 'start': UInt32, 'end': UInt32, 'flags': UInt32, 'cigar': String, 'mapping_quality': UInt32, 'mate_chrom': String, 'mate_start': UInt32, 'sequence': String, 'quality_scores': String})
+            ```
+
         !!! note
-            BAM reader uses **1-based** coordinate system for the `start` and `end` columns.
+            BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -256,7 +275,7 @@ class IOOperations:
             concurrent_fetches=concurrent_fetches,
             max_retries=max_retries,
             timeout=timeout,
-            compression_type=compression_type,
+            compression_type="auto",
         )
 
         bam_read_options = BamReadOptions(

@@ -10,7 +10,9 @@ from .sql import SQL
 register_gff = SQL.register_gff
 register_vcf = SQL.register_vcf
 register_fastq = SQL.register_fastq
+register_bam = SQL.register_bam
 register_view = SQL.register_view
+
 sql = SQL.sql
 
 from .io import IOOperations
