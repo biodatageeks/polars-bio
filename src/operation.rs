@@ -18,6 +18,7 @@ use datafusion::dataframe::DataFrame;
 use arrow_array::{Array, ArrayRef, Float64Array, StringArray};
 use arrow_array::builder::ListBuilder;
 use arrow::array::Float64Builder;
+use arrow::array::Int64Builder;
 use arrow::array::ArrayBuilder;
 use arrow::array::ListArray;
 use arrow_schema::{DataType, Field};
@@ -249,45 +250,31 @@ fn decode_phred_scores(quality_string: &str, offset: i32) -> Vec<f64> {
         .collect()
 }
 
-#[derive(Debug, Clone)]
-struct QualityStats {
-    min: f64,
-    max: f64,
-    median: f64,
-    q1: f64,
-    q3: f64,
-}
-
-fn calculate_stats(mut scores: Vec<f64>) -> QualityStats {
+fn calculate_quantile(mut scores: Vec<f64>, quantile: f64) -> f64 {
     if scores.is_empty() {
-        return QualityStats {
-            min: 0.0,
-            max: 0.0,
-            median: 0.0,
-            q1: 0.0,
-            q3: 0.0,
-        };
+        return 0.0;
     }
     
     scores.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let len = scores.len();
     
-    let min = scores[0];
-    let max = scores[len - 1];
+    if quantile <= 0.0 {
+        return scores[0];
+    }
+    if quantile >= 1.0 {
+        return scores[len - 1];
+    }
     
-    let median = if len % 2 == 0 {
-        (scores[len / 2 - 1] + scores[len / 2]) / 2.0
+    let index = (len as f64 - 1.0) * quantile;
+    let lower = index.floor() as usize;
+    let upper = index.ceil() as usize;
+    
+    if lower == upper {
+        scores[lower]
     } else {
-        scores[len / 2]
-    };
-    
-    let q1_idx = len / 4;
-    let q3_idx = 3 * len / 4;
-    
-    let q1 = if q1_idx > 0 { scores[q1_idx] } else { min };
-    let q3 = if q3_idx < len { scores[q3_idx] } else { max };
-    
-    QualityStats { min, max, median, q1, q3 }
+        let weight = index - lower as f64;
+        scores[lower] * (1.0 - weight) + scores[upper] * weight
+    }
 }
 
 #[derive(Debug)]
@@ -348,7 +335,6 @@ impl ScalarUDFImpl for DecodePhredUDF {
                 let quality_str = quality_strings.value(i);
                 let scores = decode_phred_scores(quality_str, offset);
                 
-                // Append scores to the list builder
                 for score in scores {
                     list_builder.values().append_value(score);
                 }
@@ -360,100 +346,230 @@ impl ScalarUDFImpl for DecodePhredUDF {
     }
 }
 
+#[derive(Debug)]
+struct QuantileUDF {
+    signature: Signature,
+    return_type: DataType,
+}
+
+impl QuantileUDF {
+    fn new() -> Self {
+        Self {
+            signature: Signature::exact(
+                vec![
+                    DataType::List(Arc::new(Field::new("item", DataType::Float64, true))),
+                    DataType::Float64,
+                ],
+                Volatility::Immutable,
+            ),
+            return_type: DataType::Float64,
+        }
+    }
+}
+
+impl ScalarUDFImpl for QuantileUDF {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn name(&self) -> &str {
+        "quantile"
+    }
+
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+
+    fn return_type(&self, _arg_types: &[DataType]) -> Result<DataType> {
+        Ok(self.return_type.clone())
+    }
+
+    fn invoke(&self, args: &[ColumnarValue]) -> Result<ColumnarValue> {
+        let arrays = match &args[0] {
+            ColumnarValue::Array(array) => {
+                array.as_any().downcast_ref::<ListArray>()
+                    .ok_or_else(|| DataFusionError::Internal("Expected list array".to_string()))?
+            },
+            _ => return Err(DataFusionError::Internal("Expected list array".to_string())),
+        };
+        
+        let quantile_value = match &args[1] {
+            ColumnarValue::Scalar(ScalarValue::Float64(Some(val))) => *val,
+            _ => return Err(DataFusionError::Internal("Expected float64 quantile".to_string())),
+        };
+
+        let mut result_builder = Float64Builder::new();
+        
+        for i in 0..arrays.len() {
+            if arrays.is_null(i) {
+                result_builder.append_null();
+            } else {
+                let scores_array = arrays.value(i);
+                if let Some(float_array) = scores_array.as_any().downcast_ref::<Float64Array>() {
+                    let scores: Vec<f64> = float_array.iter()
+                        .filter_map(|v| v)
+                        .collect();
+                    
+                    let quantile_result = calculate_quantile(scores, quantile_value);
+                    result_builder.append_value(quantile_result);
+                } else {
+                    result_builder.append_null();
+                }
+            }
+        }
+        
+        Ok(ColumnarValue::Array(Arc::new(result_builder.finish())))
+    }
+}
+
+#[derive(Debug)]
+struct ArrayLengthUDF {
+    signature: Signature,
+    return_type: DataType,
+}
+
+impl ArrayLengthUDF {
+    fn new() -> Self {
+        Self {
+            signature: Signature::exact(
+                vec![DataType::List(Arc::new(Field::new("item", DataType::Float64, true)))],
+                Volatility::Immutable,
+            ),
+            return_type: DataType::Int64,
+        }
+    }
+}
+
+impl ScalarUDFImpl for ArrayLengthUDF {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn name(&self) -> &str {
+        "array_length"
+    }
+
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+
+    fn return_type(&self, _arg_types: &[DataType]) -> Result<DataType> {
+        Ok(self.return_type.clone())
+    }
+
+    fn invoke(&self, args: &[ColumnarValue]) -> Result<ColumnarValue> {
+        let arrays = match &args[0] {
+            ColumnarValue::Array(array) => {
+                array.as_any().downcast_ref::<ListArray>()
+                    .ok_or_else(|| DataFusionError::Internal("Expected list array".to_string()))?
+            },
+            _ => return Err(DataFusionError::Internal("Expected list array".to_string())),
+        };
+
+        let mut result_builder = Int64Builder::new();
+        
+        for i in 0..arrays.len() {
+            if arrays.is_null(i) {
+                result_builder.append_null();
+            } else {
+                let scores_array = arrays.value(i);
+                result_builder.append_value(scores_array.len() as i64);
+            }
+        }
+        
+        Ok(ColumnarValue::Array(Arc::new(result_builder.finish())))
+    }
+}
+
+#[derive(Debug)]
+struct ArrayElementUDF {
+    signature: Signature,
+    return_type: DataType,
+}
+
+impl ArrayElementUDF {
+    fn new() -> Self {
+        Self {
+            signature: Signature::exact(
+                vec![
+                    DataType::List(Arc::new(Field::new("item", DataType::Float64, true))),
+                    DataType::Int64,
+                ],
+                Volatility::Immutable,
+            ),
+            return_type: DataType::Float64,
+        }
+    }
+}
+
+impl ScalarUDFImpl for ArrayElementUDF {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn name(&self) -> &str {
+        "array_element"
+    }
+
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+
+    fn return_type(&self, _arg_types: &[DataType]) -> Result<DataType> {
+        Ok(self.return_type.clone())
+    }
+
+    fn invoke(&self, args: &[ColumnarValue]) -> Result<ColumnarValue> {
+        let arrays = match &args[0] {
+            ColumnarValue::Array(array) => {
+                array.as_any().downcast_ref::<ListArray>()
+                    .ok_or_else(|| DataFusionError::Internal("Expected list array".to_string()))?
+            },
+            _ => return Err(DataFusionError::Internal("Expected list array".to_string())),
+        };
+        
+        let position = match &args[1] {
+            ColumnarValue::Scalar(ScalarValue::Int64(Some(val))) => *val as usize,
+            _ => return Err(DataFusionError::Internal("Expected int64 position".to_string())),
+        };
+
+        let mut result_builder = Float64Builder::new();
+        
+        for i in 0..arrays.len() {
+            if arrays.is_null(i) {
+                result_builder.append_null();
+            } else {
+                let scores_array = arrays.value(i);
+                if let Some(float_array) = scores_array.as_any().downcast_ref::<Float64Array>() {
+                    if position < float_array.len() && !float_array.is_null(position) {
+                        result_builder.append_value(float_array.value(position));
+                    } else {
+                        result_builder.append_null();
+                    }
+                } else {
+                    result_builder.append_null();
+                }
+            }
+        }
+        
+        Ok(ColumnarValue::Array(Arc::new(result_builder.finish())))
+    }
+}
+
 fn create_decode_phred_udf() -> ScalarUDF {
     ScalarUDF::from(DecodePhredUDF::new())
 }
 
-async fn calculate_position_statistics(
-    ctx: &ExonSession,
-    decoded_scores_df: DataFrame,
-) -> Result<DataFrame> {
-    let batches = decoded_scores_df.collect().await?;
-    
-    let mut position_scores: HashMap<usize, Vec<f64>> = HashMap::new();
-    let mut max_length = 0;
-    
-    for batch in batches {
-        let phred_column = batch
-            .column(0)
-            .as_any()
-            .downcast_ref::<ListArray>()
-            .ok_or_else(|| DataFusionError::Internal("Expected list array".to_string()))?;
-        
-        for i in 0..phred_column.len() {
-            if !phred_column.is_null(i) {
-                let scores_array = phred_column.value(i);
-                if let Some(float_array) = scores_array.as_any().downcast_ref::<Float64Array>() {
-                    max_length = max_length.max(float_array.len());
-                    for (pos, score) in float_array.iter().enumerate() {
-                        if let Some(score_val) = score {
-                            position_scores
-                                .entry(pos)
-                                .or_insert_with(Vec::new)
-                                .push(score_val);
-                        }
-                    }
-                }
-            }
-        }
-    }
+fn create_quantile_udf() -> ScalarUDF {
+    ScalarUDF::from(QuantileUDF::new())
+}
 
-    let mut positions = Vec::with_capacity(max_length);
-    let mut min_values = Vec::with_capacity(max_length);
-    let mut max_values = Vec::with_capacity(max_length);
-    let mut median_values = Vec::with_capacity(max_length);
-    let mut q1_values = Vec::with_capacity(max_length);
-    let mut q3_values = Vec::with_capacity(max_length);
-    let mut sample_counts = Vec::with_capacity(max_length);
-    
-    for pos in 0..max_length {
-        positions.push(pos as i64);
-        
-        if let Some(scores) = position_scores.get(&pos) {
-            let stats = calculate_stats(scores.clone());
-            min_values.push(Some(stats.min));
-            max_values.push(Some(stats.max));
-            median_values.push(Some(stats.median));
-            q1_values.push(Some(stats.q1));
-            q3_values.push(Some(stats.q3));
-            sample_counts.push(scores.len() as i64);
-        } else {
-            min_values.push(None);
-            max_values.push(None);
-            median_values.push(None);
-            q1_values.push(None);
-            q3_values.push(None);
-            sample_counts.push(0);
-        }
-    }
+fn create_array_length_udf() -> ScalarUDF {
+    ScalarUDF::from(ArrayLengthUDF::new())
+}
 
-    let schema = Arc::new(Schema::new(vec![
-        Field::new("position", DataType::Int64, false),
-        Field::new("min", DataType::Float64, true),
-        Field::new("max", DataType::Float64, true),
-        Field::new("median", DataType::Float64, true),
-        Field::new("q1", DataType::Float64, true),
-        Field::new("q3", DataType::Float64, true),
-        Field::new("sample_count", DataType::Int64, false),
-    ]));
-    
-    let position_array = Arc::new(Int64Array::from(positions)) as ArrayRef;
-    let min_array = Arc::new(Float64Array::from(min_values)) as ArrayRef;
-    let max_array = Arc::new(Float64Array::from(max_values)) as ArrayRef;
-    let median_array = Arc::new(Float64Array::from(median_values)) as ArrayRef;
-    let q1_array = Arc::new(Float64Array::from(q1_values)) as ArrayRef;
-    let q3_array = Arc::new(Float64Array::from(q3_values)) as ArrayRef;
-    let count_array = Arc::new(Int64Array::from(sample_counts)) as ArrayRef;
-    
-    let batch = RecordBatch::try_new(
-        schema.clone(),
-        vec![position_array, min_array, max_array, median_array, q1_array, q3_array, count_array],
-    )?;
-    
-    let table = MemTable::try_new(schema, vec![vec![batch]])?;
-    let df = ctx.session.read_table(Arc::new(table))?;
-    
-    Ok(df)
+fn create_array_element_udf() -> ScalarUDF {
+    ScalarUDF::from(ArrayElementUDF::new())
 }
 
 pub(crate) async fn calc_base_sequence_quality(
@@ -461,24 +577,79 @@ pub(crate) async fn calc_base_sequence_quality(
     table: String,
     column: String
 ) -> Result<DataFrame> {
+    // Register all UDFs
     ctx.session.register_udf(create_decode_phred_udf());
+    ctx.session.register_udf(create_quantile_udf());
+    ctx.session.register_udf(create_array_length_udf());
+    ctx.session.register_udf(create_array_element_udf());
     
-    let decoded_scores_df = ctx
+    let max_length_df = ctx
         .sql(&format!(
             r#"
             SELECT 
-                decode_phred({}, 33) as phred_scores
+                MAX(array_length(decode_phred({}, 33))) as max_length
             FROM {}
             "#,
             column, table
         ))
         .await?;
     
-    let result_df = calculate_position_statistics(&ctx, decoded_scores_df).await?;
+    let max_length_batches = max_length_df.collect().await?;
+    let max_length = max_length_batches[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .unwrap()
+        .value(0) as usize;
+    
+    let mut position_queries = Vec::new();
+    
+    for pos in 0..max_length {
+        position_queries.push(format!(
+            r#"
+            SELECT 
+                {} as position,
+                quantile(ARRAY_AGG(array_element(phred_scores, {})), 0.0) as min,
+                quantile(ARRAY_AGG(array_element(phred_scores, {})), 1.0) as max,
+                quantile(ARRAY_AGG(array_element(phred_scores, {})), 0.5) as median,
+                quantile(ARRAY_AGG(array_element(phred_scores, {})), 0.25) as q1,
+                quantile(ARRAY_AGG(array_element(phred_scores, {})), 0.75) as q3,
+                COUNT(array_element(phred_scores, {})) as sample_count
+            FROM (
+                SELECT decode_phred({}, 33) as phred_scores
+                FROM {}
+                WHERE array_length(decode_phred({}, 33)) > {}
+            )
+            "#,
+            pos, pos, pos, pos, pos, pos, pos, column, table, column, pos
+        ));
+    }
+    
+    let union_query = position_queries.join(" UNION ALL ");
+    
+    let result_df = ctx
+        .sql(&format!(
+            r#"
+            SELECT 
+                position,
+                min,
+                max,
+                median,
+                q1,
+                q3,
+                sample_count
+            FROM (
+                {}
+            )
+            ORDER BY position
+            "#,
+            union_query
+        ))
+        .await?;
     
     Ok(result_df)
 }
-
+//----
 pub(crate) async fn prepare_query(
     query: fn(QueryParams) -> String,
     range_opts: RangeOptions,
