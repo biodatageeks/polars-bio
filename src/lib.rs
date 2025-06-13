@@ -6,10 +6,12 @@ mod scan;
 mod streaming;
 mod udtf;
 mod utils;
+mod kmer;
 
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
 
+use arrow::datatypes::DataType;
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
 use datafusion::datasource::MemTable;
@@ -32,10 +34,13 @@ use crate::option::{
 use crate::scan::{maybe_register_table, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
 use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
+use crate::kmer::KmerCounter;
+use datafusion::logical_expr::{create_udaf, Volatility};
 
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
 const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
+const KMER_TABLE: &str = "kmer";
 
 #[pyfunction]
 #[pyo3(signature = (py_ctx, df1, df2, range_options, limit=None))]
@@ -415,6 +420,43 @@ fn py_from_polars(
     })
 }
 
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, k, data))]
+fn py_kmer_count(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    k: usize,
+    data: PyArrowType<ArrowArrayStreamReader>,
+) -> PyResult<PyDataFrame> {
+    py.allow_threads(|| {
+        register_frame(py_ctx, data, KMER_TABLE.to_string());
+
+        let rt = Runtime::new().unwrap();
+        let ctx = &py_ctx.ctx.session;
+
+        let df = rt.block_on(async {
+            let kmer_udaf = create_udaf(
+                "kmer_count",
+                vec![DataType::Utf8],
+                Arc::new(DataType::Utf8),
+                Volatility::Immutable,
+                Arc::new(move |_| Ok(Box::new(KmerCounter::with_k(k)))),
+                Arc::new(vec![DataType::Utf8]),
+            );
+            ctx.register_udaf(kmer_udaf);
+
+            ctx.sql(&format!("SELECT kmer_count(sequence) AS kmer_counts FROM {}", KMER_TABLE))
+                .await
+                .unwrap()
+        });
+
+        Ok(PyDataFrame::new(df))
+    })
+}
+
+
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -437,5 +479,6 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<ReadOptions>()?;
     m.add_class::<VcfReadOptions>()?;
     m.add_class::<PyObjectStorageOptions>()?;
+    m.add_function(wrap_pyfunction!(py_kmer_count, m)?)?;
     Ok(())
 }
