@@ -45,26 +45,32 @@ def test_cacl_base_seq_quality_expected_values():
 # Sprawdzenie wydajności funkcji cacl_base_seq_quality, potem mogę dodać porównanie do fastq-rs
 
 def test_performance_comparison():
-    path = "min_example.fastq"
+    TEST_DIR = os.path.dirname(__file__)
+    fastq_path   = os.path.join(TEST_DIR, "min_example.fastq")
+    summary_path = os.path.join(TEST_DIR, "summary.txt")
 
-    # Pomiar czasu dla naszej funkcji cacl_base_seq_quality
+    # nasza funkcja
     start1 = time.perf_counter()
-    pb.cacl_base_seq_quality(path, output_type="polars.DataFrame")
+    pb.cacl_base_seq_quality(fastq_path, output_type="polars.DataFrame")
     duration1 = time.perf_counter() - start1
 
-    # Pomiar czasu dla fqc (wzięte z repo fastqc-rs), uruchamiam jako subprocess i mierzę czas 
+    # fqc
     start2 = time.perf_counter()
-
-    fqc_path = r"C:\Users\piotr\.cargo\bin\fqc.exe"  # pełna ścieżka do fqc
-    summary_path = os.path.join(os.path.dirname(__file__), "summary.txt")
-    subprocess.run([fqc_path, "-q", path, "-s", summary_path], capture_output=True, check=True)    
+    proc = subprocess.run(
+        [r"C:\Users\piotr\.cargo\bin\fqc.exe", "-q", fastq_path, "-s", summary_path],
+        capture_output=True,
+        check=False
+    )
     duration2 = time.perf_counter() - start2
+
+    # jeżeli exit code >1 – traktujemy jako błąd
+    if proc.returncode not in (0, 1):
+        pytest.fail(f"fqc.exe zakończył się błędem (exit {proc.returncode}):\n{proc.stderr.decode()}")
 
     print(f"Polars-bio: {duration1:.4f} s")
     print(f"fastqc-rs CLI: {duration2:.4f} s")
 
-    # Sprawdzenie, żcz polars_bio nie jest za wolny
-    # x4 to dopuszczalny margines jaki wziąłem, tyle razy wolniej może działać nasza funkcja żeby przeszła test
-    assert duration1 < duration2 * 10, ( 
+    # dopuszczalny margines (×10)
+    assert duration1 < duration2 , (
         f"Polars-bio działa znacznie wolniej ({duration1:.4f}s) niż fastqc-rs ({duration2:.4f}s)"
     )
