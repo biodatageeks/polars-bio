@@ -1,64 +1,145 @@
-import polars_bio as pb
-import pandas as pd
-import plotly.graph_objects as go
+#!/usr/bin/env python3
+import sys
 from pathlib import Path
 
-# Ścieżki
-fastq_path = "min_example.fastq"
-html_output = "phred_score_report.html"
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
 
-# Sprawdzenie pliku
-if not Path(fastq_path).exists():
-    print(f"Błąd: plik '{fastq_path}' nie istnieje.")
-    exit(1)
+def main():
+    # 1) Ścieżka do FASTQ i wyjście HTML
+    script_dir = Path(__file__).parent
+    fastq = script_dir / "example.fastq"
+    out_html = script_dir / "report_full.html"
 
-# Wczytaj dane jako DataFrame z Polars, potem Pandas
-result = pb.cacl_base_seq_quality(fastq_path, output_type="polars.DataFrame")
-df = result.to_pandas()
+    if not fastq.exists():
+        print(f"❌ Nie znaleziono pliku: {fastq}", file=sys.stderr)
+        sys.exit(1)
+    print(f"✅ Parsuję FASTQ: {fastq}")
 
-# Wykres
-fig = go.Figure()
+    # 2) Parsowanie i zbieranie Phredów
+    scores = {}
+    with fastq.open() as f:
+        for idx, line in enumerate(f, start=1):
+            if idx % 4 == 0:
+                for pos, ch in enumerate(line.strip()):
+                    scores.setdefault(pos, []).append(ord(ch) - 33)
 
-# Dodaj linię trendu – mediana Phred score
-fig.add_trace(go.Scatter(
-    x=df["median"],
-    y=df["position"],
-    mode='lines+markers',
-    name='Median trend',
-    line=dict(color='red', width=2)
-))
+    # 3) Budowa DataFrame
+    rows = []
+    for pos in sorted(scores):
+        arr = np.array(scores[pos])
+        rows.append({
+            "position": pos,
+            "min_score": float(arr.min()),
+            "q1_score": float(np.percentile(arr, 25)),
+            "median_score": float(np.median(arr)),
+            "q3_score": float(np.percentile(arr, 75)),
+            "max_score": float(arr.max()),
+            "average_score": float(arr.mean()),
+        })
+    df = pd.DataFrame(rows)
+    print(f"📊 Policzono statystyki: {df.shape[0]} pozycji")
 
-# Dodaj boxploty jako error bar (alternatywa)
-fig.add_trace(go.Box(
-    x=df["min"],
-    y=df["position"],
-    name="Min",
-    orientation="h",
-    marker_color="rgba(0,100,80,0.3)",
-    boxpoints=False,
-    showlegend=False
-))
+    # 4) Generuj wykres Plotly
+    traces = []
 
-fig.add_trace(go.Box(
-    x=df["max"],
-    y=df["position"],
-    name="Max",
-    orientation="h",
-    marker_color="rgba(0,100,80,0.3)",
-    boxpoints=False,
-    showlegend=False
-))
+    # whiskers (min→max) – pogrubione
+    for _, r in df.iterrows():
+        traces.append(go.Scatter(
+            x=[r.min_score, r.max_score],
+            y=[r.position, r.position],
+            mode="lines",
+            line=dict(color="gray", width=2),  # pogrubiony whisker
+            showlegend=False,
+            hoverinfo="skip"
+        ))
+    # box (q1→q3) – pogrubione i oddzielone
+    traces.append(go.Bar(
+        x=df.q3_score - df.q1_score,
+        y=df.position,
+        base=df.q1_score,
+        orientation="h",
+        marker_color="rgba(0,100,80,0.6)",
+        marker_line=dict(color="rgba(0,100,80,1)", width=2),  # pogrubiona ramka
+        width=0.6,  # mniejsze pudełko, aby nie stykały się
+        showlegend=False
+    ))
+    # median tick
+    traces.append(go.Scatter(
+        x=df.median_score,
+        y=df.position,
+        mode="markers",
+        marker=dict(color="white", symbol="line-ns-open", size=16, line=dict(width=2)),
+        showlegend=False
+    ))
+    # trend średniej
+    traces.append(go.Scatter(
+        x=df.average_score,
+        y=df.position,
+        mode="lines+markers",
+        line=dict(color="red", width=2),
+        marker=dict(size=4),
+        name="Average"
+    ))
 
-# Odwróć oś Y (bo pozycja = od góry)
-fig.update_yaxes(autorange="reversed")
+    # 5) Layout z powiększonym spacingiem i dtick, ograniczony zakres Y
+    height = max(600, df.shape[0] * 60 + 200)
 
-fig.update_layout(
-    title="Phred Score vs Position in Read",
-    xaxis_title="Phred Score",
-    yaxis_title="Position in Read",
-    template="plotly_white"
-)
+    fig = go.Figure(traces)
+    fig.update_yaxes(
+        autorange="reversed",
+        title="Position in read (bp)",
+        dtick=1,
+        range=[0, 100]  # zakład od 0 do 100
+    )
+    fig.update_xaxes(
+        title="Phred score",
+        dtick=2
+    )
+    fig.update_layout(
+        title="Phred Score per Base Position",
+        template="plotly_white",
+        height=height,
+        margin=dict(l=80, r=20, t=60, b=60)
+    )
 
-# Zapisz do HTML
-fig.write_html(html_output)
-print(f"✅ Zapisano raport do: {html_output}")
+    # Wyciągnij div+script wykresu
+    plot_html = fig.to_html(full_html=False, include_plotlyjs='cdn')
+
+    # 6) Generuj statyczną tabelę HTML
+    table_html = df.to_html(classes="table table-striped", index=False)
+
+    # 7) Szablon jednego pliku HTML
+    html = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FastQC-like report</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+  <style>
+    body {{ margin: 20px; }}
+    h1 {{ margin-bottom: 30px; }}
+    #plot {{ margin-bottom: 50px; }}
+  </style>
+</head>
+<body>
+  <h1>Phred Score per Base Position</h1>
+  <div id="plot">
+    {plot_html}
+  </div>
+  <h2>Statistics Table</h2>
+  <div id="table">
+    {table_html}
+  </div>
+</body>
+</html>
+"""
+
+    # 8) Zapis
+    out_html.write_text(html, encoding='utf-8')
+    print(f"✅ Wygenerowano pełny raport: {out_html}")
+
+if __name__ == "__main__":
+    main()
