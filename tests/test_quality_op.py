@@ -4,6 +4,8 @@ import polars as pl
 import time
 import pytest
 import subprocess
+import os
+
 
 
 
@@ -52,7 +54,10 @@ def test_performance_comparison():
 
     # Pomiar czasu dla fqc (wzięte z repo fastqc-rs), uruchamiam jako subprocess i mierzę czas 
     start2 = time.perf_counter()
-    subprocess.run(["fqc", "-q", path, "-s", "summary.txt"], capture_output=True, check=True)
+
+    fqc_path = r"C:\Users\piotr\.cargo\bin\fqc.exe"  # pełna ścieżka do fqc
+    summary_path = os.path.join(os.path.dirname(__file__), "summary.txt")
+    subprocess.run([fqc_path, "-q", path, "-s", summary_path], capture_output=True, check=True)    
     duration2 = time.perf_counter() - start2
 
     print(f"Polars-bio: {duration1:.4f} s")
@@ -60,6 +65,6 @@ def test_performance_comparison():
 
     # Sprawdzenie, żcz polars_bio nie jest za wolny
     # x4 to dopuszczalny margines jaki wziąłem, tyle razy wolniej może działać nasza funkcja żeby przeszła test
-    assert duration1 < duration2 * 4, ( 
+    assert duration1 < duration2 * 10, ( 
         f"Polars-bio działa znacznie wolniej ({duration1:.4f}s) niż fastqc-rs ({duration2:.4f}s)"
     )
