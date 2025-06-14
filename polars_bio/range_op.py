@@ -548,4 +548,14 @@ def merge(
 def quality_udaf(
         df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame]
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
-    return quality_udaf_frame(ctx, df1.collect().to_arrow().to_reader())
+
+    if isinstance(df1, pl.DataFrame):
+        df1 = df1.to_arrow()
+    elif isinstance(df1, pl.LazyFrame):
+        df1 = df1.collect().to_arrow()
+    elif isinstance(df1, pd.DataFrame):
+        df1 = pa.Table.from_pandas(df)
+    else:
+        raise ValueError("Invalid `df` argument.")
+
+    return quality_udaf_frame(ctx, df1.to_reader())

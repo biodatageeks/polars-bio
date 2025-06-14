@@ -55,7 +55,13 @@ fn quality_udaf_frame(
     )));
 
     let return_type = DataType::Struct(Fields::from(vec![
-        Field::new("pos", inner_stats_type, false),
+        Field::new("pos", inner_stats_type.clone(), false),
+        Field::new("avg", inner_stats_type.clone(), false),
+        Field::new("lower", inner_stats_type.clone(), false),
+        Field::new("q1", inner_stats_type.clone(), false),
+        Field::new("mean", inner_stats_type.clone(), false),
+        Field::new("q2", inner_stats_type.clone(), false),
+        Field::new("upper", inner_stats_type.clone(), false),
     ]));
 
     let inner_counts_type = DataType::List(Arc::new(Field::new(
@@ -84,7 +90,13 @@ fn quality_udaf_frame(
     let rt = Runtime::new()?;
     let df = rt.block_on(py_ctx.ctx.sql(
         "SELECT \
-            pos_stats.pos as pos \
+            pos_stats.pos as pos, \
+            pos_stats.avg as avg, \
+            pos_stats.lower as lower, \
+            pos_stats.q1 as q1, \
+            pos_stats.mean as mean, \
+            pos_stats.q2 as q2, \
+            pos_stats.upper as upper \
         FROM (\
             SELECT \
                 per_pos_quartiles(quality_scores) AS pos_stats \
@@ -96,6 +108,27 @@ fn quality_udaf_frame(
 
     Ok(PyDataFrame::new(df))
 }
+
+
+// #[pyfunction]
+// #[pyo3(signature = (py_ctx, df1))]
+// fn base_sequence_quality_frame(
+//     py: Python<'_>,
+//     py_ctx: &PyBioSessionContext,
+//     df1: PyArrowType<ArrowArrayStreamReader>,
+// ) -> PyResult<PyDataFrame> {
+//     py.allow_threads(|| {
+//         let rt = Runtime::new().unwrap();
+//         let ctx = &py_ctx.ctx;
+//
+//         let df = rt.block_on(ctx.sql(
+//             ""
+//         ));
+//             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+//
+//         Ok(PyDataFrame::new(df))
+//     })
+// }
 
 #[pyfunction]
 #[pyo3(signature = (py_ctx, df1, df2, range_options, limit=None))]

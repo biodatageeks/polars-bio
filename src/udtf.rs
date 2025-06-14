@@ -466,3 +466,168 @@ async fn get_stream(
         RecordBatchStreamAdapter::new(new_schema_out, Box::pin(iter) as BoxStream<_>);
     Ok(Box::pin(adapted_stream))
 }
+
+// region Base Sequence Quality
+
+pub struct QualityHistogramProvider {
+    session: Arc<SessionContext>,
+    table: String,
+    column: String,
+    schema: SchemaRef,
+}
+
+impl QualityHistogramProvider {
+    pub fn new(session: Arc<SessionContext>, table: String, column: String) -> Self {
+        Self {
+            session,
+            table,
+            column,
+            schema: {
+                Arc::new(Schema::new(vec![
+                    Field::new("position", DataType::UInt32, true),
+                    Field::new("score", DataType::UInt8, true),
+                ]))
+            },
+        }
+    }
+}
+
+impl Debug for QualityHistogramProvider {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl TableProvider for QualityHistogramProvider {
+    fn as_any(&self) -> &dyn Any {
+        todo!()
+    }
+
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+
+    fn table_type(&self) -> TableType {
+        todo!()
+    }
+
+    async fn scan(
+        &self,
+        _state: &dyn Session,
+        _projection: Option<&Vec<usize>>,
+        _filters: &[Expr],
+        _limit: Option<usize>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        let target_partitions = self
+            .session
+            .state()
+            .config()
+            .options()
+            .execution
+            .target_partitions;
+
+        Ok(Arc::new(QualityHistogramExec {
+            schema: self.schema.clone(),
+            session: Arc::clone(&self.session),
+            table: self.table.clone(),
+            column: self.column.clone(),
+            cache: PlanProperties::new(
+                EquivalenceProperties::new(self.schema().clone()),
+                Partitioning::UnknownPartitioning(target_partitions),
+                ExecutionMode::Bounded,
+            ),
+        }))
+    }
+}
+
+struct QualityHistogramExec {
+    schema: SchemaRef,
+    session: Arc<SessionContext>,
+    table: String,
+    column: String,
+    cache: PlanProperties,
+}
+
+impl Debug for QualityHistogramExec {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
+
+impl DisplayAs for QualityHistogramExec {
+    fn fmt_as(&self, t: DisplayFormatType, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
+impl ExecutionPlan for QualityHistogramExec {
+    fn name(&self) -> &str {
+        "QualityHistogramExec"
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn properties(&self) -> &PlanProperties {
+        &self.cache
+    }
+
+    fn children(&self) -> Vec<&Arc<dyn ExecutionPlan>> {
+        vec![]
+    }
+
+    fn with_new_children(
+        self: Arc<Self>,
+        _children: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        Ok(self)
+    }
+
+    fn execute(
+        &self,
+        partition: usize,
+        context: Arc<TaskContext>,
+    ) -> Result<SendableRecordBatchStream> {
+        let fut = get_stream_qualities(
+            Arc::clone(&self.session),
+            self.schema.clone(),
+            self.table.clone(),
+            self.column.clone(),
+            self.cache.partitioning.partition_count(),
+            partition,
+            context
+        );
+        let stream = futures::stream::once(fut).try_flatten();
+        let schema = self.schema.clone();
+        Ok(Box::pin(RecordBatchStreamAdapter::new(schema, stream)))
+    }
+}
+
+async fn get_stream_qualities(
+    session: Arc<SessionContext>,
+    new_schema: Arc<Schema>,
+    table: String,
+    column: String,
+    target_partitions: usize,
+    partition: usize,
+    context: Arc<TaskContext>,
+) -> Result<SendableRecordBatchStream> {
+    let table = session.table(table);
+    let table_stream = table.await?;
+    let plan = table_stream.create_physical_plan().await?;
+    let repartition_stream =
+        RepartitionExec::try_new(plan, Partitioning::RoundRobinBatch(target_partitions))?;
+
+    let partition_stream = repartition_stream.execute(partition, context)?;
+    let new_schema_out = new_schema.clone();
+
+    // @TODO: make something there
+
+    let adapted_stream =
+        RecordBatchStreamAdapter::new(new_schema_out, Box::pin(iter) as BoxStream<_>);
+    Ok(Box::pin(adapted_stream))
+}
+
+// endregion
