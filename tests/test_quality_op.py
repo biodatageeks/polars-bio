@@ -9,6 +9,9 @@ EXPECTED_ROWS = [
     {"position": 0, "min_score": 2.0, "max_score": 31.0, "median_score": 2.0, "q1_score": 2.0, "q3_score": 31.0, "sample_count": 3},
     {"position": 1, "min_score": 16.0, "max_score": 31.0, "median_score": 19.0, "q1_score": 16.0, "q3_score": 31.0, "sample_count": 3},
     {"position": 2, "min_score": 28.0, "max_score": 31.0, "median_score": 31.0, "q1_score": 28.0, "q3_score": 33.0, "sample_count": 3},
+    {"position": 3, "min_score": 35.0, "max_score": 35.0, "median_score": 35.0, "q1_score": 35.0, "q3_score": 35.0, "sample_count": 3},
+    {"position": 4, "min_score": 35.0, "max_score": 37.0, "median_score": 35.0, "q1_score": 35.0, "q3_score": 37.0, "sample_count": 3},
+    {"position": 5, "min_score": 35.0, "max_score": 35.0, "median_score": 35.0, "q1_score": 35.0, "q3_score": 35.0, "sample_count": 3},
 ]
 
 # Test czy funkcja działa identycznie niezależnie od wejścia (ścieżka do pliku lub DataFrame)
@@ -19,7 +22,8 @@ def test_cacl_base_seq_quality_equivalence():
     result_from_path = pb.cacl_base_seq_quality(path, output_type="polars.DataFrame")   # Oblicz jako ścieżka do pliku
     result_from_df = pb.cacl_base_seq_quality(fastq_df, output_type="polars.DataFrame")    # Oblicz jako DataFrame
 
-    assert result_from_path.frame_equal(result_from_df), "Wyniki różnią się przy różnych typach wejścia" # Sprawdzenie, czy wyniki są identyczne
+    # Sprawdzenie, czy wyniki są identyczne
+    assert result_from_path.frame_equal(result_from_df), "Wyniki różnią się przy różnych typach wejścia" 
 
 # Test czy konkretne wartości z pierwszych 3 wierszy (0, 1, 2) są zgodne z expected 
 def test_cacl_base_seq_quality_expected_values():
