@@ -127,12 +127,12 @@ It is  especially useful when combined with [SQL](features.md#sql-powered-data-p
 ### AWS S3 configuration
 Supported environment variables:
 
-| Variable              | Description                                                 |
-|-----------------------|-------------------------------------------------------------|
-| AWS_ACCESS_KEY_ID     | AWS access key ID for authenticated access to S3.           |
-| AWS_SECRET_ACCESS_KEY | AWS secret access key for authenticated access to S3.       |
-| AWS_ENDPOINT_URL      | Custom S3 endpoint URL for accessing S3-compatible storage. |
-| AWS_REGION            | AWS region for accessing S3.                                |
+| Variable                          | Description                                                 |
+|-----------------------------------|-------------------------------------------------------------|
+| AWS_ACCESS_KEY_ID                 | AWS access key ID for authenticated access to S3.           |
+| AWS_SECRET_ACCESS_KEY             | AWS secret access key for authenticated access to S3.       |
+| AWS_ENDPOINT_URL                  | Custom S3 endpoint URL for accessing S3-compatible storage. |
+| AWS_REGION  or AWS_DEFAULT_REGION | AWS region for accessing S3.                                |
 
 ### Google Cloud Storage configuration
 
@@ -163,7 +163,9 @@ There are 2 ways of using streaming mode:
     import polars_bio as pb
     import polars as pl
     pb.overlap("/tmp/gnomad.v4.1.sv.sites.parquet", "/tmp/gnomad.exomes.v4.1.sites.chr1.parquet", output_type="datafusion.DataFrame").write_parquet("/tmp/overlap.parquet")
-    >>> pl.scan_parquet("/tmp/overlap.parquet").collect().count()
+    pl.scan_parquet("/tmp/overlap.parquet").collect().count()
+   ```
+   ```shell
     shape: (1, 6)
     ┌────────────┬────────────┬────────────┬────────────┬────────────┬────────────┐
     │ chrom_1    ┆ start_1    ┆ end_1      ┆ chrom_2    ┆ start_2    ┆ end_2      │
@@ -172,7 +174,7 @@ There are 2 ways of using streaming mode:
     ╞════════════╪════════════╪════════════╪════════════╪════════════╪════════════╡
     │ 2629727337 ┆ 2629727337 ┆ 2629727337 ┆ 2629727337 ┆ 2629727337 ┆ 2629727337 │
     └────────────┴────────────┴────────────┴────────────┴────────────┴────────────┘
-    ```
+   ```
 
     !!! tip
         If you only need to write the results as fast as possible into one of the above file formats or quickly get the row count, then it is in the most cases the **best** option.

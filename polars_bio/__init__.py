@@ -11,6 +11,7 @@ register_gff = SQL.register_gff
 register_vcf = SQL.register_vcf
 register_fastq = SQL.register_fastq
 register_bam = SQL.register_bam
+register_bed = SQL.register_bed
 register_view = SQL.register_view
 
 sql = SQL.sql
@@ -20,12 +21,12 @@ from .io import IOOperations
 describe_vcf = IOOperations.describe_vcf
 from_polars = IOOperations.from_polars
 read_bam = IOOperations.read_bam
-read_fasta = IOOperations.read_fasta
 read_fastq = IOOperations.read_fastq
 read_gff = IOOperations.read_gff
 read_table = IOOperations.read_table
 read_vcf = IOOperations.read_vcf
 read_fastq = IOOperations.read_fastq
+read_bed = IOOperations.read_bed
 
 from .range_op import IntervalOperations
 

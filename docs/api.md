@@ -11,8 +11,8 @@ There are 2 ways of using polars-bio API:
 !!! example
 
        ```python
-          import polars_bio as pb
-          df = pb.read_table("https://www.encodeproject.org/files/ENCFF001XKR/@@download/ENCFF001XKR.bed.gz",schema="bed9")
+       import polars_bio as pb
+       pb.read_fastq("gs://genomics-public-data/platinum-genomes/fastq/ERR194146.fastq.gz").limit(1).collect()
        ```
 
 * directly on a Polars LazyFrame under a registered `pb` [namespace](https://docs.pola.rs/api/python/stable/reference/api/polars.api.register_lazyframe_namespace.html#polars.api.register_lazyframe_namespace)

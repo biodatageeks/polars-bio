@@ -9,6 +9,7 @@ from tqdm.auto import tqdm
 
 from polars_bio.polars_bio import (
     BamReadOptions,
+    BedReadOptions,
     FastqReadOptions,
     GffReadOptions,
     InputFormat,
@@ -242,7 +243,7 @@ class IOOperations:
 
         !!! Example
 
-            ```
+            ```python
             import polars_bio as pb
             bam = pb.read_bam("gs://genomics-public-data/1000-genomes/bam/HG00096.mapped.ILLUMINA.bwa.GBR.low_coverage.20120522.bam").limit(3)
             bam.collect()
@@ -260,7 +261,8 @@ class IOOperations:
             │ SRR062641.13613107 ┆ chr1  ┆ 10002 ┆ 10072 ┆ … ┆ chr1       ┆ 10110      ┆ AACCCTAACCCCTAACCCCTAACCCCTAAC… ┆ 0KKNPQOQOQIQRPQPRRRRPQPRRRRPRF… │
             └────────────────────┴───────┴───────┴───────┴───┴────────────┴────────────┴─────────────────────────────────┴─────────────────────────────────┘
             ```
-            ``` python
+
+            ```python
             bam.collect_schema()
             Schema({'name': String, 'chrom': String, 'start': UInt32, 'end': UInt32, 'flags': UInt32, 'cigar': String, 'mapping_quality': UInt32, 'mate_chrom': String, 'mate_start': UInt32, 'sequence': String, 'quality_scores': String})
             ```
@@ -288,17 +290,6 @@ class IOOperations:
         else:
             df = read_file(path, InputFormat.Bam, read_options)
             return lazy_scan(df)
-
-    @staticmethod
-    def read_fasta(path: str) -> pl.LazyFrame:
-        """
-        Read a FASTA file into a LazyFrame.
-
-        Parameters:
-            path: The path to the FASTA file.
-        """
-        df = read_file(path, InputFormat.Fasta, None)
-        return lazy_scan(df)
 
     @staticmethod
     def read_fastq(
@@ -366,6 +357,91 @@ class IOOperations:
             return read_file(path, InputFormat.Fastq, read_options, streaming)
         else:
             df = read_file(path, InputFormat.Fastq, read_options)
+            return lazy_scan(df)
+
+    @staticmethod
+    def read_bed(
+        path: str,
+        thread_num: int = 1,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        streaming: bool = False,
+    ) -> Union[pl.LazyFrame, pl.DataFrame]:
+        """
+        Read a BED file into a LazyFrame.
+
+        Parameters:
+            path: The path to the BED file.
+            thread_num: The number of threads to use for reading the BED file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compressions is supported ('bgz').
+            streaming: Whether to read the BED file in streaming mode.
+
+        !!! Note
+            Only **BED4** format is supported. It extends the basic BED format (BED3) by adding a name field, resulting in four columns: chromosome, start position, end position, and name.
+            Also unlike other text formats, **GZIP** compression is not supported.
+
+        !!! Example
+            ```shell
+
+             cd /tmp
+             wget https://webs.iiitd.edu.in/raghava/humcfs/fragile_site_bed.zip -O fragile_site_bed.zip
+             unzip fragile_site_bed.zip -x "__MACOSX/*" "*/.DS_Store"
+            ```
+
+            ```python
+            import polars_bio as pb
+            pb.read_bed("/tmp/fragile_site_bed/chr5_fragile_site.bed").limit(5).collect()
+            ```
+
+            ```shell
+
+            shape: (5, 4)
+            ┌───────┬───────────┬───────────┬───────┐
+            │ chrom ┆ start     ┆ end       ┆ name  │
+            │ ---   ┆ ---       ┆ ---       ┆ ---   │
+            │ str   ┆ u32       ┆ u32       ┆ str   │
+            ╞═══════╪═══════════╪═══════════╪═══════╡
+            │ chr5  ┆ 28900001  ┆ 42500000  ┆ FRA5A │
+            │ chr5  ┆ 92300001  ┆ 98200000  ┆ FRA5B │
+            │ chr5  ┆ 130600001 ┆ 136200000 ┆ FRA5C │
+            │ chr5  ┆ 92300001  ┆ 93916228  ┆ FRA5D │
+            │ chr5  ┆ 18400001  ┆ 28900000  ┆ FRA5E │
+            └───────┴───────────┴───────────┴───────┘
+            ```
+        !!! note
+            BED reader uses **1-based** coordinate system for the `start`, `end`.
+        """
+
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        bed_read_options = BedReadOptions(
+            thread_num=thread_num,
+            object_storage_options=object_storage_options,
+        )
+        read_options = ReadOptions(bed_read_options=bed_read_options)
+        if streaming:
+            return read_file(path, InputFormat.Bed, read_options, streaming)
+        else:
+            df = read_file(path, InputFormat.Bed, read_options)
             return lazy_scan(df)
 
     @staticmethod

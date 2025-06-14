@@ -26,9 +26,9 @@ use tokio::runtime::Runtime;
 use crate::context::PyBioSessionContext;
 use crate::operation::do_range_operation;
 use crate::option::{
-    pyobject_storage_options_to_object_storage_options, BamReadOptions, BioTable, FastqReadOptions,
-    FilterOp, GffReadOptions, InputFormat, PyObjectStorageOptions, RangeOp, RangeOptions,
-    ReadOptions, VcfReadOptions,
+    pyobject_storage_options_to_object_storage_options, BamReadOptions, BedReadOptions, BioTable,
+    FastqReadOptions, FilterOp, GffReadOptions, InputFormat, PyObjectStorageOptions, RangeOp,
+    RangeOptions, ReadOptions, VcfReadOptions,
 };
 use crate::scan::{maybe_register_table, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
@@ -440,6 +440,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<VcfReadOptions>()?;
     m.add_class::<FastqReadOptions>()?;
     m.add_class::<BamReadOptions>()?;
+    m.add_class::<BedReadOptions>()?;
     m.add_class::<PyObjectStorageOptions>()?;
     Ok(())
 }

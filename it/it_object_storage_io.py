@@ -57,7 +57,8 @@ class TestIOVCFS3:
         os.unsetenv("AWS_ACCESS_KEY_ID")
         os.unsetenv("AWS_SECRET_ACCESS_KEY")
         os.unsetenv("AWS_ENDPOINT_URL")
-        os.environ["AWS_REGION"] = "us-east-1"
+        os.unsetenv("AWS_REGION")
+        os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
         vcf_infos_mixed_cases = (
             pb.read_vcf(self.vcf_aws_pub, thread_num=1, allow_anonymous=True)
             .limit(1)

@@ -1790,7 +1790,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bam"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=871fcefdb5ece1e1e41656cf0f60d9f0fcae2f72#871fcefdb5ece1e1e41656cf0f60d9f0fcae2f72"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9f3e40222ab66f4e285bf1003c376a3c6aa2e3c7#9f3e40222ab66f4e285bf1003c376a3c6aa2e3c7"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1809,9 +1809,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "datafusion-bio-format-bed"
+version = "0.1.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9f3e40222ab66f4e285bf1003c376a3c6aa2e3c7#9f3e40222ab66f4e285bf1003c376a3c6aa2e3c7"
+dependencies = [
+ "async-compression",
+ "async-stream",
+ "async-trait",
+ "bytes",
+ "datafusion",
+ "datafusion-bio-format-core",
+ "datafusion-execution",
+ "env_logger",
+ "futures",
+ "futures-util",
+ "log",
+ "noodles 0.93.0",
+ "noodles-bed 0.26.0",
+ "noodles-bgzf 0.36.0",
+ "opendal",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
 name = "datafusion-bio-format-core"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=871fcefdb5ece1e1e41656cf0f60d9f0fcae2f72#871fcefdb5ece1e1e41656cf0f60d9f0fcae2f72"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9f3e40222ab66f4e285bf1003c376a3c6aa2e3c7#9f3e40222ab66f4e285bf1003c376a3c6aa2e3c7"
 dependencies = [
  "async-compression",
  "bytes",
@@ -1829,7 +1853,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fastq"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=871fcefdb5ece1e1e41656cf0f60d9f0fcae2f72#871fcefdb5ece1e1e41656cf0f60d9f0fcae2f72"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9f3e40222ab66f4e285bf1003c376a3c6aa2e3c7#9f3e40222ab66f4e285bf1003c376a3c6aa2e3c7"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1850,7 +1874,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-gff"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=871fcefdb5ece1e1e41656cf0f60d9f0fcae2f72#871fcefdb5ece1e1e41656cf0f60d9f0fcae2f72"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9f3e40222ab66f4e285bf1003c376a3c6aa2e3c7#9f3e40222ab66f4e285bf1003c376a3c6aa2e3c7"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1872,7 +1896,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-vcf"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=871fcefdb5ece1e1e41656cf0f60d9f0fcae2f72#871fcefdb5ece1e1e41656cf0f60d9f0fcae2f72"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9f3e40222ab66f4e285bf1003c376a3c6aa2e3c7#9f3e40222ab66f4e285bf1003c376a3c6aa2e3c7"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -4134,7 +4158,7 @@ checksum = "abe598fe237b539488e581c7ec5e6a8c253dfddce8425442ed3135adf8a779df"
 dependencies = [
  "noodles-bam 0.76.0",
  "noodles-bcf 0.70.0",
- "noodles-bed",
+ "noodles-bed 0.21.0",
  "noodles-bgzf 0.36.0",
  "noodles-core 0.16.0",
  "noodles-cram 0.77.0",
@@ -4144,7 +4168,7 @@ dependencies = [
  "noodles-gff 0.44.0",
  "noodles-gtf",
  "noodles-sam 0.72.0",
- "noodles-tabix",
+ "noodles-tabix 0.50.0",
  "noodles-vcf",
 ]
 
@@ -4163,7 +4187,7 @@ dependencies = [
  "noodles-fastq 0.17.0",
  "noodles-gff 0.44.0",
  "noodles-sam 0.72.0",
- "noodles-tabix",
+ "noodles-tabix 0.50.0",
  "noodles-vcf",
 ]
 
@@ -4251,6 +4275,21 @@ dependencies = [
  "lexical-core",
  "memchr",
  "noodles-core 0.16.0",
+]
+
+[[package]]
+name = "noodles-bed"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b1628807aa4c3068c91c84592389b38304825dcbe0f9b0bb0f9382c94f11fc7"
+dependencies = [
+ "bstr",
+ "lexical-core",
+ "memchr",
+ "noodles-bgzf 0.41.0",
+ "noodles-core 0.17.0",
+ "noodles-csi 0.49.0",
+ "noodles-tabix 0.55.0",
 ]
 
 [[package]]
@@ -4513,6 +4552,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "noodles-tabix"
+version = "0.55.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "461b6173ee2ec38d7ddbce206c31c83d8c7b61d6a5db2b2c4ff2ac74653ac751"
+dependencies = [
+ "byteorder",
+ "indexmap",
+ "noodles-bgzf 0.41.0",
+ "noodles-core 0.17.0",
+ "noodles-csi 0.49.0",
+]
+
+[[package]]
 name = "noodles-vcf"
 version = "0.74.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4524,7 +4576,7 @@ dependencies = [
  "noodles-bgzf 0.36.0",
  "noodles-core 0.16.0",
  "noodles-csi 0.44.0",
- "noodles-tabix",
+ "noodles-tabix 0.50.0",
  "percent-encoding",
  "pin-project-lite",
  "tokio",
@@ -5736,6 +5788,7 @@ dependencies = [
  "coitrees",
  "datafusion",
  "datafusion-bio-format-bam",
+ "datafusion-bio-format-bed",
  "datafusion-bio-format-core",
  "datafusion-bio-format-fastq",
  "datafusion-bio-format-gff",
