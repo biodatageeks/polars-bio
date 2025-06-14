@@ -7,13 +7,13 @@ from datafusion import col, literal
 from typing_extensions import TYPE_CHECKING, Union
 
 from polars_bio.polars_bio import ReadOptions
-from polars_bio.polars_bio import base_quality_operation_frame, quality_udaf_frame
+from polars_bio.polars_bio import quality_udaf_frame
 from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import ctx
 from .interval_op_helpers import convert_result, get_py_ctx, read_df_to_datafusion
 from .range_op_helpers import _validate_overlap_input, range_operation
 
-__all__ = ["overlap", "nearest", "count_overlaps", "merge", "base_sequence_quality", "quality_udaf"]
+__all__ = ["overlap", "nearest", "count_overlaps", "merge", "quality_udaf"]
 
 
 if TYPE_CHECKING:
@@ -545,10 +545,6 @@ def merge(
 
     return convert_result(result, output_type, streaming)
 
-def base_sequence_quality(
-        df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame]
-) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
-    return base_quality_operation_frame(ctx, df1.collect().to_arrow().to_reader())
 def quality_udaf(
         df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame]
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:

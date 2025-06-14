@@ -15,8 +15,12 @@ def test_base_sequence_quality_udaf(fastq_df):
 	# from fastqc report.html hydrated data field
 	expected_first = [0.0, 30.135, 26.5, 31.0, 33.0, 34.0, 38.5]
 	res_df = pb.quality_udaf(fastq_df)
-	result = res_df.collect()[0][0][0][0].as_py()
+	print(type(res_df), res_df)
+	result = res_df.collect()[0][0][0].as_py()
 	assert expected_first == result
+
+
+
 # def test_base_sequence_quality_basic(fastq_df):
 # 	"""Test basic functionality of base sequence quality calculation"""
 # 	# Calculate quality metrics
