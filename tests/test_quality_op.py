@@ -6,17 +6,17 @@ import time
 
 # Poniższe expected dane wpisałem jako pierwsze 6 wierszy z wyników opartych na pliku "min_example.fastq"
 EXPECTED_ROWS = [
-    {"position": 0, "min_score": 2.0, "max_score": 31.0, "median_score": 2.0, "q1_score": 2.0, "q3_score": 31.0, "sample_count": 3},
-    {"position": 1, "min_score": 16.0, "max_score": 31.0, "median_score": 19.0, "q1_score": 16.0, "q3_score": 31.0, "sample_count": 3},
-    {"position": 2, "min_score": 28.0, "max_score": 33.0, "median_score": 31.0, "q1_score": 28.0, "q3_score": 33.0, "sample_count": 3},
-    {"position": 3, "min_score": 35.0, "max_score": 35.0, "median_score": 35.0, "q1_score": 35.0, "q3_score": 35.0, "sample_count": 3},
-    {"position": 4, "min_score": 35.0, "max_score": 37.0, "median_score": 35.0, "q1_score": 35.0, "q3_score": 37.0, "sample_count": 3},
-    {"position": 5, "min_score": 35.0, "max_score": 35.0, "median_score": 35.0, "q1_score": 35.0, "q3_score": 35.0, "sample_count": 3},
+    {"position": 0, "min": 2.0, "max": 31.0, "median": 2.0, "q1": 2.0, "q3": 16.5, "sample_count": 3},
+    {"position": 1, "min": 16.0, "max": 31.0, "median": 19.0, "q1": 17.5, "q3": 25.0, "sample_count": 3},
+    {"position": 2, "min": 28.0, "max": 33.0, "median": 31.0, "q1": 29.5, "q3": 32.0, "sample_count": 3},
+    {"position": 3, "min": 35.0, "max": 35.0, "median": 35.0, "q1": 35.0, "q3": 35.0, "sample_count": 3},
+    {"position": 4, "min": 35.0, "max": 37.0, "median": 35.0, "q1": 35.0, "q3": 36.0, "sample_count": 3},
+    {"position": 5, "min": 35.0, "max": 35.0, "median": 35.0, "q1": 35.0, "q3": 35.0, "sample_count": 3},
 ]
 
 # Test czy funkcja działa identycznie niezależnie od wejścia (ścieżka do pliku lub DataFrame)
 def test_cacl_base_seq_quality_equivalence():
-    path = r"..\benchmark\src\min_example.fastq"
+    path = "min_example.fastq"
     fastq_df = pb.read_fastq(path)  # Dane wczytane jako DataFrame
 
     result_from_path = pb.cacl_base_seq_quality(path, output_type="polars.DataFrame")   # Oblicz jako ścieżka do pliku
@@ -27,7 +27,7 @@ def test_cacl_base_seq_quality_equivalence():
 
 # Test czy konkretne wartości z pierwszych 3 wierszy (0, 1, 2) są zgodne z expected 
 def test_cacl_base_seq_quality_expected_values():
-    path = r"..\benchmark\src\min_example.fastq"
+    path = "min_example.fastq"
     result = pb.cacl_base_seq_quality(path, output_type="polars.DataFrame")
 
     for i, expected in enumerate(EXPECTED_ROWS):
@@ -39,7 +39,7 @@ def test_cacl_base_seq_quality_expected_values():
 
 # Sprawdzenie wydajności funkcji cacl_base_seq_quality, potem mogę dodać porównanie do fastq-rs
 def test_performance_comparison():
-    path = r"..\benchmark\src\min_example.fastq"
+    path = "min_example.fastq"
 
     start1 = time.perf_counter()
     pb.cacl_base_seq_quality(path, output_type="polars.DataFrame")
