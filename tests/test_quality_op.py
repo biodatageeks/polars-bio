@@ -1,8 +1,11 @@
 # Podmieńcie ścieżkę do pliku min_example.fastq na odpowiednią u was bo dałem bezpośrednio swoją
 import polars_bio as pb
 import polars as pl
-import pytest
 import time
+import pytest
+import subprocess
+
+
 
 # Poniższe expected dane wpisałem jako pierwsze 6 wierszy z wyników opartych na pliku "min_example.fastq"
 EXPECTED_ROWS = [
@@ -38,18 +41,25 @@ def test_cacl_base_seq_quality_expected_values():
 
 
 # Sprawdzenie wydajności funkcji cacl_base_seq_quality, potem mogę dodać porównanie do fastq-rs
+
 def test_performance_comparison():
     path = "min_example.fastq"
 
+    # Pomiar czasu dla naszej funkcji cacl_base_seq_quality
     start1 = time.perf_counter()
     pb.cacl_base_seq_quality(path, output_type="polars.DataFrame")
     duration1 = time.perf_counter() - start1
 
-    # start2 = time.perf_counter()
-    # pb.fastq_rs_cacl_base_seq_quality(path)
-    # duration2 = time.perf_counter() - start2
+    # Pomiar czasu dla fqc (wzięte z repo fastqc-rs), uruchamiam jako subprocess i mierzę czas 
+    start2 = time.perf_counter()
+    subprocess.run(["fqc", "-q", path, "-s", "summary.txt"], capture_output=True, check=True)
+    duration2 = time.perf_counter() - start2
 
-    print(f"Polars-bio: {duration1:.6f} sekundy")
-    # print(f"fastq-rs  : {duration2:.6f} sekundy")
+    print(f"Polars-bio: {duration1:.4f} s")
+    print(f"fastqc-rs CLI: {duration2:.4f} s")
 
-    # assert duration1 < duration2 * 3, "Polars-bio działa wolniej względem fastq-rs"
+    # Sprawdzenie, żcz polars_bio nie jest za wolny
+    # x4 to dopuszczalny margines jaki wziąłem, tyle razy wolniej może działać nasza funkcja żeby przeszła test
+    assert duration1 < duration2 * 4, ( 
+        f"Polars-bio działa znacznie wolniej ({duration1:.4f}s) niż fastqc-rs ({duration2:.4f}s)"
+    )
