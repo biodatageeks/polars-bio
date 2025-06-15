@@ -85,7 +85,7 @@ class TestCountOverlapsPolars:
         output_type="polars.DataFrame",
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
         naive_query=False,
     )
     result_lazy = pb.count_overlaps(
@@ -94,7 +94,7 @@ class TestCountOverlapsPolars:
         output_type="polars.LazyFrame",
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
         naive_query=False,
     ).collect()
     expected = PL_DF_COUNT_OVERLAPS

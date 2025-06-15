@@ -247,7 +247,7 @@ class IntervalOperations:
     def count_overlaps(
         df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
         df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-        overlap_filter: FilterOp = FilterOp.Strict,
+        use_zero_based: bool = False,
         suffixes: tuple[str, str] = ("", "_"),
         cols1: Union[list[str], None] = ["chrom", "start", "end"],
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
@@ -263,7 +263,7 @@ class IntervalOperations:
         Parameters:
             df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
-            overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). Strict for **0-based**, Weak for **1-based** coordinate systems.
+            use_zero_based: By default 1-based coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
             suffixes: Suffixes for the columns of the two overlapped sets.
             cols1: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
@@ -318,7 +318,7 @@ class IntervalOperations:
         if naive_query:
             range_options = RangeOptions(
                 range_op=RangeOp.CountOverlapsNaive,
-                filter_op=overlap_filter,
+                filter_op=FilterOp.Weak if not use_zero_based else FilterOp.Strict,
                 suffixes=suffixes,
                 columns_1=cols1,
                 columns_2=cols2,
@@ -377,9 +377,7 @@ class IntervalOperations:
                             partition_by=partitioning,
                             order_by=[
                                 col(s1start_s2end).sort(),
-                                col(is_s1).sort(
-                                    ascending=(overlap_filter == FilterOp.Strict)
-                                ),
+                                col(is_s1).sort(ascending=use_zero_based),
                             ],
                         )
                     )
@@ -390,9 +388,7 @@ class IntervalOperations:
                             partition_by=partitioning,
                             order_by=[
                                 col(s1end_s2start).sort(),
-                                col(is_s1).sort(
-                                    ascending=(overlap_filter == FilterOp.Weak)
-                                ),
+                                col(is_s1).sort(ascending=(not use_zero_based)),
                             ],
                         )
                     )

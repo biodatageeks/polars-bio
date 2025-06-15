@@ -60,7 +60,7 @@ class PolarsRangesOperations:
     def count_overlaps(
         self,
         other_df: pl.LazyFrame,
-        overlap_filter=FilterOp.Strict,
+        use_zero_based: bool = False,
         suffixes: tuple[str, str] = ("", "_"),
         cols1=["chrom", "start", "end"],
         cols2=["chrom", "start", "end"],
@@ -74,7 +74,7 @@ class PolarsRangesOperations:
         return pb.count_overlaps(
             self._ldf,
             other_df,
-            overlap_filter=overlap_filter,
+            use_zero_based=use_zero_based,
             suffixes=suffixes,
             cols1=cols1,
             cols2=cols2,

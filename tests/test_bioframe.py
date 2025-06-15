@@ -63,7 +63,7 @@ class TestBioframe:
         BIO_PD_DF2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         output_type="pandas.DataFrame",
         naive_query=False,
     )
@@ -73,7 +73,7 @@ class TestBioframe:
         BIO_DF_PATH2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         naive_query=True,
     )
 
