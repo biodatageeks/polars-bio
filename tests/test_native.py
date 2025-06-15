@@ -115,7 +115,7 @@ class TestCoverageNative:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
     )
     result_bio = bf.coverage(
         BIO_PD_DF1,
