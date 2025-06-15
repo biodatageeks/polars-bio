@@ -25,7 +25,6 @@ impl QualityQuartilesAccumulator {
     }
 
     fn stats(hist: &PhredHist) -> Option<[f64; 6]> {
-        // @TODO: readability
         let (sum, total_count) = hist
             .iter()
             .enumerate()
@@ -36,7 +35,6 @@ impl QualityQuartilesAccumulator {
         }
 
         if total_count == 1 {
-            // @TODO: readability
             let value = hist.iter().enumerate().fold(
                 0_usize,
                 |acc, (value, &count)| if count > 0 { value } else { acc },
@@ -47,7 +45,6 @@ impl QualityQuartilesAccumulator {
 
         let mut quantile = [0f64; 3];
 
-        // @TODO: make it better
         for (i, quant) in [0.25, 0.5, 0.75].iter().enumerate() {
             let rank = quant * (total_count - 1) as f64;
             let rank_ = rank.floor();
