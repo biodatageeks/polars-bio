@@ -11,9 +11,9 @@ from polars_bio.io import read_fastq
 from polars_bio.kmer_analysis import kmer_count, visualize_kmers
 
 
-SMALL_FASTQ_PATH = "tests/data/io/fastq/example.fastq"
+SMALL_FASTQ_PATH = "tests/data/io/fastq/ERR194147.fastq"
 LARGE_FASTQ_PATH = "tests/data/io/fastq/ERR194147.fastq"
-FASTQC_RS_OUTPUT = "tests/data/io/fastq/output.json"
+FASTQC_RS_OUTPUT = "tests/data/io/fastq/output_big.json"
 
 
 def run_fastqc_rs(fastq_path, k, output_json=None):
@@ -23,7 +23,12 @@ def run_fastqc_rs(fastq_path, k, output_json=None):
         temp_file = True
     else:
         temp_file = False
-    cmd = ["fqc", "-q", fastq_path, "-k", str(k), "--json", "-o", output_json]
+    cmd = [
+        "fqc",
+        "-k", str(k),
+        "-q", fastq_path,
+        "-s", output_json
+    ]
     try:
         subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         with open(output_json) as f:
@@ -31,16 +36,20 @@ def run_fastqc_rs(fastq_path, k, output_json=None):
         if temp_file:
             os.unlink(output_json)
         return data["values"]
-    except Exception:
+    except Exception as e:
+        print(f"fastqc-rs error: {e}")
         return None
 
 
 def compare_with_fastqc_rs(k=3, fastq_path=SMALL_FASTQ_PATH):
     df = read_fastq(fastq_path)
+    print("???")
     kmers_polars = kmer_count(k=k, df=df)
+    print("my done")
     if k == 3 and os.path.exists(FASTQC_RS_OUTPUT) and fastq_path == SMALL_FASTQ_PATH:
         with open(FASTQC_RS_OUTPUT) as f:
             fastqc_rs_results = json.load(f)["values"]
+        print("fastqc-rs done")
     else:
         fastqc_rs_results = run_fastqc_rs(fastq_path, k)
     if not fastqc_rs_results:
@@ -94,10 +103,11 @@ def visualize_both_outputs(k=3, fastq_path=SMALL_FASTQ_PATH, top_n=20):
 
 
 def main():
-    compare_with_fastqc_rs(k=3)
+    print(compare_with_fastqc_rs(k=3))
     # compare_with_fastqc_rs(k=5)
-    visualize_both_outputs(k=3, top_n=20)
-    performance_test()
+    # visualize_both_outputs(k=3, top_n=20)
+    # performance_test()
+    # run_fastqc_rs('ds', 3)
 
 
 if __name__ == "__main__":
