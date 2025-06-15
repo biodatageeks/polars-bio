@@ -3,3 +3,4 @@ maturin
 ruff
 pytest
 mypy
+ipykernel

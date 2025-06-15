@@ -16,4 +16,9 @@ benchmark/src/results
 benchmark/src/results/overlap
 mprofile*dat
 *csv
+*fastq
+*.parquet
+rust_logs.txt
+notebooks/.ipynb_checkpoints
+notebooks/tmp
 it/data/polars-bio-it.json

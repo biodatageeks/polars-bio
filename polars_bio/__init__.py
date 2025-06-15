@@ -47,6 +47,9 @@ from .range_op import IntervalOperations as range_operations
 from .range_utils import Utils as utils
 from .sql import SQL as data_processing
 
+from .quality_control_op import base_sequence_content
+from .quality_control_viz import plot_base_content
+
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 
 
@@ -64,4 +67,6 @@ __all__ = [
     "VcfReadOptions",
     "ObjectStorageOptions",
     "set_option",
+    "base_sequence_content",
+    "plot_base_content"
 ]
