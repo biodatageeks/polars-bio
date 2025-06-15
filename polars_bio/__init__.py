@@ -1,8 +1,4 @@
-from bioframe import count_overlaps
-
-from polars_bio.polars_bio import GffReadOptions, InputFormat
-from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
-from polars_bio.polars_bio import ReadOptions, VcfReadOptions
+from polars_bio.polars_bio import InputFormat, ReadOptions, VcfReadOptions
 
 from .context import ctx, set_option
 from .sql import SQL
@@ -42,6 +38,11 @@ vizualize_intervals = Utils.visualize_intervals
 
 from .io import IOOperations as data_input
 from .polars_ext import PolarsRangesOperations as LazyFrame
+from .range_op import (
+    FilterOp,
+    base_sequence_quality,
+)
+from .base_sequence_quality_viz import visualize_base_sequence_quality
 from .range_op import FilterOp
 from .range_op import IntervalOperations as range_operations
 from .range_utils import Utils as utils
@@ -54,6 +55,18 @@ __version__ = "0.9.0"
 __all__ = [
     "ctx",
     "FilterOp",
+    "visualize_intervals",
+    "visualize_base_sequence_quality",
+    "read_bam",
+    "read_vcf",
+    "read_fasta",
+    "read_fastq",
+    "read_table",
+    "register_vcf",
+    "describe_vcf",
+    "register_view",
+    "from_polars",
+    "sql",
     "InputFormat",
     "data_processing",
     "range_operations",
@@ -64,4 +77,5 @@ __all__ = [
     "VcfReadOptions",
     "ObjectStorageOptions",
     "set_option",
+    "base_sequence_quality",
 ]

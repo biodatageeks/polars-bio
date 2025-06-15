@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import datafusion
 import pandas as pd
+import pyarrow as pa
 import polars as pl
 from datafusion import col, literal
 from typing_extensions import TYPE_CHECKING, Union
 
 from polars_bio.polars_bio import ReadOptions
-
+from polars_bio.polars_bio import (
+    base_sequence_quality_frame,
+    base_sequence_quality_scan,
+)
 from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import ctx
 from .interval_op_helpers import (
@@ -18,7 +22,13 @@ from .interval_op_helpers import (
 )
 from .range_op_helpers import _validate_overlap_input, range_operation
 
-__all__ = ["overlap", "nearest", "count_overlaps", "merge"]
+__all__ = [
+    "overlap",
+    "nearest",
+    "count_overlaps",
+    "merge",
+    "base_sequence_quality"
+]
 
 
 if TYPE_CHECKING:
@@ -562,3 +572,75 @@ class IntervalOperations:
         )
 
         return convert_result(result, output_type, streaming)
+
+# region Base Sequence Quality
+
+
+def base_sequence_quality(
+    df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+    column: str,
+    output_type: str = "polars.DataFrame",
+    read_options: Union[ReadOptions, None] = None,
+) -> Union[pl.DataFrame, pd.DataFrame]:
+    """
+    Calculate base sequence quality statistics from quality score strings.
+
+    Parameters:
+        df: str, polars.DataFrame, polars.LazyFrame or pandas.DataFrame
+            Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
+        column: str
+            Name of the column containing the quality score strings.
+        output_type: str, optional (default: "polars.DataFrame")
+            Desired output DataFrame type. Supported values:
+            - "polars.DataFrame" returns a Polars DataFrame.
+            - "pandas.DataFrame" returns a Pandas DataFrame.
+        read_options: ReadOptions or None, optional
+            Additional options for reading the input files.
+
+    Returns:
+        **polars.DataFrame** or pandas.DataFrame
+            DataFrame containing base quality statistics including average quality scores
+            and quartiles by position.
+
+    Notes:
+        - When `df` is a string, the function reads the table via internal scan.
+
+    Example:
+        ```python
+        import polars as pl
+        import polars_bio as pb
+
+        # Using a registered table name:
+        df_stats = pb.base_sequence_quality("my_table", "quality_scores")
+
+        # Using a Polars DataFrame:
+        df = pl.DataFrame({"quality_scores": ["IIIIH", "HHIII"]})
+        df_stats = pb.base_sequence_quality(df, "quality_scores", output_type="pandas.DataFrame")
+
+        print(df_stats)
+        ```
+    """
+
+    if isinstance(df, str):
+        df_res = base_sequence_quality_scan(ctx, df, column, read_options)
+    else:
+        if isinstance(df, pl.DataFrame):
+            df = df.to_arrow()
+        elif isinstance(df, pl.LazyFrame):
+            df = df.collect().to_arrow()
+        elif isinstance(df, pd.DataFrame):
+            df = pa.Table.from_pandas(df)
+        else:
+            raise ValueError("Invalid `df` argument.")
+
+        df_res = base_sequence_quality_frame(ctx, df.to_reader(), column)
+
+    if output_type == "polars.DataFrame":
+        return df_res.to_polars()
+    elif output_type == "pandas.DataFrame":
+        return df_res.to_pandas()
+    else:
+        raise ValueError("Invalid `output_type` argument.")
+
+
+# endregion

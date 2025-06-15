@@ -6,8 +6,11 @@ use log::{debug, info};
 use sequila_core::session_context::{Algorithm, SequilaConfig};
 use tokio::runtime::Runtime;
 
-use crate::context::set_option_internal;
+use crate::context::{set_option_internal};
 use crate::option::{FilterOp, RangeOp, RangeOptions};
+use crate::query::{
+    base_sequence_quality_query
+};
 use crate::query::{nearest_query, overlap_query};
 use crate::udtf::CountOverlapsProvider;
 use crate::utils::default_cols_to_string;
@@ -239,3 +242,19 @@ pub(crate) async fn prepare_query(
 
     query(query_params)
 }
+
+// region Base Sequence Quality
+
+pub(crate) fn do_base_sequence_quality(
+    ctx: &ExonSession,
+    rt: &Runtime,
+    table: String,
+    column: String,
+) -> datafusion::dataframe::DataFrame {
+    rt.block_on(async {
+        let query = base_sequence_quality_query(table, column);
+        ctx.sql(&query).await.unwrap()
+    })
+}
+
+// endregion

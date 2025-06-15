@@ -4,6 +4,7 @@ mod option;
 mod query;
 mod scan;
 mod streaming;
+mod udaf;
 mod udtf;
 mod utils;
 
@@ -24,7 +25,7 @@ use pyo3::prelude::*;
 use tokio::runtime::Runtime;
 
 use crate::context::PyBioSessionContext;
-use crate::operation::do_range_operation;
+use crate::operation::{do_base_sequence_quality, do_range_operation};
 use crate::option::{
     pyobject_storage_options_to_object_storage_options, BamReadOptions, BedReadOptions, BioTable,
     FastqReadOptions, FilterOp, GffReadOptions, InputFormat, PyObjectStorageOptions, RangeOp,
@@ -37,6 +38,50 @@ use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
 const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
+
+// region Base Sequence Quality
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, df, column))]
+fn base_sequence_quality_frame(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    df: PyArrowType<ArrowArrayStreamReader>,
+    column: String,
+) -> PyResult<PyDataFrame> {
+    py.allow_threads(|| {
+        let rt = Runtime::new().unwrap();
+        let ctx = &py_ctx.ctx;
+        register_frame(py_ctx, df, LEFT_TABLE.to_string());
+        let df = do_base_sequence_quality(ctx, &rt, LEFT_TABLE.to_string(), column);
+
+        Ok(PyDataFrame::new(df))
+    })
+}
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, df_path_or_table, column, read_options1=None))]
+fn base_sequence_quality_scan(
+    py_ctx: &PyBioSessionContext,
+    df_path_or_table: String,
+    column: String,
+    read_options1: Option<ReadOptions>,
+) -> PyResult<PyDataFrame> {
+    #[allow(clippy::useless_conversion)]
+    let rt = Runtime::new()?;
+    let ctx = &py_ctx.ctx;
+    let table = maybe_register_table(
+        df_path_or_table,
+        &LEFT_TABLE.to_string(),
+        read_options1,
+        ctx,
+        &rt,
+    );
+    let df = do_base_sequence_quality(ctx, &rt, table, column);
+
+    Ok(PyDataFrame::new(df))
+}
+// endregion
 
 #[pyfunction]
 #[pyo3(signature = (py_ctx, df1, df2, range_options, limit=None))]
@@ -419,6 +464,8 @@ fn py_from_polars(
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
+    m.add_function(wrap_pyfunction!(base_sequence_quality_frame, m)?)?;
+    m.add_function(wrap_pyfunction!(base_sequence_quality_scan, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
     m.add_function(wrap_pyfunction!(stream_range_operation_scan, m)?)?;
@@ -430,6 +477,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
+    // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;
