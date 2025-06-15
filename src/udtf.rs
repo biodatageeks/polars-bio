@@ -2,17 +2,16 @@ use std::any::Any;
 use std::cmp::{max, min};
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
-
-use arrow_array::{
-    Array, GenericStringArray, Int32Array, Int64Array, RecordBatch, StringViewArray,
-};
+use arrow_array::{Array, ArrayRef, GenericStringArray, Int32Array, Int64Array, LargeStringArray, RecordBatch, StringArray, StringArrayType, StringViewArray, UInt64Array, UInt8Array};
 use arrow_schema::{DataType, Field, FieldRef, Schema, SchemaRef};
 use async_trait::async_trait;
 use coitrees::{COITree, Interval, IntervalTree};
 use datafusion::catalog::{Session, TableProvider};
-use datafusion::common::Result;
+use datafusion::common::{plan_err, DataFusionError, Result, ScalarValue};
+use datafusion::datasource::function::TableFunctionImpl;
 use datafusion::datasource::TableType;
 use datafusion::execution::{SendableRecordBatchStream, TaskContext};
+use datafusion::logical_expr::col;
 use datafusion::physical_expr::{EquivalenceProperties, Partitioning};
 use datafusion::physical_plan::repartition::RepartitionExec;
 use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
@@ -20,11 +19,13 @@ use datafusion::physical_plan::{
     DisplayAs, DisplayFormatType, ExecutionMode, ExecutionPlan, PlanProperties,
 };
 use datafusion::prelude::{Expr, SessionContext};
+use exon::ExonSession;
 use fnv::FnvHashMap;
 use futures_util::stream::BoxStream;
 use futures_util::{StreamExt, TryStreamExt};
 
 use crate::option::FilterOp;
+use crate::udaf::PhredHist;
 
 pub struct CountOverlapsProvider {
     session: Arc<SessionContext>,
@@ -466,3 +467,294 @@ async fn get_stream(
         RecordBatchStreamAdapter::new(new_schema_out, Box::pin(iter) as BoxStream<_>);
     Ok(Box::pin(adapted_stream))
 }
+
+// region Base Sequence Quality
+
+pub struct QualityHistogramProvider {
+    session: Arc<SessionContext>,
+    table: String,
+    column: String,
+    schema: SchemaRef,
+}
+
+impl Debug for QualityHistogramProvider {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
+
+impl QualityHistogramProvider {
+    pub fn new(session: Arc<SessionContext>, table: String, column: String) -> Self {
+        Self {
+            session,
+            table,
+            column,
+            schema: {
+                Arc::new(Schema::new(vec![
+                    Field::new("pos", DataType::UInt64, true),
+                    Field::new("score", DataType::UInt8, true),
+                    Field::new("count", DataType::UInt64, true),
+                ]))
+            },
+        }
+    }
+}
+
+#[async_trait]
+impl TableProvider for QualityHistogramProvider {
+    fn as_any(&self) -> &dyn Any {
+        todo!()
+    }
+
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+
+    fn table_type(&self) -> TableType {
+        todo!()
+    }
+
+    async fn scan(
+        &self,
+        _state: &dyn Session,
+        _projection: Option<&Vec<usize>>,
+        _filters: &[Expr],
+        _limit: Option<usize>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        let target_partitions = self
+            .session
+            .state()
+            .config()
+            .options()
+            .execution
+            .target_partitions;
+
+        Ok(Arc::new(QualityHistogramExec {
+            schema: self.schema.clone(),
+            session: Arc::clone(&self.session),
+            table: self.table.clone(),
+            column: self.column.clone(),
+            cache: PlanProperties::new(
+                EquivalenceProperties::new(self.schema().clone()),
+                Partitioning::UnknownPartitioning(target_partitions),
+                ExecutionMode::Bounded,
+            ),
+        }))
+    }
+}
+
+struct QualityHistogramExec {
+    schema: SchemaRef,
+    session: Arc<SessionContext>,
+    table: String,
+    column: String,
+    cache: PlanProperties,
+}
+
+impl Debug for QualityHistogramExec {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
+
+impl DisplayAs for QualityHistogramExec {
+    fn fmt_as(&self, _t: DisplayFormatType, f: &mut Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.name())
+    }
+}
+
+impl ExecutionPlan for QualityHistogramExec {
+    fn name(&self) -> &str {
+        "QualityHistogramExec"
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn properties(&self) -> &PlanProperties {
+        &self.cache
+    }
+
+    fn children(&self) -> Vec<&Arc<dyn ExecutionPlan>> {
+        vec![]
+    }
+
+    fn with_new_children(
+        self: Arc<Self>,
+        _children: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        Ok(self)
+    }
+
+    fn execute(
+        &self,
+        partition: usize,
+        context: Arc<TaskContext>,
+    ) -> Result<SendableRecordBatchStream> {
+        let fut = get_stream_qualities(
+            Arc::clone(&self.session),
+            self.schema.clone(),
+            self.table.clone(),
+            self.column.clone(),
+            self.cache.partitioning.partition_count(),
+            partition,
+            context,
+        );
+        let stream = futures::stream::once(fut).try_flatten();
+        let schema = self.schema.clone();
+        Ok(Box::pin(RecordBatchStreamAdapter::new(schema, stream)))
+    }
+}
+
+type QualityCounts = Vec<PhredHist>;
+
+async fn get_stream_qualities(
+    session: Arc<SessionContext>,
+    new_schema: Arc<Schema>,
+    table: String,
+    column: String,
+    target_partitions: usize,
+    partition: usize,
+    context: Arc<TaskContext>,
+) -> Result<SendableRecordBatchStream> {
+    let table = session.table(table);
+    let table_stream = table.await?.select(vec![col(&column)])?;
+    let plan = table_stream.create_physical_plan().await?;
+
+    let repartition_stream =
+        RepartitionExec::try_new(plan, Partitioning::RoundRobinBatch(target_partitions))?;
+
+    let mut partition_stream = repartition_stream.execute(partition, context)?;
+    let new_schema_out = new_schema.clone();
+
+    let mut counts: QualityCounts = Vec::with_capacity(300);
+
+    while let Some(batch) = partition_stream.next().await {
+        count_scores_in_batch(&batch?, &column, &mut counts)?;
+    }
+
+    let mut pos_vec = Vec::with_capacity(counts.len() * 30);
+    let mut score_vec = Vec::with_capacity(counts.len() * 30);
+    let mut count_vec = Vec::with_capacity(counts.len() * 30);
+
+    for (pos, hist) in counts.iter().enumerate() {
+        for (score, count) in hist.iter().enumerate() {
+            if *count > 0 {
+                pos_vec.push(pos as u64);
+                score_vec.push(score as u8);
+                count_vec.push(*count);
+            }
+        }
+    }
+
+    let pos_array = Arc::new(UInt64Array::from(pos_vec)) as ArrayRef;
+    let score_array = Arc::new(UInt8Array::from(score_vec)) as ArrayRef;
+    let count_array = Arc::new(UInt64Array::from(count_vec)) as ArrayRef;
+
+    let batch = RecordBatch::try_new(
+        new_schema.clone(),
+        vec![pos_array, score_array, count_array],
+    )?;
+
+    let iter = futures::stream::once(async move { Ok(batch) });
+    let adapted_stream =
+        RecordBatchStreamAdapter::new(new_schema_out, Box::pin(iter) as BoxStream<_>);
+    Ok(Box::pin(adapted_stream))
+}
+
+fn count_scores_in_array<'a, V: StringArrayType<'a>>(string_array: V, counts: &mut QualityCounts) -> Result<()> {
+    for maybe_str in string_array.iter() {
+        if let Some(quality_str) = maybe_str {
+            counts.resize(quality_str.len(), [0; 94]);
+
+            for (pos, q) in quality_str.bytes().enumerate() {
+                if q >= 33 {
+                    let score = q - 33;
+                    counts[pos][score as usize] += 1;
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn count_scores_in_batch(
+    rb: &RecordBatch,
+    column: &str,
+    counts: &mut QualityCounts,
+) -> Result<()> {
+    let array_ref = rb
+        .column_by_name(&column)
+        .ok_or_else(|| DataFusionError::Execution(format!("Column '{}' not found", column)))?;
+
+    match array_ref.data_type() {
+        DataType::Utf8 => {
+            let string_array = array_ref
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .ok_or_else(|| {
+                    DataFusionError::Execution(format!("Column '{}' is invalid", column))
+                })?;
+
+            count_scores_in_array(string_array, counts)
+        },
+        DataType::LargeUtf8 => {
+            let large_string_array = array_ref
+                .as_any()
+                .downcast_ref::<LargeStringArray>()
+                .ok_or_else(|| {
+                    DataFusionError::Execution(format!("Column '{}' is invalid", column))
+                })?;
+
+            count_scores_in_array(large_string_array, counts)
+        },
+        _ => return Err(DataFusionError::Execution("Unsupported string type".into())),
+    }
+}
+
+pub struct QualityHistogramFunction {
+    session: Arc<SessionContext>,
+}
+
+impl QualityHistogramFunction {
+    pub(crate) fn new(ctx: &ExonSession) -> Self {
+        let session = Arc::new(ctx.session.clone());
+
+        Self { session }
+    }
+}
+
+impl Debug for QualityHistogramFunction {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
+        Ok(())
+    }
+}
+
+impl TableFunctionImpl for QualityHistogramFunction {
+    fn call(&self, exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
+        if exprs.len() != 2 {
+            return plan_err!(
+                "Function 'quality_histogram' expects 2 arguments: (table_name, column_name)"
+            );
+        }
+
+        let table_name = match &exprs[0] {
+            Expr::Literal(ScalarValue::Utf8(Some(v))) => v.clone(),
+            _ => return plan_err!("First argument must be a UTF8 string literal (table name)"),
+        };
+
+        let column_name = match &exprs[1] {
+            Expr::Literal(ScalarValue::Utf8(Some(v))) => v.clone(),
+            _ => return plan_err!("Second argument must be a UTF8 string literal (column name)"),
+        };
+
+        let provider =
+            QualityHistogramProvider::new(Arc::clone(&self.session), table_name, column_name);
+
+        Ok(Arc::new(provider))
+    }
+}
+
+// endregion

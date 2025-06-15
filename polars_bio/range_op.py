@@ -2,18 +2,28 @@ from __future__ import annotations
 
 import datafusion
 import pandas as pd
+import pyarrow as pa
 import polars as pl
 from datafusion import col, literal
 from typing_extensions import TYPE_CHECKING, Union
 
 from polars_bio.polars_bio import ReadOptions
-from polars_bio.polars_bio import base_quality_operation_frame, quality_udaf_frame
+from polars_bio.polars_bio import (
+    base_sequence_quality_frame,
+    base_sequence_quality_scan,
+)
 from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import ctx
 from .interval_op_helpers import convert_result, get_py_ctx, read_df_to_datafusion
 from .range_op_helpers import _validate_overlap_input, range_operation
 
-__all__ = ["overlap", "nearest", "count_overlaps", "merge", "base_sequence_quality", "quality_udaf"]
+__all__ = [
+    "overlap",
+    "nearest",
+    "count_overlaps",
+    "merge",
+    "base_sequence_quality"
+]
 
 
 if TYPE_CHECKING:
@@ -545,11 +555,35 @@ def merge(
 
     return convert_result(result, output_type, streaming)
 
+# region Base Sequence Quality
+
+
 def base_sequence_quality(
-        df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame]
-) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
-    return base_quality_operation_frame(ctx, df1.collect().to_arrow().to_reader())
-def quality_udaf(
-        df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame]
-) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
-    return quality_udaf_frame(ctx, df1.collect().to_arrow().to_reader())
+    df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+    column: str,
+    output_type: str = "polars.DataFrame",
+    read_options1: Union[ReadOptions, None] = None,
+) -> Union[pl.DataFrame, pd.DataFrame]:
+    if isinstance(df, str):
+        df_res = base_sequence_quality_scan(ctx, df, column)
+    else:
+        if isinstance(df, pl.DataFrame):
+            df = df.to_arrow()
+        elif isinstance(df, pl.LazyFrame):
+            df = df.collect().to_arrow()
+        elif isinstance(df, pd.DataFrame):
+            df = pa.Table.from_pandas(df)
+        else:
+            raise ValueError("Invalid `df` argument.")
+
+        df_res = base_sequence_quality_frame(ctx, df.to_reader(), column)
+
+    if output_type == "polars.DataFrame":
+        return df_res.to_polars()
+    elif output_type == "pandas.DataFrame":
+        return df_res.to_pandas()
+    else:
+        raise ValueError("Invalid `output_type` argument.")
+
+
+# endregion

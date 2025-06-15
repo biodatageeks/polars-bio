@@ -4,15 +4,15 @@ mod option;
 mod query;
 mod scan;
 mod streaming;
+mod udaf;
 mod udtf;
 mod utils;
-mod quality;
-mod quality_udaf;
-// mod base_quality;
-// mod base_quality_calculator;
 
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
+
+use arrow::datatypes::{DataType, Field};
+use arrow_schema::Fields;
 // use arrow_schema::DataType;
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
@@ -26,87 +26,65 @@ use polars_python::error::PyPolarsErr;
 use polars_python::lazyframe::PyLazyFrame;
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
-use arrow::datatypes::{DataType, Field};
+
 use crate::context::PyBioSessionContext;
-use crate::operation::do_range_operation;
+use crate::operation::{do_base_sequence_quality, do_range_operation};
 use crate::option::{
     BioTable, FilterOp, InputFormat, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
 };
-use crate::quality::compute_base_quality;
-use crate::quality_udaf::QuartilesAcc;
 use crate::scan::{maybe_register_table, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
+use crate::udtf::QualityHistogramProvider;
 use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
 
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
 const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
 
+// region Base Sequence Quality
+
 #[pyfunction]
-#[pyo3(signature=(py_ctx, df1))]
-fn base_quality_operation_frame(
-   py_ctx: &PyBioSessionContext,
-   df1: PyArrowType<ArrowArrayStreamReader>,
+#[pyo3(signature = (py_ctx, df, column))]
+fn base_sequence_quality_frame(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    df: PyArrowType<ArrowArrayStreamReader>,
+    column: String,
 ) -> PyResult<PyDataFrame> {
-    // let mut reader: ArrowArrayStreamReader = df1.0;
-    register_frame(py_ctx, df1, LEFT_TABLE.to_string());
+    py.allow_threads(|| {
+        let rt = Runtime::new().unwrap();
+        let ctx = &py_ctx.ctx;
+        register_frame(py_ctx, df, LEFT_TABLE.to_string());
+        let df = do_base_sequence_quality(ctx, &rt, LEFT_TABLE.to_string(), column);
+
+        Ok(PyDataFrame::new(df))
+    })
+}
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, df_path_or_table, column, read_options1=None))]
+fn base_sequence_quality_scan(
+    py_ctx: &PyBioSessionContext,
+    df_path_or_table: String,
+    column: String,
+    read_options1: Option<ReadOptions>,
+) -> PyResult<PyDataFrame> {
+    #[allow(clippy::useless_conversion)]
     let rt = Runtime::new()?;
     let ctx = &py_ctx.ctx;
-    let df = compute_base_quality(ctx, &rt, LEFT_TABLE.to_string())
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-
-    Ok(PyDataFrame::new(df))
-}
-
-
-#[pyfunction]
-#[pyo3(signature=(py_ctx, df1))]
-fn quality_udaf_frame(
-    py_ctx: &PyBioSessionContext,
-    df1: PyArrowType<ArrowArrayStreamReader>,
-) -> PyResult<PyDataFrame> {
-    let inner_stats_type = DataType::List(Arc::new(Field::new(
-        "item",         
-        DataType::Float64,
-        false,
-    )));
-    let return_type = DataType::List(Arc::new(Field::new(
-        "item",       
-        inner_stats_type.clone(),
-        false,
-    )));
-
-    let inner_counts_type = DataType::List(Arc::new(Field::new(
-        "item",         
-        DataType::UInt64,
-        false,
-    )));
-    let state_type = DataType::List(Arc::new(Field::new(
-        "item",       
-        inner_counts_type.clone(),
-        false,
-    )));
-
-    let udaf = create_udaf(
-        "per_pos_quartiles",
-        vec![DataType::LargeUtf8],
-        Arc::new(return_type),
-        Volatility::Immutable,
-        Arc::new(|_| Ok(Box::new(QuartilesAcc::new()))),
-        Arc::new(vec![state_type]),
+    let table = maybe_register_table(
+        df_path_or_table,
+        &LEFT_TABLE.to_string(),
+        read_options1,
+        ctx,
+        &rt,
     );
-
-    py_ctx.ctx.session.register_udaf(udaf);
-    register_frame(py_ctx, df1, LEFT_TABLE.to_string());
-
-    let rt = Runtime::new()?;
-    let df = rt.block_on(py_ctx.ctx.sql(
-        "SELECT per_pos_quartiles(quality_scores) AS pos_stats FROM s1"
-    ))
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+    let df = do_base_sequence_quality(ctx, &rt, table, column);
 
     Ok(PyDataFrame::new(df))
 }
+// endregion
+
 #[pyfunction]
 #[pyo3(signature = (py_ctx, df1, df2, range_options, limit=None))]
 fn range_operation_frame(
@@ -147,7 +125,8 @@ fn range_operation_frame(
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None, limit=None))]
+#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None, limit=None)
+)]
 fn range_operation_scan(
     py_ctx: &PyBioSessionContext,
     df_path_or_table1: String,
@@ -190,7 +169,8 @@ fn range_operation_scan(
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None))]
+#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None)
+)]
 fn stream_range_operation_scan(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
@@ -478,8 +458,8 @@ fn py_from_polars(
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
-    m.add_function(wrap_pyfunction!(base_quality_operation_frame, m)?)?;
-    m.add_function(wrap_pyfunction!(quality_udaf_frame, m)?)?;
+    m.add_function(wrap_pyfunction!(base_sequence_quality_frame, m)?)?;
+    m.add_function(wrap_pyfunction!(base_sequence_quality_scan, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
     m.add_function(wrap_pyfunction!(stream_range_operation_scan, m)?)?;
