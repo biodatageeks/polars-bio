@@ -5,9 +5,9 @@ mod quality_udaf;
 mod query;
 mod scan;
 mod streaming;
+mod udaf;
 mod udtf;
 mod utils;
-mod udaf;
 // mod base_quality;
 // mod base_quality_calculator;
 
@@ -31,7 +31,7 @@ use pyo3::prelude::*;
 use tokio::runtime::Runtime;
 
 use crate::context::PyBioSessionContext;
-use crate::operation::do_range_operation;
+use crate::operation::{do_base_sequence_quality, do_range_operation};
 use crate::option::{
     BioTable, FilterOp, InputFormat, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
 };
@@ -48,44 +48,48 @@ const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
 #[pyfunction]
 #[pyo3(signature=(py_ctx, df1))]
 fn quality_udaf_frame(
+    py: Python<'_>,
     py_ctx: &PyBioSessionContext,
     df1: PyArrowType<ArrowArrayStreamReader>,
 ) -> PyResult<PyDataFrame> {
-    let inner_stats_type = DataType::List(Arc::new(Field::new("item", DataType::Float64, false)));
+    py.allow_threads(|| {
+        let inner_stats_type =
+            DataType::List(Arc::new(Field::new("item", DataType::Float64, false)));
 
-    let return_type = DataType::Struct(Fields::from(vec![
-        Field::new("pos", inner_stats_type.clone(), false),
-        Field::new("avg", inner_stats_type.clone(), false),
-        Field::new("lower", inner_stats_type.clone(), false),
-        Field::new("q1", inner_stats_type.clone(), false),
-        Field::new("mean", inner_stats_type.clone(), false),
-        Field::new("q2", inner_stats_type.clone(), false),
-        Field::new("upper", inner_stats_type.clone(), false),
-    ]));
+        let return_type = DataType::Struct(Fields::from(vec![
+            Field::new("pos", inner_stats_type.clone(), false),
+            Field::new("avg", inner_stats_type.clone(), false),
+            Field::new("lower", inner_stats_type.clone(), false),
+            Field::new("q1", inner_stats_type.clone(), false),
+            Field::new("mean", inner_stats_type.clone(), false),
+            Field::new("q2", inner_stats_type.clone(), false),
+            Field::new("upper", inner_stats_type.clone(), false),
+        ]));
 
-    let inner_counts_type = DataType::List(Arc::new(Field::new("item", DataType::UInt64, false)));
-    let state_type = DataType::List(Arc::new(Field::new(
-        "item",
-        inner_counts_type.clone(),
-        false,
-    )));
+        let inner_counts_type =
+            DataType::List(Arc::new(Field::new("item", DataType::UInt64, false)));
+        let state_type = DataType::List(Arc::new(Field::new(
+            "item",
+            inner_counts_type.clone(),
+            false,
+        )));
 
-    let udaf = create_udaf(
-        "per_pos_quartiles",
-        vec![DataType::LargeUtf8],
-        Arc::new(return_type),
-        Volatility::Immutable,
-        Arc::new(|_| Ok(Box::new(QuartilesAccumulator::new()))),
-        Arc::new(vec![state_type]),
-    );
+        let udaf = create_udaf(
+            "per_pos_quartiles",
+            vec![DataType::LargeUtf8],
+            Arc::new(return_type),
+            Volatility::Immutable,
+            Arc::new(|_| Ok(Box::new(QuartilesAccumulator::new()))),
+            Arc::new(vec![state_type]),
+        );
 
-    py_ctx.ctx.session.register_udaf(udaf);
-    register_frame(py_ctx, df1, LEFT_TABLE.to_string());
+        py_ctx.ctx.session.register_udaf(udaf);
+        register_frame(py_ctx, df1, LEFT_TABLE.to_string());
 
-    let rt = Runtime::new()?;
-    let df = rt
-        .block_on(py_ctx.ctx.sql(
-            "SELECT \
+        let rt = Runtime::new()?;
+        let df = rt
+            .block_on(py_ctx.ctx.sql(
+                "SELECT \
             pos_stats.pos as pos, \
             pos_stats.avg as avg, \
             pos_stats.lower as lower, \
@@ -99,49 +103,55 @@ fn quality_udaf_frame(
             FROM \
                 s1\
             )",
-        ))
-        .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-
-    Ok(PyDataFrame::new(df))
-}
-
-
-// region Base Sequence Quality
-
-#[pyfunction]
-#[pyo3(signature = (py_ctx, df1))]
-fn base_sequence_quality_frame(
-    py: Python<'_>,
-    py_ctx: &PyBioSessionContext,
-    df1: PyArrowType<ArrowArrayStreamReader>,
-) -> PyResult<PyDataFrame> {
-    py.allow_threads(|| {
-        let rt = Runtime::new().unwrap();
-        let ctx = &py_ctx.ctx;
-        let session = &ctx.session;
-
-        register_frame(py_ctx, df1, LEFT_TABLE.to_string());
-
-        let quality_histogram_provider = QualityHistogramProvider::new(
-            Arc::new(session.clone()),
-            LEFT_TABLE.to_string(),
-            "quality_scores".into(),
-        );
-
-        let table_name = "quality_histogram".to_string();
-        session.deregister_table(table_name.clone()).unwrap();
-        session
-            .register_table(table_name.clone(), Arc::new(quality_histogram_provider))
-            .unwrap();
-
-        let df = rt
-            .block_on(ctx.sql(&format!("SELECT * FROM {}", &table_name)))
+            ))
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
         Ok(PyDataFrame::new(df))
     })
 }
 
+// region Base Sequence Quality
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, df, column))]
+fn base_sequence_quality_frame(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    df: PyArrowType<ArrowArrayStreamReader>,
+    column: String,
+) -> PyResult<PyDataFrame> {
+    py.allow_threads(|| {
+        let rt = Runtime::new().unwrap();
+        let ctx = &py_ctx.ctx;
+        register_frame(py_ctx, df, LEFT_TABLE.to_string());
+        let df = do_base_sequence_quality(ctx, &rt, LEFT_TABLE.to_string(), column);
+
+        Ok(PyDataFrame::new(df))
+    })
+}
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, df_path_or_table, column, read_options1=None))]
+fn base_sequence_quality_scan(
+    py_ctx: &PyBioSessionContext,
+    df_path_or_table: String,
+    column: String,
+    read_options1: Option<ReadOptions>,
+) -> PyResult<PyDataFrame> {
+    #[allow(clippy::useless_conversion)]
+    let rt = Runtime::new()?;
+    let ctx = &py_ctx.ctx;
+    let table = maybe_register_table(
+        df_path_or_table,
+        &LEFT_TABLE.to_string(),
+        read_options1,
+        ctx,
+        &rt,
+    );
+    let df = do_base_sequence_quality(ctx, &rt, table, column);
+
+    Ok(PyDataFrame::new(df))
+}
 // endregion
 
 #[pyfunction]
@@ -184,7 +194,8 @@ fn range_operation_frame(
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None, limit=None))]
+#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None, limit=None)
+)]
 fn range_operation_scan(
     py_ctx: &PyBioSessionContext,
     df_path_or_table1: String,
@@ -227,7 +238,8 @@ fn range_operation_scan(
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None))]
+#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None)
+)]
 fn stream_range_operation_scan(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
@@ -516,6 +528,7 @@ fn py_from_polars(
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
     m.add_function(wrap_pyfunction!(base_sequence_quality_frame, m)?)?;
+    m.add_function(wrap_pyfunction!(base_sequence_quality_scan, m)?)?;
     m.add_function(wrap_pyfunction!(quality_udaf_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;

@@ -12,6 +12,8 @@ use datafusion::physical_plan::Accumulator;
 
 type PhredHist = [u64; 94];
 
+const QUALITY_STATS_COLUMNS: [&str; 6] = ["avg", "lower", "q1", "median", "q3", "upper"];
+
 #[derive(Debug)]
 pub struct QualityQuartilesAccumulator {
     hist: PhredHist,
@@ -20,6 +22,62 @@ pub struct QualityQuartilesAccumulator {
 impl QualityQuartilesAccumulator {
     pub fn new() -> Self {
         Self { hist: [0u64; 94] }
+    }
+
+    fn stats(hist: &PhredHist) -> Option<[f64; 6]> {
+        // @TODO: readability
+        let (sum, total_count) = hist
+            .iter()
+            .enumerate()
+            .fold((0u64, 0u64), |(s, t), (q, c)| (s + (q as u64) * c, t + c));
+
+        if total_count == 0 {
+            return None;
+        }
+
+        if total_count == 1 {
+            // @TODO: readability
+            let value = hist.iter().enumerate().fold(
+                0_usize,
+                |acc, (value, &count)| if count > 0 { value } else { acc },
+            ) as f64;
+
+            return Some([value; 6]);
+        }
+
+        let mut quantile = [0f64; 3];
+
+        // @TODO: make it better
+        for (i, quant) in [0.25, 0.5, 0.75].iter().enumerate() {
+            let rank = quant * (total_count - 1) as f64;
+            let rank_ = rank.floor();
+            let delta = rank - rank_;
+            let n = rank_ as u64 + 1;
+            let mut acc = 0;
+            let mut lo = None;
+            for (hi, &count) in hist.iter().enumerate().filter(|(_, &count)| count > 0) {
+                if acc == n && lo.is_some() {
+                    let lo = lo.unwrap() as f64;
+                    quantile[i] = (lo + (hi as f64 - lo) * delta) as f64;
+                    break;
+                } else if acc + count > n {
+                    quantile[i] = hi as f64;
+                    break;
+                }
+                acc += count;
+                lo = Some(hi);
+            }
+        }
+
+        let avg = sum as f64 / total_count as f64;
+        let q1 = quantile[0];
+        let median = quantile[1];
+        let q3 = quantile[2];
+        let iqr = q3 - q1;
+        let lower = q1 - 1.5 * iqr;
+        let upper = q3 + 1.5 * iqr;
+
+        Some([avg, lower, q1, median, q3, upper])
     }
 }
 
@@ -62,13 +120,14 @@ impl Accumulator for QualityQuartilesAccumulator {
     fn evaluate(&mut self) -> Result<ScalarValue> {
         let mut builder = ScalarStructBuilder::new();
 
-        // @TODO: calc quartiles
-        // @TODO: extend response struct
-
-        builder = builder.with_scalar(
-            Field::new("avg", DataType::Float64, false),
-            ScalarValue::Float64(Some(self.hist.len() as f64)),
-        );
+        if let Some(stats) = Self::stats(&self.hist) {
+            for (name, stat) in QUALITY_STATS_COLUMNS.iter().zip(stats.iter()) {
+                builder = builder.with_scalar(
+                    Field::new(*name, DataType::Float64, false),
+                    ScalarValue::Float64(Some(*stat)),
+                )
+            }
+        }
 
         builder.build()
     }
@@ -131,11 +190,11 @@ impl Accumulator for QualityQuartilesAccumulator {
 pub(crate) fn create_quality_quartiles_udaf() -> AggregateUDF {
     let input_types = vec![DataType::UInt8, DataType::UInt64];
 
-    let return_type = DataType::Struct(Fields::from(vec![Field::new(
-        "avg",
-        DataType::Float64,
-        false,
-    )]));
+    let return_fields = QUALITY_STATS_COLUMNS
+        .iter()
+        .map(|c| Field::new(*c, DataType::Float64, false))
+        .collect::<Vec<_>>();
+    let return_type = DataType::Struct(Fields::from(return_fields));
 
     let state_types = vec![
         DataType::List(Arc::new(Field::new("item", DataType::UInt8, false))),

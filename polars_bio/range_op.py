@@ -7,7 +7,7 @@ from datafusion import col, literal
 from typing_extensions import TYPE_CHECKING, Union
 
 from polars_bio.polars_bio import ReadOptions
-from polars_bio.polars_bio import quality_udaf_frame, base_sequence_quality_frame
+from polars_bio.polars_bio import quality_udaf_frame, base_sequence_quality_frame, base_sequence_quality_scan
 from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import ctx
 from .interval_op_helpers import convert_result, get_py_ctx, read_df_to_datafusion
@@ -562,20 +562,33 @@ def quality_udaf(
 
 # region Base Sequence Quality
 
-# @TODO: reduce the types for input/output
 def base_sequence_quality(
-    df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame]
-) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
+    df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+    column: str,
+    output_str: str = "polars.DataFrame",
+    read_options1: Union[ReadOptions, None] = None
+) -> Union[pl.DataFrame, pd.DataFrame]:
 
-    if isinstance(df1, pl.DataFrame):
-        df1 = df1.to_arrow()
-    elif isinstance(df1, pl.LazyFrame):
-        df1 = df1.collect().to_arrow()
-    elif isinstance(df1, pd.DataFrame):
-        df1 = pa.Table.from_pandas(df)
+    if isinstance(df, str):
+        df_res = base_sequence_quality_scan(ctx, df, column)
     else:
-        raise ValueError("Invalid `df` argument.")
+        if isinstance(df, pl.DataFrame):
+            df = df.to_arrow()
+        elif isinstance(df, pl.LazyFrame):
+            df = df.collect().to_arrow()
+        elif isinstance(df, pd.DataFrame):
+            df = pa.Table.from_pandas(df)
+        else:
+            raise ValueError("Invalid `df` argument.")
 
-    return base_sequence_quality_frame(ctx, df1.to_reader())
+        df_res = base_sequence_quality_frame(ctx, df.to_reader(), column)
+
+    if output_type == "polars.DataFrame":
+        return df_res.to_polars()
+    elif output_type == "pandas.DataFrame":
+        return df_res.to_pandas()
+    else:
+        raise ValueError("Invalid `output_type` argument.")
+
 
 # endregion

@@ -5,9 +5,7 @@ use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use arrow_array::builder::{UInt64Builder, UInt8Builder};
-use arrow_array::{
-    Array, GenericStringArray, Int32Array, Int64Array, RecordBatch, StringArray, StringViewArray,
-};
+use arrow_array::{Array, ArrayRef, GenericStringArray, Int32Array, Int64Array, LargeStringArray, OffsetSizeTrait, RecordBatch, StringArray, StringArrayType, StringViewArray};
 use arrow_schema::{DataType, Field, FieldRef, Schema, SchemaRef};
 use async_trait::async_trait;
 use coitrees::{COITree, Interval, IntervalTree};
@@ -495,7 +493,7 @@ impl QualityHistogramProvider {
             column,
             schema: {
                 Arc::new(Schema::new(vec![
-                    Field::new("position", DataType::UInt64, true),
+                    Field::new("pos", DataType::UInt64, true),
                     Field::new("score", DataType::UInt8, true),
                     Field::new("count", DataType::UInt64, true),
                 ]))
@@ -663,31 +661,50 @@ async fn get_stream_qualities(
     Ok(Box::pin(adapted_stream))
 }
 
+fn count_scores_in_array<'a, V: StringArrayType<'a>>(
+    string_array: V,
+    counts: &mut QualityCounts
+) {
+    for i in 0..string_array.len() {
+        if string_array.is_null(i) {
+            continue;
+        }
+
+        let quality_str = string_array.value(i);
+        for (pos, q) in quality_str.chars().enumerate() {
+            let score = (q as u8) - 33;
+            *counts.entry((pos as u64, score)).or_insert(0) += 1;
+        }
+    }
+}
+
 fn count_scores_in_batch(
     rb: &RecordBatch,
     column: String,
     counts: &mut QualityCounts,
 ) -> Result<()> {
-    let quality_array = rb
+    let array_ref = rb
         .column_by_name(&column)
-        .unwrap()
-        .as_any()
-        .downcast_ref::<StringArray>()
-        .ok_or_else(|| {
-            DataFusionError::Execution(format!("Expected StringArray in '{}'", column))
-        })?;
+        .ok_or_else(|| DataFusionError::Execution(format!("Column '{}' not found", column)))?;
 
-    for i in 0..quality_array.len() {
-        if quality_array.is_null(i) {
-            continue;
+    match array_ref.data_type() {
+        DataType::Utf8 => {
+            let string_array = array_ref
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .ok_or_else(|| DataFusionError::Execution(format!("Column '{}' is invalid", column)))?;
+
+            count_scores_in_array(string_array, counts);
         }
+        DataType::LargeUtf8 => {
+            let large_string_array = array_ref
+                .as_any()
+                .downcast_ref::<LargeStringArray>()
+                .ok_or_else(|| DataFusionError::Execution(format!("Column '{}' is invalid", column)))?;
 
-        let quality_str = quality_array.value(i);
-
-        for (pos, q) in quality_str.chars().enumerate() {
-            let score = (q as u8) - 33;
-            *counts.entry((pos as u64, score)).or_insert(0) += 1;
+            count_scores_in_array(large_string_array, counts);
         }
+        _ => { /* error */ }
     }
 
     Ok(())

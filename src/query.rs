@@ -226,3 +226,29 @@ pub(crate) fn count_overlaps_query(query_params: QueryParams) -> String {
     );
     query
 }
+
+pub(crate) fn base_sequence_quality_query(table: String, column: String) -> String {
+    let query = format!(
+        r#"
+        SELECT
+            pos,
+            stats.lower     AS lower,
+            stats.q1        AS q1,
+            stats.median    AS median,
+            stats.q3        AS q3,
+            stats.upper     AS upper
+        FROM (
+            SELECT
+                pos,
+                quality_quartiles(score, count) as stats
+            FROM (
+                SELECT * FROM quality_histogram('{}', '{}')
+            )
+            GROUP BY
+                pos
+        )
+        "#,
+        table, column
+    );
+    query
+}
