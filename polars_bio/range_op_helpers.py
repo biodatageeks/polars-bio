@@ -9,13 +9,14 @@ from polars_bio.polars_bio import (
     RangeOp,
     RangeOptions,
     ReadOptions,
+    range_operation_frame,
+    range_operation_scan,
     stream_range_operation_scan,
 )
 
 from .constants import TMP_CATALOG_DIR
 from .logging import logger
-from .range_op_io import _df_to_arrow, _get_schema, _rename_columns, range_lazy_scan
-from .range_wrappers import range_operation_frame_wrapper, range_operation_scan_wrapper
+from .range_op_io import _df_to_reader, _get_schema, _rename_columns, range_lazy_scan
 
 
 def range_operation(
@@ -77,11 +78,11 @@ def range_operation(
                 read_options2=read_options2,
             )
         elif output_type == "polars.DataFrame":
-            return range_operation_scan_wrapper(
+            return range_operation_scan(
                 ctx, df1, df2, range_options, read_options1, read_options2
             ).to_polars()
         elif output_type == "pandas.DataFrame":
-            result = range_operation_scan_wrapper(
+            result = range_operation_scan(
                 ctx, df1, df2, range_options, read_options1, read_options2
             )
             return result.to_pandas()
@@ -89,21 +90,14 @@ def range_operation(
             from datafusion._internal import SessionContext as SessionContextInternal
 
             a = SessionContextInternal()
-            return range_operation_scan_wrapper(
+            return range_operation_scan(
                 ctx, df1, df2, range_options, read_options1, read_options2
             )
         else:
             raise ValueError(
                 "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
             )
-    elif (
-        isinstance(df1, pl.DataFrame)
-        and isinstance(df2, pl.DataFrame)
-        or isinstance(df1, pl.LazyFrame)
-        and isinstance(df2, pl.LazyFrame)
-        or isinstance(df1, pd.DataFrame)
-        and isinstance(df2, pd.DataFrame)
-    ):
+    else:
         if output_type == "polars.LazyFrame":
             merged_schema = pl.Schema(
                 {
@@ -112,33 +106,18 @@ def range_operation(
                 }
             )
             return range_lazy_scan(df1, df2, merged_schema, range_options, ctx)
-        elif output_type == "polars.DataFrame":
-            if isinstance(df1, pl.DataFrame) and isinstance(df2, pl.DataFrame):
-                df1 = df1.to_arrow().to_reader()
-                df2 = df2.to_arrow().to_reader()
+        else:
+            df1 = _df_to_reader(df1, range_options.columns_1[0])
+            df2 = _df_to_reader(df2, range_options.columns_2[0])
+            result = range_operation_frame(ctx, df1, df2, range_options)
+            if output_type == "polars.DataFrame":
+                return result.to_polars()
+            elif output_type == "pandas.DataFrame":
+                return result.to_pandas()
             else:
                 raise ValueError(
-                    "Input and output dataframes must be of the same type: either polars or pandas"
+                    "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
                 )
-            return range_operation_frame_wrapper(
-                ctx, df1, df2, range_options
-            ).to_polars()
-        elif output_type == "pandas.DataFrame":
-            if isinstance(df1, pd.DataFrame) and isinstance(df2, pd.DataFrame):
-                df1 = _df_to_arrow(df1, range_options.columns_1[0]).to_reader()
-                df2 = _df_to_arrow(df2, range_options.columns_2[0]).to_reader()
-            else:
-                raise ValueError(
-                    "Input and output dataframes must be of the same type: either polars or pandas"
-                )
-            df = range_operation_frame_wrapper(ctx, df1, df2, range_options)
-            print(range_options.range_op)
-            print(df.schema())
-            return df.to_pandas()
-    else:
-        raise ValueError(
-            "Both dataframes must be of the same type: either polars or pandas or a path to a file"
-        )
 
 
 def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how):

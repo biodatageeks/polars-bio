@@ -19,6 +19,7 @@ class PolarsRangesOperations:
         overlap_filter=FilterOp.Strict,
         cols1=["chrom", "start", "end"],
         cols2=["chrom", "start", "end"],
+        algorithm: str = "Coitrees",
     ) -> pl.LazyFrame:
         """
         !!! note
@@ -32,6 +33,7 @@ class PolarsRangesOperations:
             suffixes=suffixes,
             cols1=cols1,
             cols2=cols2,
+            algorithm=algorithm,
         )
 
     def nearest(

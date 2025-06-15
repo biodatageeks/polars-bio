@@ -11,15 +11,12 @@ mod utils;
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
 
-use arrow::datatypes::{DataType, Field};
-use arrow_schema::Fields;
-// use arrow_schema::DataType;
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
 use datafusion::datasource::MemTable;
-use datafusion::logical_expr::{create_udaf, Volatility};
+use datafusion_bio_format_core::object_storage::ObjectStorageOptions;
+use datafusion_bio_format_vcf::storage::VcfReader;
 use datafusion_python::dataframe::PyDataFrame;
-use datafusion_vcf::storage::VcfReader;
 use log::{debug, error, info};
 use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
 use polars_python::error::PyPolarsErr;
@@ -30,11 +27,12 @@ use tokio::runtime::Runtime;
 use crate::context::PyBioSessionContext;
 use crate::operation::{do_base_sequence_quality, do_range_operation};
 use crate::option::{
-    BioTable, FilterOp, InputFormat, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
+    pyobject_storage_options_to_object_storage_options, BamReadOptions, BedReadOptions, BioTable,
+    FastqReadOptions, FilterOp, GffReadOptions, InputFormat, PyObjectStorageOptions, RangeOp,
+    RangeOptions, ReadOptions, VcfReadOptions,
 };
 use crate::scan::{maybe_register_table, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
-use crate::udtf::QualityHistogramProvider;
 use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
 
 const LEFT_TABLE: &str = "s1";
@@ -125,8 +123,7 @@ fn range_operation_frame(
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None, limit=None)
-)]
+#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None, limit=None))]
 fn range_operation_scan(
     py_ctx: &PyBioSessionContext,
     df_path_or_table1: String,
@@ -169,8 +166,7 @@ fn range_operation_scan(
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None)
-)]
+#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None))]
 fn stream_range_operation_scan(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
@@ -401,18 +397,28 @@ fn py_read_table(
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, path))]
+#[pyo3(signature = (py_ctx, path, object_storage_options=None))]
 fn py_describe_vcf(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
     path: String,
+    object_storage_options: Option<PyObjectStorageOptions>,
 ) -> PyResult<PyDataFrame> {
     py.allow_threads(|| {
         let rt = Runtime::new().unwrap();
         let ctx = &py_ctx.ctx.session;
+        let object_storage_options =
+            pyobject_storage_options_to_object_storage_options(object_storage_options);
+        // Set a default chunk size of 8MB if not provided and concurrent fetches to 1 to speed up header retrieval
+        let desc_object_storage_options = ObjectStorageOptions {
+            chunk_size: Some(8),
+            concurrent_fetches: Some(1),
+            ..object_storage_options.unwrap()
+        };
+        info!("{}", desc_object_storage_options);
 
         let df = rt.block_on(async {
-            let mut reader = VcfReader::new(path, None, Some(8), Some(1)).await;
+            let mut reader = VcfReader::new(path, None, Some(desc_object_storage_options)).await;
             let rb = reader.describe().await.unwrap();
             let mem_table = MemTable::try_new(rb.schema().clone(), vec![vec![rb]]).unwrap();
             let random_table_name = format!("vcf_schema_{}", rand::random::<u32>());
@@ -478,6 +484,11 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<RangeOptions>()?;
     m.add_class::<InputFormat>()?;
     m.add_class::<ReadOptions>()?;
+    m.add_class::<GffReadOptions>()?;
     m.add_class::<VcfReadOptions>()?;
+    m.add_class::<FastqReadOptions>()?;
+    m.add_class::<BamReadOptions>()?;
+    m.add_class::<BedReadOptions>()?;
+    m.add_class::<PyObjectStorageOptions>()?;
     Ok(())
 }

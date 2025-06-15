@@ -17,9 +17,10 @@ from polars_bio.polars_bio import (
     ReadOptions,
     py_read_table,
     py_register_table,
+    range_operation_frame,
+    range_operation_scan,
+    stream_range_operation_scan,
 )
-
-from .range_wrappers import range_operation_frame_wrapper, range_operation_scan_wrapper
 
 
 def range_lazy_scan(
@@ -33,21 +34,11 @@ def range_lazy_scan(
 ) -> pl.LazyFrame:
     range_function = None
     if isinstance(df_1, str) and isinstance(df_2, str):
-        range_function = range_operation_scan_wrapper
-    elif isinstance(df_1, pl.DataFrame) and isinstance(df_2, pl.DataFrame):
-        range_function = range_operation_frame_wrapper
-        df_1 = df_1.to_arrow().to_reader()
-        df_2 = df_2.to_arrow().to_reader()
-    elif isinstance(df_1, pd.DataFrame) and isinstance(df_2, pd.DataFrame):
-        range_function = range_operation_frame_wrapper
-        df_1 = _df_to_arrow(df_1, range_options.columns_1[0]).to_reader()
-        df_2 = _df_to_arrow(df_2, range_options.columns_2[0]).to_reader()
-    elif isinstance(df_1, pl.LazyFrame) and isinstance(df_2, pl.LazyFrame):
-        range_function = range_operation_frame_wrapper
-        df_1 = df_1.collect().to_arrow().to_reader()
-        df_2 = df_2.collect().to_arrow().to_reader()
+        range_function = range_operation_scan
     else:
-        raise ValueError("Only polars and pandas dataframes are supported")
+        range_function = range_operation_frame
+        df_1 = _df_to_reader(df_1, range_options.columns_1[0])
+        df_2 = _df_to_reader(df_2, range_options.columns_2[0])
 
     def _range_source(
         with_columns: Union[pl.Expr, None],
@@ -136,11 +127,6 @@ def _get_schema(
     return df.schema
 
 
-def _df_to_arrow(df: pd.DataFrame, col: str) -> pa.Table:
-    table_1 = pa.Table.from_pandas(df)
-    return _string_to_largestring(table_1, col)
-
-
 # since there is an error when Pandas DF are converted to Arrow, we need to use the following function
 # to change the type of the columns to largestring (the problem is with the string type for
 # larger datasets)
@@ -158,3 +144,19 @@ def _get_column_index(table, column_name):
         return table.schema.names.index(column_name)
     except ValueError:
         raise KeyError(f"Column '{column_name}' not found in the table.")
+
+
+def _df_to_reader(
+    df: Union[pl.DataFrame, pd.DataFrame, pl.LazyFrame],
+    col: str,
+) -> pa.RecordBatchReader:
+    if isinstance(df, pl.LazyFrame):
+        df = df.collect()
+    if isinstance(df, pl.DataFrame):
+        df = df.to_arrow()
+    elif isinstance(df, pd.DataFrame):
+        df = pa.Table.from_pandas(df)
+        df = _string_to_largestring(df, col)
+    else:
+        raise ValueError("Only polars and pandas are supported")
+    return df.to_reader()

@@ -1,7 +1,19 @@
+polars-bio API is grouped into the following categories:
 
-## API structure
+- **[File I/O](#polars_bio.data_input)**: Reading files in various biological formats from **local** and **[cloud](/polars-bio/features/#cloud-storage)** storage.
+- **[Data Processing](#polars_bio.data_processing)**: Exposing end user to the rich **SQL** programming interface powered by [Apache Datafusion](https://datafusion.apache.org/user-guide/sql/index.html) for operations, such as sorting, filtering and other transformations on input bioinformatic datasets registered as tables. You can easily query and process file formats such as *VCF*, *GFF*, *BAM*, *FASTQ* using SQL syntax.
+- **[Interval Operations](#polars_bio.range_operations)**: Functions for performing common interval operations, such as *overlap*, *nearest*, *coverage*.
 
 There are 2 ways of using polars-bio API:
+
+* using `polars_bio` module
+
+!!! example
+
+       ```python
+       import polars_bio as pb
+       pb.read_fastq("gs://genomics-public-data/platinum-genomes/fastq/ERR194146.fastq.gz").limit(1).collect()
+       ```
 
 * directly on a Polars LazyFrame under a registered `pb` [namespace](https://docs.pola.rs/api/python/stable/reference/api/polars.api.register_lazyframe_namespace.html#polars.api.register_lazyframe_namespace)
 
@@ -17,14 +29,7 @@ There are 2 ways of using polars-bio API:
           df.pb.sort().limit(5).collect()
        ```
 
- * using `polars_bio` module
 
-!!! example
-
-       ```python
-          import polars_bio as pb
-          df = pb.read_table("https://www.encodeproject.org/files/ENCFF001XKR/@@download/ENCFF001XKR.bed.gz",schema="bed9")
-       ```
 
 !!! tip
     1. Not all are available in both ways.

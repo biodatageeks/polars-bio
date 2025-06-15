@@ -10,6 +10,20 @@ from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import Context
 
 
+def prevent_column_collision(
+    new_col: str,
+    current_cols: set[str],
+) -> list[str]:
+    if new_col not in current_cols:
+        current_cols.add(new_col)
+        return new_col
+    i = 2
+    while (new_col + str(i)) in current_cols:
+        i += 1
+    current_cols.add(new_col + str(i))
+    return new_col + str(i)
+
+
 def get_py_ctx() -> datafusion.context.SessionContext:
     return datafusion.context.SessionContext(Context().config)
 

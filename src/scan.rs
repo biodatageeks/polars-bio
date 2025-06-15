@@ -7,13 +7,21 @@ use arrow::pyarrow::PyArrowType;
 use datafusion::dataframe::DataFrameWriteOptions;
 use datafusion::datasource::MemTable;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions};
-use datafusion_vcf::table_provider::VcfTableProvider;
+use datafusion_bio_format_bam::table_provider::BamTableProvider;
+use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
+use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
+use datafusion_bio_format_gff::table_provider::GffTableProvider;
+use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
 use exon::ExonSession;
+use log::info;
 use tokio::runtime::Runtime;
 use tracing::debug;
 
 use crate::context::PyBioSessionContext;
-use crate::option::{InputFormat, ReadOptions, VcfReadOptions};
+use crate::option::{
+    BamReadOptions, BedReadOptions, FastqReadOptions, GffReadOptions, InputFormat, ReadOptions,
+    VcfReadOptions,
+};
 
 const MAX_IN_MEMORY_ROWS: usize = 1024 * 1024;
 
@@ -61,6 +69,8 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         InputFormat::Bed
     } else if path.ends_with(".vcf") || path.ends_with(".vcf.gz") || path.ends_with(".vcf.bgz") {
         InputFormat::Vcf
+    } else if path.ends_with(".gff") || path.ends_with(".gff.gz") || path.ends_with(".gff.bgz") {
+        InputFormat::Gff
     } else {
         panic!("Unsupported format")
     }
@@ -89,6 +99,28 @@ pub(crate) async fn register_table(
                 .await
                 .unwrap()
         },
+        InputFormat::Fastq => {
+            let fastq_read_options = match &read_options {
+                Some(options) => match options.clone().fastq_read_options {
+                    Some(fastq_read_options) => fastq_read_options,
+                    _ => FastqReadOptions::default(),
+                },
+                _ => FastqReadOptions::default(),
+            };
+            info!(
+                "Registering FASTQ table {} with options: {:?}",
+                table_name, fastq_read_options
+            );
+            let table_provider = FastqTableProvider::new(
+                path.to_string(),
+                fastq_read_options.thread_num,
+                fastq_read_options.object_storage_options.clone(),
+            )
+            .unwrap();
+            ctx.session
+                .register_table(table_name, Arc::new(table_provider))
+                .expect("Failed to register FASTQ table");
+        },
         InputFormat::Vcf => {
             let vcf_read_options = match &read_options {
                 Some(options) => match options.clone().vcf_read_options {
@@ -97,26 +129,92 @@ pub(crate) async fn register_table(
                 },
                 _ => VcfReadOptions::default(),
             };
+            info!(
+                "Registering VCF table {} with options: {:?}",
+                table_name, vcf_read_options
+            );
             let table_provider = VcfTableProvider::new(
                 path.to_string(),
                 vcf_read_options.info_fields,
                 vcf_read_options.format_fields,
                 vcf_read_options.thread_num,
-                vcf_read_options.chunk_size,
-                vcf_read_options.concurrent_fetches,
+                vcf_read_options.object_storage_options.clone(),
             )
             .unwrap();
             ctx.session
                 .register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register VCF table");
         },
-        InputFormat::Bam
-        | InputFormat::Cram
-        | InputFormat::Fastq
-        | InputFormat::Fasta
-        | InputFormat::Bed
-        | InputFormat::Gff
-        | InputFormat::Gtf => ctx
+        InputFormat::Gff => {
+            let gff_read_options = match &read_options {
+                Some(options) => match options.clone().gff_read_options {
+                    Some(gff_read_options) => gff_read_options,
+                    _ => GffReadOptions::default(),
+                },
+                _ => GffReadOptions::default(),
+            };
+            info!(
+                "Registering GFF table {} with options: {:?}",
+                table_name, gff_read_options
+            );
+            let table_provider = GffTableProvider::new(
+                path.to_string(),
+                gff_read_options.attr_fields,
+                gff_read_options.thread_num,
+                gff_read_options.object_storage_options.clone(),
+            )
+            .unwrap();
+            ctx.session
+                .register_table(table_name, Arc::new(table_provider))
+                .expect("Failed to register GFF table");
+        },
+        InputFormat::Bam => {
+            let bam_read_options = match &read_options {
+                Some(options) => match options.clone().bam_read_options {
+                    Some(bam_read_options) => bam_read_options,
+                    _ => BamReadOptions::default(),
+                },
+                _ => BamReadOptions::default(),
+            };
+            info!(
+                "Registering BAM table {} with options: {:?}",
+                table_name, bam_read_options
+            );
+            let table_provider = BamTableProvider::new(
+                path.to_string(),
+                bam_read_options.thread_num,
+                bam_read_options.object_storage_options.clone(),
+            )
+            .unwrap();
+            ctx.session
+                .register_table(table_name, Arc::new(table_provider))
+                .expect("Failed to register BAM table");
+        },
+        InputFormat::Bed => {
+            let bed_read_options = match &read_options {
+                Some(options) => match options.clone().bed_read_options {
+                    Some(bed_read_options) => bed_read_options,
+                    _ => BedReadOptions::default(),
+                },
+                _ => BedReadOptions::default(),
+            };
+            info!(
+                "Registering BED table {} with options: {:?}",
+                table_name, bed_read_options
+            );
+            let table_provider = BedTableProvider::new(
+                path.to_string(),
+                BEDFields::BED4,
+                bed_read_options.thread_num,
+                bed_read_options.object_storage_options.clone(),
+            )
+            .unwrap();
+            ctx.session
+                .register_table(table_name, Arc::new(table_provider))
+                .expect("Failed to register BED table");
+        },
+
+        InputFormat::Cram | InputFormat::Fasta | InputFormat::Gtf => ctx
             .register_exon_table(table_name, path, &format.to_string())
             .await
             .unwrap(),

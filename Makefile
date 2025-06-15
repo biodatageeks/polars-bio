@@ -20,7 +20,7 @@ pre-commit: venv
 	.venv/bin/python -m ruff format polars_bio tests
 
 test: venv
-	.venv/bin/python -m pytest tests
+	.venv/bin/python -m pytest tests/ --ignore=tests/test_overlap_algorithms.py && .venv/bin/python -m pytest tests/test_overlap_algorithms.py
 
 run: install
 	source .venv/bin/activate && python run.py

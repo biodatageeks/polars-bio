@@ -17,7 +17,6 @@ and finally install the package with pip:
 ```bash
 pip install /Users/mwiewior/research/git/polars-bio/target/wheels/polars_bio-0.2.11-cp38-abi3-macosx_11_0_arm64.whl
 ```
-
 !!! tip
     Required dependencies:
 
