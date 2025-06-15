@@ -24,6 +24,7 @@ from .range_op import (
     base_sequence_quality,
 )
 from .range_viz import visualize_intervals
+from .base_sequence_quality_viz import visualize_base_sequence_quality
 
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 
@@ -38,6 +39,7 @@ __all__ = [
     "ctx",
     "FilterOp",
     "visualize_intervals",
+    "visualize_base_sequence_quality",
     "read_bam",
     "read_vcf",
     "read_fasta",
