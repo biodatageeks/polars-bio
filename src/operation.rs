@@ -6,8 +6,10 @@ use log::{debug, info};
 use sequila_core::session_context::{Algorithm, SequilaConfig};
 use tokio::runtime::Runtime;
 
+use crate::sequence_quality_histogram::SequenceQualityHistogramProvider;
 use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions};
+use crate::quantile_stats::QuantileStatsTableProvider;
 use crate::query::{count_overlaps_query, nearest_query, overlap_query};
 use crate::udtf::CountOverlapsProvider;
 use crate::utils::default_cols_to_string;
@@ -188,6 +190,45 @@ async fn do_count_overlaps_coverage_naive(
         .unwrap();
     let query = format!("SELECT * FROM {}", table_name);
     debug!("Query: {}", query);
+    ctx.sql(&query).await.unwrap()
+}
+
+pub(crate) async fn do_base_sequence_quality(
+    ctx: &ExonSession,
+    table: String,
+    column: String,
+) -> datafusion::dataframe::DataFrame {
+    let session = Arc::new(ctx.session.clone());
+    let base_provider = Arc::new(SequenceQualityHistogramProvider::new(
+        session.clone(),
+        table.clone(),
+        column,
+    ));
+
+    let base_table_name = format!("{}_decoded", table);
+    session.deregister_table(base_table_name.clone()).unwrap();
+    session
+        .register_table(&base_table_name, base_provider)
+        .unwrap();
+
+    let query = format!(
+        "SELECT pos, score, SUM(count) as count FROM {} GROUP BY pos, score",
+        base_table_name
+    );
+    let base_df = ctx.sql(&query).await.unwrap();
+    let base_plan = base_df.create_physical_plan().await.unwrap();
+
+    let quantile_provider = Arc::new(QuantileStatsTableProvider::new(base_plan));
+
+    let quantile_table_name = format!("{}_quantiles", table);
+    session
+        .deregister_table(quantile_table_name.clone())
+        .unwrap();
+    session
+        .register_table(&quantile_table_name, quantile_provider)
+        .unwrap();
+
+    let query = format!("SELECT * FROM {}", quantile_table_name);
     ctx.sql(&query).await.unwrap()
 }
 

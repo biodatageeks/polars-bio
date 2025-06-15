@@ -1,6 +1,8 @@
+mod sequence_quality_histogram;
 mod context;
 mod operation;
 mod option;
+mod quantile_stats;
 mod query;
 mod scan;
 mod streaming;
@@ -16,6 +18,7 @@ use datafusion::datasource::MemTable;
 use datafusion_python::dataframe::PyDataFrame;
 use datafusion_vcf::storage::VcfReader;
 use log::{debug, error, info};
+use operation::do_base_sequence_quality;
 use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
 use polars_python::error::PyPolarsErr;
 use polars_python::lazyframe::PyLazyFrame;
@@ -33,6 +36,7 @@ use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
 
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
+const DEFAULT_TABLE_NAME: &str = "unnamed_table";
 const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
 
 #[pyfunction]
@@ -403,6 +407,48 @@ fn py_from_polars(
     })
 }
 
+#[pyfunction]
+#[pyo3(signature = (py_ctx, path, column))]
+fn base_sequance_quality_scan(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    path: String,
+    column: String,
+) -> PyResult<PyDataFrame> {
+    py.allow_threads(|| {
+        let ctx = &py_ctx.ctx;
+        let rt = Runtime::new().unwrap();
+        maybe_register_table(path, &DEFAULT_TABLE_NAME.to_string(), None, ctx, &rt);
+        let data_frame = rt.block_on(do_base_sequence_quality(
+            ctx,
+            DEFAULT_TABLE_NAME.to_string(),
+            column.to_string(),
+        ));
+        Ok(PyDataFrame::new(data_frame))
+    })
+}
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, df, column))]
+fn base_sequance_quality_frame(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    df: PyArrowType<ArrowArrayStreamReader>,
+    column: String,
+) -> PyResult<PyDataFrame> {
+    py.allow_threads(|| {
+        let ctx = &py_ctx.ctx;
+        let rt = Runtime::new().unwrap();
+        register_frame(py_ctx, df, DEFAULT_TABLE_NAME.to_string());
+        let data_frame = rt.block_on(do_base_sequence_quality(
+            ctx,
+            DEFAULT_TABLE_NAME.to_string(),
+            column.to_string(),
+        ));
+        Ok(PyDataFrame::new(data_frame))
+    })
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -417,7 +463,8 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
-    // m.add_function(wrap_pyfunction!(unary_operation_scan, m)?)?;
+    m.add_function(wrap_pyfunction!(base_sequance_quality_frame, m)?)?;
+    m.add_function(wrap_pyfunction!(base_sequance_quality_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;

@@ -1,5 +1,6 @@
 from polars_bio.polars_bio import InputFormat, ReadOptions, VcfReadOptions
 
+from .base_sequnce_quality_vis import visualize_base_sequence_quality
 from .context import ctx, set_option
 from .io import (
     describe_vcf,
@@ -16,6 +17,7 @@ from .io import (
 from .polars_ext import PolarsRangesOperations as LazyFrame
 from .range_op import FilterOp, count_overlaps, coverage, merge, nearest, overlap
 from .range_viz import visualize_intervals
+from .quality_stats import base_sequence_quality
 
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 
@@ -29,6 +31,7 @@ __all__ = [
     "coverage",
     "ctx",
     "FilterOp",
+    "visualize_base_sequence_quality",
     "visualize_intervals",
     "read_bam",
     "read_vcf",
@@ -45,4 +48,5 @@ __all__ = [
     "ReadOptions",
     "VcfReadOptions",
     "set_option",
+    "base_sequence_quality",
 ]

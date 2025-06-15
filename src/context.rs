@@ -25,7 +25,6 @@ impl PyBioSessionContext {
     pub fn new(seed: String, catalog_dir: String) -> PyResult<Self> {
         let ctx = create_context().unwrap();
         let session_config: HashMap<String, String> = HashMap::new();
-
         Ok(PyBioSessionContext {
             ctx,
             session_config,
