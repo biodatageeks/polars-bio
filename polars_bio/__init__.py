@@ -21,7 +21,6 @@ from .range_op import (
     merge,
     nearest,
     overlap,
-    quality_udaf,
     base_sequence_quality,
 )
 from .range_viz import visualize_intervals
@@ -54,6 +53,5 @@ __all__ = [
     "ReadOptions",
     "VcfReadOptions",
     "set_option",
-    "quality_udaf",
     "base_sequence_quality",
 ]

@@ -10,7 +10,7 @@ use datafusion::physical_plan::Accumulator;
 
 // region Base Sequence Quality
 
-type PhredHist = [u64; 94];
+pub(crate) type PhredHist = [u64; 94];
 
 const QUALITY_STATS_COLUMNS: [&str; 6] = ["avg", "lower", "q1", "median", "q3", "upper"];
 

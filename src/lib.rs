@@ -1,15 +1,12 @@
 mod context;
 mod operation;
 mod option;
-mod quality_udaf;
 mod query;
 mod scan;
 mod streaming;
 mod udaf;
 mod udtf;
 mod utils;
-// mod base_quality;
-// mod base_quality_calculator;
 
 use std::string::ToString;
 use std::sync::{Arc, Mutex};
@@ -35,7 +32,6 @@ use crate::operation::{do_base_sequence_quality, do_range_operation};
 use crate::option::{
     BioTable, FilterOp, InputFormat, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
 };
-use crate::quality_udaf::QuartilesAccumulator;
 use crate::scan::{maybe_register_table, register_frame, register_table};
 use crate::streaming::RangeOperationScan;
 use crate::udtf::QualityHistogramProvider;
@@ -44,71 +40,6 @@ use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
 const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
-
-#[pyfunction]
-#[pyo3(signature=(py_ctx, df1))]
-fn quality_udaf_frame(
-    py: Python<'_>,
-    py_ctx: &PyBioSessionContext,
-    df1: PyArrowType<ArrowArrayStreamReader>,
-) -> PyResult<PyDataFrame> {
-    py.allow_threads(|| {
-        let inner_stats_type =
-            DataType::List(Arc::new(Field::new("item", DataType::Float64, false)));
-
-        let return_type = DataType::Struct(Fields::from(vec![
-            Field::new("pos", inner_stats_type.clone(), false),
-            Field::new("avg", inner_stats_type.clone(), false),
-            Field::new("lower", inner_stats_type.clone(), false),
-            Field::new("q1", inner_stats_type.clone(), false),
-            Field::new("mean", inner_stats_type.clone(), false),
-            Field::new("q2", inner_stats_type.clone(), false),
-            Field::new("upper", inner_stats_type.clone(), false),
-        ]));
-
-        let inner_counts_type =
-            DataType::List(Arc::new(Field::new("item", DataType::UInt64, false)));
-        let state_type = DataType::List(Arc::new(Field::new(
-            "item",
-            inner_counts_type.clone(),
-            false,
-        )));
-
-        let udaf = create_udaf(
-            "per_pos_quartiles",
-            vec![DataType::LargeUtf8],
-            Arc::new(return_type),
-            Volatility::Immutable,
-            Arc::new(|_| Ok(Box::new(QuartilesAccumulator::new()))),
-            Arc::new(vec![state_type]),
-        );
-
-        py_ctx.ctx.session.register_udaf(udaf);
-        register_frame(py_ctx, df1, LEFT_TABLE.to_string());
-
-        let rt = Runtime::new()?;
-        let df = rt
-            .block_on(py_ctx.ctx.sql(
-                "SELECT \
-            pos_stats.pos as pos, \
-            pos_stats.avg as avg, \
-            pos_stats.lower as lower, \
-            pos_stats.q1 as q1, \
-            pos_stats.mean as mean, \
-            pos_stats.q2 as q2, \
-            pos_stats.upper as upper \
-        FROM (\
-            SELECT \
-                per_pos_quartiles(quality_scores) AS pos_stats \
-            FROM \
-                s1\
-            )",
-            ))
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-
-        Ok(PyDataFrame::new(df))
-    })
-}
 
 // region Base Sequence Quality
 
@@ -529,7 +460,6 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
     m.add_function(wrap_pyfunction!(base_sequence_quality_frame, m)?)?;
     m.add_function(wrap_pyfunction!(base_sequence_quality_scan, m)?)?;
-    m.add_function(wrap_pyfunction!(quality_udaf_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
     m.add_function(wrap_pyfunction!(stream_range_operation_scan, m)?)?;

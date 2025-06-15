@@ -9,7 +9,6 @@ from typing_extensions import TYPE_CHECKING, Union
 
 from polars_bio.polars_bio import ReadOptions
 from polars_bio.polars_bio import (
-    quality_udaf_frame,
     base_sequence_quality_frame,
     base_sequence_quality_scan,
 )
@@ -23,8 +22,7 @@ __all__ = [
     "nearest",
     "count_overlaps",
     "merge",
-    "base_sequence_quality",
-    "quality_udaf",
+    "base_sequence_quality"
 ]
 
 
@@ -556,22 +554,6 @@ def merge(
     )
 
     return convert_result(result, output_type, streaming)
-
-
-def quality_udaf(
-    df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
-    if isinstance(df1, pl.DataFrame):
-        df1 = df1.to_arrow()
-    elif isinstance(df1, pl.LazyFrame):
-        df1 = df1.collect().to_arrow()
-    elif isinstance(df1, pd.DataFrame):
-        df1 = pa.Table.from_pandas(df1)
-    else:
-        raise ValueError("Invalid `df` argument.")
-
-    return quality_udaf_frame(ctx, df1.to_reader())
-
 
 # region Base Sequence Quality
 

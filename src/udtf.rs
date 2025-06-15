@@ -1,14 +1,8 @@
 use std::any::Any;
 use std::cmp::{max, min};
-use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
-
-use arrow_array::builder::{UInt64Builder, UInt8Builder};
-use arrow_array::{
-    Array, ArrayRef, GenericStringArray, Int32Array, Int64Array, LargeStringArray, OffsetSizeTrait,
-    RecordBatch, StringArray, StringArrayType, StringViewArray,
-};
+use arrow_array::{Array, ArrayRef, GenericStringArray, Int32Array, Int64Array, LargeStringArray, RecordBatch, StringArray, StringArrayType, StringViewArray, UInt64Array, UInt8Array};
 use arrow_schema::{DataType, Field, FieldRef, Schema, SchemaRef};
 use async_trait::async_trait;
 use coitrees::{COITree, Interval, IntervalTree};
@@ -31,6 +25,7 @@ use futures_util::stream::BoxStream;
 use futures_util::{StreamExt, TryStreamExt};
 
 use crate::option::FilterOp;
+use crate::udaf::PhredHist;
 
 pub struct CountOverlapsProvider {
     session: Arc<SessionContext>,
@@ -612,7 +607,7 @@ impl ExecutionPlan for QualityHistogramExec {
     }
 }
 
-type QualityCounts = HashMap<(u64, u8), u64>;
+type QualityCounts = Vec<PhredHist>;
 
 async fn get_stream_qualities(
     session: Arc<SessionContext>,
@@ -633,25 +628,29 @@ async fn get_stream_qualities(
     let mut partition_stream = repartition_stream.execute(partition, context)?;
     let new_schema_out = new_schema.clone();
 
-    let mut counts: QualityCounts = HashMap::new(); // @TODO: Replace with faster HashMap
+    let mut counts: QualityCounts = Vec::with_capacity(300);
 
     while let Some(batch) = partition_stream.next().await {
-        count_scores_in_batch(&batch?, column.clone(), &mut counts)?;
+        count_scores_in_batch(&batch?, &column, &mut counts)?;
     }
 
-    let mut pos_builder = UInt64Builder::new();
-    let mut score_builder = UInt8Builder::new();
-    let mut count_builder = UInt64Builder::new();
+    let mut pos_vec = Vec::with_capacity(counts.len() * 30);
+    let mut score_vec = Vec::with_capacity(counts.len() * 30);
+    let mut count_vec = Vec::with_capacity(counts.len() * 30);
 
-    for ((pos, score), count) in counts {
-        pos_builder.append_value(pos);
-        score_builder.append_value(score);
-        count_builder.append_value(count);
+    for (pos, hist) in counts.iter().enumerate() {
+        for (score, count) in hist.iter().enumerate() {
+            if *count > 0 {
+                pos_vec.push(pos as u64);
+                score_vec.push(score as u8);
+                count_vec.push(*count);
+            }
+        }
     }
 
-    let pos_array = Arc::new(pos_builder.finish());
-    let score_array = Arc::new(score_builder.finish());
-    let count_array = Arc::new(count_builder.finish());
+    let pos_array = Arc::new(UInt64Array::from(pos_vec)) as ArrayRef;
+    let score_array = Arc::new(UInt8Array::from(score_vec)) as ArrayRef;
+    let count_array = Arc::new(UInt64Array::from(count_vec)) as ArrayRef;
 
     let batch = RecordBatch::try_new(
         new_schema.clone(),
@@ -664,23 +663,26 @@ async fn get_stream_qualities(
     Ok(Box::pin(adapted_stream))
 }
 
-fn count_scores_in_array<'a, V: StringArrayType<'a>>(string_array: V, counts: &mut QualityCounts) {
-    for i in 0..string_array.len() {
-        if string_array.is_null(i) {
-            continue;
-        }
+fn count_scores_in_array<'a, V: StringArrayType<'a>>(string_array: V, counts: &mut QualityCounts) -> Result<()> {
+    for maybe_str in string_array.iter() {
+        if let Some(quality_str) = maybe_str {
+            counts.resize(quality_str.len(), [0; 94]);
 
-        let quality_str = string_array.value(i);
-        for (pos, q) in quality_str.chars().enumerate() {
-            let score = (q as u8) - 33;
-            *counts.entry((pos as u64, score)).or_insert(0) += 1;
+            for (pos, q) in quality_str.bytes().enumerate() {
+                if q >= 33 {
+                    let score = q - 33;
+                    counts[pos][score as usize] += 1;
+                }
+            }
         }
     }
+
+    Ok(())
 }
 
 fn count_scores_in_batch(
     rb: &RecordBatch,
-    column: String,
+    column: &str,
     counts: &mut QualityCounts,
 ) -> Result<()> {
     let array_ref = rb
@@ -696,7 +698,7 @@ fn count_scores_in_batch(
                     DataFusionError::Execution(format!("Column '{}' is invalid", column))
                 })?;
 
-            count_scores_in_array(string_array, counts);
+            count_scores_in_array(string_array, counts)
         },
         DataType::LargeUtf8 => {
             let large_string_array = array_ref
@@ -706,12 +708,10 @@ fn count_scores_in_batch(
                     DataFusionError::Execution(format!("Column '{}' is invalid", column))
                 })?;
 
-            count_scores_in_array(large_string_array, counts);
+            count_scores_in_array(large_string_array, counts)
         },
-        _ => { /* error */ },
+        _ => return Err(DataFusionError::Execution("Unsupported string type".into())),
     }
-
-    Ok(())
 }
 
 pub struct QualityHistogramFunction {
