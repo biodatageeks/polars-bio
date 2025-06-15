@@ -47,7 +47,7 @@ class TestBioframe:
         BIO_PD_DF2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         output_type="pandas.DataFrame",
     )
     result_bio_nearest = bf.closest(

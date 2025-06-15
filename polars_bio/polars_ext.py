@@ -40,7 +40,7 @@ class PolarsRangesOperations:
         self,
         other_df: pl.LazyFrame,
         suffixes: tuple[str, str] = ("_1", "_2"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based: bool = False,
         cols1=["chrom", "start", "end"],
         cols2=["chrom", "start", "end"],
     ) -> pl.LazyFrame:
@@ -51,7 +51,7 @@ class PolarsRangesOperations:
         return pb.nearest(
             self._ldf,
             other_df,
-            overlap_filter=overlap_filter,
+            use_zero_based=use_zero_based,
             suffixes=suffixes,
             cols1=cols1,
             cols2=cols2,

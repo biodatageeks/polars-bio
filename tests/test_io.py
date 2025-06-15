@@ -29,7 +29,7 @@ class TestMemoryCombinations:
                         cols1=("contig", "pos_start", "pos_end"),
                         cols2=("contig", "pos_start", "pos_end"),
                         output_type=output_type,
-                        use_zero_based=True,
+                        use_zero_based=False,
                     )
                     if output_type == "polars.LazyFrame":
                         result = result.collect()
