@@ -15,7 +15,6 @@ def base_sequence_quality(
     df: Union[str, Path, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     quality_scores_column: str = "quality_scores",
     output_type: str = "polars.DataFrame",
-    target_partitions: int = 8,
 ) -> Union[pl.DataFrame, pd.DataFrame]:
     """
     Compute base sequence quality statistics from various dataframe/file types.
@@ -28,10 +27,6 @@ def base_sequence_quality(
     Returns:
         DataFrame with base sequence quality statistics.
     """
-    ctx.set_option(
-        "datafusion.execution.target_partitions", str(target_partitions), False
-    )
-
     if isinstance(df, (str, Path)):
         df = str(df)
         supported_exts = {".parquet", ".csv", ".bed", ".vcf", ".fastq"}
