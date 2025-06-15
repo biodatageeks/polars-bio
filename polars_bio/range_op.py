@@ -8,13 +8,24 @@ from datafusion import col, literal
 from typing_extensions import TYPE_CHECKING, Union
 
 from polars_bio.polars_bio import ReadOptions
-from polars_bio.polars_bio import quality_udaf_frame, base_sequence_quality_frame, base_sequence_quality_scan
+from polars_bio.polars_bio import (
+    quality_udaf_frame,
+    base_sequence_quality_frame,
+    base_sequence_quality_scan,
+)
 from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import ctx
 from .interval_op_helpers import convert_result, get_py_ctx, read_df_to_datafusion
 from .range_op_helpers import _validate_overlap_input, range_operation
 
-__all__ = ["overlap", "nearest", "count_overlaps", "merge", "base_sequence_quality", "quality_udaf"]
+__all__ = [
+    "overlap",
+    "nearest",
+    "count_overlaps",
+    "merge",
+    "base_sequence_quality",
+    "quality_udaf",
+]
 
 
 if TYPE_CHECKING:
@@ -546,30 +557,31 @@ def merge(
 
     return convert_result(result, output_type, streaming)
 
-def quality_udaf(
-        df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame]
-) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
 
+def quality_udaf(
+    df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
     if isinstance(df1, pl.DataFrame):
         df1 = df1.to_arrow()
     elif isinstance(df1, pl.LazyFrame):
         df1 = df1.collect().to_arrow()
     elif isinstance(df1, pd.DataFrame):
-        df1 = pa.Table.from_pandas(df)
+        df1 = pa.Table.from_pandas(df1)
     else:
         raise ValueError("Invalid `df` argument.")
 
     return quality_udaf_frame(ctx, df1.to_reader())
 
+
 # region Base Sequence Quality
+
 
 def base_sequence_quality(
     df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     column: str,
     output_type: str = "polars.DataFrame",
-    read_options1: Union[ReadOptions, None] = None
+    read_options1: Union[ReadOptions, None] = None,
 ) -> Union[pl.DataFrame, pd.DataFrame]:
-
     if isinstance(df, str):
         df_res = base_sequence_quality_scan(ctx, df, column)
     else:

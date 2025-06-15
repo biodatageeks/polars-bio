@@ -5,7 +5,10 @@ use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use arrow_array::builder::{UInt64Builder, UInt8Builder};
-use arrow_array::{Array, ArrayRef, GenericStringArray, Int32Array, Int64Array, LargeStringArray, OffsetSizeTrait, RecordBatch, StringArray, StringArrayType, StringViewArray};
+use arrow_array::{
+    Array, ArrayRef, GenericStringArray, Int32Array, Int64Array, LargeStringArray, OffsetSizeTrait,
+    RecordBatch, StringArray, StringArrayType, StringViewArray,
+};
 use arrow_schema::{DataType, Field, FieldRef, Schema, SchemaRef};
 use async_trait::async_trait;
 use coitrees::{COITree, Interval, IntervalTree};
@@ -661,10 +664,7 @@ async fn get_stream_qualities(
     Ok(Box::pin(adapted_stream))
 }
 
-fn count_scores_in_array<'a, V: StringArrayType<'a>>(
-    string_array: V,
-    counts: &mut QualityCounts
-) {
+fn count_scores_in_array<'a, V: StringArrayType<'a>>(string_array: V, counts: &mut QualityCounts) {
     for i in 0..string_array.len() {
         if string_array.is_null(i) {
             continue;
@@ -692,19 +692,23 @@ fn count_scores_in_batch(
             let string_array = array_ref
                 .as_any()
                 .downcast_ref::<StringArray>()
-                .ok_or_else(|| DataFusionError::Execution(format!("Column '{}' is invalid", column)))?;
+                .ok_or_else(|| {
+                    DataFusionError::Execution(format!("Column '{}' is invalid", column))
+                })?;
 
             count_scores_in_array(string_array, counts);
-        }
+        },
         DataType::LargeUtf8 => {
             let large_string_array = array_ref
                 .as_any()
                 .downcast_ref::<LargeStringArray>()
-                .ok_or_else(|| DataFusionError::Execution(format!("Column '{}' is invalid", column)))?;
+                .ok_or_else(|| {
+                    DataFusionError::Execution(format!("Column '{}' is invalid", column))
+                })?;
 
             count_scores_in_array(large_string_array, counts);
-        }
-        _ => { /* error */ }
+        },
+        _ => { /* error */ },
     }
 
     Ok(())

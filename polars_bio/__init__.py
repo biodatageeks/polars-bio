@@ -14,7 +14,16 @@ from .io import (
     sql,
 )
 from .polars_ext import PolarsRangesOperations as LazyFrame
-from .range_op import FilterOp, count_overlaps, coverage, merge, nearest, overlap, quality_udaf, base_sequence_quality
+from .range_op import (
+    FilterOp,
+    count_overlaps,
+    coverage,
+    merge,
+    nearest,
+    overlap,
+    quality_udaf,
+    base_sequence_quality,
+)
 from .range_viz import visualize_intervals
 
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
@@ -46,5 +55,5 @@ __all__ = [
     "VcfReadOptions",
     "set_option",
     "quality_udaf",
-    "base_sequence_quality"
+    "base_sequence_quality",
 ]

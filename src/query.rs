@@ -232,6 +232,7 @@ pub(crate) fn base_sequence_quality_query(table: String, column: String) -> Stri
         r#"
         SELECT
             pos,
+            stats.avg       AS avg,
             stats.lower     AS lower,
             stats.q1        AS q1,
             stats.median    AS median,

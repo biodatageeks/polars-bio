@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+
 use datafusion::config::ConfigOptions;
 use datafusion::prelude::SessionConfig;
 use exon::config::ExonConfigExtension;
@@ -7,6 +8,7 @@ use exon::ExonSession;
 use log::debug;
 use pyo3::{pyclass, pymethods, PyResult};
 use sequila_core::session_context::SequilaConfig;
+
 use crate::udaf::create_quality_quartiles_udaf;
 use crate::udtf::QualityHistogramFunction;
 
@@ -29,7 +31,10 @@ impl PyBioSessionContext {
         let session_config: HashMap<String, String> = HashMap::new();
 
         ctx.session.register_udaf(create_quality_quartiles_udaf());
-        ctx.session.register_udtf("quality_histogram", Arc::new(QualityHistogramFunction::new(&ctx)));
+        ctx.session.register_udtf(
+            "quality_histogram",
+            Arc::new(QualityHistogramFunction::new(&ctx)),
+        );
 
         Ok(PyBioSessionContext {
             ctx,
