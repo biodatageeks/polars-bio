@@ -7,6 +7,7 @@ use exon::ExonSession;
 use log::debug;
 use pyo3::{pyclass, pymethods, PyResult};
 use sequila_core::session_context::SequilaConfig;
+use crate::udaf::create_quality_quartiles_udaf;
 use crate::udtf::QualityHistogramFunction;
 
 #[pyclass(name = "BioSessionContext")]
@@ -27,6 +28,7 @@ impl PyBioSessionContext {
         let ctx = create_context().unwrap();
         let session_config: HashMap<String, String> = HashMap::new();
 
+        ctx.session.register_udaf(create_quality_quartiles_udaf());
         ctx.session.register_udtf("quality_histogram", Arc::new(QualityHistogramFunction::new(&ctx)));
 
         Ok(PyBioSessionContext {

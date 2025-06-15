@@ -7,6 +7,7 @@ mod scan;
 mod streaming;
 mod udtf;
 mod utils;
+mod udaf;
 // mod base_quality;
 // mod base_quality_calculator;
 

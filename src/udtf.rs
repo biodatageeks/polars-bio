@@ -16,8 +16,8 @@ use datafusion::common::{plan_err, DataFusionError, Result, ScalarValue};
 use datafusion::datasource::function::TableFunctionImpl;
 use datafusion::datasource::TableType;
 use datafusion::execution::{SendableRecordBatchStream, TaskContext};
+use datafusion::logical_expr::col;
 use datafusion::physical_expr::{EquivalenceProperties, Partitioning};
-use datafusion::physical_plan::projection::ProjectionExec;
 use datafusion::physical_plan::repartition::RepartitionExec;
 use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
 use datafusion::physical_plan::{
@@ -482,7 +482,7 @@ pub struct QualityHistogramProvider {
 }
 
 impl Debug for QualityHistogramProvider {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         Ok(())
     }
 }
@@ -497,7 +497,7 @@ impl QualityHistogramProvider {
                 Arc::new(Schema::new(vec![
                     Field::new("position", DataType::UInt64, true),
                     Field::new("score", DataType::UInt8, true),
-                    Field::new("count", DataType::UInt64, true)
+                    Field::new("count", DataType::UInt64, true),
                 ]))
             },
         }
@@ -556,13 +556,13 @@ struct QualityHistogramExec {
 }
 
 impl Debug for QualityHistogramExec {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         Ok(())
     }
 }
 
 impl DisplayAs for QualityHistogramExec {
-    fn fmt_as(&self, t: DisplayFormatType, f: &mut Formatter) -> std::fmt::Result {
+    fn fmt_as(&self, _t: DisplayFormatType, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "{}", self.name())
     }
 }
@@ -611,6 +611,8 @@ impl ExecutionPlan for QualityHistogramExec {
     }
 }
 
+type QualityCounts = HashMap<(u64, u8), u64>;
+
 async fn get_stream_qualities(
     session: Arc<SessionContext>,
     new_schema: Arc<Schema>,
@@ -621,56 +623,19 @@ async fn get_stream_qualities(
     context: Arc<TaskContext>,
 ) -> Result<SendableRecordBatchStream> {
     let table = session.table(table);
-    let table_stream = table.await?;
+    let table_stream = table.await?.select(vec![col(&column)])?;
     let plan = table_stream.create_physical_plan().await?;
-
-    // let schema = plan.schema();
-    // let projection_indices = vec![schema.index_of(&column)?];
-    // let projected_plan = Arc::new(ProjectionExec::try_new(projection_indices, plan)?);
 
     let repartition_stream =
         RepartitionExec::try_new(plan, Partitioning::RoundRobinBatch(target_partitions))?;
 
-    let partition_stream = repartition_stream.execute(partition, context)?;
+    let mut partition_stream = repartition_stream.execute(partition, context)?;
     let new_schema_out = new_schema.clone();
 
-    let iter = partition_stream.map(move |rb| match rb {
-        Ok(rb) => count_scores_in_batch(&rb, column.clone(), new_schema.clone()),
-        Err(e) => Err(e),
-    });
+    let mut counts: QualityCounts = HashMap::new(); // @TODO: Replace with faster HashMap
 
-    let adapted_stream =
-        RecordBatchStreamAdapter::new(new_schema_out, Box::pin(iter) as BoxStream<_>);
-    Ok(Box::pin(adapted_stream))
-}
-
-fn count_scores_in_batch(
-    rb: &RecordBatch,
-    column: String,
-    schema: SchemaRef,
-) -> Result<RecordBatch> {
-    let quality_array = rb
-        .column_by_name(&column)
-        .unwrap()
-        .as_any()
-        .downcast_ref::<StringArray>()
-        .ok_or_else(|| {
-            DataFusionError::Execution(format!("Expected StringArray in '{}'", column))
-        })?;
-
-    let mut counts: HashMap<(u64, u8), u64> = HashMap::new(); // @TODO: Replace with faster HashMap
-
-    for i in 0..quality_array.len() {
-        if quality_array.is_null(i) {
-            continue;
-        }
-
-        let quality_str = quality_array.value(i);
-
-        for (pos, q) in quality_str.chars().enumerate() {
-            let score = (q as u8) - 33;
-            *counts.entry((pos as u64, score)).or_insert(0) += 1;
-        }
+    while let Some(batch) = partition_stream.next().await {
+        count_scores_in_batch(&batch?, column.clone(), &mut counts)?;
     }
 
     let mut pos_builder = UInt64Builder::new();
@@ -687,28 +652,61 @@ fn count_scores_in_batch(
     let score_array = Arc::new(score_builder.finish());
     let count_array = Arc::new(count_builder.finish());
 
-    Ok(RecordBatch::try_new(
-        schema,
+    let batch = RecordBatch::try_new(
+        new_schema.clone(),
         vec![pos_array, score_array, count_array],
-    )?)
+    )?;
+
+    let iter = futures::stream::once(async move { Ok(batch) });
+    let adapted_stream =
+        RecordBatchStreamAdapter::new(new_schema_out, Box::pin(iter) as BoxStream<_>);
+    Ok(Box::pin(adapted_stream))
+}
+
+fn count_scores_in_batch(
+    rb: &RecordBatch,
+    column: String,
+    counts: &mut QualityCounts,
+) -> Result<()> {
+    let quality_array = rb
+        .column_by_name(&column)
+        .unwrap()
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .ok_or_else(|| {
+            DataFusionError::Execution(format!("Expected StringArray in '{}'", column))
+        })?;
+
+    for i in 0..quality_array.len() {
+        if quality_array.is_null(i) {
+            continue;
+        }
+
+        let quality_str = quality_array.value(i);
+
+        for (pos, q) in quality_str.chars().enumerate() {
+            let score = (q as u8) - 33;
+            *counts.entry((pos as u64, score)).or_insert(0) += 1;
+        }
+    }
+
+    Ok(())
 }
 
 pub struct QualityHistogramFunction {
-    session: Arc<SessionContext>
+    session: Arc<SessionContext>,
 }
 
 impl QualityHistogramFunction {
     pub(crate) fn new(ctx: &ExonSession) -> Self {
         let session = Arc::new(ctx.session.clone());
 
-        Self {
-            session
-        }
+        Self { session }
     }
 }
 
 impl Debug for QualityHistogramFunction {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
         Ok(())
     }
 }
@@ -716,7 +714,9 @@ impl Debug for QualityHistogramFunction {
 impl TableFunctionImpl for QualityHistogramFunction {
     fn call(&self, exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
         if exprs.len() != 2 {
-            return plan_err!("Function 'quality_histogram' expects 2 arguments: (table_name, column_name)");
+            return plan_err!(
+                "Function 'quality_histogram' expects 2 arguments: (table_name, column_name)"
+            );
         }
 
         let table_name = match &exprs[0] {
@@ -729,11 +729,8 @@ impl TableFunctionImpl for QualityHistogramFunction {
             _ => return plan_err!("Second argument must be a UTF8 string literal (column name)"),
         };
 
-        let provider = QualityHistogramProvider::new(
-            Arc::clone(&self.session),
-            table_name,
-            column_name
-        );
+        let provider =
+            QualityHistogramProvider::new(Arc::clone(&self.session), table_name, column_name);
 
         Ok(Arc::new(provider))
     }
