@@ -17,7 +17,7 @@ class TestBioframe:
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         suffixes=("_1", "_3"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
     )
     result_overlap_lf = (
         pb.overlap(
@@ -27,7 +27,7 @@ class TestBioframe:
             cols2=("contig", "pos_start", "pos_end"),
             output_type="polars.LazyFrame",
             suffixes=("_1", "_3"),
-            overlap_filter=FilterOp.Strict,
+            use_zero_based=True,
         )
         .collect()
         .to_pandas()

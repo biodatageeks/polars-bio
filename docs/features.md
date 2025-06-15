@@ -202,7 +202,7 @@ There are 2 ways of using streaming mode:
     ```
 
     ```python
-    pb.overlap(df_1, df_2, cols1=cols, cols2=cols, streaming=True).collect(streaming=True).limit()
+    pb.overlap(df_1,df_2,cols1=cols,cols2=cols,streaming=True).collect(streaming=True).limit()
     ```
     ```bash
     INFO:polars_bio.operation:Running in streaming mode...

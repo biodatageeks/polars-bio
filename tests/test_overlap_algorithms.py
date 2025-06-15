@@ -30,7 +30,7 @@ class TestOverlapAlgorithms:
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         suffixes=("_1", "_3"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         algorithm="Coitrees",
     )
 
@@ -41,7 +41,7 @@ class TestOverlapAlgorithms:
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         suffixes=("_1", "_3"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         algorithm="Lapper",
     )
 
@@ -52,7 +52,7 @@ class TestOverlapAlgorithms:
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         suffixes=("_1", "_3"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         algorithm="IntervalTree",
     )
 
@@ -63,7 +63,7 @@ class TestOverlapAlgorithms:
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         suffixes=("_1", "_3"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         algorithm="ArrayIntervalTree",
     )
 
@@ -73,7 +73,7 @@ class TestOverlapAlgorithms:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         suffixes=("_1", "_3"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         algorithm="Coitrees",
     )
 
@@ -83,7 +83,7 @@ class TestOverlapAlgorithms:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         suffixes=("_1", "_3"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         algorithm="Lapper",
     )
 
@@ -93,7 +93,7 @@ class TestOverlapAlgorithms:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         suffixes=("_1", "_3"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         algorithm="IntervalTree",
     )
 
@@ -103,7 +103,7 @@ class TestOverlapAlgorithms:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         suffixes=("_1", "_3"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         algorithm="ArrayIntervalTree",
     )
 

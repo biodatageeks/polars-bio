@@ -29,7 +29,7 @@ class TestMemoryCombinations:
                         cols1=("contig", "pos_start", "pos_end"),
                         cols2=("contig", "pos_start", "pos_end"),
                         output_type=output_type,
-                        overlap_filter=FilterOp.Weak,
+                        use_zero_based=True,
                     )
                     if output_type == "polars.LazyFrame":
                         result = result.collect()

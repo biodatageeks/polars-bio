@@ -21,7 +21,7 @@ class TestOverlapPolars:
         PL_DF1,
         PL_DF2,
         output_type="polars.DataFrame",
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
     )
@@ -29,7 +29,7 @@ class TestOverlapPolars:
         PL_DF1,
         PL_DF2,
         output_type="polars.LazyFrame",
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
     ).collect()
