@@ -5,7 +5,7 @@ import time
 import pytest
 import subprocess
 import os
-
+import shutil
 
 
 
@@ -43,11 +43,20 @@ def test_cacl_base_seq_quality_expected_values():
 
 
 # Sprawdzenie wydajności funkcji cacl_base_seq_quality, potem mogę dodać porównanie do fastq-rs
+# test działa po zainstalowaniu fastqc poprzez komendę: cargo install fastqc-rs 
+# oraz po dodaniu ścieżki do zmiennej środowiskowej. Wtedy testy działają na każdej maszynie.
 
 def test_performance_comparison():
     TEST_DIR = os.path.dirname(__file__)
     fastq_path   = os.path.join(TEST_DIR, "min_example.fastq")
     summary_path = os.path.join(TEST_DIR, "summary.txt")
+
+    # 1) Poszukiwanie fqc w PATH lub w zmiennej środowiskowej FQC_PATH
+    fqc_cmd = os.getenv("FQC_PATH", "fqc")            # domyślnie 'fqc'
+    fqc_path = shutil.which(fqc_cmd)                  # szukaj w PATH
+
+    if fqc_path is None:
+        pytest.skip(f"Nie znaleziono '{fqc_cmd}' w PATH ani w zmiennej FQC_PATH")
 
     # nasza funkcja
     start1 = time.perf_counter()
@@ -57,7 +66,7 @@ def test_performance_comparison():
     # fqc
     start2 = time.perf_counter()
     proc = subprocess.run(
-        [r"C:\Users\piotr\.cargo\bin\fqc.exe", "-q", fastq_path, "-s", summary_path],
+        [fqc_path, "-q", fastq_path, "-s", summary_path],
         capture_output=True,
         check=False
     )
@@ -65,7 +74,8 @@ def test_performance_comparison():
 
     # jeżeli exit code >1 – traktujemy jako błąd
     if proc.returncode not in (0, 1):
-        pytest.fail(f"fqc.exe zakończył się błędem (exit {proc.returncode}):\n{proc.stderr.decode()}")
+        pytest.fail(f"fqc zakończył się błędem (exit {proc.returncode}):\n"
+                    f"{proc.stderr.decode()}")
 
     print(f"Polars-bio: {duration1:.4f} s")
     print(f"fastqc-rs CLI: {duration2:.4f} s")
