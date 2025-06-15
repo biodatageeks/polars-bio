@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datafusion
 import pandas as pd
+import pyarrow as pa
 import polars as pl
 from datafusion import col, literal
 from typing_extensions import TYPE_CHECKING, Union
@@ -565,7 +566,7 @@ def quality_udaf(
 def base_sequence_quality(
     df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     column: str,
-    output_str: str = "polars.DataFrame",
+    output_type: str = "polars.DataFrame",
     read_options1: Union[ReadOptions, None] = None
 ) -> Union[pl.DataFrame, pd.DataFrame]:
 

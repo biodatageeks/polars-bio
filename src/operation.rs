@@ -8,7 +8,9 @@ use tokio::runtime::Runtime;
 
 use crate::context::{set_option_internal, PyBioSessionContext};
 use crate::option::{FilterOp, RangeOp, RangeOptions};
-use crate::query::{base_sequence_quality_query, count_overlaps_query, nearest_query, overlap_query};
+use crate::query::{
+    base_sequence_quality_query, count_overlaps_query, nearest_query, overlap_query,
+};
 use crate::udtf::CountOverlapsProvider;
 use crate::utils::default_cols_to_string;
 use crate::DEFAULT_COLUMN_NAMES;
@@ -271,11 +273,10 @@ pub(crate) fn do_base_sequence_quality(
     ctx: &ExonSession,
     rt: &Runtime,
     table: String,
-    column: String
+    column: String,
 ) -> datafusion::dataframe::DataFrame {
     rt.block_on(async {
         let query = base_sequence_quality_query(table, column);
-        println!("query {}", query);
         ctx.sql(&query).await.unwrap()
     })
 }
