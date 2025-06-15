@@ -30,12 +30,12 @@ def main():
     for pos in sorted(scores):
         arr = np.array(scores[pos])
         rows.append({
-            "position": pos,
-            "min_score": float(arr.min()),
-            "q1_score": float(np.percentile(arr, 25)),
-            "median_score": float(np.median(arr)),
-            "q3_score": float(np.percentile(arr, 75)),
-            "max_score": float(arr.max()),
+            "position":      pos,
+            "min_score":     float(arr.min()),
+            "q1_score":      float(np.percentile(arr, 25)),
+            "median_score":  float(np.median(arr)),
+            "q3_score":      float(np.percentile(arr, 75)),
+            "max_score":     float(arr.max()),
             "average_score": float(arr.mean()),
         })
     df = pd.DataFrame(rows)
@@ -44,43 +44,72 @@ def main():
     # 4) Generuj wykres Plotly
     traces = []
 
-    # whiskers (min→max) – pogrubione
+    # whiskers (min→max) – pomijamy hover
     for _, r in df.iterrows():
         traces.append(go.Scatter(
             x=[r.min_score, r.max_score],
             y=[r.position, r.position],
             mode="lines",
-            line=dict(color="gray", width=2),  # pogrubiony whisker
+            line=dict(color="gray", width=2),
             showlegend=False,
             hoverinfo="skip"
         ))
-    # box (q1→q3) – pogrubione i oddzielone
+
+    # BOX: Q1→Q3 z customdata i hovertemplate
+    customdata = np.stack([
+        df.min_score,
+        df.q1_score,
+        df.median_score,
+        df.q3_score,
+        df.max_score,
+        df.average_score
+    ], axis=1)
+
     traces.append(go.Bar(
         x=df.q3_score - df.q1_score,
         y=df.position,
         base=df.q1_score,
         orientation="h",
         marker_color="rgba(0,100,80,0.6)",
-        marker_line=dict(color="rgba(0,100,80,1)", width=2),  # pogrubiona ramka
-        width=0.6,  # mniejsze pudełko, aby nie stykały się
-        showlegend=False
+        marker_line=dict(color="rgba(0,100,80,1)", width=2),
+        width=0.6,
+        showlegend=False,
+        customdata=customdata,
+        hovertemplate=(
+            "Position: %{y}<br>"
+            "Min: %{customdata[0]}<br>"
+            "Q1: %{customdata[1]}<br>"
+            "Median: %{customdata[2]}<br>"
+            "Q3: %{customdata[3]}<br>"
+            "Max: %{customdata[4]}<br>"
+            "Average: %{customdata[5]:.2f}<extra></extra>"
+        )
     ))
-    # median tick
+
+    # median tick – bez hover
     traces.append(go.Scatter(
         x=df.median_score,
         y=df.position,
         mode="markers",
-        marker=dict(color="white", symbol="line-ns-open", size=16, line=dict(width=2)),
-        showlegend=False
+        marker=dict(
+            color="white",
+            symbol="line-ns-open",
+            size=16,
+            line=dict(width=2)
+        ),
+        showlegend=False,
+        hoverinfo="skip"
     ))
-    # trend średniej
+
+    # trend średniej – bez hover
     traces.append(go.Scatter(
         x=df.average_score,
         y=df.position,
         mode="lines+markers",
         line=dict(color="red", width=2),
         marker=dict(size=4),
-        name="Average"
+        name="Average",
+        hoverinfo="skip"
     ))
 
     # 5) Layout z powiększonym spacingiem i dtick, ograniczony zakres Y
@@ -91,7 +120,7 @@ def main():
         autorange="reversed",
         title="Position in read (bp)",
         dtick=1,
-        range=[0, 100]  # zakład od 0 do 100
+        range=[0, 100]
     )
     fig.update_xaxes(
         title="Phred score",
