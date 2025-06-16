@@ -85,7 +85,7 @@ class TestPolarsExt:
             .sort_values(by=["chrom_1", "start_1", "end_1"])
             .reset_index(drop=True)
         )
-        #
+
         df_4 = (
             pl.DataFrame(df_1)
             .lazy()
@@ -108,14 +108,14 @@ class TestPolarsExt:
             .to_pandas()
             .reset_index(drop=True)
         )
-        """
+
         df_2 = (
             pb.read_table(self.file, schema="bed9")
             .select(cols)
             .collect()
             .to_pandas()
             .reset_index(drop=True)
-        )"""
+        )
         df_3 = (
             bf.merge(df_1, min_dist=None)
             .sort_values(by=["chrom", "start", "end"])

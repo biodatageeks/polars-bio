@@ -13,7 +13,6 @@ from _expected import (
 )
 
 import polars_bio as pb
-from polars_bio.polars_bio import FilterOp
 
 
 class TestOverlapPolars:
@@ -21,7 +20,7 @@ class TestOverlapPolars:
         PL_DF1,
         PL_DF2,
         output_type="polars.DataFrame",
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
     )
@@ -29,7 +28,7 @@ class TestOverlapPolars:
         PL_DF1,
         PL_DF2,
         output_type="polars.LazyFrame",
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
     ).collect()
@@ -85,7 +84,7 @@ class TestCountOverlapsPolars:
         output_type="polars.DataFrame",
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
         naive_query=False,
     )
     result_lazy = pb.count_overlaps(
@@ -94,7 +93,7 @@ class TestCountOverlapsPolars:
         output_type="polars.LazyFrame",
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
         naive_query=False,
     ).collect()
     expected = PL_DF_COUNT_OVERLAPS
@@ -115,11 +114,13 @@ class TestCountOverlapsPolars:
 class TestMergePolars:
     result_frame = pb.merge(
         PL_MERGE_DF,
+        use_zero_based=True,
         output_type="polars.DataFrame",
         cols=("contig", "pos_start", "pos_end"),
     )
     result_lazy = pb.merge(
         PL_MERGE_DF,
+        use_zero_based=True,
         output_type="polars.LazyFrame",
         cols=("contig", "pos_start", "pos_end"),
     ).collect()

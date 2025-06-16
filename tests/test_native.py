@@ -19,7 +19,6 @@ from _expected import (
 )
 
 import polars_bio as pb
-from polars_bio.polars_bio import FilterOp
 
 
 class TestOverlapNative:
@@ -29,7 +28,7 @@ class TestOverlapNative:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
     )
 
     def test_overlap_count(self):
@@ -50,7 +49,7 @@ class TestNearestNative:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
     )
 
     def test_nearest_count(self):
@@ -72,7 +71,7 @@ class TestCountOverlapsNative:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
         naive_query=True,
     )
 
@@ -93,7 +92,7 @@ class TestMergeNative:
         DF_MERGE_PATH,
         cols=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
     )
 
     def test_merge_count(self):
@@ -115,7 +114,7 @@ class TestCoverageNative:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
     )
     result_bio = bf.coverage(
         BIO_PD_DF1,

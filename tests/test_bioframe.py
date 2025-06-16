@@ -4,7 +4,6 @@ from _expected import BIO_DF_PATH1, BIO_DF_PATH2, BIO_PD_DF1, BIO_PD_DF2
 from numpy import int32
 
 import polars_bio as pb
-from polars_bio.polars_bio import FilterOp
 
 pb.ctx.set_option("datafusion.execution.parquet.schema_force_view_types", "true", False)
 
@@ -17,7 +16,7 @@ class TestBioframe:
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         suffixes=("_1", "_3"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
     )
     result_overlap_lf = (
         pb.overlap(
@@ -27,7 +26,7 @@ class TestBioframe:
             cols2=("contig", "pos_start", "pos_end"),
             output_type="polars.LazyFrame",
             suffixes=("_1", "_3"),
-            overlap_filter=FilterOp.Strict,
+            use_zero_based=True,
         )
         .collect()
         .to_pandas()
@@ -47,7 +46,7 @@ class TestBioframe:
         BIO_PD_DF2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         output_type="pandas.DataFrame",
     )
     result_bio_nearest = bf.closest(
@@ -63,7 +62,7 @@ class TestBioframe:
         BIO_PD_DF2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         output_type="pandas.DataFrame",
         naive_query=False,
     )
@@ -73,7 +72,7 @@ class TestBioframe:
         BIO_DF_PATH2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
         naive_query=True,
     )
 
@@ -87,11 +86,13 @@ class TestBioframe:
 
     result_merge = pb.merge(
         BIO_PD_DF1,
+        use_zero_based=True,
         cols=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
     )
     result_merge_lf = pb.merge(
         BIO_PD_DF1,
+        use_zero_based=True,
         cols=("contig", "pos_start", "pos_end"),
         output_type="polars.LazyFrame",
     )
@@ -186,7 +187,7 @@ class TestBioframe:
             cols1=("contig", "pos_start", "pos_end"),
             cols2=("contig", "pos_start", "pos_end"),
             output_type="pandas.DataFrame",
-            overlap_filter=FilterOp.Strict,
+            use_zero_based=True,
         )
         result_bio = bf.coverage(
             BIO_PD_DF1,
@@ -204,7 +205,7 @@ class TestBioframe:
             cols1=("contig", "pos_start", "pos_end"),
             cols2=("contig", "pos_start", "pos_end"),
             output_type="pandas.DataFrame",
-            overlap_filter=FilterOp.Strict,
+            use_zero_based=True,
         )
         result_bio = bf.coverage(
             BIO_PD_DF1,

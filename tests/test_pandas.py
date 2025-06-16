@@ -14,7 +14,6 @@ from _expected import (
 )
 
 import polars_bio as pb
-from polars_bio.polars_bio import FilterOp
 
 
 class TestOverlapPandas:
@@ -24,7 +23,7 @@ class TestOverlapPandas:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
     )
 
     def test_overlap_count(self):
@@ -45,7 +44,7 @@ class TestNearestPandas:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
     )
 
     def test_nearest_count(self):
@@ -66,7 +65,7 @@ class TestCountOverlapsPandas:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
         naive_query=False,
     )
 
@@ -76,7 +75,7 @@ class TestCountOverlapsPandas:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
         naive_query=True,
     )
 
@@ -100,6 +99,7 @@ class TestCountOverlapsPandas:
 class TestMergePandas:
     result = pb.merge(
         PD_MERGE_DF,
+        use_zero_based=True,
         cols=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
     )

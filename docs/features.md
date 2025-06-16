@@ -8,14 +8,16 @@
 | cluster                                            | :white_check_mark: |                    | :white_check_mark: | :white_check_mark: |                    |                    |
 | [merge](api.md#polars_bio.merge)                   | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 | complement                                         | :white_check_mark: | :construction:     |                    | :white_check_mark: | :white_check_mark: |                    |
-| [coverage](api.md#polars_bio.coverage)             | :white_check_mark: |  :white_check_mark:                  | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
-| [expand](api.md#polars_bio.LazyFrame.expand)       | :white_check_mark: | :white_check_mark:     | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
+| [coverage](api.md#polars_bio.coverage)             | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
+| [expand](api.md#polars_bio.LazyFrame.expand)       | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 | [sort](api.md#polars_bio.LazyFrame.sort_bedframe)  | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 | [read_table](api.md#polars_bio.read_table)         | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 
 
 ## Coordinate systems support
-polars-bio supports both 0-based and 1-based coordinate systems. Please check `overlap_filter` parameter of a given operation to choose the appropriate coordinate system, e.g. [overlap](api.md#polars_bio.overlap) operation.
+polars-bio supports both 0-based and 1-based coordinate systems for genomic ranges operations. By **default**, it uses **1-based** coordinates, for both **input files** reading and **all** operations. If your data is in 0-based coordinates, you can set the `use_zero_based` parameter to `True` in the operation functions, e.g. [overlap](api.md#polars_bio.overlap) or [nearest](api.md#polars_bio.nearest).
+In such case, a *warning* will be printed to the console, indicating that the coordinates are 0-based and end user is responsible for adjusting the coordinates accordingly.
+
 
 ### API comparison between libraries
 There is no standard API for genomic ranges operations in Python.
@@ -202,7 +204,7 @@ There are 2 ways of using streaming mode:
     ```
 
     ```python
-    pb.overlap(df_1, df_2, cols1=cols, cols2=cols, streaming=True).collect(streaming=True).limit()
+    pb.overlap(df_1,df_2,cols1=cols,cols2=cols,streaming=True).collect(streaming=True).limit()
     ```
     ```bash
     INFO:polars_bio.operation:Running in streaming mode...

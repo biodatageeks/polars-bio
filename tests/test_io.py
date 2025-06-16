@@ -11,7 +11,6 @@ from _expected import (
 )
 
 import polars_bio as pb
-from polars_bio.polars_bio import FilterOp
 
 
 class TestMemoryCombinations:
@@ -29,7 +28,7 @@ class TestMemoryCombinations:
                         cols1=("contig", "pos_start", "pos_end"),
                         cols2=("contig", "pos_start", "pos_end"),
                         output_type=output_type,
-                        overlap_filter=FilterOp.Weak,
+                        use_zero_based=False,
                     )
                     if output_type == "polars.LazyFrame":
                         result = result.collect()
