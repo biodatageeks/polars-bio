@@ -5,7 +5,6 @@ import pandas as pd
 from _expected import BIO_PD_DF1, BIO_PD_DF2
 
 import polars_bio as pb
-from polars_bio.polars_bio import FilterOp
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.INFO)

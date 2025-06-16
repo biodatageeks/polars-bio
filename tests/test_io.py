@@ -11,7 +11,6 @@ from _expected import (
 )
 
 import polars_bio as pb
-from polars_bio.polars_bio import FilterOp
 
 
 class TestMemoryCombinations:

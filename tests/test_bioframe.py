@@ -4,7 +4,6 @@ from _expected import BIO_DF_PATH1, BIO_DF_PATH2, BIO_PD_DF1, BIO_PD_DF2
 from numpy import int32
 
 import polars_bio as pb
-from polars_bio.polars_bio import FilterOp
 
 pb.ctx.set_option("datafusion.execution.parquet.schema_force_view_types", "true", False)
 

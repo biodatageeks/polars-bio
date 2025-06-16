@@ -16,6 +16,7 @@ from .interval_op_helpers import (
     prevent_column_collision,
     read_df_to_datafusion,
 )
+from .logging import logger
 from .range_op_helpers import _validate_overlap_input, range_operation
 
 __all__ = ["overlap", "nearest", "count_overlaps", "merge"]
@@ -52,7 +53,7 @@ class IntervalOperations:
             df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
             how: How to handle the overlaps on the two dataframes. inner: use intersection of the set of intervals from df1 and df2, optional.
-            use_zero_based: By default 1-based coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
+            use_zero_based: By default **1-based** coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
             cols1: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
             cols2:  The names of columns containing the chromosome, start and end of the
@@ -104,7 +105,9 @@ class IntervalOperations:
              Support for on_cols.
         """
 
-        _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type, how)
+        _validate_overlap_input(
+            cols1, cols2, on_cols, suffixes, output_type, use_zero_based, how="inner"
+        )
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
         cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
@@ -117,6 +120,7 @@ class IntervalOperations:
             overlap_alg=algorithm,
             streaming=streaming,
         )
+
         return range_operation(
             df1, df2, range_options, output_type, ctx, read_options1, read_options2
         )
@@ -141,7 +145,7 @@ class IntervalOperations:
         Parameters:
             df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
-            use_zero_based: By default 1-based coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
+            use_zero_based: By default **1-based** coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
             cols1: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
             cols2:  The names of columns containing the chromosome, start and end of the
@@ -167,7 +171,13 @@ class IntervalOperations:
         """
 
         _validate_overlap_input(
-            cols1, cols2, on_cols, suffixes, output_type, how="inner"
+            cols1,
+            cols2,
+            on_cols,
+            suffixes,
+            output_type,
+            use_zero_based,
+            how="inner",
         )
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
@@ -202,7 +212,7 @@ class IntervalOperations:
         Parameters:
             df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
-            use_zero_based: By default 1-based coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
+            use_zero_based: By default **1-based** coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
             cols1: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
             cols2:  The names of columns containing the chromosome, start and end of the
@@ -228,7 +238,13 @@ class IntervalOperations:
         """
 
         _validate_overlap_input(
-            cols1, cols2, on_cols, suffixes, output_type, how="inner"
+            cols1,
+            cols2,
+            on_cols,
+            suffixes,
+            output_type,
+            use_zero_based,
+            how="inner",
         )
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
@@ -263,7 +279,7 @@ class IntervalOperations:
         Parameters:
             df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
-            use_zero_based: By default 1-based coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
+            use_zero_based: By default **1-based** coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
             suffixes: Suffixes for the columns of the two overlapped sets.
             cols1: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
@@ -309,7 +325,7 @@ class IntervalOperations:
              Support return_input.
         """
         _validate_overlap_input(
-            cols1, cols2, on_cols, suffixes, output_type, how="inner"
+            cols1, cols2, on_cols, suffixes, output_type, use_zero_based, how="inner"
         )
         my_ctx = get_py_ctx()
         on_cols = [] if on_cols is None else on_cols
@@ -428,7 +444,7 @@ class IntervalOperations:
 
         Parameters:
             df: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED  and Parquet are supported.
-            use_zero_based: By default 1-based coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
+            use_zero_based: By default **1-based** coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
             cols: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
             on_cols: List of additional column names for clustering. default is None.
@@ -444,7 +460,9 @@ class IntervalOperations:
             Support for on_cols.
         """
         suffixes = ("_1", "_2")
-        _validate_overlap_input(cols, cols, on_cols, suffixes, output_type, how="inner")
+        _validate_overlap_input(
+            cols, cols, on_cols, suffixes, output_type, use_zero_based, how="inner"
+        )
 
         my_ctx = get_py_ctx()
         cols = DEFAULT_INTERVAL_COLUMNS if cols is None else cols
