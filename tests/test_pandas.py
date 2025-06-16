@@ -100,6 +100,7 @@ class TestCountOverlapsPandas:
 class TestMergePandas:
     result = pb.merge(
         PD_MERGE_DF,
+        use_zero_based=True,
         cols=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
     )

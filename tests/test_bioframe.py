@@ -87,11 +87,13 @@ class TestBioframe:
 
     result_merge = pb.merge(
         BIO_PD_DF1,
+        use_zero_based=True,
         cols=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
     )
     result_merge_lf = pb.merge(
         BIO_PD_DF1,
+        use_zero_based=True,
         cols=("contig", "pos_start", "pos_end"),
         output_type="polars.LazyFrame",
     )

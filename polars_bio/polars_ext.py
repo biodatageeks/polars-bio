@@ -93,7 +93,10 @@ class PolarsRangesOperations:
             Alias for [merge](api.md#polars_bio.merge)
         """
         return pb.merge(
-            self._ldf, overlap_filter=overlap_filter, min_dist=min_dist, cols=cols
+            self._ldf,
+            use_zero_based=True,
+            min_dist=min_dist,
+            cols=cols,
         )
 
     def sort(

@@ -93,7 +93,7 @@ class TestMergeNative:
         DF_MERGE_PATH,
         cols=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        overlap_filter=FilterOp.Strict,
+        use_zero_based=True,
     )
 
     def test_merge_count(self):

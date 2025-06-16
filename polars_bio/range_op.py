@@ -415,7 +415,7 @@ class IntervalOperations:
     @staticmethod
     def merge(
         df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-        overlap_filter: FilterOp = FilterOp.Strict,
+        use_zero_based: bool = False,
         min_dist: float = 0,
         cols: Union[list[str], None] = ["chrom", "start", "end"],
         on_cols: Union[list[str], None] = None,
@@ -428,7 +428,7 @@ class IntervalOperations:
 
         Parameters:
             df: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED  and Parquet are supported.
-            overlap_filter: FilterOp, optional. The type of overlap to consider(Weak or Strict). Strict for **0-based**, Weak for **1-based** coordinate systems.
+            use_zero_based: By default 1-based coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
             cols: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
             on_cols: List of additional column names for clustering. default is None.
@@ -486,7 +486,7 @@ class IntervalOperations:
 
         sorting = [
             col(start_end).sort(),
-            col(is_start_end).sort(ascending=(overlap_filter == FilterOp.Strict)),
+            col(is_start_end).sort(ascending=use_zero_based),
         ]
         all_positions = all_positions.sort(*sorting)
 

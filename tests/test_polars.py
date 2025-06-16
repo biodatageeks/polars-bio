@@ -115,11 +115,13 @@ class TestCountOverlapsPolars:
 class TestMergePolars:
     result_frame = pb.merge(
         PL_MERGE_DF,
+        use_zero_based=True,
         output_type="polars.DataFrame",
         cols=("contig", "pos_start", "pos_end"),
     )
     result_lazy = pb.merge(
         PL_MERGE_DF,
+        use_zero_based=True,
         output_type="polars.LazyFrame",
         cols=("contig", "pos_start", "pos_end"),
     ).collect()
