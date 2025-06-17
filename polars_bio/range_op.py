@@ -33,7 +33,6 @@ class IntervalOperations:
     def overlap(
         df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
         df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-        how: str = "inner",
         use_zero_based: bool = False,
         suffixes: tuple[str, str] = ("_1", "_2"),
         on_cols: Union[list[str], None] = None,
@@ -52,7 +51,6 @@ class IntervalOperations:
         Parameters:
             df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
-            how: How to handle the overlaps on the two dataframes. inner: use intersection of the set of intervals from df1 and df2, optional.
             use_zero_based: By default **1-based** coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
             cols1: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
@@ -106,7 +104,7 @@ class IntervalOperations:
         """
 
         _validate_overlap_input(
-            cols1, cols2, on_cols, suffixes, output_type, use_zero_based, how="inner"
+            cols1, cols2, on_cols, suffixes, output_type, use_zero_based
         )
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
@@ -171,13 +169,7 @@ class IntervalOperations:
         """
 
         _validate_overlap_input(
-            cols1,
-            cols2,
-            on_cols,
-            suffixes,
-            output_type,
-            use_zero_based,
-            how="inner",
+            cols1, cols2, on_cols, suffixes, output_type, use_zero_based
         )
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
@@ -244,7 +236,6 @@ class IntervalOperations:
             suffixes,
             output_type,
             use_zero_based,
-            how="inner",
         )
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
@@ -325,7 +316,7 @@ class IntervalOperations:
              Support return_input.
         """
         _validate_overlap_input(
-            cols1, cols2, on_cols, suffixes, output_type, use_zero_based, how="inner"
+            cols1, cols2, on_cols, suffixes, output_type, use_zero_based
         )
         my_ctx = get_py_ctx()
         on_cols = [] if on_cols is None else on_cols
@@ -461,7 +452,7 @@ class IntervalOperations:
         """
         suffixes = ("_1", "_2")
         _validate_overlap_input(
-            cols, cols, on_cols, suffixes, output_type, use_zero_based, how="inner"
+            cols, cols, on_cols, suffixes, output_type, use_zero_based
         )
 
         my_ctx = get_py_ctx()

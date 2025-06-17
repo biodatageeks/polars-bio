@@ -15,7 +15,6 @@ class PolarsRangesOperations:
         self,
         other_df: pl.LazyFrame,
         suffixes: tuple[str, str] = ("_1", "_2"),
-        how="inner",
         use_zero_based: bool = False,
         cols1=["chrom", "start", "end"],
         cols2=["chrom", "start", "end"],
@@ -28,7 +27,6 @@ class PolarsRangesOperations:
         return pb.overlap(
             self._ldf,
             other_df,
-            how=how,
             use_zero_based=use_zero_based,
             suffixes=suffixes,
             cols1=cols1,
