@@ -88,6 +88,7 @@ def performance_test(fastq_paths=None, k_values=None, include_fastqc_rs=True):
             # Test fastqc-rs
             if include_fastqc_rs:
                 fastqc_time = run_fastqc_rs(path, k)
+                print(fastqc_time)
                 if fastqc_time > 0:
                     results.append({
                         'implementation': 'fastqc-rs',
@@ -101,24 +102,18 @@ def performance_test(fastq_paths=None, k_values=None, include_fastqc_rs=True):
 
 def visualize_performance_results(results, save_path=None):
 
-    # Ustawienie stylu
     sns.set_style("whitegrid")
 
-    # Pobierz unikalne nazwy plików
     files = results['file'].unique()
 
-    # Stwórz subplot dla każdego pliku
     fig, axes = plt.subplots(1, len(files), figsize=(14, 6), sharey=False)
 
-    # Jeśli jest tylko jeden plik, axes nie będzie tablicą
     if len(files) == 1:
         axes = [axes]
 
-    # Stwórz wykres dla każdego pliku
     for i, file in enumerate(files):
         file_data = results[results['file'] == file]
 
-        # Stwórz wykres słupkowy dla danego pliku
         sns.barplot(
             data=file_data,
             x="k",
@@ -132,11 +127,9 @@ def visualize_performance_results(results, save_path=None):
         axes[i].set_xlabel("Wartość k")
         axes[i].set_ylabel("Czas wykonania (s)")
 
-    # Dopasuj legendę i układ
     plt.tight_layout()
     fig.suptitle("Porównanie wydajności dla różnych wartości k", y=1.02, fontsize=16)
 
-    # Dodaj jedną legendę dla całego wykresu
     handles, labels = axes[-1].get_legend_handles_labels()
     [ax.get_legend().remove() for ax in axes if ax.get_legend()]
     fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0),
@@ -164,7 +157,6 @@ def main():
         include_fastqc_rs=True
     )
 
-    # Zapisz wyniki wydajności do CSV
     results_path = os.path.join(OUTPUT_DIR, "performance_results.csv")
     performance_results.to_csv(results_path, index=False)
     print(f"Zapisano wyniki wydajności do {results_path}")
