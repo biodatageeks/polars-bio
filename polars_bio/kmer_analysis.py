@@ -9,21 +9,8 @@ from polars_bio.polars_bio import (
     py_kmer_count,
 )
 
-# Możesz podać seed i katalog, jeśli masz takie wymagania
-
-
 
 def kmer_count(k, df):
-    """
-    Count k-mers in a Polars DataFrame.
-
-    Parameters:
-        k: The size of the k-mers.
-        df: Polars DataFrame or LazyFrame containing the sequences.
-
-    Returns:
-        Pandas DataFrame with k-mer counts.
-    """
 
     assert isinstance(df, (pl.DataFrame, pl.LazyFrame)), "df must be Polars DataFrame or LazyFrame"
     assert isinstance(k, int) and k > 0, "k must be a positive integer"
@@ -34,27 +21,18 @@ def kmer_count(k, df):
         else df.collect().to_arrow().to_reader()
     )
 
-    # Uruchomienie liczenia k-merów
     ctx = polars_bio.BioSessionContext(seed="seed", catalog_dir=".")
     result = py_kmer_count(ctx, k, arrow_reader).collect()
 
-    # Odczyt JSON-a z kolumny kmer_counts
     json_str = result[0]["kmer_counts"][0].as_py()
     json_data = json.loads(json_str)
 
-    # Konwersja do Pandas
     rows = [{"kmer": kmer, "count": count} for kmer, count in json_data.items()]
     return pd.DataFrame(rows)
 
 
 def visualize_kmers(df, top_n=None):
-    """
-    Visualize k-mer count result as a horizontal bar chart.
 
-    Parameters:
-        df: Pandas DataFrame with 'kmer' and 'count' columns.
-        top_n: Number of top k-mers to visualize.
-    """
     assert isinstance(df, pd.DataFrame), "df must be a Pandas DataFrame"
     assert "kmer" in df.columns and "count" in df.columns, "DataFrame must contain 'kmer' and 'count' columns"
 
