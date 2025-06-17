@@ -120,9 +120,7 @@ def range_operation(
                 )
 
 
-def _validate_overlap_input(
-    col1, col2, on_cols, suffixes, output_type, use_zero_based, how
-):
+def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, use_zero_based):
     # TODO: Add support for on_cols ()
     _zero_based_warning(use_zero_based)
     assert on_cols is None, "on_cols is not supported yet"
@@ -132,8 +130,6 @@ def _validate_overlap_input(
         "pandas.DataFrame",
         "datafusion.DataFrame",
     ], "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
-
-    assert how in ["inner"], "Only inner join is supported"
 
 
 def _zero_based_warning(use_zero_based: bool):
