@@ -1,10 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
-Skrypt do testowania zgodności i wydajności analizy k-merów
-między własną implementacją a fastqc-rs
-"""
-
 import json
 import time
 import os
@@ -20,30 +15,18 @@ from polars_bio.kmer_analysis import kmer_count, visualize_kmers
 
 
 SMALL_FASTQ_PATH = "tests/data/io/fastq/example.fastq"
-LARGE_FASTQ_PATH = "tests/data/io/fastq/ERR194147.fastq"  # Można zmienić na inny większy plik
+LARGE_FASTQ_PATH = "tests/data/io/fastq/ERR194147.fastq"  
 OUTPUT_DIR = "benchmark_results"
 FASTQC_RS_OUTPUT = "tests/data/io/fastq/output_big.json"
 FASTQC_RS_OUTPUT_K3 = "tests/data/io/fastq/output.json"
 
-# Upewnij się że katalog na wyniki istnieje
+
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
 # ==================== SEKCJA 1: POMOCNICZE FUNKCJE ====================
 
 def run_fastqc_rs(fastq_path, k, output_json=None):
-    """
-    Uruchamia narzędzie fastqc-rs do zliczania k-merów.
-
-    Argumenty:
-        fastq_path (str): Ścieżka do pliku FASTQ
-        k (int): Długość k-merów
-        output_json (str, opcjonalnie): Ścieżka do pliku wyjściowego JSON
-
-    Zwraca:
-        dict: Słownik z wynikami lub None w przypadku błędu
-    """
-
 
     try:
         start_time = time.time()
@@ -61,15 +44,7 @@ def run_fastqc_rs(fastq_path, k, output_json=None):
         return None, 0
 
 def load_fastqc_rs_results(result_path):
-    """
-    Wczytuje wyniki fastqc-rs z pliku JSON.
 
-    Argumenty:
-        result_path (str): Ścieżka do pliku JSON z wynikami
-
-    Zwraca:
-        list: Lista wyników lub None w przypadku błędu
-    """
     try:
         with open(result_path) as f:
             return json.load(f)["values"]
@@ -81,17 +56,7 @@ def load_fastqc_rs_results(result_path):
 # ==================== SEKCJA 3: TEST WYDAJNOŚCI ====================
 
 def performance_test(fastq_paths=None, k_values=None, include_fastqc_rs=True):
-    """
-    Przeprowadza test wydajności dla różnych wartości k i plików.
 
-    Argumenty:
-        fastq_paths (list): Lista ścieżek do plików FASTQ
-        k_values (list): Lista wartości k
-        include_fastqc_rs (bool): Czy uwzględnić fastqc-rs w testach
-
-    Zwraca:
-        pd.DataFrame: DataFrame z wynikami testów
-    """
     print("\n=== Test wydajności ===")
 
     fastq_paths = fastq_paths or [SMALL_FASTQ_PATH, LARGE_FASTQ_PATH]
@@ -134,46 +99,8 @@ def performance_test(fastq_paths=None, k_values=None, include_fastqc_rs=True):
     return pd.DataFrame(results)
 
 
-# def visualize_performance_results(results, save_path=None):
-#     """
-#     Wizualizuje wyniki testów wydajności.
-#
-#     Argumenty:
-#         results (pd.DataFrame): DataFrame z wynikami testów
-#         save_path (str): Ścieżka do zapisania wykresu
-#     """
-#     # Stwórz wykres czasu wykonania dla różnych wartości k
-#     plt.figure(figsize=(14, 8))
-#
-#     sns.set_style("whitegrid")
-#
-#     g = sns.catplot(
-#         data=results,
-#         x="k",
-#         y="time",
-#         hue="implementation",
-#         col="file",
-#         kind="bar",
-#         palette=["royalblue", "firebrick"],
-#         height=5,
-#         aspect=1.2
-#     )
-#     g.set_axis_labels("Wartość k", "Czas wykonania (s)")
-#     g.fig.suptitle("Porównanie wydajności dla różnych wartości k", y=1.05, fontsize=16)
-#
-#     if save_path:
-#         plt.savefig(f"{save_path}_k_comparison.png")
-#     else:
-#         plt.show()
-
 def visualize_performance_results(results, save_path=None):
-    """
-    Wizualizuje wyniki testów wydajności.
 
-    Argumenty:
-        results (pd.DataFrame): DataFrame z wynikami testów
-        save_path (str): Ścieżka do zapisania wykresu
-    """
     # Ustawienie stylu
     sns.set_style("whitegrid")
 
@@ -223,16 +150,7 @@ def visualize_performance_results(results, save_path=None):
 # ==================== SEKCJA 5: GŁÓWNA FUNKCJA ====================
 
 def get_kmer_results(fastq_path, k):
-    """
-    Zwraca wyniki algorytmu k-merów dla podanego pliku FASTQ i wartości k.
 
-    Argumenty:
-        fastq_path (str): Ścieżka do pliku FASTQ
-        k (int): Długość k-merów
-
-    Zwraca:
-        pd.DataFrame: DataFrame z k-merami i ich licznością
-    """
     df = read_fastq(fastq_path)
     kmer_df = kmer_count(k=k, df=df)
     return kmer_df
