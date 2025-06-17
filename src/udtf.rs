@@ -311,7 +311,7 @@ impl PosArray<'_> {
 fn get_join_col_arrays(
     batch: &RecordBatch,
     columns: (String, String, String),
-) -> (ContigArray, PosArray, PosArray) {
+) -> (ContigArray<'_>, PosArray<'_>, PosArray<'_>) {
     let contig_arr = match batch.column_by_name(&columns.0).unwrap().data_type() {
         DataType::LargeUtf8 => {
             let contig_arr = batch

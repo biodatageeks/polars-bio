@@ -15,8 +15,7 @@ class PolarsRangesOperations:
         self,
         other_df: pl.LazyFrame,
         suffixes: tuple[str, str] = ("_1", "_2"),
-        how="inner",
-        overlap_filter=FilterOp.Strict,
+        use_zero_based: bool = False,
         cols1=["chrom", "start", "end"],
         cols2=["chrom", "start", "end"],
         algorithm: str = "Coitrees",
@@ -28,8 +27,7 @@ class PolarsRangesOperations:
         return pb.overlap(
             self._ldf,
             other_df,
-            how=how,
-            overlap_filter=overlap_filter,
+            use_zero_based=use_zero_based,
             suffixes=suffixes,
             cols1=cols1,
             cols2=cols2,
@@ -40,7 +38,7 @@ class PolarsRangesOperations:
         self,
         other_df: pl.LazyFrame,
         suffixes: tuple[str, str] = ("_1", "_2"),
-        overlap_filter=FilterOp.Strict,
+        use_zero_based: bool = False,
         cols1=["chrom", "start", "end"],
         cols2=["chrom", "start", "end"],
     ) -> pl.LazyFrame:
@@ -51,7 +49,7 @@ class PolarsRangesOperations:
         return pb.nearest(
             self._ldf,
             other_df,
-            overlap_filter=overlap_filter,
+            use_zero_based=use_zero_based,
             suffixes=suffixes,
             cols1=cols1,
             cols2=cols2,
@@ -60,7 +58,7 @@ class PolarsRangesOperations:
     def count_overlaps(
         self,
         other_df: pl.LazyFrame,
-        overlap_filter=FilterOp.Strict,
+        use_zero_based: bool = False,
         suffixes: tuple[str, str] = ("", "_"),
         cols1=["chrom", "start", "end"],
         cols2=["chrom", "start", "end"],
@@ -74,7 +72,7 @@ class PolarsRangesOperations:
         return pb.count_overlaps(
             self._ldf,
             other_df,
-            overlap_filter=overlap_filter,
+            use_zero_based=use_zero_based,
             suffixes=suffixes,
             cols1=cols1,
             cols2=cols2,
@@ -93,7 +91,10 @@ class PolarsRangesOperations:
             Alias for [merge](api.md#polars_bio.merge)
         """
         return pb.merge(
-            self._ldf, overlap_filter=overlap_filter, min_dist=min_dist, cols=cols
+            self._ldf,
+            use_zero_based=True,
+            min_dist=min_dist,
+            cols=cols,
         )
 
     def sort(

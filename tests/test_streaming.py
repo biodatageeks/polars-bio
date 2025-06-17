@@ -17,7 +17,7 @@ class TestStreaming:
         cols2=columns,
         output_type="polars.LazyFrame",
         streaming=True,
-        overlap_filter=FilterOp.Weak,
+        use_zero_based=False,
     )
 
     def test_plan(self):

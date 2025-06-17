@@ -120,8 +120,9 @@ def range_operation(
                 )
 
 
-def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how):
+def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, use_zero_based):
     # TODO: Add support for on_cols ()
+    _zero_based_warning(use_zero_based)
     assert on_cols is None, "on_cols is not supported yet"
     assert output_type in [
         "polars.LazyFrame",
@@ -130,7 +131,12 @@ def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, how):
         "datafusion.DataFrame",
     ], "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
 
-    assert how in ["inner"], "Only inner join is supported"
+
+def _zero_based_warning(use_zero_based: bool):
+    if use_zero_based:
+        logger.warning(
+            "0-based coordinate system was selected. Please ensure that both datasets follow this coordinate system."
+        )
 
 
 def stream_wrapper(pyldf):

@@ -103,9 +103,12 @@ shape: (3, 5)
 
 ```
 ### Creating a view and overlapping with a VCF file from another source
+
 ```python
 pb.register_view("v_gnomad", query)
-pb.overlap("v_gnomad", "s3://gnomad-public-us-east-1/release/4.1/vcf/exomes/gnomad.exomes.v4.1.sites.chr1.vcf.bgz" , suffixes=("_1", "_2")).collect()
+pb.overlap("v_gnomad",
+           "s3://gnomad-public-us-east-1/release/4.1/vcf/exomes/gnomad.exomes.v4.1.sites.chr1.vcf.bgz",
+           suffixes=("_1", "_2")).collect()
 ```
 
 ```text
@@ -126,7 +129,8 @@ shape: (3, 13)
     The performance of the operations can be impacted by the available network throughput and the size of the data being processed.
 
 ```python
-pb.overlap("/tmp/gnomad.v4.1.sv.sites.vcf.gz", "/tmp/gnomad.exomes.v4.1.sites.chr1.vcf.bgz").limit(3).collect()
+pb.overlap("/tmp/gnomad.v4.1.sv.sites.vcf.gz", "/tmp/gnomad.exomes.v4.1.sites.chr1.vcf.bgz").limit(
+    3).collect()
 ```
 
 ```text
@@ -167,16 +171,22 @@ shape: (2, 4)
 ```
 
 ```python
-pb.overlap("test_annotation", "s3://gnomad-public-us-east-1/release/4.1/vcf/exomes/gnomad.exomes.v4.1.sites.chr1.vcf.bgz").limit(3).collect()
-3rows [00:02,  1.40rows/s]
+pb.overlap("test_annotation",
+           "s3://gnomad-public-us-east-1/release/4.1/vcf/exomes/gnomad.exomes.v4.1.sites.chr1.vcf.bgz").limit(
+    3).collect()
+3
+rows[00:02, 1.40
+rows / s]
 shape: (3, 12)
 ┌─────────┬─────────┬───────┬─────────┬─────────┬───────┬──────────────┬──────────────┬───────┬───────┬────────┬─────────────┐
 │ chrom_1 ┆ start_1 ┆ end_1 ┆ chrom_2 ┆ start_2 ┆ end_2 ┆ annotation_1 ┆ id_2         ┆ ref_2 ┆ alt_2 ┆ qual_2 ┆ filter_2    │
 │ ---     ┆ ---     ┆ ---   ┆ ---     ┆ ---     ┆ ---   ┆ ---          ┆ ---          ┆ ---   ┆ ---   ┆ ---    ┆ ---         │
 │ str     ┆ i64     ┆ i64   ┆ str     ┆ u32     ┆ u32   ┆ str          ┆ str          ┆ str   ┆ str   ┆ f64    ┆ str         │
 ╞═════════╪═════════╪═══════╪═════════╪═════════╪═══════╪══════════════╪══════════════╪═══════╪═══════╪════════╪═════════════╡
-│ chr1    ┆ 11993   ┆ 11996 ┆ chr1    ┆ 11994   ┆ 11994 ┆ ann1         ┆              ┆ T     ┆ C     ┆ 0.0    ┆ AC0;AS_VQSR │
-│ chr1    ┆ 12102   ┆ 12200 ┆ chr1    ┆ 12106   ┆ 12106 ┆ ann2         ┆              ┆ T     ┆ G     ┆ 0.0    ┆ AC0;AS_VQSR │
+│ chr1    ┆ 11993   ┆ 11996 ┆ chr1    ┆ 11994   ┆ 11994 ┆ ann1         ┆              ┆ T     ┆ C     ┆ 0.0    ┆ AC0;
+AS_VQSR │
+│ chr1    ┆ 12102   ┆ 12200 ┆ chr1    ┆ 12106   ┆ 12106 ┆ ann2         ┆              ┆ T     ┆ G     ┆ 0.0    ┆ AC0;
+AS_VQSR │
 │ chr1    ┆ 12102   ┆ 12200 ┆ chr1    ┆ 12138   ┆ 12138 ┆ ann2         ┆ rs1553119361 ┆ C     ┆ A     ┆ 0.0    ┆ AS_VQSR     │
 └─────────┴─────────┴───────┴─────────┴─────────┴───────┴──────────────┴──────────────┴───────┴───────┴────────┴─────────────┘
 
@@ -363,7 +373,8 @@ In the above exampl we were able to cut the time of the overlap operation from *
 Finally, let's save the result to a Parquet file and check the results.
 
 ```python
-pb.overlap("/tmp/gnomad.v4.1.sv.sites.parquet", "/tmp/gnomad.exomes.v4.1.sites.chr1.parquet", output_type="datafusion.DataFrame").write_parquet("/tmp/overlap.parquet")
+pb.overlap("/tmp/gnomad.v4.1.sv.sites.parquet", "/tmp/gnomad.exomes.v4.1.sites.chr1.parquet",
+           output_type="datafusion.DataFrame").write_parquet("/tmp/overlap.parquet")
 pl.scan_parquet("/tmp/overlap.parquet").collect().count()
 shape: (1, 6)
 ┌────────────┬────────────┬────────────┬────────────┬────────────┬────────────┐

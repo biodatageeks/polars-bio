@@ -8,14 +8,16 @@
 | cluster                                            | :white_check_mark: |                    | :white_check_mark: | :white_check_mark: |                    |                    |
 | [merge](api.md#polars_bio.merge)                   | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 | complement                                         | :white_check_mark: | :construction:     |                    | :white_check_mark: | :white_check_mark: |                    |
-| [coverage](api.md#polars_bio.coverage)             | :white_check_mark: |  :white_check_mark:                  | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
-| [expand](api.md#polars_bio.LazyFrame.expand)       | :white_check_mark: | :white_check_mark:     | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
+| [coverage](api.md#polars_bio.coverage)             | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
+| [expand](api.md#polars_bio.LazyFrame.expand)       | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 | [sort](api.md#polars_bio.LazyFrame.sort_bedframe)  | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 | [read_table](api.md#polars_bio.read_table)         | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 
 
 ## Coordinate systems support
-polars-bio supports both 0-based and 1-based coordinate systems. Please check `overlap_filter` parameter of a given operation to choose the appropriate coordinate system, e.g. [overlap](api.md#polars_bio.overlap) operation.
+polars-bio supports both 0-based and 1-based coordinate systems for genomic ranges operations. By **default**, it uses **1-based** coordinates, for both **input files** reading and **all** operations. If your data is in 0-based coordinates, you can set the `use_zero_based` parameter to `True` in the operation functions, e.g. [overlap](api.md#polars_bio.overlap) or [nearest](api.md#polars_bio.nearest).
+In such case, a *warning* will be printed to the console, indicating that the coordinates are 0-based and end user is responsible for adjusting the coordinates accordingly.
+
 
 ### API comparison between libraries
 There is no standard API for genomic ranges operations in Python.
@@ -127,12 +129,12 @@ It is  especially useful when combined with [SQL](features.md#sql-powered-data-p
 ### AWS S3 configuration
 Supported environment variables:
 
-| Variable              | Description                                                 |
-|-----------------------|-------------------------------------------------------------|
-| AWS_ACCESS_KEY_ID     | AWS access key ID for authenticated access to S3.           |
-| AWS_SECRET_ACCESS_KEY | AWS secret access key for authenticated access to S3.       |
-| AWS_ENDPOINT_URL      | Custom S3 endpoint URL for accessing S3-compatible storage. |
-| AWS_REGION            | AWS region for accessing S3.                                |
+| Variable                          | Description                                                 |
+|-----------------------------------|-------------------------------------------------------------|
+| AWS_ACCESS_KEY_ID                 | AWS access key ID for authenticated access to S3.           |
+| AWS_SECRET_ACCESS_KEY             | AWS secret access key for authenticated access to S3.       |
+| AWS_ENDPOINT_URL                  | Custom S3 endpoint URL for accessing S3-compatible storage. |
+| AWS_REGION  or AWS_DEFAULT_REGION | AWS region for accessing S3.                                |
 
 ### Google Cloud Storage configuration
 
@@ -163,7 +165,9 @@ There are 2 ways of using streaming mode:
     import polars_bio as pb
     import polars as pl
     pb.overlap("/tmp/gnomad.v4.1.sv.sites.parquet", "/tmp/gnomad.exomes.v4.1.sites.chr1.parquet", output_type="datafusion.DataFrame").write_parquet("/tmp/overlap.parquet")
-    >>> pl.scan_parquet("/tmp/overlap.parquet").collect().count()
+    pl.scan_parquet("/tmp/overlap.parquet").collect().count()
+   ```
+   ```shell
     shape: (1, 6)
     ┌────────────┬────────────┬────────────┬────────────┬────────────┬────────────┐
     │ chrom_1    ┆ start_1    ┆ end_1      ┆ chrom_2    ┆ start_2    ┆ end_2      │
@@ -172,7 +176,7 @@ There are 2 ways of using streaming mode:
     ╞════════════╪════════════╪════════════╪════════════╪════════════╪════════════╡
     │ 2629727337 ┆ 2629727337 ┆ 2629727337 ┆ 2629727337 ┆ 2629727337 ┆ 2629727337 │
     └────────────┴────────────┴────────────┴────────────┴────────────┴────────────┘
-    ```
+   ```
 
     !!! tip
         If you only need to write the results as fast as possible into one of the above file formats or quickly get the row count, then it is in the most cases the **best** option.
@@ -200,7 +204,7 @@ There are 2 ways of using streaming mode:
     ```
 
     ```python
-    pb.overlap(df_1, df_2, cols1=cols, cols2=cols, streaming=True).collect(streaming=True).limit()
+    pb.overlap(df_1,df_2,cols1=cols,cols2=cols,streaming=True).collect(streaming=True).limit()
     ```
     ```bash
     INFO:polars_bio.operation:Running in streaming mode...
