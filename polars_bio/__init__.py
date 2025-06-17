@@ -1,3 +1,4 @@
+from polars_bio.polars_bio import BioSessionContext
 from polars_bio.polars_bio import InputFormat
 from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions
@@ -18,6 +19,7 @@ from .io import (
 from .polars_ext import PolarsRangesOperations as LazyFrame
 from .range_op import FilterOp, count_overlaps, coverage, merge, nearest, overlap
 from .range_viz import visualize_intervals
+from .kmer_analysis import kmer_count, visualize_kmers
 
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 
@@ -48,4 +50,7 @@ __all__ = [
     "VcfReadOptions",
     "ObjectStorageOptions",
     "set_option",
+    "kmer_count",
+    "visualize_kmers",
+    "BioSessionContext",
 ]
