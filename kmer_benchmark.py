@@ -222,6 +222,22 @@ def visualize_performance_results(results, save_path=None):
 
 # ==================== SEKCJA 5: GŁÓWNA FUNKCJA ====================
 
+def get_kmer_results(fastq_path, k):
+    """
+    Zwraca wyniki algorytmu k-merów dla podanego pliku FASTQ i wartości k.
+
+    Argumenty:
+        fastq_path (str): Ścieżka do pliku FASTQ
+        k (int): Długość k-merów
+
+    Zwraca:
+        pd.DataFrame: DataFrame z k-merami i ich licznością
+    """
+    df = read_fastq(fastq_path)
+    kmer_df = kmer_count(k=k, df=df)
+    return kmer_df
+
+
 def main():
     print("\nRozpoczynam testy wydajności...")
     performance_results = performance_test(
