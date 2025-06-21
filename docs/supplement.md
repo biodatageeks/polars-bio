@@ -7,6 +7,17 @@ This document provides additional information about the benchmarking setup, data
 ### Code and  benchmarking scenarios
 [Repository](https://github.com/biodatageeks/polars-bio-bench)
 
+
+### Memory profiling
+For memory profiling Python [memory-profiler](https://github.com/pythonprofilers/memory_profiler) `version 0.61.0` was used. A helper [run-memory-profiler.py](https://github.com/biodatageeks/polars-bio-bench/blob/master/src/run-memory-profiler.py) script was developed and a sample invocation was used to run the tests as it is presented in the snippet below:
+```bash
+PRFOF_FILE="polars_bio_1-2.dat"
+mprof run --output $PRFOF_FILE python src/run-memory-profiler.py --bench-config conf/paper/benchmark-e2e-overlap.yaml --tool polars_bio --test-case 1-2
+mprof plot $PRFOF_FILE
+```
+
+
+
 ### Operating systems and hardware configurations
 
 #### macOS
@@ -20,6 +31,8 @@ This document provides additional information about the benchmarking setup, data
 - os-release: `macOS-15.2-arm64-arm-64bit`
 - python: `3.12.4`
 - polars-bio: `0.8.3`
+
+
 
 
 #### Linux
@@ -47,8 +60,11 @@ This document provides additional information about the benchmarking setup, data
 
 ### Data
 
-The [AIList](https://github.com/databio/AIList) dataset after transcoding into Parquet file format (with Snappy compression) was used for benchmarking.
-This dataset was published along the AIList paper: Jianglin Feng , Aakrosh Ratan , Nathan C Sheffield, *Augmented Interval List: a novel data structure for efficient genomic interval search*, Bioinformatics 2019.
+The [AIList](https://github.com/databio/AIList) dataset after transcoding into the Parquet file format (with the Snappy compression) was used for benchmarking.
+This dataset was published along the AIList paper:
+
+Jianglin Feng , Aakrosh Ratan , Nathan C Sheffield, *Augmented Interval List: a novel data structure for efficient genomic interval search*, Bioinformatics 2019.
+
 All Parquet files shared the same schema:
 ```sql
   contig STRING
@@ -69,7 +85,7 @@ All Parquet files shared the same schema:
 | 8        | ex-rna           | 9,945       | Dataset contains GenCode annotations with ~1.2 million lines, mixing all types of features. |
 
 !!! note
-    Test dataset in *Parquet* format can be downloaded from:
+    Test dataset in the *Parquet* format can be downloaded from:
 
     * [databio.zip](https://drive.google.com/file/d/1lctmude31mSAh9fWjI60K1bDrbeDPGfm/view?usp=sharing)
 
@@ -139,6 +155,216 @@ for p in test_platforms:
 ```
 
 #### Memory profiles
+
+##### Comparison of the output schemas and data types
+
+`polars-bio` tries to preserve the output schema of the `bioframe` package, `pyranges` uses its own internal representation that can be converted to a Pandas dataframe. It is also worth mentioning that `pyranges` always uses `int64` for start/end positions representation (*polars-bio* and *bioframe* determine do it adaptively based on the input file formats/DataFrames datatypes used). However, in the analyzed test case (`8-7`) input/output data structures have similar memory requirements.
+ Please compare the following schema and memory size estimates of the input and output DataFrames for `8-7` test case:
+```python
+import bioframe as bf
+import polars_bio as pb
+import pandas as pd
+import polars as pl
+import pyranges0 as pr0
+
+
+DATA_DIR="/Users/mwiewior/research/polars-bio-benchmarking/data/"
+df_1 = f"{DATA_DIR}/ex-anno/*.parquet"
+df_2 = f"{DATA_DIR}/ex-rna/*.parquet"
+df1 = pd.read_parquet(df_1.replace("*.parquet", ""))
+df2 = pd.read_parquet(df_2.replace("*.parquet", ""))
+cols = ["contig", "pos_start", "pos_end"]
+
+def df2pr0(df):
+    return pr0.PyRanges(
+        chromosomes=df.contig,
+        starts=df.pos_start,
+        ends=df.pos_end,
+    )
+```
+
+###### Input datasets sizes and schemas
+
+```python
+df1.info()
+```
+```shell
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 1194285 entries, 0 to 1194284
+Data columns (total 3 columns):
+#   Column     Non-Null Count    Dtype
+---  ------     --------------    -----
+0   contig     1194285 non-null  object
+1   pos_start  1194285 non-null  int32
+2   pos_end    1194285 non-null  int32
+dtypes: int32(2), object(1)
+memory usage: 18.2+ MB
+```
+
+```python
+df2.info()
+```
+```shell
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 9944559 entries, 0 to 9944558
+Data columns (total 3 columns):
+ #   Column     Dtype
+---  ------     -----
+ 0   contig     object
+ 1   pos_start  int32
+ 2   pos_end    int32
+dtypes: int32(2), object(1)
+memory usage: 151.7+ MB
+```
+###### polars-bio output DataFrames schema and memory used (Polars and Pandas)
+```python
+df_pb = pb.overlap(df_1, df_2, cols1=cols, cols2=cols, use_zero_based=True)
+df_pb.count().collect()
+```
+
+```shell
+307184634
+```
+
+```python
+df_pb.collect_schema()
+```
+```shell
+Schema([('contig_1', String),
+        ('pos_start_1', Int32),
+        ('pos_end_1', Int32),
+        ('contig_2', String),
+        ('pos_start_2', Int32),
+        ('pos_end_2', Int32)])
+```
+
+```python
+df_pb.collect().estimated_size("mb")
+```
+```shell
+7360.232946395874
+```
+
+```python
+df_pb.collect().to_pandas().info()
+```
+
+```shell
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 307184634 entries, 0 to 307184633
+Data columns (total 6 columns):
+ #   Column       Dtype
+---  ------       -----
+ 0   contig_1     object
+ 1   pos_start_1  int32
+ 2   pos_end_1    int32
+ 3   contig_2     object
+ 4   pos_start_2  int32
+ 5   pos_end_2    int32
+dtypes: int32(4), object(2)
+memory usage: 9.2+ GB
+
+```
+
+
+
+###### bioframe output DataFrame schema and memory used (Pandas)
+```python
+df_bf = bf.overlap(df1, df2, cols1=cols, cols2=cols, how="inner")
+len(df_bf)
+```
+```shell
+307184634
+```
+
+```python
+df_bf.info()
+```
+
+```shell
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 307184634 entries, 0 to 307184633
+Data columns (total 6 columns):
+ #   Column      Dtype
+---  ------      -----
+ 0   contig      object
+ 1   pos_start   int32
+ 2   pos_end     int32
+ 3   contig_     object
+ 4   pos_start_  int32
+ 5   pos_end_    int32
+dtypes: int32(4), object(2)
+memory usage: 9.2+ GB
+```
+
+###### pyranges0 output DataFrame schema and memory used (Pandas)
+```python
+df_pr0_1 = df2pr0(df1)
+df_pr0_2 = df2pr0(df2)
+```
+
+```python
+df_pr0_1.df.info()
+```
+
+```shell
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 1194285 entries, 0 to 1194284
+Data columns (total 3 columns):
+ #   Column      Non-Null Count    Dtype
+---  ------      --------------    -----
+ 0   Chromosome  1194285 non-null  category
+ 1   Start       1194285 non-null  int64
+ 2   End         1194285 non-null  int64
+dtypes: category(1), int64(2)
+memory usage: 19.4 MB
+```
+
+```python
+df_pr0_2.df.info()
+```
+
+```shell
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 9944559 entries, 0 to 9944558
+Data columns (total 3 columns):
+ #   Column      Dtype
+---  ------      -----
+ 0   Chromosome  category
+ 1   Start       int64
+ 2   End         int64
+dtypes: category(1), int64(2)
+memory usage: 161.2 MB
+```
+
+```python
+df_pr0 = df_pr0_1.join(df_pr0_2)
+len(df_pr0)
+```
+```shell
+307184634
+```
+
+```python
+df_pr0.df.info()
+```
+
+```shell
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 307184634 entries, 0 to 307184633
+Data columns (total 5 columns):
+ #   Column      Dtype
+---  ------      -----
+ 0   Chromosome  category
+ 1   Start       int64
+ 2   End         int64
+ 3   Start_b     int64
+ 4   End_b       int64
+dtypes: category(1), int64(4)
+memory usage: 9.4 GB
+```
+Please note that `pyranges` unlike *bioframe* and *polars-bio* returns only one chromosome column but uses `int64` data types for encoding start and end positions even if input datasets use `int32`.
+
 
 ```python exec="1" html="1"
 from io import StringIO
