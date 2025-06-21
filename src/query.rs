@@ -87,6 +87,31 @@ pub(crate) fn nearest_query(query_params: QueryParams) -> String {
     query
 }
 
+pub (crate) fn mean_quality_query(table_name: String, bin_size: u32, column_name: String ) -> String {
+    // histogram
+    let query = format!(
+        r#"
+            SELECT
+                FLOOR({} / {}) * {} AS bin_start, -- column_name    bin_size    bin_size
+                COUNT(*) AS count
+            FROM
+                {} -- table_name
+            GROUP BY
+                FLOOR({} / {}) * {} -- column_name    bin_size   bin_size
+            ORDER BY
+                bin_start;
+        "#,
+        column_name,
+        bin_size,
+        bin_size,
+        table_name,
+        column_name,
+        bin_size,
+        bin_size,
+    );
+    query
+}
+
 pub(crate) fn overlap_query(query_params: QueryParams) -> String {
     let query = format!(
         r#"

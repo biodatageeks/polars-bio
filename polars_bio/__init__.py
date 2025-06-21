@@ -36,6 +36,11 @@ count_overlaps = IntervalOperations.count_overlaps
 coverage = IntervalOperations.coverage
 merge = IntervalOperations.merge
 
+from . qc_op import QCOperations
+
+sequence_quality_score = QCOperations.sequence_quality_score
+
+
 from .range_utils import Utils
 
 vizualize_intervals = Utils.visualize_intervals
@@ -46,6 +51,7 @@ from .range_op import FilterOp
 from .range_op import IntervalOperations as range_operations
 from .range_utils import Utils as utils
 from .sql import SQL as data_processing
+from .qc_op import QCOperations as qc_operations
 
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 
@@ -57,6 +63,7 @@ __all__ = [
     "InputFormat",
     "data_processing",
     "range_operations",
+    "qc_operations",
     # "LazyFrame",
     "data_input",
     "utils",
@@ -65,3 +72,5 @@ __all__ = [
     "ObjectStorageOptions",
     "set_option",
 ]
+
+print("Loaded polars_bio")

@@ -25,6 +25,38 @@ use crate::option::{
 
 const MAX_IN_MEMORY_ROWS: usize = 1024 * 1024;
 
+
+pub(crate) fn register_batches(
+    py_ctx: &PyBioSessionContext,
+    batches: Vec<RecordBatch>,
+    table_name: String,
+) {
+    let schema = batches[0].schema();
+    let ctx = &py_ctx.ctx;
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let table_source = MemTable::try_new(schema, vec![batches]).unwrap();
+    ctx.session.deregister_table(&table_name).unwrap();
+    ctx.session
+        .register_table(&table_name, Arc::new(table_source))
+        .unwrap();
+    let df = rt.block_on(ctx.session.table(&table_name)).unwrap();
+    let table_size = rt.block_on(df.clone().count()).unwrap();
+    if table_size > MAX_IN_MEMORY_ROWS {
+        let path = format!("{}/{}.parquet", py_ctx.catalog_dir, table_name);
+        ctx.session.deregister_table(&table_name).unwrap();
+        rt.block_on(df.write_parquet(&path, DataFrameWriteOptions::new(), None))
+            .unwrap();
+        ctx.session.deregister_table(&table_name).unwrap();
+        rt.block_on(register_table(
+            ctx,
+            &path,
+            &table_name,
+            InputFormat::Parquet,
+            None,
+        ));
+    }
+}
+
 pub(crate) fn register_frame(
     py_ctx: &PyBioSessionContext,
     df: PyArrowType<ArrowArrayStreamReader>,

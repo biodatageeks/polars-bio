@@ -24,6 +24,8 @@ pub struct RangeOptions {
     pub streaming: Option<bool>,
 }
 
+
+
 #[pymethods]
 impl RangeOptions {
     #[allow(clippy::too_many_arguments)]
@@ -56,6 +58,71 @@ impl std::fmt::Display for RangeOptions {
         write!(f, "streaming {}", self.streaming.unwrap_or(false))
     }
 }
+
+
+#[pyclass(name = "QCOptions")]
+#[derive(Clone, Debug)]
+pub struct QCOptions {
+    #[pyo3(get, set)]
+    pub qc_op: QCOp,  // e.g. MeanQuality, GCContent, ...
+    #[pyo3(get, set)]
+    pub quality_col: Option<String>,
+    #[pyo3(get, set)]
+    pub output_col: Option<String>,
+    #[pyo3(get, set)]
+    pub ascii_offset: Option<u8>,
+    #[pyo3(get, set)]
+    pub streaming: Option<bool>,
+}
+
+#[pymethods]
+impl QCOptions {
+    #[new]
+    #[pyo3(signature = (
+        qc_op,
+        quality_col = None,
+        output_col = None,
+        ascii_offset = None,
+        streaming = None
+    ))]
+    pub fn new(
+        qc_op: QCOp,
+        quality_col: Option<String>,
+        output_col: Option<String>,
+        ascii_offset: Option<u8>,
+        streaming: Option<bool>,
+    ) -> Self {
+        QCOptions {
+            qc_op,
+            quality_col,
+            output_col,
+            ascii_offset,
+            streaming,
+        }
+    }
+}
+
+impl std::fmt::Display for QCOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "qc_op: {}, streaming: {}",
+            // self.qc_op,
+            "Display not possible",
+            self.streaming.unwrap_or(false)
+        )
+    }
+}
+
+#[pyclass]
+#[derive(Clone, Debug)]
+pub enum QCOp {
+    MeanQuality
+    // GCContent, (in future)
+    // other
+}
+
+
 
 #[pyclass(eq, eq_int)]
 #[derive(Clone, PartialEq, Debug)]
