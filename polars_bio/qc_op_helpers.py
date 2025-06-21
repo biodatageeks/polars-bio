@@ -54,29 +54,6 @@ def apply_mean_quality(
     else:
         raise ValueError("Unsupported output_type")
 
-
-# def apply_mean_quality(
-#     df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-#     qc_options: QCOptions,
-#     output_type: str,
-#     ctx: BioSessionContext,
-#     read_options: Optional[ReadOptions] = None
-# ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
-#     ctx.sync_options()
-
-#     _validate_sequence_quality_score_input(output_type=output_type)
-#     if isinstance(df, str):
-#         result = qc_operation_scan(ctx, df, qc_options, read_options)
-#         if output_type == "polars.DataFrame":
-#             return result.to_polars()
-#         elif output_type == "pandas.DataFrame":
-#             return result.to_pandas()
-#         else:
-#             raise ValueError("Unsupported output_type")
-#     else:
-#         raise ValueError("In-memory DataFrames not yet supported for QC ops")
-
-
 def qc_operation(
     df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
     qc_options: QCOptions,

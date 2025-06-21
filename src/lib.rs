@@ -27,8 +27,6 @@ use arrow::error::ArrowError;
 
 use crate::context::PyBioSessionContext;
 use crate::operation::{do_range_operation, do_qc_operation,compute_mean_c};
-// use crate::operation::do_qc_operation;
-// use crate::operation::do_mean_quality;
 use crate::option::{
     pyobject_storage_options_to_object_storage_options, BamReadOptions, BedReadOptions, BioTable,
     FastqReadOptions, FilterOp, GffReadOptions, InputFormat, PyObjectStorageOptions, RangeOp,
@@ -297,37 +295,6 @@ fn qc_operation_frame(
     Ok(PyDataFrame::new(df))
 }
 
-
-// #[pyfunction]
-// #[pyo3(signature = (py_ctx, df_path_or_table, qc_options=None, read_options=None, limit=None))]
-// fn mean_quality_scan(
-//     py_ctx: &PyBioSessionContext,
-//     df_path_or_table: String,
-//     qc_options: Option<QCOptions>,
-//     read_options: Option<ReadOptions>,
-//     limit: Option<usize>,
-// ) -> PyResult<PyDataFrame> {
-//     let rt = Runtime::new()?;
-//     let ctx = &py_ctx.ctx;
-
-//     let table_name = maybe_register_table(
-//         df_path_or_table,
-//         &"qc_table".to_string(),
-//         read_options,
-//         ctx,
-//         &rt,
-//     );
-
-//     let df = do_mean_quality(ctx, &rt, qc_options, table_name)?;
-
-//     let df = match limit {
-//         Some(l) => df.limit(0, Some(l))?,
-//         None => df,
-//     };
-
-//     Ok(PyDataFrame::new(df))
-// }
-
 #[pyfunction]
 #[pyo3(signature = (py_ctx, path, name, input_format, read_options=None))]
 fn py_register_table(
@@ -577,10 +544,8 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
-    // m.add_function(wrap_pyfunction!(mean_quality_scan, m)?)?;
     m.add_function(wrap_pyfunction!(qc_operation_scan, m)?)?;
     m.add_function(wrap_pyfunction!(qc_operation_frame, m)?)?;
-    // m.add_function(wrap_pyfunction!(qc_lazy_scan, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;
