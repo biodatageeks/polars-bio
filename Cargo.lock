@@ -5808,6 +5808,7 @@ dependencies = [
  "pyo3",
  "pyo3-log",
  "rand 0.8.5",
+ "rayon",
  "sequila-core",
  "tokio",
  "tracing",

@@ -26,7 +26,7 @@ use arrow::record_batch::RecordBatch;
 use arrow::error::ArrowError;
 
 use crate::context::PyBioSessionContext;
-use crate::operation::{do_range_operation, do_qc_operation,compute_mean_c};
+use crate::operation::{do_range_operation, do_qc_operation,compute_mean_c, compute_mean_c_parallel};
 use crate::option::{
     pyobject_storage_options_to_object_storage_options, BamReadOptions, BedReadOptions, BioTable,
     FastqReadOptions, FilterOp, GffReadOptions, InputFormat, PyObjectStorageOptions, RangeOp,
@@ -288,7 +288,15 @@ fn qc_operation_frame(
     // na tym etapie można obliczyć kolumnę "mean_c", używając runtime, a dopiero potem zarejestrować  przez register_frame i obliczyć histogram w SQL
 
     let batches = df.0.collect::<Result<Vec<RecordBatch>, ArrowError>>().unwrap();
-    let batches = compute_mean_c(batches);
+    // let batches = compute_mean_c(batches);
+
+    let batches = compute_mean_c_parallel(batches,
+        Some(ctx.session
+        .state()
+        .config()
+        .options()
+        .execution
+        .target_partitions));
 
     register_batches(py_ctx, batches, table_name.clone());
     let df = do_qc_operation(ctx, &rt, qc_options, table_name);

@@ -171,6 +171,64 @@ use arrow::array::{LargeStringArray, ArrayRef, Int32Builder};
 use arrow_array::Array;
 use arrow::datatypes::{Field, Schema,DataType};
 use arrow::record_batch::RecordBatch;
+use rayon::prelude::*;
+
+pub fn compute_mean_c_parallel(
+    batches: Vec<RecordBatch>,
+    num_threads: Option<usize>,
+) -> Vec<RecordBatch> {
+    if let Some(n) = num_threads {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(n)
+            .build_global()
+            .ok(); // Ignorujemy błąd, bo build_global można wykonać tylko raz
+    }
+
+    batches
+        .into_par_iter()
+        .map(|batch| {
+            let quality_col = batch
+                .column_by_name("quality_scores")
+                .expect("Column 'quality_scores' not found in RecordBatch")
+                .as_any()
+                .downcast_ref::<LargeStringArray>()
+                .expect("Column 'quality_scores' is not a LargeStringArray");
+
+            let mut means = Int32Builder::with_capacity(quality_col.len());
+            for i in 0..quality_col.len() {
+                if quality_col.is_null(i) {
+                    means.append_null();
+                } else {
+                    let qstr = quality_col.value(i);
+                    let mean = qstr
+                        .as_bytes()
+                        .iter()
+                        .map(|b| (*b as i32 - 33))
+                        .sum::<i32>()
+                        / qstr.len() as i32;
+                    means.append_value(mean);
+                }
+            }
+
+            let mean_array: ArrayRef = Arc::new(means.finish());
+
+            let mut cols = batch.columns().to_vec();
+            cols.push(mean_array);
+
+            let mut fields: Vec<Field> = batch
+                .schema()
+                .fields()
+                .iter()
+                .map(|f| f.as_ref().clone())
+                .collect();
+            fields.push(Field::new("mean_c", DataType::Int32, true));
+
+            let schema = Arc::new(Schema::new(fields));
+            RecordBatch::try_new(schema, cols).unwrap()
+        })
+        .collect()
+}
+
 
 // wersja Int32
 pub fn compute_mean_c(batches: Vec<RecordBatch>) -> Vec<RecordBatch> {
