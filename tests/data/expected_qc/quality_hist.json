@@ -1,0 +1,101 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
+  "data": {
+    "values": [
+      {
+        "count": 5,
+        "score": 32
+      },
+      {
+        "count": 3,
+        "score": 29
+      },
+      {
+        "count": 7,
+        "score": 26
+      },
+      {
+        "count": 1,
+        "score": 23
+      },
+      {
+        "count": 1,
+        "score": 20
+      },
+      {
+        "count": 49,
+        "score": 37
+      },
+      {
+        "count": 9,
+        "score": 34
+      },
+      {
+        "count": 5,
+        "score": 31
+      },
+      {
+        "count": 1,
+        "score": 28
+      },
+      {
+        "count": 1,
+        "score": 25
+      },
+      {
+        "count": 6,
+        "score": 39
+      },
+      {
+        "count": 33,
+        "score": 36
+      },
+      {
+        "count": 10,
+        "score": 33
+      },
+      {
+        "count": 6,
+        "score": 30
+      },
+      {
+        "count": 5,
+        "score": 27
+      },
+      {
+        "count": 1,
+        "score": 24
+      },
+      {
+        "count": 41,
+        "score": 38
+      },
+      {
+        "count": 16,
+        "score": 35
+      }
+    ]
+  },
+  "description": "Sequence quality scores",
+  "encoding": {
+    "color": {
+      "value": "#54785a"
+    },
+    "x": {
+      "field": "score",
+      "title": "Phred score",
+      "type": "quantitative"
+    },
+    "y": {
+      "field": "count",
+      "title": "Occurrences of mean read qualities",
+      "type": "quantitative"
+    }
+  },
+  "mark": {
+    "interpolate": "basis",
+    "type": "line"
+  },
+  "title": "Sequence quality scores",
+  "width": 500
+}
