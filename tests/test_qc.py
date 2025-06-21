@@ -1,0 +1,7 @@
+from _expected import (
+    EXPECTED_MEAN_QUALITY_PATH,
+    EXPECTED_MEAN_QUALITY_HIST_PATH,
+    TEST_DIR,
+    DATA_DIR,
+)
+

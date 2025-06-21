@@ -161,3 +161,8 @@ PL_MERGE_DF = pl.DataFrame(PD_MERGE_DF)
 PL_DF_COUNT_OVERLAPS = pl.DataFrame(PD_DF_COUNT_OVERLAPS)
 PL_COUNT_OVERLAPS_DF1 = pl.DataFrame(PD_COUNT_OVERLAPS_DF1)
 PL_COUNT_OVERLAPS_DF2 = pl.DataFrame(PD_COUNT_OVERLAPS_DF2)
+
+# QC operations
+# results obtained using fastq-rs
+EXPECTED_MEAN_QUALITY_PATH = f"{DATA_DIR}/expected_qc/mean_read_quality.txt"
+EXPECTED_MEAN_QUALITY_HIST_PATH = f"{DATA_DIR}/expected_qc/quality_hist.json"

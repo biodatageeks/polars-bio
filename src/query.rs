@@ -87,7 +87,7 @@ pub(crate) fn nearest_query(query_params: QueryParams) -> String {
     query
 }
 
-pub (crate) fn mean_quality_query(table_name: String, bin_size: u32, column_name: String ) -> String {
+pub (crate) fn mean_quality_histogram_query(table_name: String, bin_size: u32, column_name: String ) -> String {
     // histogram
     let query = format!(
         r#"
@@ -108,6 +108,19 @@ pub (crate) fn mean_quality_query(table_name: String, bin_size: u32, column_name
         column_name,
         bin_size,
         bin_size,
+    );
+    query
+}
+
+pub (crate) fn mean_quality_query(table_name: String, column_name: String ) -> String {
+    // średnia jakość odczytów w postaci kolumny
+    let query = format!(
+        r#"
+            SELECT {}
+            FROM {}
+        "#,
+        column_name,
+        table_name,
     );
     query
 }

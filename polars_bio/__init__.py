@@ -42,8 +42,11 @@ sequence_quality_score = QCOperations.sequence_quality_score
 
 
 from .range_utils import Utils
+from .qc_utils import QCUtils
 
-vizualize_intervals = Utils.visualize_intervals
+visualize_intervals = Utils.visualize_intervals
+visualize_mean_quality = QCUtils.visualize_mean_quality
+visualize_mean_quality_histogram = QCUtils.visualize_mean_quality_histogram
 
 from .io import IOOperations as data_input
 from .polars_ext import PolarsRangesOperations as LazyFrame

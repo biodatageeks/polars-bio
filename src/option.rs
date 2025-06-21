@@ -117,7 +117,8 @@ impl std::fmt::Display for QCOptions {
 #[pyclass]
 #[derive(Clone, Debug)]
 pub enum QCOp {
-    MeanQuality
+    MeanQuality,
+    MeanQualityHistogram,
     // GCContent, (in future)
     // other
 }

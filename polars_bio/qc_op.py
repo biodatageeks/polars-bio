@@ -72,3 +72,39 @@ class QCOperations:
         return qc_operation(
             df, qc_options, output_type, ctx, read_options
         )
+    
+    @staticmethod
+    def sequence_quality_score_histogram(
+        df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+        output_type: str = "polars.LazyFrame",
+        streaming: bool = False,
+        read_options: Union[ReadOptions, None] = None
+    ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
+        """
+        Calculate sequence quality score histogram.
+
+        Parameters:
+            df: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
+            output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
+            streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming) engine.
+
+        Returns:
+            **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
+
+        """
+
+        _validate_sequence_quality_score_input(
+            output_type
+        )
+
+        qc_options = QCOptions(
+            qc_op=QCOp.MeanQualityHistogram,
+            quality_col="quality_scores",
+            output_col="mean_q",
+            ascii_offset=33,
+            streaming=False
+        )
+
+        return qc_operation(
+            df, qc_options, output_type, ctx, read_options
+        )

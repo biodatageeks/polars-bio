@@ -85,7 +85,7 @@ def qc_operation(
     read_options: Union[ReadOptions, None] = None
 ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
 
-    if qc_options.qc_op == QCOp.MeanQuality:
+    if qc_options.qc_op == QCOp.MeanQuality or qc_options.qc_op == QCOp.MeanQualityHistogram:
         return apply_mean_quality(df, qc_options, output_type, ctx, read_options)
     else:
         raise NotImplementedError(f"Unsupported method: {qc_options.method}")

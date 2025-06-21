@@ -8,7 +8,7 @@ use tokio::runtime::Runtime;
 
 use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions, QCOptions, QCOp};
-use crate::query::{nearest_query, overlap_query, mean_quality_query};
+use crate::query::{nearest_query, overlap_query, mean_quality_query, mean_quality_histogram_query};
 use crate::udtf::CountOverlapsProvider;
 use crate::utils::default_cols_to_string;
 use crate::DEFAULT_COLUMN_NAMES;
@@ -167,7 +167,7 @@ async fn do_count_overlaps_coverage_naive(
 }
 
 
-use arrow::array::{LargeStringArray, ArrayRef, Float64Builder};
+use arrow::array::{LargeStringArray, ArrayRef, Int32Builder};
 use arrow_array::Array;
 use arrow::datatypes::{Field, Schema,DataType};
 use arrow::record_batch::RecordBatch;
@@ -223,23 +223,11 @@ use arrow::record_batch::RecordBatch;
 //     RecordBatch::try_new(new_schema, columns).unwrap()
 // }
 
-
-
-
-
+// wersja Int32
 pub fn compute_mean_c(batches: Vec<RecordBatch>) -> Vec<RecordBatch> {
     batches
         .into_iter()
         .map(|batch| {
-            // println!("Columns in batch: {:?}", batch.schema().fields().iter().map(|f| f.name()).collect::<Vec<_>>());
-            let array = batch
-                .column_by_name("quality_scores")
-                .expect("Column not found");
-
-            println!(
-                "quality_scores column type: {:?}",
-                array.data_type()
-            );
             let quality_col = batch
                 .column_by_name("quality_scores")
                 .expect("Column 'quality_scores' not found in RecordBatch")
@@ -247,7 +235,7 @@ pub fn compute_mean_c(batches: Vec<RecordBatch>) -> Vec<RecordBatch> {
                 .downcast_ref::<LargeStringArray>()
                 .expect("Column 'quality_scores' is not a LargeStringArray");
 
-            let mut means = Float64Builder::with_capacity(quality_col.len());
+            let mut means = Int32Builder::with_capacity(quality_col.len());
             for i in 0..quality_col.len() {
                 if quality_col.is_null(i) {
                     means.append_null();
@@ -256,33 +244,89 @@ pub fn compute_mean_c(batches: Vec<RecordBatch>) -> Vec<RecordBatch> {
                     let mean = qstr
                         .as_bytes()
                         .iter()
-                        .map(|b| (*b as i32 - 33) as f64)
-                        .sum::<f64>()
-                        / qstr.len() as f64;
+                        .map(|b| (*b as i32 - 33))
+                        .sum::<i32>()
+                        / qstr.len() as i32;
                     means.append_value(mean);
                 }
             }
 
             let mean_array: ArrayRef = Arc::new(means.finish());
 
-            // dodajemy nową kolumnę
             let mut cols = batch.columns().to_vec();
             cols.push(mean_array);
 
-            // konwersja Arc<Field> na Field
             let mut fields: Vec<Field> = batch
                 .schema()
                 .fields()
                 .iter()
                 .map(|f| f.as_ref().clone())
                 .collect();
-            fields.push(Field::new("mean_c", DataType::Float64, true));
+            fields.push(Field::new("mean_c", DataType::Int32, true));
 
             let schema = Arc::new(Schema::new(fields));
             RecordBatch::try_new(schema, cols).unwrap()
         })
         .collect()
 }
+
+// wersja float
+// pub fn compute_mean_c(batches: Vec<RecordBatch>) -> Vec<RecordBatch> {
+//     batches
+//         .into_iter()
+//         .map(|batch| {
+//             // println!("Columns in batch: {:?}", batch.schema().fields().iter().map(|f| f.name()).collect::<Vec<_>>());
+//             let array = batch
+//                 .column_by_name("quality_scores")
+//                 .expect("Column not found");
+
+//             // println!(
+//             //     "quality_scores column type: {:?}",
+//             //     array.data_type()
+//             // );
+//             let quality_col = batch
+//                 .column_by_name("quality_scores")
+//                 .expect("Column 'quality_scores' not found in RecordBatch")
+//                 .as_any()
+//                 .downcast_ref::<LargeStringArray>()
+//                 .expect("Column 'quality_scores' is not a LargeStringArray");
+
+//             let mut means = Float64Builder::with_capacity(quality_col.len());
+//             for i in 0..quality_col.len() {
+//                 if quality_col.is_null(i) {
+//                     means.append_null();
+//                 } else {
+//                     let qstr = quality_col.value(i);
+//                     let mean = qstr
+//                         .as_bytes()
+//                         .iter()
+//                         .map(|b| (*b as i32 - 33) as f64)
+//                         .sum::<f64>()
+//                         / qstr.len() as f64;
+//                     means.append_value(mean);
+//                 }
+//             }
+
+//             let mean_array: ArrayRef = Arc::new(means.finish());
+
+//             // dodajemy nową kolumnę
+//             let mut cols = batch.columns().to_vec();
+//             cols.push(mean_array);
+
+//             // konwersja Arc<Field> na Field
+//             let mut fields: Vec<Field> = batch
+//                 .schema()
+//                 .fields()
+//                 .iter()
+//                 .map(|f| f.as_ref().clone())
+//                 .collect();
+//             fields.push(Field::new("mean_c", DataType::Float64, true));
+
+//             let schema = Arc::new(Schema::new(fields));
+//             RecordBatch::try_new(schema, cols).unwrap()
+//         })
+//         .collect()
+// }
 
 
 
@@ -312,7 +356,7 @@ pub fn do_qc_operation(
 ) -> datafusion::dataframe::DataFrame {
 
     info!(
-        "Running MeanQuality operation with {} thread(s)...",
+        "Running operation with {} thread(s)...",
         ctx.session
             .state()
             .config()
@@ -324,6 +368,7 @@ pub fn do_qc_operation(
 
     match qc_options.qc_op {
         QCOp::MeanQuality => rt.block_on(do_mean_quality(ctx, qc_options, table_name)),
+        QCOp::MeanQualityHistogram => rt.block_on(do_mean_quality_histogram(ctx, qc_options, table_name)),
         _ => panic!("Unsupported operation"),
 
         // QCOp::MeanQuality => {
@@ -403,7 +448,7 @@ pub fn do_qc_operation(
 //     }
 // }
 
-pub async fn do_mean_quality(
+pub async fn do_mean_quality_histogram(
     ctx: &ExonSession,
     qc_options: QCOptions,
     table: String,
@@ -412,7 +457,7 @@ pub async fn do_mean_quality(
     // qc_options.quality_col to nazwa kolumny dodanej w rust, która zawiera uśrednioną jakość dla każdego odczytu
     // table to nazwa zarejestrowanej tabeli
     let mean_qual_col = String::from("mean_c");
-    let query = mean_quality_query(table, bin_size,  mean_qual_col)
+    let query = mean_quality_histogram_query(table, bin_size,  mean_qual_col)
         .to_string();
     debug!("Query: {}", query);
     debug!(
@@ -424,7 +469,32 @@ pub async fn do_mean_quality(
             .execution
             .target_partitions
     );
-    println!("Query : {}", query);
+    // println!("Query : {}", query);
+    ctx.sql(&query).await.unwrap() // zwróci datafusion::dataframe::DataFrame z histogramem
+}
+
+pub async fn do_mean_quality(
+    ctx: &ExonSession,
+    qc_options: QCOptions,
+    table: String,
+)  -> datafusion::dataframe::DataFrame {
+    let bin_size: u32 = 1 as u32; // szerokość bina histogramu, spakować w qc_options
+    // qc_options.quality_col to nazwa kolumny dodanej w rust, która zawiera uśrednioną jakość dla każdego odczytu
+    // table to nazwa zarejestrowanej tabeli
+    let mean_qual_col = String::from("mean_c");
+    let query = mean_quality_query(table,  mean_qual_col)
+        .to_string();
+    debug!("Query: {}", query);
+    debug!(
+        "{}",
+        ctx.session
+            .state()
+            .config()
+            .options()
+            .execution
+            .target_partitions
+    );
+    // println!("Query : {}", query);
     ctx.sql(&query).await.unwrap() // zwróci datafusion::dataframe::DataFrame z histogramem
 }
 
