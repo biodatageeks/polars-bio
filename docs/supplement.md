@@ -47,19 +47,26 @@ This document provides additional information about the benchmarking setup, data
 
 ### Data
 
-[AIList](https://github.com/databio/AIList) dataset was used for benchmarking.
+The [AIList](https://github.com/databio/AIList) dataset after transcoding into Parquet file format (with Snappy compression) was used for benchmarking.
+This dataset was published along the AIList paper: Jianglin Feng , Aakrosh Ratan , Nathan C Sheffield, *Augmented Interval List: a novel data structure for efficient genomic interval search*, Bioinformatics 2019.
+All Parquet files shared the same schema:
+```sql
+  contig STRING
+  pos_start INT32
+  pos_end INT32
+```
 
-|Dataset#  | Name            | Size(x1000) | Non-flatness |
-|:---------|:----------------|:------------|:-------------|
-|0         | chainRn4        | 2,351       | 6            |
-|1         | fBrain          | 199         | 1            |
-|2         | exons           | 439         | 2            |
-|3         | chainOrnAna1    | 1,957       | 6            |
-|4         | chainVicPac2    | 7,684       | 8            |
-|5         | chainXenTro3Link| 50,981      | 7            |
-|6         | chainMonDom5Link| 128,187     | 7            |
-|7         | ex-anno         | 1,194       | 2            |
-|8         | ex-rna          | 9,945       | 7            |
+| Dataset# | Name             | Size(x1000) | Description                                                                                 |
+|:---------|:-----------------|:------------|---------------------------------------------------------------------------------------------|
+| 0        | chainRn4         | 2,351       | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainRn4.txt.gz)          |
+| 1        | fBrain           | 199         | [Source](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM595923)                      |
+| 2        | exons            | 439         | **TBD**                                                                                     |
+| 3        | chainOrnAna1     | 1,957       | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainOrnAna1.txt.gz)      |
+| 4        | chainVicPac2     | 7,684       | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainVicPac2.txt.gz)      |
+| 5        | chainXenTro3Link | 50,981      | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainXenTro3Link.txt.gz)  |
+| 6        | chainMonDom5Link | 128,187     | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainMonDom5Link.txt.gz)  |
+| 7        | ex-anno          | 1,194       | Dataset contains ~10 million direct-RNA mappings.                                           |
+| 8        | ex-rna           | 9,945       | Dataset contains GenCode annotations with ~1.2 million lines, mixing all types of features. |
 
 !!! note
     Test dataset in *Parquet* format can be downloaded from:
