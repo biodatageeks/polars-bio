@@ -1,0 +1,37 @@
+{
+  "values": [
+    {"count": 239, "k_mer": "CCG"},
+    {"count": 691, "k_mer": "CAC"},
+    {"count": 827, "k_mer": "AGG"},
+    {"count": 574, "k_mer": "ACT"},
+    {"count": 858, "k_mer": "AGA"},
+    {"count": 770, "k_mer": "GAA"},
+    {"count": 416, "k_mer": "CTA"},
+    {"count": 494, "k_mer": "AAC"},
+    {"count": 181, "k_mer": "CGA"},
+    {"count": 684, "k_mer": "ATG"},
+    {"count": 731, "k_mer": "TCA"},
+    {"count": 484, "k_mer": "TAA"},
+    {"count": 914, "k_mer": "CAG"},
+    {"count": 819, "k_mer": "CCA"},
+    {"count": 670, "k_mer": "CAA"},
+    {"count": 187, "k_mer": "CGC"},
+    {"count": 595, "k_mer": "GCC"},
+    {"count": 761, "k_mer": "ACA"},
+    {"count": 1013, "k_mer": "AAA"},
+    {"count": 410, "k_mer": "GTA"},
+    {"count": 548, "k_mer": "ATC"},
+    {"count": 175, "k_mer": "ACG"},
+    {"count": 650, "k_mer": "CCC"},
+    {"count": 635, "k_mer": "AAT"},
+    {"count": 432, "k_mer": "GAC"},
+    {"count": 775, "k_mer": "GGA"},
+    {"count": 649, "k_mer": "GCA"},
+    {"count": 791, "k_mer": "CTC"},
+    {"count": 796, "k_mer": "AAG"},
+    {"count": 645, "k_mer": "AGC"},
+    {"count": 499, "k_mer": "ATA"},
+    {"count": 515, "k_mer": "ACC"}
+  ]
+}
+

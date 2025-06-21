@@ -1,3 +1,5 @@
+from polars_bio.polars_bio import BioSessionContext
+from polars_bio.polars_bio import InputFormat
 from bioframe import count_overlaps
 
 from polars_bio.polars_bio import GffReadOptions, InputFormat
@@ -42,10 +44,14 @@ vizualize_intervals = Utils.visualize_intervals
 
 from .io import IOOperations as data_input
 from .polars_ext import PolarsRangesOperations as LazyFrame
+from .range_op import FilterOp, count_overlaps, coverage, merge, nearest, overlap
+from .range_viz import visualize_intervals
+from .kmer_analysis import kmer_count, visualize_kmers
 from .range_op import FilterOp
 from .range_op import IntervalOperations as range_operations
 from .range_utils import Utils as utils
 from .sql import SQL as data_processing
+
 
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 
@@ -64,4 +70,7 @@ __all__ = [
     "VcfReadOptions",
     "ObjectStorageOptions",
     "set_option",
+    "kmer_count",
+    "visualize_kmers",
+    "BioSessionContext",
 ]
