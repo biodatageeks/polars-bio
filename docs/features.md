@@ -15,8 +15,8 @@
 
 
 ## Coordinate systems support
-polars-bio supports both 0-based and 1-based coordinate systems for genomic ranges operations. By **default**, it uses **1-based** coordinates, for both **input files** reading and **all** operations. If your data is in 0-based coordinates, you can set the `use_zero_based` parameter to `True` in the operation functions, e.g. [overlap](api.md#polars_bio.overlap) or [nearest](api.md#polars_bio.nearest).
-In such case, a *warning* will be printed to the console, indicating that the coordinates are 0-based and end user is responsible for adjusting the coordinates accordingly.
+polars-bio supports both 0-based and 1-based coordinate systems for genomic ranges operations. By **default**, it uses **1-based** coordinates system, for both reading bioinformatic **input files** (with methods `read_*` or `register_*` based on [noodles](https://github.com/zaeleus/noodles) that is 1-based, please refer to [issue](https://github.com/zaeleus/noodles/issues/226) and [issue](https://github.com/zaeleus/noodles/issues/281) and [issue](https://github.com/zaeleus/noodles/issues/100) for more details)  and **all** interval operations. If your data is in 0-based coordinates, you can set the `use_zero_based` parameter to `True` in the interval functions, e.g. [overlap](api.md#polars_bio.overlap) or [nearest](api.md#polars_bio.nearest). This parameter can be especially useful when migrating your pipeline that used 0-based tools, such as for instance [Bioframe](https://github.com/open2c/bioframe).
+In such case, a *warning* message will be printed to the console, indicating that the coordinates are 0-based and end user is responsible for ensuring that the coordinates are 0-based.
 
 
 ### API comparison between libraries
@@ -48,7 +48,7 @@ This table compares the API of the libraries. The table is not exhaustive and on
 | [BAM](api.md#polars_bio.read_bam)     | :white_check_mark: |
 | [FASTQ](api.md#polars_bio.read_fastq) | :white_check_mark: |
 | [FASTA](api.md#polars_bio.read_fasta) | :white_check_mark: |
-| GFF                                   | :construction:     |
+| [GFF3](api.md#polars_bio.read_gff)    | :white_check_mark: |
 | GTF                                   | :construction:     |
 | Indexed VCF                           | :construction:     |
 | Indexed BAM                           | :construction:     |
@@ -64,12 +64,6 @@ pb.register_vcf("gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.
 pb.sql("SELECT * FROM gnomad_sv WHERE SVTYPE = 'DEL' AND SVLEN > 1000").limit(3).collect()
 ```
 
-You can use [view](api.md/#polars_bio.register_view) mechanism to create a virtual table from a DataFrame that contain preprocessing steps and reuse it in multiple steps.
-To avoid materializing the intermediate results in memory, you can run your processing in  [streaming](features.md#streaming) mode.
-
-```python
-
-
 ```shell
 shape: (3, 10)
 ┌───────┬───────┬───────┬────────────────────────────────┬───┬───────┬────────────┬────────┬───────┐
@@ -83,6 +77,11 @@ shape: (3, 10)
 └───────┴───────┴───────┴────────────────────────────────┴───┴───────┴────────────┴────────┴───────┘
 
 ```
+
+You can use [view](api.md/#polars_bio.register_view) mechanism to create a virtual table from a DataFrame that contain preprocessing steps and reuse it in multiple steps.
+To avoid materializing the intermediate results in memory, you can run your processing in  [streaming](features.md#streaming) mode.
+
+
 
 ## Parallel engine 🏎️
 It is straightforward to parallelize operations in polars-bio. The library is built on top of [Apache DataFusion](https://datafusion.apache.org/)  you can set
@@ -100,7 +99,8 @@ pb.set_option("datafusion.execution.target_partitions", "8")
 
 ## Cloud storage ☁️
 polars-bio supports direct streamed reading from cloud storages (e.g. S3, GCS) enabling processing large-scale genomics data without materializing in memory.
-It is built upon the [OpenDAL](https://opendal.apache.org/) project, a unified data access layer for cloud storage, which allows to read and write data from/to various cloud storage providers.
+It is built upon the [OpenDAL](https://opendal.apache.org/) project, a unified data access layer for cloud storage, which allows to read  bioinformatic file formats from various cloud storage providers. For Apache DataFusion **native** file formats, such as Parquet or CSV please
+refer to [DataFusion user guide](https://datafusion.apache.org/user-guide/cli/datasources.html#locations).
 
 ### Example
 ```python
@@ -117,14 +117,16 @@ It is  especially useful when combined with [SQL](features.md#sql-powered-data-p
 
 ### Supported features
 
-| Feature              | AWS S3             | Google Cloud Storage | Azure Blob Storage |
-|----------------------|--------------------|----------------------|--------------------|
-| Anonymous access     | :white_check_mark: | :white_check_mark:   |                    |
-| Authenticated access | :white_check_mark: | :white_check_mark:   | :white_check_mark: |
-| Requester Pays       | :white_check_mark: |                      |                    |
-| Concurrent requests  |                    | :white_check_mark:   |                    |
-| Streaming reads      | :white_check_mark: | :white_check_mark:   | :white_check_mark: |
+| Feature                         | AWS S3             | Google Cloud Storage | Azure Blob Storage |
+|---------------------------------|--------------------|----------------------|--------------------|
+| Anonymous access                | :white_check_mark: | :white_check_mark:   |                    |
+| Authenticated access            | :white_check_mark: | :white_check_mark:   | :white_check_mark: |
+| Requester Pays                  | :white_check_mark: |                      |                    |
+| Concurrent requests<sup>1</sup> |                    | :white_check_mark:   |                    |
+| Streaming reads                 | :white_check_mark: | :white_check_mark:   | :white_check_mark: |
 
+!!! note
+    <sup>1</sup>For more information on concurrent requests and block size tuning please refer to [issue](https://github.com/biodatageeks/polars-bio/issues/132#issuecomment-2967687947).
 
 ### AWS S3 configuration
 Supported environment variables:
@@ -232,7 +234,9 @@ There are 2 ways of using streaming mode:
     2. Because of the [bug](https://github.com/biodatageeks/polars-bio/issues/57) only Polars *sink* operations, such as `collect`, `sink_csv` or `sink_parquet` are supported.
 
 
-
+## Compression
+*polars-bio* supports **GZIP** ( default file extension `*.gz`) and **Block GZIP** (BGZIP, default file extension `*.bgz`) when reading files from local and cloud storages.
+For BGZIP it is possible to parallelize decoding of compressed blocks to substantially speedup reading VCF, FASTQ or GFF files by increasing `thread_num` parameter. Please take a look at the following [GitHub discussion](https://github.com/biodatageeks/polars-bio/issues/132).
 
 
 ## DataFrames support
