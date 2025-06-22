@@ -76,13 +76,13 @@ All Parquet files shared the same schema:
 |:---------|:-----------------|:------------|---------------------------------------------------------------------------------------------|
 | 0        | chainRn4         | 2,351       | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainRn4.txt.gz)          |
 | 1        | fBrain           | 199         | [Source](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM595923)                      |
-| 2        | exons            | 439         | **TBD**                                                                                     |
+| 2        | exons            | 439         | BEDTools tutorial                                                                           |
 | 3        | chainOrnAna1     | 1,957       | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainOrnAna1.txt.gz)      |
 | 4        | chainVicPac2     | 7,684       | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainVicPac2.txt.gz)      |
 | 5        | chainXenTro3Link | 50,981      | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainXenTro3Link.txt.gz)  |
 | 6        | chainMonDom5Link | 128,187     | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainMonDom5Link.txt.gz)  |
-| 7        | ex-anno          | 1,194       | Dataset contains ~10 million direct-RNA mappings.                                           |
-| 8        | ex-rna           | 9,945       | Dataset contains GenCode annotations with ~1.2 million lines, mixing all types of features. |
+| 7        | ex-anno          | 1,194       | Dataset contains GenCode annotations with ~1.2 million lines, mixing all types of features. |
+| 8        | ex-rna           | 9,945       | Dataset contains ~10 million direct-RNA mappings.                                           |
 
 !!! note
     Test dataset in the *Parquet* format can be downloaded from:
