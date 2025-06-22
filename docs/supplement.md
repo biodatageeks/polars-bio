@@ -158,7 +158,7 @@ for p in test_platforms:
 
 ##### Comparison of the output schemas and data types
 
-`polars-bio` tries to preserve the output schema of the `bioframe` package, `pyranges` uses its own internal representation that can be converted to a Pandas dataframe. It is also worth mentioning that `pyranges` always uses `int64` for start/end positions representation (*polars-bio* and *bioframe* determine do it adaptively based on the input file formats/DataFrames datatypes used). However, in the analyzed test case (`8-7`) input/output data structures have similar memory requirements.
+`polars-bio` tries to preserve the output schema of the `bioframe` package, `pyranges` uses its own internal representation that can be converted to a Pandas dataframe. It is also worth mentioning that `pyranges` always uses `int64` for start/end positions representation (*polars-bio* and *bioframe* determine it adaptively based on the input file formats/DataFrames datatypes used). However, in the analyzed test case (`8-7`) input/output data structures have similar memory requirements.
  Please compare the following schema and memory size estimates of the input and output DataFrames for `8-7` test case:
 ```python
 import bioframe as bf
