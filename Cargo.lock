@@ -5779,7 +5779,7 @@ dependencies = [
 
 [[package]]
 name = "polars_bio"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "arrow",
  "arrow-array",
