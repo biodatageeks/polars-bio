@@ -41,6 +41,7 @@ from .range_utils import Utils
 vizualize_intervals = Utils.visualize_intervals
 
 from .io import IOOperations as data_input
+from .logging import set_loglevel
 from .polars_ext import PolarsRangesOperations as LazyFrame
 from .range_op import FilterOp
 from .range_op import IntervalOperations as range_operations
@@ -64,4 +65,5 @@ __all__ = [
     "VcfReadOptions",
     "ObjectStorageOptions",
     "set_option",
+    "set_loglevel",
 ]
