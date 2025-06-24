@@ -257,7 +257,7 @@ shape: (1, 8)
 
 #### 6 threads
 ```python
-pb.register_vcf("/tmp/gnomad.v4.1.sv.sites.vcf.gz", "gnomad_site_local", thread_num=4)
+pb.register_vcf("/tmp/gnomad.v4.1.sv.sites.vcf.gz", "gnomad_site_local", thread_num=6)
 pb.sql("select * from gnomad_site_local").collect().count()
 ```
 

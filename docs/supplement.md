@@ -61,7 +61,7 @@ mprof plot $PRFOF_FILE
 ### Data
 
 The [AIList](https://github.com/databio/AIList) dataset after transcoding into the Parquet file format (with the Snappy compression) was used for benchmarking.
-This dataset was published along the AIList paper:
+This dataset was published with the AIList paper:
 
 Jianglin Feng , Aakrosh Ratan , Nathan C Sheffield, *Augmented Interval List: a novel data structure for efficient genomic interval search*, Bioinformatics 2019.
 
@@ -76,13 +76,15 @@ All Parquet files shared the same schema:
 |:---------|:-----------------|:------------|---------------------------------------------------------------------------------------------|
 | 0        | chainRn4         | 2,351       | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainRn4.txt.gz)          |
 | 1        | fBrain           | 199         | [Source](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM595923)                      |
-| 2        | exons            | 439         | **TBD**                                                                                     |
+| 2        | exons            | 439         | Dataset used in BEDTools tutorial.                                                          |
 | 3        | chainOrnAna1     | 1,957       | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainOrnAna1.txt.gz)      |
 | 4        | chainVicPac2     | 7,684       | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainVicPac2.txt.gz)      |
 | 5        | chainXenTro3Link | 50,981      | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainXenTro3Link.txt.gz)  |
 | 6        | chainMonDom5Link | 128,187     | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainMonDom5Link.txt.gz)  |
-| 7        | ex-anno          | 1,194       | Dataset contains ~10 million direct-RNA mappings.                                           |
-| 8        | ex-rna           | 9,945       | Dataset contains GenCode annotations with ~1.2 million lines, mixing all types of features. |
+| 7        | ex-anno          | 1,194       | Dataset contains GenCode annotations with ~1.2 million lines, mixing all types of features. |
+| 8        | ex-rna           | 9,945       | Dataset contains ~10 million direct-RNA mappings.                                           |
+
+Source: [AIList Github](https://github.com/databio/AIList?tab=readme-ov-file#test-results)
 
 !!! note
     Test dataset in the *Parquet* format can be downloaded from:
@@ -158,7 +160,7 @@ for p in test_platforms:
 
 ##### Comparison of the output schemas and data types
 
-`polars-bio` tries to preserve the output schema of the `bioframe` package, `pyranges` uses its own internal representation that can be converted to a Pandas dataframe. It is also worth mentioning that `pyranges` always uses `int64` for start/end positions representation (*polars-bio* and *bioframe* determine do it adaptively based on the input file formats/DataFrames datatypes used). However, in the analyzed test case (`8-7`) input/output data structures have similar memory requirements.
+`polars-bio` tries to preserve the output schema of the `bioframe` package, `pyranges` uses its own internal representation that can be converted to a Pandas dataframe. It is also worth mentioning that `pyranges` always uses `int64` for start/end positions representation (*polars-bio* and *bioframe* determine it adaptively based on the input file formats/DataFrames datatypes used). However, in the analyzed test case (`8-7`) input/output data structures have similar memory requirements.
  Please compare the following schema and memory size estimates of the input and output DataFrames for `8-7` test case:
 ```python
 import bioframe as bf
