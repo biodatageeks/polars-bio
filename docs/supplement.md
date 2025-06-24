@@ -378,10 +378,11 @@ Please note that `pyranges` unlike *bioframe* and *polars-bio* returns only one 
 from io import StringIO
 import pandas as pd
 import matplotlib.pyplot as plt
+import logging
 
 BRANCH="bioframe-data-generator"
 BASE_URL=f"https://raw.githubusercontent.com/biodatageeks/polars-bio-bench/refs/heads/{BRANCH}/results/paper/"
-e2e_tests = ["e2e-overlap-csv"]
+e2e_tests = ["e2e-overlap-csv", "e2e-nearest-csv", "e2e-coverage-csv", "e2e-count-overlaps-csv"]
 test_platforms = ["apple-m3-max", "gcp-linux"]
 test_datasets = ["1-2", "8-7"]
 tools = ["polars_bio", "polars_bio_streaming", "bioframe", "pyranges0", "pyranges1"]
@@ -390,9 +391,9 @@ for p in test_platforms:
     for d in test_datasets:
         # print("####", d)
         for o in e2e_tests:
+            operation_short= o.replace("e2e-", "").replace("-csv","")
+            print(f"<h3>Operation: {operation_short} for dataset: {d} on platform: {p}</h3>")
             for t in tools:
-                # print(f"##### {o}")
-                operation_short= o.replace("e2e-", "").replace("-csv")
                 url = f"{BASE_URL}/{p}/{o}/memory_profile/{d}/{t}_{operation_short}_{d}.dat"
                 try:
                     df = pd.read_csv(url, sep='\s+', header=None,skiprows=1, names=["Type", "Memory", "Timestamp"])
@@ -419,7 +420,7 @@ for p in test_platforms:
                     plt.savefig(buffer, format="svg")
                     print(buffer.getvalue())
                 except:
-                    pass
+                    logging.warn(f"Can't read memory profile for {t} on {p} with {d} dataset")
                 print("\n")
 
 

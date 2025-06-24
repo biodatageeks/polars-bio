@@ -40,6 +40,7 @@ This table compares the API of the libraries. The table is not exhaustive and on
 
 
 ## File formats support
+For bioinfomatic format there are always two methods available: `read_*` and `register_*` that can be used to either read file into Polars/Pandas DataFrame or register it as a DataFusion table for further processing using SQL or builtin interval fuctions. In either case local and or cloud storage files can be used as an input. Please refer to [cloud storage](#cloud-storage) section for more details.
 
 | Format                                           | Support level      |
 |--------------------------------------------------|--------------------|
@@ -101,6 +102,7 @@ pb.set_option("datafusion.execution.target_partitions", "8")
 polars-bio supports direct streamed reading from cloud storages (e.g. S3, GCS) enabling processing large-scale genomics data without materializing in memory.
 It is built upon the [OpenDAL](https://opendal.apache.org/) project, a unified data access layer for cloud storage, which allows to read  bioinformatic file formats from various cloud storage providers. For Apache DataFusion **native** file formats, such as Parquet or CSV please
 refer to [DataFusion user guide](https://datafusion.apache.org/user-guide/cli/datasources.html#locations).
+
 
 ### Example
 ```python
