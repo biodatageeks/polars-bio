@@ -39,19 +39,19 @@ This table compares the API of the libraries. The table is not exhaustive and on
 5. **select="arbitrary"** was used to obtain a comparable output.
 
 
-### File formats support
+## File formats support
 
-| Format                                | Support level      |
-|---------------------------------------|--------------------|
-| [BED](api.md#polars_bio.read_table)   | :white_check_mark: |
-| [VCF](api.md#polars_bio.read_vcf)     | :white_check_mark: |
-| [BAM](api.md#polars_bio.read_bam)     | :white_check_mark: |
-| [FASTQ](api.md#polars_bio.read_fastq) | :white_check_mark: |
-| [FASTA](api.md#polars_bio.read_fasta) | :white_check_mark: |
-| [GFF3](api.md#polars_bio.read_gff)    | :white_check_mark: |
-| GTF                                   | :construction:     |
-| Indexed VCF                           | :construction:     |
-| Indexed BAM                           | :construction:     |
+| Format                                           | Support level      |
+|--------------------------------------------------|--------------------|
+| [BED](api.md#polars_bio.data_input.read_bed)     | :white_check_mark: |
+| [VCF](api.md#polars_bio.data_input.read_vcf)     | :white_check_mark: |
+| [BAM](api.md#polars_bio.data_input.read_bam)     | :white_check_mark: |
+| [FASTQ](api.md#polars_bio.data_input.read_fastq) | :white_check_mark: |
+| [FASTA](api.md#polars_bio.data_input.read_fasta) | :white_check_mark: |
+| [GFF3](api.md#polars_bio.data_input.read_gff)    | :white_check_mark: |
+| GTF                                              | :construction:     |
+| Indexed VCF                                      | :construction:     |
+| Indexed BAM                                      | :construction:     |
 
 
 ## SQL-powered data processing

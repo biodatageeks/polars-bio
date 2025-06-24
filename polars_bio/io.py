@@ -3,7 +3,6 @@ from typing import Dict, Iterator, Union
 import polars as pl
 from bioframe import SCHEMAS
 from datafusion import DataFrame, SessionContext
-from jupyterlab.utils import deprecated
 from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
 
