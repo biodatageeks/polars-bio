@@ -111,7 +111,10 @@ for p in test_platforms:
         for o in test_operations:
             print(f"##### {o}")
             file_path = f"{BASE_URL}/{p}/{d}/{o}_{d}.csv"
-            print(pd.read_csv(file_path).to_markdown(index=False, disable_numparse=True))
+            try:
+                print(pd.read_csv(file_path).to_markdown(index=False, disable_numparse=True))
+            except:
+                pass
             print("\n")
 
 
@@ -137,7 +140,7 @@ for p in test_platforms:
 
 ```
 ### End to end tests
-Results for an end-to-end test with calculating overlaps and saving results to a CSV file.
+Results for an end-to-end test with calculating overlaps, nearest, coverage and count overlaps and saving results to a CSV file.
 ```python exec="true"
 import pandas as pd
 BRANCH="master"
@@ -152,8 +155,11 @@ for p in test_platforms:
         for o in e2e_tests:
             print(f"##### {o}")
             file_path = f"{BASE_URL}/{p}/{o}/{o}_{d}.csv"
-            print(pd.read_csv(file_path).to_markdown(index=False, disable_numparse=True))
-            print("\n")
+            try:
+                print(pd.read_csv(file_path).to_markdown(index=False, disable_numparse=True))
+                print("\n")
+            except:
+                pass
 ```
 
 #### Memory profiles
@@ -373,7 +379,7 @@ from io import StringIO
 import pandas as pd
 import matplotlib.pyplot as plt
 
-BRANCH="master"
+BRANCH="bioframe-data-generator"
 BASE_URL=f"https://raw.githubusercontent.com/biodatageeks/polars-bio-bench/refs/heads/{BRANCH}/results/paper/"
 e2e_tests = ["e2e-overlap-csv"]
 test_platforms = ["apple-m3-max", "gcp-linux"]
@@ -386,30 +392,34 @@ for p in test_platforms:
         for o in e2e_tests:
             for t in tools:
                 # print(f"##### {o}")
-                url = f"{BASE_URL}/{p}/{o}/memory_profile/{d}/{t}_{d}.dat"
-                df = pd.read_csv(url, sep='\s+', header=None,skiprows=1, names=["Type", "Memory", "Timestamp"])
-                df["Time_sec"] = df["Timestamp"] - df["Timestamp"].iloc[0]
+                operation_short= o.replace("e2e-", "").replace("-csv")
+                url = f"{BASE_URL}/{p}/{o}/memory_profile/{d}/{t}_{operation_short}_{d}.dat"
+                try:
+                    df = pd.read_csv(url, sep='\s+', header=None,skiprows=1, names=["Type", "Memory", "Timestamp"])
+                    df["Time_sec"] = df["Timestamp"] - df["Timestamp"].iloc[0]
 
-                # Create figure and axis
-                fig, ax = plt.subplots(figsize=(10, 5))
+                    # Create figure and axis
+                    fig, ax = plt.subplots(figsize=(10, 5))
 
-                # Plot the data (without error bars)
-                ax.plot(df["Time_sec"], df["Memory"], marker='x', color='black')
-                ax.grid(True, which='both', linestyle='--', linewidth=0.5, color='gray')
+                    # Plot the data (without error bars)
+                    ax.plot(df["Time_sec"], df["Memory"], marker='x', color='black')
+                    ax.grid(True, which='both', linestyle='--', linewidth=0.5, color='gray')
 
-                # Add dashed lines to mark the peak memory usage
-                max_memory = df["Memory"].max()
-                time_at_max = df.loc[df["Memory"].idxmax(), "Time_sec"]
-                ax.axhline(y=max_memory, color='red', linestyle='dashed')
-                ax.axvline(x=time_at_max, color='red', linestyle='dashed')
+                    # Add dashed lines to mark the peak memory usage
+                    max_memory = df["Memory"].max()
+                    time_at_max = df.loc[df["Memory"].idxmax(), "Time_sec"]
+                    ax.axhline(y=max_memory, color='red', linestyle='dashed')
+                    ax.axvline(x=time_at_max, color='red', linestyle='dashed')
 
-                # Add labels and title
-                ax.set_xlabel("Time (seconds)", fontsize=12)
-                ax.set_ylabel("Memory used (MiB)", fontsize=12)
-                ax.set_title(f"Memory usage profile for {t} on {p} with {d} dataset", fontsize=14)
-                buffer = StringIO()
-                plt.savefig(buffer, format="svg")
-                print(buffer.getvalue())
+                    # Add labels and title
+                    ax.set_xlabel("Time (seconds)", fontsize=12)
+                    ax.set_ylabel("Memory used (MiB)", fontsize=12)
+                    ax.set_title(f"Memory usage profile for {t} on {p} with {d} dataset", fontsize=14)
+                    buffer = StringIO()
+                    plt.savefig(buffer, format="svg")
+                    print(buffer.getvalue())
+                except:
+                    pass
                 print("\n")
 
 
