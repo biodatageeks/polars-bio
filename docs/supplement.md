@@ -59,11 +59,13 @@ mprof plot $PRFOF_FILE
 
 
 ### Data
-
+#### Real dataset
 The [AIList](https://github.com/databio/AIList) dataset after transcoding into the Parquet file format (with the Snappy compression) was used for benchmarking.
 This dataset was published with the AIList paper:
 
 Jianglin Feng , Aakrosh Ratan , Nathan C Sheffield, *Augmented Interval List: a novel data structure for efficient genomic interval search*, Bioinformatics 2019.
+
+#### Sythetic dataset
 
 All Parquet files shared the same schema:
 ```sql
@@ -87,9 +89,11 @@ All Parquet files shared the same schema:
 Source: [AIList Github](https://github.com/databio/AIList?tab=readme-ov-file#test-results)
 
 !!! note
-    Test dataset in the *Parquet* format can be downloaded from:
+    Test datasets in the *Parquet* format can be downloaded from:
 
     * [databio.zip](https://drive.google.com/file/d/1lctmude31mSAh9fWjI60K1bDrbeDPGfm/view?usp=sharing)
+    * [random_intervals_20250622_221714-1p.zip](https://drive.google.com/uc?id=1qCkSozLN20B2l6EiYYGqwthZk3_RzYZW)
+    * [random_intervals_20250622_221714-8p.zip](https://drive.google.com/uc?id=1ZvpNAdNFck7XgExJnJm-dwhbBJyW9VAw)
 
 
 ### Single thread results
@@ -141,33 +145,93 @@ for p in test_platforms:
 ```
 ### End to end tests
 Results for an end-to-end test with calculating overlaps, nearest, coverage and count overlaps and saving results to a CSV file.
+
+!!! note
+    Please note that in case of `pyranges0` we were unable to export the results of *coverage* and *count-overlaps* operations to a CSV file, so the results are not presented here.
+
 ```python exec="true"
 import pandas as pd
-BRANCH="master"
+import logging
+BRANCH="bioframe-data-generator"
 BASE_URL=f"https://raw.githubusercontent.com/biodatageeks/polars-bio-bench/refs/heads/{BRANCH}/results/paper/"
-e2e_tests = ["e2e-overlap-csv"]
+e2e_tests = ["e2e-overlap-csv", "e2e-nearest-csv", "e2e-coverage-csv", "e2e-count-overlaps-csv"]
 test_platforms = ["apple-m3-max", "gcp-linux"]
-test_datasets = ["1-2", "8-7"]
+test_datasets = ["1-2", "8-7", "100-1p", "10000000-1p"]
 for p in test_platforms:
-    print(f"### {p}")
+    print(f"#### {p}")
     for d in test_datasets:
-        print("####", d)
+        print("#####", d)
         for o in e2e_tests:
-            print(f"##### {o}")
+            print(f"###### {o}")
             file_path = f"{BASE_URL}/{p}/{o}/{o}_{d}.csv"
             try:
                 print(pd.read_csv(file_path).to_markdown(index=False, disable_numparse=True))
                 print("\n")
             except:
-                pass
+                logging.warn(f"File not found: {file_path}\n")
 ```
 
 #### Memory profiles
 
+```python exec="1" html="1"
+from io import StringIO
+import pandas as pd
+import matplotlib.pyplot as plt
+import logging
+
+BRANCH="bioframe-data-generator"
+BASE_URL=f"https://raw.githubusercontent.com/biodatageeks/polars-bio-bench/refs/heads/{BRANCH}/results/paper/"
+e2e_tests = ["e2e-overlap-csv", "e2e-nearest-csv", "e2e-coverage-csv", "e2e-count-overlaps-csv"]
+test_platforms = ["apple-m3-max", "gcp-linux"]
+test_datasets = ["1-2", "8-7", "100-1p", "10000000-1p"]
+tools = ["polars_bio", "polars_bio_streaming", "bioframe", "pyranges0", "pyranges1"]
+for p in test_platforms:
+    # print(f"### {p}")
+    for d in test_datasets:
+        # print("####", d)
+        for o in e2e_tests:
+            operation_short= o.replace("e2e-", "").replace("-csv","")
+            print(f"<h3>Operation: {operation_short} for dataset: {d} on platform: {p}</h3>")
+            for t in tools:
+                url = f"{BASE_URL}/{p}/{o}/memory_profile/{d}/{t}_{operation_short}_{d}.dat"
+                try:
+                    df = pd.read_csv(url, sep='\s+', header=None,skiprows=1, names=["Type", "Memory", "Timestamp"])
+                    df["Time_sec"] = df["Timestamp"] - df["Timestamp"].iloc[0]
+
+                    # Create figure and axis
+                    fig, ax = plt.subplots(figsize=(10, 5))
+
+                    # Plot the data (without error bars)
+                    ax.plot(df["Time_sec"], df["Memory"], marker='x', color='black')
+                    ax.grid(True, which='both', linestyle='--', linewidth=0.5, color='gray')
+
+                    # Add dashed lines to mark the peak memory usage
+                    max_memory = df["Memory"].max()
+                    time_at_max = df.loc[df["Memory"].idxmax(), "Time_sec"]
+                    ax.axhline(y=max_memory, color='red', linestyle='dashed')
+                    ax.axvline(x=time_at_max, color='red', linestyle='dashed')
+
+                    # Add labels and title
+                    ax.set_xlabel("Time (seconds)", fontsize=12)
+                    ax.set_ylabel("Memory used (MiB)", fontsize=12)
+                    ax.set_title(f"Memory usage profile for {t} on {p} with {d} dataset", fontsize=14)
+                    buffer = StringIO()
+                    plt.savefig(buffer, format="svg")
+                    print(buffer.getvalue())
+                except:
+                    logging.warn(f"Can't read memory profile for {t} on {p} with {d} dataset")
+                print("\n")
+
+
+# Read the data:
+# The file has three columns: a label ("MEM"), memory usage, and a timestamp.
+
+```
+
 ##### Comparison of the output schemas and data types
 
 `polars-bio` tries to preserve the output schema of the `bioframe` package, `pyranges` uses its own internal representation that can be converted to a Pandas dataframe. It is also worth mentioning that `pyranges` always uses `int64` for start/end positions representation (*polars-bio* and *bioframe* determine it adaptively based on the input file formats/DataFrames datatypes used). However, in the analyzed test case (`8-7`) input/output data structures have similar memory requirements.
- Please compare the following schema and memory size estimates of the input and output DataFrames for `8-7` test case:
+Please compare the following schema and memory size estimates of the input and output DataFrames for `8-7` test case:
 ```python
 import bioframe as bf
 import polars_bio as pb
@@ -372,59 +436,3 @@ dtypes: category(1), int64(4)
 memory usage: 9.4 GB
 ```
 Please note that `pyranges` unlike *bioframe* and *polars-bio* returns only one chromosome column but uses `int64` data types for encoding start and end positions even if input datasets use `int32`.
-
-
-```python exec="1" html="1"
-from io import StringIO
-import pandas as pd
-import matplotlib.pyplot as plt
-import logging
-
-BRANCH="bioframe-data-generator"
-BASE_URL=f"https://raw.githubusercontent.com/biodatageeks/polars-bio-bench/refs/heads/{BRANCH}/results/paper/"
-e2e_tests = ["e2e-overlap-csv", "e2e-nearest-csv", "e2e-coverage-csv", "e2e-count-overlaps-csv"]
-test_platforms = ["apple-m3-max", "gcp-linux"]
-test_datasets = ["1-2", "8-7"]
-tools = ["polars_bio", "polars_bio_streaming", "bioframe", "pyranges0", "pyranges1"]
-for p in test_platforms:
-    # print(f"### {p}")
-    for d in test_datasets:
-        # print("####", d)
-        for o in e2e_tests:
-            operation_short= o.replace("e2e-", "").replace("-csv","")
-            print(f"<h3>Operation: {operation_short} for dataset: {d} on platform: {p}</h3>")
-            for t in tools:
-                url = f"{BASE_URL}/{p}/{o}/memory_profile/{d}/{t}_{operation_short}_{d}.dat"
-                try:
-                    df = pd.read_csv(url, sep='\s+', header=None,skiprows=1, names=["Type", "Memory", "Timestamp"])
-                    df["Time_sec"] = df["Timestamp"] - df["Timestamp"].iloc[0]
-
-                    # Create figure and axis
-                    fig, ax = plt.subplots(figsize=(10, 5))
-
-                    # Plot the data (without error bars)
-                    ax.plot(df["Time_sec"], df["Memory"], marker='x', color='black')
-                    ax.grid(True, which='both', linestyle='--', linewidth=0.5, color='gray')
-
-                    # Add dashed lines to mark the peak memory usage
-                    max_memory = df["Memory"].max()
-                    time_at_max = df.loc[df["Memory"].idxmax(), "Time_sec"]
-                    ax.axhline(y=max_memory, color='red', linestyle='dashed')
-                    ax.axvline(x=time_at_max, color='red', linestyle='dashed')
-
-                    # Add labels and title
-                    ax.set_xlabel("Time (seconds)", fontsize=12)
-                    ax.set_ylabel("Memory used (MiB)", fontsize=12)
-                    ax.set_title(f"Memory usage profile for {t} on {p} with {d} dataset", fontsize=14)
-                    buffer = StringIO()
-                    plt.savefig(buffer, format="svg")
-                    print(buffer.getvalue())
-                except:
-                    logging.warn(f"Can't read memory profile for {t} on {p} with {d} dataset")
-                print("\n")
-
-
-# Read the data:
-# The file has three columns: a label ("MEM"), memory usage, and a timestamp.
-
-```
