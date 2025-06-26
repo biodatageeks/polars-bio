@@ -14,6 +14,9 @@
 | [read_table](api.md#polars_bio.read_table)         | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 
 
+!!! Limitations
+    For now *polars-bio* uses `int32` positions encoding for interval operations ([issue](https://github.com/dcjones/coitrees/issues/18)) meaning that it does not support operation on chromosomes longer than **2Gb**. `int64` support is planned for future releases ([issue](https://github.com/biodatageeks/polars-bio/issues/169)).
+
 ## Coordinate systems support
 polars-bio supports both 0-based and 1-based coordinate systems for genomic ranges operations. By **default**, it uses **1-based** coordinates system, for both reading bioinformatic **input files** (with methods `read_*` or `register_*` based on [noodles](https://github.com/zaeleus/noodles) that is 1-based, please refer to [issue](https://github.com/zaeleus/noodles/issues/226) and [issue](https://github.com/zaeleus/noodles/issues/281) and [issue](https://github.com/zaeleus/noodles/issues/100) for more details)  and **all** interval operations. If your data is in 0-based coordinates, you can set the `use_zero_based` parameter to `True` in the interval functions, e.g. [overlap](api.md#polars_bio.overlap) or [nearest](api.md#polars_bio.nearest). This parameter can be especially useful when migrating your pipeline that used 0-based tools, such as for instance [Bioframe](https://github.com/open2c/bioframe).
 In such case, a *warning* message will be printed to the console, indicating that the coordinates are 0-based and end user is responsible for ensuring that the coordinates are 0-based.
@@ -30,13 +33,13 @@ This table compares the API of the libraries. The table is not exhaustive and on
 | read_table | [read_table](https://bioframe.readthedocs.io/en/latest/api-fileops.html#bioframe.io.fileops.read_table) | [read_table](api.md#polars_bio.read_table) | [read_bed](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/readers/index.html#pyranges.readers.read_bed) | [read_bed](https://pyranges1.readthedocs.io/en/latest/pyranges_module.html#pyranges.read_bed)                 | [BedTool](https://daler.github.io/pybedtools/topical-create-a-bedtool.html#creating-a-bedtool)                                                | [read_bed](https://biocpy.github.io/GenomicRanges/tutorial.html#from-bioinformatic-file-formats)                                                   |
 
 !!! note
-1. There is an [overlap](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.overlap) method in PyRanges, but its output is only limited to indices of intervals from the other Dataframe that overlap.
-   In Bioframe's [benchmark](https://bioframe.readthedocs.io/en/latest/guide-performance.html#vs-pyranges-and-optionally-pybedtools) also **join** method instead of overlap was used.
-2. **wa** and **wb** options used to obtain a comparable output.
-3. Output contains only a list with the same length as query, containing hits to overlapping indices. Data transformation is required to obtain the same output as in other libraries.
-   Since the performance was far worse than in more efficient libraries anyway, additional data transformation was not included in the benchmark.
-4. **s=first** was used to obtain a comparable output.
-5. **select="arbitrary"** was used to obtain a comparable output.
+    1. There is an [overlap](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.overlap) method in PyRanges, but its output is only limited to indices of intervals from the other Dataframe that overlap.
+    In Bioframe's [benchmark](https://bioframe.readthedocs.io/en/latest/guide-performance.html#vs-pyranges-and-optionally-pybedtools) also **join** method instead of overlap was used.
+    2. **wa** and **wb** options used to obtain a comparable output.
+    3. Output contains only a list with the same length as query, containing hits to overlapping indices. Data transformation is required to obtain the same output as in other libraries.
+      Since the performance was far worse than in more efficient libraries anyway, additional data transformation was not included in the benchmark.
+    4. **s=first** was used to obtain a comparable output.
+    5. **select="arbitrary"** was used to obtain a comparable output.
 
 
 ## File formats support
