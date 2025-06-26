@@ -93,7 +93,7 @@ impl TableProvider for CountOverlapsProvider {
     }
 
     fn table_type(&self) -> TableType {
-        todo!()
+        TableType::Temporary
     }
 
     async fn scan(
