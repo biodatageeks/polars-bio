@@ -65,14 +65,6 @@ This dataset was published with the AIList paper:
 
 Jianglin Feng , Aakrosh Ratan , Nathan C Sheffield, *Augmented Interval List: a novel data structure for efficient genomic interval search*, Bioinformatics 2019.
 
-#### Sythetic dataset
-
-All Parquet files shared the same schema:
-```sql
-  contig STRING
-  pos_start INT32
-  pos_end INT32
-```
 
 | Dataset# | Name             | Size(x1000) | Description                                                                                 |
 |:---------|:-----------------|:------------|---------------------------------------------------------------------------------------------|
@@ -88,12 +80,35 @@ All Parquet files shared the same schema:
 
 Source: [AIList Github](https://github.com/databio/AIList?tab=readme-ov-file#test-results)
 
+All Parquet files from this dataset shared the same schema:
+```sql
+  contig STRING
+  pos_start INT32
+  pos_end INT32
+```
+
+#### Sythetic dataset
+Randomly generated intervals (100-10,000,000) inspired by [bioframe](http://bioframe.readthedocs.io/en/latest/guide-performance.html).
+Generated with [generate_dataset.py](https://github.com/biodatageeks/polars-bio-bench/blob/bioframe-data-generator/src/generate_dataset.py)
+```shell
+poetry run python src/generate_dataset.py
+```
+All Parquet files from this dataset shared the same schema:
+```sql
+  contig STRING
+  pos_start INT64
+  pos_end INT64
+```
+
 !!! note
     Test datasets in the *Parquet* format can be downloaded from:
 
     * [databio.zip](https://drive.google.com/file/d/1lctmude31mSAh9fWjI60K1bDrbeDPGfm/view?usp=sharing)
     * [random_intervals_20250622_221714-1p.zip](https://drive.google.com/uc?id=1qCkSozLN20B2l6EiYYGqwthZk3_RzYZW)
     * [random_intervals_20250622_221714-8p.zip](https://drive.google.com/uc?id=1ZvpNAdNFck7XgExJnJm-dwhbBJyW9VAw)
+
+
+
 
 
 ### Single thread results
