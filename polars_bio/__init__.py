@@ -38,7 +38,7 @@ merge = IntervalOperations.merge
 
 from .range_utils import Utils
 
-vizualize_intervals = Utils.visualize_intervals
+visualize_intervals = Utils.visualize_intervals
 
 from .io import IOOperations as data_input
 from .logging import set_loglevel

@@ -17,3 +17,6 @@ benchmark/src/results/overlap
 mprofile*dat
 *csv
 it/data/polars-bio-it.json
+/docs/notebooks/tmp/*
+/docs/notebooks/data/chainRn4/
+/docs/notebooks/data/ex-rna/
