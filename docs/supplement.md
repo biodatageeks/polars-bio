@@ -59,24 +59,18 @@ mprof plot $PRFOF_FILE
 
 
 ### Data
-
+#### Real dataset
 The [AIList](https://github.com/databio/AIList) dataset after transcoding into the Parquet file format (with the Snappy compression) was used for benchmarking.
 This dataset was published with the AIList paper:
 
 Jianglin Feng , Aakrosh Ratan , Nathan C Sheffield, *Augmented Interval List: a novel data structure for efficient genomic interval search*, Bioinformatics 2019.
 
-All Parquet files shared the same schema:
-```sql
-  contig STRING
-  pos_start INT32
-  pos_end INT32
-```
 
 | Dataset# | Name             | Size(x1000) | Description                                                                                 |
 |:---------|:-----------------|:------------|---------------------------------------------------------------------------------------------|
 | 0        | chainRn4         | 2,351       | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainRn4.txt.gz)          |
 | 1        | fBrain           | 199         | [Source](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM595923)                      |
-| 2        | exons            | 439         | Dataset used in BEDTools tutorial.                                                          |
+| 2        | exons            | 439         | Dataset used in the BEDTools tutorial.                                                      |
 | 3        | chainOrnAna1     | 1,957       | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainOrnAna1.txt.gz)      |
 | 4        | chainVicPac2     | 7,684       | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainVicPac2.txt.gz)      |
 | 5        | chainXenTro3Link | 50,981      | [Source](https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/chainXenTro3Link.txt.gz)  |
@@ -86,20 +80,45 @@ All Parquet files shared the same schema:
 
 Source: [AIList Github](https://github.com/databio/AIList?tab=readme-ov-file#test-results)
 
-!!! note
-    Test dataset in the *Parquet* format can be downloaded from:
+All Parquet files from this dataset shared the same schema:
+```sql
+  contig STRING
+  pos_start INT32
+  pos_end INT32
+```
 
-    * [databio.zip](https://drive.google.com/file/d/1lctmude31mSAh9fWjI60K1bDrbeDPGfm/view?usp=sharing)
+#### Sythetic dataset
+Randomly generated intervals (100-10,000,000) inspired by [bioframe](http://bioframe.readthedocs.io/en/latest/guide-performance.html).
+Generated with [generate_dataset.py](https://github.com/biodatageeks/polars-bio-bench/blob/bioframe-data-generator/src/generate_dataset.py)
+```shell
+poetry run python src/generate_dataset.py
+```
+All Parquet files from this dataset shared the same schema:
+```sql
+  contig STRING
+  pos_start INT64
+  pos_end INT64
+```
+
+!!! note
+    Test datasets in the *Parquet* format can be downloaded from:
+
+    * single thread benchmarks
+        * [databio.zip](https://drive.google.com/uc?id=1lctmude31mSAh9fWjI60K1bDrbeDPGfm)
+        * [random_intervals_20250622_221714-1p.zip](https://drive.google.com/uc?id=1qCkSozLN20B2l6EiYYGqwthZk3_RzYZW)
+    * parallel benchmarks (partitioned)
+        * [databio-8p.zip](https://drive.google.com/uc?id=1Sj7nTB5gCUq9nbeQOg4zzS4tKO37M5Nd)
+        * [random_intervals_20250622_221714-8p.zip](https://drive.google.com/uc?id=1ZvpNAdNFck7XgExJnJm-dwhbBJyW9VAw)
+
 
 
 ### Single thread results
 Results for `overlap`, `nearest`, `count-overlaps`, and `coverage` operations with single-thread performance on `apple-m3-max` and `gcp-linux` platforms.
 ```python exec="true"
 import pandas as pd
-
-BRANCH="master"
+BRANCH="bioframe-data-generator"
 BASE_URL=f"https://raw.githubusercontent.com/biodatageeks/polars-bio-bench/refs/heads/{BRANCH}/results/paper/"
-test_datasets = ["1-2", "8-7"]
+test_datasets = ["1-2", "8-7", "100-1p", "1000-1p", "10000-1p", "100000-1p", "1000000-1p", "10000000-1p"]
 test_operations = ["overlap", "nearest", "count-overlaps", "coverage"]
 test_platforms = ["apple-m3-max", "gcp-linux"]
 
@@ -111,7 +130,10 @@ for p in test_platforms:
         for o in test_operations:
             print(f"##### {o}")
             file_path = f"{BASE_URL}/{p}/{d}/{o}_{d}.csv"
-            print(pd.read_csv(file_path).to_markdown(index=False, disable_numparse=True))
+            try:
+                print(pd.read_csv(file_path).to_markdown(index=False, disable_numparse=True))
+            except:
+                pass
             print("\n")
 
 
@@ -120,10 +142,10 @@ for p in test_platforms:
 Results for parallel operations with 1, 2, 4, 6 and 8 threads.
 ```python exec="true"
 import pandas as pd
-BRANCH="master"
+BRANCH="bioframe-data-generator"
 BASE_URL=f"https://raw.githubusercontent.com/biodatageeks/polars-bio-bench/refs/heads/{BRANCH}/results/paper/"
 test_platforms = ["apple-m3-max", "gcp-linux"]
-parallel_test_datasets=["8-7"]
+parallel_test_datasets=["8-7-8p", "1000000-8p", "10000000-8p"]
 test_operations = ["overlap", "nearest", "count-overlaps", "coverage"]
 for p in test_platforms:
     print(f"#### {p}")
@@ -132,36 +154,102 @@ for p in test_platforms:
         for o in test_operations:
             print(f"##### {o}")
             file_path = f"{BASE_URL}/{p}/{d}-parallel/{o}_{d}.csv"
-            print(pd.read_csv(file_path).to_markdown(index=False, disable_numparse=True))
+            try:
+                print(pd.read_csv(file_path).to_markdown(index=False, disable_numparse=True))
+            except:
+                pass
             print("\n")
 
 ```
 ### End to end tests
-Results for an end-to-end test with calculating overlaps and saving results to a CSV file.
+Results for an end-to-end test with calculating overlaps, nearest, coverage and count overlaps and saving results to a CSV file.
+
+!!! note
+    Please note that in case of `pyranges0` we were unable to export the results of *coverage* and *count-overlaps* operations to a CSV file, so the results are not presented here.
+
 ```python exec="true"
 import pandas as pd
-BRANCH="master"
+import logging
+BRANCH="bioframe-data-generator"
 BASE_URL=f"https://raw.githubusercontent.com/biodatageeks/polars-bio-bench/refs/heads/{BRANCH}/results/paper/"
-e2e_tests = ["e2e-overlap-csv"]
+e2e_tests = ["e2e-overlap-csv", "e2e-nearest-csv", "e2e-coverage-csv", "e2e-count-overlaps-csv"]
 test_platforms = ["apple-m3-max", "gcp-linux"]
-test_datasets = ["1-2", "8-7"]
+test_datasets = ["1-2", "8-7", "100-1p", "10000000-1p"]
 for p in test_platforms:
-    print(f"### {p}")
+    print(f"#### {p}")
     for d in test_datasets:
-        print("####", d)
+        print("#####", d)
         for o in e2e_tests:
-            print(f"##### {o}")
+            print(f"###### {o}")
             file_path = f"{BASE_URL}/{p}/{o}/{o}_{d}.csv"
-            print(pd.read_csv(file_path).to_markdown(index=False, disable_numparse=True))
-            print("\n")
+            try:
+                print(pd.read_csv(file_path).to_markdown(index=False, disable_numparse=True))
+                print("\n")
+            except:
+                logging.warn(f"File not found: {file_path}\n")
 ```
 
 #### Memory profiles
 
+```python exec="1" html="1"
+from io import StringIO
+import pandas as pd
+import matplotlib.pyplot as plt
+import logging
+
+BRANCH="bioframe-data-generator"
+BASE_URL=f"https://raw.githubusercontent.com/biodatageeks/polars-bio-bench/refs/heads/{BRANCH}/results/paper/"
+e2e_tests = ["e2e-overlap-csv", "e2e-nearest-csv", "e2e-coverage-csv", "e2e-count-overlaps-csv"]
+test_platforms = ["apple-m3-max", "gcp-linux"]
+test_datasets = ["1-2", "8-7", "100-1p", "10000000-1p"]
+tools = ["polars_bio", "polars_bio_streaming", "bioframe", "pyranges0", "pyranges1"]
+for p in test_platforms:
+    # print(f"### {p}")
+    for d in test_datasets:
+        # print("####", d)
+        for o in e2e_tests:
+            operation_short= o.replace("e2e-", "").replace("-csv","")
+            print(f"<h3>Operation: {operation_short} for dataset: {d} on platform: {p}</h3>")
+            for t in tools:
+                url = f"{BASE_URL}/{p}/{o}/memory_profile/{d}/{t}_{operation_short}_{d}.dat"
+                try:
+                    df = pd.read_csv(url, sep='\s+', header=None,skiprows=1, names=["Type", "Memory", "Timestamp"])
+                    df["Time_sec"] = df["Timestamp"] - df["Timestamp"].iloc[0]
+
+                    # Create figure and axis
+                    fig, ax = plt.subplots(figsize=(10, 5))
+
+                    # Plot the data (without error bars)
+                    ax.plot(df["Time_sec"], df["Memory"], marker='x', color='black')
+                    ax.grid(True, which='both', linestyle='--', linewidth=0.5, color='gray')
+
+                    # Add dashed lines to mark the peak memory usage
+                    max_memory = df["Memory"].max()
+                    time_at_max = df.loc[df["Memory"].idxmax(), "Time_sec"]
+                    ax.axhline(y=max_memory, color='red', linestyle='dashed')
+                    ax.axvline(x=time_at_max, color='red', linestyle='dashed')
+
+                    # Add labels and title
+                    ax.set_xlabel("Time (seconds)", fontsize=12)
+                    ax.set_ylabel("Memory used (MiB)", fontsize=12)
+                    ax.set_title(f"Memory usage profile for {t} on {p} with {d} dataset", fontsize=14)
+                    buffer = StringIO()
+                    plt.savefig(buffer, format="svg")
+                    print(buffer.getvalue())
+                except:
+                    logging.warn(f"Can't read memory profile for {t} on {p} with {d} dataset")
+                print("\n")
+
+
+# Read the data:
+# The file has three columns: a label ("MEM"), memory usage, and a timestamp.
+
+```
+
 ##### Comparison of the output schemas and data types
 
-`polars-bio` tries to preserve the output schema of the `bioframe` package, `pyranges` uses its own internal representation that can be converted to a Pandas dataframe. It is also worth mentioning that `pyranges` always uses `int64` for start/end positions representation (*polars-bio* and *bioframe* determine it adaptively based on the input file formats/DataFrames datatypes used). However, in the analyzed test case (`8-7`) input/output data structures have similar memory requirements.
- Please compare the following schema and memory size estimates of the input and output DataFrames for `8-7` test case:
+`polars-bio` tries to preserve the output schema of the `bioframe` package, `pyranges` uses its own internal representation that can be converted to a Pandas dataframe. It is also worth mentioning that `pyranges` always uses `int64` for start/end positions representation (*polars-bio* and *bioframe* determine it adaptively based on the input file formats/DataFrames datatypes used. *polars-bio* does not support interval operations on chromosomes longer than **2Gp**([issue](https://github.com/biodatageeks/polars-bio/issues/169))). However, in the analyzed test case (`8-7`) input/output data structures have similar memory requirements.
+Please compare the following schema and memory size estimates of the input and output DataFrames for `8-7` test case:
 ```python
 import bioframe as bf
 import polars_bio as pb
@@ -365,55 +453,6 @@ Data columns (total 5 columns):
 dtypes: category(1), int64(4)
 memory usage: 9.4 GB
 ```
-Please note that `pyranges` unlike *bioframe* and *polars-bio* returns only one chromosome column but uses `int64` data types for encoding start and end positions even if input datasets use `int32`.
 
-
-```python exec="1" html="1"
-from io import StringIO
-import pandas as pd
-import matplotlib.pyplot as plt
-
-BRANCH="master"
-BASE_URL=f"https://raw.githubusercontent.com/biodatageeks/polars-bio-bench/refs/heads/{BRANCH}/results/paper/"
-e2e_tests = ["e2e-overlap-csv"]
-test_platforms = ["apple-m3-max", "gcp-linux"]
-test_datasets = ["1-2", "8-7"]
-tools = ["polars_bio", "polars_bio_streaming", "bioframe", "pyranges0", "pyranges1"]
-for p in test_platforms:
-    # print(f"### {p}")
-    for d in test_datasets:
-        # print("####", d)
-        for o in e2e_tests:
-            for t in tools:
-                # print(f"##### {o}")
-                url = f"{BASE_URL}/{p}/{o}/memory_profile/{d}/{t}_{d}.dat"
-                df = pd.read_csv(url, sep='\s+', header=None,skiprows=1, names=["Type", "Memory", "Timestamp"])
-                df["Time_sec"] = df["Timestamp"] - df["Timestamp"].iloc[0]
-
-                # Create figure and axis
-                fig, ax = plt.subplots(figsize=(10, 5))
-
-                # Plot the data (without error bars)
-                ax.plot(df["Time_sec"], df["Memory"], marker='x', color='black')
-                ax.grid(True, which='both', linestyle='--', linewidth=0.5, color='gray')
-
-                # Add dashed lines to mark the peak memory usage
-                max_memory = df["Memory"].max()
-                time_at_max = df.loc[df["Memory"].idxmax(), "Time_sec"]
-                ax.axhline(y=max_memory, color='red', linestyle='dashed')
-                ax.axvline(x=time_at_max, color='red', linestyle='dashed')
-
-                # Add labels and title
-                ax.set_xlabel("Time (seconds)", fontsize=12)
-                ax.set_ylabel("Memory used (MiB)", fontsize=12)
-                ax.set_title(f"Memory usage profile for {t} on {p} with {d} dataset", fontsize=14)
-                buffer = StringIO()
-                plt.savefig(buffer, format="svg")
-                print(buffer.getvalue())
-                print("\n")
-
-
-# Read the data:
-# The file has three columns: a label ("MEM"), memory usage, and a timestamp.
-
-```
+!!! Note
+    Please note that `pyranges` unlike *bioframe* and *polars-bio* returns only one chromosome column but uses `int64` data types for encoding start and end positions even if input datasets use `int32`.

@@ -3,10 +3,12 @@
 ![GitHub License](https://img.shields.io/github/license/biodatageeks/polars-bio)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/polars-bio)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/biodatageeks/polars-bio)
+[![](https://dcbadge.limes.pink/api/server/https://discord.gg/bpxQ4Yxhk5?style=flat)](https://discord.gg/bpxQ4Yxhk5)
 
 ![CI](https://github.com/biodatageeks/polars-bio/actions/workflows/publish_to_pypi.yml/badge.svg?branch=master)
 ![Docs](https://github.com/biodatageeks/polars-bio/actions/workflows/publish_documentation.yml/badge.svg?branch=master)
 ![logo](docs/assets/logo-large.png)
+
 
 
 
