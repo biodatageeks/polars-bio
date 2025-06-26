@@ -10,18 +10,21 @@ nav:
       - 📚Tutorial: notebooks/tutorial.ipynb
       - ⚙️ API reference: api.md
       - 🚀 Performance: performance.md
-      - ❓ FAQ : faq.md
+      - ❓ FAQ: faq.md
       - 🔬 Supplementary material: supplement.md
+      - 📡 Contact: contact.md
 
   - Quick start: quickstart.md
   - Features: features.md
   - Tutorial: notebooks/tutorial.ipynb
   - API reference: api.md
   - Performance: performance.md
-  - FAQ : faq.md
+  - FAQ: faq.md
   - 🔬 Supplementary material: supplement.md
+  - Contact: contact.md
 
 plugins:
+  - social
   - search
   - autorefs
   - mkdocs-jupyter:
@@ -78,6 +81,13 @@ extra:
   analytics:
     provider: google
     property: G-1M9PLLGBYS
+  social:
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/bpxQ4Yxhk5
+      name: Discord
+    - icon: material/email
+      link: mailto:marek.wiewiorka@pw.edu.pl
+      name: Email
 
 markdown_extensions:
   - admonition
