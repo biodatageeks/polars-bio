@@ -110,11 +110,21 @@ class TestIOVCF:
     df_bgz = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf.bgz").collect()
     df_gz = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf.gz").collect()
     df_none = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf").collect()
+    df_bgz_wrong_extension = pb.read_vcf(
+        f"{DATA_DIR}/io/vcf/wrong_extension.vcf.bgz", compression_type="gz"
+    ).collect()
+    df_gz_wrong_extension = pb.read_vcf(
+        f"{DATA_DIR}/io/vcf/wrong_extension.vcf.gz", compression_type="bgz"
+    ).collect()
 
     def test_count(self):
         assert len(self.df_none) == 2
         assert len(self.df_gz) == 2
         assert len(self.df_bgz) == 2
+
+    def test_compression_override(self):
+        assert len(self.df_bgz_wrong_extension) == 2
+        assert len(self.df_gz_wrong_extension) == 2
 
     def test_fields(self):
         assert self.df_bgz["chrom"][0] == "21" and self.df_none["chrom"][0] == "21"
@@ -128,11 +138,17 @@ class TestFastq:
     df_bgz = pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.bgz").collect()
     df_gz = pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.gz").collect()
     df_none = pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq").collect()
+    df_bgz_wrong_extension = pb.read_fastq(
+        f"{DATA_DIR}/io/fastq/wrong_extension.fastq.gz", compression_type="bgz"
+    ).collect()
 
     def test_count(self):
         assert len(self.df_none) == 200
         assert len(self.df_bgz) == 200
         assert len(self.df_gz) == 200
+
+    def test_compression_override(self):
+        assert len(self.df_bgz_wrong_extension) == 200
 
     def test_fields(self):
         sequences = self.df_bgz
@@ -152,11 +168,17 @@ class TestIOGFF:
     df_bgz = pb.read_gff(f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.bgz").collect()
     df_gz = pb.read_gff(f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.gz").collect()
     df_none = pb.read_gff(f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3").collect()
+    df_bgz_wrong_extension = pb.read_gff(
+        f"{DATA_DIR}/io/gff/wrong_extension.gff3.gz", compression_type="bgz"
+    ).collect()
 
     def test_count(self):
         assert len(self.df_none) == 3
         assert len(self.df_gz) == 3
         assert len(self.df_bgz) == 3
+
+    def test_compression_override(self):
+        assert len(self.df_bgz_wrong_extension) == 3
 
     def test_fields(self):
         assert self.df_bgz["chrom"][0] == "chr1" and self.df_none["chrom"][0] == "chr1"
