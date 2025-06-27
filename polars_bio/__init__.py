@@ -51,7 +51,7 @@ from .sql import SQL as data_processing
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 
 
-__version__ = "0.10.2"
+__version__ = "0.10.3"
 __all__ = [
     "ctx",
     "FilterOp",
