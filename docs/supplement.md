@@ -212,6 +212,9 @@ for p in test_platforms:
             print(f"<h3>Operation: {operation_short} for dataset: {d} on platform: {p}</h3>")
             for t in tools:
                 url = f"{BASE_URL}/{p}/{o}/memory_profile/{d}/{t}_{operation_short}_{d}.dat"
+                if o in ["e2e-coverage-csv", "e2e-count-overlaps-csv"] and "pyranges0" in url:
+                    #print(f"Skipping {o} for pyranges0 as it fails to CSV export")
+                    continue
                 try:
                     df = pd.read_csv(url, sep='\s+', header=None,skiprows=1, names=["Type", "Memory", "Timestamp"])
                     df["Time_sec"] = df["Timestamp"] - df["Timestamp"].iloc[0]
