@@ -114,6 +114,7 @@ All Parquet files from this dataset shared the same schema:
 
 ### Single thread results
 Results for `overlap`, `nearest`, `count-overlaps`, and `coverage` operations with single-thread performance on `apple-m3-max` and `gcp-linux` platforms.
+
 ```python exec="true"
 import pandas as pd
 BRANCH="bioframe-data-generator"
@@ -126,9 +127,9 @@ test_platforms = ["apple-m3-max", "gcp-linux"]
 for p in test_platforms:
     print(f"#### {p}")
     for d in test_datasets:
-        print(f"#### {d}")
+        print(f"##### {d}")
         for o in test_operations:
-            print(f"##### {o}")
+            print(f"###### {o}")
             file_path = f"{BASE_URL}/{p}/{d}/{o}_{d}.csv"
             try:
                 print(pd.read_csv(file_path).to_markdown(index=False, disable_numparse=True))
@@ -140,6 +141,7 @@ for p in test_platforms:
 ```
 ### Parallel performance
 Results for parallel operations with 1, 2, 4, 6 and 8 threads.
+
 ```python exec="true"
 import pandas as pd
 BRANCH="bioframe-data-generator"
@@ -150,9 +152,9 @@ test_operations = ["overlap", "nearest", "count-overlaps", "coverage"]
 for p in test_platforms:
     print(f"#### {p}")
     for d in parallel_test_datasets:
-        print(f"#### {d}")
+        print(f"##### {d}")
         for o in test_operations:
-            print(f"##### {o}")
+            print(f"###### {o}")
             file_path = f"{BASE_URL}/{p}/{d}-parallel/{o}_{d}.csv"
             try:
                 print(pd.read_csv(file_path).to_markdown(index=False, disable_numparse=True))
@@ -204,9 +206,9 @@ test_platforms = ["apple-m3-max", "gcp-linux"]
 test_datasets = ["1-2", "8-7", "100-1p", "10000000-1p"]
 tools = ["polars_bio", "polars_bio_streaming", "bioframe", "pyranges0", "pyranges1"]
 for p in test_platforms:
-    # print(f"### {p}")
+    print(f"### {p}")
     for d in test_datasets:
-        # print("####", d)
+        print("####", d)
         for o in e2e_tests:
             operation_short= o.replace("e2e-", "").replace("-csv","")
             print(f"<h3>Operation: {operation_short} for dataset: {d} on platform: {p}</h3>")
