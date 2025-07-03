@@ -1,6 +1,95 @@
 
 ## Supplemental material
-This document provides additional information about the benchmarking setup, data, and results that were presented in the manuscript.
+This document provides additional information about the algorithms, benchmarking setup, data, and results that were presented in the manuscript.
+
+## Algorithm description
+`polars-bio` implements a set of *binary* interval operations on genomic ranges, such as *overlap*, *nearest*, *count-overlaps*, and *coverage*. All these operations share the very similar algorithmic structure, which is presented in the diagram below.
+
+
+``` mermaid
+flowchart TB
+    %% Define header node
+    H["Interval operation"]
+
+    %% Define DataFrame nodes
+    I0["left DataFrame"]
+    I1["right DataFrame"]
+
+    style I0 stroke-dasharray: 5 5, stroke-width: 1
+
+    %% Draw edges with labels
+    H -->|probe /streaming/ side| I0
+    H -->|build /tree/ side| I1
+
+    %% Record batches under left DataFrame within a dotted box
+    I0 --> LeftGroup
+    subgraph LeftGroup["Record Batches"]
+        direction TB
+        LB0["Batch 1"]
+        LB1["Batch 2"]
+        LB2["Batch 3"]
+    end
+    style LeftGroup stroke-dasharray: 5 5, stroke-width: 1
+
+    %% Record batches under right DataFrame within a dotted box
+    I1 --> RightGroup
+    subgraph RightGroup["Record Batches"]
+        direction TB
+        RB0["Batch 1"]
+        RB1["Batch 2"]
+        RB2["Batch 3"]
+    end
+
+```
+
+The basic concept is that each operation consists of two sides: the **probe** side and the **build** side. The **probe** side is the one that is streamed, while the **build** side is the one that is implemented as the search data structure (for generic *overlap* operation the search structure can be changed using [algorithm](/polars-bio/api/#polars_bio.range_operations.overlap) parameter, for other operations is always [Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees)). In the case of *nearest* operation there is an additional sorted list of intervals used for searching for closest intervals in the case of non-existing overlaps.
+
+!!! note
+    Available search structure implementations for overlap operation:
+
+    * [COITrees](https://github.com/dcjones/coitrees)
+    * [IITree](https://github.com/rust-bio/rust-bio/blob/master/src/data_structures/interval_tree/array_backed_interval_tree.rs)
+    * [AVL-tree](https://github.com/rust-bio/rust-bio/blob/master/src/data_structures/interval_tree/avl_interval_tree.rs)
+    * [rust-lapper](https://github.com/sstadick/rust-lapper)
+    * [superintervals](https://github.com/kcleal/superintervals/) - on the roadmap, see [issue](https://github.com/biodatageeks/polars-bio/issues/126)
+Once the **build** side data structure is ready, then records from the **probe** side are processed against the search structure organized as record batches. Each record batch can be processed independently. Search structure nodes contains identifiers of the rows from the **build** side that are then used to construct a new record that is returned as a result of the operation.
+
+### Out-of-core processing
+This algorithm allows you to process your results without requiring **all** your data to be in memory at the same time. In particular, the **probe** side can be streamed from a file or a cloud storage, while the **build** side needs to be materialized in memory. In real applications, the **probe** side is usually a large file with genomic intervals, while the **build** side is a smaller file with annotations or other genomic features. This allows you to process large genomic datasets without running out of memory.
+
+!!! note
+    In this sense, the **order** of the sides is important, as the **probe** side is streamed and processed in batches, while the **build** side is fully materialized in memory.
+
+### Parallelization
+In the current implementation, the **probe** side can be processed in parallel using multiple threads on partitioned (implicitly or explicilty partitioned inputs - see [partitioning strategies](/polars-bio/performance/#parallel-execution-and-scalability)). The **build** side is predominantly single-threaded (with the notable exception of BGZF comppressed input data files reading, which can be parallelized).
+
+### Implementation
+`polars-bio` uses the following [Apache DataFusion](https://datafusion.apache.org/) extension points:
+
+ * [DefaultPhysicalPlanner](https://docs.rs/datafusion/43.0.0/datafusion/physical_planner/struct.DefaultPhysicalPlanner.html) and [PhysicalOptimizerRule](https://docs.rs/datafusion/43.0.0/datafusion/physical_optimizer/trait.PhysicalOptimizerRule.html) for detecting and rewriting **generic** interval join operations (i.e. *overlap* and *nearest*) with optimizied execution strategies. This is implemented as a part of our another project [sequila-native](https://github.com/biodatageeks/sequila-native) that exposes optimized interval join operations for Apache DataFusion with both SQL and DataFrame APIs.
+ * [TableProvider](https://docs.rs/datafusion/43.0.0/datafusion/catalog/trait.TableProvider.html) and [User-Defined Table Function](https://datafusion.apache.org/library-user-guide/functions/adding-udfs.html#adding-a-user-defined-table-function) mechanism for implementing **specialized** operations, such as *coverage* and *count-overlaps*.
+
+
+## Comparison with existing tools
+
+The table below compares `polars-bio` with other popular Python libraries for genomic ranges operations.
+
+| Feature/Library                 | polars-bio | Bioframe        | PyRanges0       | PyRanges1  | pybedtools | PyGenomics | GenomicRanges |
+|---------------------------------|-----------|-----------------|-----------------|------------|------------|------------|---------------|
+| out-of-core processing          |   ✅          |  ❌            | ❌               | ❌          | ❌          | ❌          | ❌          | ❌   |
+| parallel processing             | ✅         | ❌               | ✅<sup>1</sup>   | ❌ | ❌          | ❌          | ❌             |
+| vectorized execution engine     | ✅         | ❌               | ❌               | ❌          | ❌          | ❌          | ❌             |
+| zero-copy data exchange         | ✅         | ❌               | ❌               | ❌          | ❌          | ❌          | ❌             |
+| cloud object storage support    | ✅         | ✅/❌<sup>3</sup> | ❌               | ❌          | ❌          | ❌          | ✅             |
+| Pandas/Polars DataFrame support | ✅/✅       | ✅/❌             | ✅/❌<sup>4</sup> |  ✅/❌<sup>4</sup>           | ❌/❌          | ❌/❌           | ✅/✅             |
+
+
+!!! note
+    <sup>1</sup> PyRanges0 supports parallel processing with Dask, but it does not bring any performance benefits over single-threaded [execution](https://github.com/pyranges/pyranges/issues/363) and it is not recommended.
+
+    <sup>2</sup> Some input functions, such as `read_table` support cloud object storage
+
+    <sup>3</sup> Only export/import with data copying is [supported](https://pyranges.readthedocs.io/en/latest/tutorial.html#pandas-vs-pyranges)
 
 ## Benchmark setup
 
@@ -88,7 +177,7 @@ All Parquet files from this dataset shared the same schema:
 ```
 
 #### Sythetic dataset
-Randomly generated intervals (100-10,000,000) inspired by [bioframe](http://bioframe.readthedocs.io/en/latest/guide-performance.html).
+Randomly generated intervals (100-10,000,000) inspired by [bioframe](http://bioframe.readthedocs.io/en/latest/guide-performance.html) performance analysis.
 Generated with [generate_dataset.py](https://github.com/biodatageeks/polars-bio-bench/blob/bioframe-data-generator/src/generate_dataset.py)
 ```shell
 poetry run python src/generate_dataset.py
