@@ -11,7 +11,7 @@ It is designed to be easy to use, fast and memory efficient with a focus on geno
 
 
 ## Key Features
-* optimized for [peformance](performance.md#results-summary-) and memory [efficiency](performance.md#memory-characteristics) for large-scale genomics datasets analyses both when reading input data and performing operations
+* optimized for [performance](performance.md#results-summary-) and memory [efficiency](performance.md#memory-characteristics) for large-scale genomics datasets analyses both when reading input data and performing operations
 * popular genomics [operations](features.md#genomic-ranges-operations) with a DataFrame API (both [Pandas](https://pandas.pydata.org/) and [polars](https://pola.rs/))
 * [SQL](features.md#sql-powered-data-processing)-powered bioinformatic data querying or manipulation/pre-processing
 * native parallel engine powered by Apache DataFusion and [sequila-native](https://github.com/biodatageeks/sequila-native)
