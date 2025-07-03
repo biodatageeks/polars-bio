@@ -54,7 +54,7 @@ The basic concept is that each operation consists of two sides: the **probe** si
     * [superintervals](https://github.com/kcleal/superintervals/) - on the roadmap, see [issue](https://github.com/biodatageeks/polars-bio/issues/126)
 Once the **build** side data structure is ready, then records from the **probe** side are processed against the search structure organized as record batches. Each record batch can be processed independently. Search structure nodes contains identifiers of the rows from the **build** side that are then used to construct a new record that is returned as a result of the operation.
 
-### Out of core processing
+### Out-of-core processing
 This algorithm allows you to process your results without requiring **all** your data to be in memory at the same time. In particular, the **probe** side can be streamed from a file or a cloud storage, while the **build** side needs to be materialized in memory. In real applications, the **probe** side is usually a large file with genomic intervals, while the **build** side is a smaller file with annotations or other genomic features. This allows you to process large genomic datasets without running out of memory.
 
 !!! note
@@ -69,6 +69,27 @@ In the current implementation, the **probe** side can be processed in parallel u
  * [DefaultPhysicalPlanner](https://docs.rs/datafusion/43.0.0/datafusion/physical_planner/struct.DefaultPhysicalPlanner.html) and [PhysicalOptimizerRule](https://docs.rs/datafusion/43.0.0/datafusion/physical_optimizer/trait.PhysicalOptimizerRule.html) for detecting and rewriting **generic** interval join operations (i.e. *overlap* and *nearest*) with optimizied execution strategies. This is implemented as a part of our another project [sequila-native](https://github.com/biodatageeks/sequila-native) that exposes optimized interval join operations for Apache DataFusion with both SQL and DataFrame APIs.
  * [TableProvider](https://docs.rs/datafusion/43.0.0/datafusion/catalog/trait.TableProvider.html) and [User-Defined Table Function](https://datafusion.apache.org/library-user-guide/functions/adding-udfs.html#adding-a-user-defined-table-function) mechanism for implementing **specialized** operations, such as *coverage* and *count-overlaps*.
 
+
+## Comparison with existing tools
+
+The table below compares `polars-bio` with other popular Python libraries for genomic ranges operations.
+
+| Feature/Library                 | polars-bio | Bioframe        | PyRanges0       | PyRanges1  | pybedtools | PyGenomics | GenomicRanges |
+|---------------------------------|-----------|-----------------|-----------------|------------|------------|------------|---------------|
+| out-of-core processing          |   ✅          |  ❌            | ❌               | ❌          | ❌          | ❌          | ❌          | ❌   |
+| parallel processing             | ✅         | ❌               | ✅<sup>1</sup>   | ❌ | ❌          | ❌          | ❌             |
+| vectorized execution engine     | ✅         | ❌               | ❌               | ❌          | ❌          | ❌          | ❌             |
+| zero-copy data exchange         | ✅         | ❌               | ❌               | ❌          | ❌          | ❌          | ❌             |
+| cloud object storage support    | ✅         | ✅/❌<sup>3</sup> | ❌               | ❌          | ❌          | ❌          | ✅             |
+| Pandas/Polars DataFrame support | ✅/✅       | ✅/❌             | ✅/❌<sup>4</sup> |  ✅/❌<sup>4</sup>           | ❌/❌          | ❌/❌           | ✅/✅             |
+
+
+!!! note
+    <sup>1</sup> PyRanges0 supports parallel processing with Dask, but it does not bring any performance benefits over single-threaded [execution](https://github.com/pyranges/pyranges/issues/363) and it is not recommended.
+
+    <sup>2</sup> Some input functions, such as `read_table` support cloud object storage
+
+    <sup>3</sup> Only export/import with data copying is [supported](https://pyranges.readthedocs.io/en/latest/tutorial.html#pandas-vs-pyranges)
 
 ## Benchmark setup
 
