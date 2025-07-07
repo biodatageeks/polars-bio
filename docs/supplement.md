@@ -188,6 +188,8 @@ Jianglin Feng , Aakrosh Ratan , Nathan C Sheffield, *Augmented Interval List: a 
 | 7        | ex-anno          | 1,194       | Dataset contains GenCode annotations with ~1.2 million lines, mixing all types of features. |
 | 8        | ex-rna           | 9,945       | Dataset contains ~10 million direct-RNA mappings.                                           |
 
+
+
 Source: [AIList Github](https://github.com/databio/AIList?tab=readme-ov-file#test-results)
 
 All Parquet files from this dataset shared the same schema:
@@ -221,9 +223,31 @@ All Parquet files from this dataset shared the same schema:
         * [random_intervals_20250622_221714-8p.zip](https://drive.google.com/uc?id=1ZvpNAdNFck7XgExJnJm-dwhbBJyW9VAw)
 
 
+#### Overlap results
+
+| Test case | polars_bio<sup>1</sup> - # of overlaps | bioframe<sup>2</sup> - # of overlaps | pyranges0 - # of overlaps | pyranges1 - # of overlaps |
+|:----------|:---------------------------------------|--------------------------------------|---------------------------------------|---------------------------------------|
+| 1-2       | 54246                                  | 54246                                | 54246                                 | 54246                                 |
+| 8-7       | 307184634                              | 307184634                            | 307184634                             | 307184634                             |
+| 100       | 781                                    | 781                                  | 781                                   | 781                                   |
+| 1000      | 8859                                   | 8859                                 | 8859                                  | 8859                                  |
+| 10000     | 90236                                  | 90236                                | 90236                                 | 90236                                 |
+| 100000    | 902553                                 | 902553                               | 902553                                | 902553                                |
+| 1000000   | 9007817                                | 9007817                              | 9007817                               | 9007817                               |
+| 10000000  | 90005371                               | 90005371                             | 90005371                              | 90005371                              |
+
+
+<sup>1</sup> bioframe and pyranges are zero-based, this is why we need to set `use_zero_based=True` (polars-bio >= 0.10.3) in polars-bio to get the same results as in bioframe and pyranges.
+
+<sup>2</sup> bioframe `how` parameter is set to `inner` (`left` by default)
+
 
 ### Single thread results
 Results for `overlap`, `nearest`, `count-overlaps`, and `coverage` operations with single-thread performance on `apple-m3-max` and `gcp-linux` platforms.
+
+!!! note
+    Please note that in case of `pyranges0` we were unable to compute the results of *coverage* and *count-overlaps* operations for Apple M3, so the results are not presented here.
+
 
 ```python exec="true"
 import pandas as pd
