@@ -76,12 +76,12 @@ The table below compares `polars-bio` with other popular Python libraries for ge
 
 | Feature/Library                 | polars-bio | Bioframe        | PyRanges0       | PyRanges1  | pybedtools | PyGenomics | GenomicRanges |
 |---------------------------------|-----------|-----------------|-----------------|------------|------------|------------|---------------|
-| out-of-core processing          |   ✅          |  ❌            | ❌               | ❌          | ❌          | ❌          | ❌          | ❌   |
+| out-of-core processing          |   ✅          | ❌               | ❌               | ❌          | ❌          | ❌          | ❌          | ❌   |
 | parallel processing             | ✅         | ❌               | ✅<sup>1</sup>   | ❌ | ❌          | ❌          | ❌             |
 | vectorized execution engine     | ✅         | ❌               | ❌               | ❌          | ❌          | ❌          | ❌             |
 | zero-copy data exchange         | ✅         | ❌               | ❌               | ❌          | ❌          | ❌          | ❌             |
-| cloud object storage support    | ✅         | ✅/❌<sup>3</sup> | ❌               | ❌          | ❌          | ❌          | ✅             |
-| Pandas/Polars DataFrame support | ✅/✅       | ✅/❌             | ✅/❌<sup>4</sup> |  ✅/❌<sup>4</sup>           | ❌/❌          | ❌/❌           | ✅/✅             |
+| cloud object storage support    | ✅         | ✅/❌<sup>2</sup> | ❌               | ❌          | ❌          | ❌          | ✅             |
+| Pandas/Polars DataFrame support | ✅/✅       | ✅/❌             | ✅/❌<sup>3</sup> |  ✅/❌<sup>4</sup>           | ❌/❌          | ❌/❌           | ✅/✅             |
 
 
 !!! note
@@ -107,6 +107,8 @@ The table below compares `polars-bio` with other popular Python libraries for ge
     <sup>2</sup> Some input functions, such as `read_table` support cloud object storage
 
     <sup>3</sup> Only export/import with data copying is [supported](https://pyranges.readthedocs.io/en/latest/tutorial.html#pandas-vs-pyranges)
+
+    <sup>4</sup> RangeFrame class extends Pandas DataFrame
 
 
 ## Benchmark setup
