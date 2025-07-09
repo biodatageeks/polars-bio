@@ -79,7 +79,6 @@ The table below compares `polars-bio` with other popular Python libraries for ge
 | out-of-core processing          |   ✅          | ❌               | ❌               | ❌          | ❌          | ❌          | ❌          | ❌   |
 | parallel processing             | ✅         | ❌               | ✅<sup>1</sup>   | ❌ | ❌          | ❌          | ❌             |
 | vectorized execution engine     | ✅         | ❌               | ❌               | ❌          | ❌          | ❌          | ❌             |
-| zero-copy data exchange         | ✅         | ❌               | ❌               | ❌          | ❌          | ❌          | ❌             |
 | cloud object storage support    | ✅         | ✅/❌<sup>2</sup> | ❌               | ❌          | ❌          | ❌          | ✅             |
 | Pandas/Polars DataFrame support | ✅/✅       | ✅/❌             | ✅/❌<sup>3</sup> |  ✅/❌<sup>4</sup>           | ❌/❌          | ❌/❌           | ✅/✅             |
 
