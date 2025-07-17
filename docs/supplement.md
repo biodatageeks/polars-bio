@@ -19,7 +19,7 @@ flowchart TB
 
     %% Draw edges with labels
     H -->|probe /streaming/ side| I0
-    H -->|build /tree/ side| I1
+    H -->|build /search structure/ side| I1
 
     %% Record batches under left DataFrame within a dotted box
     I0 --> LeftGroup
@@ -42,7 +42,7 @@ flowchart TB
 
 ```
 
-The basic concept is that each operation consists of two sides: the **probe** side and the **build** side. The **probe** side is the one that is streamed, while the **build** side is the one that is implemented as the search data structure (for generic *overlap* operation the search structure can be changed using [algorithm](/polars-bio/api/#polars_bio.range_operations.overlap) parameter, for other operations is always [Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees)). In the case of *nearest* operation there is an additional sorted list of intervals used for searching for closest intervals in the case of non-existing overlaps.
+The basic concept is that each operation consists of two sides: the **probe** side and the **build** side. The **probe** side is the one that is streamed, while the **build** side is the one that is implemented as a search data structure (for generic *overlap* operation the search structure can be changed using [algorithm](/polars-bio/api/#polars_bio.range_operations.overlap) parameter, for other operations is always [Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees) as according to the [benchmark](https://github.com/dcjones/coitrees?tab=readme-ov-file#benchmarks) COITrees outperforms other data structures). In the case of *nearest* operation there is an additional sorted list of intervals used for searching for closest intervals in the case of non-existing overlaps.
 
 !!! note
     Available search structure implementations for overlap operation:
@@ -54,14 +54,14 @@ The basic concept is that each operation consists of two sides: the **probe** si
     * [superintervals](https://github.com/kcleal/superintervals/) - on the roadmap, see [issue](https://github.com/biodatageeks/polars-bio/issues/126)
 Once the **build** side data structure is ready, then records from the **probe** side are processed against the search structure organized as record batches. Each record batch can be processed independently. Search structure nodes contains identifiers of the rows from the **build** side that are then used to construct a new record that is returned as a result of the operation.
 
-### Out-of-core processing
+### Out-of-core (streaming) processing
 This algorithm allows you to process your results without requiring **all** your data to be in memory at the same time. In particular, the **probe** side can be streamed from a file or a cloud storage, while the **build** side needs to be materialized in memory. In real applications, the **probe** side is usually a large file with genomic intervals, while the **build** side is a smaller file with annotations or other genomic features. This allows you to process large genomic datasets without running out of memory.
 
 !!! note
     In this sense, the **order** of the sides is important, as the **probe** side is streamed and processed in batches, while the **build** side is fully materialized in memory.
 
 ### Parallelization
-In the current implementation, the **probe** side can be processed in parallel using multiple threads on partitioned (implicitly or explicilty partitioned inputs - see [partitioning strategies](/polars-bio/performance/#parallel-execution-and-scalability)). The **build** side is predominantly single-threaded (with the notable exception of BGZF comppressed input data files reading, which can be parallelized).
+In the current implementation, the **probe** side can be processed in parallel using multiple threads on partitioned (implicitly or explicilty partitioned inputs - see [partitioning strategies](/polars-bio/performance/#parallel-execution-and-scalability)). The **build** side is predominantly single-threaded (with the notable exception of BGZF compressed or partitioned Parquet/CSV input data files reading, which can be parallelized).
 
 ### Implementation
 `polars-bio` uses the following [Apache DataFusion](https://datafusion.apache.org/) extension points:
@@ -76,20 +76,39 @@ The table below compares `polars-bio` with other popular Python libraries for ge
 
 | Feature/Library                 | polars-bio | Bioframe        | PyRanges0       | PyRanges1  | pybedtools | PyGenomics | GenomicRanges |
 |---------------------------------|-----------|-----------------|-----------------|------------|------------|------------|---------------|
-| out-of-core processing          |   ✅          |  ❌            | ❌               | ❌          | ❌          | ❌          | ❌          | ❌   |
+| out-of-core processing          |   ✅          | ❌               | ❌               | ❌          | ❌          | ❌          | ❌          | ❌   |
 | parallel processing             | ✅         | ❌               | ✅<sup>1</sup>   | ❌ | ❌          | ❌          | ❌             |
 | vectorized execution engine     | ✅         | ❌               | ❌               | ❌          | ❌          | ❌          | ❌             |
-| zero-copy data exchange         | ✅         | ❌               | ❌               | ❌          | ❌          | ❌          | ❌             |
-| cloud object storage support    | ✅         | ✅/❌<sup>3</sup> | ❌               | ❌          | ❌          | ❌          | ✅             |
-| Pandas/Polars DataFrame support | ✅/✅       | ✅/❌             | ✅/❌<sup>4</sup> |  ✅/❌<sup>4</sup>           | ❌/❌          | ❌/❌           | ✅/✅             |
+| cloud object storage support    | ✅         | ✅/❌<sup>2</sup> | ❌               | ❌          | ❌          | ❌          | ✅             |
+| Pandas/Polars DataFrame support | ✅/✅       | ✅/❌             | ✅/❌<sup>3</sup> |  ✅/❌<sup>4</sup>           | ❌/❌          | ❌/❌           | ✅/✅             |
 
 
 !!! note
-    <sup>1</sup> PyRanges0 supports parallel processing with Dask, but it does not bring any performance benefits over single-threaded [execution](https://github.com/pyranges/pyranges/issues/363) and it is not recommended.
+    <sup>1</sup> PyRanges0 supports parallel processing with [Ray](https://github.com/ray-project/ray), but it does not bring any performance benefits over single-threaded [execution](https://github.com/pyranges/pyranges/issues/363) and it is not recommended. *Overlap* and *nearest* operations benchmark (1,2,4,6,8 threads) on *8-7* on Apple M3 Max platfotm confirms this observation.
+
+    | Library     |   Min (s) |   Max (s) |  Mean (s) | Speedup |
+    |-------------|-----------|-----------|-----------|---------|
+    | pyranges0   | 16.519153 | 17.889156 | 17.118936 |   1.00x |
+    | pyranges0-2 | 32.539549 | 34.858773 | 33.762477 |   0.51x |
+    | pyranges0-4 | 30.033927 | 30.367822 | 30.158362 |   0.57x |
+    | pyranges0-6 | 27.711752 | 33.280867 | 30.089641 |   0.57x |
+    | pyranges0-8 | 30.049501 | 33.257462 | 31.553328 |   0.54x |
+
+
+    | Library     |  Min (s) |  Max (s) | Mean (s) | Speedup |
+    |-------------|----------|----------|----------|---------|
+    | pyranges0   | 1.580677 | 1.703093 | 1.630820 |   1.00x |
+    | pyranges0-2 | 3.954720 | 4.032619 | 3.997087 |   0.41x |
+    | pyranges0-4 | 3.716688 | 4.004058 | 3.847917 |   0.42x |
+    | pyranges0-6 | 3.853526 | 3.942475 | 3.883337 |   0.42x |
+    | pyranges0-8 | 3.861577 | 3.924950 | 3.902913 |   0.42x |
 
     <sup>2</sup> Some input functions, such as `read_table` support cloud object storage
 
     <sup>3</sup> Only export/import with data copying is [supported](https://pyranges.readthedocs.io/en/latest/tutorial.html#pandas-vs-pyranges)
+
+    <sup>4</sup> RangeFrame class extends Pandas DataFrame
+
 
 ## Benchmark setup
 
@@ -104,6 +123,9 @@ PRFOF_FILE="polars_bio_1-2.dat"
 mprof run --output $PRFOF_FILE python src/run-memory-profiler.py --bench-config conf/paper/benchmark-e2e-overlap.yaml --tool polars_bio --test-case 1-2
 mprof plot $PRFOF_FILE
 ```
+
+!!! note
+    On each memory profile plot, the maximum memory is marked at the intersection of the two dashed lines.
 
 
 
@@ -167,6 +189,8 @@ Jianglin Feng , Aakrosh Ratan , Nathan C Sheffield, *Augmented Interval List: a 
 | 7        | ex-anno          | 1,194       | Dataset contains GenCode annotations with ~1.2 million lines, mixing all types of features. |
 | 8        | ex-rna           | 9,945       | Dataset contains ~10 million direct-RNA mappings.                                           |
 
+
+
 Source: [AIList Github](https://github.com/databio/AIList?tab=readme-ov-file#test-results)
 
 All Parquet files from this dataset shared the same schema:
@@ -200,9 +224,31 @@ All Parquet files from this dataset shared the same schema:
         * [random_intervals_20250622_221714-8p.zip](https://drive.google.com/uc?id=1ZvpNAdNFck7XgExJnJm-dwhbBJyW9VAw)
 
 
+#### Overlap results
+
+| Test case | polars_bio<sup>1</sup> - # of overlaps | bioframe<sup>2</sup> - # of overlaps | pyranges0 - # of overlaps | pyranges1 - # of overlaps |
+|:----------|:---------------------------------------|--------------------------------------|---------------------------------------|---------------------------------------|
+| 1-2       | 54246                                  | 54246                                | 54246                                 | 54246                                 |
+| 8-7       | 307184634                              | 307184634                            | 307184634                             | 307184634                             |
+| 100       | 781                                    | 781                                  | 781                                   | 781                                   |
+| 1000      | 8859                                   | 8859                                 | 8859                                  | 8859                                  |
+| 10000     | 90236                                  | 90236                                | 90236                                 | 90236                                 |
+| 100000    | 902553                                 | 902553                               | 902553                                | 902553                                |
+| 1000000   | 9007817                                | 9007817                              | 9007817                               | 9007817                               |
+| 10000000  | 90005371                               | 90005371                             | 90005371                              | 90005371                              |
+
+
+<sup>1</sup> bioframe and pyranges are zero-based, this is why we need to set `use_zero_based=True` (polars-bio >= 0.10.3) in polars-bio to get the same results as in bioframe and pyranges.
+
+<sup>2</sup> bioframe `how` parameter is set to `inner` (`left` by default)
+
 
 ### Single thread results
 Results for `overlap`, `nearest`, `count-overlaps`, and `coverage` operations with single-thread performance on `apple-m3-max` and `gcp-linux` platforms.
+
+!!! note
+    Please note that in case of `pyranges0` we were unable to compute the results of *coverage* and *count-overlaps* operations for Apple M3, so the results are not presented here.
+
 
 ```python exec="true"
 import pandas as pd
