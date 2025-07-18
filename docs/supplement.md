@@ -247,7 +247,7 @@ All Parquet files from this dataset shared the same schema:
 Results for `overlap`, `nearest`, `count-overlaps`, and `coverage` operations with single-thread performance on `apple-m3-max` and `gcp-linux` platforms.
 
 !!! note
-    Please note that in case of `pyranges0` we were unable to compute the results of *coverage* and *count-overlaps* operations for Apple M3, so the results are not presented here.
+    Please note that in case of `pyranges0` we were unable to compute the results of *coverage* and *count-overlaps* operations for macOS and Linux in the synthetic benchmark, so the results are not presented here.
 
 
 ```python exec="true"
