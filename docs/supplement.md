@@ -55,10 +55,11 @@ The basic concept is that each operation consists of two sides: the **probe** si
 Once the **build** side data structure is ready, then records from the **probe** side are processed against the search structure organized as record batches. Each record batch can be processed independently. Search structure nodes contains identifiers of the rows from the **build** side that are then used to construct a new record that is returned as a result of the operation.
 
 ### Out-of-core (streaming) processing
-This algorithm allows you to process your results without requiring **all** your data to be in memory at the same time. In particular, the **probe** side can be streamed from a file or a cloud storage, while the **build** side needs to be materialized in memory. In real applications, the **probe** side is usually a large file with genomic intervals, while the **build** side is a smaller file with annotations or other genomic features. This allows you to process large genomic datasets without running out of memory.
+This algorithm allows you to process your results without requiring **all** your data to be in memory at the same time. In particular, the **probe** side can be streamed from a file stored locally or on a cloud object storage, while the **build** side needs to be fully materialized in memory. In real applications, the **probe** side is usually a large file with genomic intervals, while the **build** side is a smaller file with annotations or other genomic features. This allows you to process large genomic datasets without running out of memory.
 
 !!! note
-    In this sense, the **order** of the sides is important, as the **probe** side is streamed and processed in batches, while the **build** side is fully materialized in memory.
+    1. In this sense, the **order** of the sides is important, as the **probe** side is streamed and processed in batches, while the **build** side is fully materialized in memory.
+    2. The **smaller** the *build* side and **larger** the number of overlaps are, the **higher** is the gain of memory efficiency. For instance, when we compare the real `8-7` (`10^7 vs. 1.2*10^6`) and synthetic (`10^7 vs. 10^7`) datasets, we can see that we benefit more from using streaming mode in the **former** benchmark.
 
 ### Parallelization
 In the current implementation, the **probe** side can be processed in parallel using multiple threads on partitioned (implicitly or explicilty partitioned inputs - see [partitioning strategies](/polars-bio/performance/#parallel-execution-and-scalability)). The **build** side is predominantly single-threaded (with the notable exception of BGZF compressed or partitioned Parquet/CSV input data files reading, which can be parallelized).
@@ -247,7 +248,7 @@ All Parquet files from this dataset shared the same schema:
 Results for `overlap`, `nearest`, `count-overlaps`, and `coverage` operations with single-thread performance on `apple-m3-max` and `gcp-linux` platforms.
 
 !!! note
-    Please note that in case of `pyranges0` we were unable to compute the results of *coverage* and *count-overlaps* operations for Apple M3, so the results are not presented here.
+    Please note that in case of `pyranges0` we were unable to compute the results of *coverage* and *count-overlaps* operations for macOS and Linux in the synthetic benchmark, so the results are not presented here.
 
 
 ```python exec="true"
@@ -596,3 +597,4 @@ memory usage: 9.4 GB
 
 !!! Note
     Please note that `pyranges` unlike *bioframe* and *polars-bio* returns only one chromosome column but uses `int64` data types for encoding start and end positions even if input datasets use `int32`.
+
