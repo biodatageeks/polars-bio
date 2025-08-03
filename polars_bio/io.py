@@ -293,7 +293,6 @@ class IOOperations:
     @staticmethod
     def read_fastq(
         path: str,
-        thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -302,13 +301,13 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         streaming: bool = False,
+        parallel: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame]:
         """
         Read a FASTQ file into a LazyFrame.
 
         Parameters:
             path: The path to the FASTQ file.
-            thread_num: The number of threads to use for reading the FASTQ file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -317,6 +316,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
             streaming: Whether to read the FASTQ file in streaming mode.
+            parallel: Whether to use the parallel reader for BGZF compressed files.
 
         !!! Example
 
@@ -348,8 +348,7 @@ class IOOperations:
         )
 
         fastq_read_options = FastqReadOptions(
-            thread_num=thread_num,
-            object_storage_options=object_storage_options,
+            object_storage_options=object_storage_options, parallel=parallel
         )
         read_options = ReadOptions(fastq_read_options=fastq_read_options)
         if streaming:

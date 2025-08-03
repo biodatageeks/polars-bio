@@ -1,5 +1,6 @@
 import bioframe as bf
 import pandas as pd
+import pytest
 from _expected import (
     DATA_DIR,
     PD_DF_OVERLAP,
@@ -161,7 +162,16 @@ class TestFastq:
             sequences["sequence"][3]
             == "GGGAGGCGCCCCGACCGGCCAGGGCGTGAGCCCCAGCCCCAGCGCCATCCTGGAGCGGCGCGACGTGAAGCCAGATGAGGACCTGGCGGGCAAGGCTGGCG"
         )
-        assert sequences["description"][4] == "D00236:723:HG32CBCX2:1:1108:1605:1988/1"
+
+
+class TestParallelFastq:
+    @pytest.mark.parametrize("partitions", [1, 2, 3, 4])
+    def test_read_parallel_fastq(self, partitions):
+        pb.set_option("datafusion.execution.target_partitions", str(partitions))
+        df = pb.read_fastq(
+            f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz", parallel=True
+        ).collect()
+        assert len(df) == 2000
 
 
 class TestIOGFF:

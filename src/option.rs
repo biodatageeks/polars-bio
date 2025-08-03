@@ -229,30 +229,26 @@ pub fn pyobject_storage_options_to_object_storage_options(
 #[pyclass(name = "FastqReadOptions")]
 #[derive(Clone, Debug)]
 pub struct FastqReadOptions {
-    #[pyo3(get, set)]
-    pub thread_num: Option<usize>,
     pub object_storage_options: Option<ObjectStorageOptions>,
+    #[pyo3(get, set)]
+    pub parallel: bool,
 }
 
 #[pymethods]
 impl FastqReadOptions {
     #[new]
-    #[pyo3(signature = (thread_num=None, object_storage_options=None))]
-    pub fn new(
-        thread_num: Option<usize>,
-        object_storage_options: Option<PyObjectStorageOptions>,
-    ) -> Self {
+    #[pyo3(signature = (object_storage_options=None, parallel=true))]
+    pub fn new(object_storage_options: Option<PyObjectStorageOptions>, parallel: bool) -> Self {
         FastqReadOptions {
-            thread_num,
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
+            parallel,
         }
     }
     #[staticmethod]
     pub fn default() -> Self {
         FastqReadOptions {
-            thread_num: Some(1),
             object_storage_options: Some(ObjectStorageOptions {
                 chunk_size: Some(1024 * 1024), // 1MB
                 concurrent_fetches: Some(4),
@@ -262,6 +258,7 @@ impl FastqReadOptions {
                 timeout: Some(300), // 300 seconds
                 compression_type: Some(CompressionType::AUTO),
             }),
+            parallel: true,
         }
     }
 }
