@@ -575,7 +575,7 @@ def lazy_scan(df: Union[pl.DataFrame, pl.LazyFrame]) -> pl.LazyFrame:
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
         if n_rows and n_rows < 8192:  # 8192 is the default batch size in datafusion
-            df = df_lazy.execute_stream().next().to_pyarrow()
+            df = df_lazy.limit(n_rows).execute_stream().next().to_pyarrow()
             df = pl.DataFrame(df).limit(n_rows)
             if predicate is not None:
                 df = df.filter(predicate)
