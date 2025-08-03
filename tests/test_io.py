@@ -136,23 +136,40 @@ class TestIOVCF:
 
 
 class TestFastq:
-    df_bgz = pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.bgz").collect()
-    df_gz = pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.gz").collect()
-    df_none = pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq").collect()
-    df_bgz_wrong_extension = pb.read_fastq(
-        f"{DATA_DIR}/io/fastq/wrong_extension.fastq.gz", compression_type="bgz"
-    ).collect()
-
     def test_count(self):
-        assert len(self.df_none) == 200
-        assert len(self.df_bgz) == 200
-        assert len(self.df_gz) == 200
+        assert (
+            pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.bgz")
+            .count()
+            .collect()["name"][0]
+            == 200
+        )
+        assert (
+            pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.gz")
+            .count()
+            .collect()["name"][0]
+            == 200
+        )
+        assert (
+            pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq")
+            .count()
+            .collect()["name"][0]
+            == 200
+        )
 
     def test_compression_override(self):
-        assert len(self.df_bgz_wrong_extension) == 200
+        assert (
+            pb.read_fastq(
+                f"{DATA_DIR}/io/fastq/wrong_extension.fastq.gz", compression_type="bgz"
+            )
+            .count()
+            .collect()["name"][0]
+            == 200
+        )
 
     def test_fields(self):
-        sequences = self.df_bgz
+        sequences = (
+            pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.bgz").limit(5).collect()
+        )
         assert sequences["name"][1] == "SRR9130495.2"
         assert (
             sequences["quality_scores"][2]
@@ -172,6 +189,14 @@ class TestParallelFastq:
             f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz", parallel=True
         ).collect()
         assert len(df) == 2000
+
+    def test_read_parallel_fastq_with_limit(self):
+        lf = pb.read_fastq(
+            f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz", parallel=True
+        ).limit(10)
+        print(lf.explain())
+        df = lf.collect()
+        assert len(df) == 10
 
 
 class TestIOGFF:
