@@ -172,7 +172,6 @@ class SQL:
     def register_fastq(
         path: str,
         name: Union[str, None] = None,
-        thread_num: int = 1,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
@@ -180,6 +179,7 @@ class SQL:
         timeout: int = 300,
         enable_request_payer: bool = False,
         compression_type: str = "auto",
+        parallel: bool = True,
     ) -> None:
         """
         Register a FASTQ file as a Datafusion table.
@@ -187,7 +187,6 @@ class SQL:
         Parameters:
             path: The path to the FASTQ file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
-            thread_num: The number of threads to use for reading the FASTQ file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -195,6 +194,7 @@ class SQL:
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compression is supported ('bgz' and 'gz').
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
+            parallel: Whether to use the parallel reader for BGZF compressed files.
 
         !!! Example
             ```python
@@ -236,8 +236,7 @@ class SQL:
         )
 
         fastq_read_options = FastqReadOptions(
-            thread_num=thread_num,
-            object_storage_options=object_storage_options,
+            object_storage_options=object_storage_options, parallel=parallel
         )
         read_options = ReadOptions(fastq_read_options=fastq_read_options)
         py_register_table(ctx, path, name, InputFormat.Fastq, read_options)

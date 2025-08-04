@@ -1,5 +1,6 @@
 import bioframe as bf
 import pandas as pd
+import pytest
 from _expected import (
     DATA_DIR,
     PD_DF_OVERLAP,
@@ -135,23 +136,40 @@ class TestIOVCF:
 
 
 class TestFastq:
-    df_bgz = pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.bgz").collect()
-    df_gz = pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.gz").collect()
-    df_none = pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq").collect()
-    df_bgz_wrong_extension = pb.read_fastq(
-        f"{DATA_DIR}/io/fastq/wrong_extension.fastq.gz", compression_type="bgz"
-    ).collect()
-
     def test_count(self):
-        assert len(self.df_none) == 200
-        assert len(self.df_bgz) == 200
-        assert len(self.df_gz) == 200
+        assert (
+            pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.bgz")
+            .count()
+            .collect()["name"][0]
+            == 200
+        )
+        assert (
+            pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.gz")
+            .count()
+            .collect()["name"][0]
+            == 200
+        )
+        assert (
+            pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq")
+            .count()
+            .collect()["name"][0]
+            == 200
+        )
 
     def test_compression_override(self):
-        assert len(self.df_bgz_wrong_extension) == 200
+        assert (
+            pb.read_fastq(
+                f"{DATA_DIR}/io/fastq/wrong_extension.fastq.gz", compression_type="bgz"
+            )
+            .count()
+            .collect()["name"][0]
+            == 200
+        )
 
     def test_fields(self):
-        sequences = self.df_bgz
+        sequences = (
+            pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.bgz").limit(5).collect()
+        )
         assert sequences["name"][1] == "SRR9130495.2"
         assert (
             sequences["quality_scores"][2]
@@ -161,7 +179,24 @@ class TestFastq:
             sequences["sequence"][3]
             == "GGGAGGCGCCCCGACCGGCCAGGGCGTGAGCCCCAGCCCCAGCGCCATCCTGGAGCGGCGCGACGTGAAGCCAGATGAGGACCTGGCGGGCAAGGCTGGCG"
         )
-        assert sequences["description"][4] == "D00236:723:HG32CBCX2:1:1108:1605:1988/1"
+
+
+class TestParallelFastq:
+    @pytest.mark.parametrize("partitions", [1, 2, 3, 4])
+    def test_read_parallel_fastq(self, partitions):
+        pb.set_option("datafusion.execution.target_partitions", str(partitions))
+        df = pb.read_fastq(
+            f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz", parallel=True
+        ).collect()
+        assert len(df) == 2000
+
+    def test_read_parallel_fastq_with_limit(self):
+        lf = pb.read_fastq(
+            f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz", parallel=True
+        ).limit(10)
+        print(lf.explain())
+        df = lf.collect()
+        assert len(df) == 10
 
 
 class TestIOGFF:

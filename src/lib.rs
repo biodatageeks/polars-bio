@@ -48,7 +48,7 @@ fn range_operation_frame(
     limit: Option<usize>,
 ) -> PyResult<PyDataFrame> {
     #[allow(clippy::useless_conversion)]
-    let rt = Runtime::new().unwrap();
+    let rt = Runtime::new()?;
     let ctx = &py_ctx.ctx;
     register_frame(py_ctx, df1, LEFT_TABLE.to_string());
     register_frame(py_ctx, df2, RIGHT_TABLE.to_string());
@@ -133,7 +133,7 @@ fn stream_range_operation_scan(
 ) -> PyResult<PyLazyFrame> {
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
-        let rt = Runtime::new().unwrap();
+        let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         // check if the input has an extension
 
@@ -173,7 +173,7 @@ fn stream_range_operation_scan(
         let stream = rt.block_on(df.execute_stream()).unwrap();
         let scan = RangeOperationScan {
             df_iter: Arc::new(Mutex::new(stream)),
-            rt: Runtime::new().unwrap(),
+            rt: Runtime::new()?,
         };
         let function = Arc::new(scan);
         let lf = LazyFrame::anonymous_scan(function, args).map_err(PyPolarsErr::from)?;
@@ -193,7 +193,7 @@ fn py_register_table(
 ) -> PyResult<Option<BioTable>> {
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
-        let rt = Runtime::new().unwrap();
+        let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
 
         let table_name = match name {
@@ -244,7 +244,7 @@ fn py_read_sql(
 ) -> PyResult<PyDataFrame> {
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
-        let rt = Runtime::new().unwrap();
+        let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         let df = rt.block_on(ctx.sql(&sql_text)).unwrap();
         Ok(PyDataFrame::new(df))
@@ -260,7 +260,7 @@ fn py_scan_sql(
 ) -> PyResult<PyLazyFrame> {
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
-        let rt = Runtime::new().unwrap();
+        let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
 
         let df = rt.block_on(ctx.session.sql(&sql_text))?;
@@ -284,7 +284,7 @@ fn py_scan_sql(
         let stream = rt.block_on(df.execute_stream()).unwrap();
         let scan = RangeOperationScan {
             df_iter: Arc::new(Mutex::new(stream)),
-            rt: Runtime::new().unwrap(),
+            rt: Runtime::new()?,
         };
         let function = Arc::new(scan);
         let lf = LazyFrame::anonymous_scan(function, args).map_err(PyPolarsErr::from)?;
@@ -301,7 +301,7 @@ fn py_scan_table(
 ) -> PyResult<PyLazyFrame> {
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
-        let rt = Runtime::new().unwrap();
+        let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
 
         let df = rt.block_on(ctx.session.table(&table_name))?;
@@ -325,7 +325,7 @@ fn py_scan_table(
         let stream = rt.block_on(df.execute_stream()).unwrap();
         let scan = RangeOperationScan {
             df_iter: Arc::new(Mutex::new(stream)),
-            rt: Runtime::new().unwrap(),
+            rt: Runtime::new()?,
         };
         let function = Arc::new(scan);
         let lf = LazyFrame::anonymous_scan(function, args).map_err(PyPolarsErr::from)?;
@@ -342,7 +342,7 @@ fn py_read_table(
 ) -> PyResult<PyDataFrame> {
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
-        let rt = Runtime::new().unwrap();
+        let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         let df = rt
             .block_on(ctx.sql(&format!("SELECT * FROM {}", table_name)))
@@ -360,7 +360,7 @@ fn py_describe_vcf(
     object_storage_options: Option<PyObjectStorageOptions>,
 ) -> PyResult<PyDataFrame> {
     py.allow_threads(|| {
-        let rt = Runtime::new().unwrap();
+        let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx.session;
         let object_storage_options =
             pyobject_storage_options_to_object_storage_options(object_storage_options);
@@ -395,7 +395,7 @@ fn py_register_view(
     query: String,
 ) -> PyResult<()> {
     py.allow_threads(|| {
-        let rt = Runtime::new().unwrap();
+        let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         rt.block_on(ctx.sql(&format!("CREATE OR REPLACE VIEW {} AS {}", name, query)))
             .unwrap();

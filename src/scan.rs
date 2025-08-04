@@ -9,6 +9,7 @@ use datafusion::datasource::MemTable;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions};
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
+use datafusion_bio_format_fastq::bgzf_parallel_reader::BgzfFastqTableProvider as BgzfParallelFastqTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
@@ -111,15 +112,23 @@ pub(crate) async fn register_table(
                 "Registering FASTQ table {} with options: {:?}",
                 table_name, fastq_read_options
             );
-            let table_provider = FastqTableProvider::new(
-                path.to_string(),
-                fastq_read_options.thread_num,
-                fastq_read_options.object_storage_options.clone(),
-            )
-            .unwrap();
-            ctx.session
-                .register_table(table_name, Arc::new(table_provider))
-                .expect("Failed to register FASTQ table");
+
+            if fastq_read_options.parallel && path.ends_with(".bgz") {
+                let table_provider = BgzfParallelFastqTableProvider::try_new(path).unwrap();
+                ctx.session
+                    .register_table(table_name, Arc::new(table_provider))
+                    .expect("Failed to register parallel FASTQ table");
+            } else {
+                let table_provider = FastqTableProvider::new(
+                    path.to_string(),
+                    None,
+                    fastq_read_options.object_storage_options.clone(),
+                )
+                .unwrap();
+                ctx.session
+                    .register_table(table_name, Arc::new(table_provider))
+                    .expect("Failed to register FASTQ table");
+            }
         },
         InputFormat::Vcf => {
             let vcf_read_options = match &read_options {
