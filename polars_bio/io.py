@@ -316,7 +316,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
             streaming: Whether to read the FASTQ file in streaming mode.
-            parallel: Whether to use the parallel reader for BGZF compressed files.
+            parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
 
         !!! Example
 
@@ -335,6 +335,22 @@ class IOOperations:
             └─────────────────────┴─────────────────────────────────┴─────────────────────────────────┴─────────────────────────────────┘
 
             ```
+
+            Parallel reading of BZGF compressed FASTQ files stored locally:
+            ```shell
+            ls -1 /tmp/ERR194146.fastq.bgz*
+            ERR194146.fastq.bgz
+            ERR194146.fastq.bgz.gzi
+            ```
+
+            ```python
+            import polars_bio as pb
+            ## Set the number of target partitions (threads) to 2
+            pb.set_option("datafusion.execution.target_partitions", "2")
+            pb.read_fastq("/tmp/ERR194146.fastq.bgz", parallel=True).count().collect()
+            ```
+
+
         """
 
         object_storage_options = PyObjectStorageOptions(
