@@ -46,6 +46,7 @@ pyarrow = "^18.1.0"
 datafusion = "^43.1.0"
 bioframe = "^0.7.2"
 tqdm = "^4.67.1"
+typing-extensions = "^4.14.1"
 
 
 [tool.poetry.dev-dependencies]
