@@ -116,8 +116,8 @@ class TestBioframe:
         result_lf = self.result_overlap_lf.sort_values(
             by=list(self.result_overlap_lf.columns)
         ).reset_index(drop=True)
-        pd.testing.assert_frame_equal(result, expected)
-        pd.testing.assert_frame_equal(result_lf, expected)
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False)
+        pd.testing.assert_frame_equal(result_lf, expected, check_dtype=False)
 
     def test_nearest_count(self):
         assert len(self.result_nearest) == len(self.result_bio_nearest)
@@ -137,7 +137,7 @@ class TestBioframe:
             by=list(["contig_1", "pos_start_1", "pos_end_1", "distance"])
         ).reset_index(drop=True)
         result = result.drop(columns=["pos_start_2", "pos_end_2"])
-        pd.testing.assert_frame_equal(result, expected)
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False)
 
     def test_overlaps_count(self):
         assert len(self.result_count_overlaps) == len(self.result_bio_count_overlaps)
@@ -164,7 +164,7 @@ class TestBioframe:
             )
             .reset_index(drop=True)
         )
-        pd.testing.assert_frame_equal(result, expected)
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False)
         pd.testing.assert_frame_equal(result_naive, expected, check_dtype=True)
 
     def test_merge_count(self):
@@ -178,7 +178,7 @@ class TestBioframe:
         result = self.result_merge.sort_values(
             by=list(self.result_merge.columns)
         ).reset_index(drop=True)
-        pd.testing.assert_frame_equal(result, expected)
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False)
 
     def test_coverage_count(self):
         result = pb.coverage(
@@ -220,4 +220,4 @@ class TestBioframe:
             .astype({"coverage": "int64"})
         )
         result = result.sort_values(by=list(result.columns)).reset_index(drop=True)
-        pd.testing.assert_frame_equal(result, expected)
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False)

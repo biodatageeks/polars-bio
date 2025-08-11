@@ -15,13 +15,13 @@ classifiers = [
 ]
 
 dependencies = [
-  "polars~=1.17.1",
-#  "polars @ git+https://github.com/mwiewior/polars.git@9d4fca54b1d71fce08a51cf00a88f67c67313706#subdirectory=py-polars",
-  "pandas~=2.2.3",
-  "pyarrow~=18.1.0",
-  "datafusion ~=43.1.0",
-  "bioframe ~=0.7.2",
-  "tqdm ~=4.67.1"]
+  "polars>=1.32.2",
+  "pandas>=2.2.3",
+  "pyarrow>=20.0.0",
+  "datafusion >=43.1.0",
+  # Temporarily commented out bioframe due to Python 3.12 ncls dependency issue
+  "bioframe >=0.8.0",
+  "tqdm >=4.67.1"]
 
 [tool.maturin]
 module-name = "polars_bio"
@@ -38,24 +38,23 @@ authors = ["Marek Wiewiórka <marek.wiewiorka@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-polars ="1.17.1"
-#polars  = { git = "https://github.com/mwiewior/polars.git", rev ="9d4fca54b1d71fce08a51cf00a88f67c67313706", subdirectory = "py-polars"}
+python = ">=3.9,<3.14"
+polars = ">=1.32.2"
 pandas = "^2.2.3"
-pyarrow = "^18.1.0"
+pyarrow = ">=20.0.0"
 datafusion = "^43.1.0"
-bioframe = "^0.7.2"
+# Temporarily commented out bioframe due to Python 3.12 ncls dependency issue
+# bioframe = ">=0.7.2"
 tqdm = "^4.67.1"
 
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
 pytest-cov = "^6.0.0"
 pre-commit = "^4.0.1"
 jupyter = "^1.1.0"
-ruff = "^0.8.2"
-maturin = "^1.7.5"
-mdpd = "^0.2.1"
+ruff = "^0.12.8"
+maturin = ">=1.9.3"
 mkdocs = "^1.6.1"
 mkdocs-jupyter = "^0.25.1"
 mkdocs-material = "^9.5.48"
@@ -68,18 +67,25 @@ mkdocs-with-pdf = "^0.9.3"
 mypy = "^1.13.0"
 py-cpuinfo = "^9.0.0"
 jupyter_client = "^8.6.3"
-psutil = "^6.1.1"
-rich = "^13.9.4"
+psutil = "^7.0.0"
+rich = "^14.1.0"
 tqdm = "^4.67.1"
 memory-profiler = "^0.61.0"
 mkdocs-matplotlib = "^0.10.1"
 mkdocs-exporter = "^6.2.0"
 cairosvg = "^2.8.2"
+# Temporarily commented out bioframe due to Python 3.12 ncls dependency issue
+# bioframe = ">=0.7.2"
+mdpd = {git = "https://github.com/kyoto7250/mdpd.git"}
 
 
-## only for benchmarking
-pyranges = {git = "https://github.com/pyranges/pyranges.git", rev = "4f0a153336e7153cdfea15b141ce4ea35a24e233" }
-GenomicRanges = "^0.5.0"
+## only for benchmarking - removed problematic Python 3.12 packages
+# Temporarily commenting out pyranges due to Python 3.12 compatibility issues
+# pyranges = {git = "https://github.com/pyranges/pyranges.git", rev = "4f0a153336e7153cdfea15b141ce4ea35a24e233" }
+# Temporarily commenting out GenomicRanges due to potential Python 3.12 compatibility issues
+# GenomicRanges = "^0.5.0"
 #pyranges1 = { git = "https://github.com/mwiewior/pyranges1.git", rev = "949d7c15c1c2e217f4404415f79b386f326b6f8d"}
-pybedtools = "^0.10.0"
-pygenomics =  { git = "https://gitlab.com/gtamazian/pygenomics.git", rev = "0.1.1"}
+# Temporarily commenting out pybedtools due to Python 3.12 compatibility issues
+# pybedtools = "^0.10.0"
+# Temporarily commenting out pygenomics due to potential Python 3.12 compatibility issues
+# pygenomics =  { git = "https://gitlab.com/gtamazian/pygenomics.git", rev = "0.1.1"}

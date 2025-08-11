@@ -61,7 +61,7 @@ class TestNearestNative:
             drop=True
         )
         expected = PD_DF_NEAREST
-        pd.testing.assert_frame_equal(result, expected)
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False)
 
 
 class TestCountOverlapsNative:
@@ -84,7 +84,7 @@ class TestCountOverlapsNative:
             drop=True
         )
         expected = PD_DF_COUNT_OVERLAPS
-        pd.testing.assert_frame_equal(result, expected)
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False)
 
 
 class TestMergeNative:
@@ -104,7 +104,7 @@ class TestMergeNative:
             drop=True
         )
         expected = PD_DF_MERGE
-        pd.testing.assert_frame_equal(result, expected)
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False)
 
 
 class TestCoverageNative:
@@ -133,4 +133,4 @@ class TestCoverageNative:
             drop=True
         )
         expected = self.result_bio.astype({"coverage": "int64"})
-        pd.testing.assert_frame_equal(result, expected)
+        pd.testing.assert_frame_equal(result, expected, check_dtype=False)

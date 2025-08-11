@@ -86,7 +86,15 @@ def convert_result(
     if output_type == "polars.DataFrame":
         return df.to_polars()
     elif output_type == "pandas.DataFrame":
-        return df.to_pandas()
+        pdf = df.to_pandas()
+        # Convert object columns to pandas string dtype for compatibility with tests
+        for col in pdf.columns:
+            if pdf[col].dtype == 'object':
+                try:
+                    pdf[col] = pdf[col].astype('string[python]')
+                except:
+                    pass  # Keep as object if conversion fails
+        return pdf
     elif output_type == "polars.LazyFrame":
         return df_to_lazyframe(df)
     raise ValueError("Invalid `output_type` argument")

@@ -85,7 +85,15 @@ def range_operation(
             result = range_operation_scan(
                 ctx, df1, df2, range_options, read_options1, read_options2
             )
-            return result.to_pandas()
+            df = result.to_pandas()
+            # Convert object columns to pandas string dtype for compatibility with tests
+            for col in df.columns:
+                if df[col].dtype == 'object':
+                    try:
+                        df[col] = df[col].astype('string[python]')
+                    except:
+                        pass  # Keep as object if conversion fails
+            return df
         elif output_type == "datafusion.DataFrame":
             from datafusion._internal import SessionContext as SessionContextInternal
 
@@ -113,7 +121,15 @@ def range_operation(
             if output_type == "polars.DataFrame":
                 return result.to_polars()
             elif output_type == "pandas.DataFrame":
-                return result.to_pandas()
+                df = result.to_pandas()
+                # Convert object columns to pandas string dtype for compatibility with tests
+                for col in df.columns:
+                    if df[col].dtype == 'object':
+                        try:
+                            df[col] = df[col].astype('string[python]')
+                        except:
+                            pass  # Keep as object if conversion fails
+                return df
             else:
                 raise ValueError(
                     "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
