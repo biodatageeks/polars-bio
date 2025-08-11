@@ -15,7 +15,7 @@ classifiers = [
 ]
 
 dependencies = [
-  "polars>=1.32.2",
+  "polars==1.21.0",
   "pandas>=2.2.3",
   "pyarrow>=20.0.0",
   "datafusion >=43.1.0",
@@ -39,7 +39,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.14"
-polars = ">=1.32.2"
+polars = "==1.21.0"
 pandas = "^2.2.3"
 pyarrow = ">=20.0.0"
 datafusion = "^43.1.0"
