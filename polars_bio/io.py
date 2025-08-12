@@ -1,7 +1,6 @@
 from typing import Dict, Iterator, Union
 
 import polars as pl
-from bioframe import SCHEMAS
 from datafusion import DataFrame, SessionContext
 from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
@@ -27,6 +26,35 @@ from polars_bio.polars_bio import (
 
 from .context import ctx
 from .range_op_helpers import stream_wrapper
+
+SCHEMAS = {
+    "bed3": ["chrom", "start", "end"],
+    "bed4": ["chrom", "start", "end", "name"],
+    "bed5": ["chrom", "start", "end", "name", "score"],
+    "bed6": ["chrom", "start", "end", "name", "score", "strand"],
+    "bed7": ["chrom", "start", "end", "name", "score", "strand", "thick_start"],
+    "bed8": [
+        "chrom",
+        "start",
+        "end",
+        "name",
+        "score",
+        "strand",
+        "thick_start",
+        "thick_end",
+    ],
+    "bed9": [
+        "chrom",
+        "start",
+        "end",
+        "name",
+        "score",
+        "strand",
+        "thick_start",
+        "thick_end",
+        "item_rgb",
+    ],
+}
 
 
 class IOOperations:
@@ -511,7 +539,7 @@ class IOOperations:
             │ name      ┆ type    ┆ description                                                                          │
             │ ---       ┆ ---     ┆ ---                                                                                  │
             │ str       ┆ str     ┆ str                                                                                  │
-            ╞═══════════╪═════════╪══════════════════════════════════════════════════════════════════════════════════════╡
+            ╞═══════════╪═════════╪══════════════════════════════════════════════════════════════════════════════════╡
             │ AC        ┆ Integer ┆ Number of non-reference alleles observed (biallelic sites only).                     │
             │ AC_XX     ┆ Integer ┆ Number of non-reference XX alleles observed (biallelic sites only).                  │
             │ AC_XY     ┆ Integer ┆ Number of non-reference XY alleles observed (biallelic sites only).                  │

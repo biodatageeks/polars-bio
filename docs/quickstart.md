@@ -2,6 +2,14 @@
 ```shell
 pip install polars-bio
 ```
+To enable support for Pandas DataFrames, install the `pandas` extra:
+```shell
+pip install polars-bio[pandas]
+```
+For visualization features, which depend on `bioframe` and `matplotlib`, install the `viz` extra:
+```shell
+pip install polars-bio[viz]
+```
 There are binary versions for Linux (x86_64), MacOS (x86_64 and arm64) and Windows (x86_64).
 In case of other platforms (or errors indicating incompatibilites between Python's ABI), it is fairly easy to build polars-bio from source with [poetry](https://python-poetry.org/) and [maturin](https://github.com/PyO3/maturin):
 ```shell

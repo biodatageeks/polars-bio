@@ -1,13 +1,18 @@
 from typing import Union
 
-import bioframe as bf
 import polars as pl
-from matplotlib import pyplot as plt
 
 try:
     import pandas as pd
 except ImportError:
     pd = None
+
+try:
+    import bioframe as bf
+    from matplotlib import pyplot as plt
+except ImportError:
+    bf = None
+    plt = None
 
 
 class Utils:
@@ -23,9 +28,9 @@ class Utils:
             label: TBD
 
         """
-        if pd is None:
+        if bf is None or plt is None or pd is None:
             raise ImportError(
-                "pandas is not installed. Please run `pip install pandas` or `pip install polars-bio[pandas]`."
+                "visualization dependencies are not installed. Please run `pip install polars-bio[viz]`"
             )
         assert isinstance(
             df, (pd.DataFrame, pl.DataFrame)
