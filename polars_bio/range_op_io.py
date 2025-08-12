@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Iterator, Union
 
 import datafusion
-import pandas as pd
 import polars as pl
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -22,10 +21,15 @@ from polars_bio.polars_bio import (
     stream_range_operation_scan,
 )
 
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
 
 def range_lazy_scan(
-    df_1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-    df_2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+    df_1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+    df_2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
     schema: pl.Schema,
     range_options: RangeOptions,
     ctx: BioSessionContext,
@@ -78,13 +82,13 @@ def _rename_columns_pl(df: pl.DataFrame, suffix: str) -> pl.DataFrame:
 
 
 def _rename_columns(
-    df: Union[pl.DataFrame, pd.DataFrame, pl.LazyFrame], suffix: str
-) -> Union[pl.DataFrame, pd.DataFrame]:
+    df: Union[pl.DataFrame, "pd.DataFrame", pl.LazyFrame], suffix: str
+) -> Union[pl.DataFrame, "pd.DataFrame"]:
     if isinstance(df, pl.DataFrame) or isinstance(df, pl.LazyFrame):
         schema = df.collect_schema() if isinstance(df, pl.LazyFrame) else df.schema
         df = pl.DataFrame(schema=schema)
         return _rename_columns_pl(df, suffix)
-    elif isinstance(df, pd.DataFrame):
+    elif pd and isinstance(df, pd.DataFrame):
         df = pl.from_pandas(pd.DataFrame(columns=df.columns))
         return _rename_columns_pl(df, suffix)
     else:
@@ -147,14 +151,14 @@ def _get_column_index(table, column_name):
 
 
 def _df_to_reader(
-    df: Union[pl.DataFrame, pd.DataFrame, pl.LazyFrame],
+    df: Union[pl.DataFrame, "pd.DataFrame", pl.LazyFrame],
     col: str,
 ) -> pa.RecordBatchReader:
     if isinstance(df, pl.LazyFrame):
         df = df.collect()
     if isinstance(df, pl.DataFrame):
         df = df.to_arrow()
-    elif isinstance(df, pd.DataFrame):
+    elif pd and isinstance(df, pd.DataFrame):
         df = pa.Table.from_pandas(df)
         df = _string_to_largestring(df, col)
     else:

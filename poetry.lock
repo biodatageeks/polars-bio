@@ -5166,7 +5166,10 @@ files = [
 [package.extras]
 test = ["pytest"]
 
+[extras]
+pandas = []
+
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "c61bb283dfcc7b5fc05336697b079597ef858c2cd9c2448a7af65924a1646274"
+content-hash = "96f18685e267bc7ab24c2cf906beda86adf850d54cdcc514eeb26c40ff7d4fa3"

@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import Union
 
-import pandas as pd
 import polars as pl
 
 from polars_bio.polars_bio import (
@@ -18,16 +17,21 @@ from .constants import TMP_CATALOG_DIR
 from .logging import logger
 from .range_op_io import _df_to_reader, _get_schema, _rename_columns, range_lazy_scan
 
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
 
 def range_operation(
-    df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-    df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+    df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+    df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
     range_options: RangeOptions,
     output_type: str,
     ctx: BioSessionContext,
     read_options1: Union[ReadOptions, None] = None,
     read_options2: Union[ReadOptions, None] = None,
-) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame]:
+) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame"]:
     ctx.sync_options()
     if isinstance(df1, str) and isinstance(df2, str):
         supported_exts = set([".parquet", ".csv", ".bed", ".vcf"])
@@ -82,6 +86,10 @@ def range_operation(
                 ctx, df1, df2, range_options, read_options1, read_options2
             ).to_polars()
         elif output_type == "pandas.DataFrame":
+            if pd is None:
+                raise ImportError(
+                    "pandas is not installed. Please run `pip install pandas` or `pip install polars-bio[pandas]`."
+                )
             result = range_operation_scan(
                 ctx, df1, df2, range_options, read_options1, read_options2
             )
@@ -113,6 +121,10 @@ def range_operation(
             if output_type == "polars.DataFrame":
                 return result.to_polars()
             elif output_type == "pandas.DataFrame":
+                if pd is None:
+                    raise ImportError(
+                        "pandas is not installed. Please run `pip install pandas` or `pip install polars-bio[pandas]`."
+                    )
                 return result.to_pandas()
             else:
                 raise ValueError(

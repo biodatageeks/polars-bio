@@ -41,11 +41,13 @@ readme = "README.md"
 python = ">=3.9,<3.13"
 polars ="1.17.1"
 #polars  = { git = "https://github.com/mwiewior/polars.git", rev ="9d4fca54b1d71fce08a51cf00a88f67c67313706", subdirectory = "py-polars"}
-pandas = "^2.2.3"
 pyarrow = "^21.0.0"
 datafusion = "^43.1.0"
 bioframe = "^0.7.2"
 tqdm = "^4.67.1"
+
+[tool.poetry.extras]
+pandas = ["pandas"]
 
 
 [tool.poetry.dev-dependencies]

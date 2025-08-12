@@ -1,15 +1,19 @@
 from typing import Union
 
 import bioframe as bf
-import pandas as pd
 import polars as pl
 from matplotlib import pyplot as plt
+
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 
 class Utils:
     @staticmethod
     def visualize_intervals(
-        df: Union[pd.DataFrame, pl.DataFrame], label: str = "overlapping pair"
+        df: Union["pd.DataFrame", pl.DataFrame], label: str = "overlapping pair"
     ) -> None:
         """
         Visualize the overlapping intervals.
@@ -19,6 +23,10 @@ class Utils:
             label: TBD
 
         """
+        if pd is None:
+            raise ImportError(
+                "pandas is not installed. Please run `pip install pandas` or `pip install polars-bio[pandas]`."
+            )
         assert isinstance(
             df, (pd.DataFrame, pl.DataFrame)
         ), "df must be a Pandas or Polars DataFrame"
