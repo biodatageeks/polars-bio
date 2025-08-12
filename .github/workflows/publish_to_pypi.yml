@@ -51,7 +51,7 @@ jobs:
           poetry-version: ${{ env.POETRY_VERSION }}
       - name: Set up Rust
         run: rustup show
-      - uses: mozilla-actions/sccache-action@v0.0.3
+      - uses: mozilla-actions/sccache-action@v0.0.9
       - run: make venv
 #      - run: make pre-commit
       - run: make install
