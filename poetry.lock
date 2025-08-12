@@ -5168,8 +5168,9 @@ test = ["pytest"]
 
 [extras]
 pandas = []
+viz = []
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "96f18685e267bc7ab24c2cf906beda86adf850d54cdcc514eeb26c40ff7d4fa3"
+content-hash = "b2ee16fa13f0444ae0ba2e2dc73eca7082db1b6c7d8772faef021ecd55b0ecb8"
