@@ -1,5 +1,3 @@
-from bioframe import count_overlaps
-
 from polars_bio.polars_bio import GffReadOptions, InputFormat
 from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions
@@ -36,17 +34,26 @@ count_overlaps = IntervalOperations.count_overlaps
 coverage = IntervalOperations.coverage
 merge = IntervalOperations.merge
 
-from .range_utils import Utils
+try:
+    from .range_utils import Utils
 
-visualize_intervals = Utils.visualize_intervals
+    visualize_intervals = Utils.visualize_intervals
+except ImportError:
+    pass
+
 
 from .io import IOOperations as data_input
 from .logging import set_loglevel
 from .polars_ext import PolarsRangesOperations as LazyFrame
 from .range_op import FilterOp
 from .range_op import IntervalOperations as range_operations
-from .range_utils import Utils as utils
 from .sql import SQL as data_processing
+
+try:
+    from .range_utils import Utils as utils
+except ImportError:
+    pass
+
 
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 

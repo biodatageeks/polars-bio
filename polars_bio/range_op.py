@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datafusion
-import pandas as pd
 import polars as pl
 from datafusion import col, literal
 from typing_extensions import TYPE_CHECKING, Union
@@ -19,6 +18,12 @@ from .interval_op_helpers import (
 from .logging import logger
 from .range_op_helpers import _validate_overlap_input, range_operation
 
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
+
 __all__ = ["overlap", "nearest", "count_overlaps", "merge"]
 
 
@@ -31,8 +36,8 @@ class IntervalOperations:
 
     @staticmethod
     def overlap(
-        df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-        df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+        df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+        df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
         use_zero_based: bool = False,
         suffixes: tuple[str, str] = ("_1", "_2"),
         on_cols: Union[list[str], None] = None,
@@ -43,7 +48,7 @@ class IntervalOperations:
         streaming: bool = False,
         read_options1: Union[ReadOptions, None] = None,
         read_options2: Union[ReadOptions, None] = None,
-    ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
+    ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Find pairs of overlapping genomic intervals.
         Bioframe inspired API.
@@ -125,8 +130,8 @@ class IntervalOperations:
 
     @staticmethod
     def nearest(
-        df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-        df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+        df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+        df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
         use_zero_based: bool = False,
         suffixes: tuple[str, str] = ("_1", "_2"),
         on_cols: Union[list[str], None] = None,
@@ -135,7 +140,7 @@ class IntervalOperations:
         output_type: str = "polars.LazyFrame",
         streaming: bool = False,
         read_options: Union[ReadOptions, None] = None,
-    ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
+    ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Find pairs of closest genomic intervals.
         Bioframe inspired API.
@@ -186,8 +191,8 @@ class IntervalOperations:
 
     @staticmethod
     def coverage(
-        df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-        df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+        df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+        df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
         use_zero_based: bool = False,
         suffixes: tuple[str, str] = ("_1", "_2"),
         on_cols: Union[list[str], None] = None,
@@ -196,7 +201,7 @@ class IntervalOperations:
         output_type: str = "polars.LazyFrame",
         streaming: bool = False,
         read_options: Union[ReadOptions, None] = None,
-    ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
+    ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Calculate intervals coverage.
         Bioframe inspired API.
@@ -252,8 +257,8 @@ class IntervalOperations:
 
     @staticmethod
     def count_overlaps(
-        df1: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
-        df2: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+        df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+        df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
         use_zero_based: bool = False,
         suffixes: tuple[str, str] = ("", "_"),
         cols1: Union[list[str], None] = ["chrom", "start", "end"],
@@ -262,7 +267,7 @@ class IntervalOperations:
         output_type: str = "polars.LazyFrame",
         streaming: bool = False,
         naive_query: bool = True,
-    ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
+    ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Count pairs of overlapping genomic intervals.
         Bioframe inspired API.
@@ -421,14 +426,14 @@ class IntervalOperations:
 
     @staticmethod
     def merge(
-        df: Union[str, pl.DataFrame, pl.LazyFrame, pd.DataFrame],
+        df: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
         use_zero_based: bool = False,
         min_dist: float = 0,
         cols: Union[list[str], None] = ["chrom", "start", "end"],
         on_cols: Union[list[str], None] = None,
         output_type: str = "polars.LazyFrame",
         streaming: bool = False,
-    ) -> Union[pl.LazyFrame, pl.DataFrame, pd.DataFrame, datafusion.DataFrame]:
+    ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Merge overlapping intervals. It is assumed that start < end.
 
