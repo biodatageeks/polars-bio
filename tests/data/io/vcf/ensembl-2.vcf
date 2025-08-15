@@ -1,0 +1,38 @@
+##fileformat=VCFv4.1
+##fileDate=20250220
+##source=ensembl;version=114;url=https://e114.ensembl.org/homo_sapiens
+##reference=https://ftp.ensembl.org/pub/release-114/fasta/homo_spiens/dna/
+##INFO=<ID=COSMIC_100,Number=0,Type=Flag,Description="Somatic mutations found in human cancers from the COSMIC catalogue">
+##INFO=<ID=dbSNP_156,Number=0,Type=Flag,Description="Variants (including SNPs and indels) imported from dbSNP">
+##INFO=<ID=HGMD-PUBLIC_20204,Number=0,Type=Flag,Description="Variants from HGMD-PUBLIC dataset December 2020">
+##INFO=<ID=ClinVar_202409,Number=0,Type=Flag,Description="Variants of clinical significance imported from ClinVar">
+##INFO=<ID=TSA,Number=1,Type=String,Description="Type of sequence alteration. Child of term sequence_alteration as defined by the sequence ontology project.">
+##INFO=<ID=E_Cited,Number=0,Type=Flag,Description="Cited.https://www.ensembl.org/info/genome/variation/prediction/variant_quality.html#evidence_status">
+##INFO=<ID=E_Multiple_observations,Number=0,Type=Flag,Description="Multiple_observations.https://www.ensembl.org/info/genome/variation/prediction/variant_quality.html#evidence_status">
+##INFO=<ID=E_Freq,Number=0,Type=Flag,Description="Frequency.https://www.ensembl.org/info/genome/variation/prediction/variant_quality.html#evidence_status">
+##INFO=<ID=E_TOPMed,Number=0,Type=Flag,Description="TOPMed.https://www.ensembl.org/info/genome/variation/prediction/variant_quality.html#evidence_status">
+##INFO=<ID=E_Hapmap,Number=0,Type=Flag,Description="HapMap.https://www.ensembl.org/info/genome/variation/prediction/variant_quality.html#evidence_status">
+##INFO=<ID=E_Phenotype_or_Disease,Number=0,Type=Flag,Description="Phenotype_or_Disease.https://www.ensembl.org/info/genome/variation/prediction/variant_quality.html#evidence_status">
+##INFO=<ID=E_ESP,Number=0,Type=Flag,Description="ESP.https://www.ensembl.org/info/genome/variation/prediction/variant_quality.html#evidence_status">
+##INFO=<ID=E_gnomAD,Number=0,Type=Flag,Description="gnomAD.https://www.ensembl.org/info/genome/variation/prediction/variant_quality.html#evidence_status">
+##INFO=<ID=E_1000G,Number=0,Type=Flag,Description="1000Genomes.https://www.ensembl.org/info/genome/variation/prediction/variant_quality.html#evidence_status">
+##INFO=<ID=E_ExAC,Number=0,Type=Flag,Description="ExAC.https://www.ensembl.org/info/genome/variation/prediction/variant_quality.html#evidence_status">
+##INFO=<ID=CLIN_risk_factor,Number=0,Type=Flag,Description="risk factor.https://www.ensembl.org/info/genome/variation/phenotype/phenotype_annotation.html#clin_significance">
+##INFO=<ID=CLIN_protective,Number=0,Type=Flag,Description="protective.https://www.ensembl.org/info/genome/variation/phenotype/phenotype_annotation.html#clin_significance">
+##INFO=<ID=CLIN_confers_sensitivity,Number=0,Type=Flag,Description="confers sensitivity.https://www.ensembl.org/info/genome/variation/phenotype/phenotype_annotation.html#clin_significance">
+##INFO=<ID=CLIN_other,Number=0,Type=Flag,Description="other.https://www.ensembl.org/info/genome/variation/phenotype/phenotype_annotation.html#clin_significance">
+##INFO=<ID=CLIN_drug_response,Number=0,Type=Flag,Description="drug response.https://www.ensembl.org/info/genome/variation/phenotype/phenotype_annotation.html#clin_significance">
+##INFO=<ID=CLIN_uncertain_significance,Number=0,Type=Flag,Description="uncertain significance.https://www.ensembl.org/info/genome/variation/phenotype/phenotype_annotation.html#clin_significance">
+##INFO=<ID=CLIN_benign,Number=0,Type=Flag,Description="benign.https://www.ensembl.org/info/genome/variation/phenotype/phenotype_annotation.html#clin_significance">
+##INFO=<ID=CLIN_likely_pathogenic,Number=0,Type=Flag,Description="likely pathogenic.https://www.ensembl.org/info/genome/variation/phenotype/phenotype_annotation.html#clin_significance">
+##INFO=<ID=CLIN_pathogenic,Number=0,Type=Flag,Description="pathogenic.https://www.ensembl.org/info/genome/variation/phenotype/phenotype_annotation.html#clin_significance">
+##INFO=<ID=CLIN_likely_benign,Number=0,Type=Flag,Description="likely benign.https://www.ensembl.org/info/genome/variation/phenotype/phenotype_annotation.html#clin_significance">
+##INFO=<ID=CLIN_histocompatibility,Number=0,Type=Flag,Description="histocompatibility.https://www.ensembl.org/info/genome/variation/phenotype/phenotype_annotation.html#clin_significance">
+##INFO=<ID=CLIN_not_provided,Number=0,Type=Flag,Description="not provided.https://www.ensembl.org/info/genome/variation/phenotype/phenotype_annotation.html#clin_significance">
+##INFO=<ID=CLIN_association,Number=0,Type=Flag,Description="association.https://www.ensembl.org/info/genome/variation/phenotype/phenotype_annotation.html#clin_significance">
+##INFO=<ID=MA,Number=1,Type=String,Description="Minor Allele">
+##INFO=<ID=MAF,Number=1,Type=Float,Description="Minor Allele Frequency">
+##INFO=<ID=MAC,Number=1,Type=Integer,Description="Minor Alelele Count">
+##INFO=<ID=AA,Number=1,Type=String,Description="Ancestral Allele">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	2491309	rs368445617	T	A,C	.	.	dbSNP_156;TSA=SNV;E_Freq;E_ESP;E_Phenotype_or_Disease;E_ExAC;E_TOPMed;E_gnomAD;CLIN_uncertain_significance;AA=T

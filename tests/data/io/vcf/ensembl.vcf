@@ -1,0 +1,13 @@
+##fileformat=VCFv4.3
+##INFO=<ID=dbSNP_156,Number=0,Type=Flag,Description="dbSNP membership, build 156">
+##INFO=<ID=TSA,Number=1,Type=String,Description="Variant type">
+##INFO=<ID=E_Freq,Number=0,Type=Flag,Description="Frequency data from Ensembl">
+##INFO=<ID=E_Phenotype_or_Disease,Number=0,Type=Flag,Description="Associated with a phenotype or disease">
+##INFO=<ID=E_ExAC,Number=0,Type=Flag,Description="ExAC citation">
+##INFO=<ID=E_TOPMed,Number=0,Type=Flag,Description="TOPMed citation">
+##INFO=<ID=E_gnomAD,Number=0,Type=Flag,Description="gnomAD citation">
+##INFO=<ID=CLIN_uncertain_significance,Number=0,Type=Flag,Description="ClinVar clinical significance: uncertain significance">
+##INFO=<ID=AA,Number=1,Type=String,Description="Ancestral Allele">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+21	33248751	rs549962048	A	C,G	.	.	dbSNP_156;TSA=SNV;E_Freq;E_Phenotype_or_Disease;E_ExAC;E_TOPMed;E_gnomAD;;AA=A
+21	5025532	rs1879593094	G	C	.	.	dbSNP_156;TSA=SNV;E_Freq;AA=G
