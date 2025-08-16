@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use datafusion::catalog_common::TableReference;
-use exon::ExonSession;
+use datafusion::prelude::SessionContext;
 use log::{debug, info};
 use sequila_core::session_context::{Algorithm, SequilaConfig};
 use tokio::runtime::Runtime;
@@ -24,7 +24,7 @@ pub(crate) struct QueryParams {
     pub right_table: String,
 }
 pub(crate) fn do_range_operation(
-    ctx: &ExonSession,
+    ctx: &SessionContext,
     rt: &Runtime,
     range_options: RangeOptions,
     left_table: String,
@@ -53,20 +53,14 @@ pub(crate) fn do_range_operation(
     info!(
         "Running {} operation with algorithm {} and {} thread(s)...",
         range_options.range_op,
-        ctx.session
-            .state()
+        ctx.state()
             .config()
             .options()
             .extensions
             .get::<SequilaConfig>()
             .unwrap()
             .interval_join_algorithm,
-        ctx.session
-            .state()
-            .config()
-            .options()
-            .execution
-            .target_partitions
+        ctx.state().config().options().execution.target_partitions
     );
     match range_options.range_op {
         RangeOp::Overlap => rt.block_on(do_overlap(ctx, range_options, left_table, right_table)),
@@ -94,7 +88,7 @@ pub(crate) fn do_range_operation(
 }
 
 async fn do_nearest(
-    ctx: &ExonSession,
+    ctx: &SessionContext,
     range_opts: RangeOptions,
     left_table: String,
     right_table: String,
@@ -107,7 +101,7 @@ async fn do_nearest(
 }
 
 async fn do_overlap(
-    ctx: &ExonSession,
+    ctx: &SessionContext,
     range_opts: RangeOptions,
     left_table: String,
     right_table: String,
@@ -118,18 +112,13 @@ async fn do_overlap(
     debug!("Query: {}", query);
     debug!(
         "{}",
-        ctx.session
-            .state()
-            .config()
-            .options()
-            .execution
-            .target_partitions
+        ctx.state().config().options().execution.target_partitions
     );
     ctx.sql(&query).await.unwrap()
 }
 
 async fn do_count_overlaps_coverage_naive(
-    ctx: &ExonSession,
+    ctx: &SessionContext,
     range_opts: RangeOptions,
     left_table: String,
     right_table: String,
@@ -137,9 +126,9 @@ async fn do_count_overlaps_coverage_naive(
 ) -> datafusion::dataframe::DataFrame {
     let columns_1 = range_opts.columns_1.unwrap();
     let columns_2 = range_opts.columns_2.unwrap();
-    let session = &ctx.session;
+    let session = ctx.clone();
     let right_table_ref = TableReference::from(right_table.clone());
-    let right_schema = session
+    let right_schema = ctx
         .table(right_table_ref.clone())
         .await
         .unwrap()
@@ -147,7 +136,7 @@ async fn do_count_overlaps_coverage_naive(
         .as_arrow()
         .clone();
     let count_overlaps_provider = CountOverlapsProvider::new(
-        Arc::new(session.clone()),
+        Arc::new(session),
         left_table,
         right_table,
         right_schema,
@@ -157,9 +146,8 @@ async fn do_count_overlaps_coverage_naive(
         coverage,
     );
     let table_name = "count_overlaps_coverage".to_string();
-    session.deregister_table(table_name.clone()).unwrap();
-    session
-        .register_table(table_name.clone(), Arc::new(count_overlaps_provider))
+    ctx.deregister_table(table_name.clone()).unwrap();
+    ctx.register_table(table_name.clone(), Arc::new(count_overlaps_provider))
         .unwrap();
     let query = format!("SELECT * FROM {}", table_name);
     debug!("Query: {}", query);
@@ -169,10 +157,10 @@ async fn do_count_overlaps_coverage_naive(
 async fn get_non_join_columns(
     table_name: String,
     join_columns: Vec<String>,
-    ctx: &ExonSession,
+    ctx: &SessionContext,
 ) -> Vec<String> {
     let table_ref = TableReference::from(table_name);
-    let table = ctx.session.table(table_ref).await.unwrap();
+    let table = ctx.table(table_ref).await.unwrap();
     table
         .schema()
         .fields()
@@ -200,7 +188,7 @@ pub(crate) fn format_non_join_tables(
 pub(crate) async fn prepare_query(
     query: fn(QueryParams) -> String,
     range_opts: RangeOptions,
-    ctx: &ExonSession,
+    ctx: &SessionContext,
     left_table: String,
     right_table: String,
 ) -> String {

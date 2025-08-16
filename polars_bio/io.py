@@ -106,6 +106,7 @@ class IOOperations:
         streaming: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame]:
         """
+
         Read a FASTA file into a LazyFrame.
 
         Parameters:
@@ -121,7 +122,7 @@ class IOOperations:
 
         !!! Example
             ```shell
-            wget https://www.ebi.ac.uk/ena/browser/api/fasta/BK006935.2\?download\=true -O /tmp/test.fasta
+            wget https://www.ebi.ac.uk/ena/browser/api/fasta/BK006935.2?download=true -O /tmp/test.fasta
             ```
 
             ```python
