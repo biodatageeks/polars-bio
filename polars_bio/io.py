@@ -8,6 +8,7 @@ from tqdm.auto import tqdm
 from polars_bio.polars_bio import (
     BamReadOptions,
     BedReadOptions,
+    FastaReadOptions,
     FastqReadOptions,
     GffReadOptions,
     InputFormat,
@@ -95,6 +96,40 @@ class IOOperations:
     #         Predicate pushdown is not supported yet. So no real benefit from using an indexed BAM file.
     #     """
     #     return file_lazy_scan(path, InputFormat.IndexedBam)
+
+    @staticmethod
+    def read_fasta(
+        path: str,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        streaming: bool = False,
+    ) -> Union[pl.LazyFrame, pl.DataFrame]:
+        """
+        Read a FASTA file into a LazyFrame.
+        """
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+        fasta_read_options = FastaReadOptions(
+            object_storage_options=object_storage_options
+        )
+        read_options = ReadOptions(fasta_read_options=fasta_read_options)
+        if streaming:
+            return read_file(path, InputFormat.Fasta, read_options, streaming)
+        else:
+            df = read_file(path, InputFormat.Fasta, read_options)
+            return lazy_scan(df)
 
     @staticmethod
     def read_vcf(
@@ -553,7 +588,7 @@ class IOOperations:
             │ name      ┆ type    ┆ description                                                                          │
             │ ---       ┆ ---     ┆ ---                                                                                  │
             │ str       ┆ str     ┆ str                                                                                  │
-            ╞═══════════╪═════════╪══════════════════════════════════════════════════════════════════════════════════╡
+            ╞═══════════╪═════════╪══════════════════════════════════════════════════════════════════════════════╡
             │ AC        ┆ Integer ┆ Number of non-reference alleles observed (biallelic sites only).                     │
             │ AC_XX     ┆ Integer ┆ Number of non-reference XX alleles observed (biallelic sites only).                  │
             │ AC_XY     ┆ Integer ┆ Number of non-reference XY alleles observed (biallelic sites only).                  │

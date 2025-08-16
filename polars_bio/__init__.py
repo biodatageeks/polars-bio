@@ -25,6 +25,7 @@ read_table = IOOperations.read_table
 read_vcf = IOOperations.read_vcf
 read_fastq = IOOperations.read_fastq
 read_bed = IOOperations.read_bed
+read_fasta = IOOperations.read_fasta
 
 from .range_op import IntervalOperations
 

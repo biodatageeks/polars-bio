@@ -1,5 +1,7 @@
 import bioframe as bf
 import pandas as pd
+import polars as pl
+import polars.testing as pl_testing
 import pytest
 from _expected import (
     DATA_DIR,
@@ -84,16 +86,30 @@ class TestIOBED:
         assert self.df["end"][2] == 8000
 
 
-# class TestFasta:
-#     df = pb.read_fasta(f"{DATA_DIR}/io/fasta/test.fasta").collect()
-#
-#     def test_count(self):
-#         assert len(self.df) == 3
-#
-#     def test_fields(self):
-#         sequences = self.df
-#         assert sequences["id"][1] == "Sequence_2"
-#         assert sequences["sequence"][2] == "TTAGGCATGCGGCTA"
+class TestFasta:
+    fasta_path = f"{DATA_DIR}/io/fasta/test.fasta"
+
+    def test_count(self):
+        df = pb.read_fasta(self.fasta_path).collect()
+        assert len(df) == 2
+
+    def test_read_fasta(self):
+
+        df = pb.read_fasta(self.fasta_path).collect()
+        print("Actual DataFrame:")
+        print(df)
+        print("Actual Schema:")
+        print(df.schema)
+
+        expected_df = pl.DataFrame(
+            {
+                "name": ["seq1", "seq2"],
+                "description": ["First sequence", "Second sequence"],
+                "sequence": ["ACTG", "GATTACA"],
+            }
+        )
+
+        pl_testing.assert_frame_equal(df, expected_df)
 
 
 class TestIOTable:

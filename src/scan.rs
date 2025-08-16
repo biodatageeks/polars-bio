@@ -9,6 +9,7 @@ use datafusion::datasource::MemTable;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions};
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
+use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::bgzf_parallel_reader::BgzfFastqTableProvider as BgzfParallelFastqTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
@@ -20,8 +21,8 @@ use tracing::debug;
 
 use crate::context::PyBioSessionContext;
 use crate::option::{
-    BamReadOptions, BedReadOptions, FastqReadOptions, GffReadOptions, InputFormat, ReadOptions,
-    VcfReadOptions,
+    BamReadOptions, BedReadOptions, FastaReadOptions, FastqReadOptions, GffReadOptions,
+    InputFormat, ReadOptions, VcfReadOptions,
 };
 
 const MAX_IN_MEMORY_ROWS: usize = 1024 * 1024;
@@ -223,12 +224,34 @@ pub(crate) async fn register_table(
                 .expect("Failed to register BED table");
         },
 
-        InputFormat::Cram | InputFormat::Fasta | InputFormat::Gtf => ctx
-            .register_exon_table(table_name, path, &format.to_string())
-            .await
-            .unwrap(),
+        InputFormat::Fasta => {
+            let fasta_read_options = match &read_options {
+                Some(options) => match options.clone().fasta_read_options {
+                    Some(fasta_read_options) => fasta_read_options,
+                    _ => FastaReadOptions::default(),
+                },
+                _ => FastaReadOptions::default(),
+            };
+            info!(
+                "Registering FASTA table {} with options: {:?}",
+                table_name, fasta_read_options
+            );
+
+            let table_provider = FastaTableProvider::new(
+                path.to_string(),
+                None,
+                fasta_read_options.object_storage_options.clone(),
+            )
+            .unwrap();
+            ctx.session
+                .register_table(table_name, Arc::new(table_provider))
+                .expect("Failed to register FASTA table");
+        },
         InputFormat::IndexedVcf | InputFormat::IndexedBam => {
             todo!("Indexed formats are not supported")
+        },
+        InputFormat::Cram | InputFormat::Gtf => {
+            todo!("Cram and Gtf formats are not supported")
         },
     };
     table_name.to_string()

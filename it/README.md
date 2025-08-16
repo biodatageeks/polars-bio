@@ -13,7 +13,7 @@ source bin/start.sh
 
 ### Run object storage IO tests
 ```bash
-JUPYTER_PLATFORM_DIRS=1 pytest it_object_storage_io.py -o log_cli=true --log-cli-level=INFO
+JUPYTER_PLATJUFORM_DIRS=1 pytest it_object_storage_io.py -o log_cli=true --log-cli-level=INFO
 JUPYTER_PLATFORM_DIRS=1 pytest it_ensembl_vcf_bgz.py -o log_cli=true --log-cli-level=INFO
 ```
 

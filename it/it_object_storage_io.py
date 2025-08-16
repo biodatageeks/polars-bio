@@ -159,3 +159,13 @@ class TestIOVCFAuth:
         )
 
         assert len(df_gcs_anonymous) == 1
+
+
+class TestIOFastaS3:
+    fasta_file = "s3://polarsbiopublic/test.fasta"
+
+    def test_read_fasta_minio(self):
+        os.unsetenv("AWS_ACCESS_KEY_ID")
+        os.unsetenv("AWS_SECRET_ACCESS_KEY")
+        df = pb.read_fasta(self.fasta_file, allow_anonymous=True).collect()
+        assert len(df) == 2

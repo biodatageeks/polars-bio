@@ -145,18 +145,21 @@ pub struct ReadOptions {
     pub bam_read_options: Option<BamReadOptions>,
     #[pyo3(get, set)]
     pub bed_read_options: Option<BedReadOptions>,
+    #[pyo3(get, set)]
+    pub fasta_read_options: Option<FastaReadOptions>,
 }
 
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, fastq_read_options=None, bam_read_options=None, bed_read_options=None))]
+    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, fastq_read_options=None, bam_read_options=None, bed_read_options=None, fasta_read_options=None))]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
         gff_read_options: Option<GffReadOptions>,
         fastq_read_options: Option<FastqReadOptions>,
         bam_read_options: Option<BamReadOptions>,
         bed_read_options: Option<BedReadOptions>,
+        fasta_read_options: Option<FastaReadOptions>,
     ) -> Self {
         ReadOptions {
             vcf_read_options,
@@ -164,6 +167,7 @@ impl ReadOptions {
             fastq_read_options,
             bam_read_options,
             bed_read_options,
+            fasta_read_options,
         }
     }
 }
@@ -434,6 +438,43 @@ impl BedReadOptions {
                 timeout: Some(300), // 300 seconds
                 compression_type: Some(CompressionType::AUTO),
             }),
+        }
+    }
+}
+
+#[pyclass(name = "FastaReadOptions")]
+#[derive(Clone, Debug)]
+pub struct FastaReadOptions {
+    pub object_storage_options: Option<ObjectStorageOptions>,
+    #[pyo3(get, set)]
+    pub parallel: bool,
+}
+
+#[pymethods]
+impl FastaReadOptions {
+    #[new]
+    #[pyo3(signature = (object_storage_options=None, parallel=true))]
+    pub fn new(object_storage_options: Option<PyObjectStorageOptions>, parallel: bool) -> Self {
+        FastaReadOptions {
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
+            parallel,
+        }
+    }
+    #[staticmethod]
+    pub fn default() -> Self {
+        FastaReadOptions {
+            object_storage_options: Some(ObjectStorageOptions {
+                chunk_size: Some(1024 * 1024), // 1MB
+                concurrent_fetches: Some(4),
+                allow_anonymous: false,
+                enable_request_payer: false,
+                max_retries: Some(5),
+                timeout: Some(300), // 300 seconds
+                compression_type: Some(CompressionType::AUTO),
+            }),
+            parallel: true,
         }
     }
 }
