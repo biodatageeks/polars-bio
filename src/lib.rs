@@ -163,12 +163,7 @@ fn stream_range_operation_scan(
         };
         debug!(
             "{}",
-            ctx.session
-                .state()
-                .config()
-                .options()
-                .execution
-                .target_partitions
+            ctx.state().config().options().execution.target_partitions
         );
         let stream = rt.block_on(df.execute_stream()).unwrap();
         let scan = RangeOperationScan {
@@ -215,7 +210,7 @@ fn py_register_table(
             input_format.clone(),
             read_options,
         ));
-        match rt.block_on(ctx.session.table(&table_name)) {
+        match rt.block_on(ctx.table(&table_name)) {
             Ok(table) => {
                 let schema = table.schema().as_arrow();
                 info!("Table: {} registered for path: {}", table_name, path);
@@ -263,7 +258,7 @@ fn py_scan_sql(
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
 
-        let df = rt.block_on(ctx.session.sql(&sql_text))?;
+        let df = rt.block_on(ctx.sql(&sql_text))?;
         let schema = df.schema().as_arrow();
         let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
         debug!("Schema: {:?}", polars_schema);
@@ -274,12 +269,7 @@ fn py_scan_sql(
         };
         debug!(
             "{}",
-            ctx.session
-                .state()
-                .config()
-                .options()
-                .execution
-                .target_partitions
+            ctx.state().config().options().execution.target_partitions
         );
         let stream = rt.block_on(df.execute_stream()).unwrap();
         let scan = RangeOperationScan {
@@ -304,7 +294,7 @@ fn py_scan_table(
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
 
-        let df = rt.block_on(ctx.session.table(&table_name))?;
+        let df = rt.block_on(ctx.table(&table_name))?;
         let schema = df.schema().as_arrow();
         let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
         debug!("Schema: {:?}", polars_schema);
@@ -315,12 +305,7 @@ fn py_scan_table(
         };
         debug!(
             "{}",
-            ctx.session
-                .state()
-                .config()
-                .options()
-                .execution
-                .target_partitions
+            ctx.state().config().options().execution.target_partitions
         );
         let stream = rt.block_on(df.execute_stream()).unwrap();
         let scan = RangeOperationScan {
@@ -361,7 +346,7 @@ fn py_describe_vcf(
 ) -> PyResult<PyDataFrame> {
     py.allow_threads(|| {
         let rt = Runtime::new()?;
-        let ctx = &py_ctx.ctx.session;
+        let ctx = &py_ctx.ctx;
         let object_storage_options =
             pyobject_storage_options_to_object_storage_options(object_storage_options);
         // Set a default chunk size of 8MB if not provided and concurrent fetches to 1 to speed up header retrieval

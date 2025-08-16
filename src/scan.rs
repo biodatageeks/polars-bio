@@ -6,7 +6,7 @@ use arrow::ffi_stream::ArrowArrayStreamReader;
 use arrow::pyarrow::PyArrowType;
 use datafusion::dataframe::DataFrameWriteOptions;
 use datafusion::datasource::MemTable;
-use datafusion::prelude::{CsvReadOptions, ParquetReadOptions};
+use datafusion::prelude::{CsvReadOptions, ParquetReadOptions, SessionContext};
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
@@ -14,7 +14,6 @@ use datafusion_bio_format_fastq::bgzf_parallel_reader::BgzfFastqTableProvider as
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
-use exon::ExonSession;
 use log::info;
 use tokio::runtime::Runtime;
 use tracing::debug;
@@ -39,18 +38,17 @@ pub(crate) fn register_frame(
     let ctx = &py_ctx.ctx;
     let rt = tokio::runtime::Runtime::new().unwrap();
     let table_source = MemTable::try_new(schema, vec![batches]).unwrap();
-    ctx.session.deregister_table(&table_name).unwrap();
-    ctx.session
-        .register_table(&table_name, Arc::new(table_source))
+    ctx.deregister_table(&table_name).unwrap();
+    ctx.register_table(&table_name, Arc::new(table_source))
         .unwrap();
-    let df = rt.block_on(ctx.session.table(&table_name)).unwrap();
+    let df = rt.block_on(ctx.table(&table_name)).unwrap();
     let table_size = rt.block_on(df.clone().count()).unwrap();
     if table_size > MAX_IN_MEMORY_ROWS {
         let path = format!("{}/{}.parquet", py_ctx.catalog_dir, table_name);
-        ctx.session.deregister_table(&table_name).unwrap();
+        ctx.deregister_table(&table_name).unwrap();
         rt.block_on(df.write_parquet(&path, DataFrameWriteOptions::new(), None))
             .unwrap();
-        ctx.session.deregister_table(&table_name).unwrap();
+        ctx.deregister_table(&table_name).unwrap();
         rt.block_on(register_table(
             ctx,
             &path,
@@ -79,16 +77,15 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
 }
 
 pub(crate) async fn register_table(
-    ctx: &ExonSession,
+    ctx: &SessionContext,
     path: &str,
     table_name: &str,
     format: InputFormat,
     read_options: Option<ReadOptions>,
 ) -> String {
-    ctx.session.deregister_table(table_name).unwrap();
+    ctx.deregister_table(table_name).unwrap();
     match format {
         InputFormat::Parquet => ctx
-            .session
             .register_parquet(table_name, path, ParquetReadOptions::new())
             .await
             .unwrap(),
@@ -96,8 +93,7 @@ pub(crate) async fn register_table(
             let csv_read_options = CsvReadOptions::new() //FIXME: expose
                 .delimiter(b',')
                 .has_header(true);
-            ctx.session
-                .register_csv(table_name, path, csv_read_options)
+            ctx.register_csv(table_name, path, csv_read_options)
                 .await
                 .unwrap()
         },
@@ -116,8 +112,7 @@ pub(crate) async fn register_table(
 
             if fastq_read_options.parallel && path.ends_with(".bgz") {
                 let table_provider = BgzfParallelFastqTableProvider::try_new(path).unwrap();
-                ctx.session
-                    .register_table(table_name, Arc::new(table_provider))
+                ctx.register_table(table_name, Arc::new(table_provider))
                     .expect("Failed to register parallel FASTQ table");
             } else {
                 let table_provider = FastqTableProvider::new(
@@ -126,8 +121,7 @@ pub(crate) async fn register_table(
                     fastq_read_options.object_storage_options.clone(),
                 )
                 .unwrap();
-                ctx.session
-                    .register_table(table_name, Arc::new(table_provider))
+                ctx.register_table(table_name, Arc::new(table_provider))
                     .expect("Failed to register FASTQ table");
             }
         },
@@ -151,8 +145,7 @@ pub(crate) async fn register_table(
                 vcf_read_options.object_storage_options.clone(),
             )
             .unwrap();
-            ctx.session
-                .register_table(table_name, Arc::new(table_provider))
+            ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register VCF table");
         },
         InputFormat::Gff => {
@@ -174,8 +167,7 @@ pub(crate) async fn register_table(
                 gff_read_options.object_storage_options.clone(),
             )
             .unwrap();
-            ctx.session
-                .register_table(table_name, Arc::new(table_provider))
+            ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register GFF table");
         },
         InputFormat::Bam => {
@@ -196,8 +188,7 @@ pub(crate) async fn register_table(
                 bam_read_options.object_storage_options.clone(),
             )
             .unwrap();
-            ctx.session
-                .register_table(table_name, Arc::new(table_provider))
+            ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register BAM table");
         },
         InputFormat::Bed => {
@@ -219,8 +210,7 @@ pub(crate) async fn register_table(
                 bed_read_options.object_storage_options.clone(),
             )
             .unwrap();
-            ctx.session
-                .register_table(table_name, Arc::new(table_provider))
+            ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register BED table");
         },
 
@@ -243,8 +233,7 @@ pub(crate) async fn register_table(
                 fasta_read_options.object_storage_options.clone(),
             )
             .unwrap();
-            ctx.session
-                .register_table(table_name, Arc::new(table_provider))
+            ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register FASTA table");
         },
         InputFormat::IndexedVcf | InputFormat::IndexedBam => {
@@ -261,7 +250,7 @@ pub(crate) fn maybe_register_table(
     df_path_or_table: String,
     default_table: &String,
     read_options: Option<ReadOptions>,
-    ctx: &ExonSession,
+    ctx: &SessionContext,
     rt: &Runtime,
 ) -> String {
     let ext: Vec<&str> = df_path_or_table.split('.').collect();

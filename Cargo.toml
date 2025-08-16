@@ -34,8 +34,7 @@ polars-core = {git = "https://github.com/mwiewior/polars.git" , rev = "9d4fca54b
 polars-arrow =  { git = "https://github.com/mwiewior/polars.git" , rev = "9d4fca54b1d71fce08a51cf00a88f67c67313706"}
 polars-python = { git = "https://github.com/mwiewior/polars.git" , rev = "9d4fca54b1d71fce08a51cf00a88f67c67313706"}
 
-#exon ="0.32.4"
-exon = { git = "https://github.com/mwiewior/exon.git", rev="d134d923e6c592a9972d93215a12c759c70a7ed5"}
+
 datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "9674c596c617223910aae43373382eba556613ca" }
 datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "9674c596c617223910aae43373382eba556613ca" }
 datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "9674c596c617223910aae43373382eba556613ca" }

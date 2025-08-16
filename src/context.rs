@@ -1,17 +1,15 @@
 use std::collections::HashMap;
 
 use datafusion::config::ConfigOptions;
-use datafusion::prelude::SessionConfig;
-use exon::config::ExonConfigExtension;
-use exon::ExonSession;
+use datafusion::prelude::{SessionConfig, SessionContext};
 use log::debug;
 use pyo3::{pyclass, pymethods, PyResult};
-use sequila_core::session_context::SequilaConfig;
+use sequila_core::session_context::{SeQuiLaSessionExt, SequilaConfig};
 
 #[pyclass(name = "BioSessionContext")]
 // #[derive(Clone)]
 pub struct PyBioSessionContext {
-    pub ctx: ExonSession,
+    pub ctx: SessionContext,
     pub session_config: HashMap<String, String>,
     #[pyo3(get, set)]
     pub seed: String,
@@ -23,7 +21,7 @@ impl PyBioSessionContext {
     #[pyo3(signature = (seed, catalog_dir))]
     #[new]
     pub fn new(seed: String, catalog_dir: String) -> PyResult<Self> {
-        let ctx = create_context().unwrap();
+        let ctx = create_context();
         let session_config: HashMap<String, String> = HashMap::new();
 
         Ok(PyBioSessionContext {
@@ -56,8 +54,8 @@ impl PyBioSessionContext {
     }
 }
 
-pub fn set_option_internal(ctx: &ExonSession, key: &str, value: &str) {
-    let state = ctx.session.state_ref();
+pub fn set_option_internal(ctx: &SessionContext, key: &str, value: &str) {
+    let state = ctx.state_ref();
     state
         .write()
         .config_mut()
@@ -66,9 +64,8 @@ pub fn set_option_internal(ctx: &ExonSession, key: &str, value: &str) {
         .unwrap();
 }
 
-fn create_context() -> exon::Result<ExonSession> {
+fn create_context() -> SessionContext {
     let mut options = ConfigOptions::new();
-    options.extensions.insert(ExonConfigExtension::default());
     let tuning_options = vec![
         ("datafusion.optimizer.repartition_joins", "false"),
         ("datafusion.execution.coalesce_batches", "false"),
@@ -85,5 +82,5 @@ fn create_context() -> exon::Result<ExonSession> {
         .with_option_extension(sequila_config)
         .with_information_schema(true);
 
-    ExonSession::with_config_exon(config)
+    SessionContext::new_with_sequila(config)
 }
