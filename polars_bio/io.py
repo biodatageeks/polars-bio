@@ -1,7 +1,7 @@
 from typing import Dict, Iterator, Union
 
 import polars as pl
-from datafusion import DataFrame, SessionContext
+from datafusion import DataFrame
 from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
 
@@ -17,11 +17,8 @@ from polars_bio.polars_bio import (
     VcfReadOptions,
     py_describe_vcf,
     py_from_polars,
-    py_read_sql,
     py_read_table,
     py_register_table,
-    py_register_view,
-    py_scan_sql,
     py_scan_table,
 )
 
@@ -73,7 +70,6 @@ SCHEMAS = {
 
 
 class IOOperations:
-
     # TODO handling reference
     # def read_cram(path: str) -> pl.LazyFrame:
     #     """
@@ -111,6 +107,37 @@ class IOOperations:
     ) -> Union[pl.LazyFrame, pl.DataFrame]:
         """
         Read a FASTA file into a LazyFrame.
+
+        Parameters:
+            path: The path to the FASTA file.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the FASTA file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            streaming: Whether to read the FASTA file in streaming mode.
+
+        !!! Example
+            ```shell
+            wget https://www.ebi.ac.uk/ena/browser/api/fasta/BK006935.2\?download\=true -O /tmp/test.fasta
+            ```
+
+            ```python
+            import polars_bio as pb
+            pb.read_fasta("/tmp/test.fasta").limit(1).collect()
+            ```
+            ```shell
+             shape: (1, 3)
+            ┌─────────────────────────┬─────────────────────────────────┬─────────────────────────────────┐
+            │ name                    ┆ description                     ┆ sequence                        │
+            │ ---                     ┆ ---                             ┆ ---                             │
+            │ str                     ┆ str                             ┆ str                             │
+            ╞═════════════════════════╪═════════════════════════════════╪═════════════════════════════════╡
+            │ ENA|BK006935|BK006935.2 ┆ TPA_inf: Saccharomyces cerevis… ┆ CCACACCACACCCACACACCCACACACCAC… │
+            └─────────────────────────┴─────────────────────────────────┴─────────────────────────────────┘
+            ```
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
