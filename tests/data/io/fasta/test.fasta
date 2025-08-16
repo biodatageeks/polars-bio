@@ -1,6 +1,4 @@
->Sequence_1
-ATGCGTAACGTTAGC
->Sequence_2
-GGCATCGTAGCTAGC
->Sequence_3
-TTAGGCATGCGGCTA
+>seq1 First sequence
+ACTG
+>seq2 Second sequence
+GATTACA

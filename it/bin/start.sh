@@ -53,6 +53,15 @@ az storage blob upload \
   --overwrite \
   --connection-string "DefaultEndpointsProtocol=http;AccountName=$AZURE_STORAGE_ACCOUNT;AccountKey=$AZURE_STORAGE_KEY;BlobEndpoint=$AZURE_ENDPOINT_URL;"
 
+az storage blob upload \
+  --container-name polarsbio \
+  --name test.fasta\
+  --file data/test.fasta \
+  --account-name $AZURE_STORAGE_ACCOUNT \
+  --account-key $AZURE_STORAGE_KEY \
+  --overwrite \
+  --connection-string "DefaultEndpointsProtocol=http;AccountName=$AZURE_STORAGE_ACCOUNT;AccountKey=$AZURE_STORAGE_KEY;BlobEndpoint=$AZURE_ENDPOINT_URL;"
+
 az storage blob list \
   --container-name polarsbio \
   --account-name $AZURE_STORAGE_ACCOUNT \
