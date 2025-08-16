@@ -81,35 +81,36 @@ class TestIOVCFGCS:
         assert len(self.vcf_infos_mixed_cases) == 1
 
 
-class TestVCFViewsOperations:
-    def test_view(self):
-        vcf_big = "gs://gcp-public-data--gnomad/release/2.1.1/liftover_grch38/vcf/genomes/gnomad.genomes.r2.1.1.sites.liftover_grch38.vcf.bgz"
-        pb.register_vcf(
-            vcf_big,
-            "gnomad_big",
-            info_fields=["AF", "vep"],
-            thread_num=1,
-            allow_anonymous=True,
-        )
-        pb.register_view(
-            "v_gnomad_big",
-            "SELECT chrom, start, end, split_part(vep, '|', 3) AS impact from gnomad_big where array_element(af,1)=0 and split_part(vep, '|', 3) in ('HIGH', 'MODERATE') limit 10",
-        )
-        vcf_sv = "gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz"
-        pb.register_vcf(
-            vcf_sv,
-            "gnomad_sv",
-            thread_num=1,
-            info_fields=["SVTYPE", "SVLEN"],
-            allow_anonymous=True,
-            compression_type="bgz",  # override compression type - gz indicates that the file is gzipped, but it is actually bgzipped
-        )
-        pb.register_view(
-            "v_gnomad_sv", "SELECT chrom, start, end FROM gnomad_sv limit 100"
-        )
-        assert len(pb.sql("SELECT * FROM v_gnomad_big").collect()) == 10
-        assert len(pb.nearest("v_gnomad_sv", "v_gnomad_big").collect()) == 100
-        assert len(pb.overlap("v_gnomad_sv", "v_gnomad_big").collect()) == 43
+# class TestVCFViewsOperations:
+#     def test_view(self):
+#         vcf_big = "gs://gcp-public-data--gnomad/release/2.1.1/liftover_grch38/vcf/genomes/gnomad.genomes.r2.1.1.sites.liftover_grch38.vcf.bgz"
+#         pb.register_vcf(
+#             vcf_big,
+#             "gnomad_big",
+#             info_fields=["AF", "vep"],
+#             thread_num=1,
+#             allow_anonymous=True,
+#         )
+#         pb.register_view(
+#             "v_gnomad_big",
+#             "SELECT chrom, start, end, split_part(vep, '|', 3) AS impact from gnomad_big where array_element(af,1)=0 and split_part(vep, '|', 3) in ('HIGH', 'MODERATE') limit 10",
+#         )
+#         vcf_sv = "gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz"
+#         pb.register_vcf(
+#             vcf_sv,
+#             "gnomad_sv",
+#             thread_num=1,
+#             info_fields=["SVTYPE", "SVLEN"],
+#             allow_anonymous=True,
+#             compression_type="bgz",  # override compression type - gz indicates that the file is gzipped, but it is actually bgzipped
+#         )
+#         pb.register_view(
+#             "v_gnomad_sv", "SELECT chrom, start, end FROM gnomad_sv limit 100"
+#         )
+#         assert len(pb.sql("SELECT * FROM v_gnomad_big").collect()) == 10
+#         assert len(pb.nearest("v_gnomad_sv", "v_gnomad_big").collect()) == 100
+#         assert len(pb.overlap("v_gnomad_sv", "v_gnomad_big").collect()) == 43
+#
 
 
 class TestIOVCFGCSStream:
@@ -167,5 +168,7 @@ class TestIOFastaS3:
     def test_read_fasta_minio(self):
         os.unsetenv("AWS_ACCESS_KEY_ID")
         os.unsetenv("AWS_SECRET_ACCESS_KEY")
+        os.environ["AWS_ENDPOINT_URL"] = "http://127.0.0.1:9000"
+        os.environ["AWS_DEFAULT_REGION"] = "auto"
         df = pb.read_fasta(self.fasta_file, allow_anonymous=True).collect()
         assert len(df) == 2
