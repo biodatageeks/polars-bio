@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use datafusion::catalog_common::TableReference;
+use datafusion::common::TableReference;
 use datafusion::prelude::SessionContext;
 use log::{debug, info};
 use sequila_core::session_context::{Algorithm, SequilaConfig};

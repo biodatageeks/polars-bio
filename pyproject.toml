@@ -19,9 +19,9 @@ pandas = ["pandas"]
 viz = ["bioframe", "matplotlib"]
 
 dependencies = [
-  "polars~=1.17.1",
+  "polars~=1.29.0",
   "pyarrow~=21.0.0",
-  "datafusion ~=43.1.0",
+  "datafusion ~=48.0.0",
   "tqdm ~=4.67.1"]
 
 [tool.maturin]
@@ -40,9 +40,9 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.14"
-polars ="1.17.1"
+polars ="1.29.0"
 pyarrow = "^21.0.0"
-datafusion = "^43.1.0"
+datafusion = "^48.0.0"
 tqdm = "^4.67.1"
 
 [tool.poetry.extras]

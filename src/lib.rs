@@ -20,6 +20,7 @@ use log::{debug, error, info};
 use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
 use polars_python::error::PyPolarsErr;
 use polars_python::lazyframe::PyLazyFrame;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
 
@@ -61,7 +62,8 @@ fn range_operation_frame(
                 LEFT_TABLE.to_string(),
                 RIGHT_TABLE.to_string(),
             )
-            .limit(0, Some(l))?,
+            .limit(0, Some(l))
+            .map_err(|e| PyValueError::new_err(e.to_string()))?,
         )),
         _ => {
             let df = do_range_operation(
@@ -108,7 +110,8 @@ fn range_operation_scan(
     match limit {
         Some(l) => Ok(PyDataFrame::new(
             do_range_operation(ctx, &rt, range_options, left_table, right_table)
-                .limit(0, Some(l))?,
+                .limit(0, Some(l))
+                .map_err(|e| PyValueError::new_err(e.to_string()))?,
         )),
         _ => Ok(PyDataFrame::new(do_range_operation(
             ctx,
@@ -258,7 +261,9 @@ fn py_scan_sql(
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
 
-        let df = rt.block_on(ctx.sql(&sql_text))?;
+        let df = rt
+            .block_on(ctx.sql(&sql_text))
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         let schema = df.schema().as_arrow();
         let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
         debug!("Schema: {:?}", polars_schema);
@@ -294,7 +299,9 @@ fn py_scan_table(
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
 
-        let df = rt.block_on(ctx.table(&table_name))?;
+        let df = rt
+            .block_on(ctx.table(&table_name))
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
         let schema = df.schema().as_arrow();
         let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
         debug!("Schema: {:?}", polars_schema);

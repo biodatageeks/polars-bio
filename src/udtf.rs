@@ -9,16 +9,15 @@ use arrow_array::{
 use arrow_schema::{DataType, Field, FieldRef, Schema, SchemaRef};
 use async_trait::async_trait;
 use coitrees::{COITree, Interval, IntervalTree};
-use datafusion::catalog::{Session, TableProvider};
+use datafusion::catalog::Session;
 use datafusion::common::Result;
-use datafusion::datasource::TableType;
+use datafusion::datasource::{TableProvider, TableType};
 use datafusion::execution::{SendableRecordBatchStream, TaskContext};
 use datafusion::physical_expr::{EquivalenceProperties, Partitioning};
+use datafusion::physical_plan::execution_plan::{Boundedness, EmissionType};
 use datafusion::physical_plan::repartition::RepartitionExec;
 use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
-use datafusion::physical_plan::{
-    DisplayAs, DisplayFormatType, ExecutionMode, ExecutionPlan, PlanProperties,
-};
+use datafusion::physical_plan::{DisplayAs, DisplayFormatType, ExecutionPlan, PlanProperties};
 use datafusion::prelude::{Expr, SessionContext};
 use fnv::FnvHashMap;
 use futures_util::stream::BoxStream;
@@ -133,7 +132,8 @@ impl TableProvider for CountOverlapsProvider {
             cache: PlanProperties::new(
                 EquivalenceProperties::new(self.schema().clone()),
                 Partitioning::UnknownPartitioning(target_partitions),
-                ExecutionMode::Bounded,
+                EmissionType::Final,
+                Boundedness::Bounded,
             ),
         }))
     }

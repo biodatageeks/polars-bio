@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datafusion
 import polars as pl
+import pyarrow as pa
 from datafusion import col, literal
 from typing_extensions import TYPE_CHECKING, Union
 
@@ -545,7 +546,9 @@ class IntervalOperations:
                             + 1
                         )
                         / 2
-                    ).alias(n_intervals)
+                    )
+                    .cast(pa.int64())
+                    .alias(n_intervals)
                 ]
             )
         )
