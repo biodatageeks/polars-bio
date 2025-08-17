@@ -114,7 +114,7 @@ jobs:
           path: dist
 
   macos:
-    runs-on: macos-latest
+    runs-on: ${{ matrix.target == 'aarch64' && 'macos-latest' || 'macos-14' }}
     strategy:
       matrix:
         target: [x86_64, aarch64]
@@ -137,14 +137,13 @@ jobs:
           target: ${{ matrix.target }}
           args: --release --out dist --find-interpreter
           sccache: 'true'
+        env:
+          RUSTFLAGS: "-Dwarnings -Clink-arg=-undefined -Clink-arg=dynamic_lookup -Ctarget-cpu=${{ matrix.apple_cpu_target }}"
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels-macos-${{ matrix.target }}
           path: dist
-        env:
-          RUSTFLAGS: "-Dwarnings -Clink-arg=-undefined -Clink-arg=dynamic_lookup -Ctarget-cpu=${{ matrix.apple_cpu_target }}"
-
   sdist:
     runs-on: ubuntu-latest
     steps:
