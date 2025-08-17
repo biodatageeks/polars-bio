@@ -13,16 +13,17 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-
-[project.optional-dependencies]
-pandas = ["pandas"]
-viz = ["bioframe", "matplotlib"]
-
 dependencies = [
   "polars~=1.21.0",
   "pyarrow~=21.0.0",
   "datafusion ~=48.0.0",
-  "tqdm ~=4.67.1"]
+  "tqdm ~=4.67.1",
+  "typing-extensions~=4.14.0"
+]
+
+[project.optional-dependencies]
+pandas = ["pandas"]
+viz = ["bioframe", "matplotlib"]
 
 [tool.maturin]
 module-name = "polars_bio"
@@ -44,6 +45,7 @@ polars ="1.21.0"
 pyarrow = "^21.0.0"
 datafusion = "^48.0.0"
 tqdm = "^4.67.1"
+typing-extensions = "^4.14.0"
 
 [tool.poetry.extras]
 pandas = ["pandas"]
