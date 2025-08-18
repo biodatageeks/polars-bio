@@ -106,6 +106,27 @@ class TestOverlapAlgorithms:
         algorithm="ArrayIntervalTree",
     )
 
+    result_overlap_superintervals = pb.overlap(
+        BIO_PD_DF1,
+        BIO_PD_DF2,
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
+        output_type="pandas.DataFrame",
+        suffixes=("_1", "_3"),
+        use_zero_based=True,
+        algorithm="SuperIntervals",
+    )
+
+    result_overlap_superintervals_log = pb.overlap(
+        BIO_PD_DF1,
+        BIO_PD_DF2,
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
+        suffixes=("_1", "_3"),
+        use_zero_based=True,
+        algorithm="SuperIntervals",
+    )
+
     expected = result_bio_overlap.sort_values(
         by=list(result_bio_overlap.columns)
     ).reset_index(drop=True)
@@ -121,6 +142,9 @@ class TestOverlapAlgorithms:
 
     def test_overlap_count_ait(self):
         assert len(self.result_overlap_ait) == len(self.result_bio_overlap)
+
+    def test_overlap_count_superintervals(self):
+        assert len(self.result_overlap_superintervals) == len(self.result_bio_overlap)
 
     def test_overlap_schema_rows_coitrees(self):
         result = self.result_overlap_coitrees.sort_values(
@@ -145,6 +169,12 @@ class TestOverlapAlgorithms:
             by=list(self.result_overlap_ait.columns)
         ).reset_index(drop=True)
         pd.testing.assert_frame_equal(result_ait, self.expected)
+
+    def test_overlap_schema_rows_superintervals(self):
+        result_superintervals = self.result_overlap_superintervals.sort_values(
+            by=list(self.result_overlap_superintervals.columns)
+        ).reset_index(drop=True)
+        pd.testing.assert_frame_equal(result_superintervals, self.expected)
 
     def test_overlap_schema_rows_it_log(self, caplog):
         caplog.set_level("INFO")
@@ -173,3 +203,11 @@ class TestOverlapAlgorithms:
         caplog.set_level("INFO")
         self.result_overlap_lapper_log.count().collect()
         assert "Optimizing into IntervalJoinExec using Lapper algorithm" in caplog.text
+
+    def test_overlap_schema_rows_superintervals_log(self, caplog):
+        caplog.set_level("INFO")
+        self.result_overlap_superintervals_log.count().collect()
+        assert (
+            "Optimizing into IntervalJoinExec using SuperIntervals algorithm"
+            in caplog.text
+        )
