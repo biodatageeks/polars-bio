@@ -35,13 +35,13 @@ polars-arrow =  { git = "https://github.com/mwiewior/polars.git" , rev = "49142b
 polars-python = { git = "https://github.com/mwiewior/polars.git" , rev = "49142b2e89dbc93888154dccfb7c6a4e4233c7b0"}
 
 
-datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "89648086098023a3544f2735fb3395c83118c7e3" }
-datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "89648086098023a3544f2735fb3395c83118c7e3" }
-datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "89648086098023a3544f2735fb3395c83118c7e3" }
-datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "89648086098023a3544f2735fb3395c83118c7e3" }
-datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "89648086098023a3544f2735fb3395c83118c7e3" }
-datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "89648086098023a3544f2735fb3395c83118c7e3" }
-datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "89648086098023a3544f2735fb3395c83118c7e3" }
+datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "0b9746c77aeb0e3a29f6460cb29f48aa17625c1d" }
+datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "0b9746c77aeb0e3a29f6460cb29f48aa17625c1d" }
+datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "0b9746c77aeb0e3a29f6460cb29f48aa17625c1d" }
+datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "0b9746c77aeb0e3a29f6460cb29f48aa17625c1d" }
+datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "0b9746c77aeb0e3a29f6460cb29f48aa17625c1d" }
+datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "0b9746c77aeb0e3a29f6460cb29f48aa17625c1d" }
+datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "0b9746c77aeb0e3a29f6460cb29f48aa17625c1d" }
 
 
 

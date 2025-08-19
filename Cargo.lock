@@ -1383,7 +1383,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bam"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=89648086098023a3544f2735fb3395c83118c7e3#89648086098023a3544f2735fb3395c83118c7e3"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=0b9746c77aeb0e3a29f6460cb29f48aa17625c1d#0b9746c77aeb0e3a29f6460cb29f48aa17625c1d"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1404,7 +1404,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bed"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=89648086098023a3544f2735fb3395c83118c7e3#89648086098023a3544f2735fb3395c83118c7e3"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=0b9746c77aeb0e3a29f6460cb29f48aa17625c1d#0b9746c77aeb0e3a29f6460cb29f48aa17625c1d"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1417,7 +1417,7 @@ dependencies = [
  "futures",
  "futures-util",
  "log",
- "noodles",
+ "noodles 0.93.0",
  "noodles-bed",
  "noodles-bgzf 0.36.0",
  "opendal",
@@ -1428,14 +1428,15 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-core"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=89648086098023a3544f2735fb3395c83118c7e3#89648086098023a3544f2735fb3395c83118c7e3"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=0b9746c77aeb0e3a29f6460cb29f48aa17625c1d#0b9746c77aeb0e3a29f6460cb29f48aa17625c1d"
 dependencies = [
  "async-compression",
  "bytes",
  "datafusion",
  "datafusion-execution",
+ "futures",
  "log",
- "noodles",
+ "noodles 0.93.0",
  "noodles-bgzf 0.36.0",
  "opendal",
  "tokio",
@@ -1446,7 +1447,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fasta"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=89648086098023a3544f2735fb3395c83118c7e3#89648086098023a3544f2735fb3395c83118c7e3"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=0b9746c77aeb0e3a29f6460cb29f48aa17625c1d#0b9746c77aeb0e3a29f6460cb29f48aa17625c1d"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1457,7 +1458,7 @@ dependencies = [
  "futures",
  "futures-util",
  "log",
- "noodles",
+ "noodles 0.93.0",
  "noodles-bgzf 0.36.0",
  "noodles-fasta 0.55.0",
  "opendal",
@@ -1468,7 +1469,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fastq"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=89648086098023a3544f2735fb3395c83118c7e3#89648086098023a3544f2735fb3395c83118c7e3"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=0b9746c77aeb0e3a29f6460cb29f48aa17625c1d#0b9746c77aeb0e3a29f6460cb29f48aa17625c1d"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1479,7 +1480,7 @@ dependencies = [
  "futures",
  "futures-util",
  "log",
- "noodles",
+ "noodles 0.93.0",
  "noodles-bgzf 0.36.0",
  "noodles-fastq 0.19.0",
  "opendal",
@@ -1492,7 +1493,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-gff"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=89648086098023a3544f2735fb3395c83118c7e3#89648086098023a3544f2735fb3395c83118c7e3"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=0b9746c77aeb0e3a29f6460cb29f48aa17625c1d#0b9746c77aeb0e3a29f6460cb29f48aa17625c1d"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1504,7 +1505,7 @@ dependencies = [
  "futures",
  "futures-util",
  "log",
- "noodles",
+ "noodles 0.93.0",
  "noodles-gff 0.50.0",
  "opendal",
  "tokio",
@@ -1514,7 +1515,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-vcf"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=89648086098023a3544f2735fb3395c83118c7e3#89648086098023a3544f2735fb3395c83118c7e3"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=0b9746c77aeb0e3a29f6460cb29f48aa17625c1d#0b9746c77aeb0e3a29f6460cb29f48aa17625c1d"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1526,6 +1527,7 @@ dependencies = [
  "env_logger",
  "futures",
  "log",
+ "noodles 0.100.0",
  "noodles-bgzf 0.36.0",
  "noodles-vcf 0.80.0",
  "opendal",
@@ -3587,6 +3589,15 @@ dependencies = [
  "noodles-sam 0.72.0",
  "noodles-tabix 0.50.0",
  "noodles-vcf 0.74.0",
+]
+
+[[package]]
+name = "noodles"
+version = "0.100.0"
+source = "git+https://github.com/biodatageeks/noodles.git?rev=289ef32e7d43d142914fb3f02335044ae293871c#289ef32e7d43d142914fb3f02335044ae293871c"
+dependencies = [
+ "noodles-bgzf 0.42.0",
+ "noodles-vcf 0.80.0",
 ]
 
 [[package]]
