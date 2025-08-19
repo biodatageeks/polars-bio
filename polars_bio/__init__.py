@@ -59,7 +59,7 @@ except ImportError:
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 
 
-__version__ = "0.11.0"
+__version__ = "0.12.0"
 __all__ = [
     "ctx",
     "FilterOp",
