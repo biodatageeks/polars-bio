@@ -3,7 +3,7 @@ from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions
 
 from .context import ctx, set_option
-from .sql import SQL
+from .sql import SQL as data_processing
 
 register_gff = SQL.register_gff
 register_vcf = SQL.register_vcf
@@ -14,25 +14,28 @@ register_view = SQL.register_view
 
 sql = SQL.sql
 
-from .io import (
-    describe_vcf,
-    from_polars,
-    read_bam,
-    read_bed,
-    read_fasta,
-    read_fastq,
-    read_gff,
-    read_table,
-    read_vcf,
-    scan_bam,
-    scan_bed,
-    scan_fasta,
-    scan_fastq,
-    scan_gff,
-    scan_table,
-    scan_vcf,
-)
-from .range_op import IntervalOperations
+from .io import IOOperations as data_input
+
+describe_vcf = IOOperations.describe_vcf
+from_polars = IOOperations.from_polars
+read_bam = IOOperations.read_bam
+read_fastq = IOOperations.read_fastq
+read_gff = IOOperations.read_gff
+read_table = IOOperations.read_table
+read_vcf = IOOperations.read_vcf
+read_fastq = IOOperations.read_fastq
+read_bed = IOOperations.read_bed
+read_fasta = IOOperations.read_fasta
+scan_bam = IOOperations.scan_bam
+scan_bed = IOOperations.scan_bed
+scan_fasta = IOOperations.scan_fasta
+scan_fastq = IOOperations.scan_fastq
+scan_gff = IOOperations.scan_gff
+scan_table = IOOperations.scan_table
+scan_vcf = IOOperations.scan_vcf
+
+
+from .range_op import IntervalOperations as range_operations
 
 overlap = IntervalOperations.overlap
 nearest = IntervalOperations.nearest
@@ -48,6 +51,7 @@ except ImportError:
     pass
 
 
+from .io import IOOperations as data_input
 from .logging import set_loglevel
 from .polars_ext import PolarsRangesOperations as LazyFrame
 from .range_op import FilterOp
@@ -71,6 +75,7 @@ __all__ = [
     "data_processing",
     "range_operations",
     # "LazyFrame",
+    "data_input",
     "utils",
     "ReadOptions",
     "VcfReadOptions",
@@ -93,4 +98,17 @@ __all__ = [
     "scan_gff",
     "scan_table",
     "scan_vcf",
+    "register_gff",
+    "register_vcf",
+    "register_fastq",
+    "register_bam",
+    "register_bed",
+    "register_view",
+    "sql",
+    "overlap",
+    "nearest",
+    "count_overlaps",
+    "coverage",
+    "merge",
+    "visualize_intervals",
 ]
