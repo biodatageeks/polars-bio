@@ -2,7 +2,9 @@ from pathlib import Path
 
 import bioframe as bf
 import polars as pl
+import pytest
 from _expected import (
+    DATA_DIR,
     DF_COUNT_OVERLAPS_PATH1,
     DF_COUNT_OVERLAPS_PATH2,
     DF_NEAREST_PATH1,
@@ -130,3 +132,41 @@ class TestStreaming:
         expected = pl.read_csv(file).to_pandas()
         expected.equals(self.result_coverage_bio)
         file_path.unlink(missing_ok=True)
+
+
+class TestStreamingIO:
+    def test_scan_bam_streaming(self):
+        df = pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam", streaming=True).collect(
+            streaming=True
+        )
+        assert len(df) == 2333
+
+    def test_scan_bed_streaming(self):
+        df = pb.scan_bed(
+            f"{DATA_DIR}/io/bed/chr16_fragile_site.bed.bgz", streaming=True
+        ).collect(streaming=True)
+        assert len(df) == 5
+
+    def test_scan_fasta_streaming(self):
+        df = pb.scan_fasta(f"{DATA_DIR}/io/fasta/test.fasta", streaming=True).collect(
+            streaming=True
+        )
+        assert len(df) == 2
+
+    def test_scan_fastq_streaming(self):
+        df = pb.scan_fastq(
+            f"{DATA_DIR}/io/fastq/example.fastq.bgz", streaming=True
+        ).collect(streaming=True)
+        assert len(df) == 200
+
+    def test_scan_gff_streaming(self):
+        df = pb.scan_gff(
+            f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.bgz", streaming=True
+        ).collect(streaming=True)
+        assert len(df) == 3
+
+    def test_scan_vcf_streaming(self):
+        df = pb.scan_vcf(f"{DATA_DIR}/io/vcf/vep.vcf.bgz", streaming=True).collect(
+            streaming=True
+        )
+        assert len(df) == 2
