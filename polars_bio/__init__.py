@@ -3,37 +3,45 @@ from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions
 
 from .context import ctx, set_option
-from .sql import SQL
+from .sql import SQL as data_processing
 
-register_gff = SQL.register_gff
-register_vcf = SQL.register_vcf
-register_fastq = SQL.register_fastq
-register_bam = SQL.register_bam
-register_bed = SQL.register_bed
-register_view = SQL.register_view
+register_gff = data_processing.register_gff
+register_vcf = data_processing.register_vcf
+register_fastq = data_processing.register_fastq
+register_bam = data_processing.register_bam
+register_bed = data_processing.register_bed
+register_view = data_processing.register_view
 
-sql = SQL.sql
+sql = data_processing.sql
 
-from .io import IOOperations
+from .io import IOOperations as data_input
 
-describe_vcf = IOOperations.describe_vcf
-from_polars = IOOperations.from_polars
-read_bam = IOOperations.read_bam
-read_fastq = IOOperations.read_fastq
-read_gff = IOOperations.read_gff
-read_table = IOOperations.read_table
-read_vcf = IOOperations.read_vcf
-read_fastq = IOOperations.read_fastq
-read_bed = IOOperations.read_bed
-read_fasta = IOOperations.read_fasta
+describe_vcf = data_input.describe_vcf
+from_polars = data_input.from_polars
+read_bam = data_input.read_bam
+read_fastq = data_input.read_fastq
+read_gff = data_input.read_gff
+read_table = data_input.read_table
+read_vcf = data_input.read_vcf
+read_fastq = data_input.read_fastq
+read_bed = data_input.read_bed
+read_fasta = data_input.read_fasta
+scan_bam = data_input.scan_bam
+scan_bed = data_input.scan_bed
+scan_fasta = data_input.scan_fasta
+scan_fastq = data_input.scan_fastq
+scan_gff = data_input.scan_gff
+scan_table = data_input.scan_table
+scan_vcf = data_input.scan_vcf
 
-from .range_op import IntervalOperations
 
-overlap = IntervalOperations.overlap
-nearest = IntervalOperations.nearest
-count_overlaps = IntervalOperations.count_overlaps
-coverage = IntervalOperations.coverage
-merge = IntervalOperations.merge
+from .range_op import IntervalOperations as range_operations
+
+overlap = range_operations.overlap
+nearest = range_operations.nearest
+count_overlaps = range_operations.count_overlaps
+coverage = range_operations.coverage
+merge = range_operations.merge
 
 try:
     from .range_utils import Utils
@@ -74,4 +82,33 @@ __all__ = [
     "ObjectStorageOptions",
     "set_option",
     "set_loglevel",
+    "describe_vcf",
+    "from_polars",
+    "read_bam",
+    "read_bed",
+    "read_fasta",
+    "read_fastq",
+    "read_gff",
+    "read_table",
+    "read_vcf",
+    "scan_bam",
+    "scan_bed",
+    "scan_fasta",
+    "scan_fastq",
+    "scan_gff",
+    "scan_table",
+    "scan_vcf",
+    "register_gff",
+    "register_vcf",
+    "register_fastq",
+    "register_bam",
+    "register_bed",
+    "register_view",
+    "sql",
+    "overlap",
+    "nearest",
+    "count_overlaps",
+    "coverage",
+    "merge",
+    "visualize_intervals",
 ]
