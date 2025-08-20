@@ -46,7 +46,7 @@ class TestMemoryCombinations:
 
 
 class TestIOBAM:
-    df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam").collect()
+    df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
 
     def test_count(self):
         assert len(self.df) == 2333
@@ -75,7 +75,7 @@ class TestIOBAM:
 
 
 class TestIOBED:
-    df = pb.read_table(f"{DATA_DIR}/io/bed/test.bed", schema="bed12").collect()
+    df = pb.read_table(f"{DATA_DIR}/io/bed/test.bed", schema="bed12")
 
     def test_count(self):
         assert len(self.df) == 3
@@ -90,12 +90,12 @@ class TestFasta:
     fasta_path = f"{DATA_DIR}/io/fasta/test.fasta"
 
     def test_count(self):
-        df = pb.read_fasta(self.fasta_path).collect()
+        df = pb.read_fasta(self.fasta_path)
         assert len(df) == 2
 
     def test_read_fasta(self):
 
-        df = pb.read_fasta(self.fasta_path).collect()
+        df = pb.read_fasta(self.fasta_path)
         print("Actual DataFrame:")
         print(df)
         print("Actual Schema:")
@@ -116,7 +116,7 @@ class TestIOTable:
     file = f"{DATA_DIR}/io/bed/ENCFF001XKR.bed.gz"
 
     def test_bed9(self):
-        df_1 = pb.read_table(self.file, schema="bed9").collect().to_pandas()
+        df_1 = pb.read_table(self.file, schema="bed9").to_pandas()
         df_1 = df_1.sort_values(by=list(df_1.columns)).reset_index(drop=True)
         df_2 = bf.read_table(self.file, schema="bed9")
         df_2 = df_2.sort_values(by=list(df_2.columns)).reset_index(drop=True)
@@ -124,15 +124,15 @@ class TestIOTable:
 
 
 class TestIOVCF:
-    df_bgz = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf.bgz").collect()
-    df_gz = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf.gz").collect()
-    df_none = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf").collect()
+    df_bgz = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf.bgz")
+    df_gz = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf.gz")
+    df_none = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf")
     df_bgz_wrong_extension = pb.read_vcf(
         f"{DATA_DIR}/io/vcf/wrong_extension.vcf.bgz", compression_type="gz"
-    ).collect()
+    )
     df_gz_wrong_extension = pb.read_vcf(
         f"{DATA_DIR}/io/vcf/wrong_extension.vcf.gz", compression_type="bgz"
-    ).collect()
+    )
 
     def test_count(self):
         assert len(self.df_none) == 2
@@ -154,19 +154,19 @@ class TestIOVCF:
 class TestFastq:
     def test_count(self):
         assert (
-            pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.bgz")
+            pb.scan_fastq(f"{DATA_DIR}/io/fastq/example.fastq.bgz")
             .count()
             .collect()["name"][0]
             == 200
         )
         assert (
-            pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.gz")
+            pb.scan_fastq(f"{DATA_DIR}/io/fastq/example.fastq.gz")
             .count()
             .collect()["name"][0]
             == 200
         )
         assert (
-            pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq")
+            pb.scan_fastq(f"{DATA_DIR}/io/fastq/example.fastq")
             .count()
             .collect()["name"][0]
             == 200
@@ -174,7 +174,7 @@ class TestFastq:
 
     def test_compression_override(self):
         assert (
-            pb.read_fastq(
+            pb.scan_fastq(
                 f"{DATA_DIR}/io/fastq/wrong_extension.fastq.gz", compression_type="bgz"
             )
             .count()
@@ -183,9 +183,7 @@ class TestFastq:
         )
 
     def test_fields(self):
-        sequences = (
-            pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.bgz").limit(5).collect()
-        )
+        sequences = pb.read_fastq(f"{DATA_DIR}/io/fastq/example.fastq.bgz").limit(5)
         assert sequences["name"][1] == "SRR9130495.2"
         assert (
             sequences["quality_scores"][2]
@@ -203,11 +201,11 @@ class TestParallelFastq:
         pb.set_option("datafusion.execution.target_partitions", str(partitions))
         df = pb.read_fastq(
             f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz", parallel=True
-        ).collect()
+        )
         assert len(df) == 2000
 
     def test_read_parallel_fastq_with_limit(self):
-        lf = pb.read_fastq(
+        lf = pb.scan_fastq(
             f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz", parallel=True
         ).limit(10)
         print(lf.explain())
@@ -216,12 +214,12 @@ class TestParallelFastq:
 
 
 class TestIOGFF:
-    df_bgz = pb.read_gff(f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.bgz").collect()
-    df_gz = pb.read_gff(f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.gz").collect()
-    df_none = pb.read_gff(f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3").collect()
+    df_bgz = pb.read_gff(f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.bgz")
+    df_gz = pb.read_gff(f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.gz")
+    df_none = pb.read_gff(f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3")
     df_bgz_wrong_extension = pb.read_gff(
         f"{DATA_DIR}/io/gff/wrong_extension.gff3.gz", compression_type="bgz"
-    ).collect()
+    )
 
     def test_count(self):
         assert len(self.df_none) == 3
@@ -267,8 +265,8 @@ class TestIOGFF:
 
 
 class TestBED:
-    df_bgz = pb.read_bed(f"{DATA_DIR}/io/bed/chr16_fragile_site.bed.bgz").collect()
-    df_none = pb.read_bed(f"{DATA_DIR}/io/bed/chr16_fragile_site.bed").collect()
+    df_bgz = pb.read_bed(f"{DATA_DIR}/io/bed/chr16_fragile_site.bed.bgz")
+    df_none = pb.read_bed(f"{DATA_DIR}/io/bed/chr16_fragile_site.bed")
 
     def test_count(self):
         assert len(self.df_none) == 5

@@ -11,7 +11,7 @@ class TestPolarsExt:
 
     def test_sort_bedframe(self):
         df_1_unsorted = (
-            pb.read_table(self.file, schema="bed9").collect().sample(1000, shuffle=True)
+            pb.scan_table(self.file, schema="bed9").collect().sample(1000, shuffle=True)
         )
         df_2 = df_1_unsorted.to_pandas()
         df_2 = bf.sort_bedframe(df_2)
@@ -20,13 +20,13 @@ class TestPolarsExt:
         assert not df_1_unsorted.to_pandas().equals(df_2)
 
     def test_expand_pad(self):
-        df_1 = pb.read_table(self.file, schema="bed9").collect()
+        df_1 = pb.scan_table(self.file, schema="bed9").collect()
         df_2 = bf.expand(df_1.to_pandas(), pad=1000)
         df_3 = df_1.lazy().pb.expand(pad=1000).collect().to_pandas()
         assert df_2.equals(df_3)
 
     def test_expand_scale(self):
-        df_1 = pb.read_table(self.file, schema="bed9").collect()
+        df_1 = pb.scan_table(self.file, schema="bed9").collect()
         df_2 = bf.expand(df_1.to_pandas(), scale=1.5)
         df_3 = df_1.lazy().pb.expand(scale=1.5).collect().to_pandas()
         assert df_2.equals(df_3)
@@ -34,14 +34,14 @@ class TestPolarsExt:
     def test_overlap(self):
         cols = ("chrom", "start", "end")
         df_1 = (
-            pb.read_table(self.file, schema="bed9")
+            pb.scan_table(self.file, schema="bed9")
             .select(cols)
             .collect()
             .to_pandas()
             .reset_index(drop=True)
         )
         df_2 = (
-            pb.read_table(self.file, schema="bed9")
+            pb.scan_table(self.file, schema="bed9")
             .select(cols)
             .collect()
             .to_pandas()
@@ -67,14 +67,14 @@ class TestPolarsExt:
     def test_nearest(self):
         cols = ("chrom", "start", "end")
         df_1 = (
-            pb.read_table(self.file, schema="bed9")
+            pb.scan_table(self.file, schema="bed9")
             .select(cols)
             .collect()
             .to_pandas()
             .reset_index(drop=True)
         )
         df_2 = (
-            pb.read_table(self.file, schema="bed9")
+            pb.scan_table(self.file, schema="bed9")
             .select(cols)
             .collect()
             .to_pandas()
@@ -102,7 +102,7 @@ class TestPolarsExt:
     def test_merge(self):
         cols = ("chrom", "start", "end")
         df_1 = (
-            pb.read_table(self.file, schema="bed9")
+            pb.scan_table(self.file, schema="bed9")
             .select(cols)
             .collect()
             .to_pandas()
@@ -110,7 +110,7 @@ class TestPolarsExt:
         )
 
         df_2 = (
-            pb.read_table(self.file, schema="bed9")
+            pb.scan_table(self.file, schema="bed9")
             .select(cols)
             .collect()
             .to_pandas()
@@ -138,14 +138,14 @@ class TestPolarsExt:
     def test_count_overlaps(self):
         cols = ("chrom", "start", "end")
         df_1 = (
-            pb.read_table(self.file, schema="bed9")
+            pb.scan_table(self.file, schema="bed9")
             .select(cols)
             .collect()
             .to_pandas()
             .reset_index(drop=True)
         )
         df_2 = (
-            pb.read_table(self.file, schema="bed9")
+            pb.scan_table(self.file, schema="bed9")
             .select(cols)
             .collect()
             .to_pandas()

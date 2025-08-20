@@ -17,7 +17,7 @@ def test_vcf_ensembl_1_parsing():
         "CLIN_uncertain_significance",
         "AA",
     ]
-    df = pb.read_vcf(vcf_path, info_fields=info_fields).collect()
+    df = pb.read_vcf(vcf_path, info_fields=info_fields)
 
     expected_df = pl.DataFrame(
         {
@@ -100,7 +100,7 @@ def test_vcf_ensembl_2_parsing():
         "MAC",
         "AA",
     ]
-    df = pb.read_vcf(vcf_path, info_fields=info_fields).collect()
+    df = pb.read_vcf(vcf_path, info_fields=info_fields)
 
     expected_df = pl.DataFrame(
         {

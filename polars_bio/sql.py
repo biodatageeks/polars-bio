@@ -22,7 +22,7 @@ from polars_bio.polars_bio import (
 )
 
 from .context import ctx
-from .io import _cleanse_fields, lazy_scan
+from .io import _cleanse_fields, _lazy_scan
 from .range_op_helpers import stream_wrapper
 
 
@@ -455,4 +455,4 @@ class SQL:
             return stream_wrapper(py_scan_sql(ctx, query))
         else:
             df = py_read_sql(ctx, query)
-            return lazy_scan(df)
+            return _lazy_scan(df)

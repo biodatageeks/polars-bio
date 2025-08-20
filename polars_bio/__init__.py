@@ -14,19 +14,24 @@ register_view = SQL.register_view
 
 sql = SQL.sql
 
-from .io import IOOperations
-
-describe_vcf = IOOperations.describe_vcf
-from_polars = IOOperations.from_polars
-read_bam = IOOperations.read_bam
-read_fastq = IOOperations.read_fastq
-read_gff = IOOperations.read_gff
-read_table = IOOperations.read_table
-read_vcf = IOOperations.read_vcf
-read_fastq = IOOperations.read_fastq
-read_bed = IOOperations.read_bed
-read_fasta = IOOperations.read_fasta
-
+from .io import (
+    describe_vcf,
+    from_polars,
+    read_bam,
+    read_bed,
+    read_fasta,
+    read_fastq,
+    read_gff,
+    read_table,
+    read_vcf,
+    scan_bam,
+    scan_bed,
+    scan_fasta,
+    scan_fastq,
+    scan_gff,
+    scan_table,
+    scan_vcf,
+)
 from .range_op import IntervalOperations
 
 overlap = IntervalOperations.overlap
@@ -43,7 +48,6 @@ except ImportError:
     pass
 
 
-from .io import IOOperations as data_input
 from .logging import set_loglevel
 from .polars_ext import PolarsRangesOperations as LazyFrame
 from .range_op import FilterOp
@@ -67,11 +71,26 @@ __all__ = [
     "data_processing",
     "range_operations",
     # "LazyFrame",
-    "data_input",
     "utils",
     "ReadOptions",
     "VcfReadOptions",
     "ObjectStorageOptions",
     "set_option",
     "set_loglevel",
+    "describe_vcf",
+    "from_polars",
+    "read_bam",
+    "read_bed",
+    "read_fasta",
+    "read_fastq",
+    "read_gff",
+    "read_table",
+    "read_vcf",
+    "scan_bam",
+    "scan_bed",
+    "scan_fasta",
+    "scan_fastq",
+    "scan_gff",
+    "scan_table",
+    "scan_vcf",
 ]
