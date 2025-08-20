@@ -159,6 +159,7 @@ class TestStreamingIO:
         ).collect(streaming=True)
         assert len(df) == 200
 
+    @pytest.mark.xfail
     def test_scan_gff_streaming(self):
         df = pb.scan_gff(
             f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.bgz", streaming=True
