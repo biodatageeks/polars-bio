@@ -160,7 +160,7 @@ fn stream_range_operation_scan(
         let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
         debug!("Schema: {:?}", polars_schema);
         let args = ScanArgsAnonymous {
-            schema: Some(Arc::new(polars_schema)),
+            schema: Some(Arc::new(polars_schema.clone())),
             name: "SCAN polars-bio",
             ..ScanArgsAnonymous::default()
         };
@@ -172,9 +172,13 @@ fn stream_range_operation_scan(
         let scan = RangeOperationScan {
             df_iter: Arc::new(Mutex::new(stream)),
             rt: Runtime::new()?,
+            schema: Arc::new(polars_schema),
         };
         let function = Arc::new(scan);
-        let lf = LazyFrame::anonymous_scan(function, args).map_err(PyPolarsErr::from)?;
+        let lf = LazyFrame::anonymous_scan(function, args)
+            .map_err(PyPolarsErr::from)
+            .unwrap()
+            .with_new_streaming(true);
         Ok(lf.into())
     })
 }
@@ -268,7 +272,7 @@ fn py_scan_sql(
         let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
         debug!("Schema: {:?}", polars_schema);
         let args = ScanArgsAnonymous {
-            schema: Some(Arc::new(polars_schema)),
+            schema: Some(Arc::new(polars_schema.clone())),
             name: "SCAN polars-bio",
             ..ScanArgsAnonymous::default()
         };
@@ -280,9 +284,13 @@ fn py_scan_sql(
         let scan = RangeOperationScan {
             df_iter: Arc::new(Mutex::new(stream)),
             rt: Runtime::new()?,
+            schema: Arc::new(polars_schema),
         };
         let function = Arc::new(scan);
-        let lf = LazyFrame::anonymous_scan(function, args).map_err(PyPolarsErr::from)?;
+        let lf = LazyFrame::anonymous_scan(function, args)
+            .map_err(PyPolarsErr::from)
+            .unwrap()
+            .with_new_streaming(true);
         Ok(lf.into())
     })
 }
@@ -306,7 +314,7 @@ fn py_scan_table(
         let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
         debug!("Schema: {:?}", polars_schema);
         let args = ScanArgsAnonymous {
-            schema: Some(Arc::new(polars_schema)),
+            schema: Some(Arc::new(polars_schema.clone())),
             name: "SCAN polars-bio",
             ..ScanArgsAnonymous::default()
         };
@@ -318,9 +326,17 @@ fn py_scan_table(
         let scan = RangeOperationScan {
             df_iter: Arc::new(Mutex::new(stream)),
             rt: Runtime::new()?,
+            schema: Arc::new(polars_schema),
         };
         let function = Arc::new(scan);
-        let lf = LazyFrame::anonymous_scan(function, args).map_err(PyPolarsErr::from)?;
+        let lf = LazyFrame::anonymous_scan(function, args)
+            .map_err(PyPolarsErr::from)
+            .unwrap()
+            .with_new_streaming(true);
+        debug!(
+            "LazyFrame created with streaming: {}",
+            lf.describe_optimized_plan().unwrap()
+        );
         Ok(lf.into())
     })
 }

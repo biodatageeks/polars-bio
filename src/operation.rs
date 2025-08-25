@@ -46,10 +46,6 @@ pub(crate) fn do_range_operation(
             );
         },
     }
-    let streaming = range_options.streaming.unwrap_or(false);
-    if streaming {
-        info!("Running in streaming mode...");
-    }
     info!(
         "Running {} operation with algorithm {} and {} thread(s)...",
         range_options.range_op,

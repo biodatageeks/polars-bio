@@ -1,3 +1,9 @@
+import os
+
+# Set POLARS_FORCE_NEW_STREAMING to "1" by default if not already set
+if "POLARS_FORCE_NEW_STREAMING" not in os.environ:
+    os.environ["POLARS_FORCE_NEW_STREAMING"] = "1"
+
 from polars_bio.polars_bio import GffReadOptions, InputFormat
 from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions

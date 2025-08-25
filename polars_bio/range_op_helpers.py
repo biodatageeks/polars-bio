@@ -44,19 +44,6 @@ def range_operation(
             len(supported_exts.intersection(ext2)) > 0 or len(ext2) == 0
         ), "Dataframe2 must be a Parquet, a BED or CSV or VCF file"
         # use suffixes to avoid column name conflicts
-        if range_options.streaming:
-            # FIXME: Parallelism is not supported
-            # FIXME: StringViews not supported yet see: https://datafusion.apache.org/blog/2024/12/14/datafusion-python-43.1.0/
-
-            ctx.set_option("datafusion.execution.target_partitions", "1", False)
-            ctx.set_option(
-                "datafusion.execution.parquet.schema_force_view_types", "false", True
-            )
-            return stream_wrapper(
-                stream_range_operation_scan(
-                    ctx, df1, df2, range_options, read_options1, read_options2
-                )
-            )
 
         if range_options.range_op == RangeOp.CountOverlapsNaive:
             ## add count column to the schema
