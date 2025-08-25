@@ -190,6 +190,7 @@ There are 2 ways of using streaming mode:
 
 
 2. Using polars new streaming engine (still **experimental**).:
+
     ```python
     import os
     import polars_bio as pb
@@ -202,6 +203,7 @@ There are 2 ways of using streaming mode:
     df_2 =  f"{BENCH_DATA_ROOT}/exons/*.parquet"
     pb.overlap(df_1, df_2, cols1=cols, cols2=cols).collect(engine="streaming").limit()
     ```
+
     ```bash
     1652814rows [00:00, 20208793.67rows/s]
     [MultiScanState]: Readers disconnected
@@ -226,6 +228,9 @@ Parallellism can be controlled using the `datafusion.execution.target_partitions
    ```python
     pb.set_option("datafusion.execution.target_partitions", "1")
     pb.overlap(df_1, df_2, cols1=cols, cols2=cols).collect(engine="streaming").count()
+
+   ```
+   ```shell
     1652814rows [00:00, 19664163.99rows/s]
     shape: (1, 6)
     ┌──────────┬─────────────┬───────────┬──────────┬─────────────┬───────────┐
@@ -235,8 +240,13 @@ Parallellism can be controlled using the `datafusion.execution.target_partitions
     ╞══════════╪═════════════╪═══════════╪══════════╪═════════════╪═══════════╡
     │ 1652814  ┆ 1652814     ┆ 1652814   ┆ 1652814  ┆ 1652814     ┆ 1652814   │
     └──────────┴─────────────┴───────────┴──────────┴─────────────┴───────────┘
+   ```
+   ```python
     pb.set_option("datafusion.execution.target_partitions", "2")
     pb.overlap(df_1, df_2, cols1=cols, cols2=cols).collect(engine="streaming").count()
+   ```
+
+   ```shell
     1652814rows [00:00, 27841987.75rows/s]
     shape: (1, 6)
     ┌──────────┬─────────────┬───────────┬──────────┬─────────────┬───────────┐
@@ -246,8 +256,7 @@ Parallellism can be controlled using the `datafusion.execution.target_partitions
     ╞══════════╪═════════════╪═══════════╪══════════╪═════════════╪═══════════╡
     │ 1652814  ┆ 1652814     ┆ 1652814   ┆ 1652814  ┆ 1652814     ┆ 1652814   │
     └──────────┴─────────────┴───────────┴──────────┴─────────────┴───────────┘
-
-    ```
+   ```
 
 ## Compression
 *polars-bio* supports **GZIP** ( default file extension `*.gz`) and **Block GZIP** (BGZIP, default file extension `*.bgz`) when reading files from local and cloud storages.
