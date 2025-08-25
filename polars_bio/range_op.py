@@ -46,7 +46,6 @@ class IntervalOperations:
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
         algorithm: str = "Coitrees",
         output_type: str = "polars.LazyFrame",
-        streaming: bool = False,
         read_options1: Union[ReadOptions, None] = None,
         read_options2: Union[ReadOptions, None] = None,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
@@ -66,7 +65,6 @@ class IntervalOperations:
             on_cols: List of additional column names to join on. default is None.
             algorithm: The algorithm to use for the overlap operation. Available options: Coitrees, IntervalTree, ArrayIntervalTree, Lapper, SuperIntervals
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
-            streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming) engine.
             read_options1: Additional options for reading the input files.
             read_options2: Additional options for reading the input files.
 
@@ -122,7 +120,6 @@ class IntervalOperations:
             columns_1=cols1,
             columns_2=cols2,
             overlap_alg=algorithm,
-            streaming=streaming,
         )
 
         return range_operation(
@@ -139,7 +136,6 @@ class IntervalOperations:
         cols1: Union[list[str], None] = ["chrom", "start", "end"],
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
         output_type: str = "polars.LazyFrame",
-        streaming: bool = False,
         read_options: Union[ReadOptions, None] = None,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
@@ -157,7 +153,6 @@ class IntervalOperations:
             suffixes: Suffixes for the columns of the two overlapped sets.
             on_cols: List of additional column names to join on. default is None.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
-            streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming) engine.
             read_options: Additional options for reading the input files.
 
 
@@ -186,7 +181,6 @@ class IntervalOperations:
             suffixes=suffixes,
             columns_1=cols1,
             columns_2=cols2,
-            streaming=streaming,
         )
         return range_operation(df1, df2, range_options, output_type, ctx, read_options)
 
@@ -200,7 +194,6 @@ class IntervalOperations:
         cols1: Union[list[str], None] = ["chrom", "start", "end"],
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
         output_type: str = "polars.LazyFrame",
-        streaming: bool = False,
         read_options: Union[ReadOptions, None] = None,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
@@ -218,7 +211,6 @@ class IntervalOperations:
             suffixes: Suffixes for the columns of the two overlapped sets.
             on_cols: List of additional column names to join on. default is None.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
-            streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming) engine.
             read_options: Additional options for reading the input files.
 
 
@@ -252,7 +244,6 @@ class IntervalOperations:
             suffixes=suffixes,
             columns_1=cols1,
             columns_2=cols2,
-            streaming=streaming,
         )
         return range_operation(df2, df1, range_options, output_type, ctx, read_options)
 
@@ -266,7 +257,6 @@ class IntervalOperations:
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
         on_cols: Union[list[str], None] = None,
         output_type: str = "polars.LazyFrame",
-        streaming: bool = False,
         naive_query: bool = True,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
@@ -285,7 +275,6 @@ class IntervalOperations:
             on_cols: List of additional column names to join on. default is None.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             naive_query: If True, use naive query for counting overlaps based on overlaps.
-            streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming) engine.
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
@@ -335,7 +324,6 @@ class IntervalOperations:
                 suffixes=suffixes,
                 columns_1=cols1,
                 columns_2=cols2,
-                streaming=streaming,
             )
             return range_operation(df2, df1, range_options, output_type, ctx)
         df1 = read_df_to_datafusion(my_ctx, df1)
@@ -423,7 +411,7 @@ class IntervalOperations:
             )
         )
 
-        return convert_result(df, output_type, streaming)
+        return convert_result(df, output_type)
 
     @staticmethod
     def merge(
@@ -433,7 +421,6 @@ class IntervalOperations:
         cols: Union[list[str], None] = ["chrom", "start", "end"],
         on_cols: Union[list[str], None] = None,
         output_type: str = "polars.LazyFrame",
-        streaming: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Merge overlapping intervals. It is assumed that start < end.
@@ -446,7 +433,6 @@ class IntervalOperations:
                 genomic intervals, provided separately for each set.
             on_cols: List of additional column names for clustering. default is None.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
-            streaming: **EXPERIMENTAL** If True, use Polars [streaming](features.md#streaming) engine.
 
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
@@ -574,4 +560,4 @@ class IntervalOperations:
             )
         )
 
-        return convert_result(result, output_type, streaming)
+        return convert_result(result, output_type)

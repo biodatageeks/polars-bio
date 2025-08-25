@@ -136,7 +136,6 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        streaming: bool = False,
     ) -> pl.LazyFrame:
         """
 
@@ -151,7 +150,6 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTA file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
-            streaming: Whether to read the file in streaming mode.
 
         !!! Example
             ```shell
@@ -186,7 +184,7 @@ class IOOperations:
             object_storage_options=object_storage_options
         )
         read_options = ReadOptions(fasta_read_options=fasta_read_options)
-        return _read_file(path, InputFormat.Fasta, read_options, streaming=streaming)
+        return _read_file(path, InputFormat.Fasta, read_options)
 
     @staticmethod
     def read_vcf(
@@ -244,7 +242,6 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        streaming: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a VCF file into a LazyFrame.
@@ -260,7 +257,6 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
-            streaming: Whether to read the file in streaming mode.
 
         !!! note
             VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -281,7 +277,7 @@ class IOOperations:
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
-        return _read_file(path, InputFormat.Vcf, read_options, streaming=streaming)
+        return _read_file(path, InputFormat.Vcf, read_options)
 
     @staticmethod
     def read_gff(
@@ -339,7 +335,6 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        streaming: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a GFF file into a LazyFrame.
@@ -355,7 +350,6 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
-            streaming: Whether to read the file in streaming mode.
 
         !!! note
             GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -376,7 +370,7 @@ class IOOperations:
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(gff_read_options=gff_read_options)
-        return _read_file(path, InputFormat.Gff, read_options, streaming=streaming)
+        return _read_file(path, InputFormat.Gff, read_options)
 
     @staticmethod
     def read_bam(
@@ -426,7 +420,6 @@ class IOOperations:
         enable_request_payer: bool = False,
         max_retries: int = 5,
         timeout: int = 300,
-        streaming: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a BAM file into a LazyFrame.
@@ -440,7 +433,6 @@ class IOOperations:
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
-            streaming: Whether to read the file in streaming mode.
 
         !!! note
             BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
@@ -460,7 +452,7 @@ class IOOperations:
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
-        return _read_file(path, InputFormat.Bam, read_options, streaming=streaming)
+        return _read_file(path, InputFormat.Bam, read_options)
 
     @staticmethod
     def read_fastq(
@@ -511,7 +503,6 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         parallel: bool = False,
-        streaming: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a FASTQ file into a LazyFrame.
@@ -526,7 +517,6 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
             parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
-            streaming: Whether to read the file in streaming mode.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -542,7 +532,7 @@ class IOOperations:
             object_storage_options=object_storage_options, parallel=parallel
         )
         read_options = ReadOptions(fastq_read_options=fastq_read_options)
-        return _read_file(path, InputFormat.Fastq, read_options, streaming=streaming)
+        return _read_file(path, InputFormat.Fastq, read_options)
 
     @staticmethod
     def read_bed(
@@ -600,7 +590,6 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        streaming: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a BED file into a LazyFrame.
@@ -615,7 +604,6 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compressions is supported ('bgz').
-            streaming: Whether to read the file in streaming mode.
 
         !!! Note
             Only **BED4** format is supported. It extends the basic BED format (BED3) by adding a name field, resulting in four columns: chromosome, start position, end position, and name.
@@ -639,7 +627,7 @@ class IOOperations:
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(bed_read_options=bed_read_options)
-        return _read_file(path, InputFormat.Bed, read_options, streaming=streaming)
+        return _read_file(path, InputFormat.Bed, read_options)
 
     @staticmethod
     def read_table(path: str, schema: Dict = None, **kwargs) -> pl.DataFrame:
@@ -764,11 +752,7 @@ def _read_file(
     path: str,
     input_format: InputFormat,
     read_options: ReadOptions,
-    streaming: bool = False,
 ) -> pl.LazyFrame:
     table = py_register_table(ctx, path, None, input_format, read_options)
-    if streaming:
-        return stream_wrapper(py_scan_table(ctx, table.name))
-    else:
-        df = py_read_table(ctx, table.name)
-        return _lazy_scan(df)
+    df = py_read_table(ctx, table.name)
+    return _lazy_scan(df)

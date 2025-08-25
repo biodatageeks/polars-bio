@@ -436,13 +436,12 @@ class SQL:
         py_register_table(ctx, path, name, InputFormat.Bam, read_options)
 
     @staticmethod
-    def sql(query: str, streaming: bool = False) -> pl.LazyFrame:
+    def sql(query: str) -> pl.LazyFrame:
         """
         Execute a SQL query on the registered tables.
 
         Parameters:
             query: The SQL query.
-            streaming: Whether to execute the query in streaming mode.
 
         !!! Example
               ```python
@@ -451,8 +450,5 @@ class SQL:
               pb.sql("SELECT * FROM gnomad_v4_1_sv LIMIT 5").collect()
               ```
         """
-        if streaming:
-            return stream_wrapper(py_scan_sql(ctx, query))
-        else:
-            df = py_read_sql(ctx, query)
-            return _lazy_scan(df)
+        df = py_read_sql(ctx, query)
+        return _lazy_scan(df)

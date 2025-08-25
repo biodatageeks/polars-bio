@@ -20,15 +20,13 @@ pub struct RangeOptions {
     on_cols: Option<Vec<String>>,
     #[pyo3(get, set)]
     pub overlap_alg: Option<String>,
-    #[pyo3(get, set)]
-    pub streaming: Option<bool>,
 }
 
 #[pymethods]
 impl RangeOptions {
     #[allow(clippy::too_many_arguments)]
     #[new]
-    #[pyo3(signature = (range_op, filter_op=None, suffixes=None, columns_1=None, columns_2=None, on_cols=None, overlap_alg=None, streaming=None))]
+    #[pyo3(signature = (range_op, filter_op=None, suffixes=None, columns_1=None, columns_2=None, on_cols=None, overlap_alg=None))]
     pub fn new(
         range_op: RangeOp,
         filter_op: Option<FilterOp>,
@@ -37,7 +35,6 @@ impl RangeOptions {
         columns_2: Option<Vec<String>>,
         on_cols: Option<Vec<String>>,
         overlap_alg: Option<String>,
-        streaming: Option<bool>,
     ) -> Self {
         RangeOptions {
             range_op,
@@ -47,13 +44,7 @@ impl RangeOptions {
             columns_2,
             on_cols,
             overlap_alg,
-            streaming,
         }
-    }
-}
-impl std::fmt::Display for RangeOptions {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "streaming {}", self.streaming.unwrap_or(false))
     }
 }
 

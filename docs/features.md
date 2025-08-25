@@ -189,35 +189,26 @@ There are 2 ways of using streaming mode:
         If you only need to write the results as fast as possible into one of the above file formats or quickly get the row count, then it is in the most cases the **best** option.
 
 
-2. With the `streaming` option in the operation - using polars streaming (**experimental** and check limitations).:
+2. Using polars new streaming engine (still **experimental**).:
+
     ```python
     import os
     import polars_bio as pb
     os.environ['BENCH_DATA_ROOT'] = "/Users/mwiewior/research/data/databio"
-    os.environ['POLARS_MAX_THREADS'] = "1"
     os.environ['POLARS_VERBOSE'] = "1"
 
     cols=["contig", "pos_start", "pos_end"]
     BENCH_DATA_ROOT = os.getenv('BENCH_DATA_ROOT', '/data/bench_data/databio')
     df_1 = f"{BENCH_DATA_ROOT}/exons/*.parquet"
     df_2 =  f"{BENCH_DATA_ROOT}/exons/*.parquet"
-    pb.overlap(df_1, df_2, cols1=cols, cols2=cols, streaming=True).collect(streaming=True).limit()
+    pb.overlap(df_1, df_2, cols1=cols, cols2=cols).collect(engine="streaming").limit()
     ```
 
     ```bash
-    INFO:polars_bio.operation:Running in streaming mode...
-    INFO:polars_bio.operation:Running Overlap operation with algorithm Coitrees and 1 thread(s)...
-    'STREAMING:\n  Anonymous SCAN []\n  PROJECT */6 COLUMNS'
-    ```
-
-    ```python
-    pb.overlap(df_1,df_2,cols1=cols,cols2=cols,streaming=True).collect(streaming=True).limit()
-    ```
-    ```bash
-    INFO:polars_bio.operation:Running in streaming mode...
-    INFO:polars_bio.operation:Running Overlap operation with algorithm Coitrees and 1 thread(s)...
-    RUN STREAMING PIPELINE
-    [anonymous -> ordered_sink]
+    1652814rows [00:00, 20208793.67rows/s]
+    [MultiScanState]: Readers disconnected
+    polars-stream: done running graph phase
+    polars-stream: updating graph state
     shape: (5, 6)
     ┌──────────┬─────────────┬───────────┬──────────┬─────────────┬───────────┐
     │ contig_1 ┆ pos_start_1 ┆ pos_end_1 ┆ contig_2 ┆ pos_start_2 ┆ pos_end_2 │
@@ -227,17 +218,45 @@ There are 2 ways of using streaming mode:
     │ chr1     ┆ 11873       ┆ 12227     ┆ chr1     ┆ 11873       ┆ 12227     │
     │ chr1     ┆ 12612       ┆ 12721     ┆ chr1     ┆ 12612       ┆ 12721     │
     │ chr1     ┆ 13220       ┆ 14409     ┆ chr1     ┆ 13220       ┆ 14409     │
-    │ chr1     ┆ 14361       ┆ 14829     ┆ chr1     ┆ 13220       ┆ 14409     │
     │ chr1     ┆ 13220       ┆ 14409     ┆ chr1     ┆ 14361       ┆ 14829     │
+    │ chr1     ┆ 14361       ┆ 14829     ┆ chr1     ┆ 13220       ┆ 14409     │
     └──────────┴─────────────┴───────────┴──────────┴─────────────┴───────────┘
-
     ```
 
+Parallellism can be controlled using the `datafusion.execution.target_partitions`option as described in the [parallel engine](features.md#parallel-engine-🏎️) section (compare the row/s metric in the following examples).
 
-!!! Limitations
-    1. Single threaded.
-    2. Because of the [bug](https://github.com/biodatageeks/polars-bio/issues/57) only Polars *sink* operations, such as `collect`, `sink_csv` or `sink_parquet` are supported.
+   ```python
+    pb.set_option("datafusion.execution.target_partitions", "1")
+    pb.overlap(df_1, df_2, cols1=cols, cols2=cols).collect(engine="streaming").count()
 
+   ```
+   ```shell
+    1652814rows [00:00, 19664163.99rows/s]
+    shape: (1, 6)
+    ┌──────────┬─────────────┬───────────┬──────────┬─────────────┬───────────┐
+    │ contig_1 ┆ pos_start_1 ┆ pos_end_1 ┆ contig_2 ┆ pos_start_2 ┆ pos_end_2 │
+    │ ---      ┆ ---         ┆ ---       ┆ ---      ┆ ---         ┆ ---       │
+    │ u32      ┆ u32         ┆ u32       ┆ u32      ┆ u32         ┆ u32       │
+    ╞══════════╪═════════════╪═══════════╪══════════╪═════════════╪═══════════╡
+    │ 1652814  ┆ 1652814     ┆ 1652814   ┆ 1652814  ┆ 1652814     ┆ 1652814   │
+    └──────────┴─────────────┴───────────┴──────────┴─────────────┴───────────┘
+   ```
+   ```python
+    pb.set_option("datafusion.execution.target_partitions", "2")
+    pb.overlap(df_1, df_2, cols1=cols, cols2=cols).collect(engine="streaming").count()
+   ```
+
+   ```shell
+    1652814rows [00:00, 27841987.75rows/s]
+    shape: (1, 6)
+    ┌──────────┬─────────────┬───────────┬──────────┬─────────────┬───────────┐
+    │ contig_1 ┆ pos_start_1 ┆ pos_end_1 ┆ contig_2 ┆ pos_start_2 ┆ pos_end_2 │
+    │ ---      ┆ ---         ┆ ---       ┆ ---      ┆ ---         ┆ ---       │
+    │ u32      ┆ u32         ┆ u32       ┆ u32      ┆ u32         ┆ u32       │
+    ╞══════════╪═════════════╪═══════════╪══════════╪═════════════╪═══════════╡
+    │ 1652814  ┆ 1652814     ┆ 1652814   ┆ 1652814  ┆ 1652814     ┆ 1652814   │
+    └──────────┴─────────────┴───────────┴──────────┴─────────────┴───────────┘
+   ```
 
 ## Compression
 *polars-bio* supports **GZIP** ( default file extension `*.gz`) and **Block GZIP** (BGZIP, default file extension `*.bgz`) when reading files from local and cloud storages.

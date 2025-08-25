@@ -81,12 +81,8 @@ def df_to_lazyframe(df: datafusion.DataFrame) -> pl.LazyFrame:
 
 
 def convert_result(
-    df: datafusion.DataFrame, output_type: str, streaming: bool
+    df: datafusion.DataFrame, output_type: str
 ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame"]:
-    # TODO: implement streaming
-    if streaming:
-        # raise NotImplementedError("streaming is not implemented")
-        return df.to_polars().lazy()
     if output_type == "polars.DataFrame":
         return df.to_polars()
     elif output_type == "pandas.DataFrame":

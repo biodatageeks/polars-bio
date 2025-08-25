@@ -1,8 +1,8 @@
 1. What versions of Polars are supported?
 
-    Short answer: Polars <= **1.21.0** is supported.
+    Short answer: Polars == **1.29.0** is supported.
 
-    Long answer: We recommend handling most of the heavy lifting on the DataFusion side (e.g., using SQL and views) and relying on Polars’ streaming capabilities primarily for sinking results. This means we are not making use of the latest Polars features, and we are not in a hurry to upgrade to the newest version. However, we do plan to adopt the new Polars streaming engine in the near future. [Reference](https://github.com/pola-rs/polars/issues/20947).
+    Long answer: We recommend handling most of the heavy lifting on the DataFusion side (e.g., using SQL and views) and relying on Polars’ streaming capabilities primarily for projection, filtering and sinking results. Right now, Polars 1.29.0 is the last version that supports pyo3 0.24.x that is required by DataFusion. With the most recet version of polars-bio (0.13.0) we migrated to the Polars new streaming engine.
 
 2. What to do if I get  `Illegal instruction (core dumped)` when using polars-bio?
 This error is likely due to the fact that the ABI of the polars-bio wheel package does not match the ABI of the Python interpreter.
