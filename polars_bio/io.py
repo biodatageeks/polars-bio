@@ -80,6 +80,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
 
@@ -94,6 +95,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTA file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
 
         !!! Example
             ```shell
@@ -124,6 +126,7 @@ class IOOperations:
             max_retries,
             timeout,
             compression_type,
+            projection_pushdown,
         ).collect()
 
     @staticmethod
@@ -136,6 +139,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
 
@@ -150,6 +154,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTA file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! Example
             ```shell
@@ -184,7 +189,7 @@ class IOOperations:
             object_storage_options=object_storage_options
         )
         read_options = ReadOptions(fasta_read_options=fasta_read_options)
-        return _read_file(path, InputFormat.Fasta, read_options)
+        return _read_file(path, InputFormat.Fasta, read_options, projection_pushdown)
 
     @staticmethod
     def read_vcf(
@@ -198,6 +203,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
         Read a VCF file into a DataFrame.
@@ -213,6 +219,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! note
             VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -228,6 +235,7 @@ class IOOperations:
             max_retries,
             timeout,
             compression_type,
+            projection_pushdown,
         ).collect()
 
     @staticmethod
@@ -242,6 +250,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a VCF file into a LazyFrame.
@@ -257,6 +266,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! note
             VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -277,7 +287,7 @@ class IOOperations:
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
-        return _read_file(path, InputFormat.Vcf, read_options)
+        return _read_file(path, InputFormat.Vcf, read_options, projection_pushdown)
 
     @staticmethod
     def read_gff(
@@ -291,6 +301,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
         Read a GFF file into a DataFrame.
@@ -306,6 +317,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! note
             GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -321,6 +333,7 @@ class IOOperations:
             max_retries,
             timeout,
             compression_type,
+            projection_pushdown,
         ).collect()
 
     @staticmethod
@@ -335,6 +348,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a GFF file into a LazyFrame.
@@ -350,6 +364,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! note
             GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -370,7 +385,7 @@ class IOOperations:
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(gff_read_options=gff_read_options)
-        return _read_file(path, InputFormat.Gff, read_options)
+        return _read_file(path, InputFormat.Gff, read_options, projection_pushdown)
 
     @staticmethod
     def read_bam(
@@ -382,6 +397,7 @@ class IOOperations:
         enable_request_payer: bool = False,
         max_retries: int = 5,
         timeout: int = 300,
+        projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
         Read a BAM file into a DataFrame.
@@ -395,6 +411,7 @@ class IOOperations:
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! note
             BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
@@ -408,6 +425,7 @@ class IOOperations:
             enable_request_payer,
             max_retries,
             timeout,
+            projection_pushdown,
         ).collect()
 
     @staticmethod
@@ -420,6 +438,7 @@ class IOOperations:
         enable_request_payer: bool = False,
         max_retries: int = 5,
         timeout: int = 300,
+        projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a BAM file into a LazyFrame.
@@ -433,6 +452,7 @@ class IOOperations:
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! note
             BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
@@ -452,7 +472,7 @@ class IOOperations:
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
-        return _read_file(path, InputFormat.Bam, read_options)
+        return _read_file(path, InputFormat.Bam, read_options, projection_pushdown)
 
     @staticmethod
     def read_fastq(
@@ -465,6 +485,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         parallel: bool = False,
+        projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
         Read a FASTQ file into a DataFrame.
@@ -479,6 +500,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
             parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
         """
         return IOOperations.scan_fastq(
             path,
@@ -490,6 +512,7 @@ class IOOperations:
             timeout,
             compression_type,
             parallel,
+            projection_pushdown,
         ).collect()
 
     @staticmethod
@@ -503,6 +526,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         parallel: bool = False,
+        projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a FASTQ file into a LazyFrame.
@@ -517,6 +541,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
             parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -532,7 +557,7 @@ class IOOperations:
             object_storage_options=object_storage_options, parallel=parallel
         )
         read_options = ReadOptions(fastq_read_options=fastq_read_options)
-        return _read_file(path, InputFormat.Fastq, read_options)
+        return _read_file(path, InputFormat.Fastq, read_options, projection_pushdown)
 
     @staticmethod
     def read_bed(
@@ -545,6 +570,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
         Read a BED file into a DataFrame.
@@ -559,6 +585,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compressions is supported ('bgz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! Note
             Only **BED4** format is supported. It extends the basic BED format (BED3) by adding a name field, resulting in four columns: chromosome, start position, end position, and name.
@@ -577,6 +604,7 @@ class IOOperations:
             max_retries,
             timeout,
             compression_type,
+            projection_pushdown,
         ).collect()
 
     @staticmethod
@@ -590,6 +618,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a BED file into a LazyFrame.
@@ -604,6 +633,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compressions is supported ('bgz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! Note
             Only **BED4** format is supported. It extends the basic BED format (BED3) by adding a name field, resulting in four columns: chromosome, start position, end position, and name.
@@ -627,7 +657,7 @@ class IOOperations:
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(bed_read_options=bed_read_options)
-        return _read_file(path, InputFormat.Bed, read_options)
+        return _read_file(path, InputFormat.Bed, read_options, projection_pushdown)
 
     @staticmethod
     def read_table(path: str, schema: Dict = None, **kwargs) -> pl.DataFrame:
@@ -714,9 +744,11 @@ def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
     return [x.strip() for x in t]
 
 
-def _lazy_scan(df: Union[pl.DataFrame, pl.LazyFrame]) -> pl.LazyFrame:
+def _lazy_scan(
+    df: Union[pl.DataFrame, pl.LazyFrame], projection_pushdown: bool = False
+) -> pl.LazyFrame:
     df_lazy: DataFrame = df
-    arrow_schema = df_lazy.schema()
+    original_schema = df_lazy.schema()
 
     def _overlap_source(
         with_columns: Union[pl.Expr, None],
@@ -724,35 +756,93 @@ def _lazy_scan(df: Union[pl.DataFrame, pl.LazyFrame]) -> pl.LazyFrame:
         n_rows: Union[int, None],
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
+        # Extract column names from with_columns if projection pushdown is enabled
+        projected_columns = None
+        if projection_pushdown and with_columns is not None:
+            projected_columns = _extract_column_names_from_expr(with_columns)
+
+        # Apply column projection to DataFusion query if enabled
+        query_df = df_lazy
+        datafusion_projection_applied = False
+        if projection_pushdown and projected_columns:
+            try:
+                # Try to apply projection at the DataFusion level
+                query_df = df_lazy.select(projected_columns)
+                datafusion_projection_applied = True
+            except Exception as e:
+                # Fallback to original behavior if projection fails
+                query_df = df_lazy
+                projected_columns = None
+                datafusion_projection_applied = False
+
         if n_rows and n_rows < 8192:  # 8192 is the default batch size in datafusion
-            df = df_lazy.limit(n_rows).execute_stream().next().to_pyarrow()
+            df = query_df.limit(n_rows).execute_stream().next().to_pyarrow()
             df = pl.DataFrame(df).limit(n_rows)
             if predicate is not None:
                 df = df.filter(predicate)
-            if with_columns is not None:
+            # Apply Python-level projection if DataFusion projection failed or projection pushdown is disabled
+            if with_columns is not None and (
+                not projection_pushdown or not datafusion_projection_applied
+            ):
                 df = df.select(with_columns)
             yield df
             return
-        df_stream = df_lazy.execute_stream()
+
+        df_stream = query_df.execute_stream()
         progress_bar = tqdm(unit="rows")
         for r in df_stream:
             py_df = r.to_pyarrow()
             df = pl.DataFrame(py_df)
             if predicate is not None:
                 df = df.filter(predicate)
-            if with_columns is not None:
+            # Apply Python-level projection if DataFusion projection failed or projection pushdown is disabled
+            if with_columns is not None and (
+                not projection_pushdown or not datafusion_projection_applied
+            ):
                 df = df.select(with_columns)
             progress_bar.update(len(df))
             yield df
 
-    return register_io_source(_overlap_source, schema=arrow_schema)
+    return register_io_source(_overlap_source, schema=original_schema)
+
+
+def _extract_column_names_from_expr(with_columns: Union[pl.Expr, list]) -> list[str]:
+    """Extract column names from Polars expressions."""
+    if with_columns is None:
+        return []
+
+    # Handle different types of with_columns input
+    if hasattr(with_columns, "__iter__") and not isinstance(with_columns, str):
+        # It's a list of expressions or strings
+        column_names = []
+        for item in with_columns:
+            if isinstance(item, str):
+                column_names.append(item)
+            elif hasattr(item, "meta") and hasattr(item.meta, "output_name"):
+                # Polars expression with output name
+                try:
+                    column_names.append(item.meta.output_name())
+                except Exception:
+                    pass
+        return column_names
+    elif isinstance(with_columns, str):
+        return [with_columns]
+    elif hasattr(with_columns, "meta") and hasattr(with_columns.meta, "output_name"):
+        # Single Polars expression
+        try:
+            return [with_columns.meta.output_name()]
+        except Exception:
+            pass
+
+    return []
 
 
 def _read_file(
     path: str,
     input_format: InputFormat,
     read_options: ReadOptions,
+    projection_pushdown: bool = False,
 ) -> pl.LazyFrame:
     table = py_register_table(ctx, path, None, input_format, read_options)
     df = py_read_table(ctx, table.name)
-    return _lazy_scan(df)
+    return _lazy_scan(df, projection_pushdown)

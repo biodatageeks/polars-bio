@@ -31,6 +31,7 @@ def range_operation(
     ctx: BioSessionContext,
     read_options1: Union[ReadOptions, None] = None,
     read_options2: Union[ReadOptions, None] = None,
+    projection_pushdown: bool = False,
 ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame"]:
     ctx.sync_options()
     if isinstance(df1, str) and isinstance(df2, str):
@@ -67,6 +68,7 @@ def range_operation(
                 ctx=ctx,
                 read_options1=read_options1,
                 read_options2=read_options2,
+                projection_pushdown=projection_pushdown,
             )
         elif output_type == "polars.DataFrame":
             return range_operation_scan(
@@ -100,7 +102,14 @@ def range_operation(
                     **_rename_columns(df2, range_options.suffixes[1]).schema,
                 }
             )
-            return range_lazy_scan(df1, df2, merged_schema, range_options, ctx)
+            return range_lazy_scan(
+                df1,
+                df2,
+                merged_schema,
+                range_options,
+                ctx,
+                projection_pushdown=projection_pushdown,
+            )
         else:
             df1 = _df_to_reader(df1, range_options.columns_1[0])
             df2 = _df_to_reader(df2, range_options.columns_2[0])

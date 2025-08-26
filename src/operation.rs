@@ -22,6 +22,7 @@ pub(crate) struct QueryParams {
     pub other_columns_2: Vec<String>,
     pub left_table: String,
     pub right_table: String,
+    pub projection_columns: Option<Vec<String>>,
 }
 pub(crate) fn do_range_operation(
     ctx: &SessionContext,
@@ -219,6 +220,7 @@ pub(crate) async fn prepare_query(
         other_columns_2: right_table_columns,
         left_table,
         right_table,
+        projection_columns: None, // For now, no projection pushdown in SQL generation
     };
 
     query(query_params)
