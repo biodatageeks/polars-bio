@@ -95,6 +95,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTA file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
 
         !!! Example
             ```shell
@@ -153,6 +154,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTA file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! Example
             ```shell
@@ -217,6 +219,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! note
             VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -263,6 +266,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! note
             VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -313,6 +317,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! note
             GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -359,6 +364,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! note
             GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -405,6 +411,7 @@ class IOOperations:
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! note
             BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
@@ -445,6 +452,7 @@ class IOOperations:
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! note
             BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
@@ -492,6 +500,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
             parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
         """
         return IOOperations.scan_fastq(
             path,
@@ -532,6 +541,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
             parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -575,6 +585,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compressions is supported ('bgz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! Note
             Only **BED4** format is supported. It extends the basic BED format (BED3) by adding a name field, resulting in four columns: chromosome, start position, end position, and name.
@@ -622,6 +633,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compressions is supported ('bgz').
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         !!! Note
             Only **BED4** format is supported. It extends the basic BED format (BED3) by adding a name field, resulting in four columns: chromosome, start position, end position, and name.

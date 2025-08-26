@@ -68,6 +68,7 @@ class IntervalOperations:
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             read_options1: Additional options for reading the input files.
             read_options2: Additional options for reading the input files.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
@@ -163,6 +164,7 @@ class IntervalOperations:
             on_cols: List of additional column names to join on. default is None.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             read_options: Additional options for reading the input files.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
 
         Returns:
@@ -230,6 +232,7 @@ class IntervalOperations:
             on_cols: List of additional column names to join on. default is None.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             read_options: Additional options for reading the input files.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
 
         Returns:
@@ -302,6 +305,7 @@ class IntervalOperations:
             on_cols: List of additional column names to join on. default is None.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             naive_query: If True, use naive query for counting overlaps based on overlaps.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
@@ -461,6 +465,7 @@ class IntervalOperations:
                 genomic intervals, provided separately for each set.
             on_cols: List of additional column names for clustering. default is None.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
 
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
