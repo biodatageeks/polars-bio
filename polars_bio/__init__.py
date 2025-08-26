@@ -2,7 +2,7 @@ import os
 
 # Set POLARS_FORCE_NEW_STREAMING to "1" by default if not already set
 if "POLARS_FORCE_NEW_STREAMING" not in os.environ:
-    os.environ["POLARS_FORCE_NEW_STREAMING"] = "1"
+    os.environ["POLARS_FORCE_NEW_STREAMING"] = "0"
 
 from polars_bio.polars_bio import GffReadOptions, InputFormat
 from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
@@ -73,7 +73,7 @@ except ImportError:
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 
 
-__version__ = "0.13.0"
+__version__ = "0.13.1"
 __all__ = [
     "ctx",
     "FilterOp",
