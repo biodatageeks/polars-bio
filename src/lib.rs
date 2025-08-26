@@ -177,8 +177,8 @@ fn stream_range_operation_scan(
         let function = Arc::new(scan);
         let lf = LazyFrame::anonymous_scan(function, args)
             .map_err(PyPolarsErr::from)
-            .unwrap();
-        // .with_new_streaming(true);
+            .unwrap()
+            .with_new_streaming(true);
         Ok(lf.into())
     })
 }
