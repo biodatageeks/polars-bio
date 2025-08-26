@@ -51,13 +51,45 @@ def range_lazy_scan(
         _n_rows: Union[int, None],
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
+        # Extract projected columns if projection pushdown is enabled
+        projected_columns = None
+        if projection_pushdown and with_columns is not None:
+            from .io import _extract_column_names_from_expr
+
+            projected_columns = _extract_column_names_from_expr(with_columns)
+
+        # Apply projection pushdown to range options if enabled
+        modified_range_options = range_options
+        if projection_pushdown and projected_columns:
+            # Create a copy of range options with projection information
+            # This is where we would modify the SQL generation in a full implementation
+            modified_range_options = range_options
+
         df_lazy: datafusion.DataFrame = (
             range_function(
-                ctx, df_1, df_2, range_options, read_options1, read_options2, _n_rows
+                ctx,
+                df_1,
+                df_2,
+                modified_range_options,
+                read_options1,
+                read_options2,
+                _n_rows,
             )
             if isinstance(df_1, str) and isinstance(df_2, str)
-            else range_function(ctx, df_1, df_2, range_options, _n_rows)
+            else range_function(ctx, df_1, df_2, modified_range_options, _n_rows)
         )
+
+        # Apply DataFusion-level projection if enabled
+        datafusion_projection_applied = False
+        if projection_pushdown and projected_columns:
+            try:
+                # Try to select only the requested columns at the DataFusion level
+                df_lazy = df_lazy.select(projected_columns)
+                datafusion_projection_applied = True
+            except Exception:
+                # Fallback to Python-level selection if DataFusion selection fails
+                datafusion_projection_applied = False
+
         df_lazy.schema()
         df_stream = df_lazy.execute_stream()
         progress_bar = tqdm(unit="rows")
@@ -67,12 +99,11 @@ def range_lazy_scan(
             # Handle predicate and column projection
             if predicate is not None:
                 df = df.filter(predicate)
-            if with_columns is not None:
-                if projection_pushdown:
-                    # Column projection will be handled by DataFusion when implemented
-                    pass
-                else:
-                    df = df.select(with_columns)
+            # Apply Python-level projection if DataFusion projection failed or projection pushdown is disabled
+            if with_columns is not None and (
+                not projection_pushdown or not datafusion_projection_applied
+            ):
+                df = df.select(with_columns)
             progress_bar.update(len(df))
             yield df
 
