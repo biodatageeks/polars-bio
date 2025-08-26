@@ -48,6 +48,7 @@ class IntervalOperations:
         output_type: str = "polars.LazyFrame",
         read_options1: Union[ReadOptions, None] = None,
         read_options2: Union[ReadOptions, None] = None,
+        projection_pushdown: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Find pairs of overlapping genomic intervals.
@@ -123,7 +124,14 @@ class IntervalOperations:
         )
 
         return range_operation(
-            df1, df2, range_options, output_type, ctx, read_options1, read_options2
+            df1,
+            df2,
+            range_options,
+            output_type,
+            ctx,
+            read_options1,
+            read_options2,
+            projection_pushdown,
         )
 
     @staticmethod
@@ -137,6 +145,7 @@ class IntervalOperations:
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
         output_type: str = "polars.LazyFrame",
         read_options: Union[ReadOptions, None] = None,
+        projection_pushdown: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Find pairs of closest genomic intervals.
@@ -182,7 +191,15 @@ class IntervalOperations:
             columns_1=cols1,
             columns_2=cols2,
         )
-        return range_operation(df1, df2, range_options, output_type, ctx, read_options)
+        return range_operation(
+            df1,
+            df2,
+            range_options,
+            output_type,
+            ctx,
+            read_options,
+            projection_pushdown=projection_pushdown,
+        )
 
     @staticmethod
     def coverage(
@@ -195,6 +212,7 @@ class IntervalOperations:
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
         output_type: str = "polars.LazyFrame",
         read_options: Union[ReadOptions, None] = None,
+        projection_pushdown: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Calculate intervals coverage.
@@ -245,7 +263,15 @@ class IntervalOperations:
             columns_1=cols1,
             columns_2=cols2,
         )
-        return range_operation(df2, df1, range_options, output_type, ctx, read_options)
+        return range_operation(
+            df2,
+            df1,
+            range_options,
+            output_type,
+            ctx,
+            read_options,
+            projection_pushdown=projection_pushdown,
+        )
 
     @staticmethod
     def count_overlaps(
@@ -258,6 +284,7 @@ class IntervalOperations:
         on_cols: Union[list[str], None] = None,
         output_type: str = "polars.LazyFrame",
         naive_query: bool = True,
+        projection_pushdown: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Count pairs of overlapping genomic intervals.
@@ -421,6 +448,7 @@ class IntervalOperations:
         cols: Union[list[str], None] = ["chrom", "start", "end"],
         on_cols: Union[list[str], None] = None,
         output_type: str = "polars.LazyFrame",
+        projection_pushdown: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Merge overlapping intervals. It is assumed that start < end.

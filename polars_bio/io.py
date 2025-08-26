@@ -80,6 +80,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
 
@@ -124,6 +125,7 @@ class IOOperations:
             max_retries,
             timeout,
             compression_type,
+            projection_pushdown,
         ).collect()
 
     @staticmethod
@@ -136,6 +138,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
 
@@ -184,7 +187,7 @@ class IOOperations:
             object_storage_options=object_storage_options
         )
         read_options = ReadOptions(fasta_read_options=fasta_read_options)
-        return _read_file(path, InputFormat.Fasta, read_options)
+        return _read_file(path, InputFormat.Fasta, read_options, projection_pushdown)
 
     @staticmethod
     def read_vcf(
@@ -198,6 +201,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
         Read a VCF file into a DataFrame.
@@ -228,6 +232,7 @@ class IOOperations:
             max_retries,
             timeout,
             compression_type,
+            projection_pushdown,
         ).collect()
 
     @staticmethod
@@ -242,6 +247,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a VCF file into a LazyFrame.
@@ -277,7 +283,7 @@ class IOOperations:
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
-        return _read_file(path, InputFormat.Vcf, read_options)
+        return _read_file(path, InputFormat.Vcf, read_options, projection_pushdown)
 
     @staticmethod
     def read_gff(
@@ -291,6 +297,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
         Read a GFF file into a DataFrame.
@@ -321,6 +328,7 @@ class IOOperations:
             max_retries,
             timeout,
             compression_type,
+            projection_pushdown,
         ).collect()
 
     @staticmethod
@@ -335,6 +343,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a GFF file into a LazyFrame.
@@ -370,7 +379,7 @@ class IOOperations:
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(gff_read_options=gff_read_options)
-        return _read_file(path, InputFormat.Gff, read_options)
+        return _read_file(path, InputFormat.Gff, read_options, projection_pushdown)
 
     @staticmethod
     def read_bam(
@@ -382,6 +391,7 @@ class IOOperations:
         enable_request_payer: bool = False,
         max_retries: int = 5,
         timeout: int = 300,
+        projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
         Read a BAM file into a DataFrame.
@@ -408,6 +418,7 @@ class IOOperations:
             enable_request_payer,
             max_retries,
             timeout,
+            projection_pushdown,
         ).collect()
 
     @staticmethod
@@ -420,6 +431,7 @@ class IOOperations:
         enable_request_payer: bool = False,
         max_retries: int = 5,
         timeout: int = 300,
+        projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a BAM file into a LazyFrame.
@@ -452,7 +464,7 @@ class IOOperations:
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
-        return _read_file(path, InputFormat.Bam, read_options)
+        return _read_file(path, InputFormat.Bam, read_options, projection_pushdown)
 
     @staticmethod
     def read_fastq(
@@ -465,6 +477,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         parallel: bool = False,
+        projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
         Read a FASTQ file into a DataFrame.
@@ -490,6 +503,7 @@ class IOOperations:
             timeout,
             compression_type,
             parallel,
+            projection_pushdown,
         ).collect()
 
     @staticmethod
@@ -503,6 +517,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         parallel: bool = False,
+        projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a FASTQ file into a LazyFrame.
@@ -532,7 +547,7 @@ class IOOperations:
             object_storage_options=object_storage_options, parallel=parallel
         )
         read_options = ReadOptions(fastq_read_options=fastq_read_options)
-        return _read_file(path, InputFormat.Fastq, read_options)
+        return _read_file(path, InputFormat.Fastq, read_options, projection_pushdown)
 
     @staticmethod
     def read_bed(
@@ -545,6 +560,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
         Read a BED file into a DataFrame.
@@ -577,6 +593,7 @@ class IOOperations:
             max_retries,
             timeout,
             compression_type,
+            projection_pushdown,
         ).collect()
 
     @staticmethod
@@ -590,6 +607,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
+        projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a BED file into a LazyFrame.
@@ -627,7 +645,7 @@ class IOOperations:
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(bed_read_options=bed_read_options)
-        return _read_file(path, InputFormat.Bed, read_options)
+        return _read_file(path, InputFormat.Bed, read_options, projection_pushdown)
 
     @staticmethod
     def read_table(path: str, schema: Dict = None, **kwargs) -> pl.DataFrame:
@@ -714,7 +732,9 @@ def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
     return [x.strip() for x in t]
 
 
-def _lazy_scan(df: Union[pl.DataFrame, pl.LazyFrame]) -> pl.LazyFrame:
+def _lazy_scan(
+    df: Union[pl.DataFrame, pl.LazyFrame], projection_pushdown: bool = False
+) -> pl.LazyFrame:
     df_lazy: DataFrame = df
     arrow_schema = df_lazy.schema()
 
@@ -730,7 +750,11 @@ def _lazy_scan(df: Union[pl.DataFrame, pl.LazyFrame]) -> pl.LazyFrame:
             if predicate is not None:
                 df = df.filter(predicate)
             if with_columns is not None:
-                df = df.select(with_columns)
+                if projection_pushdown:
+                    # Column projection will be handled by DataFusion when implemented
+                    pass
+                else:
+                    df = df.select(with_columns)
             yield df
             return
         df_stream = df_lazy.execute_stream()
@@ -741,7 +765,11 @@ def _lazy_scan(df: Union[pl.DataFrame, pl.LazyFrame]) -> pl.LazyFrame:
             if predicate is not None:
                 df = df.filter(predicate)
             if with_columns is not None:
-                df = df.select(with_columns)
+                if projection_pushdown:
+                    # Column projection will be handled by DataFusion when implemented
+                    pass
+                else:
+                    df = df.select(with_columns)
             progress_bar.update(len(df))
             yield df
 
@@ -752,7 +780,8 @@ def _read_file(
     path: str,
     input_format: InputFormat,
     read_options: ReadOptions,
+    projection_pushdown: bool = False,
 ) -> pl.LazyFrame:
     table = py_register_table(ctx, path, None, input_format, read_options)
     df = py_read_table(ctx, table.name)
-    return _lazy_scan(df)
+    return _lazy_scan(df, projection_pushdown)

@@ -12,7 +12,9 @@ def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
     return [x.strip() for x in t]
 
 
-def _lazy_scan(df: Union[pl.DataFrame, pl.LazyFrame]) -> pl.LazyFrame:
+def _lazy_scan(
+    df: Union[pl.DataFrame, pl.LazyFrame], projection_pushdown: bool = False
+) -> pl.LazyFrame:
     df_lazy: DataFrame = df
     arrow_schema = df_lazy.schema()
 
@@ -28,7 +30,11 @@ def _lazy_scan(df: Union[pl.DataFrame, pl.LazyFrame]) -> pl.LazyFrame:
             if predicate is not None:
                 df = df.filter(predicate)
             if with_columns is not None:
-                df = df.select(with_columns)
+                if projection_pushdown:
+                    # Column projection will be handled by DataFusion when implemented
+                    pass
+                else:
+                    df = df.select(with_columns)
             yield df
             return
         df_stream = df_lazy.execute_stream()
@@ -39,7 +45,11 @@ def _lazy_scan(df: Union[pl.DataFrame, pl.LazyFrame]) -> pl.LazyFrame:
             if predicate is not None:
                 df = df.filter(predicate)
             if with_columns is not None:
-                df = df.select(with_columns)
+                if projection_pushdown:
+                    # Column projection will be handled by DataFusion when implemented
+                    pass
+                else:
+                    df = df.select(with_columns)
             progress_bar.update(len(df))
             yield df
 

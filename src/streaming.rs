@@ -54,6 +54,6 @@ impl AnonymousScan for RangeOperationScan {
     }
 
     fn allows_projection_pushdown(&self) -> bool {
-        false
+        true
     }
 }

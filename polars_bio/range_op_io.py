@@ -35,6 +35,7 @@ def range_lazy_scan(
     ctx: BioSessionContext,
     read_options1: Union[ReadOptions, None] = None,
     read_options2: Union[ReadOptions, None] = None,
+    projection_pushdown: bool = False,
 ) -> pl.LazyFrame:
     range_function = None
     if isinstance(df_1, str) and isinstance(df_2, str):
@@ -63,14 +64,15 @@ def range_lazy_scan(
         for r in df_stream:
             py_df = r.to_pyarrow()
             df = pl.DataFrame(py_df)
-            # # TODO: We can push predicates down to the DataFusion plan in the future,
-            # #  but for now we'll do it here.
-            # if predicate is not None:
-            #     df = df.filter(predicate)
-            # # TODO: We can push columns down to the DataFusion plan in the future,
-            # #  but for now we'll do it here.
-            # if with_columns is not None:
-            #     df = df.select(with_columns)
+            # Handle predicate and column projection
+            if predicate is not None:
+                df = df.filter(predicate)
+            if with_columns is not None:
+                if projection_pushdown:
+                    # Column projection will be handled by DataFusion when implemented
+                    pass
+                else:
+                    df = df.select(with_columns)
             progress_bar.update(len(df))
             yield df
 
