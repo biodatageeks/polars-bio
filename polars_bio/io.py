@@ -17,6 +17,7 @@ from polars_bio.polars_bio import (
     VcfReadOptions,
     py_describe_vcf,
     py_from_polars,
+    py_read_sql,
     py_read_table,
     py_register_table,
     py_scan_table,
@@ -745,7 +746,9 @@ def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
 
 
 def _lazy_scan(
-    df: Union[pl.DataFrame, pl.LazyFrame], projection_pushdown: bool = False
+    df: Union[pl.DataFrame, pl.LazyFrame],
+    projection_pushdown: bool = False,
+    table_name: str = None,
 ) -> pl.LazyFrame:
     df_lazy: DataFrame = df
     original_schema = df_lazy.schema()
@@ -760,17 +763,31 @@ def _lazy_scan(
         projected_columns = None
         if projection_pushdown and with_columns is not None:
             projected_columns = _extract_column_names_from_expr(with_columns)
-
+        # print(with_columns)
+        # print(predicate)
+        # print(n_rows)
         # Apply column projection to DataFusion query if enabled
         query_df = df_lazy
         datafusion_projection_applied = False
         if projection_pushdown and projected_columns:
             try:
-                # Try to apply projection at the DataFusion level
-                query_df = df_lazy.select(projected_columns)
+                # Apply projection at the DataFusion level using SQL
+                # This approach works reliably with the DataFusion Python API
+                columns_sql = ", ".join(projected_columns)
+
+                # Use the table name passed from _read_file, fallback if not available
+                table_to_query = table_name if table_name else "temp_table"
+
+                # Use py_read_sql to execute SQL projection (same as pb.sql() does)
+                from .context import ctx
+
+                query_df = py_read_sql(
+                    ctx, f"SELECT {columns_sql} FROM {table_to_query}"
+                )
                 datafusion_projection_applied = True
             except Exception as e:
                 # Fallback to original behavior if projection fails
+                print(f"DataFusion projection failed: {e}")
                 query_df = df_lazy
                 projected_columns = None
                 datafusion_projection_applied = False
@@ -845,4 +862,4 @@ def _read_file(
 ) -> pl.LazyFrame:
     table = py_register_table(ctx, path, None, input_format, read_options)
     df = py_read_table(ctx, table.name)
-    return _lazy_scan(df, projection_pushdown)
+    return _lazy_scan(df, projection_pushdown, table.name)
