@@ -832,7 +832,7 @@ def _lazy_scan(
             try:
                 # Apply projection at the DataFusion level using SQL
                 # This approach works reliably with the DataFusion Python API
-                columns_sql = ", ".join(projected_columns)
+                columns_sql = ", ".join([f'"{c}"' for c in projected_columns])
 
                 # Use the table name passed from _read_file, fallback if not available
                 table_to_query = table_name if table_name else "temp_table"

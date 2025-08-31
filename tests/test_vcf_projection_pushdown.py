@@ -150,3 +150,9 @@ class TestVcfProjectionPushdown:
 
         with pytest.raises(TypeError, match="unexpected keyword argument"):
             pb.read_vcf(vcf_path, info_fields=["csq"])
+
+    def test_vcf_scan_with_special_chars_in_column_name(self):
+        """Test that pb.scan_vcf works with columns that have special characters."""
+        vcf_path = f"{DATA_DIR}/io/vcf/ensembl-2.vcf"
+        result = pb.scan_vcf(vcf_path, projection_pushdown=True).count().collect()
+        assert len(result) == 1
