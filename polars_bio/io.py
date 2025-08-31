@@ -292,8 +292,15 @@ class IOOperations:
             # Fallback to None if unable to get info fields
             all_info_fields = None
 
+        # For projection pushdown optimization: if we expect only static columns might be used,
+        # start with empty info fields to avoid parsing them unnecessarily
+        initial_info_fields = all_info_fields
+        if projection_pushdown and all_info_fields is not None:
+            # Start with empty info fields - callback will add them back if needed
+            initial_info_fields = []
+
         vcf_read_options = VcfReadOptions(
-            info_fields=all_info_fields,  # Start with all info fields
+            info_fields=initial_info_fields,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
         )
@@ -814,15 +821,6 @@ def _lazy_scan(
         datafusion_projection_applied = False
         # For VCF files with only static columns, skip DataFusion projection to avoid issues
         should_use_datafusion_projection = True
-        if (
-            input_format == InputFormat.Vcf
-            and projection_pushdown
-            and projected_columns
-        ):
-            # If VCF has no info fields in the selection, avoid DataFusion SQL projection
-            vcf_info_fields = _extract_vcf_info_fields(projected_columns)
-            if not vcf_info_fields:  # Only static columns
-                should_use_datafusion_projection = False
 
         if (
             projection_pushdown
@@ -927,9 +925,7 @@ def _read_file(
     if input_format == InputFormat.Vcf:
 
         def vcf_info_fields_callback(requested_info_fields: list[str]):
-            # Only re-register if we actually have specific info fields to project
-            # This avoids breaking the table when no info fields are needed
-            if requested_info_fields and read_options.vcf_read_options:
+            if read_options.vcf_read_options:
                 new_vcf_options = VcfReadOptions(
                     info_fields=requested_info_fields,
                     thread_num=read_options.vcf_read_options.thread_num,
