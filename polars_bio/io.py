@@ -195,7 +195,6 @@ class IOOperations:
     @staticmethod
     def read_vcf(
         path: str,
-        info_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -211,7 +210,6 @@ class IOOperations:
 
         Parameters:
             path: The path to the VCF file.
-            info_fields: The fields to read from the INFO column.
             thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -227,7 +225,6 @@ class IOOperations:
         """
         return IOOperations.scan_vcf(
             path,
-            info_fields,
             thread_num,
             chunk_size,
             concurrent_fetches,
@@ -242,7 +239,6 @@ class IOOperations:
     @staticmethod
     def scan_vcf(
         path: str,
-        info_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -258,7 +254,6 @@ class IOOperations:
 
         Parameters:
             path: The path to the VCF file.
-            info_fields: The fields to read from the INFO column.
             thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -282,8 +277,23 @@ class IOOperations:
             compression_type=compression_type,
         )
 
+        # Get all info fields from VCF header for proper projection pushdown
+        all_info_fields = None
+        try:
+            vcf_schema_df = IOOperations.describe_vcf(
+                path,
+                allow_anonymous=allow_anonymous,
+                enable_request_payer=enable_request_payer,
+                compression_type=compression_type,
+            )
+            # Use column name 'name' not 'id' based on the schema output
+            all_info_fields = vcf_schema_df.select("name").to_series().to_list()
+        except Exception:
+            # Fallback to None if unable to get info fields
+            all_info_fields = None
+
         vcf_read_options = VcfReadOptions(
-            info_fields=_cleanse_fields(info_fields),
+            info_fields=all_info_fields,  # Start with all info fields
             thread_num=thread_num,
             object_storage_options=object_storage_options,
         )
@@ -745,10 +755,23 @@ def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
     return [x.strip() for x in t]
 
 
+def _get_vcf_static_columns() -> list[str]:
+    """Get the static VCF schema columns."""
+    return ["chrom", "start", "end", "id", "ref", "alt", "qual", "filter"]
+
+
+def _extract_vcf_info_fields(all_columns: list[str]) -> list[str]:
+    """Extract info fields from a list of columns by removing static VCF columns."""
+    static_columns = set(_get_vcf_static_columns())
+    return [col for col in all_columns if col not in static_columns]
+
+
 def _lazy_scan(
     df: Union[pl.DataFrame, pl.LazyFrame],
     projection_pushdown: bool = False,
     table_name: str = None,
+    input_format: InputFormat = None,
+    vcf_info_fields_callback: callable = None,
 ) -> pl.LazyFrame:
     df_lazy: DataFrame = df
     original_schema = df_lazy.schema()
@@ -763,13 +786,49 @@ def _lazy_scan(
         projected_columns = None
         if projection_pushdown and with_columns is not None:
             projected_columns = _extract_column_names_from_expr(with_columns)
-        # print(with_columns)
-        # print(predicate)
-        # print(n_rows)
+
+        # For VCF files, handle special projection pushdown logic
+        if (
+            input_format == InputFormat.Vcf
+            and projection_pushdown
+            and projected_columns
+            and vcf_info_fields_callback
+        ):
+            # Extract info fields from the projected columns
+            info_fields = _extract_vcf_info_fields(projected_columns)
+
+            # Only re-register the VCF table if there are info fields to optimize
+            # If there are no info fields (only static columns), skip the callback entirely
+            if (
+                info_fields
+            ):  # Only call callback if we actually have info fields to project
+                try:
+                    vcf_info_fields_callback(info_fields)
+                except Exception:
+                    # Fallback to original behavior if re-registration fails
+                    pass
+            # If no info fields needed, don't call the callback at all - use the original table as-is
+
         # Apply column projection to DataFusion query if enabled
         query_df = df_lazy
         datafusion_projection_applied = False
-        if projection_pushdown and projected_columns:
+        # For VCF files with only static columns, skip DataFusion projection to avoid issues
+        should_use_datafusion_projection = True
+        if (
+            input_format == InputFormat.Vcf
+            and projection_pushdown
+            and projected_columns
+        ):
+            # If VCF has no info fields in the selection, avoid DataFusion SQL projection
+            vcf_info_fields = _extract_vcf_info_fields(projected_columns)
+            if not vcf_info_fields:  # Only static columns
+                should_use_datafusion_projection = False
+
+        if (
+            projection_pushdown
+            and projected_columns
+            and should_use_datafusion_projection
+        ):
             try:
                 # Apply projection at the DataFusion level using SQL
                 # This approach works reliably with the DataFusion Python API
@@ -862,4 +921,24 @@ def _read_file(
 ) -> pl.LazyFrame:
     table = py_register_table(ctx, path, None, input_format, read_options)
     df = py_read_table(ctx, table.name)
-    return _lazy_scan(df, projection_pushdown, table.name)
+
+    # Create callback for VCF info fields re-registration
+    vcf_callback = None
+    if input_format == InputFormat.Vcf:
+
+        def vcf_info_fields_callback(requested_info_fields: list[str]):
+            # Only re-register if we actually have specific info fields to project
+            # This avoids breaking the table when no info fields are needed
+            if requested_info_fields and read_options.vcf_read_options:
+                new_vcf_options = VcfReadOptions(
+                    info_fields=requested_info_fields,
+                    thread_num=read_options.vcf_read_options.thread_num,
+                    object_storage_options=read_options.vcf_read_options.object_storage_options,
+                )
+                new_read_options = ReadOptions(vcf_read_options=new_vcf_options)
+                # Re-register table with projected info fields
+                py_register_table(ctx, path, table.name, input_format, new_read_options)
+
+        vcf_callback = vcf_info_fields_callback
+
+    return _lazy_scan(df, projection_pushdown, table.name, input_format, vcf_callback)

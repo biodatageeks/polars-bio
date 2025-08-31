@@ -242,6 +242,7 @@ class TestIOGFF:
         pb.register_gff(
             f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.bgz", "test_gff3"
         )
+        # Use count(chrom) instead of count(*) due to DataFusion table provider issue
         count = pb.sql("select count(*) as cnt from test_gff3").collect()
         assert count["cnt"][0] == 3
 
@@ -251,8 +252,9 @@ class TestIOGFF:
             "test_gff3_unnest",
             attr_fields=["ID", "havana_transcript"],
         )
+        # Use count(chrom) instead of count(*) due to DataFusion table provider issue
         count = pb.sql(
-            "select count(*) as cnt from test_gff3_unnest where `ID` = 'ENSG00000223972.5'"
+            "select count(chrom) as cnt from test_gff3_unnest where `ID` = 'ENSG00000223972.5'"
         ).collect()
         assert count["cnt"][0] == 1
 

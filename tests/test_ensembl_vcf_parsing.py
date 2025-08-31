@@ -6,18 +6,22 @@ import polars_bio as pb
 
 def test_vcf_ensembl_1_parsing():
     vcf_path = "tests/data/io/vcf/ensembl.vcf"
+    # Column names are normalized to lowercase with underscores
     info_fields = [
-        "dbSNP_156",
-        "TSA",
-        "E_Freq",
-        "E_Phenotype_or_Disease",
-        "E_ExAC",
-        "E_TOPMed",
-        "E_gnomAD",
-        "CLIN_uncertain_significance",
-        "AA",
+        "dbsnp_156",
+        "tsa",
+        "e_freq",
+        "e_phenotype_or_disease",
+        "e_exac",
+        "e_topmed",
+        "e_gnomad",
+        "clin_uncertain_significance",
+        "aa",
     ]
-    df = pb.read_vcf(vcf_path, info_fields=info_fields)
+    # Use .select() with static columns + info fields instead of info_fields parameter
+    static_columns = ["chrom", "start", "end", "id", "ref", "alt", "qual", "filter"]
+    all_columns = static_columns + info_fields
+    df = pb.read_vcf(vcf_path).select(all_columns)
 
     expected_df = pl.DataFrame(
         {
@@ -66,41 +70,45 @@ def test_vcf_ensembl_1_parsing():
 
 def test_vcf_ensembl_2_parsing():
     vcf_path = "tests/data/io/vcf/ensembl-2.vcf"
+    # Column names are normalized to lowercase with underscores
     info_fields = [
-        "COSMIC_100",
-        "dbSNP_156",
-        "HGMD-PUBLIC_20204",
-        "ClinVar_202409",
-        "TSA",
-        "E_Cited",
-        "E_Multiple_observations",
-        "E_Freq",
-        "E_TOPMed",
-        "E_Hapmap",
-        "E_Phenotype_or_Disease",
-        "E_ESP",
-        "E_gnomAD",
-        "E_1000G",
-        "E_ExAC",
-        "CLIN_risk_factor",
-        "CLIN_protective",
-        "CLIN_confers_sensitivity",
-        "CLIN_other",
-        "CLIN_drug_response",
-        "CLIN_uncertain_significance",
-        "CLIN_benign",
-        "CLIN_likely_pathogenic",
-        "CLIN_pathogenic",
-        "CLIN_likely_benign",
-        "CLIN_histocompatibility",
-        "CLIN_not_provided",
-        "CLIN_association",
-        "MA",
-        "MAF",
-        "MAC",
-        "AA",
+        "cosmic_100",
+        "dbsnp_156",
+        "hgmd-public_20204",
+        "clinvar_202409",
+        "tsa",
+        "e_cited",
+        "e_multiple_observations",
+        "e_freq",
+        "e_topmed",
+        "e_hapmap",
+        "e_phenotype_or_disease",
+        "e_esp",
+        "e_gnomad",
+        "e_1000g",
+        "e_exac",
+        "clin_risk_factor",
+        "clin_protective",
+        "clin_confers_sensitivity",
+        "clin_other",
+        "clin_drug_response",
+        "clin_uncertain_significance",
+        "clin_benign",
+        "clin_likely_pathogenic",
+        "clin_pathogenic",
+        "clin_likely_benign",
+        "clin_histocompatibility",
+        "clin_not_provided",
+        "clin_association",
+        "ma",
+        "maf",
+        "mac",
+        "aa",
     ]
-    df = pb.read_vcf(vcf_path, info_fields=info_fields)
+    # Use .select() with static columns + info fields instead of info_fields parameter
+    static_columns = ["chrom", "start", "end", "id", "ref", "alt", "qual", "filter"]
+    all_columns = static_columns + info_fields
+    df = pb.read_vcf(vcf_path).select(all_columns)
 
     expected_df = pl.DataFrame(
         {
