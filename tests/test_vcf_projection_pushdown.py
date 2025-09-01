@@ -24,7 +24,7 @@ class TestVcfProjectionPushdown:
             assert col in result.columns, f"Static column '{col}' missing"
 
         # Should also contain INFO fields (e.g., CSQ from the VEP file)
-        assert "csq" in result.columns, "INFO field 'csq' should be present"
+        assert "CSQ" in result.columns, "INFO field 'csq' should be present"
 
         # Verify we have data
         assert len(result) > 0, "Should have some rows of data"
@@ -53,10 +53,10 @@ class TestVcfProjectionPushdown:
 
         # Select mix of static columns and info fields
         lazy_frame = pb.scan_vcf(vcf_path)
-        result = lazy_frame.select(["chrom", "start", "csq"]).collect()
+        result = lazy_frame.select(["chrom", "start", "CSQ"]).collect()
 
         # Should only have the selected columns
-        expected_columns = {"chrom", "start", "csq"}
+        expected_columns = {"chrom", "start", "CSQ"}
         actual_columns = set(result.columns)
         assert (
             actual_columns == expected_columns
@@ -71,10 +71,10 @@ class TestVcfProjectionPushdown:
 
         # Test with projection pushdown enabled
         lazy_frame = pb.scan_vcf(vcf_path, projection_pushdown=True)
-        result = lazy_frame.select(["chrom", "start", "csq"]).collect()
+        result = lazy_frame.select(["chrom", "start", "CSQ"]).collect()
 
         # Should only have the selected columns
-        expected_columns = {"chrom", "start", "csq"}
+        expected_columns = {"chrom", "start", "CSQ"}
         actual_columns = set(result.columns)
         assert (
             actual_columns == expected_columns
@@ -120,11 +120,11 @@ class TestVcfProjectionPushdown:
         # Info fields should be columns not in static set
         info_fields = all_columns - static_columns
         assert len(info_fields) > 0, "Should have some info fields"
-        assert "csq" in info_fields, "CSQ should be detected as info field"
+        assert "CSQ" in info_fields, "CSQ should be detected as info field"
 
         # Test selecting only info fields
         selected_info_fields = (
-            ["csq"] if "csq" in info_fields else list(info_fields)[:1]
+            ["CSQ"] if "CSQ" in info_fields else list(info_fields)[:1]
         )
         if selected_info_fields:
             result = (
@@ -146,10 +146,10 @@ class TestVcfProjectionPushdown:
 
         # These should raise TypeError because info_fields parameter was removed
         with pytest.raises(TypeError, match="unexpected keyword argument"):
-            pb.scan_vcf(vcf_path, info_fields=["csq"])
+            pb.scan_vcf(vcf_path, info_fields=["CSQ"])
 
         with pytest.raises(TypeError, match="unexpected keyword argument"):
-            pb.read_vcf(vcf_path, info_fields=["csq"])
+            pb.read_vcf(vcf_path, info_fields=["CSQ"])
 
     def test_vcf_scan_with_special_chars_in_column_name(self):
         """Test that pb.scan_vcf works with columns that have special characters."""

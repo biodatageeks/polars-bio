@@ -292,12 +292,9 @@ class IOOperations:
             # Fallback to None if unable to get info fields
             all_info_fields = None
 
-        # For projection pushdown optimization: if we expect only static columns might be used,
-        # start with empty info fields to avoid parsing them unnecessarily
+        # Always start with all info fields to establish full schema
+        # The callback will re-register with only requested info fields for optimization
         initial_info_fields = all_info_fields
-        if projection_pushdown and all_info_fields is not None:
-            # Start with empty info fields - callback will add them back if needed
-            initial_info_fields = []
 
         vcf_read_options = VcfReadOptions(
             info_fields=initial_info_fields,
@@ -762,23 +759,12 @@ def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
     return [x.strip() for x in t]
 
 
-def _get_vcf_static_columns() -> list[str]:
-    """Get the static VCF schema columns."""
-    return ["chrom", "start", "end", "id", "ref", "alt", "qual", "filter"]
-
-
-def _extract_vcf_info_fields(all_columns: list[str]) -> list[str]:
-    """Extract info fields from a list of columns by removing static VCF columns."""
-    static_columns = set(_get_vcf_static_columns())
-    return [col for col in all_columns if col not in static_columns]
-
-
 def _lazy_scan(
     df: Union[pl.DataFrame, pl.LazyFrame],
     projection_pushdown: bool = False,
     table_name: str = None,
     input_format: InputFormat = None,
-    vcf_info_fields_callback: callable = None,
+    vcf_info_fields_callback: callable = None,  # Keep for backward compatibility, ignored
 ) -> pl.LazyFrame:
     df_lazy: DataFrame = df
     original_schema = df_lazy.schema()
@@ -794,39 +780,14 @@ def _lazy_scan(
         if projection_pushdown and with_columns is not None:
             projected_columns = _extract_column_names_from_expr(with_columns)
 
-        # For VCF files, handle special projection pushdown logic
-        if (
-            input_format == InputFormat.Vcf
-            and projection_pushdown
-            and projected_columns
-            and vcf_info_fields_callback
-        ):
-            # Extract info fields from the projected columns
-            info_fields = _extract_vcf_info_fields(projected_columns)
-
-            # Only re-register the VCF table if there are info fields to optimize
-            # If there are no info fields (only static columns), skip the callback entirely
-            if (
-                info_fields
-            ):  # Only call callback if we actually have info fields to project
-                try:
-                    vcf_info_fields_callback(info_fields)
-                except Exception:
-                    # Fallback to original behavior if re-registration fails
-                    pass
-            # If no info fields needed, don't call the callback at all - use the original table as-is
+        # VCF projection pushdown is now handled natively by VcfTableProvider
+        # No special callback logic needed
 
         # Apply column projection to DataFusion query if enabled
         query_df = df_lazy
         datafusion_projection_applied = False
-        # For VCF files with only static columns, skip DataFusion projection to avoid issues
-        should_use_datafusion_projection = True
 
-        if (
-            projection_pushdown
-            and projected_columns
-            and should_use_datafusion_projection
-        ):
+        if projection_pushdown and projected_columns:
             try:
                 # Apply projection at the DataFusion level using SQL
                 # This approach works reliably with the DataFusion Python API
@@ -920,21 +881,5 @@ def _read_file(
     table = py_register_table(ctx, path, None, input_format, read_options)
     df = py_read_table(ctx, table.name)
 
-    # Create callback for VCF info fields re-registration
-    vcf_callback = None
-    if input_format == InputFormat.Vcf:
-
-        def vcf_info_fields_callback(requested_info_fields: list[str]):
-            if read_options.vcf_read_options:
-                new_vcf_options = VcfReadOptions(
-                    info_fields=requested_info_fields,
-                    thread_num=read_options.vcf_read_options.thread_num,
-                    object_storage_options=read_options.vcf_read_options.object_storage_options,
-                )
-                new_read_options = ReadOptions(vcf_read_options=new_vcf_options)
-                # Re-register table with projected info fields
-                py_register_table(ctx, path, table.name, input_format, new_read_options)
-
-        vcf_callback = vcf_info_fields_callback
-
-    return _lazy_scan(df, projection_pushdown, table.name, input_format, vcf_callback)
+    # No callback needed - VcfTableProvider now handles projection optimization internally
+    return _lazy_scan(df, projection_pushdown, table.name, input_format, None)
