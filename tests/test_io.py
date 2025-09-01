@@ -150,6 +150,43 @@ class TestIOVCF:
         )
         assert self.df_bgz["ref"][0] == "G" and self.df_none["ref"][0] == "G"
 
+    def test_sql_projection_pushdown(self):
+        """Test SQL queries work with projection pushdown without specifying info_fields."""
+        file_path = f"{DATA_DIR}/io/vcf/vep.vcf.bgz"
+
+        # Register VCF table without info_fields parameter
+        pb.register_vcf(file_path, "test_vcf_projection")
+
+        # Test 1: Static columns only
+        static_result = pb.sql(
+            "SELECT chrom, start, ref, alt FROM test_vcf_projection"
+        ).collect()
+        assert len(static_result) == 2
+        assert list(static_result.columns) == ["chrom", "start", "ref", "alt"]
+        assert static_result["chrom"][0] == "21"
+
+        # Test 2: Mixed query with potential INFO fields (should work automatically)
+        # Note: We don't know which INFO fields exist in the test VCF, so we'll test count
+        count_result = pb.sql(
+            "SELECT COUNT(*) as total FROM test_vcf_projection"
+        ).collect()
+        assert count_result["total"][0] == 2
+
+        # Test 3: Chromosome aggregation
+        chr_result = pb.sql(
+            "SELECT chrom, COUNT(*) as count FROM test_vcf_projection GROUP BY chrom"
+        ).collect()
+        assert len(chr_result) >= 1
+        assert chr_result["count"][0] == 2  # All variants are on chr21
+
+        # Test 4: INFO field access (should work automatically with updated registration)
+        info_result = pb.sql(
+            'SELECT chrom, start, "CSQ" FROM test_vcf_projection LIMIT 1'
+        ).collect()
+        assert len(info_result) == 1
+        assert list(info_result.columns) == ["chrom", "start", "CSQ"]
+        assert info_result["CSQ"][0] is not None  # CSQ field should have data
+
 
 class TestFastq:
     def test_count(self):
@@ -309,6 +346,52 @@ class TestIOGFF:
             multi_result_pushdown["gene_id"][0]
             == multi_result_no_pushdown["gene_id"][0]
         )
+
+    def test_sql_projection_pushdown(self):
+        """Test SQL queries work with projection pushdown without specifying attr_fields."""
+        file_path = f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.bgz"
+
+        # Register GFF table without attr_fields parameter
+        pb.register_gff(file_path, "test_gff_projection")
+
+        # Test 1: Static columns only (this should work)
+        static_result = pb.sql(
+            "SELECT chrom, start, end, type FROM test_gff_projection"
+        ).collect()
+        assert len(static_result) == 3
+        assert list(static_result.columns) == ["chrom", "start", "end", "type"]
+        assert static_result["chrom"][0] == "chr1"
+
+        # Test 2: Query nested attributes structure (available by default)
+        attr_result = pb.sql(
+            "SELECT chrom, start, attributes FROM test_gff_projection LIMIT 1"
+        ).collect()
+        assert len(attr_result) == 1
+        assert list(attr_result.columns) == ["chrom", "start", "attributes"]
+        assert len(attr_result["attributes"][0]) > 0  # Should have attribute data
+
+        # Test 3: Count query
+        count_result = pb.sql(
+            "SELECT COUNT(*) as total FROM test_gff_projection"
+        ).collect()
+        assert count_result["total"][0] == 3
+
+        # Test 4: Feature type aggregation
+        type_result = pb.sql(
+            "SELECT type, COUNT(*) as count FROM test_gff_projection GROUP BY type"
+        ).collect()
+        assert len(type_result) >= 1
+
+        # Test 5: Verify attributes contain expected fields (like gene_id)
+        # Note: GFF SQL doesn't auto-flatten attributes like scan_gff does, but we can verify structure
+        attrs_result = pb.sql(
+            "SELECT attributes FROM test_gff_projection LIMIT 1"
+        ).collect()
+        attrs_list = attrs_result["attributes"][0]
+        assert len(attrs_list) > 0
+        # Check that gene_id exists in attributes by looking at tag names
+        tag_names = [attr["tag"] for attr in attrs_list if "tag" in attr]
+        assert "gene_id" in tag_names  # Should contain gene_id attribute
 
 
 class TestBED:

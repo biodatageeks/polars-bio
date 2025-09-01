@@ -31,7 +31,6 @@ class SQL:
     def register_vcf(
         path: str,
         name: Union[str, None] = None,
-        info_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
@@ -47,7 +46,6 @@ class SQL:
         Parameters:
             path: The path to the VCF file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
-            info_fields: The fields to read from the INFO column.
             thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
@@ -81,8 +79,24 @@ class SQL:
             compression_type=compression_type,
         )
 
+        # Get all info fields from VCF header for automatic field detection
+        all_info_fields = None
+        try:
+            from .io import IOOperations
+
+            vcf_schema_df = IOOperations.describe_vcf(
+                path,
+                allow_anonymous=allow_anonymous,
+                enable_request_payer=enable_request_payer,
+                compression_type=compression_type,
+            )
+            all_info_fields = vcf_schema_df.select("name").to_series().to_list()
+        except Exception:
+            # Fallback to empty list if unable to get info fields
+            all_info_fields = []
+
         vcf_read_options = VcfReadOptions(
-            info_fields=_cleanse_fields(info_fields),
+            info_fields=all_info_fields,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
         )
