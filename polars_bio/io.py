@@ -307,7 +307,6 @@ class IOOperations:
     @staticmethod
     def read_gff(
         path: str,
-        attr_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -323,7 +322,6 @@ class IOOperations:
 
         Parameters:
             path: The path to the GFF file.
-            attr_fields: The fields to unnest from the `attributes` column. If not specified, all fields swill be rendered as `attributes` column containing an array of structures `{'tag':'xxx', 'value':'yyy'}`.
             thread_num: The number of threads to use for reading the GFF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -339,7 +337,6 @@ class IOOperations:
         """
         return IOOperations.scan_gff(
             path,
-            attr_fields,
             thread_num,
             chunk_size,
             concurrent_fetches,
@@ -354,7 +351,6 @@ class IOOperations:
     @staticmethod
     def scan_gff(
         path: str,
-        attr_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -370,7 +366,6 @@ class IOOperations:
 
         Parameters:
             path: The path to the GFF file.
-            attr_fields: The fields to unnest from the `attributes` column. If not specified, all fields swill be rendered as `attributes` column containing an array of structures `{'tag':'xxx', 'value':'yyy'}`.
             thread_num: The number of threads to use for reading the GFF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -395,7 +390,7 @@ class IOOperations:
         )
 
         gff_read_options = GffReadOptions(
-            attr_fields=_cleanse_fields(attr_fields),
+            attr_fields=None,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
         )
@@ -764,7 +759,7 @@ def _lazy_scan(
     projection_pushdown: bool = False,
     table_name: str = None,
     input_format: InputFormat = None,
-    vcf_info_fields_callback: callable = None,  # Keep for backward compatibility, ignored
+    file_path: str = None,
 ) -> pl.LazyFrame:
     df_lazy: DataFrame = df
     original_schema = df_lazy.schema()
@@ -780,11 +775,10 @@ def _lazy_scan(
         if projection_pushdown and with_columns is not None:
             projected_columns = _extract_column_names_from_expr(with_columns)
 
-        # VCF projection pushdown is now handled natively by VcfTableProvider
-        # No special callback logic needed
+        # Projection pushdown is handled natively by table providers
+        query_df = df_lazy
 
         # Apply column projection to DataFusion query if enabled
-        query_df = df_lazy
         datafusion_projection_applied = False
 
         if projection_pushdown and projected_columns:
@@ -881,5 +875,129 @@ def _read_file(
     table = py_register_table(ctx, path, None, input_format, read_options)
     df = py_read_table(ctx, table.name)
 
-    # No callback needed - VcfTableProvider now handles projection optimization internally
-    return _lazy_scan(df, projection_pushdown, table.name, input_format, None)
+    lf = _lazy_scan(df, projection_pushdown, table.name, input_format, path)
+
+    # Wrap GFF LazyFrames with projection-aware wrapper for consistent attribute field handling
+    if input_format == InputFormat.Gff:
+        return GffLazyFrameWrapper(lf, path, read_options, projection_pushdown)
+
+    return lf
+
+
+class GffLazyFrameWrapper:
+    """Wrapper for GFF LazyFrames that handles attribute field detection in select operations."""
+
+    def __init__(
+        self,
+        base_lf: pl.LazyFrame,
+        file_path: str,
+        read_options: ReadOptions,
+        projection_pushdown: bool = True,
+    ):
+        self._base_lf = base_lf
+        self._file_path = file_path
+        self._read_options = read_options
+        self._projection_pushdown = projection_pushdown
+
+    def select(self, exprs):
+        """Override select to handle GFF attribute field detection."""
+        # Extract column names from expressions
+        if isinstance(exprs, (list, tuple)):
+            columns = []
+            for expr in exprs:
+                if isinstance(expr, str):
+                    columns.append(expr)
+                elif hasattr(expr, "meta") and hasattr(expr.meta, "output_name"):
+                    try:
+                        columns.append(expr.meta.output_name())
+                    except:
+                        pass
+        else:
+            # Single expression
+            if isinstance(exprs, str):
+                columns = [exprs]
+            elif hasattr(exprs, "meta") and hasattr(exprs.meta, "output_name"):
+                try:
+                    columns = [exprs.meta.output_name()]
+                except:
+                    columns = []
+            else:
+                columns = []
+
+        # Categorize columns
+        GFF_STATIC_COLUMNS = {
+            "chrom",
+            "start",
+            "end",
+            "type",
+            "source",
+            "score",
+            "strand",
+            "phase",
+            "attributes",
+        }
+        static_cols = [col for col in columns if col in GFF_STATIC_COLUMNS]
+        attribute_cols = [col for col in columns if col not in GFF_STATIC_COLUMNS]
+
+        if self._projection_pushdown:
+            # Use optimized table re-registration (fast path)
+            from .context import ctx
+
+            gff_options = GffReadOptions(
+                attr_fields=attribute_cols if attribute_cols else [],
+                thread_num=1,
+                object_storage_options=PyObjectStorageOptions(
+                    allow_anonymous=True,
+                    enable_request_payer=False,
+                    chunk_size=8,
+                    concurrent_fetches=1,
+                    max_retries=5,
+                    timeout=300,
+                    compression_type="auto",
+                ),
+            )
+
+            read_options = ReadOptions(gff_read_options=gff_options)
+            table = py_register_table(
+                ctx, self._file_path, None, InputFormat.Gff, read_options
+            )
+            df = py_read_table(ctx, table.name)
+
+            # Create new LazyFrame with optimized schema
+            new_lf = _lazy_scan(df, True, table.name, InputFormat.Gff, self._file_path)
+            return new_lf.select(exprs)
+
+        elif attribute_cols:
+            # Extract attribute fields from nested structure (compatibility path)
+            import polars as pl
+
+            # Build selection with attribute field extraction
+            selection_exprs = []
+
+            # Add static columns as-is
+            for col in static_cols:
+                selection_exprs.append(pl.col(col))
+
+            # Add attribute field extractions
+            for attr_col in attribute_cols:
+                attr_expr = (
+                    pl.col("attributes")
+                    .list.eval(
+                        pl.when(pl.element().struct.field("tag") == attr_col).then(
+                            pl.element().struct.field("value")
+                        )
+                    )
+                    .list.drop_nulls()
+                    .list.first()
+                    .alias(attr_col)
+                )
+                selection_exprs.append(attr_expr)
+
+            return self._base_lf.select(selection_exprs)
+        else:
+            # Static columns only, use base LazyFrame
+            return self._base_lf.select(exprs)
+
+    def __getattr__(self, name):
+        """Delegate all other operations to base LazyFrame."""
+        return getattr(self._base_lf, name)

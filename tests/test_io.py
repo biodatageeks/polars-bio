@@ -248,22 +248,67 @@ class TestIOGFF:
 
     def test_register_gff_unnest(self):
         pb.register_gff(
-            f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.bgz",
-            "test_gff3_unnest",
-            attr_fields=["ID", "havana_transcript"],
+            f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.bgz", "test_gff3_unnest"
         )
         # Use count(chrom) instead of count(*) due to DataFusion table provider issue
+        # Note: Without attr_fields, attributes remain as array - test that table registration works
         count = pb.sql(
-            "select count(chrom) as cnt from test_gff3_unnest where `ID` = 'ENSG00000223972.5'"
+            "select count(chrom) as cnt from test_gff3_unnest where chrom = 'chr1'"
         ).collect()
-        assert count["cnt"][0] == 1
+        assert count["cnt"][0] == 3
 
-        projection = pb.sql(
-            "select `ID`, `havana_transcript` from test_gff3_unnest"
-        ).collect()
-        assert projection["ID"][0] == "ENSG00000223972.5"
-        assert projection["havana_transcript"][0] == None
-        assert projection["havana_transcript"][1] == "OTTHUMT00000362751.1"
+        # Test that attributes column is available (as array)
+        attrs = pb.sql("select attributes from test_gff3_unnest limit 1").collect()
+        assert len(attrs["attributes"][0]) > 0  # Should have attribute data
+
+    def test_consistent_attribute_flattening(self):
+        """Test that attribute field flattening works consistently for both projection modes."""
+        file_path = f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.bgz"
+
+        # Test case 1: projection_pushdown=True (optimized path)
+        result_pushdown = (
+            pb.scan_gff(file_path, projection_pushdown=True)
+            .select(["chrom", "start", "gene_id"])
+            .collect()
+        )
+
+        # Test case 2: projection_pushdown=False (attribute extraction path)
+        result_no_pushdown = (
+            pb.scan_gff(file_path, projection_pushdown=False)
+            .select(["chrom", "start", "gene_id"])
+            .collect()
+        )
+
+        # Both should work and return identical results
+        assert result_pushdown.shape == result_no_pushdown.shape
+        assert result_pushdown.columns == result_no_pushdown.columns
+        assert list(result_pushdown.columns) == ["chrom", "start", "gene_id"]
+
+        # Both should have the same gene_id values
+        assert result_pushdown["gene_id"][0] == result_no_pushdown["gene_id"][0]
+        assert (
+            result_pushdown["gene_id"][0] == "ENSG00000223972.5"
+        )  # Expected value from test data
+
+        # Test with multiple attribute fields
+        multi_result_pushdown = (
+            pb.scan_gff(file_path, projection_pushdown=True)
+            .select(["gene_id", "gene_type"])
+            .collect()
+        )
+
+        multi_result_no_pushdown = (
+            pb.scan_gff(file_path, projection_pushdown=False)
+            .select(["gene_id", "gene_type"])
+            .collect()
+        )
+
+        assert multi_result_pushdown.shape == multi_result_no_pushdown.shape
+        assert multi_result_pushdown.columns == multi_result_no_pushdown.columns
+        assert (
+            multi_result_pushdown["gene_id"][0]
+            == multi_result_no_pushdown["gene_id"][0]
+        )
 
 
 class TestBED:
