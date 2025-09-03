@@ -155,7 +155,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTA file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
-            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
         !!! Example
             ```shell
@@ -217,8 +217,8 @@ class IOOperations:
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
-            compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
-            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
+            compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
         !!! note
             VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -261,8 +261,8 @@ class IOOperations:
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
-            compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
-            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
+            compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
         !!! note
             VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -316,6 +316,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
+        parallel: bool = False,
     ) -> pl.DataFrame:
         """
         Read a GFF file into a DataFrame.
@@ -329,8 +330,9 @@ class IOOperations:
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
-            compression_type: The compression type of the GFF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
-            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
+            compression_type: The compression type of the GFF file. If not specified, it will be detected automatically..
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            parallel: Whether to use the parallel reader for BGZF-compressed local files (uses BGZF chunk-level parallelism similar to FASTQ).
 
         !!! note
             GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -346,6 +348,7 @@ class IOOperations:
             timeout,
             compression_type,
             projection_pushdown,
+            parallel,
         ).collect()
 
     @staticmethod
@@ -360,6 +363,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
+        parallel: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a GFF file into a LazyFrame.
@@ -368,13 +372,14 @@ class IOOperations:
             path: The path to the GFF file.
             thread_num: The number of threads to use for reading the GFF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large-scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
-            compression_type: The compression type of the GFF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
-            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
+            compression_type: The compression type of the GFF file. If not specified, it will be detected automatically.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            parallel: Whether to use the parallel reader for BGZF-compressed local files (use BGZF chunk-level parallelism similar to FASTQ).
 
         !!! note
             GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -393,6 +398,7 @@ class IOOperations:
             attr_fields=None,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
+            parallel=parallel,
         )
         read_options = ReadOptions(gff_read_options=gff_read_options)
         return _read_file(path, InputFormat.Gff, read_options, projection_pushdown)
@@ -415,13 +421,13 @@ class IOOperations:
         Parameters:
             path: The path to the BAM file.
             thread_num: The number of threads to use for reading the BAM file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
-            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large-scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large-scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
-            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
         !!! note
             BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
@@ -462,7 +468,7 @@ class IOOperations:
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
-            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
         !!! note
             BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
@@ -510,7 +516,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
             parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
-            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
         """
         return IOOperations.scan_fastq(
             path,
@@ -551,7 +557,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
             parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
-            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -595,7 +601,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compressions is supported ('bgz').
-            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
         !!! Note
             Only **BED4** format is supported. It extends the basic BED format (BED3) by adding a name field, resulting in four columns: chromosome, start position, end position, and name.
@@ -643,7 +649,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compressions is supported ('bgz').
-            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading necessary columns at the DataFusion level.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
         !!! Note
             Only **BED4** format is supported. It extends the basic BED format (BED3) by adding a name field, resulting in four columns: chromosome, start position, end position, and name.
@@ -718,7 +724,7 @@ class IOOperations:
             path: The path to the VCF file.
             allow_anonymous: Whether to allow anonymous access to object storage (GCS and S3 supported).
             enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
-            compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,

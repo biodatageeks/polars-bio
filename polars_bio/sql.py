@@ -51,7 +51,7 @@ class SQL:
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
-            compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
         !!! note
@@ -115,6 +115,7 @@ class SQL:
         timeout: int = 300,
         enable_request_payer: bool = False,
         compression_type: str = "auto",
+        parallel: bool = False,
     ) -> None:
         """
         Register a GFF file as a Datafusion table.
@@ -130,6 +131,7 @@ class SQL:
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compression is supported ('bgz' and 'gz').
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
+            parallel: Whether to use the parallel reader for BGZF-compressed local files. Default is False.
         !!! note
             GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
 
@@ -176,6 +178,7 @@ class SQL:
             attr_fields=None,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
+            parallel=parallel,
         )
         read_options = ReadOptions(gff_read_options=gff_read_options)
         py_register_table(ctx, path, name, InputFormat.Gff, read_options)
@@ -191,7 +194,7 @@ class SQL:
         timeout: int = 300,
         enable_request_payer: bool = False,
         compression_type: str = "auto",
-        parallel: bool = True,
+        parallel: bool = False,
     ) -> None:
         """
         Register a FASTQ file as a Datafusion table.
@@ -206,7 +209,7 @@ class SQL:
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compression is supported ('bgz' and 'gz').
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
-            parallel: Whether to use the parallel reader for BGZF compressed files.
+            parallel: Whether to use the parallel reader for BGZF compressed files. Default is False. If a file ends with ".gz" but is actually BGZF, it will attempt the parallel path and fall back to standard if not BGZF.
 
         !!! Example
             ```python
@@ -277,7 +280,7 @@ class SQL:
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
-            compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            compression_type: The compression type of the BED file. If not specified, it will be detected automatically..
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
 

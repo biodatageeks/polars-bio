@@ -232,7 +232,7 @@ pub struct FastqReadOptions {
 #[pymethods]
 impl FastqReadOptions {
     #[new]
-    #[pyo3(signature = (object_storage_options=None, parallel=true))]
+    #[pyo3(signature = (object_storage_options=None, parallel=false))]
     pub fn new(object_storage_options: Option<PyObjectStorageOptions>, parallel: bool) -> Self {
         FastqReadOptions {
             object_storage_options: pyobject_storage_options_to_object_storage_options(
@@ -316,16 +316,19 @@ pub struct GffReadOptions {
     #[pyo3(get, set)]
     pub thread_num: Option<usize>,
     pub object_storage_options: Option<ObjectStorageOptions>,
+    #[pyo3(get, set)]
+    pub parallel: bool,
 }
 
 #[pymethods]
 impl GffReadOptions {
     #[new]
-    #[pyo3(signature = (attr_fields=None, thread_num=None, object_storage_options=None))]
+    #[pyo3(signature = (attr_fields=None, thread_num=None, object_storage_options=None, parallel=false))]
     pub fn new(
         attr_fields: Option<Vec<String>>,
         thread_num: Option<usize>,
         object_storage_options: Option<PyObjectStorageOptions>,
+        parallel: bool,
     ) -> Self {
         GffReadOptions {
             attr_fields,
@@ -333,6 +336,7 @@ impl GffReadOptions {
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
+            parallel,
         }
     }
     #[staticmethod]
@@ -349,6 +353,7 @@ impl GffReadOptions {
                 timeout: Some(300), // 300 seconds
                 compression_type: Some(CompressionType::AUTO),
             }),
+            parallel: false,
         }
     }
 }
@@ -444,7 +449,7 @@ pub struct FastaReadOptions {
 #[pymethods]
 impl FastaReadOptions {
     #[new]
-    #[pyo3(signature = (object_storage_options=None, parallel=true))]
+    #[pyo3(signature = (object_storage_options=None, parallel=false))]
     pub fn new(object_storage_options: Option<PyObjectStorageOptions>, parallel: bool) -> Self {
         FastaReadOptions {
             object_storage_options: pyobject_storage_options_to_object_storage_options(
