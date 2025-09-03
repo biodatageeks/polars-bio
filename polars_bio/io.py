@@ -906,7 +906,13 @@ class GffLazyFrameWrapper:
         self._projection_pushdown = projection_pushdown
 
     def select(self, exprs):
-        """Override select to handle GFF attribute field detection."""
+        """Override select to handle GFF attribute field detection.
+
+        Ensures queries requesting the raw `attributes` column use a registration
+        that exposes it, while preserving projection pushdown. For unnested
+        attribute fields (e.g., `gene_id`), re-registers with those fields to
+        enable efficient projection.
+        """
         # Extract column names from expressions
         if isinstance(exprs, (list, tuple)):
             columns = []
@@ -945,18 +951,53 @@ class GffLazyFrameWrapper:
         static_cols = [col for col in columns if col in GFF_STATIC_COLUMNS]
         attribute_cols = [col for col in columns if col not in GFF_STATIC_COLUMNS]
 
+        # If 'attributes' is requested, ensure the registered table exposes it.
+        # Some parallel GFF providers omit the raw 'attributes' column; switch
+        # to a registration that includes it while keeping projection pushdown.
+        if "attributes" in static_cols:
+            from .context import ctx
+
+            # Preserve original parallelism and thread config when re-registering
+            orig_gff_opts = getattr(self._read_options, "gff_read_options", None)
+            orig_parallel = (
+                getattr(orig_gff_opts, "parallel", False) if orig_gff_opts else False
+            )
+            orig_thread = (
+                getattr(orig_gff_opts, "thread_num", None) if orig_gff_opts else None
+            )
+
+            # Build read options that ensure raw attributes are present
+            gff_options = GffReadOptions(
+                attr_fields=None,  # keep nested 'attributes' column
+                thread_num=orig_thread if orig_thread is not None else 1,
+                object_storage_options=PyObjectStorageOptions(
+                    allow_anonymous=True,
+                    enable_request_payer=False,
+                    chunk_size=8,
+                    concurrent_fetches=1,
+                    max_retries=5,
+                    timeout=300,
+                    compression_type="auto",
+                ),
+                parallel=orig_parallel,
+            )
+            read_options = ReadOptions(gff_read_options=gff_options)
+            table = py_register_table(
+                ctx, self._file_path, None, InputFormat.Gff, read_options
+            )
+            df = py_read_table(ctx, table.name)
+            new_lf = _lazy_scan(df, True, table.name, InputFormat.Gff, self._file_path)
+            return new_lf.select(exprs)
+
         if self._projection_pushdown:
-            # Special case: if 'attributes' column is requested as a static column,
-            # we need to use the original table to preserve the attributes structure
-            if "attributes" in static_cols and not attribute_cols:
-                # Static columns only including attributes, use base LazyFrame
-                return self._base_lf.select(exprs)
+            # Optimized path: when selecting specific unnested attribute fields, re-register
+            # GFF table with those fields so DataFusion can project them efficiently.
 
             # Use optimized table re-registration (fast path)
             from .context import ctx
 
             gff_options = GffReadOptions(
-                attr_fields=attribute_cols if attribute_cols else [],
+                attr_fields=attribute_cols if attribute_cols else None,
                 thread_num=1,
                 object_storage_options=PyObjectStorageOptions(
                     allow_anonymous=True,
@@ -966,6 +1007,12 @@ class GffLazyFrameWrapper:
                     max_retries=5,
                     timeout=300,
                     compression_type="auto",
+                ),
+                # Keep parallel reading consistent with base options when possible
+                parallel=getattr(
+                    getattr(self._read_options, "gff_read_options", None),
+                    "parallel",
+                    False,
                 ),
             )
 
