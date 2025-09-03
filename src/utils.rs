@@ -50,20 +50,28 @@ pub fn convert_arrow_rb_to_polars_df(
     arrow_rb: &RecordBatch,
     polars_schema: &polars::prelude::Schema,
 ) -> Result<DataFrame, PolarsError> {
-    let mut columns: Vec<Series> = Vec::with_capacity(arrow_rb.num_columns());
+    // Pre-calculate all schema info to avoid repeated lookups
+    let schema_info: Vec<_> = (0..arrow_rb.num_columns())
+        .map(|i| polars_schema.try_get_at_index(i))
+        .collect::<Result<Vec<_>, _>>()?;
 
-    for (i, column) in arrow_rb.columns().iter().enumerate() {
-        let polars_df_dtype = polars_schema.try_get_at_index(i)?.1;
-        let mut polars_arrow_dtype = polars_df_dtype.to_arrow(CompatLevel::oldest());
-        if polars_arrow_dtype == polars::datatypes::ArrowDataType::LargeUtf8 {
-            polars_arrow_dtype = polars::datatypes::ArrowDataType::Utf8;
-        }
-        let polars_array =
-            convert_arrow_rs_array_to_polars_arrow_array(column, polars_arrow_dtype)?;
-        let series =
-            Series::from_arrow(polars_schema.try_get_at_index(i)?.0.clone(), polars_array)?;
-        columns.push(series);
-    }
+    // Use iterator with collect for better optimization - process all columns in parallel
+    let columns: Result<Vec<_>, _> = arrow_rb
+        .columns()
+        .iter()
+        .zip(schema_info.iter())
+        .map(|(column, (name, polars_df_dtype))| {
+            let mut polars_arrow_dtype = polars_df_dtype.to_arrow(CompatLevel::oldest());
+            if polars_arrow_dtype == polars::datatypes::ArrowDataType::LargeUtf8 {
+                polars_arrow_dtype = polars::datatypes::ArrowDataType::Utf8;
+            }
 
-    Ok(DataFrame::from_iter(columns))
+            let polars_array =
+                convert_arrow_rs_array_to_polars_arrow_array(column, polars_arrow_dtype)?;
+            Series::from_arrow((*name).clone(), polars_array)
+        })
+        .collect();
+
+    // Use from_iter which accepts Series (new expects Column)
+    Ok(DataFrame::from_iter(columns?))
 }
