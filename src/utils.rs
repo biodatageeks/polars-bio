@@ -55,19 +55,27 @@ pub fn convert_arrow_rb_to_polars_df(
         .map(|i| polars_schema.try_get_at_index(i))
         .collect::<Result<Vec<_>, _>>()?;
 
+    // Pre-calculate Arrow dtypes to avoid repeated conversions
+    let arrow_dtypes: Vec<_> = schema_info
+        .iter()
+        .map(|(_, polars_df_dtype)| {
+            let mut polars_arrow_dtype = polars_df_dtype.to_arrow(CompatLevel::oldest());
+            if polars_arrow_dtype == polars::datatypes::ArrowDataType::LargeUtf8 {
+                polars_arrow_dtype = polars::datatypes::ArrowDataType::Utf8;
+            }
+            polars_arrow_dtype
+        })
+        .collect();
+
     // Use iterator with collect for better optimization - process all columns in parallel
     let columns: Result<Vec<_>, _> = arrow_rb
         .columns()
         .iter()
         .zip(schema_info.iter())
-        .map(|(column, (name, polars_df_dtype))| {
-            let mut polars_arrow_dtype = polars_df_dtype.to_arrow(CompatLevel::oldest());
-            if polars_arrow_dtype == polars::datatypes::ArrowDataType::LargeUtf8 {
-                polars_arrow_dtype = polars::datatypes::ArrowDataType::Utf8;
-            }
-
+        .zip(arrow_dtypes.iter())
+        .map(|((column, (name, _)), arrow_dtype)| {
             let polars_array =
-                convert_arrow_rs_array_to_polars_arrow_array(column, polars_arrow_dtype)?;
+                convert_arrow_rs_array_to_polars_arrow_array(column, arrow_dtype.clone())?;
             Series::from_arrow((*name).clone(), polars_array)
         })
         .collect();

@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use arrow::array::RecordBatch;
-use arrow::error::ArrowError;
 use arrow::ffi_stream::ArrowArrayStreamReader;
 use arrow::pyarrow::PyArrowType;
 use datafusion::dataframe::DataFrameWriteOptions;
@@ -32,10 +30,19 @@ pub(crate) fn register_frame(
     df: PyArrowType<ArrowArrayStreamReader>,
     table_name: String,
 ) {
-    let batches =
-        df.0.collect::<Result<Vec<RecordBatch>, ArrowError>>()
-            .unwrap();
-    let schema = batches[0].schema();
+    // Collect batches more efficiently with pre-allocation
+    let mut batches = Vec::new();
+    let mut schema = None;
+
+    for batch_result in df.0 {
+        let batch = batch_result.unwrap();
+        if schema.is_none() {
+            schema = Some(batch.schema());
+        }
+        batches.push(batch);
+    }
+
+    let schema = schema.expect("At least one batch expected");
     let ctx = &py_ctx.ctx;
     let rt = tokio::runtime::Runtime::new().unwrap();
     let table_source = MemTable::try_new(schema, vec![batches]).unwrap();
