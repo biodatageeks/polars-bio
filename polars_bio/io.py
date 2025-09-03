@@ -940,6 +940,12 @@ class GffLazyFrameWrapper:
         attribute_cols = [col for col in columns if col not in GFF_STATIC_COLUMNS]
 
         if self._projection_pushdown:
+            # Special case: if 'attributes' column is requested as a static column,
+            # we need to use the original table to preserve the attributes structure
+            if "attributes" in static_cols and not attribute_cols:
+                # Static columns only including attributes, use base LazyFrame
+                return self._base_lf.select(exprs)
+
             # Use optimized table re-registration (fast path)
             from .context import ctx
 
