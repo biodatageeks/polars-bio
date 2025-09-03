@@ -370,13 +370,15 @@ fn py_describe_vcf(
     py.allow_threads(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
-        let object_storage_options =
-            pyobject_storage_options_to_object_storage_options(object_storage_options);
-        // Set a default chunk size of 8MB if not provided and concurrent fetches to 1 to speed up header retrieval
+        let base_options =
+            pyobject_storage_options_to_object_storage_options(object_storage_options)
+                .unwrap_or_default();
+
+        // Set specific options for describe, overriding base options
         let desc_object_storage_options = ObjectStorageOptions {
             chunk_size: Some(8),
             concurrent_fetches: Some(1),
-            ..object_storage_options.unwrap()
+            ..base_options
         };
         info!("{}", desc_object_storage_options);
 

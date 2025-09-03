@@ -51,7 +51,7 @@ The basic concept is that each operation consists of two sides: the **probe** si
     * [IITree](https://github.com/rust-bio/rust-bio/blob/master/src/data_structures/interval_tree/array_backed_interval_tree.rs)
     * [AVL-tree](https://github.com/rust-bio/rust-bio/blob/master/src/data_structures/interval_tree/avl_interval_tree.rs)
     * [rust-lapper](https://github.com/sstadick/rust-lapper)
-    * [superintervals](https://github.com/kcleal/superintervals/) - on the roadmap, see [issue](https://github.com/biodatageeks/polars-bio/issues/126)
+    * [superintervals](https://github.com/kcleal/superintervals/) - available since `polars-bio` version `0.12.0`
 Once the **build** side data structure is ready, then records from the **probe** side are processed against the search structure organized as record batches. Each record batch can be processed independently. Search structure nodes contains identifiers of the rows from the **build** side that are then used to construct a new record that is returned as a result of the operation.
 
 ### Out-of-core (streaming) processing

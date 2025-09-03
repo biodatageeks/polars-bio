@@ -7,7 +7,7 @@ use polars_plan::plans::{AnonymousScan, AnonymousScanArgs};
 use tokio::runtime::Runtime;
 use tracing::debug;
 
-use crate::utils::{convert_arrow_rb_schema_to_polars_df_schema, convert_arrow_rb_to_polars_df};
+use crate::utils::convert_arrow_rb_to_polars_df;
 
 pub struct RangeOperationScan {
     pub(crate) df_iter: Arc<Mutex<SendableRecordBatchStream>>,
@@ -37,8 +37,7 @@ impl AnonymousScan for RangeOperationScan {
                 let rb = batch.map_err(|e| {
                     polars::prelude::PolarsError::ComputeError(e.to_string().into())
                 })?;
-                let schema_polars = convert_arrow_rb_schema_to_polars_df_schema(&rb.schema())?;
-                let df = convert_arrow_rb_to_polars_df(&rb, &schema_polars)?;
+                let df = convert_arrow_rb_to_polars_df(&rb, self.schema.as_ref())?;
                 eprintln!("Next batch returned {} rows", df.height());
                 Ok(Some(df))
             },
@@ -54,6 +53,6 @@ impl AnonymousScan for RangeOperationScan {
     }
 
     fn allows_projection_pushdown(&self) -> bool {
-        false
+        true
     }
 }

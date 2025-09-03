@@ -12,6 +12,7 @@ use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::bgzf_parallel_reader::BgzfFastqTableProvider as BgzfParallelFastqTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
+use datafusion_bio_format_gff::bgzf_parallel_reader::BgzfGffTableProvider as BgzfParallelGffTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
 use log::info;
@@ -110,10 +111,38 @@ pub(crate) async fn register_table(
                 table_name, fastq_read_options
             );
 
-            if fastq_read_options.parallel && path.ends_with(".bgz") {
-                let table_provider = BgzfParallelFastqTableProvider::try_new(path).unwrap();
-                ctx.register_table(table_name, Arc::new(table_provider))
-                    .expect("Failed to register parallel FASTQ table");
+            if fastq_read_options.parallel {
+                if path.ends_with(".bgz") {
+                    let table_provider = BgzfParallelFastqTableProvider::try_new(path).unwrap();
+                    ctx.register_table(table_name, Arc::new(table_provider))
+                        .expect("Failed to register parallel FASTQ table");
+                } else if path.ends_with(".gz") {
+                    match BgzfParallelFastqTableProvider::try_new(path) {
+                        Ok(table_provider) => {
+                            ctx.register_table(table_name, Arc::new(table_provider))
+                                .expect("Failed to register parallel FASTQ table");
+                        },
+                        Err(_) => {
+                            let table_provider = FastqTableProvider::new(
+                                path.to_string(),
+                                None,
+                                fastq_read_options.object_storage_options.clone(),
+                            )
+                            .unwrap();
+                            ctx.register_table(table_name, Arc::new(table_provider))
+                                .expect("Failed to register FASTQ table");
+                        },
+                    }
+                } else {
+                    let table_provider = FastqTableProvider::new(
+                        path.to_string(),
+                        None,
+                        fastq_read_options.object_storage_options.clone(),
+                    )
+                    .unwrap();
+                    ctx.register_table(table_name, Arc::new(table_provider))
+                        .expect("Failed to register FASTQ table");
+                }
             } else {
                 let table_provider = FastqTableProvider::new(
                     path.to_string(),
@@ -160,15 +189,45 @@ pub(crate) async fn register_table(
                 "Registering GFF table {} with options: {:?}",
                 table_name, gff_read_options
             );
-            let table_provider = GffTableProvider::new(
-                path.to_string(),
-                gff_read_options.attr_fields,
-                gff_read_options.thread_num,
-                gff_read_options.object_storage_options.clone(),
-            )
-            .unwrap();
-            ctx.register_table(table_name, Arc::new(table_provider))
-                .expect("Failed to register GFF table");
+            if gff_read_options.parallel {
+                if path.ends_with(".bgz") {
+                    // Explicit BGZF extension: use the parallel reader
+                    let table_provider = BgzfParallelGffTableProvider::try_new(
+                        path,
+                        gff_read_options.attr_fields.clone(),
+                    )
+                    .unwrap();
+                    ctx.register_table(table_name, Arc::new(table_provider))
+                        .expect("Failed to register parallel GFF table");
+                    return table_name.to_string();
+                } else if path.ends_with(".gz") {
+                    // Heuristically try BGZF even with .gz; fall back if not BGZF
+                    match BgzfParallelGffTableProvider::try_new(
+                        path,
+                        gff_read_options.attr_fields.clone(),
+                    ) {
+                        Ok(table_provider) => {
+                            ctx.register_table(table_name, Arc::new(table_provider))
+                                .expect("Failed to register parallel GFF table");
+                            return table_name.to_string();
+                        },
+                        Err(_) => {
+                            // Not BGZF or unsupported; fall through to standard provider
+                        },
+                    }
+                }
+            }
+            {
+                let table_provider = GffTableProvider::new(
+                    path.to_string(),
+                    gff_read_options.attr_fields,
+                    gff_read_options.thread_num,
+                    gff_read_options.object_storage_options.clone(),
+                )
+                .unwrap();
+                ctx.register_table(table_name, Arc::new(table_provider))
+                    .expect("Failed to register GFF table");
+            }
         },
         InputFormat::Bam => {
             let bam_read_options = match &read_options {

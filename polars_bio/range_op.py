@@ -48,6 +48,7 @@ class IntervalOperations:
         output_type: str = "polars.LazyFrame",
         read_options1: Union[ReadOptions, None] = None,
         read_options2: Union[ReadOptions, None] = None,
+        projection_pushdown: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Find pairs of overlapping genomic intervals.
@@ -67,6 +68,7 @@ class IntervalOperations:
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             read_options1: Additional options for reading the input files.
             read_options2: Additional options for reading the input files.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
@@ -123,7 +125,14 @@ class IntervalOperations:
         )
 
         return range_operation(
-            df1, df2, range_options, output_type, ctx, read_options1, read_options2
+            df1,
+            df2,
+            range_options,
+            output_type,
+            ctx,
+            read_options1,
+            read_options2,
+            projection_pushdown,
         )
 
     @staticmethod
@@ -137,6 +146,7 @@ class IntervalOperations:
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
         output_type: str = "polars.LazyFrame",
         read_options: Union[ReadOptions, None] = None,
+        projection_pushdown: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Find pairs of closest genomic intervals.
@@ -154,6 +164,7 @@ class IntervalOperations:
             on_cols: List of additional column names to join on. default is None.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             read_options: Additional options for reading the input files.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
 
         Returns:
@@ -182,7 +193,15 @@ class IntervalOperations:
             columns_1=cols1,
             columns_2=cols2,
         )
-        return range_operation(df1, df2, range_options, output_type, ctx, read_options)
+        return range_operation(
+            df1,
+            df2,
+            range_options,
+            output_type,
+            ctx,
+            read_options,
+            projection_pushdown=projection_pushdown,
+        )
 
     @staticmethod
     def coverage(
@@ -195,6 +214,7 @@ class IntervalOperations:
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
         output_type: str = "polars.LazyFrame",
         read_options: Union[ReadOptions, None] = None,
+        projection_pushdown: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Calculate intervals coverage.
@@ -212,6 +232,7 @@ class IntervalOperations:
             on_cols: List of additional column names to join on. default is None.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             read_options: Additional options for reading the input files.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
 
         Returns:
@@ -245,7 +266,15 @@ class IntervalOperations:
             columns_1=cols1,
             columns_2=cols2,
         )
-        return range_operation(df2, df1, range_options, output_type, ctx, read_options)
+        return range_operation(
+            df2,
+            df1,
+            range_options,
+            output_type,
+            ctx,
+            read_options,
+            projection_pushdown=projection_pushdown,
+        )
 
     @staticmethod
     def count_overlaps(
@@ -258,6 +287,7 @@ class IntervalOperations:
         on_cols: Union[list[str], None] = None,
         output_type: str = "polars.LazyFrame",
         naive_query: bool = True,
+        projection_pushdown: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Count pairs of overlapping genomic intervals.
@@ -275,6 +305,7 @@ class IntervalOperations:
             on_cols: List of additional column names to join on. default is None.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             naive_query: If True, use naive query for counting overlaps based on overlaps.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
@@ -421,6 +452,7 @@ class IntervalOperations:
         cols: Union[list[str], None] = ["chrom", "start", "end"],
         on_cols: Union[list[str], None] = None,
         output_type: str = "polars.LazyFrame",
+        projection_pushdown: bool = False,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Merge overlapping intervals. It is assumed that start < end.
@@ -433,6 +465,7 @@ class IntervalOperations:
                 genomic intervals, provided separately for each set.
             on_cols: List of additional column names for clustering. default is None.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.

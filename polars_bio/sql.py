@@ -31,7 +31,6 @@ class SQL:
     def register_vcf(
         path: str,
         name: Union[str, None] = None,
-        info_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
@@ -47,13 +46,12 @@ class SQL:
         Parameters:
             path: The path to the VCF file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
-            info_fields: The fields to read from the INFO column.
             thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
-            compression_type: The compression type of the VCF file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
         !!! note
@@ -81,8 +79,24 @@ class SQL:
             compression_type=compression_type,
         )
 
+        # Get all info fields from VCF header for automatic field detection
+        all_info_fields = None
+        try:
+            from .io import IOOperations
+
+            vcf_schema_df = IOOperations.describe_vcf(
+                path,
+                allow_anonymous=allow_anonymous,
+                enable_request_payer=enable_request_payer,
+                compression_type=compression_type,
+            )
+            all_info_fields = vcf_schema_df.select("name").to_series().to_list()
+        except Exception:
+            # Fallback to empty list if unable to get info fields
+            all_info_fields = []
+
         vcf_read_options = VcfReadOptions(
-            info_fields=_cleanse_fields(info_fields),
+            info_fields=all_info_fields,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
         )
@@ -93,7 +107,6 @@ class SQL:
     def register_gff(
         path: str,
         name: Union[str, None] = None,
-        attr_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
@@ -102,6 +115,7 @@ class SQL:
         timeout: int = 300,
         enable_request_payer: bool = False,
         compression_type: str = "auto",
+        parallel: bool = False,
     ) -> None:
         """
         Register a GFF file as a Datafusion table.
@@ -109,7 +123,6 @@ class SQL:
         Parameters:
             path: The path to the GFF file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
-            attr_fields: The fields to unnest from the `attributes` column. If not specified, all fields swill be rendered as `attributes` column containing an array of structures `{'tag':'xxx', 'value':'yyy'}`.
             thread_num: The number of threads to use for reading the GFF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
@@ -118,6 +131,7 @@ class SQL:
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compression is supported ('bgz' and 'gz').
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
+            parallel: Whether to use the parallel reader for BGZF-compressed local files. Default is False.
         !!! note
             GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
 
@@ -127,8 +141,8 @@ class SQL:
             ```
             ```python
             import polars_bio as pb
-            pb.register_gff("/tmp/gencode.v38.annotation.gff3.gz", "gencode_v38_annotation3_bgz", attr_fields=["ID", "Parent"])
-            pb.sql("SELECT `Parent`, count(*) AS cnt FROM gencode_v38_annotation3_bgz GROUP BY `Parent`").limit(5).collect()
+            pb.register_gff("/tmp/gencode.v38.annotation.gff3.gz", "gencode_v38_annotation3_bgz")
+            pb.sql("SELECT attributes, count(*) AS cnt FROM gencode_v38_annotation3_bgz GROUP BY attributes").limit(5).collect()
             ```
             ```shell
 
@@ -161,9 +175,10 @@ class SQL:
         )
 
         gff_read_options = GffReadOptions(
-            attr_fields=_cleanse_fields(attr_fields),
+            attr_fields=None,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
+            parallel=parallel,
         )
         read_options = ReadOptions(gff_read_options=gff_read_options)
         py_register_table(ctx, path, name, InputFormat.Gff, read_options)
@@ -179,7 +194,7 @@ class SQL:
         timeout: int = 300,
         enable_request_payer: bool = False,
         compression_type: str = "auto",
-        parallel: bool = True,
+        parallel: bool = False,
     ) -> None:
         """
         Register a FASTQ file as a Datafusion table.
@@ -194,7 +209,7 @@ class SQL:
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compression is supported ('bgz' and 'gz').
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
-            parallel: Whether to use the parallel reader for BGZF compressed files.
+            parallel: Whether to use the parallel reader for BGZF compressed files. Default is False. If a file ends with ".gz" but is actually BGZF, it will attempt the parallel path and fall back to standard if not BGZF.
 
         !!! Example
             ```python
@@ -265,7 +280,7 @@ class SQL:
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
-            compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compression is supported ('bgz').
+            compression_type: The compression type of the BED file. If not specified, it will be detected automatically..
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
 
