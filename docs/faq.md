@@ -18,6 +18,10 @@ polars-bio-intel kernel: [ 1611.175045] traps: python[8844] trap invalid opcode 
 ```bash
 MKDOCS_EXPORTER_PDF=false JUPYTER_PLATFORM_DIRS=1 mkdocs serve  -w polars_bio
 ```
+Some pages of the documentation take a while to build—to speed up the process, you can disable dynamic content rendering:
+```bash
+MKDOCS_EXPORTER_PDF=false ENABLE_MD_EXEC=false ENABLE_MKDOCSTRINGS=false ENABLE_JUPYTER=false JUPYTER_PLATFORM_DIRS=1 mkdocs serve
+```
 
 4. How to build the source code and install in the current virtual environment?
 ```bash

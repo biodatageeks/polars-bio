@@ -14,6 +14,7 @@ nav:
       - 🔬 Supplementary material: supplement.md
       - 📡 Contact: contact.md
 
+
   - Quick start: quickstart.md
   - Features: features.md
   - Tutorial: notebooks/tutorial.ipynb
@@ -22,20 +23,29 @@ nav:
   - FAQ: faq.md
   - 🔬 Supplementary material: supplement.md
   - Contact: contact.md
+  - 📖 Blog:
+      - blog/index.md
 
 plugins:
+  - blog:
+      post_date_format: full
+      archive: false
+      post_readtime: true
   - social
   - search
   - autorefs
   - mkdocs-jupyter:
+      enabled: !ENV [ENABLE_JUPYTER, true]
       execute: false
       allow_errors: false
   - mkdocstrings:
+      enabled: !ENV [ENABLE_MKDOCSTRINGS, true]
       default_handler: python
       handlers:
           options:
             docstring_style: google
-  - markdown-exec
+  - markdown-exec:
+      enabled: !ENV [ENABLE_MD_EXEC, true]
   - table-reader
   - mkdocs_matplotlib
   - exporter:
@@ -52,6 +62,8 @@ plugins:
             enabled: true
             output: .well-known/site.pdf
             covers: all
+  # Place glightbox last so it runs after other plugins
+  - glightbox
 theme:
   name: material
   logo: assets/logo.png
@@ -91,6 +103,7 @@ extra:
 
 markdown_extensions:
   - admonition
+  - codehilite
   - footnotes
   - pymdownx.critic
   - pymdownx.caret
