@@ -62,6 +62,8 @@ plugins:
             enabled: true
             output: .well-known/site.pdf
             covers: all
+  # Place glightbox last so it runs after other plugins
+  - glightbox
 theme:
   name: material
   logo: assets/logo.png
@@ -101,6 +103,7 @@ extra:
 
 markdown_extensions:
   - admonition
+  - codehilite
   - footnotes
   - pymdownx.critic
   - pymdownx.caret

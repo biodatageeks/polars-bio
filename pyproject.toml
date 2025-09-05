@@ -78,7 +78,7 @@ tqdm = "^4.67.1"
 memory-profiler = "^0.61.0"
 mkdocs-matplotlib = "^0.10.1"
 mkdocs-exporter = "^6.2.0"
-
+mkdocs-glightbox = "^0.5.1"
 cairosvg = "^2.8.2"
 bioframe = "^0.7.2"
 
