@@ -13,7 +13,12 @@ def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
 
 
 def _lazy_scan(
-    df: Union[pl.DataFrame, pl.LazyFrame], projection_pushdown: bool = False
+    df: Union[pl.DataFrame, pl.LazyFrame],
+    projection_pushdown: bool = False,
+    predicate_pushdown: bool = False,
+    table_name: str = None,
+    input_format=None,
+    file_path: str = None,
 ) -> pl.LazyFrame:
     df_lazy: DataFrame = df
     original_schema = df_lazy.schema()
@@ -29,9 +34,27 @@ def _lazy_scan(
         if projection_pushdown and with_columns is not None:
             projected_columns = _extract_column_names_from_expr(with_columns)
 
-        # Apply column projection to DataFusion query if enabled
+        # Apply column projection and predicate pushdown to DataFusion query if enabled
         query_df = df_lazy
         datafusion_projection_applied = False
+        datafusion_predicate_applied = False
+
+        # Handle predicate pushdown first
+        if predicate_pushdown and predicate is not None:
+            try:
+                from .predicate_translator import (
+                    translate_polars_predicate_to_datafusion,
+                )
+
+                datafusion_predicate = translate_polars_predicate_to_datafusion(
+                    predicate
+                )
+                query_df = query_df.filter(datafusion_predicate)
+                datafusion_predicate_applied = True
+            except Exception as e:
+                # Fallback to Python-level filtering if predicate pushdown fails
+                datafusion_predicate_applied = False
+                # Note: error handling for debugging could be added here if needed
         if projection_pushdown and projected_columns:
             try:
                 query_df = df_lazy.select(projected_columns)
@@ -65,7 +88,8 @@ def _lazy_scan(
         if n_rows and n_rows < 8192:  # 8192 is the default batch size in datafusion
             df = query_df.limit(n_rows).execute_stream().next().to_pyarrow()
             df = pl.DataFrame(df).limit(n_rows)
-            if predicate is not None:
+            # Apply Python-level predicate only if DataFusion predicate pushdown failed
+            if predicate is not None and not datafusion_predicate_applied:
                 df = df.filter(predicate)
             # Apply Python-level projection if DataFusion projection failed or projection pushdown is disabled
             if with_columns is not None and (
@@ -80,7 +104,8 @@ def _lazy_scan(
         for r in df_stream:
             py_df = r.to_pyarrow()
             df = pl.DataFrame(py_df)
-            if predicate is not None:
+            # Apply Python-level predicate only if DataFusion predicate pushdown failed
+            if predicate is not None and not datafusion_predicate_applied:
                 df = df.filter(predicate)
             # Apply Python-level projection if DataFusion projection failed or projection pushdown is disabled
             if with_columns is not None and (
