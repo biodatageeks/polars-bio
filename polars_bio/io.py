@@ -792,6 +792,9 @@ def _apply_combined_pushdown_via_sql(
         except Exception as e:
             where_clause = ""
 
+    # No fallback - if we can't parse to SQL, just use projection only
+    # This keeps us in pure SQL mode for maximum performance
+
     # Construct optimized SQL query
     if where_clause:
         sql = f"SELECT {select_clause} FROM {table_name} WHERE {where_clause}"
@@ -803,33 +806,53 @@ def _apply_combined_pushdown_via_sql(
 
 
 def _build_sql_where_from_predicate_safe(predicate):
-    """Build SQL WHERE clause using safe regex patterns (moved from GffLazyFrameWrapper)."""
+    """Build SQL WHERE clause by parsing all individual conditions and connecting with AND."""
     import re
 
     pred_str = str(predicate).strip("[]")
 
-    # String equality pattern: (col("chrom")) == ("chr22")
-    equality_pattern = r'\(col\("([^"]+)"\)\)\s*==\s*\("([^"]+)"\)'
-    match = re.search(equality_pattern, pred_str)
-    if match:
-        column, value = match.groups()
-        return f"\"{column}\" = '{value}'"
+    # Find all individual conditions in the nested structure
+    conditions = []
 
-    # Numeric comparison patterns: (col("start")) > (dyn int: 1000)
+    # String equality patterns (including empty strings)
+    string_patterns = re.findall(r'\(col\("([^"]+)"\)\)\s*==\s*\("([^"]*)"\)', pred_str)
+    for column, value in string_patterns:
+        conditions.append(f"\"{column}\" = '{value}'")
+
+    # Numeric comparison patterns
     numeric_patterns = [
         (r'\(col\("([^"]+)"\)\)\s*>\s*\(dyn int:\s*(\d+)\)', ">"),
         (r'\(col\("([^"]+)"\)\)\s*<\s*\(dyn int:\s*(\d+)\)', "<"),
         (r'\(col\("([^"]+)"\)\)\s*>=\s*\(dyn int:\s*(\d+)\)', ">="),
         (r'\(col\("([^"]+)"\)\)\s*<=\s*\(dyn int:\s*(\d+)\)', "<="),
+        (r'\(col\("([^"]+)"\)\)\s*!=\s*\(dyn int:\s*(\d+)\)', "!="),
+        (r'\(col\("([^"]+)"\)\)\s*==\s*\(dyn int:\s*(\d+)\)', "="),
     ]
 
     for pattern, op in numeric_patterns:
-        match = re.search(pattern, pred_str)
-        if match:
-            column, value = match.groups()
-            return f'"{column}" {op} {value}'
+        matches = re.findall(pattern, pred_str)
+        for column, value in matches:
+            conditions.append(f'"{column}" {op} {value}')
 
-    # If no pattern matches, return empty to disable predicate pushdown
+    # Float comparison patterns
+    float_patterns = [
+        (r'\(col\("([^"]+)"\)\)\s*>\s*\(dyn float:\s*([\d.]+)\)', ">"),
+        (r'\(col\("([^"]+)"\)\)\s*<\s*\(dyn float:\s*([\d.]+)\)', "<"),
+        (r'\(col\("([^"]+)"\)\)\s*>=\s*\(dyn float:\s*([\d.]+)\)', ">="),
+        (r'\(col\("([^"]+)"\)\)\s*<=\s*\(dyn float:\s*([\d.]+)\)', "<="),
+        (r'\(col\("([^"]+)"\)\)\s*!=\s*\(dyn float:\s*([\d.]+)\)', "!="),
+        (r'\(col\("([^"]+)"\)\)\s*==\s*\(dyn float:\s*([\d.]+)\)', "="),
+    ]
+
+    for pattern, op in float_patterns:
+        matches = re.findall(pattern, pred_str)
+        for column, value in matches:
+            conditions.append(f'"{column}" {op} {value}')
+
+    # Join all conditions with AND
+    if conditions:
+        return " AND ".join(conditions)
+
     return ""
 
 
@@ -1013,12 +1036,16 @@ class GffLazyFrameWrapper:
         read_options: ReadOptions,
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
+        current_projection: list = None,
     ):
         self._base_lf = base_lf
         self._file_path = file_path
         self._read_options = read_options
         self._projection_pushdown = projection_pushdown
         self._predicate_pushdown = predicate_pushdown
+        self._current_projection = (
+            current_projection  # Track the current column selection
+        )
 
     def select(self, exprs):
         """Override select to handle GFF attribute field detection.
@@ -1050,6 +1077,9 @@ class GffLazyFrameWrapper:
                     columns = []
             else:
                 columns = []
+
+        # Store current projection for use in subsequent operations like filter()
+        current_projection = columns.copy() if columns else None
 
         # Categorize columns
         GFF_STATIC_COLUMNS = {
@@ -1157,7 +1187,16 @@ class GffLazyFrameWrapper:
                 InputFormat.Gff,
                 self._file_path,
             )
-            return new_lf.select(exprs)
+            selected_lf = new_lf.select(exprs)
+            # Preserve GFF wrapper behavior for subsequent operations
+            return GffLazyFrameWrapper(
+                selected_lf,
+                self._file_path,
+                self._read_options,
+                self._projection_pushdown,
+                self._predicate_pushdown,
+                current_projection,
+            )
 
         elif attribute_cols:
             # Extract attribute fields from nested structure (compatibility path)
@@ -1185,10 +1224,28 @@ class GffLazyFrameWrapper:
                 )
                 selection_exprs.append(attr_expr)
 
-            return self._base_lf.select(selection_exprs)
+            selected_lf = self._base_lf.select(selection_exprs)
+            # Preserve GFF wrapper behavior for subsequent operations
+            return GffLazyFrameWrapper(
+                selected_lf,
+                self._file_path,
+                self._read_options,
+                self._projection_pushdown,
+                self._predicate_pushdown,
+                current_projection,
+            )
         else:
             # Static columns only, use base LazyFrame
-            return self._base_lf.select(exprs)
+            selected_lf = self._base_lf.select(exprs)
+            # Preserve GFF wrapper behavior for subsequent operations
+            return GffLazyFrameWrapper(
+                selected_lf,
+                self._file_path,
+                self._read_options,
+                self._projection_pushdown,
+                self._predicate_pushdown,
+                current_projection,
+            )
 
     def filter(self, *predicates):
         """Override filter to handle predicate pushdown for GFF files."""
@@ -1201,49 +1258,126 @@ class GffLazyFrameWrapper:
                 predicate = predicate & p
 
         if self._predicate_pushdown:
-            # Use DataFusion DataFrame API with predicate translation (no SQL strings)
-            from polars_bio.polars_bio import (
-                InputFormat,
-                py_read_table,
-                py_register_table,
-            )
+            # Use pure SQL approach for maximum performance and compatibility
+            from polars_bio.polars_bio import InputFormat, py_register_table
 
             from .context import ctx
 
             try:
-                # Register a fresh table handle and read as DataFusion DataFrame
-                table = py_register_table(
-                    ctx, self._file_path, None, InputFormat.Gff, self._read_options
-                )
-                df = py_read_table(ctx, table.name)
+                # Check if current projection involves attribute fields
+                GFF_STATIC_COLUMNS = {
+                    "chrom",
+                    "start",
+                    "end",
+                    "type",
+                    "source",
+                    "score",
+                    "strand",
+                    "phase",
+                    "attributes",
+                }
 
-                # Translate Polars predicate to DataFusion expression and filter
-                from .predicate_translator import (
-                    translate_polars_predicate_to_datafusion,
-                )
+                if self._current_projection:
+                    static_cols = [
+                        col
+                        for col in self._current_projection
+                        if col in GFF_STATIC_COLUMNS
+                    ]
+                    attribute_cols = [
+                        col
+                        for col in self._current_projection
+                        if col not in GFF_STATIC_COLUMNS
+                    ]
 
-                datafusion_predicate = translate_polars_predicate_to_datafusion(
-                    predicate
+                    # If attribute fields are needed, register table with attribute extraction
+                    if attribute_cols:
+                        from polars_bio.polars_bio import (
+                            GffReadOptions,
+                            PyObjectStorageOptions,
+                        )
+
+                        # Get original settings
+                        orig_gff_opts = getattr(
+                            self._read_options, "gff_read_options", None
+                        )
+                        orig_parallel = (
+                            getattr(orig_gff_opts, "parallel", False)
+                            if orig_gff_opts
+                            else False
+                        )
+                        orig_thread = (
+                            getattr(orig_gff_opts, "thread_num", None)
+                            if orig_gff_opts
+                            else None
+                        )
+
+                        # Register with attribute field extraction enabled
+                        gff_options = GffReadOptions(
+                            attr_fields=attribute_cols,  # Extract these attribute fields
+                            thread_num=orig_thread if orig_thread is not None else 1,
+                            object_storage_options=PyObjectStorageOptions(
+                                allow_anonymous=True,
+                                enable_request_payer=False,
+                                chunk_size=8,
+                                concurrent_fetches=1,
+                                max_retries=5,
+                                timeout=300,
+                                compression_type="auto",
+                            ),
+                            parallel=orig_parallel,
+                        )
+                        read_options = ReadOptions(gff_read_options=gff_options)
+                        table = py_register_table(
+                            ctx, self._file_path, None, InputFormat.Gff, read_options
+                        )
+                    else:
+                        # Standard registration for static columns only
+                        table = py_register_table(
+                            ctx,
+                            self._file_path,
+                            None,
+                            InputFormat.Gff,
+                            self._read_options,
+                        )
+                else:
+                    # No projection, use standard registration
+                    table = py_register_table(
+                        ctx, self._file_path, None, InputFormat.Gff, self._read_options
+                    )
+
+                # Apply SQL pushdown - use the proven working approach
+                # If we have a current projection from a previous select(), apply it too
+                query_df = _apply_combined_pushdown_via_sql(
+                    ctx,
+                    table.name,
+                    None,  # original_df not needed for SQL approach
+                    predicate,
+                    self._current_projection,  # Use the tracked projection
+                    self._predicate_pushdown,
+                    self._projection_pushdown
+                    and self._current_projection
+                    is not None,  # Enable projection if we have one
                 )
-                df = df.filter(datafusion_predicate)
 
                 # Return a new lazy scan over the filtered DataFusion DataFrame
-                # Predicate is already applied at DataFusion level, so disable it in the wrapper scan
+                # Predicate is already applied at SQL level, so disable it in the wrapper scan
                 new_lf = _lazy_scan(
-                    df,
+                    query_df,
                     self._projection_pushdown,
-                    False,
+                    False,  # predicate already applied
                     table.name,
                     InputFormat.Gff,
                     self._file_path,
                 )
                 # Preserve GFF wrapper behavior for subsequent operations
+                # Clear projection since it's been applied at SQL level
                 return GffLazyFrameWrapper(
                     new_lf,
                     self._file_path,
                     self._read_options,
                     self._projection_pushdown,
-                    False,  # already applied predicate at DF level
+                    False,  # already applied predicate at SQL level
+                    None,  # projection already applied at SQL level
                 )
 
             except Exception:
@@ -1254,6 +1388,7 @@ class GffLazyFrameWrapper:
                     self._read_options,
                     self._projection_pushdown,
                     self._predicate_pushdown,
+                    self._current_projection,  # Preserve current projection in fallback
                 )
         else:
             # Standard filtering without pushdown
@@ -1263,28 +1398,8 @@ class GffLazyFrameWrapper:
                 self._read_options,
                 self._projection_pushdown,
                 self._predicate_pushdown,
+                self._current_projection,  # Preserve current projection
             )
-        match = re.search(equality_pattern, pred_str)
-        if match:
-            column, value = match.groups()
-            return f"{column} = '{value}'"
-
-        # Numeric comparison patterns: (col("start")) > (dyn int: 1000)
-        numeric_patterns = [
-            (r'\(col\("([^"]+)"\)\)\s*>\s*\(dyn int:\s*(\d+)\)', ">"),
-            (r'\(col\("([^"]+)"\)\)\s*<\s*\(dyn int:\s*(\d+)\)', "<"),
-            (r'\(col\("([^"]+)"\)\)\s*>=\s*\(dyn int:\s*(\d+)\)', ">="),
-            (r'\(col\("([^"]+)"\)\)\s*<=\s*\(dyn int:\s*(\d+)\)', "<="),
-        ]
-
-        for pattern, op in numeric_patterns:
-            match = re.search(pattern, pred_str)
-            if match:
-                column, value = match.groups()
-                return f"{column} {op} {value}"
-
-        # If no pattern matches, we can't safely convert
-        raise ValueError(f"Unsupported predicate pattern: {pred_str}")
 
     def __getattr__(self, name):
         """Delegate all other operations to base LazyFrame."""
