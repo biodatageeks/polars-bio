@@ -997,8 +997,12 @@ class GffLazyFrameWrapper:
             from .context import ctx
 
             gff_options = GffReadOptions(
-                attr_fields=attribute_cols if attribute_cols else None,
-                thread_num=1,
+                attr_fields=attribute_cols,
+                thread_num=getattr(
+                    getattr(self._read_options, "gff_read_options", None),
+                    "thread_num",
+                    1,
+                ),
                 object_storage_options=PyObjectStorageOptions(
                     allow_anonymous=True,
                     enable_request_payer=False,
