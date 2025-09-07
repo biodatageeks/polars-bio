@@ -266,7 +266,7 @@ def main():
 
     # Test cases: read only and read with filter
     test_cases = [
-        # ("read_only", "Reading only (no filtering)"),
+        ("read_only", "Reading only (no filtering)"),
         ("read_with_filter", "Reading with filtering applied"),
     ]
 

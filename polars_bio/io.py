@@ -866,9 +866,47 @@ def _build_sql_where_from_predicate_safe(predicate):
         for column, value in matches:
             conditions.append(f'"{column}" {op} {value}')
 
+    # IN list pattern: col("x").is_in([v1, v2, ...])
+    in_matches = re.findall(r'col\("([^"]+)"\)\.is_in\(\[(.*?)\]\)', pred_str)
+    for column, values_str in in_matches:
+        # Tokenize values: quoted strings or numbers
+        tokens = re.findall(r"'(?:[^']*)'|\"(?:[^\"]*)\"|\d+(?:\.\d+)?", values_str)
+        items = []
+        for t in tokens:
+            if t.startswith('"') and t.endswith('"'):
+                items.append("'" + t[1:-1] + "'")
+            else:
+                items.append(t)
+        if items:
+            conditions.append(f'"{column}" IN ({", ".join(items)})')
+
     # Join all conditions with AND
     if conditions:
-        return " AND ".join(conditions)
+        where = " AND ".join(conditions)
+        # Clean up any residual bracketed list formatting from IN clause (defensive)
+        where = (
+            where.replace("IN ([", "IN (")
+            .replace("])", ")")
+            .replace("[ ", "")
+            .replace(" ]", "")
+        )
+        # Collapse simple >= and <= pairs into BETWEEN when possible
+        try:
+            import re as _re
+
+            where = _re.sub(
+                r'"([^"]+)"\s*>=\s*([\d.]+)\s*AND\s*"\1"\s*<=\s*([\d.]+)',
+                r'"\1" BETWEEN \2 AND \3',
+                where,
+            )
+            where = _re.sub(
+                r'"([^"]+)"\s*<=\s*([\d.]+)\s*AND\s*"\1"\s*>=\s*([\d.]+)',
+                r'"\1" BETWEEN \3 AND \2',
+                where,
+            )
+        except Exception:
+            pass
+        return where
 
     return ""
 
