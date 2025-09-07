@@ -1037,6 +1037,7 @@ class GffLazyFrameWrapper:
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         current_projection: list = None,
+        stored_predicate=None,
     ):
         self._base_lf = base_lf
         self._file_path = file_path
@@ -1045,6 +1046,9 @@ class GffLazyFrameWrapper:
         self._predicate_pushdown = predicate_pushdown
         self._current_projection = (
             current_projection  # Track the current column selection
+        )
+        self._stored_predicate = (
+            stored_predicate  # Store predicate for filter().select() bug fix
         )
 
     def select(self, exprs):
@@ -1080,6 +1084,116 @@ class GffLazyFrameWrapper:
 
         # Store current projection for use in subsequent operations like filter()
         current_projection = columns.copy() if columns else None
+
+        # CRITICAL BUG FIX: If we have a stored predicate from filter().select() pattern,
+        # apply it now with the combined projection+predicate pushdown
+        if self._stored_predicate is not None:
+            # Apply the stored predicate with this projection using combined optimization
+            from .context import ctx
+
+            try:
+                # Use the combined SQL approach for filter+select with proper optimization
+                static_cols = [
+                    col
+                    for col in columns
+                    if col
+                    in {
+                        "chrom",
+                        "start",
+                        "end",
+                        "type",
+                        "source",
+                        "score",
+                        "strand",
+                        "phase",
+                        "attributes",
+                    }
+                ]
+                attribute_cols = [
+                    col
+                    for col in columns
+                    if col
+                    not in {
+                        "chrom",
+                        "start",
+                        "end",
+                        "type",
+                        "source",
+                        "score",
+                        "strand",
+                        "phase",
+                        "attributes",
+                    }
+                ]
+
+                # Register table with appropriate attributes
+                if attribute_cols:
+                    gff_options = GffReadOptions(
+                        attr_fields=attribute_cols,
+                        thread_num=getattr(
+                            getattr(self._read_options, "gff_read_options", None),
+                            "thread_num",
+                            1,
+                        ),
+                        object_storage_options=PyObjectStorageOptions(
+                            allow_anonymous=True,
+                            enable_request_payer=False,
+                            chunk_size=8,
+                            concurrent_fetches=1,
+                            max_retries=5,
+                            timeout=300,
+                            compression_type="auto",
+                        ),
+                        parallel=getattr(
+                            getattr(self._read_options, "gff_read_options", None),
+                            "parallel",
+                            False,
+                        ),
+                    )
+                    read_options = ReadOptions(gff_read_options=gff_options)
+                    table = py_register_table(
+                        ctx, self._file_path, None, InputFormat.Gff, read_options
+                    )
+                else:
+                    table = py_register_table(
+                        ctx, self._file_path, None, InputFormat.Gff, self._read_options
+                    )
+
+                # Apply combined predicate and projection pushdown via SQL
+                query_df = _apply_combined_pushdown_via_sql(
+                    ctx,
+                    table.name,
+                    None,
+                    self._stored_predicate,
+                    current_projection,
+                    self._predicate_pushdown,
+                    self._projection_pushdown,
+                )
+
+                # Create new lazy frame with the optimized query
+                new_lf = _lazy_scan(
+                    query_df, False, False, table.name, InputFormat.Gff, self._file_path
+                )
+                return GffLazyFrameWrapper(
+                    new_lf,
+                    self._file_path,
+                    self._read_options,
+                    self._projection_pushdown,
+                    False,
+                    current_projection,  # predicate applied
+                )
+
+            except Exception:
+                # Fallback: apply predicate at Polars level after selection
+                selected_lf = self._base_lf.select(exprs).filter(self._stored_predicate)
+                return GffLazyFrameWrapper(
+                    selected_lf,
+                    self._file_path,
+                    self._read_options,
+                    self._projection_pushdown,
+                    self._predicate_pushdown,
+                    current_projection,
+                )
 
         # Categorize columns
         GFF_STATIC_COLUMNS = {
@@ -1258,6 +1372,22 @@ class GffLazyFrameWrapper:
                 predicate = predicate & p
 
         if self._predicate_pushdown:
+            # CRITICAL FIX: When projection pushdown is enabled but no current projection exists,
+            # defer the filter to be applied later with the projection to avoid the bug where
+            # filter().select() with projection_pushdown=True returns unfiltered results.
+            if self._projection_pushdown and self._current_projection is None:
+                # Store the predicate to be applied later when select() is called
+                # This prevents the bug where filter().select() loses the filter conditions
+                return GffLazyFrameWrapper(
+                    self._base_lf,  # Keep the base lazyframe unchanged
+                    self._file_path,
+                    self._read_options,
+                    self._projection_pushdown,
+                    self._predicate_pushdown,
+                    None,  # No projection yet
+                    stored_predicate=predicate,  # Store predicate for later
+                )
+
             # Use pure SQL approach for maximum performance and compatibility
             from polars_bio.polars_bio import InputFormat, py_register_table
 
