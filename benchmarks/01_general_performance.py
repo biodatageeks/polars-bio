@@ -32,7 +32,7 @@ import polars_bio as pb
 
 # Configuration
 GFF_FILE = "/tmp/gencode.v49.annotation.gff3.bgz"
-NUM_RUNS = 1  # Number of runs per benchmark configuration
+NUM_RUNS = 3  # Number of runs per benchmark configuration
 
 
 def benchmark_pandas_read_only():

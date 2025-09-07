@@ -69,12 +69,12 @@ def main():
 
     # Define benchmarks to run
     benchmarks = [
-        # ("01_general_performance.py", "General Performance Comparison"),
+        ("01_general_performance.py", "General Performance Comparison"),
         ("02_memory_profiling.py", "Memory Usage Profiling"),
-        # ("03_thread_scalability.py", "Thread Scalability Testing"),
-        # ("04_projection_pruning.py", "Projection Pruning Performance"),
-        # ("05_predicate_pushdown.py", "Predicate Pushdown Performance"),
-        # ("06_combined_optimizations.py", "Combined Optimizations Testing"),
+        ("03_thread_scalability.py", "Thread Scalability Testing"),
+        ("04_projection_pruning.py", "Projection Pruning Performance"),
+        ("05_predicate_pushdown.py", "Predicate Pushdown Performance"),
+        ("06_combined_optimizations.py", "Combined Optimizations Testing"),
     ]
 
     # Track results
