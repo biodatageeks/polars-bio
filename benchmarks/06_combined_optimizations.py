@@ -11,38 +11,12 @@ from pathlib import Path
 from typing import Union
 
 import polars as pl
+from gff_parsers import polars_scan_gff
 
 import polars_bio as pb
 
 # Data file path
 GFF_FILE = "/tmp/gencode.v49.annotation.gff3.bgz"
-
-
-def polars_scan_gff(path: Union[str, Path]) -> pl.LazyFrame:
-    """Read GFF file using vanilla Polars"""
-    schema = pl.Schema(
-        [
-            ("seqid", pl.String),
-            ("source", pl.String),
-            ("type", pl.String),
-            ("start", pl.UInt32),
-            ("end", pl.UInt32),
-            ("score", pl.Float32),
-            ("strand", pl.String),
-            ("phase", pl.UInt32),
-            ("attributes", pl.String),
-        ]
-    )
-
-    reader = pl.scan_csv(
-        path,
-        has_header=False,
-        separator="\t",
-        comment_prefix="#",
-        schema=schema,
-        null_values=["."],
-    )
-    return reader
 
 
 def benchmark_baseline_single_thread():

@@ -29,6 +29,7 @@ import polars_bio as pb
 
 # Data file path
 GFF_FILE = "/tmp/gencode.v49.annotation.gff3.bgz"
+BENCH_DIR = Path(__file__).resolve().parent
 
 
 def create_pandas_script(test_type: str):
@@ -49,36 +50,9 @@ if __name__ == "__main__":
 """
 
     script_content = f"""
-import pandas as pd
-from pathlib import Path
-from typing import Union
-
-def pandas_read_gff(path: Union[str, Path]) -> pd.DataFrame:
-    cols = ["seqid","source","type","start","end","score","strand","phase","attributes"]
-    dtypes = {{
-        "seqid": "string",
-        "source": "string",
-        "type": "string",
-        "start": "UInt32",
-        "end": "UInt32",
-        "score": "Float32",
-        "strand": "string",
-        "phase": "UInt32",
-        "attributes": "string",
-    }}
-
-    df = pd.read_csv(
-        path,
-        sep="\\t",
-        names=cols,
-        header=None,
-        comment="#",
-        na_values=".",
-        dtype=dtypes,
-        engine="c",
-        compression="gzip",
-    )
-    return df
+import sys
+sys.path.insert(0, r"{BENCH_DIR}")
+from gff_parsers import pandas_read_gff
 
 {main_content}
 """
@@ -110,34 +84,11 @@ if __name__ == "__main__":
 
     script_content = f"""
 import os
-import polars as pl
-from pathlib import Path
-from typing import Union
-
+import sys
 os.environ['POLARS_MAX_THREADS'] = "1"
-
-def polars_scan_gff(path: Union[str, Path]) -> pl.LazyFrame:
-    schema = pl.Schema([
-        ("seqid", pl.String),
-        ("source", pl.String),
-        ("type", pl.String),
-        ("start", pl.UInt32),
-        ("end", pl.UInt32),
-        ("score", pl.Float32),
-        ("strand", pl.String),
-        ("phase", pl.UInt32),
-        ("attributes", pl.String),
-    ])
-
-    reader = pl.scan_csv(
-        path,
-        has_header=False,
-        separator="\\t",
-        comment_prefix="#",
-        schema=schema,
-        null_values=["."],
-    )
-    return reader
+sys.path.insert(0, r"{BENCH_DIR}")
+from gff_parsers import polars_scan_gff
+import polars as pl
 
 {main_content}
 """
@@ -161,11 +112,14 @@ if __name__ == "__main__":
         main_content = f"""
 if __name__ == "__main__":
     lf = pb.scan_gff("{GFF_FILE}", projection_pushdown={projection_pushdown}, predicate_pushdown={predicate_pushdown})
-    result = lf.filter(
-        (pl.col("chrom") == "chrY") &
-        (pl.col("start") < 500000) &
-        (pl.col("end") > 510000)
-    ).select(["chrom", "start", "end", "type"]).collect()
+    result = (
+        lf.select(["chrom", "start", "end", "type"])
+          .filter(
+            (pl.col("chrom") == "chrY") &
+            (pl.col("start") < 500000) &
+            (pl.col("end") > 510000)
+          ).collect()
+    )
     print(f"Result count: {{len(result)}}")
 """
 
@@ -185,49 +139,75 @@ pb.set_option("datafusion.execution.target_partitions", "1")
 
 
 def run_memory_profile(script_path: str, library_name: str):
-    """Run memory profiler on a script and parse results (single run only)"""
+    """Run memory profiler on a script and parse results.
+
+    Always returns (max_memory_mb, wall_time_s) even if underlying commands fail.
+    Prints warnings instead of raising.
+    """
+    max_memory: float = 0.0
+    wall_time: float = 0.0
+    latest_mprof = None
+
+    # Try to run with mprof to collect memory profile
     try:
         cmd = ["mprof", "run", "--python", script_path]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        mprof_start = time.time()
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        mprof_elapsed = time.time() - mprof_start
+        # mprof run time isn't returned; keep wall_time for plain run below
+        if result.returncode != 0:
+            print(
+                f"Warning: mprof run failed for {library_name} (exit {result.returncode})."
+            )
 
-        # Get the latest mprofile file
         mprof_files = list(Path(".").glob("mprofile_*.dat"))
-        if not mprof_files:
-            return None, None
+        if mprof_files:
+            latest_mprof = max(mprof_files, key=lambda x: x.stat().st_mtime)
+            try:
+                with open(latest_mprof, "r") as f:
+                    for line in f:
+                        if line.startswith("MEM"):
+                            parts = line.strip().split()
+                            if len(parts) >= 2:
+                                try:
+                                    memory_mb = float(parts[1])
+                                    max_memory = max(max_memory, memory_mb)
+                                except ValueError:
+                                    continue
+            except Exception as e:
+                print(f"Warning: failed parsing mprof data for {library_name}: {e}")
+        else:
+            print(f"Warning: no mprofile_*.dat file produced for {library_name}.")
+    except FileNotFoundError as e:
+        # mprof not available or failed unexpectedly; continue
+        print(f"Warning: mprof not available for {library_name}: {e}")
+    except Exception as e:
+        print(f"Warning: unexpected mprof error for {library_name}: {e}")
 
-        latest_mprof = max(mprof_files, key=lambda x: x.stat().st_mtime)
+    # Run script normally to measure wall clock time (without mprof overhead)
+    try:
+        import sys as _sys
 
-        # Parse memory usage
-        max_memory = 0
-        with open(latest_mprof, "r") as f:
-            for line in f:
-                if line.startswith("MEM"):
-                    parts = line.strip().split()
-                    if len(parts) >= 2:
-                        try:
-                            memory_mb = float(parts[1])
-                            max_memory = max(max_memory, memory_mb)
-                        except ValueError:
-                            continue
-
-        # Also run the script normally to get wall time (without mprof overhead)
         start_time = time.time()
-        result_time = subprocess.run(
-            ["python", script_path], capture_output=True, text=True, check=True
+        normal = subprocess.run(
+            [_sys.executable, script_path], capture_output=True, text=True, check=False
         )
         wall_time = time.time() - start_time
-
-        # Clean up
-        latest_mprof.unlink()
-
-        return max_memory, wall_time
-
-    except subprocess.CalledProcessError as e:
-        print(f"Error running memory profile for {library_name}: {e}")
-        return None, None
+        if normal.returncode != 0:
+            print(
+                f"Warning: script returned non-zero exit ({normal.returncode}) for {library_name}."
+            )
     except Exception as e:
-        print(f"Unexpected error for {library_name}: {e}")
-        return None, None
+        print(f"Warning: failed to measure wall time for {library_name}: {e}")
+
+    # Cleanup temp mprof file if created
+    try:
+        if latest_mprof is not None and latest_mprof.exists():
+            latest_mprof.unlink()
+    except Exception:
+        pass
+
+    return max_memory, wall_time
 
 
 def main():
@@ -252,28 +232,28 @@ def main():
     for test_type, description in test_cases:
         print(f"\n=== {description} ===")
 
-        # Pandas
-        print(f"Profiling Pandas memory usage and wall time ({test_type})...")
-        pandas_script = create_pandas_script(test_type)
-        try:
-            pandas_memory, pandas_time = run_memory_profile(pandas_script, "pandas")
-            if pandas_memory is not None and pandas_time is not None:
-                results.append(
-                    {
-                        "library": "pandas",
-                        "test_type": test_type,
-                        "projection_pushdown": False,
-                        "predicate_pushdown": False,
-                        "max_memory_mb": pandas_memory,
-                        "wall_time_s": pandas_time,
-                        "threads": 1,
-                    }
-                )
-                print(
-                    f"  Max memory: {pandas_memory:.1f} MB, Wall time: {pandas_time:.3f}s"
-                )
-        finally:
-            Path(pandas_script).unlink()
+        # # Pandas
+        # print(f"Profiling Pandas memory usage and wall time ({test_type})...")
+        # pandas_script = create_pandas_script(test_type)
+        # try:
+        #     pandas_memory, pandas_time = run_memory_profile(pandas_script, "pandas")
+        #     if pandas_memory is not None and pandas_time is not None:
+        #         results.append(
+        #             {
+        #                 "library": "pandas",
+        #                 "test_type": test_type,
+        #                 "projection_pushdown": False,
+        #                 "predicate_pushdown": False,
+        #                 "max_memory_mb": pandas_memory,
+        #                 "wall_time_s": pandas_time,
+        #                 "threads": 1,
+        #             }
+        #         )
+        #         print(
+        #             f"  Max memory: {pandas_memory:.1f} MB, Wall time: {pandas_time:.3f}s"
+        #         )
+        # finally:
+        #     Path(pandas_script).unlink()
 
         # Polars
         print(f"Profiling Polars memory usage and wall time ({test_type})...")
