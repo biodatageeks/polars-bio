@@ -814,19 +814,30 @@ def _build_sql_where_from_predicate_safe(predicate):
     # Find all individual conditions in the nested structure
     conditions = []
 
-    # String equality patterns (including empty strings)
-    string_patterns = re.findall(r'\(col\("([^"]+)"\)\)\s*==\s*\("([^"]*)"\)', pred_str)
-    for column, value in string_patterns:
-        conditions.append(f"\"{column}\" = '{value}'")
+    # String equality/inequality patterns (including empty strings)
+    # Accept both with and without surrounding parentheses in Polars repr
+    str_eq_patterns = [
+        r'\(col\("([^"]+)"\)\)\s*==\s*\("([^"]*)"\)',  # (col("x")) == ("v")
+        r'col\("([^"]+)"\)\s*==\s*"([^"]*)"',  # col("x") == "v"
+    ]
+    for pat in str_eq_patterns:
+        for column, value in re.findall(pat, pred_str):
+            conditions.append(f"\"{column}\" = '{value}'")
 
-    # Numeric comparison patterns
+    # Numeric comparison patterns (handle both formats: with and without "dyn int:")
     numeric_patterns = [
-        (r'\(col\("([^"]+)"\)\)\s*>\s*\(dyn int:\s*(\d+)\)', ">"),
-        (r'\(col\("([^"]+)"\)\)\s*<\s*\(dyn int:\s*(\d+)\)', "<"),
-        (r'\(col\("([^"]+)"\)\)\s*>=\s*\(dyn int:\s*(\d+)\)', ">="),
-        (r'\(col\("([^"]+)"\)\)\s*<=\s*\(dyn int:\s*(\d+)\)', "<="),
-        (r'\(col\("([^"]+)"\)\)\s*!=\s*\(dyn int:\s*(\d+)\)', "!="),
-        (r'\(col\("([^"]+)"\)\)\s*==\s*\(dyn int:\s*(\d+)\)', "="),
+        (r'\(col\("([^"]+)"\)\)\s*>\s*\((?:dyn int:\s*)?(\d+)\)', ">"),
+        (r'\(col\("([^"]+)"\)\)\s*<\s*\((?:dyn int:\s*)?(\d+)\)', "<"),
+        (r'\(col\("([^"]+)"\)\)\s*>=\s*\((?:dyn int:\s*)?(\d+)\)', ">="),
+        (r'\(col\("([^"]+)"\)\)\s*<=\s*\((?:dyn int:\s*)?(\d+)\)', "<="),
+        (r'\(col\("([^"]+)"\)\)\s*!=\s*\((?:dyn int:\s*)?(\d+)\)', "!="),
+        (r'\(col\("([^"]+)"\)\)\s*==\s*\((?:dyn int:\s*)?(\d+)\)', "="),
+        (r'col\("([^"]+)"\)\s*>\s*(\d+)', ">"),
+        (r'col\("([^"]+)"\)\s*<\s*(\d+)', "<"),
+        (r'col\("([^"]+)"\)\s*>=\s*(\d+)', ">="),
+        (r'col\("([^"]+)"\)\s*<=\s*(\d+)', "<="),
+        (r'col\("([^"]+)"\)\s*!=\s*(\d+)', "!="),
+        (r'col\("([^"]+)"\)\s*==\s*(\d+)', "="),
     ]
 
     for pattern, op in numeric_patterns:
@@ -834,14 +845,20 @@ def _build_sql_where_from_predicate_safe(predicate):
         for column, value in matches:
             conditions.append(f'"{column}" {op} {value}')
 
-    # Float comparison patterns
+    # Float comparison patterns (handle both formats: with and without "dyn float:")
     float_patterns = [
-        (r'\(col\("([^"]+)"\)\)\s*>\s*\(dyn float:\s*([\d.]+)\)', ">"),
-        (r'\(col\("([^"]+)"\)\)\s*<\s*\(dyn float:\s*([\d.]+)\)', "<"),
-        (r'\(col\("([^"]+)"\)\)\s*>=\s*\(dyn float:\s*([\d.]+)\)', ">="),
-        (r'\(col\("([^"]+)"\)\)\s*<=\s*\(dyn float:\s*([\d.]+)\)', "<="),
-        (r'\(col\("([^"]+)"\)\)\s*!=\s*\(dyn float:\s*([\d.]+)\)', "!="),
-        (r'\(col\("([^"]+)"\)\)\s*==\s*\(dyn float:\s*([\d.]+)\)', "="),
+        (r'\(col\("([^"]+)"\)\)\s*>\s*\((?:dyn float:\s*)?([\d.]+)\)', ">"),
+        (r'\(col\("([^"]+)"\)\)\s*<\s*\((?:dyn float:\s*)?([\d.]+)\)', "<"),
+        (r'\(col\("([^"]+)"\)\)\s*>=\s*\((?:dyn float:\s*)?([\d.]+)\)', ">="),
+        (r'\(col\("([^"]+)"\)\)\s*<=\s*\((?:dyn float:\s*)?([\d.]+)\)', "<="),
+        (r'\(col\("([^"]+)"\)\)\s*!=\s*\((?:dyn float:\s*)?([\d.]+)\)', "!="),
+        (r'\(col\("([^"]+)"\)\)\s*==\s*\((?:dyn float:\s*)?([\d.]+)\)', "="),
+        (r'col\("([^"]+)"\)\s*>\s*([\d.]+)', ">"),
+        (r'col\("([^"]+)"\)\s*<\s*([\d.]+)', "<"),
+        (r'col\("([^"]+)"\)\s*>=\s*([\d.]+)', ">="),
+        (r'col\("([^"]+)"\)\s*<=\s*([\d.]+)', "<="),
+        (r'col\("([^"]+)"\)\s*!=\s*([\d.]+)', "!="),
+        (r'col\("([^"]+)"\)\s*==\s*([\d.]+)', "="),
     ]
 
     for pattern, op in float_patterns:
@@ -849,9 +866,47 @@ def _build_sql_where_from_predicate_safe(predicate):
         for column, value in matches:
             conditions.append(f'"{column}" {op} {value}')
 
+    # IN list pattern: col("x").is_in([v1, v2, ...])
+    in_matches = re.findall(r'col\("([^"]+)"\)\.is_in\(\[(.*?)\]\)', pred_str)
+    for column, values_str in in_matches:
+        # Tokenize values: quoted strings or numbers
+        tokens = re.findall(r"'(?:[^']*)'|\"(?:[^\"]*)\"|\d+(?:\.\d+)?", values_str)
+        items = []
+        for t in tokens:
+            if t.startswith('"') and t.endswith('"'):
+                items.append("'" + t[1:-1] + "'")
+            else:
+                items.append(t)
+        if items:
+            conditions.append(f'"{column}" IN ({", ".join(items)})')
+
     # Join all conditions with AND
     if conditions:
-        return " AND ".join(conditions)
+        where = " AND ".join(conditions)
+        # Clean up any residual bracketed list formatting from IN clause (defensive)
+        where = (
+            where.replace("IN ([", "IN (")
+            .replace("])", ")")
+            .replace("[ ", "")
+            .replace(" ]", "")
+        )
+        # Collapse simple >= and <= pairs into BETWEEN when possible
+        try:
+            import re as _re
+
+            where = _re.sub(
+                r'"([^"]+)"\s*>=\s*([\d.]+)\s*AND\s*"\1"\s*<=\s*([\d.]+)',
+                r'"\1" BETWEEN \2 AND \3',
+                where,
+            )
+            where = _re.sub(
+                r'"([^"]+)"\s*<=\s*([\d.]+)\s*AND\s*"\1"\s*>=\s*([\d.]+)',
+                r'"\1" BETWEEN \3 AND \2',
+                where,
+            )
+        except Exception:
+            pass
+        return where
 
     return ""
 
@@ -863,6 +918,7 @@ def _lazy_scan(
     table_name: str = None,
     input_format: InputFormat = None,
     file_path: str = None,
+    read_options: ReadOptions = None,
 ) -> pl.LazyFrame:
 
     df_lazy: DataFrame = df
@@ -874,100 +930,160 @@ def _lazy_scan(
         n_rows: Union[int, None],
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
-        # Extract column names from with_columns if projection pushdown is enabled
-        projected_columns = None
-        if projection_pushdown and with_columns is not None:
-            projected_columns = _extract_column_names_from_expr(with_columns)
+        # If this is a GFF scan, perform pushdown by building a single SELECT ... WHERE ...
+        if input_format == InputFormat.Gff and file_path is not None:
+            from polars_bio.polars_bio import GffReadOptions, PyObjectStorageOptions
+            from polars_bio.polars_bio import ReadOptions as _ReadOptions
+            from polars_bio.polars_bio import (
+                py_read_sql,
+                py_read_table,
+                py_register_table,
+                py_register_view,
+            )
 
-        # Apply predicate and projection pushdown to DataFusion query if enabled
-        query_df = df_lazy
-        datafusion_projection_applied = False
-        datafusion_predicate_applied = False
+            from .context import ctx
 
-        # Handle combined predicate + projection pushdown using SQL approach
-        # This avoids DataFrame API issues and leverages proven SQL optimization
-        if (predicate_pushdown and predicate is not None) or (
-            projection_pushdown and projected_columns
-        ):
-            try:
-                # Use SQL approach for combined optimization - this is proven to work with 4x+ speedup
-                from .context import ctx
+            # Extract columns requested by Polars optimizer
+            requested_cols = (
+                _extract_column_names_from_expr(with_columns)
+                if with_columns is not None
+                else []
+            )
 
-                query_df = _apply_combined_pushdown_via_sql(
-                    ctx,
-                    table_name,
-                    query_df,
-                    predicate,
-                    projected_columns,
-                    predicate_pushdown,
-                    projection_pushdown,
-                )
-                datafusion_predicate_applied = (
-                    predicate_pushdown and predicate is not None
-                )
-                datafusion_projection_applied = (
-                    projection_pushdown and projected_columns is not None
-                )
+            # Compute attribute fields to request based on selected columns
+            STATIC = {
+                "chrom",
+                "start",
+                "end",
+                "type",
+                "source",
+                "score",
+                "strand",
+                "phase",
+                "attributes",
+            }
+            attr_fields = [c for c in requested_cols if c not in STATIC]
 
-            except Exception as e:
-                # Fallback: try DataFrame API approach (will likely fail but worth trying)
-
+            # Derive thread/parallel from read_options when available
+            thread_num = 1
+            parallel = False
+            if read_options is not None:
                 try:
-                    # Handle predicate pushdown with DataFrame API
-                    if predicate_pushdown and predicate is not None:
-                        from .predicate_translator import (
-                            translate_polars_predicate_to_datafusion,
-                        )
+                    gopt = getattr(read_options, "gff_read_options", None)
+                    if gopt is not None:
+                        tn = getattr(gopt, "thread_num", None)
+                        if tn is not None:
+                            thread_num = tn
+                        par = getattr(gopt, "parallel", None)
+                        if par is not None:
+                            parallel = par
+                except Exception:
+                    pass
 
-                        datafusion_predicate = translate_polars_predicate_to_datafusion(
-                            predicate
-                        )
-                        query_df = query_df.filter(datafusion_predicate)
-                        datafusion_predicate_applied = True
+            # Build fresh read options (object storage options are not readable from Rust class; use safe defaults)
+            obj = PyObjectStorageOptions(
+                allow_anonymous=True,
+                enable_request_payer=False,
+                chunk_size=8,
+                concurrent_fetches=1,
+                max_retries=5,
+                timeout=300,
+                compression_type="auto",
+            )
+            # Determine attribute parsing behavior:
+            # - if user selected raw "attributes" column: keep provider defaults (None)
+            # - if user selected specific attribute columns: pass that list
+            # - otherwise: disable attribute parsing with empty list for performance
+            if "attributes" in requested_cols:
+                _attr = None
+            elif attr_fields:
+                _attr = attr_fields
+            else:
+                _attr = []
 
-                    # Handle projection pushdown with DataFrame API
-                    if projection_pushdown and projected_columns:
-                        query_df = query_df.select(projected_columns)
-                        datafusion_projection_applied = True
+            gff_opts = GffReadOptions(
+                attr_fields=_attr,
+                thread_num=thread_num,
+                object_storage_options=obj,
+                parallel=parallel,
+            )
+            ropts = _ReadOptions(gff_read_options=gff_opts)
 
-                except Exception as e2:
-                    # Final fallback: disable pushdown optimizations
-                    query_df = df_lazy
-                    datafusion_predicate_applied = False
-                    datafusion_projection_applied = False
-        else:
-            # No pushdown requested
-            pass
+            # Determine which table to query: reuse original unless we must change attr_fields
+            table_name_use = table_name
+            if projection_pushdown and requested_cols:
+                # Only re-register when projection is active (we know column needs)
+                table_obj = py_register_table(
+                    ctx, file_path, None, InputFormat.Gff, ropts
+                )
+                table_name_use = table_obj.name
 
-        if n_rows and n_rows < 8192:  # 8192 is the default batch size in datafusion
-            df = query_df.limit(n_rows).execute_stream().next().to_pyarrow()
-            df = pl.DataFrame(df).limit(n_rows)
-            # Apply Python-level predicate only if DataFusion predicate pushdown failed
-            if predicate is not None and not datafusion_predicate_applied:
-                df = df.filter(predicate)
-            # Apply Python-level projection if DataFusion projection failed or projection pushdown is disabled
-            if with_columns is not None and (
-                not projection_pushdown or not datafusion_projection_applied
-            ):
-                df = df.select(with_columns)
-            yield df
+            # Build SELECT clause respecting projection flag
+            if projection_pushdown and requested_cols:
+                select_clause = ", ".join([f'"{c}"' for c in requested_cols])
+            else:
+                select_clause = "*"
+
+            # Build WHERE clause respecting predicate flag
+            where_clause = ""
+            if predicate_pushdown and predicate is not None:
+                try:
+                    where_clause = _build_sql_where_from_predicate_safe(predicate)
+                except Exception:
+                    where_clause = ""
+
+            sql = f"SELECT {select_clause} FROM {table_name_use}"
+            if where_clause:
+                sql += f" WHERE {where_clause}"
+            if n_rows and n_rows > 0:
+                sql += f" LIMIT {int(n_rows)}"
+
+            query_df = py_read_sql(ctx, sql)
+
+            # Stream results, applying any non-pushed operations locally
+            df_stream = query_df.execute_stream()
+            progress_bar = tqdm(unit="rows")
+            for r in df_stream:
+                py_df = r.to_pyarrow()
+                out = pl.DataFrame(py_df)
+                # Apply local filter if we didn't push it down
+                if predicate is not None and (
+                    not predicate_pushdown or not where_clause
+                ):
+                    out = out.filter(predicate)
+                # Apply local projection if we didn't push it down
+                if with_columns is not None and (
+                    not projection_pushdown or not requested_cols
+                ):
+                    out = out.select(with_columns)
+                progress_bar.update(len(out))
+                yield out
             return
 
+        # Default path (non-GFF): stream and optionally apply local filter/projection
+        query_df = df_lazy
         df_stream = query_df.execute_stream()
         progress_bar = tqdm(unit="rows")
+        remaining = int(n_rows) if n_rows is not None else None
         for r in df_stream:
             py_df = r.to_pyarrow()
-            df = pl.DataFrame(py_df)
-            # Apply Python-level predicate only if DataFusion predicate pushdown failed
-            if predicate is not None and not datafusion_predicate_applied:
-                df = df.filter(predicate)
-            # Apply Python-level projection if DataFusion projection failed or projection pushdown is disabled
-            if with_columns is not None and (
-                not projection_pushdown or not datafusion_projection_applied
-            ):
-                df = df.select(with_columns)
-            progress_bar.update(len(df))
-            yield df
+            out = pl.DataFrame(py_df)
+            if predicate is not None:
+                out = out.filter(predicate)
+            if with_columns is not None:
+                out = out.select(with_columns)
+
+            if remaining is not None:
+                if remaining <= 0:
+                    break
+                if len(out) > remaining:
+                    out = out.head(remaining)
+                remaining -= len(out)
+
+            progress_bar.update(len(out))
+            yield out
+            if remaining is not None and remaining <= 0:
+                return
 
     return register_io_source(_overlap_source, schema=original_schema)
 
@@ -1014,7 +1130,13 @@ def _read_file(
     df = py_read_table(ctx, table.name)
 
     lf = _lazy_scan(
-        df, projection_pushdown, predicate_pushdown, table.name, input_format, path
+        df,
+        projection_pushdown,
+        predicate_pushdown,
+        table.name,
+        input_format,
+        path,
+        read_options,
     )
 
     # Wrap GFF LazyFrames with projection-aware wrapper for consistent attribute field handling
@@ -1027,7 +1149,11 @@ def _read_file(
 
 
 class GffLazyFrameWrapper:
-    """Wrapper for GFF LazyFrames that handles attribute field detection in select operations."""
+    """Thin wrapper that preserves type while delegating to the underlying LazyFrame.
+
+    Pushdown is decided exclusively inside the io_source callback based on
+    with_columns and predicate; this wrapper only keeps chain type stable.
+    """
 
     def __init__(
         self,
@@ -1036,53 +1162,32 @@ class GffLazyFrameWrapper:
         read_options: ReadOptions,
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
-        current_projection: list = None,
     ):
         self._base_lf = base_lf
         self._file_path = file_path
         self._read_options = read_options
         self._projection_pushdown = projection_pushdown
         self._predicate_pushdown = predicate_pushdown
-        self._current_projection = (
-            current_projection  # Track the current column selection
-        )
 
     def select(self, exprs):
-        """Override select to handle GFF attribute field detection.
-
-        Ensures queries requesting the raw `attributes` column use a registration
-        that exposes it, while preserving projection pushdown. For unnested
-        attribute fields (e.g., `gene_id`), re-registers with those fields to
-        enable efficient projection.
-        """
-        # Extract column names from expressions
-        if isinstance(exprs, (list, tuple)):
-            columns = []
-            for expr in exprs:
-                if isinstance(expr, str):
-                    columns.append(expr)
-                elif hasattr(expr, "meta") and hasattr(expr.meta, "output_name"):
-                    try:
-                        columns.append(expr.meta.output_name())
-                    except:
-                        pass
-        else:
-            # Single expression
-            if isinstance(exprs, str):
-                columns = [exprs]
-            elif hasattr(exprs, "meta") and hasattr(exprs.meta, "output_name"):
-                try:
-                    columns = [exprs.meta.output_name()]
-                except:
-                    columns = []
+        # Extract requested column names
+        columns = []
+        try:
+            if isinstance(exprs, (list, tuple)):
+                for e in exprs:
+                    if isinstance(e, str):
+                        columns.append(e)
+                    elif hasattr(e, "meta") and hasattr(e.meta, "output_name"):
+                        columns.append(e.meta.output_name())
             else:
-                columns = []
+                if isinstance(exprs, str):
+                    columns = [exprs]
+                elif hasattr(exprs, "meta") and hasattr(exprs.meta, "output_name"):
+                    columns = [exprs.meta.output_name()]
+        except Exception:
+            columns = []
 
-        # Store current projection for use in subsequent operations like filter()
-        current_projection = columns.copy() if columns else None
-
-        # Categorize columns
-        GFF_STATIC_COLUMNS = {
+        STATIC = {
             "chrom",
             "start",
             "end",
@@ -1093,314 +1198,110 @@ class GffLazyFrameWrapper:
             "phase",
             "attributes",
         }
-        static_cols = [col for col in columns if col in GFF_STATIC_COLUMNS]
-        attribute_cols = [col for col in columns if col not in GFF_STATIC_COLUMNS]
+        attr_cols = [c for c in columns if c not in STATIC]
 
-        # If 'attributes' is requested, ensure the registered table exposes it.
-        # Some parallel GFF providers omit the raw 'attributes' column; switch
-        # to a registration that includes it while keeping projection pushdown.
-        if "attributes" in static_cols:
+        # If selecting attribute fields, run one-shot SQL projection with proper attr_fields
+        if columns and (attr_cols or "attributes" in columns):
+            from polars_bio.polars_bio import GffReadOptions
+            from polars_bio.polars_bio import InputFormat as _InputFormat
+            from polars_bio.polars_bio import PyObjectStorageOptions
+            from polars_bio.polars_bio import ReadOptions as _ReadOptions
+            from polars_bio.polars_bio import (
+                py_read_sql,
+                py_read_table,
+                py_register_table,
+                py_register_view,
+            )
+
             from .context import ctx
 
-            # Preserve original parallelism and thread config when re-registering
-            orig_gff_opts = getattr(self._read_options, "gff_read_options", None)
-            orig_parallel = (
-                getattr(orig_gff_opts, "parallel", False) if orig_gff_opts else False
-            )
-            orig_thread = (
-                getattr(orig_gff_opts, "thread_num", None) if orig_gff_opts else None
-            )
+            # Pull thread_num/parallel from original read options
+            thread_num = 1
+            parallel = False
+            try:
+                gopt = getattr(self._read_options, "gff_read_options", None)
+                if gopt is not None:
+                    tn = getattr(gopt, "thread_num", None)
+                    if tn is not None:
+                        thread_num = tn
+                    par = getattr(gopt, "parallel", None)
+                    if par is not None:
+                        parallel = par
+            except Exception:
+                pass
 
-            # Build read options that ensure raw attributes are present
-            gff_options = GffReadOptions(
-                attr_fields=None,  # keep nested 'attributes' column
-                thread_num=orig_thread if orig_thread is not None else 1,
-                object_storage_options=PyObjectStorageOptions(
-                    allow_anonymous=True,
-                    enable_request_payer=False,
-                    chunk_size=8,
-                    concurrent_fetches=1,
-                    max_retries=5,
-                    timeout=300,
-                    compression_type="auto",
-                ),
-                parallel=orig_parallel,
+            obj = PyObjectStorageOptions(
+                allow_anonymous=True,
+                enable_request_payer=False,
+                chunk_size=8,
+                concurrent_fetches=1,
+                max_retries=5,
+                timeout=300,
+                compression_type="auto",
             )
-            read_options = ReadOptions(gff_read_options=gff_options)
+            if "attributes" in columns:
+                _attr = None
+            elif attr_cols:
+                _attr = attr_cols
+            else:
+                _attr = []
+
+            gff_opts = GffReadOptions(
+                attr_fields=_attr,
+                thread_num=thread_num,
+                object_storage_options=obj,
+                parallel=parallel,
+            )
+            ropts = _ReadOptions(gff_read_options=gff_opts)
             table = py_register_table(
-                ctx, self._file_path, None, InputFormat.Gff, read_options
+                ctx, self._file_path, None, _InputFormat.Gff, ropts
             )
-            df = py_read_table(ctx, table.name)
+            select_clause = ", ".join([f'"{c}"' for c in columns])
+            view_name = f"{table.name}_proj"
+            py_register_view(
+                ctx, view_name, f"SELECT {select_clause} FROM {table.name}"
+            )
+            df_view = py_read_table(ctx, view_name)
+
             new_lf = _lazy_scan(
-                df,
-                True,
+                df_view,
+                False,
                 self._predicate_pushdown,
-                table.name,
-                InputFormat.Gff,
-                self._file_path,
-            )
-            return new_lf.select(exprs)
-
-        if self._projection_pushdown:
-            # Optimized path: when selecting specific unnested attribute fields, re-register
-            # GFF table with those fields so DataFusion can project them efficiently.
-
-            # Use optimized table re-registration (fast path)
-            from .context import ctx
-
-            gff_options = GffReadOptions(
-                attr_fields=attribute_cols,
-                thread_num=getattr(
-                    getattr(self._read_options, "gff_read_options", None),
-                    "thread_num",
-                    1,
-                ),
-                object_storage_options=PyObjectStorageOptions(
-                    allow_anonymous=True,
-                    enable_request_payer=False,
-                    chunk_size=8,
-                    concurrent_fetches=1,
-                    max_retries=5,
-                    timeout=300,
-                    compression_type="auto",
-                ),
-                # Keep parallel reading consistent with base options when possible
-                parallel=getattr(
-                    getattr(self._read_options, "gff_read_options", None),
-                    "parallel",
-                    False,
-                ),
-            )
-
-            read_options = ReadOptions(gff_read_options=gff_options)
-            table = py_register_table(
-                ctx, self._file_path, None, InputFormat.Gff, read_options
-            )
-            df = py_read_table(ctx, table.name)
-
-            # Create new LazyFrame with optimized schema
-            new_lf = _lazy_scan(
-                df,
-                True,
-                self._predicate_pushdown,
-                table.name,
-                InputFormat.Gff,
-                self._file_path,
-            )
-            selected_lf = new_lf.select(exprs)
-            # Preserve GFF wrapper behavior for subsequent operations
-            return GffLazyFrameWrapper(
-                selected_lf,
+                view_name,
+                _InputFormat.Gff,
                 self._file_path,
                 self._read_options,
-                self._projection_pushdown,
-                self._predicate_pushdown,
-                current_projection,
             )
-
-        elif attribute_cols:
-            # Extract attribute fields from nested structure (compatibility path)
-            import polars as pl
-
-            # Build selection with attribute field extraction
-            selection_exprs = []
-
-            # Add static columns as-is
-            for col in static_cols:
-                selection_exprs.append(pl.col(col))
-
-            # Add attribute field extractions
-            for attr_col in attribute_cols:
-                attr_expr = (
-                    pl.col("attributes")
-                    .list.eval(
-                        pl.when(pl.element().struct.field("tag") == attr_col).then(
-                            pl.element().struct.field("value")
-                        )
-                    )
-                    .list.drop_nulls()
-                    .list.first()
-                    .alias(attr_col)
-                )
-                selection_exprs.append(attr_expr)
-
-            selected_lf = self._base_lf.select(selection_exprs)
-            # Preserve GFF wrapper behavior for subsequent operations
             return GffLazyFrameWrapper(
-                selected_lf,
+                new_lf,
                 self._file_path,
                 self._read_options,
-                self._projection_pushdown,
+                False,
                 self._predicate_pushdown,
-                current_projection,
             )
-        else:
-            # Static columns only, use base LazyFrame
-            selected_lf = self._base_lf.select(exprs)
-            # Preserve GFF wrapper behavior for subsequent operations
-            return GffLazyFrameWrapper(
-                selected_lf,
-                self._file_path,
-                self._read_options,
-                self._projection_pushdown,
-                self._predicate_pushdown,
-                current_projection,
-            )
+
+        # Otherwise delegate to Polars
+        return GffLazyFrameWrapper(
+            self._base_lf.select(exprs),
+            self._file_path,
+            self._read_options,
+            self._projection_pushdown,
+            self._predicate_pushdown,
+        )
 
     def filter(self, *predicates):
-        """Override filter to handle predicate pushdown for GFF files."""
-        if len(predicates) == 1:
-            predicate = predicates[0]
-        else:
-            # Multiple predicates - combine with AND
-            predicate = predicates[0]
-            for p in predicates[1:]:
-                predicate = predicate & p
-
-        if self._predicate_pushdown:
-            # Use pure SQL approach for maximum performance and compatibility
-            from polars_bio.polars_bio import InputFormat, py_register_table
-
-            from .context import ctx
-
-            try:
-                # Check if current projection involves attribute fields
-                GFF_STATIC_COLUMNS = {
-                    "chrom",
-                    "start",
-                    "end",
-                    "type",
-                    "source",
-                    "score",
-                    "strand",
-                    "phase",
-                    "attributes",
-                }
-
-                if self._current_projection:
-                    static_cols = [
-                        col
-                        for col in self._current_projection
-                        if col in GFF_STATIC_COLUMNS
-                    ]
-                    attribute_cols = [
-                        col
-                        for col in self._current_projection
-                        if col not in GFF_STATIC_COLUMNS
-                    ]
-
-                    # If attribute fields are needed, register table with attribute extraction
-                    if attribute_cols:
-                        from polars_bio.polars_bio import (
-                            GffReadOptions,
-                            PyObjectStorageOptions,
-                        )
-
-                        # Get original settings
-                        orig_gff_opts = getattr(
-                            self._read_options, "gff_read_options", None
-                        )
-                        orig_parallel = (
-                            getattr(orig_gff_opts, "parallel", False)
-                            if orig_gff_opts
-                            else False
-                        )
-                        orig_thread = (
-                            getattr(orig_gff_opts, "thread_num", None)
-                            if orig_gff_opts
-                            else None
-                        )
-
-                        # Register with attribute field extraction enabled
-                        gff_options = GffReadOptions(
-                            attr_fields=attribute_cols,  # Extract these attribute fields
-                            thread_num=orig_thread if orig_thread is not None else 1,
-                            object_storage_options=PyObjectStorageOptions(
-                                allow_anonymous=True,
-                                enable_request_payer=False,
-                                chunk_size=8,
-                                concurrent_fetches=1,
-                                max_retries=5,
-                                timeout=300,
-                                compression_type="auto",
-                            ),
-                            parallel=orig_parallel,
-                        )
-                        read_options = ReadOptions(gff_read_options=gff_options)
-                        table = py_register_table(
-                            ctx, self._file_path, None, InputFormat.Gff, read_options
-                        )
-                    else:
-                        # Standard registration for static columns only
-                        table = py_register_table(
-                            ctx,
-                            self._file_path,
-                            None,
-                            InputFormat.Gff,
-                            self._read_options,
-                        )
-                else:
-                    # No projection, use standard registration
-                    table = py_register_table(
-                        ctx, self._file_path, None, InputFormat.Gff, self._read_options
-                    )
-
-                # Apply SQL pushdown - use the proven working approach
-                # If we have a current projection from a previous select(), apply it too
-                query_df = _apply_combined_pushdown_via_sql(
-                    ctx,
-                    table.name,
-                    None,  # original_df not needed for SQL approach
-                    predicate,
-                    self._current_projection,  # Use the tracked projection
-                    self._predicate_pushdown,
-                    self._projection_pushdown
-                    and self._current_projection
-                    is not None,  # Enable projection if we have one
-                )
-
-                # Return a new lazy scan over the filtered DataFusion DataFrame
-                # Predicate is already applied at SQL level, so disable it in the wrapper scan
-                new_lf = _lazy_scan(
-                    query_df,
-                    self._projection_pushdown,
-                    False,  # predicate already applied
-                    table.name,
-                    InputFormat.Gff,
-                    self._file_path,
-                )
-                # Preserve GFF wrapper behavior for subsequent operations
-                # Clear projection since it's been applied at SQL level
-                return GffLazyFrameWrapper(
-                    new_lf,
-                    self._file_path,
-                    self._read_options,
-                    self._projection_pushdown,
-                    False,  # already applied predicate at SQL level
-                    None,  # projection already applied at SQL level
-                )
-
-            except Exception:
-                # Fallback to standard Polars-level filtering if pushdown translation fails
-                return GffLazyFrameWrapper(
-                    self._base_lf.filter(predicate),
-                    self._file_path,
-                    self._read_options,
-                    self._projection_pushdown,
-                    self._predicate_pushdown,
-                    self._current_projection,  # Preserve current projection in fallback
-                )
-        else:
-            # Standard filtering without pushdown
-            return GffLazyFrameWrapper(
-                self._base_lf.filter(predicate),
-                self._file_path,
-                self._read_options,
-                self._projection_pushdown,
-                self._predicate_pushdown,
-                self._current_projection,  # Preserve current projection
-            )
+        if not predicates:
+            return self
+        pred = predicates[0]
+        for p in predicates[1:]:
+            pred = pred & p
+        return GffLazyFrameWrapper(
+            self._base_lf.filter(pred),
+            self._file_path,
+            self._read_options,
+            self._projection_pushdown,
+            self._predicate_pushdown,
+        )
 
     def __getattr__(self, name):
-        """Delegate all other operations to base LazyFrame."""
         return getattr(self._base_lf, name)
