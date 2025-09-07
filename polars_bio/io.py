@@ -1160,13 +1160,14 @@ class GffLazyFrameWrapper:
                     )
 
                 # Apply combined predicate and projection pushdown via SQL
+                # CRITICAL FIX: For stored predicates, force predicate application even if predicate_pushdown=False
                 query_df = _apply_combined_pushdown_via_sql(
                     ctx,
                     table.name,
                     None,
                     self._stored_predicate,
                     current_projection,
-                    self._predicate_pushdown,
+                    True,  # Force predicate pushdown for stored predicates to fix filter().select() bug
                     self._projection_pushdown,
                 )
 
@@ -1371,22 +1372,24 @@ class GffLazyFrameWrapper:
             for p in predicates[1:]:
                 predicate = predicate & p
 
+        # CRITICAL FIX: When projection pushdown is enabled but no current projection exists,
+        # defer the filter to be applied later with the projection to avoid the bug where
+        # filter().select() with projection_pushdown=True returns unfiltered results.
+        # This bug occurs regardless of predicate_pushdown setting.
+        if self._projection_pushdown and self._current_projection is None:
+            # Store the predicate to be applied later when select() is called
+            # This prevents the bug where filter().select() loses the filter conditions
+            return GffLazyFrameWrapper(
+                self._base_lf,  # Keep the base lazyframe unchanged
+                self._file_path,
+                self._read_options,
+                self._projection_pushdown,
+                self._predicate_pushdown,
+                None,  # No projection yet
+                stored_predicate=predicate,  # Store predicate for later
+            )
+
         if self._predicate_pushdown:
-            # CRITICAL FIX: When projection pushdown is enabled but no current projection exists,
-            # defer the filter to be applied later with the projection to avoid the bug where
-            # filter().select() with projection_pushdown=True returns unfiltered results.
-            if self._projection_pushdown and self._current_projection is None:
-                # Store the predicate to be applied later when select() is called
-                # This prevents the bug where filter().select() loses the filter conditions
-                return GffLazyFrameWrapper(
-                    self._base_lf,  # Keep the base lazyframe unchanged
-                    self._file_path,
-                    self._read_options,
-                    self._projection_pushdown,
-                    self._predicate_pushdown,
-                    None,  # No projection yet
-                    stored_predicate=predicate,  # Store predicate for later
-                )
 
             # Use pure SQL approach for maximum performance and compatibility
             from polars_bio.polars_bio import InputFormat, py_register_table
@@ -1477,6 +1480,8 @@ class GffLazyFrameWrapper:
 
                 # Apply SQL pushdown - use the proven working approach
                 # If we have a current projection from a previous select(), apply it too
+                # Enable projection pushdown if we have a current projection, regardless of the general setting
+                enable_projection = self._current_projection is not None
                 query_df = _apply_combined_pushdown_via_sql(
                     ctx,
                     table.name,
@@ -1484,9 +1489,7 @@ class GffLazyFrameWrapper:
                     predicate,
                     self._current_projection,  # Use the tracked projection
                     self._predicate_pushdown,
-                    self._projection_pushdown
-                    and self._current_projection
-                    is not None,  # Enable projection if we have one
+                    enable_projection,  # Apply projection if we have one, regardless of pushdown setting
                 )
 
                 # Return a new lazy scan over the filtered DataFusion DataFrame
@@ -1500,14 +1503,15 @@ class GffLazyFrameWrapper:
                     self._file_path,
                 )
                 # Preserve GFF wrapper behavior for subsequent operations
-                # Clear projection since it's been applied at SQL level
                 return GffLazyFrameWrapper(
                     new_lf,
                     self._file_path,
                     self._read_options,
                     self._projection_pushdown,
                     False,  # already applied predicate at SQL level
-                    None,  # projection already applied at SQL level
+                    (
+                        self._current_projection if enable_projection else None
+                    ),  # Keep projection info if it was applied
                 )
 
             except Exception:
