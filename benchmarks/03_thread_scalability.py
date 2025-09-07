@@ -7,43 +7,45 @@ Split into two benchmark types:
 1. Reading only (no filtering) - measures raw I/O thread scaling
 2. Reading with filtering applied - measures combined I/O + query thread scaling
 
-For polars-bio, uses both projection and predicate pushdown optimizations enabled
-to test the best-case parallel performance.
+Note: Polars reads thread pool settings on first initialization. To ensure
+POLARS_MAX_THREADS is honored for each thread count, each configuration runs
+in a fresh subprocess (like 02_memory_profiling).
+
+For polars-bio, both projection and predicate pushdown are enabled to test
+best-case parallel performance.
 """
 
 import csv
 import os
+import re
+import subprocess
+import sys
+import tempfile
 import time
 from pathlib import Path
-from typing import Union
-
-import polars as pl
-from gff_parsers import polars_scan_gff
-
-import polars_bio as pb
 
 # Data file path
 GFF_FILE = "/tmp/gencode.v49.annotation.gff3.bgz"
+BENCH_DIR = Path(__file__).resolve().parent
 
 
-def benchmark_polars_read_only(threads: int):
-    """Benchmark vanilla Polars read only with specified thread count"""
-    os.environ["POLARS_MAX_THREADS"] = str(threads)
-
-    start_time = time.time()
-    lf = polars_scan_gff(GFF_FILE)
+def _create_polars_script(test_type: str, threads: int) -> str:
+    """Create a temp script to run a polars workload in a fresh process."""
+    if test_type == "read_only":
+        main_content = f"""
+if __name__ == "__main__":
+    lf = polars_scan_gff("{GFF_FILE}")
+    t0 = time.perf_counter()
     result = lf.collect()
-    total_time = time.time() - start_time
-
-    return total_time, len(result)
-
-
-def benchmark_polars_read_with_filter(threads: int):
-    """Benchmark vanilla Polars read with filter with specified thread count"""
-    os.environ["POLARS_MAX_THREADS"] = str(threads)
-
-    start_time = time.time()
-    lf = polars_scan_gff(GFF_FILE)
+    dt = time.perf_counter() - t0
+    print(f"TIME:{{dt:.6f}}")
+    print(f"COUNT:{{len(result)}}")
+"""
+    else:
+        main_content = f"""
+if __name__ == "__main__":
+    lf = polars_scan_gff("{GFF_FILE}")
+    t0 = time.perf_counter()
     result = (
         lf.filter(
             (pl.col("seqid") == "chrY")
@@ -53,43 +55,206 @@ def benchmark_polars_read_with_filter(threads: int):
         .select(["seqid", "start", "end", "type"])
         .collect()
     )
-    total_time = time.time() - start_time
+    dt = time.perf_counter() - t0
+    print(f"TIME:{{dt:.6f}}")
+    print(f"COUNT:{{len(result)}}")
+"""
 
-    return total_time, len(result)
+    script_content = f"""
+import os
+os.environ['POLARS_MAX_THREADS'] = "{threads}"
+import sys
+sys.path.insert(0, r"{BENCH_DIR}")
+from gff_parsers import polars_scan_gff
+import polars as pl
+import time
+
+{main_content}
+"""
+    f = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False)
+    f.write(script_content)
+    f.close()
+    return f.name
 
 
-def benchmark_polars_bio_read_only(threads: int):
-    """Benchmark polars-bio read only with specified thread count (both optimizations enabled)"""
-    os.environ["POLARS_MAX_THREADS"] = str(threads)
-    pb.set_option("datafusion.execution.target_partitions", str(threads))
-
-    start_time = time.time()
-    lf = pb.scan_gff(GFF_FILE, projection_pushdown=True, predicate_pushdown=True)
+def _create_polars_bio_script(test_type: str, threads: int) -> str:
+    """Create a temp script to run a polars-bio workload in a fresh process."""
+    if test_type == "read_only":
+        main_content = f"""
+if __name__ == "__main__":
+    lf = pb.scan_gff(
+        "{GFF_FILE}", projection_pushdown=True, predicate_pushdown=True, parallel=True
+    )
+    t0 = time.perf_counter()
     result = lf.collect()
-    total_time = time.time() - start_time
-
-    return total_time, len(result)
-
-
-def benchmark_polars_bio_read_with_filter(threads: int):
-    """Benchmark polars-bio read with filter with specified thread count (both optimizations enabled)"""
-    os.environ["POLARS_MAX_THREADS"] = str(threads)
-    pb.set_option("datafusion.execution.target_partitions", str(threads))
-
-    start_time = time.time()
-    lf = pb.scan_gff(GFF_FILE, projection_pushdown=True, predicate_pushdown=True)
+    dt = time.perf_counter() - t0
+    print(f"TIME:{{dt:.6f}}")
+    print(f"COUNT:{{len(result)}}")
+"""
+    else:
+        main_content = f"""
+if __name__ == "__main__":
+    lf = pb.scan_gff(
+        "{GFF_FILE}", projection_pushdown=True, predicate_pushdown=True, parallel=True
+    )
+    t0 = time.perf_counter()
     result = (
-        lf.filter(
+        lf.select(["chrom", "start", "end", "type"])
+          .filter(
             (pl.col("chrom") == "chrY")
             & (pl.col("start") < 500000)
             & (pl.col("end") > 510000)
+          )
+          .collect()
+    )
+    dt = time.perf_counter() - t0
+    print(f"TIME:{{dt:.6f}}")
+    print(f"COUNT:{{len(result)}}")
+"""
+
+    script_content = f"""
+import os
+os.environ['POLARS_MAX_THREADS'] = "{threads}"
+import polars_bio as pb
+pb.set_option("datafusion.execution.target_partitions", "{threads}")
+import polars as pl
+import time
+
+{main_content}
+"""
+    f = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False)
+    f.write(script_content)
+    f.close()
+    return f.name
+
+
+def _create_polars_streaming_script(test_type: str, threads: int) -> str:
+    """Create a temp script to run a polars (streaming CSV) workload in a fresh process."""
+    if test_type == "read_only":
+        main_content = f"""
+if __name__ == "__main__":
+    lf = polars_streaming_scan_gff("{GFF_FILE}")
+    t0 = time.perf_counter()
+    result = lf.collect()
+    dt = time.perf_counter() - t0
+    print(f"TIME:{{dt:.6f}}")
+    print(f"COUNT:{{len(result)}}")
+"""
+    else:
+        main_content = f"""
+if __name__ == "__main__":
+    lf = polars_streaming_scan_gff("{GFF_FILE}")
+    t0 = time.perf_counter()
+    result = (
+        lf.filter(
+            (pl.col("seqid") == "chrY")
+            & (pl.col("start") < 500000)
+            & (pl.col("end") > 510000)
         )
-        .select(["chrom", "start", "end", "type"])
+        .select(["seqid", "start", "end", "type"])
         .collect()
     )
-    total_time = time.time() - start_time
+    dt = time.perf_counter() - t0
+    print(f"TIME:{{dt:.6f}}")
+    print(f"COUNT:{{len(result)}}")
+"""
 
-    return total_time, len(result)
+    script_content = f"""
+import os
+os.environ['POLARS_MAX_THREADS'] = "{threads}"
+import polars as pl
+import polars_streaming_csv_decompression as pscd
+import time
+
+def polars_streaming_scan_gff(path: str) -> pl.LazyFrame:
+    schema = pl.Schema([
+        ("seqid", pl.String),
+        ("source", pl.String),
+        ("type", pl.String),
+        ("start", pl.UInt32),
+        ("end", pl.UInt32),
+        ("score", pl.Float32),
+        ("strand", pl.String),
+        ("phase", pl.UInt32),
+        ("attributes", pl.String),
+    ])
+
+    reader = pscd.streaming_csv(
+        path,
+        has_header=False,
+        separator="\t",
+        comment_prefix="#",
+        schema=schema,
+        null_values=["."],
+    )
+
+    reader = reader.with_columns(
+        pl.col("attributes")
+        .str.split(";")
+        .list.eval(
+            pl.element()
+            .str.split("=")
+            .list.to_struct(n_field_strategy="max_width", fields=["key", "value"])
+        )
+        .alias("attributes")
+    )
+    return reader
+
+{main_content}
+"""
+    f = tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False)
+    f.write(script_content)
+    f.close()
+    return f.name
+
+
+def _run_script(script_path: str) -> tuple[float, int]:
+    """Run script with current interpreter; parse in-script time and count."""
+    try:
+        proc = subprocess.run(
+            [sys.executable, script_path], capture_output=True, text=True, check=False
+        )
+        stdout = proc.stdout or ""
+        m_count = re.search(r"COUNT:(\d+)", stdout)
+        m_time = re.search(r"TIME:([0-9eE+\-.]+)", stdout)
+        count = int(m_count.group(1)) if m_count else 0
+        elapsed = float(m_time.group(1)) if m_time else 0.0
+        return elapsed, count
+    finally:
+        try:
+            Path(script_path).unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+def benchmark_polars_read_only(threads: int):
+    script = _create_polars_script("read_only", threads)
+    return _run_script(script)
+
+
+def benchmark_polars_read_with_filter(threads: int):
+    script = _create_polars_script("read_with_filter", threads)
+    return _run_script(script)
+
+
+def benchmark_polars_bio_read_only(threads: int):
+    script = _create_polars_bio_script("read_only", threads)
+    return _run_script(script)
+
+
+def benchmark_polars_bio_read_with_filter(threads: int):
+    script = _create_polars_bio_script("read_with_filter", threads)
+    return _run_script(script)
+
+
+def benchmark_polars_streaming_read_only(threads: int):
+    script = _create_polars_streaming_script("read_only", threads)
+    return _run_script(script)
+
+
+def benchmark_polars_streaming_read_with_filter(threads: int):
+    script = _create_polars_streaming_script("read_with_filter", threads)
+    return _run_script(script)
 
 
 def main():
@@ -120,6 +285,31 @@ def main():
                         results.append(
                             {
                                 "library": "polars",
+                                "test_type": test_type,
+                                "threads": threads,
+                                "run": run + 1,
+                                "total_time": total_time,
+                                "result_count": result_count,
+                            }
+                        )
+                        print(
+                            f"    Run {run+1}: {total_time:.3f}s ({result_count} rows)"
+                        )
+                    except Exception as e:
+                        print(f"    Error in run {run+1}: {e}")
+
+                # Benchmark Polars (streaming CSV) read only
+                print(
+                    f"  Benchmarking Polars (streaming) read only ({threads} threads)..."
+                )
+                for run in range(3):
+                    try:
+                        total_time, result_count = benchmark_polars_streaming_read_only(
+                            threads
+                        )
+                        results.append(
+                            {
+                                "library": "polars-streaming",
                                 "test_type": test_type,
                                 "threads": threads,
                                 "run": run + 1,
@@ -182,6 +372,31 @@ def main():
                     except Exception as e:
                         print(f"    Error in run {run+1}: {e}")
 
+                # Benchmark Polars (streaming CSV) read with filter
+                print(
+                    f"  Benchmarking Polars (streaming) read with filter ({threads} threads)..."
+                )
+                for run in range(3):
+                    try:
+                        total_time, result_count = (
+                            benchmark_polars_streaming_read_with_filter(threads)
+                        )
+                        results.append(
+                            {
+                                "library": "polars-streaming",
+                                "test_type": test_type,
+                                "threads": threads,
+                                "run": run + 1,
+                                "total_time": total_time,
+                                "result_count": result_count,
+                            }
+                        )
+                        print(
+                            f"    Run {run+1}: {total_time:.3f}s ({result_count} filtered rows)"
+                        )
+                    except Exception as e:
+                        print(f"    Error in run {run+1}: {e}")
+
                 # Benchmark polars-bio read with filter
                 print(
                     f"  Benchmarking polars-bio read with filter ({threads} threads, both optimizations)..."
@@ -230,7 +445,7 @@ def main():
     print("-" * 75)
 
     for test_type, _ in test_cases:
-        for library in ["polars", "polars-bio"]:
+        for library in ["polars", "polars-streaming", "polars-bio"]:
             baseline_time = None
             for threads in thread_counts:
                 library_results = [

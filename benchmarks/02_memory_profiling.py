@@ -97,6 +97,75 @@ import polars as pl
         return f.name
 
 
+def create_polars_streaming_script(test_type: str):
+    """Create a temporary script for polars using streaming CSV decompression"""
+    if test_type == "read_only":
+        main_content = f"""
+if __name__ == "__main__":
+    lf = polars_streaming_scan_gff("{GFF_FILE}")
+    result = lf.collect()
+    print(f"Result count: {{len(result)}}")
+"""
+    else:  # read_with_filter
+        main_content = f"""
+if __name__ == "__main__":
+    lf = polars_streaming_scan_gff("{GFF_FILE}")
+    result = lf.filter(
+        (pl.col("seqid") == "chrY") &
+        (pl.col("start") < 500000) &
+        (pl.col("end") > 510000)
+    ).select(["seqid", "start", "end", "type"]).collect()
+    print(f"Result count: {{len(result)}}")
+"""
+
+    script_content = f"""
+import os
+import polars as pl
+import polars_streaming_csv_decompression as pscd
+
+os.environ['POLARS_MAX_THREADS'] = "1"
+
+def polars_streaming_scan_gff(path):
+    schema = pl.Schema([
+        ("seqid", pl.String),
+        ("source", pl.String),
+        ("type", pl.String),
+        ("start", pl.UInt32),
+        ("end", pl.UInt32),
+        ("score", pl.Float32),
+        ("strand", pl.String),
+        ("phase", pl.UInt32),
+        ("attributes", pl.String),
+    ])
+
+    reader = pscd.streaming_csv(
+        path,
+        has_header=False,
+        separator="\t",
+        comment_prefix="#",
+        schema=schema,
+        null_values=["."],
+    )
+
+    reader = reader.with_columns(
+        pl.col("attributes")
+        .str.split(";")
+        .list.eval(
+            pl.element()
+            .str.split("=")
+            .list.to_struct(n_field_strategy="max_width", fields=["key", "value"])
+        )
+        .alias("attributes")
+    )
+    return reader
+
+{main_content}
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write(script_content)
+        return f.name
+
+
 def create_polars_bio_script(
     test_type: str, projection_pushdown: bool = False, predicate_pushdown: bool = False
 ):
@@ -278,6 +347,36 @@ def main():
         finally:
             Path(polars_script).unlink()
 
+        # Polars (streaming CSV decompression)
+        print(
+            f"Profiling Polars (streaming) memory usage and wall time ({test_type})..."
+        )
+        polars_streaming_script = create_polars_streaming_script(test_type)
+        try:
+            polars_streaming_memory, polars_streaming_time = run_memory_profile(
+                polars_streaming_script, "polars-streaming"
+            )
+            if (
+                polars_streaming_memory is not None
+                and polars_streaming_time is not None
+            ):
+                results.append(
+                    {
+                        "library": "polars-streaming",
+                        "test_type": test_type,
+                        "projection_pushdown": False,
+                        "predicate_pushdown": False,
+                        "max_memory_mb": polars_streaming_memory,
+                        "wall_time_s": polars_streaming_time,
+                        "threads": 1,
+                    }
+                )
+                print(
+                    f"  Max memory: {polars_streaming_memory:.1f} MB, Wall time: {polars_streaming_time:.3f}s"
+                )
+        finally:
+            Path(polars_streaming_script).unlink()
+
         # Polars-bio with 4 configurations
         configs = [
             (False, False, "no pushdowns"),
@@ -340,7 +439,7 @@ def main():
         print("-" * 85)
 
         for test_type, _ in test_cases:
-            for library in ["pandas", "polars", "polars-bio"]:
+            for library in ["pandas", "polars", "polars-streaming", "polars-bio"]:
                 if library in ["pandas", "polars"]:
                     lib_results = [
                         r
@@ -353,6 +452,17 @@ def main():
                         ]  # Only one result per library for pandas/polars
                         print(
                             f"{library}\t\t\t{test_type}\t\tN/A\tN/A\t{r['max_memory_mb']:.1f}MB\t\t{r['wall_time_s']:.3f}s"
+                        )
+                elif library == "polars-streaming":
+                    lib_results = [
+                        r
+                        for r in results
+                        if r["library"] == library and r["test_type"] == test_type
+                    ]
+                    if lib_results:
+                        r = lib_results[0]
+                        print(
+                            f"{library}\t{test_type}\t\tN/A\tN/A\t{r['max_memory_mb']:.1f}MB\t\t{r['wall_time_s']:.3f}s"
                         )
                 else:  # polars-bio
                     for proj_pushdown, pred_pushdown, config_name in configs:
