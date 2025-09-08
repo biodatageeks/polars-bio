@@ -1,0 +1,15 @@
+library,test_type,projection_pushdown,predicate_pushdown,max_memory_mb,wall_time_s,threads
+pandas,read_only,False,False,24137.3125,108.73261213302612,1
+polars,read_only,False,False,9341.59375,15.196249961853027,1
+polars-streaming,read_only,False,False,12630.03125,13.75304388999939,1
+polars-bio,read_only,False,False,9225.5,12.099942922592163,1
+polars-bio,read_only,True,False,9214.71875,12.116467952728271,1
+polars-bio,read_only,False,True,9254.015625,12.14046311378479,1
+polars-bio,read_only,True,True,9245.140625,12.107980966567993,1
+pandas,read_with_filter,False,False,26550.109375,109.21618604660034,1
+polars,read_with_filter,False,False,3939.484375,5.797132253646851,1
+polars-streaming,read_with_filter,False,False,185.546875,3.7271151542663574,1
+polars-bio,read_with_filter,False,False,246.484375,11.572380065917969,1
+polars-bio,read_with_filter,True,False,210.421875,3.412666082382202,1
+polars-bio,read_with_filter,False,True,206.109375,219.1256821155548,1
+polars-bio,read_with_filter,True,True,207.359375,2.824420928955078,1
