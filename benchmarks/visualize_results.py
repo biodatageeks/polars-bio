@@ -74,47 +74,78 @@ def plot_general_performance():
     if df is None:
         return
 
+    # Create separate plots for read_only and read_with_filter test types
+    read_only_data = df[df["test_type"] == "read_only"]
+    filtered_data = df[df["test_type"] == "read_with_filter"]
+
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
 
-    # Total time comparison
-    bars1 = ax1.bar(
-        df["library"],
-        df["total_time_avg"],
-        yerr=[
-            df["total_time_avg"] - df["total_time_min"],
-            df["total_time_max"] - df["total_time_avg"],
-        ],
-        capsize=5,
-        alpha=0.8,
-    )
-    ax1.set_title("General Performance: Total Time")
-    ax1.set_ylabel("Time (seconds)")
-    ax1.set_xlabel("Library")
+    # Define consistent colors to match other benchmarks
+    color_map = {
+        "pandas": "#9467bd",  # Purple
+        "polars": "#1f77b4",  # Blue
+        "polars-streaming": "#ff7f0e",  # Orange
+        "polars-streaming-csv-decompression": "#ff7f0e",  # Orange (same as polars-streaming)
+        "polars-bio": "#2ca02c",  # Green
+    }
 
-    # Add value labels on bars
-    for bar, avg in zip(bars1, df["total_time_avg"]):
-        ax1.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + 0.1,
-            f"{avg:.2f}s",
-            ha="center",
-            va="bottom",
+    # Read-only performance comparison
+    if not read_only_data.empty:
+        # Prepare colors for bars
+        colors = [color_map.get(lib, "#7f7f7f") for lib in read_only_data["library"]]
+        bars1 = ax1.bar(
+            read_only_data["library"],
+            read_only_data["total_time_avg"],
+            yerr=[
+                read_only_data["total_time_avg"] - read_only_data["total_time_min"],
+                read_only_data["total_time_max"] - read_only_data["total_time_avg"],
+            ],
+            capsize=5,
+            alpha=0.8,
+            color=colors,
         )
+        ax1.set_title("Full Scan Operation")
+        ax1.set_ylabel("Time (seconds)")
+        ax1.set_xlabel("Library")
 
-    # Read vs Filter time breakdown
-    libraries = df["library"]
-    read_times = df["read_time_avg"]
-    filter_times = df["filter_time_avg"]
+        # Add value labels on bars
+        for bar, avg in zip(bars1, read_only_data["total_time_avg"]):
+            ax1.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + max(read_only_data["total_time_avg"]) * 0.02,
+                f"{avg:.2f}s",
+                ha="center",
+                va="bottom",
+            )
 
-    bars2 = ax2.bar(libraries, read_times, label="Read Time", alpha=0.8)
-    bars3 = ax2.bar(
-        libraries, filter_times, bottom=read_times, label="Filter Time", alpha=0.8
-    )
+    # Filtered performance comparison
+    if not filtered_data.empty:
+        # Prepare colors for bars
+        colors = [color_map.get(lib, "#7f7f7f") for lib in filtered_data["library"]]
+        bars2 = ax2.bar(
+            filtered_data["library"],
+            filtered_data["total_time_avg"],
+            yerr=[
+                filtered_data["total_time_avg"] - filtered_data["total_time_min"],
+                filtered_data["total_time_max"] - filtered_data["total_time_avg"],
+            ],
+            capsize=5,
+            alpha=0.8,
+            color=colors,
+        )
+        ax2.set_title("Scan with Filter Operation")
+        ax2.set_ylabel("Time (seconds)")
+        ax2.set_xlabel("Library")
 
-    ax2.set_title("Performance Breakdown: Read vs Filter")
-    ax2.set_ylabel("Time (seconds)")
-    ax2.set_xlabel("Library")
-    ax2.legend()
+        # Add value labels on bars
+        for bar, avg in zip(bars2, filtered_data["total_time_avg"]):
+            ax2.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + max(filtered_data["total_time_avg"]) * 0.02,
+                f"{avg:.2f}s",
+                ha="center",
+                va="bottom",
+            )
 
     plt.tight_layout()
     plt.savefig("results/general_performance.png", dpi=300, bbox_inches="tight")
@@ -122,27 +153,113 @@ def plot_general_performance():
 
 
 def plot_memory_comparison():
-    """Plot memory usage comparison"""
-    df = load_and_aggregate_results("results/memory_profiling.csv")
-    if df is None:
+    """Plot memory usage comparison with consistent colors and polars-bio variants"""
+    df = pd.read_csv("results/memory_profiling.csv")
+    if df is None or df.empty:
         return
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    # Fix column names - strip any prefix like "bar "
+    df.columns = df.columns.str.replace("^bar ", "", regex=True)
 
-    bars = ax.bar(df["library"], df["max_memory_mb"], alpha=0.8)
-    ax.set_title("Memory Usage Comparison")
-    ax.set_ylabel("Peak Memory (MB)")
-    ax.set_xlabel("Library")
+    # Create separate plots for read_only and read_with_filter test types
+    read_only_data = df[df["test_type"] == "read_only"]
+    filtered_data = df[df["test_type"] == "read_with_filter"]
 
-    # Add value labels
-    for bar, mem in zip(bars, df["max_memory_mb"]):
-        ax.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + 10,
-            f"{mem:.0f} MB",
-            ha="center",
-            va="bottom",
-        )
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+
+    # Define consistent colors to match thread scalability plot
+    color_map = {
+        "pandas": "#9467bd",  # Purple
+        "polars": "#1f77b4",  # Blue
+        "polars-streaming": "#ff7f0e",  # Orange
+        "polars-streaming-csv-decompression": "#ff7f0e",  # Orange (same as polars-streaming)
+        "polars-bio": "#2ca02c",  # Green
+        "polars-bio-no-pushdown": "#d62728",  # Red
+    }
+
+    # Memory usage for read-only operations
+    if not read_only_data.empty:
+        # Prepare data with polars-bio variants
+        plot_data = []
+        plot_labels = []
+        plot_colors = []
+
+        for _, row in read_only_data.iterrows():
+            if row["library"] == "polars-bio":
+                if not row["projection_pushdown"] and not row["predicate_pushdown"]:
+                    plot_data.append(row["max_memory_mb"])
+                    plot_labels.append("polars-bio\n(no pushdown)")
+                    plot_colors.append(color_map["polars-bio-no-pushdown"])
+                elif row["projection_pushdown"] and row["predicate_pushdown"]:
+                    plot_data.append(row["max_memory_mb"])
+                    plot_labels.append("polars-bio\n(with pushdown)")
+                    plot_colors.append(color_map["polars-bio"])
+            else:
+                plot_data.append(row["max_memory_mb"])
+                # Change polars-streaming to polars-streaming-csv-decompression in label
+                if row["library"] == "polars-streaming":
+                    plot_labels.append("polars-streaming-\ncsv-decompression")
+                else:
+                    plot_labels.append(row["library"])
+                plot_colors.append(color_map.get(row["library"], "#7f7f7f"))
+
+        bars1 = ax1.bar(plot_labels, plot_data, color=plot_colors, alpha=0.8)
+        ax1.set_title("Full Scan Operation")
+        ax1.set_ylabel("Peak Memory (MB)")
+        ax1.set_xlabel("Library")
+        ax1.tick_params(axis="x", rotation=45)
+
+        # Add value labels
+        for bar, mem in zip(bars1, plot_data):
+            ax1.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + max(plot_data) * 0.02,
+                f"{mem:.0f} MB",
+                ha="center",
+                va="bottom",
+            )
+
+    # Memory usage for filtered operations
+    if not filtered_data.empty:
+        # Prepare data with polars-bio variants
+        plot_data = []
+        plot_labels = []
+        plot_colors = []
+
+        for _, row in filtered_data.iterrows():
+            if row["library"] == "polars-bio":
+                if not row["projection_pushdown"] and not row["predicate_pushdown"]:
+                    plot_data.append(row["max_memory_mb"])
+                    plot_labels.append("polars-bio\n(no pushdown)")
+                    plot_colors.append(color_map["polars-bio-no-pushdown"])
+                elif row["projection_pushdown"] and row["predicate_pushdown"]:
+                    plot_data.append(row["max_memory_mb"])
+                    plot_labels.append("polars-bio\n(with pushdown)")
+                    plot_colors.append(color_map["polars-bio"])
+            else:
+                plot_data.append(row["max_memory_mb"])
+                # Change polars-streaming to polars-streaming-csv-decompression in label
+                if row["library"] == "polars-streaming":
+                    plot_labels.append("polars-streaming-\ncsv-decompression")
+                else:
+                    plot_labels.append(row["library"])
+                plot_colors.append(color_map.get(row["library"], "#7f7f7f"))
+
+        bars2 = ax2.bar(plot_labels, plot_data, color=plot_colors, alpha=0.8)
+        ax2.set_title("Scan with Filter Operation")
+        ax2.set_ylabel("Peak Memory (MB)")
+        ax2.set_xlabel("Library")
+        ax2.tick_params(axis="x", rotation=45)
+
+        # Add value labels
+        for bar, mem in zip(bars2, plot_data):
+            ax2.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + max(plot_data) * 0.02,
+                f"{mem:.0f} MB",
+                ha="center",
+                va="bottom",
+            )
 
     plt.tight_layout()
     plt.savefig("results/memory_comparison.png", dpi=300, bbox_inches="tight")
@@ -150,60 +267,172 @@ def plot_memory_comparison():
 
 
 def plot_thread_scalability():
-    """Plot thread scalability results"""
+    """Plot thread scalability results in 2x2 layout with speedup calculations"""
     df = load_and_aggregate_results("results/thread_scalability.csv")
     if df is None:
         return
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    # Separate data by test type
+    read_only_data = df[df["test_type"] == "read_only"]
+    filtered_data = df[df["test_type"] == "read_with_filter"]
 
-    # Full scan scalability
-    for library in df["library"].unique():
-        lib_data = df[df["library"] == library]
-        ax1.plot(
-            lib_data["threads"],
-            lib_data["full_scan_time_avg"],
-            marker="o",
-            label=library,
-            linewidth=2,
-            markersize=6,
-        )
-        ax1.fill_between(
-            lib_data["threads"],
-            lib_data["full_scan_time_min"],
-            lib_data["full_scan_time_max"],
-            alpha=0.2,
-        )
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
 
-    ax1.set_title("Thread Scalability: Full Scan")
-    ax1.set_xlabel("Number of Threads")
-    ax1.set_ylabel("Time (seconds)")
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
+    # Define consistent colors to match other benchmarks
+    color_map = {
+        "pandas": "#9467bd",  # Purple
+        "polars": "#1f77b4",  # Blue
+        "polars-streaming": "#ff7f0e",  # Orange
+        "polars-streaming-csv-decompression": "#ff7f0e",  # Orange (same as polars-streaming)
+        "polars-bio": "#2ca02c",  # Green
+        "polars-bio-no-pushdown": "#d62728",  # Red
+    }
 
-    # Filter scalability
-    for library in df["library"].unique():
-        lib_data = df[df["library"] == library]
-        ax2.plot(
-            lib_data["threads"],
-            lib_data["filter_time_avg"],
-            marker="s",
-            label=library,
-            linewidth=2,
-            markersize=6,
-        )
-        ax2.fill_between(
-            lib_data["threads"],
-            lib_data["filter_time_min"],
-            lib_data["filter_time_max"],
-            alpha=0.2,
-        )
+    # Read-only absolute time performance
+    if not read_only_data.empty:
+        for library in read_only_data["library"].unique():
+            lib_data = read_only_data[read_only_data["library"] == library]
+            # Update label for polars-streaming
+            label = (
+                "polars-streaming-csv-decompression"
+                if library == "polars-streaming"
+                else library
+            )
+            ax1.plot(
+                lib_data["threads"],
+                lib_data["total_time_avg"],
+                marker="o",
+                label=label,
+                linewidth=2,
+                markersize=6,
+                color=color_map.get(library, "#7f7f7f"),
+            )
+            ax1.fill_between(
+                lib_data["threads"],
+                lib_data["total_time_min"],
+                lib_data["total_time_max"],
+                alpha=0.2,
+            )
 
-    ax2.set_title("Thread Scalability: Filtered Query")
-    ax2.set_xlabel("Number of Threads")
-    ax2.set_ylabel("Time (seconds)")
-    ax2.legend()
-    ax2.grid(True, alpha=0.3)
+        ax1.set_title("Full Scan Operation: Wall Time")
+        ax1.set_xlabel("Number of Threads")
+        ax1.set_ylabel("Time (seconds)")
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+
+    # Read-only speedup calculation
+    if not read_only_data.empty:
+        # Calculate baseline times (threads=1) for each library
+        baselines = {}
+        for library in read_only_data["library"].unique():
+            lib_data = read_only_data[read_only_data["library"] == library]
+            baseline_row = lib_data[lib_data["threads"] == 1]
+            if not baseline_row.empty:
+                baselines[library] = baseline_row["total_time_avg"].iloc[0]
+
+        for library in read_only_data["library"].unique():
+            if library in baselines:
+                lib_data = read_only_data[read_only_data["library"] == library]
+                speedups = baselines[library] / lib_data["total_time_avg"]
+                # Update label for polars-streaming
+                label = (
+                    "polars-streaming-csv-decompression"
+                    if library == "polars-streaming"
+                    else library
+                )
+                ax2.plot(
+                    lib_data["threads"],
+                    speedups,
+                    marker="o",
+                    label=label,
+                    linewidth=2,
+                    markersize=6,
+                    color=color_map.get(library, "#7f7f7f"),
+                )
+
+        # Add ideal speedup line
+        max_threads = read_only_data["threads"].max()
+        ideal_threads = np.arange(1, max_threads + 1)
+        ax2.plot(ideal_threads, ideal_threads, "k--", alpha=0.5, label="Ideal Speedup")
+
+        ax2.set_title("Full Scan Operation: Speedup vs 1 Thread")
+        ax2.set_xlabel("Number of Threads")
+        ax2.set_ylabel("Speedup (higher is better)")
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+    # Filtered query absolute time performance
+    if not filtered_data.empty:
+        for library in filtered_data["library"].unique():
+            lib_data = filtered_data[filtered_data["library"] == library]
+            # Update label for polars-streaming
+            label = (
+                "polars-streaming-csv-decompression"
+                if library == "polars-streaming"
+                else library
+            )
+            ax3.plot(
+                lib_data["threads"],
+                lib_data["total_time_avg"],
+                marker="s",
+                label=label,
+                linewidth=2,
+                markersize=6,
+                color=color_map.get(library, "#7f7f7f"),
+            )
+            ax3.fill_between(
+                lib_data["threads"],
+                lib_data["total_time_min"],
+                lib_data["total_time_max"],
+                alpha=0.2,
+            )
+
+        ax3.set_title("Scan with Filter Operation: Wall Time")
+        ax3.set_xlabel("Number of Threads")
+        ax3.set_ylabel("Time (seconds)")
+        ax3.legend()
+        ax3.grid(True, alpha=0.3)
+
+    # Filtered query speedup calculation
+    if not filtered_data.empty:
+        # Calculate baseline times (threads=1) for each library
+        baselines = {}
+        for library in filtered_data["library"].unique():
+            lib_data = filtered_data[filtered_data["library"] == library]
+            baseline_row = lib_data[lib_data["threads"] == 1]
+            if not baseline_row.empty:
+                baselines[library] = baseline_row["total_time_avg"].iloc[0]
+
+        for library in filtered_data["library"].unique():
+            if library in baselines:
+                lib_data = filtered_data[filtered_data["library"] == library]
+                speedups = baselines[library] / lib_data["total_time_avg"]
+                # Update label for polars-streaming
+                label = (
+                    "polars-streaming-csv-decompression"
+                    if library == "polars-streaming"
+                    else library
+                )
+                ax4.plot(
+                    lib_data["threads"],
+                    speedups,
+                    marker="s",
+                    label=label,
+                    linewidth=2,
+                    markersize=6,
+                    color=color_map.get(library, "#7f7f7f"),
+                )
+
+        # Add ideal speedup line
+        max_threads = filtered_data["threads"].max()
+        ideal_threads = np.arange(1, max_threads + 1)
+        ax4.plot(ideal_threads, ideal_threads, "k--", alpha=0.5, label="Ideal Speedup")
+
+        ax4.set_title("Scan with Filter Operation: Speedup vs 1 Thread")
+        ax4.set_xlabel("Number of Threads")
+        ax4.set_ylabel("Speedup (higher is better)")
+        ax4.legend()
+        ax4.grid(True, alpha=0.3)
 
     plt.tight_layout()
     plt.savefig("results/thread_scalability.png", dpi=300, bbox_inches="tight")
@@ -523,6 +752,35 @@ def create_summary_report():
         f.write("\\n".join(report))
 
     print("Saved: results/summary_report.md")
+
+
+def plot_benchmarks_1_to_3():
+    """Generate visualizations for benchmarks 1-3 only"""
+    Path("results").mkdir(exist_ok=True)
+
+    print("Generating visualizations for benchmarks 1-3...")
+
+    # Benchmark 1: General Performance
+    try:
+        plot_general_performance()
+    except Exception as e:
+        print(f"Error plotting general performance (Benchmark 1): {e}")
+
+    # Benchmark 2: Memory Comparison
+    try:
+        plot_memory_comparison()
+    except Exception as e:
+        print(f"Error plotting memory comparison (Benchmark 2): {e}")
+
+    # Benchmark 3: Thread Scalability
+    try:
+        plot_thread_scalability()
+    except Exception as e:
+        print(f"Error plotting thread scalability (Benchmark 3): {e}")
+
+    print(
+        "\\nVisualization complete for benchmarks 1-3! Check the results/ directory for output files."
+    )
 
 
 def main():

@@ -61,7 +61,7 @@ For comparability, we use the same [AIList](/polars-bio/supplement/#real-dataset
 ## Results
 
 ### polars-bio interval data structures performance comparison
-![combined_multi_testcase.png](figures/benchmark-sep-2025/combined_multi_testcase.png){.glightbox}
+![combined_multi_testcase.png](figures/benchmark-sep-2025/combined_multi_testcase.png)
 
 Key takeaways:
 
@@ -71,9 +71,9 @@ Key takeaways:
 
 
 ### All operations comparison
-![all_operations_walltime_comparison.png](figures/benchmark-sep-2025/all_operations_walltime_comparison.png){.glightbox}
+![all_operations_walltime_comparison.png](figures/benchmark-sep-2025/all_operations_walltime_comparison.png)
 
-![bench-20250-all_operations_speedup_comparison.png](figures/benchmark-sep-2025/bench-20250-all_operations_speedup_comparison.png){.glightbox}
+![bench-20250-all_operations_speedup_comparison.png](figures/benchmark-sep-2025/bench-20250-all_operations_speedup_comparison.png)
 
 Key takeaways:
 
