@@ -169,6 +169,7 @@ def plot_memory_comparison():
 
     # Define consistent colors to match thread scalability plot
     color_map = {
+        "pandas": "#9467bd",  # Purple
         "polars": "#1f77b4",  # Blue
         "polars-streaming": "#ff7f0e",  # Orange
         "polars-streaming-csv-decompression": "#ff7f0e",  # Orange (same as polars-streaming)
@@ -203,7 +204,7 @@ def plot_memory_comparison():
                 plot_colors.append(color_map.get(row["library"], "#7f7f7f"))
 
         bars1 = ax1.bar(plot_labels, plot_data, color=plot_colors, alpha=0.8)
-        ax1.set_title("Memory Usage: Read-Only Operations")
+        ax1.set_title("Full Scan Operation")
         ax1.set_ylabel("Peak Memory (MB)")
         ax1.set_xlabel("Library")
         ax1.tick_params(axis="x", rotation=45)
@@ -245,7 +246,7 @@ def plot_memory_comparison():
                 plot_colors.append(color_map.get(row["library"], "#7f7f7f"))
 
         bars2 = ax2.bar(plot_labels, plot_data, color=plot_colors, alpha=0.8)
-        ax2.set_title("Memory Usage: Filtered Operations")
+        ax2.set_title("Scan with Filter Operation")
         ax2.set_ylabel("Peak Memory (MB)")
         ax2.set_xlabel("Library")
         ax2.tick_params(axis="x", rotation=45)
@@ -277,6 +278,16 @@ def plot_thread_scalability():
 
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
 
+    # Define consistent colors to match other benchmarks
+    color_map = {
+        "pandas": "#9467bd",  # Purple
+        "polars": "#1f77b4",  # Blue
+        "polars-streaming": "#ff7f0e",  # Orange
+        "polars-streaming-csv-decompression": "#ff7f0e",  # Orange (same as polars-streaming)
+        "polars-bio": "#2ca02c",  # Green
+        "polars-bio-no-pushdown": "#d62728",  # Red
+    }
+
     # Read-only absolute time performance
     if not read_only_data.empty:
         for library in read_only_data["library"].unique():
@@ -294,6 +305,7 @@ def plot_thread_scalability():
                 label=label,
                 linewidth=2,
                 markersize=6,
+                color=color_map.get(library, "#7f7f7f"),
             )
             ax1.fill_between(
                 lib_data["threads"],
@@ -302,7 +314,7 @@ def plot_thread_scalability():
                 alpha=0.2,
             )
 
-        ax1.set_title("Read-Only Operations: Absolute Time")
+        ax1.set_title("Full Scan Operation: Wall Time")
         ax1.set_xlabel("Number of Threads")
         ax1.set_ylabel("Time (seconds)")
         ax1.legend()
@@ -335,6 +347,7 @@ def plot_thread_scalability():
                     label=label,
                     linewidth=2,
                     markersize=6,
+                    color=color_map.get(library, "#7f7f7f"),
                 )
 
         # Add ideal speedup line
@@ -342,7 +355,7 @@ def plot_thread_scalability():
         ideal_threads = np.arange(1, max_threads + 1)
         ax2.plot(ideal_threads, ideal_threads, "k--", alpha=0.5, label="Ideal Speedup")
 
-        ax2.set_title("Read-Only Operations: Speedup vs 1 Thread")
+        ax2.set_title("Full Scan Operation: Speedup vs 1 Thread")
         ax2.set_xlabel("Number of Threads")
         ax2.set_ylabel("Speedup (higher is better)")
         ax2.legend()
@@ -365,6 +378,7 @@ def plot_thread_scalability():
                 label=label,
                 linewidth=2,
                 markersize=6,
+                color=color_map.get(library, "#7f7f7f"),
             )
             ax3.fill_between(
                 lib_data["threads"],
@@ -373,7 +387,7 @@ def plot_thread_scalability():
                 alpha=0.2,
             )
 
-        ax3.set_title("Filtered Operations: Absolute Time")
+        ax3.set_title("Scan with Filter Operation: Wall Time")
         ax3.set_xlabel("Number of Threads")
         ax3.set_ylabel("Time (seconds)")
         ax3.legend()
@@ -406,6 +420,7 @@ def plot_thread_scalability():
                     label=label,
                     linewidth=2,
                     markersize=6,
+                    color=color_map.get(library, "#7f7f7f"),
                 )
 
         # Add ideal speedup line
@@ -413,7 +428,7 @@ def plot_thread_scalability():
         ideal_threads = np.arange(1, max_threads + 1)
         ax4.plot(ideal_threads, ideal_threads, "k--", alpha=0.5, label="Ideal Speedup")
 
-        ax4.set_title("Filtered Operations: Speedup vs 1 Thread")
+        ax4.set_title("Scan with Filter Operation: Speedup vs 1 Thread")
         ax4.set_xlabel("Number of Threads")
         ax4.set_ylabel("Speedup (higher is better)")
         ax4.legend()

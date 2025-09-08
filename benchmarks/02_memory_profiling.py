@@ -301,28 +301,28 @@ def main():
     for test_type, description in test_cases:
         print(f"\n=== {description} ===")
 
-        # # Pandas
-        # print(f"Profiling Pandas memory usage and wall time ({test_type})...")
-        # pandas_script = create_pandas_script(test_type)
-        # try:
-        #     pandas_memory, pandas_time = run_memory_profile(pandas_script, "pandas")
-        #     if pandas_memory is not None and pandas_time is not None:
-        #         results.append(
-        #             {
-        #                 "library": "pandas",
-        #                 "test_type": test_type,
-        #                 "projection_pushdown": False,
-        #                 "predicate_pushdown": False,
-        #                 "max_memory_mb": pandas_memory,
-        #                 "wall_time_s": pandas_time,
-        #                 "threads": 1,
-        #             }
-        #         )
-        #         print(
-        #             f"  Max memory: {pandas_memory:.1f} MB, Wall time: {pandas_time:.3f}s"
-        #         )
-        # finally:
-        #     Path(pandas_script).unlink()
+        # Pandas
+        print(f"Profiling Pandas memory usage and wall time ({test_type})...")
+        pandas_script = create_pandas_script(test_type)
+        try:
+            pandas_memory, pandas_time = run_memory_profile(pandas_script, "pandas")
+            if pandas_memory is not None and pandas_time is not None:
+                results.append(
+                    {
+                        "library": "pandas",
+                        "test_type": test_type,
+                        "projection_pushdown": False,
+                        "predicate_pushdown": False,
+                        "max_memory_mb": pandas_memory,
+                        "wall_time_s": pandas_time,
+                        "threads": 1,
+                    }
+                )
+                print(
+                    f"  Max memory: {pandas_memory:.1f} MB, Wall time: {pandas_time:.3f}s"
+                )
+        finally:
+            Path(pandas_script).unlink()
 
         # Polars
         print(f"Profiling Polars memory usage and wall time ({test_type})...")
