@@ -104,7 +104,7 @@ def plot_general_performance():
             alpha=0.8,
             color=colors,
         )
-        ax1.set_title("Read-Only Performance")
+        ax1.set_title("Full Scan Operation")
         ax1.set_ylabel("Time (seconds)")
         ax1.set_xlabel("Library")
 
@@ -133,7 +133,7 @@ def plot_general_performance():
             alpha=0.8,
             color=colors,
         )
-        ax2.set_title("Read with Filter Performance")
+        ax2.set_title("Scan with Filter Operation")
         ax2.set_ylabel("Time (seconds)")
         ax2.set_xlabel("Library")
 
