@@ -48,15 +48,13 @@ class TestEnsemblVCFIntegrationWithBgzip:
         assert local_vcf_path.exists(), f"Failed to download {url}"
 
         # 2. Describe VCF to get all INFO fields
-        info_df = pb.describe_vcf(str(local_vcf_path), compression_type="bgz")
+        info_df = pb.describe_vcf(str(local_vcf_path))
         assert isinstance(info_df, pl.DataFrame)
         info_fields = info_df.get_column("name").to_list()
         assert info_fields, f"No INFO fields found in {local_vcf_path}"
 
         # 3. Read VCF with all info fields
-        df = pb.read_vcf(
-            str(local_vcf_path), info_fields=info_fields, compression_type="bgz"
-        ).collect()
+        df = pb.scan_vcf(str(local_vcf_path), info_fields=info_fields).collect()
 
         assert isinstance(df, pl.DataFrame)
         assert len(df) > 0, "VCF file was read as empty"

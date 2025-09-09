@@ -195,6 +195,7 @@ class IOOperations:
     @staticmethod
     def read_vcf(
         path: str,
+        info_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -210,6 +211,7 @@ class IOOperations:
 
         Parameters:
             path: The path to the VCF file.
+            info_fields: List of INFO field names to include. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit fields for better performance.
             thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -225,6 +227,7 @@ class IOOperations:
         """
         return IOOperations.scan_vcf(
             path,
+            info_fields,
             thread_num,
             chunk_size,
             concurrent_fetches,
@@ -239,6 +242,7 @@ class IOOperations:
     @staticmethod
     def scan_vcf(
         path: str,
+        info_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -254,6 +258,7 @@ class IOOperations:
 
         Parameters:
             path: The path to the VCF file.
+            info_fields: List of INFO field names to include. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit fields for better performance.
             thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -277,24 +282,28 @@ class IOOperations:
             compression_type=compression_type,
         )
 
-        # Get all info fields from VCF header for proper projection pushdown
-        all_info_fields = None
-        try:
-            vcf_schema_df = IOOperations.describe_vcf(
-                path,
-                allow_anonymous=allow_anonymous,
-                enable_request_payer=enable_request_payer,
-                compression_type=compression_type,
-            )
-            # Use column name 'name' not 'id' based on the schema output
-            all_info_fields = vcf_schema_df.select("name").to_series().to_list()
-        except Exception:
-            # Fallback to None if unable to get info fields
+        # Use provided info_fields or autodetect from VCF header
+        if info_fields is not None:
+            initial_info_fields = info_fields
+        else:
+            # Get all info fields from VCF header for proper projection pushdown
             all_info_fields = None
+            try:
+                vcf_schema_df = IOOperations.describe_vcf(
+                    path,
+                    allow_anonymous=allow_anonymous,
+                    enable_request_payer=enable_request_payer,
+                    compression_type=compression_type,
+                )
+                # Use column name 'name' not 'id' based on the schema output
+                all_info_fields = vcf_schema_df.select("name").to_series().to_list()
+            except Exception:
+                # Fallback to None if unable to get info fields
+                all_info_fields = None
 
-        # Always start with all info fields to establish full schema
-        # The callback will re-register with only requested info fields for optimization
-        initial_info_fields = all_info_fields
+            # Always start with all info fields to establish full schema
+            # The callback will re-register with only requested info fields for optimization
+            initial_info_fields = all_info_fields
 
         vcf_read_options = VcfReadOptions(
             info_fields=initial_info_fields,
