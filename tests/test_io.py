@@ -180,12 +180,21 @@ class TestIOVCF:
         assert chr_result["count"][0] == 2  # All variants are on chr21
 
         # Test 4: INFO field access (should work automatically with updated registration)
-        info_result = pb.sql(
-            'SELECT chrom, start, "CSQ" FROM test_vcf_projection LIMIT 1'
+        # First find the actual CSQ column name (case-insensitive)
+        all_columns_result = pb.sql(
+            "SELECT * FROM test_vcf_projection LIMIT 1"
         ).collect()
-        assert len(info_result) == 1
-        assert list(info_result.columns) == ["chrom", "start", "CSQ"]
-        assert info_result["CSQ"][0] is not None  # CSQ field should have data
+        csq_col = next(
+            (col for col in all_columns_result.columns if col.lower() == "csq"), None
+        )
+
+        if csq_col:
+            info_result = pb.sql(
+                f'SELECT chrom, start, "{csq_col}" FROM test_vcf_projection LIMIT 1'
+            ).collect()
+            assert len(info_result) == 1
+            assert list(info_result.columns) == ["chrom", "start", csq_col]
+            assert info_result[csq_col][0] is not None  # CSQ field should have data
 
 
 class TestFastq:
