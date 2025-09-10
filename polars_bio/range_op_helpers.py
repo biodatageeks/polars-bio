@@ -10,7 +10,6 @@ from polars_bio.polars_bio import (
     ReadOptions,
     range_operation_frame,
     range_operation_scan,
-    stream_range_operation_scan,
 )
 
 from .constants import TMP_CATALOG_DIR
@@ -145,10 +144,6 @@ def _zero_based_warning(use_zero_based: bool):
         logger.warning(
             "0-based coordinate system was selected. Please ensure that both datasets follow this coordinate system."
         )
-
-
-def stream_wrapper(pyldf):
-    return pl.LazyFrame._from_pyldf(pyldf)
 
 
 def tmp_cleanup(session_catalog_path: str):

@@ -3,12 +3,11 @@ mod operation;
 mod option;
 mod query;
 mod scan;
-mod streaming;
 mod udtf;
 mod utils;
 
 use std::string::ToString;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
@@ -17,9 +16,6 @@ use datafusion_bio_format_core::object_storage::ObjectStorageOptions;
 use datafusion_bio_format_vcf::storage::VcfReader;
 use datafusion_python::dataframe::PyDataFrame;
 use log::{debug, error, info};
-use polars_lazy::prelude::{LazyFrame, ScanArgsAnonymous};
-use polars_python::error::PyPolarsErr;
-use polars_python::lazyframe::PyLazyFrame;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
@@ -32,8 +28,6 @@ use crate::option::{
     PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
 };
 use crate::scan::{maybe_register_table, register_frame, register_table};
-use crate::streaming::RangeOperationScan;
-use crate::utils::convert_arrow_rb_schema_to_polars_df_schema;
 
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
@@ -124,66 +118,6 @@ fn range_operation_scan(
 }
 
 #[pyfunction]
-#[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None))]
-fn stream_range_operation_scan(
-    py: Python<'_>,
-    py_ctx: &PyBioSessionContext,
-    df_path_or_table1: String,
-    df_path_or_table2: String,
-    range_options: RangeOptions,
-    read_options1: Option<ReadOptions>,
-    read_options2: Option<ReadOptions>,
-) -> PyResult<PyLazyFrame> {
-    #[allow(clippy::useless_conversion)]
-    py.allow_threads(|| {
-        let rt = Runtime::new()?;
-        let ctx = &py_ctx.ctx;
-        // check if the input has an extension
-
-        let left_table = maybe_register_table(
-            df_path_or_table1,
-            &LEFT_TABLE.to_string(),
-            read_options1,
-            ctx,
-            &rt,
-        );
-        let right_table = maybe_register_table(
-            df_path_or_table2,
-            &RIGHT_TABLE.to_string(),
-            read_options2,
-            ctx,
-            &rt,
-        );
-
-        let df = do_range_operation(ctx, &rt, range_options, left_table, right_table);
-        let schema = df.schema().as_arrow();
-        let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
-        debug!("Schema: {:?}", polars_schema);
-        let args = ScanArgsAnonymous {
-            schema: Some(Arc::new(polars_schema.clone())),
-            name: "SCAN polars-bio",
-            ..ScanArgsAnonymous::default()
-        };
-        debug!(
-            "{}",
-            ctx.state().config().options().execution.target_partitions
-        );
-        let stream = rt.block_on(df.execute_stream()).unwrap();
-        let scan = RangeOperationScan {
-            df_iter: Arc::new(Mutex::new(stream)),
-            rt: Runtime::new()?,
-            schema: Arc::new(polars_schema),
-        };
-        let function = Arc::new(scan);
-        let lf = LazyFrame::anonymous_scan(function, args)
-            .map_err(PyPolarsErr::from)
-            .unwrap()
-            .with_new_streaming(true);
-        Ok(lf.into())
-    })
-}
-
-#[pyfunction]
 #[pyo3(signature = (py_ctx, path, name, input_format, read_options=None))]
 fn py_register_table(
     py: Python<'_>,
@@ -250,94 +184,6 @@ fn py_read_sql(
         let ctx = &py_ctx.ctx;
         let df = rt.block_on(ctx.sql(&sql_text)).unwrap();
         Ok(PyDataFrame::new(df))
-    })
-}
-
-#[pyfunction]
-#[pyo3(signature = (py_ctx, sql_text))]
-fn py_scan_sql(
-    py: Python<'_>,
-    py_ctx: &PyBioSessionContext,
-    sql_text: String,
-) -> PyResult<PyLazyFrame> {
-    #[allow(clippy::useless_conversion)]
-    py.allow_threads(|| {
-        let rt = Runtime::new()?;
-        let ctx = &py_ctx.ctx;
-
-        let df = rt
-            .block_on(ctx.sql(&sql_text))
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        let schema = df.schema().as_arrow();
-        let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
-        debug!("Schema: {:?}", polars_schema);
-        let args = ScanArgsAnonymous {
-            schema: Some(Arc::new(polars_schema.clone())),
-            name: "SCAN polars-bio",
-            ..ScanArgsAnonymous::default()
-        };
-        debug!(
-            "{}",
-            ctx.state().config().options().execution.target_partitions
-        );
-        let stream = rt.block_on(df.execute_stream()).unwrap();
-        let scan = RangeOperationScan {
-            df_iter: Arc::new(Mutex::new(stream)),
-            rt: Runtime::new()?,
-            schema: Arc::new(polars_schema),
-        };
-        let function = Arc::new(scan);
-        let lf = LazyFrame::anonymous_scan(function, args)
-            .map_err(PyPolarsErr::from)
-            .unwrap()
-            .with_new_streaming(true);
-        Ok(lf.into())
-    })
-}
-
-#[pyfunction]
-#[pyo3(signature = (py_ctx, table_name))]
-fn py_scan_table(
-    py: Python<'_>,
-    py_ctx: &PyBioSessionContext,
-    table_name: String,
-) -> PyResult<PyLazyFrame> {
-    #[allow(clippy::useless_conversion)]
-    py.allow_threads(|| {
-        let rt = Runtime::new()?;
-        let ctx = &py_ctx.ctx;
-
-        let df = rt
-            .block_on(ctx.table(&table_name))
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        let schema = df.schema().as_arrow();
-        let polars_schema = convert_arrow_rb_schema_to_polars_df_schema(schema).unwrap();
-        debug!("Schema: {:?}", polars_schema);
-        let args = ScanArgsAnonymous {
-            schema: Some(Arc::new(polars_schema.clone())),
-            name: "SCAN polars-bio",
-            ..ScanArgsAnonymous::default()
-        };
-        debug!(
-            "{}",
-            ctx.state().config().options().execution.target_partitions
-        );
-        let stream = rt.block_on(df.execute_stream()).unwrap();
-        let scan = RangeOperationScan {
-            df_iter: Arc::new(Mutex::new(stream)),
-            rt: Runtime::new()?,
-            schema: Arc::new(polars_schema),
-        };
-        let function = Arc::new(scan);
-        let lf = LazyFrame::anonymous_scan(function, args)
-            .map_err(PyPolarsErr::from)
-            .unwrap()
-            .with_new_streaming(true);
-        debug!(
-            "LazyFrame created with streaming: {}",
-            lf.describe_optimized_plan().unwrap()
-        );
-        Ok(lf.into())
     })
 }
 
@@ -431,12 +277,9 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
-    m.add_function(wrap_pyfunction!(stream_range_operation_scan, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_sql, m)?)?;
-    m.add_function(wrap_pyfunction!(py_scan_sql, m)?)?;
-    m.add_function(wrap_pyfunction!(py_scan_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;

@@ -18,7 +18,6 @@ from polars_bio.polars_bio import (
     py_register_table,
     range_operation_frame,
     range_operation_scan,
-    stream_range_operation_scan,
 )
 
 try:

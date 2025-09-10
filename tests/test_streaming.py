@@ -26,7 +26,6 @@ import polars_bio as pb
 from polars_bio import FilterOp
 
 # Set environment variable to force new streaming engine for all tests in this module
-os.environ["POLARS_FORCE_NEW_STREAMING"] = "1"
 
 
 columns = ["contig", "pos_start", "pos_end"]
