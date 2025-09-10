@@ -20,11 +20,9 @@ from polars_bio.polars_bio import (
     py_read_sql,
     py_read_table,
     py_register_table,
-    py_scan_table,
 )
 
 from .context import ctx
-from .range_op_helpers import stream_wrapper
 
 SCHEMAS = {
     "bed3": ["chrom", "start", "end"],

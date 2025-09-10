@@ -17,13 +17,10 @@ from polars_bio.polars_bio import (
     py_read_table,
     py_register_table,
     py_register_view,
-    py_scan_sql,
-    py_scan_table,
 )
 
 from .context import ctx
 from .io import _cleanse_fields, _lazy_scan
-from .range_op_helpers import stream_wrapper
 
 
 class SQL:

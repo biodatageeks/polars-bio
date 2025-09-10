@@ -14,7 +14,7 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-  "polars~=1.29.0",
+  "polars>=1.32.0",
   "pyarrow~=21.0.0",
   "datafusion ~=48.0.0",
   "tqdm ~=4.67.1",
@@ -42,7 +42,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.14"
-polars ="1.29.0"
+polars = ">=1.32.0"
 pyarrow = "^21.0.0"
 datafusion = "^48.0.0"
 tqdm = "^4.67.1"
