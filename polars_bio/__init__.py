@@ -1,22 +1,21 @@
 import os
 
 from polars_bio.polars_bio import InputFormat
-from polars_bio.polars_bio import (
-    PyObjectStorageOptions as ObjectStorageOptions,
-)
+from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions
 
+from . import polars_ext  # registers pl.LazyFrame.pb namespace
 from .context import ctx, set_option
-from .sql import SQL as data_processing
 from .io import IOOperations as data_input
-from .range_op import IntervalOperations as range_operations
 from .logging import set_loglevel
 from .range_op import FilterOp
-from . import polars_ext  # registers pl.LazyFrame.pb namespace
+from .range_op import IntervalOperations as range_operations
+from .sql import SQL as data_processing
 
 try:
     from .range_utils import Utils
     from .range_utils import Utils as utils
+
     visualize_intervals = Utils.visualize_intervals
 except ImportError:
     pass
@@ -28,9 +27,7 @@ if "POLARS_FORCE_NEW_STREAMING" not in os.environ:
 
         # New engine default on Polars >= 1.32 (safe for >1.31 too)
         _ver = tuple(int(x) for x in _pl.__version__.split(".")[:2])
-        os.environ["POLARS_FORCE_NEW_STREAMING"] = (
-            "1" if _ver >= (1, 32) else "0"
-        )
+        os.environ["POLARS_FORCE_NEW_STREAMING"] = "1" if _ver >= (1, 32) else "0"
     except Exception:
         os.environ["POLARS_FORCE_NEW_STREAMING"] = "0"
 

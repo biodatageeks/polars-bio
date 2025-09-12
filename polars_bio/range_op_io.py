@@ -1,7 +1,7 @@
+import logging
 from pathlib import Path
 from typing import Iterator, Union
 
-import logging
 import datafusion
 import polars as pl
 import pyarrow as pa
@@ -134,9 +134,7 @@ def _rename_columns(
     df: Union[pl.DataFrame, "pd.DataFrame", pl.LazyFrame], suffix: str
 ) -> Union[pl.DataFrame, "pd.DataFrame"]:
     if isinstance(df, pl.DataFrame) or isinstance(df, pl.LazyFrame):
-        schema = (
-            df.collect_schema() if isinstance(df, pl.LazyFrame) else df.schema
-        )
+        schema = df.collect_schema() if isinstance(df, pl.LazyFrame) else df.schema
         df = pl.DataFrame(schema=schema)
         return _rename_columns_pl(df, suffix)
     elif pd and isinstance(df, pd.DataFrame):
@@ -167,9 +165,7 @@ def _get_schema(
     elif ".csv" in ext:
         df = pl.read_csv(path)
     elif ".vcf" in ext:
-        table = py_register_table(
-            ctx, path, None, InputFormat.Vcf, read_options
-        )
+        table = py_register_table(ctx, path, None, InputFormat.Vcf, read_options)
         df: DataFrame = py_read_table(ctx, table.name)
         arrow_schema = df.schema()
         empty_table = pa.Table.from_arrays(
@@ -188,6 +184,7 @@ def _get_schema(
 # the following function to change the type of the columns to largestring (the
 # problem is with the string type for larger datasets)
 
+
 def _string_to_largestring(table: pa.Table, column_name: str) -> pa.Table:
     index = _get_column_index(table, column_name)
     return table.set_column(
@@ -201,9 +198,7 @@ def _get_column_index(table: pa.Table, column_name: str) -> int:
     try:
         return table.schema.names.index(column_name)
     except ValueError as exc:
-        raise KeyError(
-            f"Column '{column_name}' not found in the table."
-        ) from exc
+        raise KeyError(f"Column '{column_name}' not found in the table.") from exc
 
 
 def _df_to_reader(
