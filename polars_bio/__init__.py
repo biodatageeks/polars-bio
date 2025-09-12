@@ -1,15 +1,35 @@
 import os
 
-# Set POLARS_FORCE_NEW_STREAMING to "1" by default if not already set
-if "POLARS_FORCE_NEW_STREAMING" not in os.environ:
-    os.environ["POLARS_FORCE_NEW_STREAMING"] = "0"
-
-from polars_bio.polars_bio import GffReadOptions, InputFormat
+from polars_bio.polars_bio import InputFormat
 from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions
 
+from . import polars_ext  # registers pl.LazyFrame.pb namespace
 from .context import ctx, set_option
+from .io import IOOperations as data_input
+from .logging import set_loglevel
+from .range_op import FilterOp
+from .range_op import IntervalOperations as range_operations
 from .sql import SQL as data_processing
+
+try:
+    from .range_utils import Utils
+    from .range_utils import Utils as utils
+
+    visualize_intervals = Utils.visualize_intervals
+except ImportError:
+    pass
+
+# Set POLARS_FORCE_NEW_STREAMING depending on installed Polars version
+if "POLARS_FORCE_NEW_STREAMING" not in os.environ:
+    try:
+        import polars as _pl
+
+        # New engine default on Polars >= 1.32 (safe for >1.31 too)
+        _ver = tuple(int(x) for x in _pl.__version__.split(".")[:2])
+        os.environ["POLARS_FORCE_NEW_STREAMING"] = "1" if _ver >= (1, 32) else "0"
+    except Exception:
+        os.environ["POLARS_FORCE_NEW_STREAMING"] = "0"
 
 register_gff = data_processing.register_gff
 register_vcf = data_processing.register_vcf
@@ -19,8 +39,6 @@ register_bed = data_processing.register_bed
 register_view = data_processing.register_view
 
 sql = data_processing.sql
-
-from .io import IOOperations as data_input
 
 describe_vcf = data_input.describe_vcf
 from_polars = data_input.from_polars
@@ -40,38 +58,13 @@ scan_gff = data_input.scan_gff
 scan_table = data_input.scan_table
 scan_vcf = data_input.scan_vcf
 
-
-from .range_op import IntervalOperations as range_operations
-
 overlap = range_operations.overlap
 nearest = range_operations.nearest
 count_overlaps = range_operations.count_overlaps
 coverage = range_operations.coverage
 merge = range_operations.merge
 
-try:
-    from .range_utils import Utils
-
-    visualize_intervals = Utils.visualize_intervals
-except ImportError:
-    pass
-
-
-from .io import IOOperations as data_input
-from .logging import set_loglevel
-from .polars_ext import PolarsRangesOperations as LazyFrame
-from .range_op import FilterOp
-from .range_op import IntervalOperations as range_operations
-from .sql import SQL as data_processing
-
-try:
-    from .range_utils import Utils as utils
-except ImportError:
-    pass
-
-
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
-
 
 __version__ = "0.16.0"
 __all__ = [

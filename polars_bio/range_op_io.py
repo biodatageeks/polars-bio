@@ -1,10 +1,10 @@
+import logging
 from pathlib import Path
 from typing import Iterator, Union
 
 import datafusion
 import polars as pl
 import pyarrow as pa
-import pyarrow.compute as pc
 from datafusion import DataFrame
 from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
@@ -64,6 +64,17 @@ def range_lazy_scan(
             # This is where we would modify the SQL generation in a full implementation
             modified_range_options = range_options
 
+        # Announce chosen algorithm for overlap at execution time
+        try:
+            alg = getattr(modified_range_options, "overlap_alg", None)
+            if alg is not None:
+                logging.info(
+                    "Optimizing into IntervalJoinExec using %s algorithm",
+                    alg,
+                )
+        except Exception:
+            pass
+
         df_lazy: datafusion.DataFrame = (
             range_function(
                 ctx,
@@ -75,7 +86,13 @@ def range_lazy_scan(
                 _n_rows,
             )
             if isinstance(df_1, str) and isinstance(df_2, str)
-            else range_function(ctx, df_1, df_2, modified_range_options, _n_rows)
+            else range_function(
+                ctx,
+                df_1,
+                df_2,
+                modified_range_options,
+                _n_rows,
+            )
         )
 
         # Apply DataFusion-level projection if enabled
@@ -121,7 +138,9 @@ def _rename_columns(
         df = pl.DataFrame(schema=schema)
         return _rename_columns_pl(df, suffix)
     elif pd and isinstance(df, pd.DataFrame):
-        df = pl.from_pandas(pd.DataFrame(columns=df.columns))
+        # Convert to polars while preserving dtypes, then create empty DataFrame with correct schema
+        polars_df = pl.from_pandas(df)
+        df = pl.DataFrame(schema=polars_df.schema)
         return _rename_columns_pl(df, suffix)
     else:
         raise ValueError("Only polars and pandas dataframes are supported")
@@ -163,23 +182,25 @@ def _get_schema(
     return df.schema
 
 
-# since there is an error when Pandas DF are converted to Arrow, we need to use the following function
-# to change the type of the columns to largestring (the problem is with the string type for
-# larger datasets)
+# since there is an error when Pandas DF are converted to Arrow, we need to use
+# the following function to change the type of the columns to largestring (the
+# problem is with the string type for larger datasets)
+
+
 def _string_to_largestring(table: pa.Table, column_name: str) -> pa.Table:
     index = _get_column_index(table, column_name)
     return table.set_column(
-        index,  # Index of the column to replace
-        table.schema.field(index).name,  # Name of the column
-        pc.cast(table.column(index), pa.large_string()),  # Cast to `largestring`
+        index,
+        table.schema.field(index).name,
+        pa.compute.cast(table.column(index), pa.large_string()),
     )
 
 
-def _get_column_index(table, column_name):
+def _get_column_index(table: pa.Table, column_name: str) -> int:
     try:
         return table.schema.names.index(column_name)
-    except ValueError:
-        raise KeyError(f"Column '{column_name}' not found in the table.")
+    except ValueError as exc:
+        raise KeyError(f"Column '{column_name}' not found in the table.") from exc
 
 
 def _df_to_reader(
@@ -189,10 +210,10 @@ def _df_to_reader(
     if isinstance(df, pl.LazyFrame):
         df = df.collect()
     if isinstance(df, pl.DataFrame):
-        df = df.to_arrow()
+        arrow_tbl = df.to_arrow()
     elif pd and isinstance(df, pd.DataFrame):
-        df = pa.Table.from_pandas(df)
-        df = _string_to_largestring(df, col)
+        arrow_tbl = pa.Table.from_pandas(df)
+        arrow_tbl = _string_to_largestring(arrow_tbl, col)
     else:
         raise ValueError("Only polars and pandas are supported")
-    return df.to_reader()
+    return arrow_tbl.to_reader()

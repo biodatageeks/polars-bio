@@ -12,7 +12,6 @@ from polars_bio.polars_bio import (
     range_operation_scan,
 )
 
-from .constants import TMP_CATALOG_DIR
 from .logging import logger
 from .range_op_io import _df_to_reader, _get_schema, _rename_columns, range_lazy_scan
 
@@ -38,26 +37,70 @@ def range_operation(
         ext1 = set(Path(df1).suffixes)
         assert (
             len(supported_exts.intersection(ext1)) > 0 or len(ext1) == 0
-        ), "Dataframe1 must be a Parquet, a BED or CSV or VCF file"
+        ), "Dataframe1 must be a Parquet, BED, CSV or VCF file"
         ext2 = set(Path(df2).suffixes)
         assert (
             len(supported_exts.intersection(ext2)) > 0 or len(ext2) == 0
-        ), "Dataframe2 must be a Parquet, a BED or CSV or VCF file"
+        ), "Dataframe2 must be a Parquet, BED, CSV or VCF file"
         # use suffixes to avoid column name conflicts
 
         if range_options.range_op == RangeOp.CountOverlapsNaive:
-            ## add count column to the schema
+            # add count column to the schema (Int64 to match engine)
             merged_schema = pl.Schema(
-                {**_get_schema(df1, ctx, None, read_options1), **{"count": pl.Int32}}
+                {
+                    **_get_schema(df1, ctx, None, read_options1),
+                    **{"count": pl.Int64},
+                }
             )
         elif range_options.range_op == RangeOp.Coverage:
+            # add coverage column to the schema (Int64 to match engine)
             merged_schema = pl.Schema(
-                {**_get_schema(df1, ctx, None, read_options1), **{"coverage": pl.Int32}}
+                {
+                    **_get_schema(df1, ctx, None, read_options1),
+                    **{"coverage": pl.Int64},
+                }
             )
         else:
-            df_schema1 = _get_schema(df1, ctx, range_options.suffixes[0], read_options1)
-            df_schema2 = _get_schema(df2, ctx, range_options.suffixes[1], read_options2)
-            merged_schema = pl.Schema({**df_schema1, **df_schema2})
+            # Get the base schemas without suffixes first
+            df_schema1_base = _get_schema(df1, ctx, None, read_options1)
+            df_schema2_base = _get_schema(df2, ctx, None, read_options2)
+
+            # Generate the correct schema based on actual DataFusion behavior
+            # Coordinate columns get correct suffixes, non-coordinate columns get swapped suffixes
+            coord_cols = set(range_options.columns_1 + range_options.columns_2)
+
+            merged_schema_dict = {}
+
+            # Add df1 columns with appropriate suffixes
+            for col_name, col_type in df_schema1_base.items():
+                if col_name in coord_cols:
+                    # Coordinate columns get suffix _1
+                    merged_schema_dict[f"{col_name}{range_options.suffixes[0]}"] = (
+                        col_type
+                    )
+                else:
+                    # Non-coordinate columns get suffix _2 (swapped behavior)
+                    merged_schema_dict[f"{col_name}{range_options.suffixes[1]}"] = (
+                        col_type
+                    )
+
+            # Add df2 columns with appropriate suffixes
+            for col_name, col_type in df_schema2_base.items():
+                if col_name in coord_cols:
+                    # Coordinate columns get suffix _2
+                    merged_schema_dict[f"{col_name}{range_options.suffixes[1]}"] = (
+                        col_type
+                    )
+                else:
+                    # Non-coordinate columns get suffix _1 (swapped behavior)
+                    merged_schema_dict[f"{col_name}{range_options.suffixes[0]}"] = (
+                        col_type
+                    )
+
+            merged_schema = pl.Schema(merged_schema_dict)
+            # Nearest adds an extra computed column
+            if range_options.range_op == RangeOp.Nearest:
+                merged_schema = pl.Schema({**merged_schema, **{"distance": pl.Int64}})
         if output_type == "polars.LazyFrame":
             return range_lazy_scan(
                 df1,
@@ -71,36 +114,88 @@ def range_operation(
             )
         elif output_type == "polars.DataFrame":
             return range_operation_scan(
-                ctx, df1, df2, range_options, read_options1, read_options2
+                ctx,
+                df1,
+                df2,
+                range_options,
+                read_options1,
+                read_options2,
             ).to_polars()
         elif output_type == "pandas.DataFrame":
             if pd is None:
                 raise ImportError(
-                    "pandas is not installed. Please run `pip install pandas` or `pip install polars-bio[pandas]`."
+                    "pandas is not installed. Install pandas or "
+                    "use `polars-bio[pandas]`."
                 )
             result = range_operation_scan(
-                ctx, df1, df2, range_options, read_options1, read_options2
+                ctx,
+                df1,
+                df2,
+                range_options,
+                read_options1,
+                read_options2,
             )
             return result.to_pandas()
         elif output_type == "datafusion.DataFrame":
-            from datafusion._internal import SessionContext as SessionContextInternal
-
-            a = SessionContextInternal()
             return range_operation_scan(
-                ctx, df1, df2, range_options, read_options1, read_options2
+                ctx,
+                df1,
+                df2,
+                range_options,
+                read_options1,
+                read_options2,
             )
         else:
             raise ValueError(
-                "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
+                "Only polars.LazyFrame, polars.DataFrame and pandas.DataFrame "
+                "are supported"
             )
     else:
         if output_type == "polars.LazyFrame":
-            merged_schema = pl.Schema(
-                {
-                    **_rename_columns(df1, range_options.suffixes[0]).schema,
-                    **_rename_columns(df2, range_options.suffixes[1]).schema,
-                }
-            )
+            # Get base schemas without suffixes
+            df1_base_schema = _rename_columns(df1, "").schema
+            df2_base_schema = _rename_columns(df2, "").schema
+
+            # Generate correct schema based on actual DataFusion behavior
+            # Coordinate columns get correct suffixes, non-coordinate columns get swapped suffixes
+            coord_cols = set(range_options.columns_1 + range_options.columns_2)
+
+            merged_schema_dict = {}
+
+            # Add df1 columns with appropriate suffixes
+            for col_name, col_type in df1_base_schema.items():
+                if col_name in coord_cols:
+                    # Coordinate columns get suffix _1
+                    merged_schema_dict[f"{col_name}{range_options.suffixes[0]}"] = (
+                        col_type
+                    )
+                else:
+                    # Non-coordinate columns get suffix _2 (swapped behavior)
+                    merged_schema_dict[f"{col_name}{range_options.suffixes[1]}"] = (
+                        col_type
+                    )
+
+            # Add df2 columns with appropriate suffixes
+            for col_name, col_type in df2_base_schema.items():
+                if col_name in coord_cols:
+                    # Coordinate columns get suffix _2
+                    merged_schema_dict[f"{col_name}{range_options.suffixes[1]}"] = (
+                        col_type
+                    )
+                else:
+                    # Non-coordinate columns get suffix _1 (swapped behavior)
+                    merged_schema_dict[f"{col_name}{range_options.suffixes[0]}"] = (
+                        col_type
+                    )
+
+            merged_schema = pl.Schema(merged_schema_dict)
+            # Add computed columns for streaming outputs
+            if range_options.range_op == RangeOp.Nearest:
+                merged_schema = pl.Schema({**merged_schema, **{"distance": pl.Int64}})
+            elif range_options.range_op == RangeOp.CountOverlapsNaive:
+                merged_schema = pl.Schema({**merged_schema, **{"count": pl.Int64}})
+            elif range_options.range_op == RangeOp.Coverage:
+                merged_schema = pl.Schema({**merged_schema, **{"coverage": pl.Int64}})
             return range_lazy_scan(
                 df1,
                 df2,
@@ -110,24 +205,44 @@ def range_operation(
                 projection_pushdown=projection_pushdown,
             )
         else:
-            df1 = _df_to_reader(df1, range_options.columns_1[0])
-            df2 = _df_to_reader(df2, range_options.columns_2[0])
-            result = range_operation_frame(ctx, df1, df2, range_options)
+            df1 = _df_to_reader(
+                df1,
+                range_options.columns_1[0],
+            )
+            df2 = _df_to_reader(
+                df2,
+                range_options.columns_2[0],
+            )
+            result = range_operation_frame(
+                ctx,
+                df1,
+                df2,
+                range_options,
+            )
             if output_type == "polars.DataFrame":
                 return result.to_polars()
             elif output_type == "pandas.DataFrame":
                 if pd is None:
                     raise ImportError(
-                        "pandas is not installed. Please run `pip install pandas` or `pip install polars-bio[pandas]`."
+                        "pandas is not installed. Install pandas or "
+                        "use `polars-bio[pandas]`."
                     )
                 return result.to_pandas()
             else:
                 raise ValueError(
-                    "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
+                    "Only polars.LazyFrame, polars.DataFrame and pandas "
+                    "DataFrame are supported"
                 )
 
 
-def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, use_zero_based):
+def _validate_overlap_input(
+    col1,
+    col2,
+    on_cols,
+    suffixes,
+    output_type,
+    use_zero_based,
+):
     # TODO: Add support for on_cols ()
     _zero_based_warning(use_zero_based)
     assert on_cols is None, "on_cols is not supported yet"
@@ -136,13 +251,16 @@ def _validate_overlap_input(col1, col2, on_cols, suffixes, output_type, use_zero
         "polars.DataFrame",
         "pandas.DataFrame",
         "datafusion.DataFrame",
-    ], "Only polars.LazyFrame, polars.DataFrame, and pandas.DataFrame are supported"
+    ], (
+        "Only polars.LazyFrame, polars.DataFrame and pandas DataFrame are " "supported"
+    )
 
 
 def _zero_based_warning(use_zero_based: bool):
     if use_zero_based:
         logger.warning(
-            "0-based coordinate system was selected. Please ensure that both datasets follow this coordinate system."
+            "0-based coordinate system was selected. Please ensure that both "
+            "datasets follow this coordinate system."
         )
 
 
