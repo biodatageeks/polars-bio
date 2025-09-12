@@ -138,7 +138,9 @@ def _rename_columns(
         df = pl.DataFrame(schema=schema)
         return _rename_columns_pl(df, suffix)
     elif pd and isinstance(df, pd.DataFrame):
-        df = pl.from_pandas(pd.DataFrame(columns=df.columns))
+        # Convert to polars while preserving dtypes, then create empty DataFrame with correct schema
+        polars_df = pl.from_pandas(df)
+        df = pl.DataFrame(schema=polars_df.schema)
         return _rename_columns_pl(df, suffix)
     else:
         raise ValueError("Only polars and pandas dataframes are supported")
