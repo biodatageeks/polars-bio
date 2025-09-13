@@ -14,7 +14,7 @@ crate-type= ["cdylib"]
 datafusion-python = "48.0.0"
 pyo3 = { version = "0.24.2", features = ["extension-module", "abi3"] }
 pyo3-log = "0.12.4"
-sequila-core = { git = "https://github.com/biodatageeks/sequila-native.git", rev = "745d40f77da7ced5d540f9285eb5123ba12682ff" }
+sequila-core = { git = "https://github.com/biodatageeks/sequila-native.git", rev = "3e6652f524543fee19aa49f9feec087250d06de7" }
 
 datafusion = { version = "48.0.1"}
 arrow = "55.0.0"
