@@ -177,7 +177,7 @@ pub(crate) fn format_non_join_tables(
     }
     columns
         .iter()
-        .map(|c| format!("{}.{} as {}{}", table_alias, c, c, suffix))
+        .map(|c| format!("{}.`{}` as `{}{}`", table_alias, c, c, suffix))
         .collect::<Vec<String>>()
         .join(", ")
 }

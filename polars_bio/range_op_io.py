@@ -142,6 +142,11 @@ def _rename_columns(
         polars_df = pl.from_pandas(df)
         df = pl.DataFrame(schema=polars_df.schema)
         return _rename_columns_pl(df, suffix)
+    elif hasattr(df, "_base_lf") and hasattr(df, "collect_schema"):
+        # Handle GffLazyFrameWrapper or similar wrapper classes
+        schema = df.collect_schema()
+        df = pl.DataFrame(schema=schema)
+        return _rename_columns_pl(df, suffix)
     else:
         raise ValueError("Only polars and pandas dataframes are supported")
 

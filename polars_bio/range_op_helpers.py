@@ -1,3 +1,4 @@
+import tempfile
 from pathlib import Path
 from typing import Union
 
@@ -12,6 +13,7 @@ from polars_bio.polars_bio import (
     range_operation_scan,
 )
 
+from .constants import TMP_CATALOG_DIR
 from .logging import logger
 from .range_op_io import _df_to_reader, _get_schema, _rename_columns, range_lazy_scan
 
@@ -21,9 +23,35 @@ except ImportError:
     pd = None
 
 
+def _lazyframe_to_parquet(
+    df: Union[pl.LazyFrame, "GffLazyFrameWrapper"], ctx: BioSessionContext
+) -> str:
+    """Convert LazyFrame or GffLazyFrameWrapper to temporary parquet file and return the path."""
+    # Create temporary parquet file in the session catalog path
+    # Use a timestamped directory under TMP_CATALOG_DIR
+    import datetime
+
+    timestamp = str(datetime.datetime.now().timestamp())
+    catalog_path = Path(f"{TMP_CATALOG_DIR}/{timestamp}")
+    catalog_path.mkdir(parents=True, exist_ok=True)
+
+    # Create a unique temporary file
+    temp_file = tempfile.NamedTemporaryFile(
+        delete=False, suffix=".parquet", dir=catalog_path
+    )
+    temp_path = temp_file.name
+    temp_file.close()
+
+    # Sink LazyFrame to parquet (works for both LazyFrame and GffLazyFrameWrapper)
+    df.sink_parquet(temp_path)
+    logger.info(f"LazyFrame sunk to temporary parquet: {temp_path}")
+
+    return temp_path
+
+
 def range_operation(
-    df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
-    df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+    df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame", "GffLazyFrameWrapper"],
+    df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame", "GffLazyFrameWrapper"],
     range_options: RangeOptions,
     output_type: str,
     ctx: BioSessionContext,
@@ -32,6 +60,42 @@ def range_operation(
     projection_pushdown: bool = False,
 ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame"]:
     ctx.sync_options()
+
+    # Handle LazyFrames and GffLazyFrameWrapper by converting them to temporary parquet files
+    original_df1_is_lazy = isinstance(df1, pl.LazyFrame) or hasattr(df1, "_base_lf")
+    original_df2_is_lazy = isinstance(df2, pl.LazyFrame) or hasattr(df2, "_base_lf")
+
+    if original_df1_is_lazy:
+        df1 = _lazyframe_to_parquet(df1, ctx)
+    if original_df2_is_lazy:
+        df2 = _lazyframe_to_parquet(df2, ctx)
+
+    # If we have mixed case (one LazyFrame converted to parquet, one DataFrame),
+    # convert the DataFrame to parquet as well for consistency
+    if (original_df1_is_lazy or original_df2_is_lazy) and not (
+        isinstance(df1, str) and isinstance(df2, str)
+    ):
+        if not isinstance(df1, str) and isinstance(
+            df1, (pl.DataFrame, pd.DataFrame if pd else type(None))
+        ):
+            # Convert DataFrame to temporary parquet
+            temp_df1_lazy = (
+                df1.lazy()
+                if isinstance(df1, pl.DataFrame)
+                else pl.from_pandas(df1).lazy()
+            )
+            df1 = _lazyframe_to_parquet(temp_df1_lazy, ctx)
+        if not isinstance(df2, str) and isinstance(
+            df2, (pl.DataFrame, pd.DataFrame if pd else type(None))
+        ):
+            # Convert DataFrame to temporary parquet
+            temp_df2_lazy = (
+                df2.lazy()
+                if isinstance(df2, pl.DataFrame)
+                else pl.from_pandas(df2).lazy()
+            )
+            df2 = _lazyframe_to_parquet(temp_df2_lazy, ctx)
+
     if isinstance(df1, str) and isinstance(df2, str):
         supported_exts = set([".parquet", ".csv", ".bed", ".vcf"])
         ext1 = set(Path(df1).suffixes)
