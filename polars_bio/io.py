@@ -314,6 +314,7 @@ class IOOperations:
     @staticmethod
     def read_gff(
         path: str,
+        attr_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -331,6 +332,7 @@ class IOOperations:
 
         Parameters:
             path: The path to the GFF file.
+            attr_fields: List of attribute field names to extract as separate columns. If *None*, attributes will be kept as a nested structure. Use this to extract specific attributes like 'ID', 'gene_name', 'gene_type', etc. as direct columns for easier access.
             thread_num: The number of threads to use for reading the GFF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -348,6 +350,7 @@ class IOOperations:
         """
         return IOOperations.scan_gff(
             path,
+            attr_fields,
             thread_num,
             chunk_size,
             concurrent_fetches,
@@ -364,6 +367,7 @@ class IOOperations:
     @staticmethod
     def scan_gff(
         path: str,
+        attr_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -381,6 +385,7 @@ class IOOperations:
 
         Parameters:
             path: The path to the GFF file.
+            attr_fields: List of attribute field names to extract as separate columns. If *None*, attributes will be kept as a nested structure. Use this to extract specific attributes like 'ID', 'gene_name', 'gene_type', etc. as direct columns for easier access.
             thread_num: The number of threads to use for reading the GFF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large-scale operations, it is recommended to increase this value to 8 or even more.
@@ -407,7 +412,7 @@ class IOOperations:
         )
 
         gff_read_options = GffReadOptions(
-            attr_fields=None,
+            attr_fields=attr_fields,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
             parallel=parallel,

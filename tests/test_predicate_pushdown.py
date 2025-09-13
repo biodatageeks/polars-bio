@@ -431,7 +431,10 @@ class TestPredicatePushdownEndToEnd:
         """Test that GffLazyFrameWrapper is preserved through method chaining."""
         lf = pb.scan_gff(test_file, predicate_pushdown=True, projection_pushdown=True)
 
-        # After select, should still be a GffLazyFrameWrapper
+        # After select, should still be a File ~/research/git/polars-bio/polars_bio/range_op_io.py:146, in _rename_columns(df, suffix)
+        #     144     return _rename_columns_pl(df, suffix)
+        #     145 else:
+        # --> 146     raise ValueError("Only polars and pandas dataframes are supported")
         lf_selected = lf.select(["chrom", "start", "end", "type"])
         assert hasattr(lf_selected, "_predicate_pushdown")
         assert lf_selected._predicate_pushdown is True
