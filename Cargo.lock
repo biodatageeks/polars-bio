@@ -4850,7 +4850,7 @@ checksum = "1bc711410fbe7399f390ca1c3b60ad0f53f80e95c5eb935e52268a0e2cd49acc"
 [[package]]
 name = "sequila-core"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/sequila-native.git?rev=745d40f77da7ced5d540f9285eb5123ba12682ff#745d40f77da7ced5d540f9285eb5123ba12682ff"
+source = "git+https://github.com/biodatageeks/sequila-native.git?rev=3e6652f524543fee19aa49f9feec087250d06de7#3e6652f524543fee19aa49f9feec087250d06de7"
 dependencies = [
  "ahash",
  "async-trait",
@@ -5146,7 +5146,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 [[package]]
 name = "superintervals"
 version = "0.3.6"
-source = "git+https://github.com/biodatageeks/sequila-native.git?rev=745d40f77da7ced5d540f9285eb5123ba12682ff#745d40f77da7ced5d540f9285eb5123ba12682ff"
+source = "git+https://github.com/biodatageeks/sequila-native.git?rev=3e6652f524543fee19aa49f9feec087250d06de7#3e6652f524543fee19aa49f9feec087250d06de7"
 dependencies = [
  "aligned-vec",
  "serde",

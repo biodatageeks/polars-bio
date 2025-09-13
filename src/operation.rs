@@ -47,6 +47,12 @@ pub(crate) fn do_range_operation(
             );
         },
     }
+    // Optional low-memory toggle for interval join
+    if let Some(low_mem) = range_options.overlap_low_memory {
+        let v = if low_mem { "true" } else { "false" };
+        set_option_internal(ctx, "sequila.interval_join_low_memory", v);
+        info!("IntervalJoin low_memory requested: {}", v);
+    }
     info!(
         "Running {} operation with algorithm {} and {} thread(s)...",
         range_options.range_op,

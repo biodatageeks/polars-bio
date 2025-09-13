@@ -56,12 +56,11 @@ impl PyBioSessionContext {
 
 pub fn set_option_internal(ctx: &SessionContext, key: &str, value: &str) {
     let state = ctx.state_ref();
-    state
-        .write()
-        .config_mut()
-        .options_mut()
-        .set(key, value)
-        .unwrap();
+    let res = state.write().config_mut().options_mut().set(key, value);
+    if let Err(e) = res {
+        // Avoid panicking on unknown namespaces/keys; log for debugging.
+        debug!("Failed to set option {} = {}: {:?}", key, value, e);
+    }
 }
 
 fn create_context() -> SessionContext {

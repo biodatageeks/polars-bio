@@ -45,6 +45,7 @@ class IntervalOperations:
         cols1: Union[list[str], None] = ["chrom", "start", "end"],
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
         algorithm: str = "Coitrees",
+        low_memory: bool = False,
         output_type: str = "polars.LazyFrame",
         read_options1: Union[ReadOptions, None] = None,
         read_options2: Union[ReadOptions, None] = None,
@@ -65,6 +66,7 @@ class IntervalOperations:
             suffixes: Suffixes for the columns of the two overlapped sets.
             on_cols: List of additional column names to join on. default is None.
             algorithm: The algorithm to use for the overlap operation. Available options: Coitrees, IntervalTree, ArrayIntervalTree, Lapper, SuperIntervals
+            low_memory: If True, use low memory method for output generation. This may be slower but uses less memory.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             read_options1: Additional options for reading the input files.
             read_options2: Additional options for reading the input files.
@@ -122,6 +124,7 @@ class IntervalOperations:
             columns_1=cols1,
             columns_2=cols2,
             overlap_alg=algorithm,
+            overlap_low_memory=low_memory,
         )
 
         return range_operation(

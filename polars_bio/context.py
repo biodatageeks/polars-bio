@@ -47,7 +47,11 @@ class Context:
 
     def set_option(self, key, value):
         self.ctx.set_option(key, value)
-        self.config.set(key, value)
+        # Only mirror standard DataFusion options to the Python SessionConfig.
+        # Extension namespaces (e.g., `sequila.*`) are handled by the Rust context
+        # and are not recognized by Python bindings, which would panic.
+        if isinstance(key, str) and key.startswith("datafusion."):
+            self.config.set(key, value)
 
 
 def set_option(key, value):
