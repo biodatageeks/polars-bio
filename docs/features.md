@@ -43,19 +43,16 @@ This table compares the API of the libraries. The table is not exhaustive and on
 
 
 ## File formats support
-For bioinfomatic format there are always two methods available: `read_*` and `register_*` that can be used to either read file into Polars/Pandas DataFrame or register it as a DataFusion table for further processing using SQL or builtin interval fuctions. In either case local and or cloud storage files can be used as an input. Please refer to [cloud storage](#cloud-storage) section for more details.
+For bioinformatic format there are always three methods available: `read_*` (eager), `scan_*` (lazy) and `register_*` that can be used to either read file into Polars DataFrame/LazyFrame or register it as a DataFusion table for further processing using SQL or builtin interval methods. In either case, local and or cloud storage files can be used as an input. Please refer to [cloud storage](#cloud-storage) section for more details.
 
-| Format                                           | Support level      |
-|--------------------------------------------------|--------------------|
-| [BED](api.md#polars_bio.data_input.read_bed)     | :white_check_mark: |
-| [VCF](api.md#polars_bio.data_input.read_vcf)     | :white_check_mark: |
-| [BAM](api.md#polars_bio.data_input.read_bam)     | :white_check_mark: |
-| [FASTQ](api.md#polars_bio.data_input.read_fastq) | :white_check_mark: |
-| [FASTA](api.md#polars_bio.data_input.read_fasta) | :white_check_mark: |
-| [GFF3](api.md#polars_bio.data_input.read_gff)    | :white_check_mark: |
-| GTF                                              | :construction:     |
-| Indexed VCF                                      | :construction:     |
-| Indexed BAM                                      | :construction:     |
+| Format                                           | Single-threaded    | Parallel           | Limit pushdown     | Predicate pushdown | Projection pushdown |
+|--------------------------------------------------|--------------------|--------------------|--------------------|--------------------|---------------------|
+| [BED](api.md#polars_bio.data_input.read_bed)     | :white_check_mark: | ❌                  | :white_check_mark: | ❌                  | ❌                   |
+| [VCF](api.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :construction: | :white_check_mark: | :construction: | :construction: |
+| [BAM](api.md#polars_bio.data_input.read_bam)     | :white_check_mark: | ❌  | :white_check_mark: |  ❌  |  ❌  |
+| [FASTQ](api.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: | :white_check_mark: |  ❌  |  ❌   |
+| [FASTA](api.md#polars_bio.data_input.read_fasta) | :white_check_mark: |  ❌  | :white_check_mark: |  ❌  |  ❌   |
+| [GFF3](api.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 
 
 ## SQL-powered data processing
