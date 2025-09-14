@@ -23,6 +23,28 @@ except ImportError:
     pd = None
 
 
+def _generate_overlap_schema(
+    df1_schema: pl.Schema,
+    df2_schema: pl.Schema,
+    range_options: RangeOptions,
+) -> pl.Schema:
+    """Generate schema for overlap operations with correct suffix handling."""
+    coord_cols = set(range_options.columns_1 + range_options.columns_2)
+    merged_schema_dict = {}
+
+    # Add df1 columns with appropriate suffixes
+    for col_name, col_type in df1_schema.items():
+        # All df1 columns get suffix _1
+        merged_schema_dict[f"{col_name}{range_options.suffixes[0]}"] = col_type
+
+    # Add df2 columns with appropriate suffixes
+    for col_name, col_type in df2_schema.items():
+        # All df2 columns get suffix _2
+        merged_schema_dict[f"{col_name}{range_options.suffixes[1]}"] = col_type
+
+    return pl.Schema(merged_schema_dict)
+
+
 def _lazyframe_to_parquet(
     df: Union[pl.LazyFrame, "GffLazyFrameWrapper"], ctx: BioSessionContext
 ) -> str:
@@ -129,39 +151,10 @@ def range_operation(
             df_schema1_base = _get_schema(df1, ctx, None, read_options1)
             df_schema2_base = _get_schema(df2, ctx, None, read_options2)
 
-            # Generate the correct schema based on actual DataFusion behavior
-            # Coordinate columns get correct suffixes, non-coordinate columns get swapped suffixes
-            coord_cols = set(range_options.columns_1 + range_options.columns_2)
-
-            merged_schema_dict = {}
-
-            # Add df1 columns with appropriate suffixes
-            for col_name, col_type in df_schema1_base.items():
-                if col_name in coord_cols:
-                    # Coordinate columns get suffix _1
-                    merged_schema_dict[f"{col_name}{range_options.suffixes[0]}"] = (
-                        col_type
-                    )
-                else:
-                    # Non-coordinate columns get suffix _2 (swapped behavior)
-                    merged_schema_dict[f"{col_name}{range_options.suffixes[1]}"] = (
-                        col_type
-                    )
-
-            # Add df2 columns with appropriate suffixes
-            for col_name, col_type in df_schema2_base.items():
-                if col_name in coord_cols:
-                    # Coordinate columns get suffix _2
-                    merged_schema_dict[f"{col_name}{range_options.suffixes[1]}"] = (
-                        col_type
-                    )
-                else:
-                    # Non-coordinate columns get suffix _1 (swapped behavior)
-                    merged_schema_dict[f"{col_name}{range_options.suffixes[0]}"] = (
-                        col_type
-                    )
-
-            merged_schema = pl.Schema(merged_schema_dict)
+            # Generate the correct schema using common function
+            merged_schema = _generate_overlap_schema(
+                df_schema1_base, df_schema2_base, range_options
+            )
             # Nearest adds an extra computed column
             if range_options.range_op == RangeOp.Nearest:
                 merged_schema = pl.Schema({**merged_schema, **{"distance": pl.Int64}})
@@ -220,39 +213,10 @@ def range_operation(
             df1_base_schema = _rename_columns(df1, "").schema
             df2_base_schema = _rename_columns(df2, "").schema
 
-            # Generate correct schema based on actual DataFusion behavior
-            # Coordinate columns get correct suffixes, non-coordinate columns get swapped suffixes
-            coord_cols = set(range_options.columns_1 + range_options.columns_2)
-
-            merged_schema_dict = {}
-
-            # Add df1 columns with appropriate suffixes
-            for col_name, col_type in df1_base_schema.items():
-                if col_name in coord_cols:
-                    # Coordinate columns get suffix _1
-                    merged_schema_dict[f"{col_name}{range_options.suffixes[0]}"] = (
-                        col_type
-                    )
-                else:
-                    # Non-coordinate columns get suffix _2 (swapped behavior)
-                    merged_schema_dict[f"{col_name}{range_options.suffixes[1]}"] = (
-                        col_type
-                    )
-
-            # Add df2 columns with appropriate suffixes
-            for col_name, col_type in df2_base_schema.items():
-                if col_name in coord_cols:
-                    # Coordinate columns get suffix _2
-                    merged_schema_dict[f"{col_name}{range_options.suffixes[1]}"] = (
-                        col_type
-                    )
-                else:
-                    # Non-coordinate columns get suffix _1 (swapped behavior)
-                    merged_schema_dict[f"{col_name}{range_options.suffixes[0]}"] = (
-                        col_type
-                    )
-
-            merged_schema = pl.Schema(merged_schema_dict)
+            # Generate the correct schema using common function
+            merged_schema = _generate_overlap_schema(
+                df1_base_schema, df2_base_schema, range_options
+            )
             # Add computed columns for streaming outputs
             if range_options.range_op == RangeOp.Nearest:
                 merged_schema = pl.Schema({**merged_schema, **{"distance": pl.Int64}})
