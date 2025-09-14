@@ -107,32 +107,32 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
 
         // Always include the required coordinate columns
         selected_columns.push(format!(
-            "b.`{}` as `{}{}`",
-            query_params.columns_2[0], query_params.columns_2[0], query_params.suffixes.0
-        ));
-        selected_columns.push(format!(
-            "b.`{}` as `{}{}`",
-            query_params.columns_2[1], query_params.columns_2[1], query_params.suffixes.0
-        ));
-        selected_columns.push(format!(
-            "b.`{}` as `{}{}`",
-            query_params.columns_2[2], query_params.columns_2[2], query_params.suffixes.0
+            "a.`{}` as `{}{}`",
+            query_params.columns_1[0], query_params.columns_1[0], query_params.suffixes.0
         ));
         selected_columns.push(format!(
             "a.`{}` as `{}{}`",
-            query_params.columns_1[0], query_params.columns_1[0], query_params.suffixes.1
+            query_params.columns_1[1], query_params.columns_1[1], query_params.suffixes.0
         ));
         selected_columns.push(format!(
             "a.`{}` as `{}{}`",
-            query_params.columns_1[1], query_params.columns_1[1], query_params.suffixes.1
+            query_params.columns_1[2], query_params.columns_1[2], query_params.suffixes.0
         ));
         selected_columns.push(format!(
-            "a.`{}` as `{}{}`",
-            query_params.columns_1[2], query_params.columns_1[2], query_params.suffixes.1
+            "b.`{}` as `{}{}`",
+            query_params.columns_2[0], query_params.columns_2[0], query_params.suffixes.1
+        ));
+        selected_columns.push(format!(
+            "b.`{}` as `{}{}`",
+            query_params.columns_2[1], query_params.columns_2[1], query_params.suffixes.1
+        ));
+        selected_columns.push(format!(
+            "b.`{}` as `{}{}`",
+            query_params.columns_2[2], query_params.columns_2[2], query_params.suffixes.1
         ));
 
         // Add other columns only if they are in the projected columns
-        for col in &query_params.other_columns_2 {
+        for col in &query_params.other_columns_1 {
             if projected_cols.iter().any(|pc| pc.contains(col)) {
                 selected_columns.push(format!(
                     "a.`{}` as `{}{}`",
@@ -140,7 +140,7 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
                 ));
             }
         }
-        for col in &query_params.other_columns_1 {
+        for col in &query_params.other_columns_2 {
             if projected_cols.iter().any(|pc| pc.contains(col)) {
                 selected_columns.push(format!(
                     "b.`{}` as `{}{}`",
@@ -153,38 +153,38 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
     } else {
         // Use original logic when no projection is specified
         format!(
-            "b.`{}` as `{}{}`, -- contig
-                b.`{}` as `{}{}`, -- pos_start
-                b.`{}` as `{}{}`, -- pos_end
-                a.`{}` as `{}{}`, -- contig
+            "a.`{}` as `{}{}`, -- contig
                 a.`{}` as `{}{}`, -- pos_start
-                a.`{}` as `{}{}` -- pos_end
+                a.`{}` as `{}{}`, -- pos_end
+                b.`{}` as `{}{}`, -- contig
+                b.`{}` as `{}{}`, -- pos_start
+                b.`{}` as `{}{}` -- pos_end
                 {}
                 {}",
-            query_params.columns_2[0],
-            query_params.columns_2[0],
-            query_params.suffixes.0,
-            query_params.columns_2[1],
-            query_params.columns_2[1],
-            query_params.suffixes.0,
-            query_params.columns_2[2],
-            query_params.columns_2[2],
-            query_params.suffixes.0,
             query_params.columns_1[0],
             query_params.columns_1[0],
-            query_params.suffixes.1,
+            query_params.suffixes.0,
             query_params.columns_1[1],
             query_params.columns_1[1],
+            query_params.suffixes.0,
+            query_params.columns_1[2],
+            query_params.columns_1[2],
+            query_params.suffixes.0,
+            query_params.columns_2[0],
+            query_params.columns_2[0],
             query_params.suffixes.1,
-            query_params.columns_1[2],
-            query_params.columns_1[2],
+            query_params.columns_2[1],
+            query_params.columns_2[1],
+            query_params.suffixes.1,
+            query_params.columns_2[2],
+            query_params.columns_2[2],
             query_params.suffixes.1,
             if !query_params.other_columns_2.is_empty() {
                 ",".to_string()
                     + &format_non_join_tables(
                         query_params.other_columns_2.clone(),
-                        "a".to_string(),
-                        query_params.suffixes.0.clone(),
+                        "b".to_string(),
+                        query_params.suffixes.1.clone(),
                     )
             } else {
                 "".to_string()
@@ -193,8 +193,8 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
                 ",".to_string()
                     + &format_non_join_tables(
                         query_params.other_columns_1.clone(),
-                        "b".to_string(),
-                        query_params.suffixes.1.clone(),
+                        "a".to_string(),
+                        query_params.suffixes.0.clone(),
                     )
             } else {
                 "".to_string()
@@ -207,7 +207,7 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
             SELECT
                 {}
             FROM
-                {} AS a, {} AS b
+                {} AS b, {} AS a
             WHERE
                 a.`{}`=b.`{}`
             AND
