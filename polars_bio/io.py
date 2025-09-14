@@ -1268,11 +1268,30 @@ class GffLazyFrameWrapper:
             table = py_register_table(
                 ctx, self._file_path, None, _InputFormat.Gff, ropts
             )
+
+            # Extract WHERE clause from existing LazyFrame if it has filters applied
+            where_clause = ""
+            try:
+                # Check if the current LazyFrame has filters by examining its plan
+                logical_plan_str = str(self._base_lf.explain(optimized=False))
+
+                # Look for FILTER operations in the logical plan
+                if "FILTER" in logical_plan_str:
+                    # Try to translate polars expressions to SQL WHERE clause
+                    where_clause = self._extract_sql_where_clause(logical_plan_str)
+            except Exception:
+                # If we can't extract the WHERE clause, fall back to the original approach
+                # but at least warn that filtering may not work correctly
+                pass
+
             select_clause = ", ".join([f'"{c}"' for c in columns])
             view_name = f"{table.name}_proj"
-            py_register_view(
-                ctx, view_name, f"SELECT {select_clause} FROM {table.name}"
-            )
+            sql_query = f"SELECT {select_clause} FROM {table.name}"
+
+            if where_clause:
+                sql_query += f" WHERE {where_clause}"
+
+            py_register_view(ctx, view_name, sql_query)
             df_view = py_read_table(ctx, view_name)
 
             new_lf = _lazy_scan(
@@ -1314,6 +1333,100 @@ class GffLazyFrameWrapper:
             self._projection_pushdown,
             self._predicate_pushdown,
         )
+
+    def _extract_sql_where_clause(self, logical_plan_str):
+        """Extract SQL WHERE clause from Polars logical plan string."""
+        import re
+
+        # Look for SELECTION in the optimized plan or individual FILTER operations in unoptimized
+        selection_match = re.search(r"SELECTION:\s*(.+)", logical_plan_str)
+        if selection_match:
+            # Use the selection expression from optimized plan
+            selection_expr = selection_match.group(1).strip()
+            try:
+                return _build_sql_where_from_predicate_safe(selection_expr)
+            except Exception:
+                pass
+
+        # Fallback: look for individual FILTER operations in unoptimized plan
+        filter_lines = []
+        for line in logical_plan_str.split("\n"):
+            if "FILTER" in line and "[" in line:
+                filter_lines.append(line.strip())
+
+        if not filter_lines:
+            return ""
+
+        # Extract all filter conditions and combine them
+        all_conditions = []
+        for line in filter_lines:
+            # Extract the condition inside brackets
+            match = re.search(r"FILTER\s+\[(.+?)\]", line)
+            if match:
+                condition = match.group(1)
+                try:
+                    sql_condition = _build_sql_where_from_predicate_safe(condition)
+                    if sql_condition:
+                        all_conditions.append(sql_condition)
+                except Exception:
+                    continue
+
+        if all_conditions:
+            return " AND ".join(all_conditions)
+
+        return ""
+
+    def _parse_filter_expression(self, filter_expr):
+        """Parse filter expression string to SQL WHERE clause."""
+        # Use the same logic as _build_sql_where_from_predicate_safe
+        # but work with the string directly from the logical plan
+        import re
+
+        conditions = []
+
+        # String equality patterns
+        str_patterns = [
+            r'col\("([^"]+)"\)\.eq\(lit\("([^"]*)"\)\)',  # From logical plan
+            r'col\("([^"]+)"\)\s*==\s*"([^"]*)"',  # Standard format
+        ]
+        for pat in str_patterns:
+            for column, value in re.findall(pat, filter_expr):
+                conditions.append(f"\"{column}\" = '{value}'")
+
+        # Numeric comparison patterns
+        numeric_patterns = [
+            (r'col\("([^"]+)"\)\.gt\(lit\((\d+)\)\)', ">"),
+            (r'col\("([^"]+)"\)\.lt\(lit\((\d+)\)\)', "<"),
+            (r'col\("([^"]+)"\)\.gt_eq\(lit\((\d+)\)\)', ">="),
+            (r'col\("([^"]+)"\)\.lt_eq\(lit\((\d+)\)\)', "<="),
+            (r'col\("([^"]+)"\)\.neq\(lit\((\d+)\)\)', "!="),
+            (r'col\("([^"]+)"\)\.eq\(lit\((\d+)\)\)', "="),
+            # Standard format patterns
+            (r'col\("([^"]+)"\)\s*>\s*(\d+)', ">"),
+            (r'col\("([^"]+)"\)\s*<\s*(\d+)', "<"),
+            (r'col\("([^"]+)"\)\s*>=\s*(\d+)', ">="),
+            (r'col\("([^"]+)"\)\s*<=\s*(\d+)', "<="),
+            (r'col\("([^"]+)"\)\s*!=\s*(\d+)', "!="),
+            (r'col\("([^"]+)"\)\s*==\s*(\d+)', "="),
+        ]
+
+        for pattern, op in numeric_patterns:
+            matches = re.findall(pattern, filter_expr)
+            for column, value in matches:
+                conditions.append(f'"{column}" {op} {value}')
+
+        # Join conditions with AND
+        if conditions:
+            return " AND ".join(conditions)
+
+        # Fallback: try to use the existing robust parser on the filter expression
+        # by creating a dummy predicate string
+        try:
+            return _build_sql_where_from_predicate_safe(filter_expr)
+        except Exception:
+            pass
+
+        return ""
 
     def __getattr__(self, name):
         return getattr(self._base_lf, name)
