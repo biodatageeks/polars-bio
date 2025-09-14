@@ -90,5 +90,5 @@ The benchmarks demonstrate that polars-bio `0.15.0` delivers significant perform
 
 
 If you haven't tried polars-bio yet, now is a great time to explore its capabilities for efficient genomic data processing with Python! [Join](https://docs.google.com/forms/d/e/1FAIpQLSdxE3admdmAPE_PVSsUvjJAPXuDAKN4VjHLWJWmXGNVqX6mzw/viewform?usp=dialog) our upcoming seminar on *September 15, 2025*, to learn more about polars-bio and its applications in genomics.
-![Polars-bio High-Performance Python DataFrame Operations for Genomics.png](figures/gff-read-optimization-2025-09/Polars-bio%20High-Performance%20Python%20DataFrame%20Operations%20for%20Genomics.png)
+![seminar.png](figures/gff-read-optimization-2025-09/seminar.png)
 
