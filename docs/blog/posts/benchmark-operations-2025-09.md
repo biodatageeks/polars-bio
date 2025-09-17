@@ -2,7 +2,7 @@
 draft: false
 date:
   created: 2025-09-05
-  updated: 2025-09-05
+  updated: 2025-09-17
 categories:
   - performance
   - benchmarks
@@ -82,6 +82,8 @@ Key takeaways:
 - *Count overlaps*: **GenomicRanges** edges out polars‑bio on the smallest inputs, while **polars‑bio** is faster on medium and substantially faster on large inputs.
 
 ### All operations parallel execution
+![bench_parallel_speedup_combined_8-7.png](figures/benchmark-sep-2025/bench_parallel_speedup_combined_8-7.png)
+
 ![benchmark_comparison_genomicranges_vs_polars_bio.png](figures/benchmark-sep-2025/benchmark_comparison_genomicranges_vs_polars_bio.png){.glightbox}
 
 ![benchmark_speedup_comparison_genomicranges_vs_polars_bio.png](figures/benchmark-sep-2025/benchmark_speedup_comparison_genomicranges_vs_polars_bio.png){.glightbox}
