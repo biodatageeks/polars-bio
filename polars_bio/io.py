@@ -521,6 +521,7 @@ class IOOperations:
         compression_type: str = "auto",
         parallel: bool = False,
         projection_pushdown: bool = False,
+        parser: str = "noodles",
     ) -> pl.DataFrame:
         """
         Read a FASTQ file into a DataFrame.
@@ -536,6 +537,7 @@ class IOOperations:
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
             parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            parser: The parser to use for reading FASTQ files. Options are "noodles" (default) or "needletail".
         """
         return IOOperations.scan_fastq(
             path,
@@ -548,6 +550,7 @@ class IOOperations:
             compression_type,
             parallel,
             projection_pushdown,
+            parser,
         ).collect()
 
     @staticmethod
@@ -562,6 +565,7 @@ class IOOperations:
         compression_type: str = "auto",
         parallel: bool = False,
         projection_pushdown: bool = False,
+        parser: str = "noodles",
     ) -> pl.LazyFrame:
         """
         Lazily read a FASTQ file into a LazyFrame.
@@ -577,6 +581,7 @@ class IOOperations:
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
             parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            parser: The parser to use for reading FASTQ files. Options are "noodles" (default) or "needletail".
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -588,8 +593,19 @@ class IOOperations:
             compression_type=compression_type,
         )
 
+        # Convert string parser to enum
+        from polars_bio.polars_bio import FastqParser
+
+        fastq_parser = (
+            FastqParser.Noodles
+            if parser.lower() == "noodles"
+            else FastqParser.Needletail
+        )
+
         fastq_read_options = FastqReadOptions(
-            object_storage_options=object_storage_options, parallel=parallel
+            object_storage_options=object_storage_options,
+            parallel=parallel,
+            parser=fastq_parser,
         )
         read_options = ReadOptions(fastq_read_options=fastq_read_options)
         return _read_file(path, InputFormat.Fastq, read_options, projection_pushdown)

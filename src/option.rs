@@ -225,24 +225,38 @@ pub fn pyobject_storage_options_to_object_storage_options(
     })
 }
 
+#[pyclass(eq, eq_int)]
+#[derive(Clone, PartialEq, Debug)]
+pub enum FastqParser {
+    Noodles = 0,
+    Needletail = 1,
+}
+
 #[pyclass(name = "FastqReadOptions")]
 #[derive(Clone, Debug)]
 pub struct FastqReadOptions {
     pub object_storage_options: Option<ObjectStorageOptions>,
     #[pyo3(get, set)]
     pub parallel: bool,
+    #[pyo3(get, set)]
+    pub parser: FastqParser,
 }
 
 #[pymethods]
 impl FastqReadOptions {
     #[new]
-    #[pyo3(signature = (object_storage_options=None, parallel=false))]
-    pub fn new(object_storage_options: Option<PyObjectStorageOptions>, parallel: bool) -> Self {
+    #[pyo3(signature = (object_storage_options=None, parallel=false, parser=FastqParser::Noodles))]
+    pub fn new(
+        object_storage_options: Option<PyObjectStorageOptions>,
+        parallel: bool,
+        parser: FastqParser,
+    ) -> Self {
         FastqReadOptions {
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
             parallel,
+            parser,
         }
     }
     #[staticmethod]
@@ -258,6 +272,7 @@ impl FastqReadOptions {
                 compression_type: Some(CompressionType::AUTO),
             }),
             parallel: true,
+            parser: FastqParser::Noodles,
         }
     }
 }

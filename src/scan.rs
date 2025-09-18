@@ -12,6 +12,7 @@ use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::bgzf_parallel_reader::BgzfFastqTableProvider as BgzfParallelFastqTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
+use datafusion_bio_format_fastq::FastqParser;
 use datafusion_bio_format_gff::bgzf_parallel_reader::BgzfGffTableProvider as BgzfParallelGffTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
@@ -111,22 +112,30 @@ pub(crate) async fn register_table(
                 table_name, fastq_read_options
             );
 
+            // Convert our FastqParser enum to the one from datafusion_bio_format_fastq
+            let parser = match fastq_read_options.parser {
+                crate::option::FastqParser::Noodles => FastqParser::Noodles,
+                crate::option::FastqParser::Needletail => FastqParser::Needletail,
+            };
+
             if fastq_read_options.parallel {
                 if path.ends_with(".bgz") {
-                    let table_provider = BgzfParallelFastqTableProvider::try_new(path).unwrap();
+                    let table_provider =
+                        BgzfParallelFastqTableProvider::new_with_parser(path, parser).unwrap();
                     ctx.register_table(table_name, Arc::new(table_provider))
                         .expect("Failed to register parallel FASTQ table");
                 } else if path.ends_with(".gz") {
-                    match BgzfParallelFastqTableProvider::try_new(path) {
+                    match BgzfParallelFastqTableProvider::new_with_parser(path, parser) {
                         Ok(table_provider) => {
                             ctx.register_table(table_name, Arc::new(table_provider))
                                 .expect("Failed to register parallel FASTQ table");
                         },
                         Err(_) => {
-                            let table_provider = FastqTableProvider::new(
+                            let table_provider = FastqTableProvider::new_with_parser(
                                 path.to_string(),
                                 None,
                                 fastq_read_options.object_storage_options.clone(),
+                                parser,
                             )
                             .unwrap();
                             ctx.register_table(table_name, Arc::new(table_provider))
@@ -134,20 +143,22 @@ pub(crate) async fn register_table(
                         },
                     }
                 } else {
-                    let table_provider = FastqTableProvider::new(
+                    let table_provider = FastqTableProvider::new_with_parser(
                         path.to_string(),
                         None,
                         fastq_read_options.object_storage_options.clone(),
+                        parser,
                     )
                     .unwrap();
                     ctx.register_table(table_name, Arc::new(table_provider))
                         .expect("Failed to register FASTQ table");
                 }
             } else {
-                let table_provider = FastqTableProvider::new(
+                let table_provider = FastqTableProvider::new_with_parser(
                     path.to_string(),
                     None,
                     fastq_read_options.object_storage_options.clone(),
+                    parser,
                 )
                 .unwrap();
                 ctx.register_table(table_name, Arc::new(table_provider))
