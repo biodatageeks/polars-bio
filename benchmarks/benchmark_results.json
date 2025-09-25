@@ -1,0 +1,1156 @@
+[
+  {
+    "name": "predicate_pushdown_polars_",
+    "unit": "ops/sec",
+    "value": 0.18612463987947384,
+    "extra": {
+      "avg_time_seconds": 5.372743773460388,
+      "min_time_seconds": 5.283366918563843,
+      "max_time_seconds": 5.458625078201294,
+      "std_dev_seconds": 0.08340845267052956,
+      "library": "polars",
+      "test_type": "",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "predicate_pushdown_polars-bio_",
+    "unit": "ops/sec",
+    "value": 0.09467071103254167,
+    "extra": {
+      "avg_time_seconds": 10.562929010391235,
+      "min_time_seconds": 10.510523080825806,
+      "max_time_seconds": 10.691439867019653,
+      "std_dev_seconds": 0.05650481489944959,
+      "library": "polars-bio",
+      "test_type": "",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "predicate_pushdown_polars-bio__pred",
+    "unit": "ops/sec",
+    "value": 0.45136405967142756,
+    "extra": {
+      "avg_time_seconds": 2.2155064821243284,
+      "min_time_seconds": 2.195688009262085,
+      "max_time_seconds": 2.2350668907165527,
+      "std_dev_seconds": 0.01760236696623938,
+      "library": "polars-bio",
+      "test_type": "",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "True",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars_read_only",
+    "unit": "ops/sec",
+    "value": 0.06841910652811554,
+    "extra": {
+      "avg_time_seconds": 14.615800333333333,
+      "min_time_seconds": 14.551301,
+      "max_time_seconds": 14.700508,
+      "std_dev_seconds": 0.07662874633147303,
+      "library": "polars",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-streaming_read_only",
+    "unit": "ops/sec",
+    "value": 0.07457258721636938,
+    "extra": {
+      "avg_time_seconds": 13.409753333333333,
+      "min_time_seconds": 13.382966,
+      "max_time_seconds": 13.444213,
+      "std_dev_seconds": 0.0313360379807869,
+      "library": "polars-streaming",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-bio_read_only",
+    "unit": "ops/sec",
+    "value": 0.0893830140810425,
+    "extra": {
+      "avg_time_seconds": 11.187808,
+      "min_time_seconds": 11.166688,
+      "max_time_seconds": 11.199212,
+      "std_dev_seconds": 0.018309919060443026,
+      "library": "polars-bio",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars_read_only_t2",
+    "unit": "ops/sec",
+    "value": 0.10701761213813735,
+    "extra": {
+      "avg_time_seconds": 9.344256333333332,
+      "min_time_seconds": 9.253338,
+      "max_time_seconds": 9.462914,
+      "std_dev_seconds": 0.10750640866633654,
+      "library": "polars",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "2"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-streaming_read_only_t2",
+    "unit": "ops/sec",
+    "value": 0.11490915224968563,
+    "extra": {
+      "avg_time_seconds": 8.702527,
+      "min_time_seconds": 8.624518,
+      "max_time_seconds": 8.843532,
+      "std_dev_seconds": 0.12234441164597573,
+      "library": "polars-streaming",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "2"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-bio_read_only_t2",
+    "unit": "ops/sec",
+    "value": 0.18924638933659677,
+    "extra": {
+      "avg_time_seconds": 5.284116666666667,
+      "min_time_seconds": 5.227123,
+      "max_time_seconds": 5.327472,
+      "std_dev_seconds": 0.05154593633191042,
+      "library": "polars-bio",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "2"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars_read_only_t4",
+    "unit": "ops/sec",
+    "value": 0.14866743431922308,
+    "extra": {
+      "avg_time_seconds": 6.726422666666666,
+      "min_time_seconds": 6.700582,
+      "max_time_seconds": 6.776939,
+      "std_dev_seconds": 0.04375230572590792,
+      "library": "polars",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "4"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-streaming_read_only_t4",
+    "unit": "ops/sec",
+    "value": 0.14543402603559932,
+    "extra": {
+      "avg_time_seconds": 6.875970000000001,
+      "min_time_seconds": 6.855671,
+      "max_time_seconds": 6.892026,
+      "std_dev_seconds": 0.018545182474163122,
+      "library": "polars-streaming",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "4"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-bio_read_only_t4",
+    "unit": "ops/sec",
+    "value": 0.3711484992363001,
+    "extra": {
+      "avg_time_seconds": 2.694339333333333,
+      "min_time_seconds": 2.68442,
+      "max_time_seconds": 2.703566,
+      "std_dev_seconds": 0.0095917761302761,
+      "library": "polars-bio",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "4"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars_read_only_t6",
+    "unit": "ops/sec",
+    "value": 0.1687750040168451,
+    "extra": {
+      "avg_time_seconds": 5.925048,
+      "min_time_seconds": 5.763707,
+      "max_time_seconds": 6.2095,
+      "std_dev_seconds": 0.24708316100657302,
+      "library": "polars",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "6"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-streaming_read_only_t6",
+    "unit": "ops/sec",
+    "value": 0.14282971275087977,
+    "extra": {
+      "avg_time_seconds": 7.001344333333334,
+      "min_time_seconds": 6.98006,
+      "max_time_seconds": 7.031322,
+      "std_dev_seconds": 0.02671382964558508,
+      "library": "polars-streaming",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "6"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-bio_read_only_t6",
+    "unit": "ops/sec",
+    "value": 0.5537427658122169,
+    "extra": {
+      "avg_time_seconds": 1.8058926666666668,
+      "min_time_seconds": 1.80312,
+      "max_time_seconds": 1.809641,
+      "std_dev_seconds": 0.003368204912610467,
+      "library": "polars-bio",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "6"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars_read_only_t8",
+    "unit": "ops/sec",
+    "value": 0.17233364805287105,
+    "extra": {
+      "avg_time_seconds": 5.802697333333334,
+      "min_time_seconds": 5.427099,
+      "max_time_seconds": 6.038484,
+      "std_dev_seconds": 0.32879838983537224,
+      "library": "polars",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "8"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-streaming_read_only_t8",
+    "unit": "ops/sec",
+    "value": 0.11939884591463515,
+    "extra": {
+      "avg_time_seconds": 8.375290333333334,
+      "min_time_seconds": 8.354527,
+      "max_time_seconds": 8.394669,
+      "std_dev_seconds": 0.020106790328974913,
+      "library": "polars-streaming",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "8"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-bio_read_only_t8",
+    "unit": "ops/sec",
+    "value": 0.7341071311900831,
+    "extra": {
+      "avg_time_seconds": 1.362199,
+      "min_time_seconds": 1.359726,
+      "max_time_seconds": 1.364594,
+      "std_dev_seconds": 0.0024349371655137684,
+      "library": "polars-bio",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "8"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars_read_only_t16",
+    "unit": "ops/sec",
+    "value": 0.20808630310058998,
+    "extra": {
+      "avg_time_seconds": 4.805698333333333,
+      "min_time_seconds": 4.757227,
+      "max_time_seconds": 4.875048,
+      "std_dev_seconds": 0.06162284975829415,
+      "library": "polars",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "16"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-streaming_read_only_t16",
+    "unit": "ops/sec",
+    "value": 0.05201041942069061,
+    "extra": {
+      "avg_time_seconds": 19.226916666666668,
+      "min_time_seconds": 18.685221,
+      "max_time_seconds": 19.512249,
+      "std_dev_seconds": 0.469345765086183,
+      "library": "polars-streaming",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "16"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-bio_read_only_t16",
+    "unit": "ops/sec",
+    "value": 0.8548369954075307,
+    "extra": {
+      "avg_time_seconds": 1.1698136666666668,
+      "min_time_seconds": 1.16517,
+      "max_time_seconds": 1.177417,
+      "std_dev_seconds": 0.0066382958907638704,
+      "library": "polars-bio",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "16"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars_read_with_filter",
+    "unit": "ops/sec",
+    "value": 0.1785327464763587,
+    "extra": {
+      "avg_time_seconds": 5.601213333333333,
+      "min_time_seconds": 5.551798,
+      "max_time_seconds": 5.64584,
+      "std_dev_seconds": 0.0472035267467732,
+      "library": "polars",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-streaming_read_with_filter",
+    "unit": "ops/sec",
+    "value": 0.2657729843356061,
+    "extra": {
+      "avg_time_seconds": 3.7626096666666666,
+      "min_time_seconds": 3.74489,
+      "max_time_seconds": 3.772388,
+      "std_dev_seconds": 0.015373144842007328,
+      "library": "polars-streaming",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-bio_read_with_filter",
+    "unit": "ops/sec",
+    "value": 0.24108726499114766,
+    "extra": {
+      "avg_time_seconds": 4.147875666666667,
+      "min_time_seconds": 4.139652,
+      "max_time_seconds": 4.157866,
+      "std_dev_seconds": 0.009234624103521324,
+      "library": "polars-bio",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars_read_with_filter_t2",
+    "unit": "ops/sec",
+    "value": 0.2182905030388221,
+    "extra": {
+      "avg_time_seconds": 4.581051333333333,
+      "min_time_seconds": 4.532074,
+      "max_time_seconds": 4.632399,
+      "std_dev_seconds": 0.0502044845241276,
+      "library": "polars",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "2"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-streaming_read_with_filter_t2",
+    "unit": "ops/sec",
+    "value": 0.3255162416328763,
+    "extra": {
+      "avg_time_seconds": 3.0720433333333332,
+      "min_time_seconds": 3.033153,
+      "max_time_seconds": 3.133239,
+      "std_dev_seconds": 0.053641847193523634,
+      "library": "polars-streaming",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "2"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-bio_read_with_filter_t2",
+    "unit": "ops/sec",
+    "value": 0.4710629189319559,
+    "extra": {
+      "avg_time_seconds": 2.1228586666666667,
+      "min_time_seconds": 2.120814,
+      "max_time_seconds": 2.126353,
+      "std_dev_seconds": 0.003040769694227579,
+      "library": "polars-bio",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "2"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars_read_with_filter_t4",
+    "unit": "ops/sec",
+    "value": 0.24256925473507315,
+    "extra": {
+      "avg_time_seconds": 4.122534,
+      "min_time_seconds": 4.08885,
+      "max_time_seconds": 4.184257,
+      "std_dev_seconds": 0.05352815196697881,
+      "library": "polars",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "4"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-streaming_read_with_filter_t4",
+    "unit": "ops/sec",
+    "value": 0.3320849522013524,
+    "extra": {
+      "avg_time_seconds": 3.0112776666666665,
+      "min_time_seconds": 2.992138,
+      "max_time_seconds": 3.021118,
+      "std_dev_seconds": 0.016577644595458307,
+      "library": "polars-streaming",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "4"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-bio_read_with_filter_t4",
+    "unit": "ops/sec",
+    "value": 0.9207029259938988,
+    "extra": {
+      "avg_time_seconds": 1.0861266666666667,
+      "min_time_seconds": 1.084133,
+      "max_time_seconds": 1.087895,
+      "std_dev_seconds": 0.0018910955378651294,
+      "library": "polars-bio",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "4"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars_read_with_filter_t6",
+    "unit": "ops/sec",
+    "value": 0.2484364445332927,
+    "extra": {
+      "avg_time_seconds": 4.025174333333333,
+      "min_time_seconds": 3.998016,
+      "max_time_seconds": 4.074628,
+      "std_dev_seconds": 0.042897098413917485,
+      "library": "polars",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "6"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-streaming_read_with_filter_t6",
+    "unit": "ops/sec",
+    "value": 0.32640988943626614,
+    "extra": {
+      "avg_time_seconds": 3.063632666666667,
+      "min_time_seconds": 3.05353,
+      "max_time_seconds": 3.070301,
+      "std_dev_seconds": 0.00889733636170605,
+      "library": "polars-streaming",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "6"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-bio_read_with_filter_t6",
+    "unit": "ops/sec",
+    "value": 1.3691596782474755,
+    "extra": {
+      "avg_time_seconds": 0.730375,
+      "min_time_seconds": 0.728795,
+      "max_time_seconds": 0.731523,
+      "std_dev_seconds": 0.001414377601632633,
+      "library": "polars-bio",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "6"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars_read_with_filter_t8",
+    "unit": "ops/sec",
+    "value": 0.25119827858843646,
+    "extra": {
+      "avg_time_seconds": 3.980919,
+      "min_time_seconds": 3.875969,
+      "max_time_seconds": 4.103025,
+      "std_dev_seconds": 0.11449608305963992,
+      "library": "polars",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "8"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-streaming_read_with_filter_t8",
+    "unit": "ops/sec",
+    "value": 0.27396302028887937,
+    "extra": {
+      "avg_time_seconds": 3.6501276666666667,
+      "min_time_seconds": 3.643048,
+      "max_time_seconds": 3.654393,
+      "std_dev_seconds": 0.006173946090899504,
+      "library": "polars-streaming",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "8"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-bio_read_with_filter_t8",
+    "unit": "ops/sec",
+    "value": 1.8147019896392613,
+    "extra": {
+      "avg_time_seconds": 0.5510546666666667,
+      "min_time_seconds": 0.550469,
+      "max_time_seconds": 0.551972,
+      "std_dev_seconds": 0.0008045211826505071,
+      "library": "polars-bio",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "8"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars_read_with_filter_t16",
+    "unit": "ops/sec",
+    "value": 0.25912345617483856,
+    "extra": {
+      "avg_time_seconds": 3.859164333333333,
+      "min_time_seconds": 3.800882,
+      "max_time_seconds": 3.894014,
+      "std_dev_seconds": 0.050795765141725395,
+      "library": "polars",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "16"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-streaming_read_with_filter_t16",
+    "unit": "ops/sec",
+    "value": 0.20082927764185726,
+    "extra": {
+      "avg_time_seconds": 4.9793536666666665,
+      "min_time_seconds": 4.970292,
+      "max_time_seconds": 4.994798,
+      "std_dev_seconds": 0.013442091888293982,
+      "library": "polars-streaming",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "16"
+      }
+    }
+  },
+  {
+    "name": "thread_scalability_polars-bio_read_with_filter_t16",
+    "unit": "ops/sec",
+    "value": 2.876172159995705,
+    "extra": {
+      "avg_time_seconds": 0.3476843333333333,
+      "min_time_seconds": 0.346148,
+      "max_time_seconds": 0.348536,
+      "std_dev_seconds": 0.0013331212748033526,
+      "library": "polars-bio",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "16"
+      }
+    }
+  },
+  {
+    "name": "combined_optimizations__",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0.0,
+      "library": "",
+      "test_type": "",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "combined_optimizations___t16",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0.0,
+      "library": "",
+      "test_type": "",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "16"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_pandas_read_only",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "pandas",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_polars_read_only",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "polars",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_polars-streaming_read_only",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "polars-streaming",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_polars-bio_read_only",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "polars-bio",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_polars-bio_read_only_proj",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "polars-bio",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "True",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_polars-bio_read_only_pred",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "polars-bio",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "True",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_polars-bio_read_only_proj_pred",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "polars-bio",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "True",
+        "predicate_pushdown": "True",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_pandas_read_with_filter",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "pandas",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_polars_read_with_filter",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "polars",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_polars-streaming_read_with_filter",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "polars-streaming",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_polars-bio_read_with_filter",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "polars-bio",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_polars-bio_read_with_filter_proj",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "polars-bio",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "True",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_polars-bio_read_with_filter_pred",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "polars-bio",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "True",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "memory_profiling_polars-bio_read_with_filter_proj_pred",
+    "unit": "ops/sec",
+    "value": 0,
+    "extra": {
+      "avg_time_seconds": 0.0,
+      "min_time_seconds": 0.0,
+      "max_time_seconds": 0.0,
+      "std_dev_seconds": 0,
+      "library": "polars-bio",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "True",
+        "predicate_pushdown": "True",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "general_performance_pandas_read_only",
+    "unit": "ops/sec",
+    "value": 0.010043794410795817,
+    "extra": {
+      "avg_time_seconds": 99.56396547953288,
+      "min_time_seconds": 97.1191177368164,
+      "max_time_seconds": 102.90972185134888,
+      "std_dev_seconds": 2.9985832106679293,
+      "library": "pandas",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "general_performance_polars_read_only",
+    "unit": "ops/sec",
+    "value": 0.06764958696823824,
+    "extra": {
+      "avg_time_seconds": 14.782056252161661,
+      "min_time_seconds": 14.760213851928711,
+      "max_time_seconds": 14.812846899032593,
+      "std_dev_seconds": 0.027433788478452136,
+      "library": "polars",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "general_performance_polars-bio_read_only",
+    "unit": "ops/sec",
+    "value": 0.08927348801151119,
+    "extra": {
+      "avg_time_seconds": 11.201533873875936,
+      "min_time_seconds": 10.990065813064575,
+      "max_time_seconds": 11.496444940567017,
+      "std_dev_seconds": 0.26330022144923404,
+      "library": "polars-bio",
+      "test_type": "read_only",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      },
+      "speedup_vs_pandas": 8.888422478615594
+    }
+  },
+  {
+    "name": "general_performance_pandas_read_with_filter",
+    "unit": "ops/sec",
+    "value": 0.009837336751898084,
+    "extra": {
+      "avg_time_seconds": 101.65352932612102,
+      "min_time_seconds": 100.92257690429688,
+      "max_time_seconds": 102.72641205787659,
+      "std_dev_seconds": 0.9492852932389937,
+      "library": "pandas",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "general_performance_polars_read_with_filter",
+    "unit": "ops/sec",
+    "value": 0.16729539711608798,
+    "extra": {
+      "avg_time_seconds": 5.977450768152873,
+      "min_time_seconds": 5.858726263046265,
+      "max_time_seconds": 6.201020002365112,
+      "std_dev_seconds": 0.19374097117064515,
+      "library": "polars",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "general_performance_polars-bio_read_with_filter_proj_pred",
+    "unit": "ops/sec",
+    "value": 0.44503438527422806,
+    "extra": {
+      "avg_time_seconds": 2.2470173835754395,
+      "min_time_seconds": 2.2426350116729736,
+      "max_time_seconds": 2.255183219909668,
+      "std_dev_seconds": 0.007078158999179868,
+      "library": "polars-bio",
+      "test_type": "read_with_filter",
+      "optimization_config": {
+        "projection_pushdown": "True",
+        "predicate_pushdown": "True",
+        "threads": "1"
+      },
+      "speedup_vs_pandas": 44.309388172648376
+    }
+  },
+  {
+    "name": "projection_pruning_polars_",
+    "unit": "ops/sec",
+    "value": 0.12629499349890644,
+    "extra": {
+      "avg_time_seconds": 7.917970240116119,
+      "min_time_seconds": 5.547712087631226,
+      "max_time_seconds": 14.755750179290771,
+      "std_dev_seconds": 3.9729492082423277,
+      "library": "polars",
+      "test_type": "",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "projection_pruning_polars-bio_",
+    "unit": "ops/sec",
+    "value": 0.09238280420548818,
+    "extra": {
+      "avg_time_seconds": 10.824525284767152,
+      "min_time_seconds": 10.638762950897217,
+      "max_time_seconds": 11.419442176818848,
+      "std_dev_seconds": 0.17984006720333157,
+      "library": "polars-bio",
+      "test_type": "",
+      "optimization_config": {
+        "projection_pushdown": "False",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  },
+  {
+    "name": "projection_pruning_polars-bio__proj",
+    "unit": "ops/sec",
+    "value": 0.2088621230225713,
+    "extra": {
+      "avg_time_seconds": 4.787847530841828,
+      "min_time_seconds": 2.522731065750122,
+      "max_time_seconds": 10.88850212097168,
+      "std_dev_seconds": 3.60259231238139,
+      "library": "polars-bio",
+      "test_type": "",
+      "optimization_config": {
+        "projection_pushdown": "True",
+        "predicate_pushdown": "False",
+        "threads": "1"
+      }
+    }
+  }
+]
