@@ -27,7 +27,7 @@ on:
       benchmark_tools:
         description: 'List of tools to benchmark (all, performance, memory, scalability, optimizations)'
         required: false
-        default: 'all'
+        default: 'default'
         type: string
       skip_data_download:
         description: 'Skip test data download (use cache)'
@@ -38,6 +38,7 @@ on:
 env:
   POETRY_VERSION: 1.8.4
   BENCHMARK_DATA_URL: 'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/gencode.v49.annotation.gff3.gz'
+  DEFAULT_BENCHMARK_TOOLS: 'performance,memory,optimizations'
 
 jobs:
   benchmark:
@@ -109,7 +110,11 @@ jobs:
           set -o pipefail
 
           # Determine which benchmarks to run based on input
-          TOOLS="${{ inputs.benchmark_tools || 'all' }}"
+          if [ "${{ inputs.benchmark_tools }}" = "default" ] || [ -z "${{ inputs.benchmark_tools }}" ]; then
+            TOOLS="$DEFAULT_BENCHMARK_TOOLS"
+          else
+            TOOLS="${{ inputs.benchmark_tools }}"
+          fi
           LOG_FILE=benchmark_output.txt
           : > "$LOG_FILE"
 
