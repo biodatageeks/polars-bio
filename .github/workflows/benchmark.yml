@@ -104,6 +104,7 @@ jobs:
 
       - name: Run specific benchmarks
         id: run_benchmarks
+        timeout-minutes: 120
         run: |
           cd benchmarks
           source ../.venv/bin/activate
