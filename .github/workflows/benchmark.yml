@@ -1,5 +1,8 @@
 name: Continuous Benchmarking
 
+permissions:
+  contents: read
+
 on:
   push:
     branches:
@@ -38,6 +41,9 @@ env:
 
 jobs:
   benchmark:
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
     timeout-minutes: 120
     
@@ -100,37 +106,89 @@ jobs:
         run: |
           cd benchmarks
           source ../.venv/bin/activate
-          
+          set -o pipefail
+
           # Determine which benchmarks to run based on input
           TOOLS="${{ inputs.benchmark_tools || 'all' }}"
-          
+          LOG_FILE=benchmark_output.txt
+          : > "$LOG_FILE"
+
           if [ "$TOOLS" = "all" ]; then
             echo "Running all benchmarks..."
-            python run_all_benchmarks.py > benchmark_output.txt 2>&1
+            python run_all_benchmarks.py 2>&1 | tee "$LOG_FILE"
           else
             echo "Running selective benchmarks: $TOOLS"
-            # Map names to scripts
-            case "$TOOLS" in
-              *performance*)
-                python 01_general_performance.py
-                ;;
-              *memory*)
-                python 02_memory_profiling.py
-                ;;
-              *scalability*)
-                python 03_thread_scalability.py
-                ;;
-              *optimizations*)
-                python 04_projection_pruning.py
-                python 05_predicate_pushdown.py
-                python 06_combined_optimizations.py
-                ;;
-            esac
+
+            TOOLS_NORMALIZED=$(echo "$TOOLS" | tr '[:upper:]' '[:lower:]')
+            TOOLS_NORMALIZED=${TOOLS_NORMALIZED// /,}
+            IFS=',' read -ra SELECTED <<< "$TOOLS_NORMALIZED"
+
+            RUN_PERFORMANCE=false
+            RUN_MEMORY=false
+            RUN_SCALABILITY=false
+            RUN_OPTIMIZATIONS=false
+
+            for TOOL in "${SELECTED[@]}"; do
+              TOOL=$(echo "$TOOL" | tr -d '[:space:]')
+              if [ -z "$TOOL" ]; then
+                continue
+              fi
+              case "$TOOL" in
+                performance)
+                  RUN_PERFORMANCE=true
+                  ;;
+                memory)
+                  RUN_MEMORY=true
+                  ;;
+                scalability)
+                  RUN_SCALABILITY=true
+                  ;;
+                optimizations)
+                  RUN_OPTIMIZATIONS=true
+                  ;;
+                all)
+                  RUN_PERFORMANCE=true
+                  RUN_MEMORY=true
+                  RUN_SCALABILITY=true
+                  RUN_OPTIMIZATIONS=true
+                  ;;
+                *)
+                  echo "Skipping unknown benchmark selector: $TOOL"
+                  ;;
+              esac
+            done
+            unset IFS
+
+            if ! $RUN_PERFORMANCE && ! $RUN_MEMORY && ! $RUN_SCALABILITY && ! $RUN_OPTIMIZATIONS; then
+              echo "No valid benchmark selectors were provided"
+              exit 1
+            fi
+
+            if $RUN_PERFORMANCE; then
+              echo "→ Running general performance benchmark"
+              python 01_general_performance.py 2>&1 | tee -a "$LOG_FILE"
+            fi
+            if $RUN_MEMORY; then
+              echo "→ Running memory profiling benchmark"
+              python 02_memory_profiling.py 2>&1 | tee -a "$LOG_FILE"
+            fi
+            if $RUN_SCALABILITY; then
+              echo "→ Running thread scalability benchmark"
+              python 03_thread_scalability.py 2>&1 | tee -a "$LOG_FILE"
+            fi
+            if $RUN_OPTIMIZATIONS; then
+              echo "→ Running projection pruning benchmark"
+              python 04_projection_pruning.py 2>&1 | tee -a "$LOG_FILE"
+              echo "→ Running predicate pushdown benchmark"
+              python 05_predicate_pushdown.py 2>&1 | tee -a "$LOG_FILE"
+              echo "→ Running combined optimizations benchmark"
+              python 06_combined_optimizations.py 2>&1 | tee -a "$LOG_FILE"
+            fi
           fi
-          
+
           # Convert results to JSON format
           python ../scripts/convert_benchmarks_to_json.py
-          
+
           echo "benchmark_completed=true" >> $GITHUB_OUTPUT
 
       - name: Store benchmark results (for performance tracking)
