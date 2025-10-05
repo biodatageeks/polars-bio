@@ -234,7 +234,7 @@ Source: [AIList Github](https://github.com/databio/AIList?tab=readme-ov-file#tes
 | 36   | fBrain-DS14718   | exons            | 54,246          |
 
 
-Source: Ownpolars-bio (using 0-based coordinates)
+Source: Calculated with polars-bio (using 0-based coordinates) in streaming mode.
 
 
 All Parquet files from this dataset shared the same schema:
