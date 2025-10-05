@@ -7,7 +7,7 @@ polars-bio is a :rocket:blazing [fast](performance.md#results-summary-) Python D
 and  [polars](https://pola.rs/).
 It is designed to be easy to use, fast and memory efficient with a focus on genomics data.
 
-
+![img.png](assets/ashg-2025.png/img.png)
 
 
 ## Key Features

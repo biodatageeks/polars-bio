@@ -190,9 +190,52 @@ Jianglin Feng , Aakrosh Ratan , Nathan C Sheffield, *Augmented Interval List: a 
 | 7        | ex-anno          | 1,194       | Dataset contains GenCode annotations with ~1.2 million lines, mixing all types of features. |
 | 8        | ex-rna           | 9,945       | Dataset contains ~10 million direct-RNA mappings.                                           |
 
-
-
 Source: [AIList Github](https://github.com/databio/AIList?tab=readme-ov-file#test-results)
+
+
+| Rank | Dataset 1        | Dataset 2        | # of overlaps   |
+  |------|------------------|------------------|-----------------|
+| 1    | chainMonDom5Link | chainXenTro3Link | 416,157,506,000 |
+| 2    | chainMonDom5Link | chainVicPac2     | 248,984,248,721 |
+| 3    | chainVicPac2     | chainXenTro3Link | 117,131,343,532 |
+| 4    | chainMonDom5Link | chainOrnAna1     | 52,992,648,116  |
+| 5    | chainMonDom5Link | chainRn4         | 27,741,145,443  |
+| 6    | chainXenTro3Link | chainOrnAna1     | 26,405,758,645  |
+| 7    | chainRn4         | chainXenTro3Link | 18,432,254,632  |
+| 8    | chainVicPac2     | chainOrnAna1     | 6,864,638,705   |
+| 9    | chainMonDom5Link | ex-rna           | 4,349,989,219   |
+| 10   | chainRn4         | chainVicPac2     | 3,892,115,928   |
+| 11   | ex-rna           | chainXenTro3Link | 1,830,555,949   |
+| ---  | ---------------- | ---------------- | --------------- |
+| 12   | chainRn4         | chainOrnAna1     | 1,086,692,495   |
+| 13   | ex-rna           | ex-anno          | 307,184,634     |
+| 14   | ex-rna           | chainVicPac2     | 227,832,153     |
+| 15   | ex-rna           | chainRn4         | 164,196,784     |
+| 16   | chainMonDom5Link | exons            | 116,300,901     |
+| 17   | ex-rna           | chainOrnAna1     | 109,300,082     |
+| 18   | chainXenTro3Link | exons            | 52,395,369      |
+| 19   | ex-rna           | exons            | 36,411,474      |
+| 20   | chainMonDom5Link | ex-anno          | 33,966,070      |
+| 21   | chainXenTro3Link | ex-anno          | 13,693,852      |
+| 22   | chainVicPac2     | exons            | 10,566,462      |
+| 23   | ex-rna           | fBrain-DS14718   | 8,385,799       |
+| 24   | chainVicPac2     | ex-anno          | 5,745,319       |
+| 25   | chainOrnAna1     | ex-anno          | 4,408,383       |
+| 26   | chainOrnAna1     | exons            | 3,255,513       |
+| 27   | chainRn4         | ex-anno          | 2,761,621       |
+| 28   | chainRn4         | exons            | 2,633,098       |
+| 29   | chainMonDom5Link | fBrain-DS14718   | 2,380,147       |
+| 30   | fBrain-DS14718   | chainXenTro3Link | 625,718         |
+| 31   | fBrain-DS14718   | chainOrnAna1     | 398,738         |
+| 32   | fBrain-DS14718   | chainVicPac2     | 357,564         |
+| 33   | chainRn4         | fBrain-DS14718   | 320,955         |
+| 34   | ex-anno          | exons            | 273,500         |
+| 35   | fBrain-DS14718   | ex-anno          | 73,437          |
+| 36   | fBrain-DS14718   | exons            | 54,246          |
+
+
+Source: Calculated with polars-bio (using 0-based coordinates) in streaming mode.
+
 
 All Parquet files from this dataset shared the same schema:
 ```sql
@@ -228,15 +271,15 @@ All Parquet files from this dataset shared the same schema:
 #### Overlap results
 
 | Test case | polars_bio<sup>1</sup> - # of overlaps | bioframe<sup>2</sup> - # of overlaps | pyranges0 - # of overlaps | pyranges1 - # of overlaps |
-|:----------|:---------------------------------------|--------------------------------------|---------------------------------------|---------------------------------------|
-| 1-2       | 54246                                  | 54246                                | 54246                                 | 54246                                 |
-| 8-7       | 307184634                              | 307184634                            | 307184634                             | 307184634                             |
-| 100       | 781                                    | 781                                  | 781                                   | 781                                   |
-| 1000      | 8859                                   | 8859                                 | 8859                                  | 8859                                  |
-| 10000     | 90236                                  | 90236                                | 90236                                 | 90236                                 |
-| 100000    | 902553                                 | 902553                               | 902553                                | 902553                                |
-| 1000000   | 9007817                                | 9007817                              | 9007817                               | 9007817                               |
-| 10000000  | 90005371                               | 90005371                             | 90005371                              | 90005371                              |
+|:----------|:---------------------------------------|--------------------------------------|---------------------------|---------------------------|
+| 1-2       | 54,246                                 | 54,246                               | 54,246                    | 54,246                    |
+| 8-7       | 307,184,634                            | 307,184,634                          | 307,184,634               | 307,184,634               |
+| 100       | 781                                    | 781                                  | 781                       | 781                       |
+| 1000      | 8,859                                  | 8,859                                | 8,859                     | 8,859                     |
+| 10000     | 90,236                                 | 90,236                               | 90,236                    | 90,236                    |
+| 100000    | 902,553                                | 902,553                              | 902,553                   | 902,553                   |
+| 1000000   | 9,007,817                              | 9,007,817                            | 9,007,817                 | 9,007,817                 |
+| 10000000  | 90,005,371                             | 90,005,371                           | 90,005,371                | 90,005,371                |
 
 
 <sup>1</sup> bioframe and pyranges are zero-based, this is why we need to set `use_zero_based=True` (polars-bio >= 0.10.3) in polars-bio to get the same results as in bioframe and pyranges.

@@ -186,7 +186,7 @@ There are 2 ways of using streaming mode:
         If you only need to write the results as fast as possible into one of the above file formats or quickly get the row count, then it is in the most cases the **best** option.
 
 
-2. Using polars new streaming engine (still **experimental**).:
+2. Using polars new streaming engine:
 
     ```python
     import os
