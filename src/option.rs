@@ -139,6 +139,8 @@ pub struct ReadOptions {
     #[pyo3(get, set)]
     pub bam_read_options: Option<BamReadOptions>,
     #[pyo3(get, set)]
+    pub cram_read_options: Option<CramReadOptions>,
+    #[pyo3(get, set)]
     pub bed_read_options: Option<BedReadOptions>,
     #[pyo3(get, set)]
     pub fasta_read_options: Option<FastaReadOptions>,
@@ -147,12 +149,13 @@ pub struct ReadOptions {
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, fastq_read_options=None, bam_read_options=None, bed_read_options=None, fasta_read_options=None))]
+    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None))]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
         gff_read_options: Option<GffReadOptions>,
         fastq_read_options: Option<FastqReadOptions>,
         bam_read_options: Option<BamReadOptions>,
+        cram_read_options: Option<CramReadOptions>,
         bed_read_options: Option<BedReadOptions>,
         fasta_read_options: Option<FastaReadOptions>,
     ) -> Self {
@@ -161,6 +164,7 @@ impl ReadOptions {
             gff_read_options,
             fastq_read_options,
             bam_read_options,
+            cram_read_options,
             bed_read_options,
             fasta_read_options,
         }
@@ -389,6 +393,46 @@ impl BamReadOptions {
     pub fn default() -> Self {
         BamReadOptions {
             thread_num: Some(1),
+            object_storage_options: Some(ObjectStorageOptions {
+                chunk_size: Some(1024 * 1024), // 1MB
+                concurrent_fetches: Some(4),
+                allow_anonymous: false,
+                enable_request_payer: false,
+                max_retries: Some(5),
+                timeout: Some(300), // 300 seconds
+                compression_type: Some(CompressionType::AUTO),
+            }),
+        }
+    }
+}
+
+#[pyclass(name = "CramReadOptions")]
+#[derive(Clone, Debug)]
+pub struct CramReadOptions {
+    #[pyo3(get, set)]
+    pub reference_path: Option<String>,
+    pub object_storage_options: Option<ObjectStorageOptions>,
+}
+
+#[pymethods]
+impl CramReadOptions {
+    #[new]
+    #[pyo3(signature = (reference_path=None, object_storage_options=None))]
+    pub fn new(
+        reference_path: Option<String>,
+        object_storage_options: Option<PyObjectStorageOptions>,
+    ) -> Self {
+        CramReadOptions {
+            reference_path,
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
+        }
+    }
+    #[staticmethod]
+    pub fn default() -> Self {
+        CramReadOptions {
+            reference_path: None,
             object_storage_options: Some(ObjectStorageOptions {
                 chunk_size: Some(1024 * 1024), // 1MB
                 concurrent_fetches: Some(4),

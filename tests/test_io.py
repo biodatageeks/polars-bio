@@ -74,6 +74,70 @@ class TestIOBAM:
         assert projection["flags"][3] == 1123
 
 
+class TestIOCRAM:
+    # Test with embedded reference (default)
+    df = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram")
+
+    def test_count(self):
+        assert len(self.df) == 2333
+
+    def test_fields(self):
+        assert self.df["name"][2] == "20FUKAAXX100202:1:22:19822:80281"
+        assert self.df["flags"][3] == 1123
+        assert self.df["cigar"][4] == "101M"
+        assert (
+            self.df["sequence"][4]
+            == "TAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACC"
+        )
+        assert (
+            self.df["quality_scores"][4]
+            == "CCDACCDCDABBDCDABBDCDABBDCDABBDCD?BBCCDABBCCDABBACDA?BDCAABBDBDA.=?><;CBB2@:;??:D>?5BAC??=DC;=5=?8:76"
+        )
+
+    def test_register(self):
+        pb.register_cram(f"{DATA_DIR}/io/cram/test.cram", "test_cram")
+        count = pb.sql("select count(*) as cnt from test_cram").collect()
+        assert count["cnt"][0] == 2333
+
+        projection = pb.sql("select name, flags from test_cram").collect()
+        assert projection["name"][2] == "20FUKAAXX100202:1:22:19822:80281"
+        assert projection["flags"][3] == 1123
+
+    def test_scan_cram(self):
+        """Test lazy scanning with scan_cram"""
+        lf = pb.scan_cram(f"{DATA_DIR}/io/cram/test.cram")
+        df = lf.select(["name", "chrom", "start"]).collect()
+        assert len(df) == 2333
+        assert "name" in df.columns
+        assert "chrom" in df.columns
+        assert "start" in df.columns
+
+    def test_external_reference(self):
+        """Test CRAM reading with external FASTA reference"""
+        # Test with external reference from chr20 subset
+        df = (
+            pb.scan_cram(
+                f"{DATA_DIR}/io/cram/external_ref/test_chr20.cram",
+                reference_path=f"{DATA_DIR}/io/cram/external_ref/chr20.fa",
+            )
+            .limit(10)
+            .collect()
+        )
+
+        assert len(df) == 10
+        assert "name" in df.columns
+        assert "chrom" in df.columns
+        assert "sequence" in df.columns
+
+        # Verify reads are from chr20
+        assert all(df["chrom"] == "chr20")
+
+        # Verify first read details
+        assert df["name"][0] == "SRR622461.74266137"
+        assert df["start"][0] == 59993
+        assert df["mapping_quality"][0] == 29
+
+
 class TestIOBED:
     df = pb.read_table(f"{DATA_DIR}/io/bed/test.bed", schema="bed12")
 

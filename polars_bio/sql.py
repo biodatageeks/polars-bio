@@ -5,6 +5,7 @@ import polars as pl
 from polars_bio.polars_bio import (
     BamReadOptions,
     BedReadOptions,
+    CramReadOptions,
     FastqReadOptions,
     GffReadOptions,
     InputFormat,
@@ -452,6 +453,64 @@ class SQL:
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
         py_register_table(ctx, path, name, InputFormat.Bam, read_options)
+
+    @staticmethod
+    def register_cram(
+        path: str,
+        name: Union[str, None] = None,
+        chunk_size: int = 64,
+        concurrent_fetches: int = 8,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+    ) -> None:
+        """
+        Register a CRAM file as a Datafusion table.
+
+        !!! warning "Embedded Reference Required"
+            Currently, only CRAM files with **embedded reference sequences** are supported.
+            CRAM files requiring external reference FASTA files cannot be registered.
+            Most modern CRAM files include embedded references by default.
+
+            To create a CRAM file with embedded reference using samtools:
+            ```bash
+            samtools view -C -o output.cram --output-fmt-option embed_ref=1 input.bam
+            ```
+
+        Parameters:
+            path: The path to the CRAM file (local or cloud storage: S3, GCS, Azure Blob).
+            name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
+            chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+        !!! note
+            CRAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
+
+        !!! tip
+            `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the CRAM file. As a rule of thumb for large scale operations (reading a whole CRAM), it is recommended to keep the default values.
+            For more interactive inspecting a schema, it is recommended to decrease `chunk_size` to **8-16** and `concurrent_fetches` to **1-2**.
+        """
+
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type="auto",
+        )
+
+        cram_read_options = CramReadOptions(
+            reference_path=None,
+            object_storage_options=object_storage_options,
+        )
+        read_options = ReadOptions(cram_read_options=cram_read_options)
+        py_register_table(ctx, path, name, InputFormat.Cram, read_options)
 
     @staticmethod
     def sql(query: str) -> pl.LazyFrame:

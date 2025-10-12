@@ -35,6 +35,7 @@ register_gff = data_processing.register_gff
 register_vcf = data_processing.register_vcf
 register_fastq = data_processing.register_fastq
 register_bam = data_processing.register_bam
+register_cram = data_processing.register_cram
 register_bed = data_processing.register_bed
 register_view = data_processing.register_view
 
@@ -43,6 +44,7 @@ sql = data_processing.sql
 describe_vcf = data_input.describe_vcf
 from_polars = data_input.from_polars
 read_bam = data_input.read_bam
+read_cram = data_input.read_cram
 read_fastq = data_input.read_fastq
 read_gff = data_input.read_gff
 read_table = data_input.read_table
@@ -51,6 +53,7 @@ read_fastq = data_input.read_fastq
 read_bed = data_input.read_bed
 read_fasta = data_input.read_fasta
 scan_bam = data_input.scan_bam
+scan_cram = data_input.scan_cram
 scan_bed = data_input.scan_bed
 scan_fasta = data_input.scan_fasta
 scan_fastq = data_input.scan_fastq
@@ -84,6 +87,7 @@ __all__ = [
     "describe_vcf",
     "from_polars",
     "read_bam",
+    "read_cram",
     "read_bed",
     "read_fasta",
     "read_fastq",
@@ -91,6 +95,7 @@ __all__ = [
     "read_table",
     "read_vcf",
     "scan_bam",
+    "scan_cram",
     "scan_bed",
     "scan_fasta",
     "scan_fastq",
@@ -101,6 +106,7 @@ __all__ = [
     "register_vcf",
     "register_fastq",
     "register_bam",
+    "register_cram",
     "register_bed",
     "register_view",
     "sql",

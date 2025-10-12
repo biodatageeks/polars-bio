@@ -8,6 +8,7 @@ from tqdm.auto import tqdm
 from polars_bio.polars_bio import (
     BamReadOptions,
     BedReadOptions,
+    CramReadOptions,
     FastaReadOptions,
     FastqReadOptions,
     GffReadOptions,
@@ -508,6 +509,209 @@ class IOOperations:
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
         return _read_file(path, InputFormat.Bam, read_options, projection_pushdown)
+
+    @staticmethod
+    def read_cram(
+        path: str,
+        reference_path: str = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        projection_pushdown: bool = False,
+    ) -> pl.DataFrame:
+        """
+        Read a CRAM file into a DataFrame.
+
+        Parameters:
+            path: The path to the CRAM file (local or cloud storage: S3, GCS, Azure Blob).
+            reference_path: Optional path to external FASTA reference file (**local path only**, cloud storage not supported). If not provided, the CRAM file must contain embedded reference sequences. The FASTA file must have an accompanying index file (.fai) in the same directory. Create the index using: `samtools faidx reference.fasta`
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
+
+        !!! note
+            CRAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
+
+        !!! example "Using External Reference"
+            ```python
+            import polars_bio as pb
+
+            # Read CRAM with external reference
+            df = pb.read_cram(
+                "/path/to/file.cram",
+                reference_path="/path/to/reference.fasta"
+            )
+            ```
+
+        !!! example "Public CRAM File Example"
+            Download and read a public CRAM file from 42basepairs:
+            ```bash
+            # Download the CRAM file and reference
+            wget https://42basepairs.com/download/s3/gatk-test-data/wgs_cram/NA12878_20k_hg38/NA12878.cram
+            wget https://storage.googleapis.com/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta
+
+            # Create FASTA index (required)
+            samtools faidx Homo_sapiens_assembly38.fasta
+            ```
+
+            ```python
+            import polars_bio as pb
+
+            # Read first 5 reads from the CRAM file
+            df = pb.scan_cram(
+                "NA12878.cram",
+                reference_path="Homo_sapiens_assembly38.fasta"
+            ).limit(5).collect()
+
+            print(df.select(["name", "chrom", "start", "end", "cigar"]))
+            ```
+
+        !!! example "Creating CRAM with Embedded Reference"
+            To create a CRAM file with embedded reference using samtools:
+            ```bash
+            samtools view -C -o output.cram --output-fmt-option embed_ref=1 input.bam
+            ```
+
+        Returns:
+            A Polars DataFrame with the following schema:
+                - name: Read name (String)
+                - chrom: Chromosome/contig name (String)
+                - start: Alignment start position, 1-based (UInt32)
+                - end: Alignment end position, 1-based (UInt32)
+                - flags: SAM flags (UInt32)
+                - cigar: CIGAR string (String)
+                - mapping_quality: Mapping quality (UInt32)
+                - mate_chrom: Mate chromosome/contig name (String)
+                - mate_start: Mate alignment start position, 1-based (UInt32)
+                - sequence: Read sequence (String)
+                - quality_scores: Base quality scores (String)
+        """
+        return IOOperations.scan_cram(
+            path,
+            reference_path,
+            chunk_size,
+            concurrent_fetches,
+            allow_anonymous,
+            enable_request_payer,
+            max_retries,
+            timeout,
+            projection_pushdown,
+        ).collect()
+
+    @staticmethod
+    def scan_cram(
+        path: str,
+        reference_path: str = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        projection_pushdown: bool = False,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read a CRAM file into a LazyFrame.
+
+        Parameters:
+            path: The path to the CRAM file (local or cloud storage: S3, GCS, Azure Blob).
+            reference_path: Optional path to external FASTA reference file (**local path only**, cloud storage not supported). If not provided, the CRAM file must contain embedded reference sequences. The FASTA file must have an accompanying index file (.fai) in the same directory. Create the index using: `samtools faidx reference.fasta`
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
+
+        !!! note
+            CRAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
+
+        !!! example "Using External Reference"
+            ```python
+            import polars_bio as pb
+
+            # Lazy scan CRAM with external reference
+            lf = pb.scan_cram(
+                "/path/to/file.cram",
+                reference_path="/path/to/reference.fasta"
+            )
+
+            # Apply transformations and collect
+            df = lf.filter(pl.col("chrom") == "chr1").collect()
+            ```
+
+        !!! example "Public CRAM File Example"
+            Download and read a public CRAM file from 42basepairs:
+            ```bash
+            # Download the CRAM file and reference
+            wget https://42basepairs.com/download/s3/gatk-test-data/wgs_cram/NA12878_20k_hg38/NA12878.cram
+            wget https://storage.googleapis.com/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta
+
+            # Create FASTA index (required)
+            samtools faidx Homo_sapiens_assembly38.fasta
+            ```
+
+            ```python
+            import polars_bio as pb
+            import polars as pl
+
+            # Lazy scan and filter for chromosome 20 reads
+            df = pb.scan_cram(
+                "NA12878.cram",
+                reference_path="Homo_sapiens_assembly38.fasta"
+            ).filter(
+                pl.col("chrom") == "chr20"
+            ).select(
+                ["name", "chrom", "start", "end", "mapping_quality"]
+            ).limit(10).collect()
+
+            print(df)
+            ```
+
+        !!! example "Creating CRAM with Embedded Reference"
+            To create a CRAM file with embedded reference using samtools:
+            ```bash
+            samtools view -C -o output.cram --output-fmt-option embed_ref=1 input.bam
+            ```
+
+        Returns:
+            A Polars LazyFrame with the following schema:
+                - name: Read name (String)
+                - chrom: Chromosome/contig name (String)
+                - start: Alignment start position, 1-based (UInt32)
+                - end: Alignment end position, 1-based (UInt32)
+                - flags: SAM flags (UInt32)
+                - cigar: CIGAR string (String)
+                - mapping_quality: Mapping quality (UInt32)
+                - mate_chrom: Mate chromosome/contig name (String)
+                - mate_start: Mate alignment start position, 1-based (UInt32)
+                - sequence: Read sequence (String)
+                - quality_scores: Base quality scores (String)
+        """
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type="auto",
+        )
+
+        cram_read_options = CramReadOptions(
+            reference_path=reference_path,
+            object_storage_options=object_storage_options,
+        )
+        read_options = ReadOptions(cram_read_options=cram_read_options)
+        return _read_file(path, InputFormat.Cram, read_options, projection_pushdown)
 
     @staticmethod
     def read_fastq(
