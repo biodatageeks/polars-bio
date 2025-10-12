@@ -299,3 +299,18 @@ def test_vcf_ensembl_2_parsing():
                 pl_testing.assert_series_equal(
                     actual_series, expected_df[expected_col], check_dtypes=True
                 )
+
+
+def test_deepvariant_vcf():
+    """Test reading DeepVariant VCF file with END INFO field."""
+    vcf_path = "tests/data/io/vcf/antku_small.vcf.gz"
+    # This should not raise AttributeError
+    df = pb.read_vcf(vcf_path)
+
+    # Basic assertions to verify the file was read correctly
+    assert len(df) > 0
+    assert "chrom" in df.columns
+    assert "start" in df.columns
+    assert "end" in df.columns
+    assert "ref" in df.columns
+    assert "alt" in df.columns

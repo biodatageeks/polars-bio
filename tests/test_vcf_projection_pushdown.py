@@ -165,11 +165,12 @@ class TestVcfProjectionPushdown:
 
         if csq_col:
             # These should work with info_fields parameter
+            # INFO fields now preserve case sensitivity
             result1 = pb.scan_vcf(vcf_path, info_fields=[csq_col]).collect()
-            assert csq_col.lower() in result1.columns
+            assert csq_col in result1.columns
 
             result2 = pb.read_vcf(vcf_path, info_fields=[csq_col])
-            assert csq_col.lower() in result2.columns
+            assert csq_col in result2.columns
 
     def test_vcf_scan_with_special_chars_in_column_name(self):
         """Test that pb.scan_vcf works with columns that have special characters."""

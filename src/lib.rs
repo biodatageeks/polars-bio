@@ -126,7 +126,7 @@ fn py_register_table(
     name: Option<String>,
     input_format: InputFormat,
     read_options: Option<ReadOptions>,
-) -> PyResult<Option<BioTable>> {
+) -> PyResult<BioTable> {
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
         let rt = Runtime::new()?;
@@ -161,11 +161,14 @@ fn py_register_table(
                     path,
                 };
                 debug!("Schema: {:?}", schema);
-                Ok(Some(bio_table))
+                Ok(bio_table)
             },
             Err(e) => {
-                error!("{:?}", e);
-                Ok(None)
+                error!("Failed to register table for path {}: {:?}", path, e);
+                Err(PyValueError::new_err(format!(
+                    "Failed to register table: {}",
+                    e
+                )))
             },
         }
     })
