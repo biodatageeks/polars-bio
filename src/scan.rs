@@ -9,6 +9,7 @@ use datafusion::datasource::MemTable;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions, SessionContext};
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
+use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::bgzf_parallel_reader::BgzfFastqTableProvider as BgzfParallelFastqTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
@@ -21,8 +22,8 @@ use tracing::debug;
 
 use crate::context::PyBioSessionContext;
 use crate::option::{
-    BamReadOptions, BedReadOptions, FastaReadOptions, FastqReadOptions, GffReadOptions,
-    InputFormat, ReadOptions, VcfReadOptions,
+    BamReadOptions, BedReadOptions, CramReadOptions, FastaReadOptions, FastqReadOptions,
+    GffReadOptions, InputFormat, ReadOptions, VcfReadOptions,
 };
 
 const MAX_IN_MEMORY_ROWS: usize = 1024 * 1024;
@@ -72,6 +73,8 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         InputFormat::Vcf
     } else if path.ends_with(".gff") || path.ends_with(".gff.gz") || path.ends_with(".gff.bgz") {
         InputFormat::Gff
+    } else if path.ends_with(".cram") {
+        InputFormat::Cram
     } else {
         panic!("Unsupported format")
     }
@@ -295,11 +298,32 @@ pub(crate) async fn register_table(
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register FASTA table");
         },
+        InputFormat::Cram => {
+            let cram_read_options = match &read_options {
+                Some(options) => match options.clone().cram_read_options {
+                    Some(cram_read_options) => cram_read_options,
+                    _ => CramReadOptions::default(),
+                },
+                _ => CramReadOptions::default(),
+            };
+            info!(
+                "Registering CRAM table {} with options: {:?}",
+                table_name, cram_read_options
+            );
+            let table_provider = CramTableProvider::new(
+                path.to_string(),
+                cram_read_options.reference_path,
+                cram_read_options.object_storage_options.clone(),
+            )
+            .unwrap();
+            ctx.register_table(table_name, Arc::new(table_provider))
+                .expect("Failed to register CRAM table");
+        },
         InputFormat::IndexedVcf | InputFormat::IndexedBam => {
             todo!("Indexed formats are not supported")
         },
-        InputFormat::Cram | InputFormat::Gtf => {
-            todo!("Cram and Gtf formats are not supported")
+        InputFormat::Gtf => {
+            todo!("Gtf format is not supported")
         },
     };
     table_name.to_string()

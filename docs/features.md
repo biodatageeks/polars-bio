@@ -50,6 +50,7 @@ For bioinformatic format there are always three methods available: `read_*` (eag
 | [BED](api.md#polars_bio.data_input.read_bed)     | :white_check_mark: | ❌                  | :white_check_mark: | ❌                  | ❌                   |
 | [VCF](api.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :construction: | :white_check_mark: | :construction: | :construction: |
 | [BAM](api.md#polars_bio.data_input.read_bam)     | :white_check_mark: | ❌  | :white_check_mark: |  ❌  |  ❌  |
+| [CRAM](api.md#polars_bio.data_input.read_cram)   | :white_check_mark: | ❌  | :white_check_mark: |  ❌  |  ❌  |
 | [FASTQ](api.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: | :white_check_mark: |  ❌  |  ❌   |
 | [FASTA](api.md#polars_bio.data_input.read_fasta) | :white_check_mark: |  ❌  | :white_check_mark: |  ❌  |  ❌   |
 | [GFF3](api.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
