@@ -314,3 +314,4 @@ def test_deepvariant_vcf():
     assert "end" in df.columns
     assert "ref" in df.columns
     assert "alt" in df.columns
+    assert "END" in df.columns
