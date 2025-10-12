@@ -69,7 +69,7 @@ merge = range_operations.merge
 
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 
-__version__ = "0.17.2"
+__version__ = "0.18.0"
 __all__ = [
     "ctx",
     "FilterOp",
