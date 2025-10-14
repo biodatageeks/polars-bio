@@ -30,23 +30,8 @@ It provides a DataFrame API for genomics data and is designed to be blazing fast
 * fast overlap operations with [COITrees: Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees)
 * pre-built wheel packages for *Linux*, *Windows* and *MacOS* (*arm64* and *x86_64*) available on [PyPI](https://pypi.org/project/polars-bio/#files)
 
-## Single-thread performance 🏃‍
-![overlap-single.png](docs/assets/overlap-single.png)
-
-![overlap-single.png](docs/assets/nearest-single.png)
-
-![count-overlaps-single.png](docs/assets/count-overlaps-single.png)
-
-![coverage-single.png](docs/assets/coverage-single.png)
-
-## Parallel performance 🏃‍🏃‍
-![overlap-parallel.png](docs/assets/overlap-parallel.png)
-
-![overlap-parallel.png](docs/assets/nearest-parallel.png)
-
-![count-overlaps-parallel.png](docs/assets/count-overlaps-parallel.png)
-
-![coverage-parallel.png](docs/assets/coverage-parallel.png)
+## Performance benchmarks
+![summary-results.png](docs/assets/summary-results.png)
 
 
 ## Citing
