@@ -1,31 +1,23 @@
-name: Continuous Benchmarking
+name: On-Demand Benchmarks
 
 permissions:
   contents: read
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - 'src/**'
-      - 'polars_bio/**'
-      - 'benchmarks/**'
-      - 'pyproject.toml'
-      - 'Cargo.toml'
-  pull_request:
-    branches:
-      - master
-    paths:
-      - 'src/**'
-      - 'polars_bio/**'
-      - 'benchmarks/**'
-      - 'pyproject.toml'
-      - 'Cargo.toml'
   workflow_dispatch:
     inputs:
+      branch:
+        description: 'Target branch to benchmark (defaults to current)'
+        required: false
+        default: ''
+        type: string
+      base_branch:
+        description: 'Base branch for diff (defaults to master)'
+        required: false
+        default: 'master'
+        type: string
       benchmark_tools:
-        description: 'List of tools to benchmark (all, performance, memory, scalability, optimizations)'
+        description: 'Tools to run (all, performance, memory, scalability, optimizations)'
         required: false
         default: 'default'
         type: string
@@ -41,19 +33,74 @@ env:
   DEFAULT_BENCHMARK_TOOLS: 'performance,memory,optimizations'
 
 jobs:
-  benchmark:
+  benchmark-manual:
     permissions:
       contents: write
       pull-requests: write
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    
+
     steps:
-      - name: Checkout polars-bio
+      - name: Checkout selected branch
+        if: ${{ inputs.branch != '' }}
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Required for performance comparison between commits
-          
+          fetch-depth: 0
+          ref: ${{ inputs.branch }}
+
+      - name: Checkout current ref (no branch specified)
+        if: ${{ inputs.branch == '' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Show selected inputs
+        run: |
+          TARGET_BRANCH="${{ inputs.branch }}"
+          if [ -z "$TARGET_BRANCH" ]; then
+            TARGET_BRANCH="${{ github.ref_name }}"
+          fi
+          BASE_BRANCH="${{ inputs.base_branch }}"
+          if [ -z "$BASE_BRANCH" ]; then
+            BASE_BRANCH="master"
+          fi
+          TOOLS_INPUT="${{ inputs.benchmark_tools }}"
+          if [ -z "$TOOLS_INPUT" ]; then
+            TOOLS_INPUT="default"
+          fi
+          echo "### ▶️ On-Demand Benchmarks" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target branch:** \`$TARGET_BRANCH\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Base branch:** \`$BASE_BRANCH\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tools:** \`$TOOLS_INPUT\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Diff with base branch
+        id: diff
+        run: |
+          TARGET_BRANCH="${{ inputs.branch }}"
+          if [ -z "$TARGET_BRANCH" ]; then
+            TARGET_BRANCH="${{ github.ref_name }}"
+          fi
+          BASE_BRANCH="${{ inputs.base_branch }}"
+          if [ -z "$BASE_BRANCH" ]; then
+            BASE_BRANCH="master"
+          fi
+
+          git fetch origin "$BASE_BRANCH:$BASE_BRANCH"
+
+          echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+          echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔀 Diff: $TARGET_BRANCH vs $BASE_BRANCH" >> $GITHUB_STEP_SUMMARY
+          CHANGED=$(git diff --name-only "origin/$BASE_BRANCH...HEAD" || true)
+          COUNT=$(echo "$CHANGED" | grep -c . || true)
+          echo "- **Files changed:** $COUNT" >> $GITHUB_STEP_SUMMARY
+          if [ "$COUNT" -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Changed files:" >> $GITHUB_STEP_SUMMARY
+            echo "$CHANGED" | sed 's/^/- `&`/' >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Checkout polars-bio-bench
         uses: actions/checkout@v4
         with:
@@ -73,7 +120,7 @@ jobs:
 
       - name: Set up Rust
         run: rustup show
-        
+
       - name: Cache Rust build
         uses: mozilla-actions/sccache-action@v0.0.9
 
@@ -110,7 +157,6 @@ jobs:
           source ../.venv/bin/activate
           set -o pipefail
 
-          # Determine which benchmarks to run based on input
           if [ "${{ inputs.benchmark_tools }}" = "default" ] || [ -z "${{ inputs.benchmark_tools }}" ]; then
             TOOLS="$DEFAULT_BENCHMARK_TOOLS"
           else
@@ -192,9 +238,7 @@ jobs:
             fi
           fi
 
-          # Convert results to JSON format
           python ../scripts/convert_benchmarks_to_json.py
-
           echo "benchmark_completed=true" >> $GITHUB_OUTPUT
 
       - name: Store benchmark results (for performance tracking)
@@ -202,13 +246,13 @@ jobs:
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: 'Polars-Bio Performance Benchmarks'
-          tool: 'customBiggerIsBetter'  # Higher performance (ops/sec) = better
+          tool: 'customBiggerIsBetter'
           output-file-path: 'benchmarks/benchmark_results.json'
           benchmark-data-dir-path: 'benchmark-data'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           comment-on-alert: true
-          alert-threshold: '120%'  # Alert when performance drops by 20%
+          alert-threshold: '120%'
           fail-on-alert: false
           alert-comment-cc-users: '@biodatageeks/polars-bio-maintainers'
           max-items-in-chart: 100
@@ -228,16 +272,12 @@ jobs:
         if: steps.run_benchmarks.outputs.benchmark_completed == 'true'
         run: |
           cd polars-bio-bench
-          
-          # Create results directory marked with date and SHA
+
           RESULT_DIR="results/polars-bio-$(date +%Y%m%d)-${{ github.sha }}"
           mkdir -p "$RESULT_DIR"
-          
-          # Copy results
           cp ../benchmarks/results/*.csv "$RESULT_DIR/" || true
           cp ../benchmarks/benchmark_results.json "$RESULT_DIR/" || true
-          
-          # Save benchmark metadata
+
           cat > "$RESULT_DIR/benchmark_metadata.json" << EOF
           {
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
@@ -245,64 +285,16 @@ jobs:
             "commit_ref": "${{ github.ref }}",
             "event_name": "${{ github.event_name }}",
             "actor": "${{ github.actor }}",
-            "polars_bio_version": "$(cd .. && python -c 'import toml; print(toml.load(\"pyproject.toml\")[\"tool\"][\"poetry\"][\"version\"])')",
+            "polars_bio_version": "$(cd .. && python -c 'import toml; print(toml.load("pyproject.toml")["tool"]["poetry"]["version"])')",
             "benchmark_tools": "${{ inputs.benchmark_tools || 'all' }}"
           }
           EOF
-          
-          # Run comparative analysis if available
+
           if [ -f "analyze_results.py" ]; then
             echo "Running comparative analysis..."
             python analyze_results.py --input "$RESULT_DIR/"
           fi
-          
+
           echo "✅ Results archived in polars-bio-bench: $RESULT_DIR"
 
-  benchmark-comparison:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    needs: benchmark
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        
-      - name: Download benchmark artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: benchmark-results-${{ github.sha }}
-          path: ./current-benchmarks
 
-      - name: Performance regression check
-        run: |
-          echo "## 📊 Benchmark Results Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          
-          if [ -f "./current-benchmarks/benchmark_results.json" ]; then
-            # Count number of benchmarks
-            BENCHMARK_COUNT=$(jq 'length' ./current-benchmarks/benchmark_results.json)
-            echo "### ✅ Benchmarks completed successfully" >> $GITHUB_STEP_SUMMARY
-            echo "- **Benchmarks executed:** $BENCHMARK_COUNT" >> $GITHUB_STEP_SUMMARY
-            echo "- **Commit SHA:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- **Check details:** [benchmark dashboard](https://biodatageeks.github.io/polars-bio/dev/bench/)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            
-            # Find best polars-bio results
-            echo "### 🚀 Top Performance Results (polars-bio)" >> $GITHUB_STEP_SUMMARY
-            jq -r '.[] | select(.extra.library == "polars-bio") | "- **\(.name)**: \(.value | tostring) ops/sec"' ./current-benchmarks/benchmark_results.json | head -5 >> $GITHUB_STEP_SUMMARY
-            
-          else
-            echo "### ❌ Benchmarks failed" >> $GITHUB_STEP_SUMMARY
-            echo "Check the workflow logs for more details." >> $GITHUB_STEP_SUMMARY
-          fi
-
-  notify-on-regression:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    needs: benchmark
-    
-    steps:
-      - name: Check for performance regressions
-        run: |
-          echo "Performance monitoring job completed for master branch"
-          echo "Continuous benchmark tracking is active"
