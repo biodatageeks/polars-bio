@@ -218,20 +218,20 @@ Source: [AIList Github](https://github.com/databio/AIList?tab=readme-ov-file#tes
 | 20   | chainMonDom5Link | ex-anno          | 33,966,070      |
 | 21   | chainXenTro3Link | ex-anno          | 13,693,852      |
 | 22   | chainVicPac2     | exons            | 10,566,462      |
-| 23   | ex-rna           | fBrain-DS14718   | 8,385,799       |
+| 23   | ex-rna           | fBrain           | 8,385,799       |
 | 24   | chainVicPac2     | ex-anno          | 5,745,319       |
 | 25   | chainOrnAna1     | ex-anno          | 4,408,383       |
 | 26   | chainOrnAna1     | exons            | 3,255,513       |
 | 27   | chainRn4         | ex-anno          | 2,761,621       |
 | 28   | chainRn4         | exons            | 2,633,098       |
-| 29   | chainMonDom5Link | fBrain-DS14718   | 2,380,147       |
-| 30   | fBrain-DS14718   | chainXenTro3Link | 625,718         |
-| 31   | fBrain-DS14718   | chainOrnAna1     | 398,738         |
-| 32   | fBrain-DS14718   | chainVicPac2     | 357,564         |
-| 33   | chainRn4         | fBrain-DS14718   | 320,955         |
+| 29   | chainMonDom5Link | fBrain           | 2,380,147       |
+| 30   | fBrain           | chainXenTro3Link | 625,718         |
+| 31   | fBrain           | chainOrnAna1     | 398,738         |
+| 32   | fBrain           | chainVicPac2     | 357,564         |
+| 33   | chainRn4         | fBrain           | 320,955         |
 | 34   | ex-anno          | exons            | 273,500         |
-| 35   | fBrain-DS14718   | ex-anno          | 73,437          |
-| 36   | fBrain-DS14718   | exons            | 54,246          |
+| 35   | fBrain           | ex-anno          | 73,437          |
+| 36   | fBrain           | exons            | 54,246          |
 
 
 Source: Calculated with polars-bio (using 0-based coordinates) in streaming mode.
@@ -244,7 +244,7 @@ All Parquet files from this dataset shared the same schema:
   pos_end INT32
 ```
 
-#### Sythetic dataset
+#### Synthetic dataset
 Randomly generated intervals (100-10,000,000) inspired by [bioframe](http://bioframe.readthedocs.io/en/latest/guide-performance.html) performance analysis.
 Generated with [generate_dataset.py](https://github.com/biodatageeks/polars-bio-bench/blob/bioframe-data-generator/src/generate_dataset.py)
 ```shell
@@ -268,7 +268,7 @@ All Parquet files from this dataset shared the same schema:
         * [random_intervals_20250622_221714-8p.zip](https://drive.google.com/uc?id=1ZvpNAdNFck7XgExJnJm-dwhbBJyW9VAw)
 
 
-#### Overlap results
+#### Overlap summary
 
 | Test case | polars_bio<sup>1</sup> - # of overlaps | bioframe<sup>2</sup> - # of overlaps | pyranges0 - # of overlaps | pyranges1 - # of overlaps |
 |:----------|:---------------------------------------|--------------------------------------|---------------------------|---------------------------|
@@ -287,7 +287,10 @@ All Parquet files from this dataset shared the same schema:
 <sup>2</sup> bioframe `how` parameter is set to `inner` (`left` by default)
 
 
-### Single thread results
+### Summary statistics
+![summary-results.png](assets/summary-results.png)
+
+### Single-thread results
 Results for `overlap`, `nearest`, `count-overlaps`, and `coverage` operations with single-thread performance on `apple-m3-max` and `gcp-linux` platforms.
 
 !!! note
