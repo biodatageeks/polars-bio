@@ -22,6 +22,9 @@ It is designed to be easy to use, fast and memory efficient with a focus on geno
 * fast overlap operations with [COITrees: Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees)
 * pre-built wheel packages for *Linux*, *Windows* and *MacOS* (*arm64* and *x86_64*) available on [PyPI](https://pypi.org/project/polars-bio/#files)
 
+## Performance benchmarks
+![summary-results.png](assets/summary-results.png)
+
 
 See [quick start](quickstart.md) for the installation options.
 
