@@ -1,0 +1,300 @@
+name: On-Demand Benchmarks
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Target branch to benchmark (defaults to current)'
+        required: false
+        default: ''
+        type: string
+      base_branch:
+        description: 'Base branch for diff (defaults to master)'
+        required: false
+        default: 'master'
+        type: string
+      benchmark_tools:
+        description: 'Tools to run (all, performance, memory, scalability, optimizations)'
+        required: false
+        default: 'default'
+        type: string
+      skip_data_download:
+        description: 'Skip test data download (use cache)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  POETRY_VERSION: 1.8.4
+  BENCHMARK_DATA_URL: 'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_49/gencode.v49.annotation.gff3.gz'
+  DEFAULT_BENCHMARK_TOOLS: 'performance,memory,optimizations'
+
+jobs:
+  benchmark-manual:
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout selected branch
+        if: ${{ inputs.branch != '' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.branch }}
+
+      - name: Checkout current ref (no branch specified)
+        if: ${{ inputs.branch == '' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Show selected inputs
+        run: |
+          TARGET_BRANCH="${{ inputs.branch }}"
+          if [ -z "$TARGET_BRANCH" ]; then
+            TARGET_BRANCH="${{ github.ref_name }}"
+          fi
+          BASE_BRANCH="${{ inputs.base_branch }}"
+          if [ -z "$BASE_BRANCH" ]; then
+            BASE_BRANCH="master"
+          fi
+          TOOLS_INPUT="${{ inputs.benchmark_tools }}"
+          if [ -z "$TOOLS_INPUT" ]; then
+            TOOLS_INPUT="default"
+          fi
+          echo "### ▶️ On-Demand Benchmarks" >> $GITHUB_STEP_SUMMARY
+          echo "- **Target branch:** \`$TARGET_BRANCH\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Base branch:** \`$BASE_BRANCH\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tools:** \`$TOOLS_INPUT\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Diff with base branch
+        id: diff
+        run: |
+          TARGET_BRANCH="${{ inputs.branch }}"
+          if [ -z "$TARGET_BRANCH" ]; then
+            TARGET_BRANCH="${{ github.ref_name }}"
+          fi
+          BASE_BRANCH="${{ inputs.base_branch }}"
+          if [ -z "$BASE_BRANCH" ]; then
+            BASE_BRANCH="master"
+          fi
+
+          git fetch origin "$BASE_BRANCH:$BASE_BRANCH"
+
+          echo "target_branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+          echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔀 Diff: $TARGET_BRANCH vs $BASE_BRANCH" >> $GITHUB_STEP_SUMMARY
+          CHANGED=$(git diff --name-only "origin/$BASE_BRANCH...HEAD" || true)
+          COUNT=$(echo "$CHANGED" | grep -c . || true)
+          echo "- **Files changed:** $COUNT" >> $GITHUB_STEP_SUMMARY
+          if [ "$COUNT" -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Changed files:" >> $GITHUB_STEP_SUMMARY
+            echo "$CHANGED" | sed 's/^/- `&`/' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Checkout polars-bio-bench
+        uses: actions/checkout@v4
+        with:
+          repository: 'biodatageeks/polars-bio-bench'
+          path: 'polars-bio-bench'
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Poetry
+        uses: abatilo/actions-poetry@v2
+        with:
+          poetry-version: ${{ env.POETRY_VERSION }}
+
+      - name: Set up Rust
+        run: rustup show
+
+      - name: Cache Rust build
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Cache benchmark data
+        if: ${{ !inputs.skip_data_download }}
+        uses: actions/cache@v3
+        with:
+          path: /tmp/gencode.v49.annotation.gff3.bgz
+          key: gencode-v49-${{ hashFiles('**/benchmark_data_version.txt') }}
+          restore-keys: gencode-v49-
+
+      - name: Install dependencies
+        run: |
+          make venv
+          make install
+
+      - name: Download benchmark data
+        if: ${{ !inputs.skip_data_download }}
+        run: |
+          mkdir -p /tmp
+          if [ ! -f /tmp/gencode.v49.annotation.gff3.bgz ]; then
+            echo "Downloading benchmark data..."
+            wget -O /tmp/gencode.v49.annotation.gff3.bgz ${{ env.BENCHMARK_DATA_URL }}
+          else
+            echo "Using cached benchmark data"
+          fi
+          ls -la /tmp/gencode.v49.annotation.gff3.bgz
+
+      - name: Run specific benchmarks
+        id: run_benchmarks
+        timeout-minutes: 120
+        run: |
+          cd benchmarks
+          source ../.venv/bin/activate
+          set -o pipefail
+
+          if [ "${{ inputs.benchmark_tools }}" = "default" ] || [ -z "${{ inputs.benchmark_tools }}" ]; then
+            TOOLS="$DEFAULT_BENCHMARK_TOOLS"
+          else
+            TOOLS="${{ inputs.benchmark_tools }}"
+          fi
+          LOG_FILE=benchmark_output.txt
+          : > "$LOG_FILE"
+
+          if [ "$TOOLS" = "all" ]; then
+            echo "Running all benchmarks..."
+            python run_all_benchmarks.py 2>&1 | tee "$LOG_FILE"
+          else
+            echo "Running selective benchmarks: $TOOLS"
+
+            TOOLS_NORMALIZED=$(echo "$TOOLS" | tr '[:upper:]' '[:lower:]')
+            TOOLS_NORMALIZED=${TOOLS_NORMALIZED// /,}
+            IFS=',' read -ra SELECTED <<< "$TOOLS_NORMALIZED"
+
+            RUN_PERFORMANCE=false
+            RUN_MEMORY=false
+            RUN_SCALABILITY=false
+            RUN_OPTIMIZATIONS=false
+
+            for TOOL in "${SELECTED[@]}"; do
+              TOOL=$(echo "$TOOL" | tr -d '[:space:]')
+              if [ -z "$TOOL" ]; then
+                continue
+              fi
+              case "$TOOL" in
+                performance)
+                  RUN_PERFORMANCE=true
+                  ;;
+                memory)
+                  RUN_MEMORY=true
+                  ;;
+                scalability)
+                  RUN_SCALABILITY=true
+                  ;;
+                optimizations)
+                  RUN_OPTIMIZATIONS=true
+                  ;;
+                all)
+                  RUN_PERFORMANCE=true
+                  RUN_MEMORY=true
+                  RUN_SCALABILITY=true
+                  RUN_OPTIMIZATIONS=true
+                  ;;
+                *)
+                  echo "Skipping unknown benchmark selector: $TOOL"
+                  ;;
+              esac
+            done
+            unset IFS
+
+            if ! $RUN_PERFORMANCE && ! $RUN_MEMORY && ! $RUN_SCALABILITY && ! $RUN_OPTIMIZATIONS; then
+              echo "No valid benchmark selectors were provided"
+              exit 1
+            fi
+
+            if $RUN_PERFORMANCE; then
+              echo "→ Running general performance benchmark"
+              python 01_general_performance.py 2>&1 | tee -a "$LOG_FILE"
+            fi
+            if $RUN_MEMORY; then
+              echo "→ Running memory profiling benchmark"
+              python 02_memory_profiling.py 2>&1 | tee -a "$LOG_FILE"
+            fi
+            if $RUN_SCALABILITY; then
+              echo "→ Running thread scalability benchmark"
+              python 03_thread_scalability.py 2>&1 | tee -a "$LOG_FILE"
+            fi
+            if $RUN_OPTIMIZATIONS; then
+              echo "→ Running projection pruning benchmark"
+              python 04_projection_pruning.py 2>&1 | tee -a "$LOG_FILE"
+              echo "→ Running predicate pushdown benchmark"
+              python 05_predicate_pushdown.py 2>&1 | tee -a "$LOG_FILE"
+              echo "→ Running combined optimizations benchmark"
+              python 06_combined_optimizations.py 2>&1 | tee -a "$LOG_FILE"
+            fi
+          fi
+
+          python ../scripts/convert_benchmarks_to_json.py
+          echo "benchmark_completed=true" >> $GITHUB_OUTPUT
+
+      - name: Store benchmark results (for performance tracking)
+        if: steps.run_benchmarks.outputs.benchmark_completed == 'true'
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: 'Polars-Bio Performance Benchmarks'
+          tool: 'customBiggerIsBetter'
+          output-file-path: 'benchmarks/benchmark_results.json'
+          benchmark-data-dir-path: 'benchmark-data'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          comment-on-alert: true
+          alert-threshold: '120%'
+          fail-on-alert: false
+          alert-comment-cc-users: '@biodatageeks/polars-bio-maintainers'
+          max-items-in-chart: 100
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.sha }}
+          path: |
+            benchmarks/results/
+            benchmarks/benchmark_output.txt
+            benchmarks/benchmark_results.json
+          retention-days: 30
+
+      - name: Integration with polars-bio-bench
+        if: steps.run_benchmarks.outputs.benchmark_completed == 'true'
+        run: |
+          cd polars-bio-bench
+
+          RESULT_DIR="results/polars-bio-$(date +%Y%m%d)-${{ github.sha }}"
+          mkdir -p "$RESULT_DIR"
+          cp ../benchmarks/results/*.csv "$RESULT_DIR/" || true
+          cp ../benchmarks/benchmark_results.json "$RESULT_DIR/" || true
+
+          cat > "$RESULT_DIR/benchmark_metadata.json" << EOF
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "commit_sha": "${{ github.sha }}",
+            "commit_ref": "${{ github.ref }}",
+            "event_name": "${{ github.event_name }}",
+            "actor": "${{ github.actor }}",
+            "polars_bio_version": "$(cd .. && python -c 'import toml; print(toml.load("pyproject.toml")["tool"]["poetry"]["version"])')",
+            "benchmark_tools": "${{ inputs.benchmark_tools || 'all' }}"
+          }
+          EOF
+
+          if [ -f "analyze_results.py" ]; then
+            echo "Running comparative analysis..."
+            python analyze_results.py --input "$RESULT_DIR/"
+          fi
+
+          echo "✅ Results archived in polars-bio-bench: $RESULT_DIR"
+
+
