@@ -1,0 +1,417 @@
+name: Performance Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      alert_threshold:
+        description: 'Alert threshold percentage (e.g., 150 for 150% degradation)'
+        required: false
+        default: '150'
+        type: string
+      baseline_tag:
+        description: 'Baseline git tag (leave empty for latest tag)'
+        required: false
+        default: ''
+        type: string
+      target_branch:
+        description: 'Target branch to benchmark (leave empty for current branch)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for tag identification
+
+      - name: Determine baseline tag
+        id: baseline
+        run: |
+          if [ -n "${{ inputs.baseline_tag }}" ]; then
+            BASELINE_TAG="${{ inputs.baseline_tag }}"
+            echo "Using user-specified baseline tag: $BASELINE_TAG"
+          else
+            BASELINE_TAG=$(git tag --sort=-creatordate | head -1)
+            if [ -z "$BASELINE_TAG" ]; then
+              echo "Error: No git tags found. Please create a tag or specify baseline_tag input."
+              exit 1
+            fi
+            echo "Using latest tag as baseline: $BASELINE_TAG"
+          fi
+          echo "tag=$BASELINE_TAG" >> $GITHUB_OUTPUT
+
+          # Verify tag exists
+          if ! git rev-parse "$BASELINE_TAG" >/dev/null 2>&1; then
+            echo "Error: Tag '$BASELINE_TAG' does not exist"
+            exit 1
+          fi
+
+      - name: Determine target reference
+        id: target
+        run: |
+          if [ -n "${{ inputs.target_branch }}" ]; then
+            TARGET_REF="${{ inputs.target_branch }}"
+          else
+            TARGET_REF="${{ github.ref_name }}"
+          fi
+          echo "ref=$TARGET_REF" >> $GITHUB_OUTPUT
+          echo "Target reference: $TARGET_REF"
+
+      - name: Validate threshold
+        id: threshold
+        run: |
+          THRESHOLD="${{ inputs.alert_threshold }}"
+          # Validate threshold is a number between 100 and 1000
+          if ! [[ "$THRESHOLD" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+            echo "Error: Threshold must be a number"
+            exit 1
+          fi
+          if (( $(echo "$THRESHOLD < 100" | bc -l) )); then
+            echo "Error: Threshold must be >= 100"
+            exit 1
+          fi
+          if (( $(echo "$THRESHOLD > 1000" | bc -l) )); then
+            echo "Error: Threshold must be <= 1000"
+            exit 1
+          fi
+          echo "value=$THRESHOLD" >> $GITHUB_OUTPUT
+          echo "Using alert threshold: $THRESHOLD%"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bedtools
+
+      - name: Cache polars-bio-bench repository
+        uses: actions/cache@v4
+        with:
+          path: polars-bio-bench
+          key: polars-bio-bench-${{ hashFiles('**/lockfiles') }}
+
+      - name: Clone polars-bio-bench repository
+        run: |
+          if [ ! -d "polars-bio-bench" ]; then
+            git clone https://github.com/biodatageeks/polars-bio-bench.git
+          else
+            cd polars-bio-bench && git pull && cd ..
+          fi
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+
+      - name: Install polars-bio-bench dependencies
+        run: |
+          cd polars-bio-bench
+          # Update lock file to match pyproject.toml
+          poetry lock
+          # Install dependencies only, not the package itself
+          poetry install --no-root
+
+      # ============================================
+      # BASELINE BENCHMARK
+      # ============================================
+
+      - name: Install baseline polars-bio from PyPI
+        run: |
+          # For baseline, install the released version from PyPI into poetry virtualenv
+          cd polars-bio-bench
+          poetry run pip install polars-bio==$(echo "${{ steps.baseline.outputs.tag }}" | sed 's/^v//')
+
+      - name: Restore benchmark test data cache
+        id: cache-benchmark-data
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/polars-bio-bench
+          key: polars-bio-bench-data-${{ hashFiles('polars-bio-bench/conf/benchmark_small.yaml') }}
+          restore-keys: |
+            polars-bio-bench-data-
+
+      - name: Set up benchmark environment
+        run: |
+          export BENCH_DATA_ROOT=/tmp/polars-bio-bench/
+          export POLARS_MAX_THREADS=1
+          mkdir -p $BENCH_DATA_ROOT
+
+      - name: Run baseline benchmarks
+        run: |
+          cd polars-bio-bench
+          export BENCH_DATA_ROOT=/tmp/polars-bio-bench/
+          export POLARS_MAX_THREADS=1
+          # Run benchmarks using poetry
+          poetry run python src/run-benchmarks.py --bench-config conf/benchmark_single_thread-4tools-pull-request.yaml
+          # List results directory structure
+          echo "Results directory contents:"
+          ls -laR results/ || echo "No results directory found"
+          # Copy results to parent directory with baseline prefix
+          mkdir -p ../baseline_results
+          if [ -d "results" ] && [ "$(ls -A results)" ]; then
+            # Find the latest results subdirectory and copy its contents
+            LATEST_RESULTS=$(ls -t results | head -1)
+            echo "Copying from results/$LATEST_RESULTS/"
+            cp -r "results/$LATEST_RESULTS/"* ../baseline_results/
+          else
+            echo "No results found to copy"
+            exit 1
+          fi
+        continue-on-error: true
+
+      - name: Verify baseline results
+        run: |
+          if [ ! -d baseline_results ] || [ -z "$(ls -A baseline_results)" ]; then
+            echo "Error: Baseline benchmark did not produce results"
+            exit 1
+          fi
+          echo "Baseline results:"
+          ls -la baseline_results/
+          find baseline_results/ -name "*.csv" | head -5 | xargs -I {} sh -c 'echo "=== {} ===" && head -10 "{}"'
+
+      # ============================================
+      # TARGET/PR BENCHMARK
+      # ============================================
+
+      - name: Checkout target code
+        run: |
+          git checkout ${{ steps.target.outputs.ref }}
+
+      - name: Clean previous installation
+        run: |
+          cd polars-bio-bench
+          poetry run pip uninstall -y polars-bio || true
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-benchmark-skylake-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-benchmark-skylake-
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install target polars-bio from source
+        env:
+          RUSTFLAGS: "-Ctarget-cpu=skylake"
+        run: |
+          # Install maturin in poetry virtualenv
+          cd polars-bio-bench
+          poetry run pip install maturin
+          # Build and install polars-bio from source (parent directory's Cargo.toml)
+          poetry run maturin develop --release -m ../Cargo.toml
+
+      - name: Run target benchmarks
+        run: |
+          cd polars-bio-bench
+          export BENCH_DATA_ROOT=/tmp/polars-bio-bench/
+          export POLARS_MAX_THREADS=1
+          # Run benchmarks using poetry
+          poetry run python src/run-benchmarks.py --bench-config conf/benchmark_single_thread-4tools-pull-request.yaml
+          # List results directory structure
+          echo "Results directory contents:"
+          ls -laR results/ || echo "No results directory found"
+          # Copy results to parent directory with pr prefix
+          mkdir -p ../pr_results
+          if [ -d "results" ] && [ "$(ls -A results)" ]; then
+            # Find the latest results subdirectory and copy its contents
+            LATEST_RESULTS=$(ls -t results | head -1)
+            echo "Copying from results/$LATEST_RESULTS/"
+            cp -r "results/$LATEST_RESULTS/"* ../pr_results/
+          else
+            echo "No results found to copy"
+            exit 1
+          fi
+        continue-on-error: true
+
+      - name: Verify target results
+        run: |
+          if [ ! -d pr_results ] || [ -z "$(ls -A pr_results)" ]; then
+            echo "Error: Target benchmark did not produce results"
+            exit 1
+          fi
+          echo "Target results:"
+          ls -la pr_results/
+          find pr_results/ -name "*.csv" | head -5 | xargs -I {} sh -c 'echo "=== {} ===" && head -10 "{}"'
+
+      # ============================================
+      # COMPARISON AND REPORTING
+      # ============================================
+
+      - name: Parse and compare benchmark results
+        id: comparison
+        run: |
+          bash benchmarks/compare_benchmark_results.sh \
+            baseline_results \
+            pr_results \
+            ${{ steps.threshold.outputs.value }} \
+            ${{ steps.baseline.outputs.tag }} \
+            ${{ steps.target.outputs.ref }}
+
+          # Check if regressions were found
+          REGRESSIONS=$(jq '.total_regressions' comparison_summary.json)
+          echo "regressions=$REGRESSIONS" >> $GITHUB_OUTPUT
+
+          # Set exit status for later use
+          if [ "$REGRESSIONS" -gt 0 ]; then
+            echo "regression_detected=true" >> $GITHUB_OUTPUT
+          else
+            echo "regression_detected=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate comparison charts
+        run: |
+          python3 benchmarks/generate_comparison_charts.py \
+            baseline_results \
+            pr_results \
+            comparison_charts \
+            --baseline-name "${{ steps.baseline.outputs.tag }}" \
+            --pr-name "${{ steps.target.outputs.ref }}" \
+            --benchmark-repo polars-bio-bench
+
+      - name: Save benchmark test data cache
+        if: success()
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/polars-bio-bench
+          key: ${{ steps.cache-benchmark-data.outputs.cache-primary-key }}
+
+      - name: Upload benchmark results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            baseline_results/
+            pr_results/
+            comparison_results/
+            comparison_reports/
+            comparison_charts/
+            comparison_report_combined.md
+            comparison_summary.json
+
+      - name: Publish comparison charts to gh-pages
+        run: |
+          # Clone gh-pages branch
+          git clone --depth 1 --branch gh-pages https://github.com/${{ github.repository }} gh-pages-repo
+
+          # Determine output directory based on context
+          if [ "${{ github.ref }}" == "refs/heads/master" ] || [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            # Main branch: publish to root benchmark-comparison/
+            OUTPUT_DIR="gh-pages-repo/benchmark-comparison"
+            echo "Publishing to main benchmark comparison page"
+          else
+            # PR or branch: publish to branch-specific directory
+            BRANCH_NAME="${{ steps.target.outputs.ref }}"
+            SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g')
+            OUTPUT_DIR="gh-pages-repo/benchmark-comparison/$SANITIZED_BRANCH"
+            echo "Publishing to branch-specific page: $SANITIZED_BRANCH"
+          fi
+
+          # Create output directory
+          mkdir -p "$OUTPUT_DIR"
+
+          # Copy the comparison chart
+          cp comparison_charts/benchmark_comparison.html "$OUTPUT_DIR/index.html"
+
+          # Commit and push
+          cd gh-pages-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add benchmark-comparison/
+          git commit -m "Update benchmark comparison charts for ${{ steps.target.outputs.ref }}" || echo "No changes to commit"
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} gh-pages
+        continue-on-error: true
+
+      - name: Comment PR with comparison results
+        if: github.event_name == 'pull_request' || github.event.pull_request
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('comparison_report_combined.md', 'utf8');
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Benchmark Comparison')
+            );
+
+            const runId = context.runId;
+            const branchName = '${{ steps.target.outputs.ref }}';
+            const sanitizedBranch = branchName.replace(/[^a-zA-Z0-9-]/g, '-');
+            const chartUrl = `https://biodatageeks.org/polars-bio/benchmark-comparison/${sanitizedBranch}/`;
+            const artifactLink = `[📦 Download Artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}#artifacts)`;
+            const chartLink = `[📊 View Interactive Charts](${chartUrl})`;
+
+            const commentBody = `${report}\n\n${chartLink} | ${artifactLink}\n\n---\n*Benchmark comparison generated by polars-bio CI*`;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+            }
+        continue-on-error: true
+
+      - name: Post comparison as workflow summary
+        run: |
+          cat comparison_report_combined.md >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Interactive Comparison Charts" >> $GITHUB_STEP_SUMMARY
+
+          # Determine chart URL based on branch
+          BRANCH_NAME="${{ steps.target.outputs.ref }}"
+          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g')
+
+          if [ "${{ github.ref }}" == "refs/heads/master" ] || [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            CHART_URL="https://biodatageeks.org/polars-bio/benchmark-comparison/"
+          else
+            CHART_URL="https://biodatageeks.org/polars-bio/benchmark-comparison/$SANITIZED_BRANCH/"
+          fi
+
+          echo "📊 **[View Interactive Charts Online]($CHART_URL)**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📦 Download the \`benchmark-results\` artifact from this workflow run to view charts offline." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The charts show baseline vs PR performance for each operation and tool." >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if regressions detected
+        if: steps.comparison.outputs.regression_detected == 'true'
+        run: |
+          echo "::warning::Performance regressions detected! Check the comparison report for details."
+          # Don't fail the workflow, just warn
+          # Uncomment the line below to fail on regressions:
+          # exit 1
