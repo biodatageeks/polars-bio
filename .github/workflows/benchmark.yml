@@ -25,10 +25,11 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    env:
-      PATH: /home/gha/.local/bin:$PATH
 
     steps:
+      - name: Set up PATH
+        run: echo "/home/gha/.local/bin" >> $GITHUB_PATH
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
