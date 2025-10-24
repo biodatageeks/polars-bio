@@ -8,6 +8,7 @@ import argparse
 import json
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
@@ -214,6 +215,9 @@ def generate_html_charts(
                         test_case
                     ] = mean_time_ms
 
+    # Generate timestamp for report
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+
     # Generate HTML
     html_content = f"""<!DOCTYPE html>
 <html>
@@ -281,7 +285,8 @@ def generate_html_charts(
         <h1>Benchmark Comparison</h1>
         <div class="subtitle">
             <strong>Baseline:</strong> {baseline_name} &nbsp;|&nbsp;
-            <strong>PR:</strong> {pr_name}
+            <strong>PR:</strong> {pr_name} &nbsp;|&nbsp;
+            <strong>Generated:</strong> {timestamp}
         </div>
         <div class="legend">
             <div class="legend-item">
