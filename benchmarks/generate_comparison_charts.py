@@ -6,6 +6,7 @@ Creates one figure per operation showing baseline vs PR for each tool.
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Dict, List
@@ -112,26 +113,29 @@ def generate_html_charts(
 
     for csv_file in baseline_csvs:
         # Extract operation and test case from filename
-        # e.g., "overlap-single-4tools_7-8.csv" -> operation="overlap", test_case="7-8"
-        # e.g., "count_overlaps-single-4tools_1-2.csv" -> operation="count_overlaps", test_case="1-2"
+        # Pattern: {operation}-{config}_{testcase}.csv
+        # Examples:
+        #   "overlap-single-4tools_7-8.csv" -> operation="overlap", test_case="7-8"
+        #   "count_overlaps-multi-8tools_1-2.csv" -> operation="count_overlaps", test_case="1-2"
+        #   "nearest_3-7.csv" -> operation="nearest", test_case="3-7"
         stem = csv_file.stem
 
-        # Split on the pattern "-single-4tools_" to separate operation from test case
-        if "-single-4tools_" in stem:
-            operation_base, test_case = stem.split("-single-4tools_", 1)
-            operation_name = (
-                operation_base  # e.g., "overlap", "nearest", "count_overlaps"
-            )
+        # Extract test case from end (pattern: _digits-digits)
+        test_case_match = re.search(r"_(\d+-\d+)$", stem)
+        if test_case_match:
+            test_case = test_case_match.group(1)
+            # Remove test case from stem to get operation + config
+            stem_without_testcase = stem[: test_case_match.start()]
         else:
-            # Fallback to old logic
-            parts = stem.split("_")
-            if len(parts) >= 2:
-                operation_base = parts[0]
-                test_case = parts[1]
-            else:
-                operation_base = stem
-                test_case = "default"
-            operation_name = operation_base.split("-")[0]
+            test_case = "default"
+            stem_without_testcase = stem
+
+        # Extract operation name (everything before first dash, or entire name if no dash)
+        # This handles operations with underscores like "count_overlaps"
+        if "-" in stem_without_testcase:
+            operation_name = stem_without_testcase.split("-")[0]
+        else:
+            operation_name = stem_without_testcase
 
         if operation_name not in operations_data:
             operations_data[operation_name] = {"tools": {}, "test_cases": set()}
@@ -167,25 +171,23 @@ def generate_html_charts(
 
     # Read PR data
     for csv_file in pr_csvs:
-        # Extract operation and test case from filename
+        # Extract operation and test case from filename (same logic as baseline)
         stem = csv_file.stem
 
-        # Split on the pattern "-single-4tools_" to separate operation from test case
-        if "-single-4tools_" in stem:
-            operation_base, test_case = stem.split("-single-4tools_", 1)
-            operation_name = (
-                operation_base  # e.g., "overlap", "nearest", "count_overlaps"
-            )
+        # Extract test case from end (pattern: _digits-digits)
+        test_case_match = re.search(r"_(\d+-\d+)$", stem)
+        if test_case_match:
+            test_case = test_case_match.group(1)
+            stem_without_testcase = stem[: test_case_match.start()]
         else:
-            # Fallback to old logic
-            parts = stem.split("_")
-            if len(parts) >= 2:
-                operation_base = parts[0]
-                test_case = parts[1]
-            else:
-                operation_base = stem
-                test_case = "default"
-            operation_name = operation_base.split("-")[0]
+            test_case = "default"
+            stem_without_testcase = stem
+
+        # Extract operation name (everything before first dash, or entire name if no dash)
+        if "-" in stem_without_testcase:
+            operation_name = stem_without_testcase.split("-")[0]
+        else:
+            operation_name = stem_without_testcase
 
         if operation_name not in operations_data:
             continue

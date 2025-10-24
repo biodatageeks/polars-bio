@@ -31,9 +31,23 @@ OPERATIONS_COMPARED=0
 
 # Process each operation CSV using find with proper handling of spaces
 while IFS= read -r -d '' BASELINE_CSV; do
-    # Get operation name from filename (e.g., overlap_1-2.csv -> overlap)
+    # Get operation name from filename
+    # Pattern: {operation}-{config}_{testcase}.csv
+    # Examples:
+    #   "overlap-single-4tools_7-8.csv" -> operation="overlap"
+    #   "count_overlaps-multi-8tools_1-2.csv" -> operation="count_overlaps"
+    #   "nearest_3-7.csv" -> operation="nearest"
     BASENAME=$(basename "$BASELINE_CSV")
-    OPERATION=$(echo "$BASENAME" | sed 's/_[0-9-]*\.csv$//' | sed 's/\.csv$//')
+
+    # Remove .csv extension and test case pattern (_digits-digits)
+    STEM=$(echo "$BASENAME" | sed 's/\.csv$//' | sed 's/_[0-9]\+-[0-9]\+$//')
+
+    # Extract operation name (everything before first dash, or entire name if no dash)
+    if echo "$STEM" | grep -q '-'; then
+        OPERATION=$(echo "$STEM" | cut -d'-' -f1)
+    else
+        OPERATION="$STEM"
+    fi
 
     # Find corresponding PR CSV
     PR_CSV=$(find "$PR_DIR" -name "${OPERATION}*.csv" -type f | head -1)
