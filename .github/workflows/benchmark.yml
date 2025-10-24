@@ -21,7 +21,7 @@ on:
 
 jobs:
   benchmark:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, huge-c10m25]
     permissions:
       contents: write
       pull-requests: write
