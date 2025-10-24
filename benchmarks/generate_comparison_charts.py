@@ -117,12 +117,12 @@ def generate_html_charts(
         # Examples:
         #   "overlap-single-4tools_7-8.csv" -> operation="overlap", test_case="7-8"
         #   "overlap-single-4tools_7.csv" -> operation="overlap", test_case="7"
+        #   "overlap_gnomad-sv-vcf.csv" -> operation="overlap", test_case="gnomad-sv-vcf"
         #   "count_overlaps-multi-8tools_1-2.csv" -> operation="count_overlaps", test_case="1-2"
-        #   "nearest_3.csv" -> operation="nearest", test_case="3"
         stem = csv_file.stem
 
-        # Extract test case from end (pattern: _digits or _digits-digits)
-        test_case_match = re.search(r"_(\d+(?:-\d+)?)$", stem)
+        # Extract test case from end (pattern: _anything except underscore)
+        test_case_match = re.search(r"_([^_]+)$", stem)
         if test_case_match:
             test_case = test_case_match.group(1)
             # Remove test case from stem to get operation + config
@@ -175,8 +175,8 @@ def generate_html_charts(
         # Extract operation and test case from filename (same logic as baseline)
         stem = csv_file.stem
 
-        # Extract test case from end (pattern: _digits or _digits-digits)
-        test_case_match = re.search(r"_(\d+(?:-\d+)?)$", stem)
+        # Extract test case from end (pattern: _anything except underscore)
+        test_case_match = re.search(r"_([^_]+)$", stem)
         if test_case_match:
             test_case = test_case_match.group(1)
             stem_without_testcase = stem[: test_case_match.start()]

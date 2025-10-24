@@ -36,12 +36,13 @@ while IFS= read -r -d '' BASELINE_CSV; do
     # Examples:
     #   "overlap-single-4tools_7-8.csv" -> operation="overlap"
     #   "overlap-single-4tools_7.csv" -> operation="overlap"
+    #   "overlap_gnomad-sv-vcf.csv" -> operation="overlap"
     #   "count_overlaps-multi-8tools_1-2.csv" -> operation="count_overlaps"
-    #   "nearest_3.csv" -> operation="nearest"
     BASENAME=$(basename "$BASELINE_CSV")
 
-    # Remove .csv extension and test case pattern (_digits or _digits-digits)
-    STEM=$(echo "$BASENAME" | sed 's/\.csv$//' | sed 's/_[0-9]\+\(-[0-9]\+\)\?$//')
+    # Remove .csv extension and test case pattern (_anything)
+    # We match the last underscore and everything after it
+    STEM=$(echo "$BASENAME" | sed 's/\.csv$//' | sed 's/_[^_]*$//')
 
     # Extract operation name (everything before first dash, or entire name if no dash)
     if echo "$STEM" | grep -q '-'; then
