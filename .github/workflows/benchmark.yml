@@ -25,6 +25,8 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    env:
+      PATH: /home/gha/.local/bin:$PATH
 
     steps:
       - name: Checkout repository
