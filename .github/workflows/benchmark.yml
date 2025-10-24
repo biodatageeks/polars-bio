@@ -217,9 +217,8 @@ jobs:
           # Install maturin in poetry virtualenv
           cd polars-bio-bench
           poetry run pip install maturin
-          # Build from repo root to ensure proper cache usage
-          cd ..
-          poetry run -C polars-bio-bench maturin develop --release
+          # Build from repo root with explicit Cargo.toml path
+          poetry run maturin develop --release -m ../Cargo.toml
 
       - name: Run target benchmarks
         run: |
