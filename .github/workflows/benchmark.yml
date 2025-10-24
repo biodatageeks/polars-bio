@@ -21,7 +21,7 @@ on:
 
 jobs:
   benchmark:
-    runs-on: [self-hosted, huge-c10m25]
+    runs-on: [self-hosted, extra-c20m50]
     permissions:
       contents: write
       pull-requests: write
