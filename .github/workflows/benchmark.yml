@@ -192,6 +192,9 @@ jobs:
           cd polars-bio-bench
           poetry run pip uninstall -y polars-bio || true
 
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Cache Cargo dependencies
         uses: actions/cache@v4
         with:
@@ -201,22 +204,22 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-benchmark-skylake-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-benchmark-${{ hashFiles('**/Cargo.lock') }}-skylake
           restore-keys: |
-            ${{ runner.os }}-cargo-benchmark-skylake-
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+            ${{ runner.os }}-cargo-benchmark-${{ hashFiles('**/Cargo.lock') }}-
+            ${{ runner.os }}-cargo-benchmark-
 
       - name: Install target polars-bio from source
         env:
           RUSTFLAGS: "-Ctarget-cpu=skylake"
+          CARGO_INCREMENTAL: "1"
         run: |
           # Install maturin in poetry virtualenv
           cd polars-bio-bench
           poetry run pip install maturin
-          # Build and install polars-bio from source (parent directory's Cargo.toml)
-          poetry run maturin develop --release -m ../Cargo.toml
+          # Build from repo root to ensure proper cache usage
+          cd ..
+          poetry run -C polars-bio-bench maturin develop --release
 
       - name: Run target benchmarks
         run: |
