@@ -283,7 +283,7 @@ jobs:
           if [ "${{ matrix.arch }}" == "amd64" ]; then
             echo "target_cpu=skylake" >> $GITHUB_OUTPUT
           else
-            echo "target_cpu=native" >> $GITHUB_OUTPUT
+            echo "target_cpu=apple-m1" >> $GITHUB_OUTPUT
           fi
 
       - name: Cache Cargo dependencies
