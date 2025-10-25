@@ -77,16 +77,30 @@ jobs:
         id: set-matrix
         run: |
           RUNNERS="${{ inputs.runners }}"
+          SUITE="${{ inputs.benchmark_suite }}"
 
           # Build matrix JSON
           MATRIX_JSON='{"include":['
 
-          if [[ "$RUNNERS" == *"linux"* ]]; then
-            MATRIX_JSON+='{"runner":"linux","labels":"[\"self-hosted\",\"Linux\",\"extra-c20m50\"]","os":"linux","arch":"amd64"},'
-          fi
+          if [ "$SUITE" == "fast" ]; then
+            # Fast mode: GitHub-hosted runners, default to both linux and macos
+            if [[ "$RUNNERS" == *"linux"* ]] || [ "$RUNNERS" == "linux" ]; then
+              MATRIX_JSON+='{"runner":"linux","labels":"[\"ubuntu-latest\"]","os":"linux","arch":"amd64"},'
+            fi
 
-          if [[ "$RUNNERS" == *"macos"* ]]; then
-            MATRIX_JSON+='{"runner":"macos","labels":"[\"self-hosted\",\"macos\",\"extra-c10m50\"]","os":"macos","arch":"arm64"},'
+            # For fast mode, if default runners or macos explicitly requested, add macos
+            if [[ "$RUNNERS" == *"macos"* ]] || [ "$RUNNERS" == "linux" ]; then
+              MATRIX_JSON+='{"runner":"macos","labels":"[\"macos-latest\"]","os":"macos","arch":"arm64"},'
+            fi
+          else
+            # Full mode: Self-hosted runners, respect runners parameter
+            if [[ "$RUNNERS" == *"linux"* ]]; then
+              MATRIX_JSON+='{"runner":"linux","labels":"[\"self-hosted\",\"Linux\",\"extra-c20m50\"]","os":"linux","arch":"amd64"},'
+            fi
+
+            if [[ "$RUNNERS" == *"macos"* ]]; then
+              MATRIX_JSON+='{"runner":"macos","labels":"[\"self-hosted\",\"macos\",\"extra-c10m50\"]","os":"macos","arch":"arm64"},'
+            fi
           fi
 
           # Remove trailing comma and close JSON
@@ -118,7 +132,8 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Set up PATH
+      - name: Set up PATH for self-hosted runners
+        if: ${{ inputs.benchmark_suite == 'full' }}
         run: echo "/home/gha/.local/bin" >> $GITHUB_PATH
 
       - name: Checkout repository
@@ -151,10 +166,16 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install system dependencies
+      - name: Install system dependencies (Linux)
+        if: ${{ matrix.os == 'linux' }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y bedtools jqwould
+          sudo apt-get install -y bedtools jq
+
+      - name: Install system dependencies (macOS)
+        if: ${{ matrix.os == 'macos' }}
+        run: |
+          brew install bedtools jq
 
       - name: Cache polars-bio-bench repository
         uses: actions/cache@v4
