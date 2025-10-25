@@ -659,7 +659,7 @@ def _create_tabbed_html(
     # Add tab buttons
     for idx, (runner_name, label) in enumerate(sorted(runner_labels.items())):
         active_class = " active" if idx == 0 else ""
-        html += f'            <button class="tab-button{active_class}" onclick="switchTab(\'{runner_name}\')">{label}</button>\n'
+        html += f'            <button class="tab-button{active_class}" data-runner="{runner_name}" onclick="switchTab(\'{runner_name}\')">{label}</button>\n'
 
     html += """        </div>
 """
@@ -735,7 +735,7 @@ def _create_tabbed_html(
 
             // Activate selected tab button
             document.querySelectorAll('.tab-button').forEach(button => {
-                if (button.getAttribute('onclick') === `switchTab('${runnerName}')`) {
+                if (button.dataset.runner === runnerName) {
                     button.classList.add('active');
                 }
             });
