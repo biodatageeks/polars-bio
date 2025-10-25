@@ -116,12 +116,20 @@ def generate_html_report(data_dir: Path, output_path: Path):
     # Load index and all datasets
     index = load_index(data_dir)
 
-    # Load data for each dataset
+    # Load data for each dataset with unique keys
+    # For branches with multiple commits, include commit SHA in the key
     all_datasets = {}
     for dataset_info in index["datasets"]:
         dataset_data = load_dataset_results(data_dir, dataset_info)
         if dataset_data:
-            all_datasets[dataset_info["id"]] = dataset_data
+            # Create unique dataset key
+            if dataset_info["ref_type"] == "branch":
+                commit_sha = dataset_info.get("commit_sha", "unknown")
+                dataset_key = f"{dataset_info['id']}@{commit_sha}"
+            else:
+                dataset_key = dataset_info["id"]
+
+            all_datasets[dataset_key] = dataset_data
 
     # Group datasets by ref (tags) or by commit SHA (branches)
     refs_by_type = {"tag": {}, "branch": {}}
@@ -135,8 +143,11 @@ def generate_html_report(data_dir: Path, output_path: Path):
             commit_sha = dataset_info.get("commit_sha", "unknown")
             # Use commit SHA as key to differentiate multiple commits
             unique_key = f"{ref}@{commit_sha}"
+            # Create unique dataset key matching what we used above
+            dataset_key = f"{dataset_info['id']}@{commit_sha}"
         else:
             unique_key = ref
+            dataset_key = dataset_info["id"]
 
         if unique_key not in refs_by_type[ref_type]:
             refs_by_type[ref_type][unique_key] = {
@@ -148,7 +159,8 @@ def generate_html_report(data_dir: Path, output_path: Path):
                 "runners": {},
             }
 
-        refs_by_type[ref_type][unique_key]["runners"][runner] = dataset_info["id"]
+        # Store the unique dataset key (not the original non-unique ID)
+        refs_by_type[ref_type][unique_key]["runners"][runner] = dataset_key
 
     # Generate HTML
     html = generate_html_template(index, all_datasets, refs_by_type)
