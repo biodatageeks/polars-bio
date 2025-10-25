@@ -123,23 +123,32 @@ def generate_html_report(data_dir: Path, output_path: Path):
         if dataset_data:
             all_datasets[dataset_info["id"]] = dataset_data
 
-    # Group datasets by ref
+    # Group datasets by ref (tags) or by commit SHA (branches)
     refs_by_type = {"tag": {}, "branch": {}}
     for dataset_info in index["datasets"]:
         ref = dataset_info["ref"]
         ref_type = dataset_info["ref_type"]
         runner = dataset_info["runner"]
 
-        if ref not in refs_by_type[ref_type]:
-            refs_by_type[ref_type][ref] = {
+        # For branches, use commit SHA as unique key; for tags, use ref name
+        if ref_type == "branch":
+            commit_sha = dataset_info.get("commit_sha", "unknown")
+            # Use commit SHA as key to differentiate multiple commits
+            unique_key = f"{ref}@{commit_sha}"
+        else:
+            unique_key = ref
+
+        if unique_key not in refs_by_type[ref_type]:
+            refs_by_type[ref_type][unique_key] = {
                 "label": dataset_info["label"],
                 "ref": ref,
                 "ref_type": ref_type,
+                "commit_sha": dataset_info.get("commit_sha"),
                 "is_latest_tag": dataset_info.get("is_latest_tag", False),
                 "runners": {},
             }
 
-        refs_by_type[ref_type][ref]["runners"][runner] = dataset_info["id"]
+        refs_by_type[ref_type][unique_key]["runners"][runner] = dataset_info["id"]
 
     # Generate HTML
     html = generate_html_template(index, all_datasets, refs_by_type)
@@ -460,15 +469,17 @@ def generate_html_template(index: Dict, datasets: Dict, refs_by_type: Dict) -> s
                     targetSelect.appendChild(tagGroup.cloneNode(true));
                 }}
 
-                // Branches
-                const branches = Object.values(DATA.refs_by_type.branch);
+                // Branches (each commit gets a separate entry)
+                const branches = Object.entries(DATA.refs_by_type.branch).map(([key, data]) => {{
+                    return {{ key: key, ...data }};
+                }});
                 if (branches.length > 0) {{
                     const branchGroup = document.createElement('optgroup');
                     branchGroup.label = 'Branches/Commits';
                     branches.forEach(ref => {{
                         const option = document.createElement('option');
-                        option.value = ref.ref;
-                        option.textContent = ref.label;
+                        option.value = ref.key;  // Use unique key (ref@sha)
+                        option.textContent = ref.label;  // Display with commit SHA
                         branchGroup.appendChild(option);
                     }});
                     baselineSelect.appendChild(branchGroup.cloneNode(true));
@@ -478,19 +489,21 @@ def generate_html_template(index: Dict, datasets: Dict, refs_by_type: Dict) -> s
 
             setDefaults() {{
                 // Find latest tag
-                const latestTag = Object.values(DATA.refs_by_type.tag).find(r => r.is_latest_tag);
-                // Find first branch
-                const firstBranch = Object.values(DATA.refs_by_type.branch)[0];
-                const targetRef = firstBranch || Object.values(DATA.refs_by_type.tag)[0];
+                const latestTagEntry = Object.entries(DATA.refs_by_type.tag).find(([key, ref]) => ref.is_latest_tag);
+                // Find first branch (most recent commit)
+                const firstBranchEntry = Object.entries(DATA.refs_by_type.branch)[0];
+                const targetEntry = firstBranchEntry || Object.entries(DATA.refs_by_type.tag)[0];
 
-                if (latestTag) {{
-                    document.getElementById('baseline-select').value = latestTag.ref;
-                    this.currentBaseline = latestTag.ref;
+                if (latestTagEntry) {{
+                    const [tagKey, tagData] = latestTagEntry;
+                    document.getElementById('baseline-select').value = tagKey;
+                    this.currentBaseline = tagKey;
                 }}
 
-                if (targetRef) {{
-                    document.getElementById('target-select').value = targetRef.ref;
-                    this.currentTarget = targetRef.ref;
+                if (targetEntry) {{
+                    const [targetKey, targetData] = targetEntry;
+                    document.getElementById('target-select').value = targetKey;
+                    this.currentTarget = targetKey;
                 }}
             }},
 
@@ -499,9 +512,9 @@ def generate_html_template(index: Dict, datasets: Dict, refs_by_type: Dict) -> s
                 this.loadComparison();
             }},
 
-            getRefData(refName) {{
-                // Find ref in tags or branches
-                return DATA.refs_by_type.tag[refName] || DATA.refs_by_type.branch[refName];
+            getRefData(refKey) {{
+                // Find ref in tags or branches using unique key
+                return DATA.refs_by_type.tag[refKey] || DATA.refs_by_type.branch[refKey];
             }},
 
             loadComparison() {{
