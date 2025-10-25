@@ -24,10 +24,32 @@ def load_or_create_index(index_path):
         }
 
 
-def add_dataset(index, dataset_info):
-    """Add or update dataset entry in index."""
-    # Remove existing entry with same ID
-    index["datasets"] = [d for d in index["datasets"] if d["id"] != dataset_info["id"]]
+def add_dataset(index, dataset_info, max_commits_per_branch=10):
+    """Add or update dataset entry in index.
+
+    Args:
+        index: The index dictionary
+        dataset_info: New dataset to add
+        max_commits_per_branch: Maximum number of commits to keep per branch (default: 10)
+    """
+    # For tags: remove existing entry with same ID (only keep one per tag)
+    # For branches: keep all entries (will be limited later)
+    if dataset_info["ref_type"] == "tag":
+        index["datasets"] = [
+            d for d in index["datasets"] if d["id"] != dataset_info["id"]
+        ]
+    else:
+        # For branches, remove only if same commit SHA (avoid duplicates)
+        index["datasets"] = [
+            d
+            for d in index["datasets"]
+            if not (
+                d["ref_type"] == "branch"
+                and d["ref"] == dataset_info["ref"]
+                and d["runner"] == dataset_info["runner"]
+                and d.get("commit_sha") == dataset_info.get("commit_sha")
+            )
+        ]
 
     # Add new entry
     index["datasets"].append(dataset_info)
@@ -41,6 +63,44 @@ def add_dataset(index, dataset_info):
             ).timestamp(),  # newest first
         )
     )
+
+    # Limit commits per branch to max_commits_per_branch
+    if max_commits_per_branch > 0:
+        # Group datasets by (ref_type, ref, runner)
+        from collections import defaultdict
+
+        groups = defaultdict(list)
+
+        for dataset in index["datasets"]:
+            if dataset["ref_type"] == "branch":
+                key = (dataset["ref"], dataset["runner"])
+                groups[key].append(dataset)
+
+        # Keep only the N most recent commits per branch+runner
+        datasets_to_keep = []
+        datasets_to_remove = set()
+
+        for key, datasets in groups.items():
+            # Sort by timestamp descending
+            sorted_datasets = sorted(
+                datasets,
+                key=lambda d: -datetime.fromisoformat(
+                    d["timestamp"].replace("Z", "+00:00")
+                ).timestamp(),
+            )
+            # Keep first N
+            for i, dataset in enumerate(sorted_datasets):
+                if i < max_commits_per_branch:
+                    datasets_to_keep.append(dataset["id"])
+                else:
+                    datasets_to_remove.add(dataset["id"])
+
+        # Remove old commits
+        index["datasets"] = [
+            d
+            for d in index["datasets"]
+            if d["ref_type"] == "tag" or d["id"] in datasets_to_keep
+        ]
 
 
 def update_tags_list(index, ref, ref_type):
@@ -99,6 +159,12 @@ def main():
     parser.add_argument(
         "--is-latest-tag", action="store_true", help="Mark as latest tag"
     )
+    parser.add_argument(
+        "--max-commits",
+        type=int,
+        default=10,
+        help="Maximum number of commits to keep per branch (default: 10)",
+    )
     parser.add_argument("--verbose", action="store_true", help="Verbose output")
 
     args = parser.parse_args()
@@ -126,7 +192,7 @@ def main():
             dataset["is_latest_tag"] = True
 
         # Add dataset
-        add_dataset(index, dataset)
+        add_dataset(index, dataset, max_commits_per_branch=args.max_commits)
 
         # Update tags list
         update_tags_list(index, args.ref, args.ref_type)
