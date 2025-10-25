@@ -3,6 +3,11 @@ name: Performance Benchmarks
 on:
   workflow_dispatch:
     inputs:
+      runners:
+        description: 'Runners to benchmark (comma-separated: linux,macos or just linux)'
+        required: false
+        default: 'linux'
+        type: string
       alert_threshold:
         description: 'Alert threshold percentage (e.g., 150 for 150% degradation)'
         required: false
@@ -20,20 +25,17 @@ on:
         type: string
 
 jobs:
-  benchmark:
-    runs-on: [self-hosted, extra-c20m50]
-    permissions:
-      contents: write
-      pull-requests: write
-
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      baseline_tag: ${{ needs.prepare.outputs.baseline_tag }}
+      target_ref: ${{ needs.prepare.outputs.target_ref }}
     steps:
-      - name: Set up PATH
-        run: echo "/home/gha/.local/bin" >> $GITHUB_PATH
-
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for tag identification
+          fetch-depth: 0
 
       - name: Determine baseline tag
         id: baseline
@@ -51,12 +53,6 @@ jobs:
           fi
           echo "tag=$BASELINE_TAG" >> $GITHUB_OUTPUT
 
-          # Verify tag exists
-          if ! git rev-parse "$BASELINE_TAG" >/dev/null 2>&1; then
-            echo "Error: Tag '$BASELINE_TAG' does not exist"
-            exit 1
-          fi
-
       - name: Determine target reference
         id: target
         run: |
@@ -67,6 +63,47 @@ jobs:
           fi
           echo "ref=$TARGET_REF" >> $GITHUB_OUTPUT
           echo "Target reference: $TARGET_REF"
+
+      - name: Set up runner matrix
+        id: set-matrix
+        run: |
+          RUNNERS="${{ inputs.runners }}"
+
+          # Build matrix JSON
+          MATRIX_JSON='{"include":['
+
+          if [[ "$RUNNERS" == *"linux"* ]]; then
+            MATRIX_JSON+='{"runner":"linux","labels":"[\"self-hosted\",\"Linux\",\"extra-c20m50\"]","os":"linux","arch":"amd64"},'
+          fi
+
+          if [[ "$RUNNERS" == *"macos"* ]]; then
+            MATRIX_JSON+='{"runner":"macos","labels":"[\"self-hosted\",\"macos\",\"extra-c10m50\"]","os":"macos","arch":"arm64"},'
+          fi
+
+          # Remove trailing comma and close JSON
+          MATRIX_JSON="${MATRIX_JSON%,}]}"
+
+          echo "Matrix: $MATRIX_JSON"
+          echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+
+  benchmark:
+    needs: prepare
+    strategy:
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+      fail-fast: false
+    runs-on: ${{ fromJson(matrix.labels) }}
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Set up PATH
+        run: echo "/home/gha/.local/bin" >> $GITHUB_PATH
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for tag identification
 
       - name: Validate threshold
         id: threshold
@@ -96,7 +133,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y bedtools
+          sudo apt-get install -y bedtools jqwould
 
       - name: Cache polars-bio-bench repository
         uses: actions/cache@v4
@@ -132,7 +169,7 @@ jobs:
         run: |
           # For baseline, install the released version from PyPI into poetry virtualenv
           cd polars-bio-bench
-          poetry run pip install polars-bio==$(echo "${{ steps.baseline.outputs.tag }}" | sed 's/^v//')
+          poetry run pip install polars-bio==$(echo "${{ needs.prepare.outputs.baseline_tag }}" | sed 's/^v//')
 
       - name: Restore benchmark test data cache
         id: cache-benchmark-data
@@ -188,7 +225,7 @@ jobs:
 
       - name: Checkout target code
         run: |
-          git checkout ${{ steps.target.outputs.ref }}
+          git checkout ${{ needs.prepare.outputs.target_ref }}
 
       - name: Clean previous installation
         run: |
@@ -256,41 +293,6 @@ jobs:
           ls -la pr_results/
           find pr_results/ -name "*.csv" | head -5 | xargs -I {} sh -c 'echo "=== {} ===" && head -10 "{}"'
 
-      # ============================================
-      # COMPARISON AND REPORTING
-      # ============================================
-
-      - name: Parse and compare benchmark results
-        id: comparison
-        run: |
-          bash benchmarks/compare_benchmark_results.sh \
-            baseline_results \
-            pr_results \
-            ${{ steps.threshold.outputs.value }} \
-            ${{ steps.baseline.outputs.tag }} \
-            ${{ steps.target.outputs.ref }}
-
-          # Check if regressions were found
-          REGRESSIONS=$(jq '.total_regressions' comparison_summary.json)
-          echo "regressions=$REGRESSIONS" >> $GITHUB_OUTPUT
-
-          # Set exit status for later use
-          if [ "$REGRESSIONS" -gt 0 ]; then
-            echo "regression_detected=true" >> $GITHUB_OUTPUT
-          else
-            echo "regression_detected=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Generate comparison charts
-        run: |
-          python3 benchmarks/generate_comparison_charts.py \
-            baseline_results \
-            pr_results \
-            comparison_charts \
-            --baseline-name "${{ steps.baseline.outputs.tag }}" \
-            --pr-name "${{ steps.target.outputs.ref }}" \
-            --benchmark-repo polars-bio-bench
-
       - name: Save benchmark test data cache
         if: success()
         uses: actions/cache/save@v4
@@ -298,18 +300,65 @@ jobs:
           path: /tmp/polars-bio-bench
           key: ${{ steps.cache-benchmark-data.outputs.cache-primary-key }}
 
+      - name: Save runner metadata
+        run: |
+          cat > runner_info.json <<EOF
+          {
+            "runner": "${{ matrix.runner }}",
+            "os": "${{ matrix.os }}",
+            "arch": "${{ matrix.arch }}",
+            "timestamp": "$(date -u +"%Y-%m-%d %H:%M:%S UTC")",
+            "baseline_tag": "${{ needs.prepare.outputs.baseline_tag }}",
+            "target_ref": "${{ needs.prepare.outputs.target_ref }}"
+          }
+          EOF
+          cat runner_info.json
+
       - name: Upload benchmark results as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-results
+          name: benchmark-results-${{ matrix.runner }}
           path: |
             baseline_results/
             pr_results/
-            comparison_results/
-            comparison_reports/
-            comparison_charts/
-            comparison_report_combined.md
-            comparison_summary.json
+            runner_info.json
+
+  aggregate:
+    needs: [prepare, benchmark]
+    runs-on: ubuntu-latest
+    if: always()  # Run even if some benchmarks fail
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all benchmark artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-results/
+          pattern: benchmark-results-*
+          merge-multiple: false
+
+      - name: List downloaded artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          ls -la all-results/
+          find all-results/ -type f | head -20
+
+      - name: Generate multi-runner comparison charts
+        run: |
+          # Check if we have multiple runners
+          RUNNER_COUNT=$(ls -d all-results/benchmark-results-* 2>/dev/null | wc -l)
+          echo "Found $RUNNER_COUNT runner(s)"
+
+          python3 benchmarks/generate_comparison_charts.py \
+            --multi-runner \
+            --results-dir all-results \
+            --output comparison_charts/benchmark_comparison.html \
+            --baseline-name "${{ needs.prepare.outputs.baseline_tag }}" \
+            --pr-name "${{ needs.prepare.outputs.target_ref }}"
 
       - name: Publish comparison charts to gh-pages
         run: |
@@ -323,7 +372,7 @@ jobs:
             echo "Publishing to main benchmark comparison page"
           else
             # PR or branch: publish to branch-specific directory
-            BRANCH_NAME="${{ steps.target.outputs.ref }}"
+            BRANCH_NAME="${{ needs.prepare.outputs.target_ref }}"
             SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g')
             OUTPUT_DIR="gh-pages-repo/benchmark-comparison/$SANITIZED_BRANCH"
             echo "Publishing to branch-specific page: $SANITIZED_BRANCH"
@@ -340,14 +389,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add benchmark-comparison/
-          git commit -m "Update benchmark comparison charts for ${{ steps.target.outputs.ref }}" || echo "No changes to commit"
+          git commit -m "Update benchmark comparison charts for ${{ needs.prepare.outputs.target_ref }}" || echo "No changes to commit"
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} gh-pages
         continue-on-error: true
 
       - name: Find PR number for branch
         id: find_pr
         run: |
-          BRANCH="${{ steps.target.outputs.ref }}"
+          BRANCH="${{ needs.prepare.outputs.target_ref }}"
           echo "Looking for PR for branch: $BRANCH"
 
           # Find PR number using GitHub CLI
@@ -385,8 +434,8 @@ jobs:
             );
 
             const runId = context.runId;
-            const branchName = '${{ steps.target.outputs.ref }}';
-            const baselineTag = '${{ steps.baseline.outputs.tag }}';
+            const branchName = '${{ needs.prepare.outputs.target_ref }}';
+            const baselineTag = '${{ needs.prepare.outputs.baseline_tag }}';
             const sanitizedBranch = branchName.replace(/[^a-zA-Z0-9-]/g, '-');
             const chartUrl = `https://biodatageeks.org/polars-bio/benchmark-comparison/${sanitizedBranch}/`;
             const artifactLink = `[📦 Download Artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}#artifacts)`;
@@ -418,7 +467,7 @@ jobs:
           echo "## 📊 Interactive Comparison Charts" >> $GITHUB_STEP_SUMMARY
 
           # Determine chart URL based on branch
-          BRANCH_NAME="${{ steps.target.outputs.ref }}"
+          BRANCH_NAME="${{ needs.prepare.outputs.target_ref }}"
           SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g')
 
           if [ "${{ github.ref }}" == "refs/heads/master" ] || [ "${{ github.ref }}" == "refs/heads/main" ]; then

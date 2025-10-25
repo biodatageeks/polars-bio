@@ -508,13 +508,145 @@ def generate_html_charts(
     print(f"Generated comparison chart: {output_file}")
 
 
+def generate_multi_runner_html(
+    runners: Dict[str, Dict],
+    output_file: Path,
+    baseline_name: str,
+    pr_name: str,
+    benchmark_repo: Path = None,
+):
+    """Generate HTML with tabs for multiple runners.
+
+    For now, this is a simple implementation that uses the first runner.
+    TODO: Implement full tabbed interface for multiple runners.
+    """
+
+    if len(runners) == 1:
+        # Single runner - use existing logic
+        runner_name = list(runners.keys())[0]
+        runner_info = runners[runner_name]
+
+        print(f"Generating chart for single runner: {runner_name}")
+
+        # Create output directory
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Use existing generate_html_charts but output to specific file
+        temp_output_dir = output_file.parent / "temp"
+        temp_output_dir.mkdir(exist_ok=True)
+
+        generate_html_charts(
+            runner_info["baseline_dir"],
+            runner_info["pr_dir"],
+            temp_output_dir,
+            baseline_name,
+            pr_name,
+            benchmark_repo,
+        )
+
+        # Move the generated file to the desired location
+        generated_file = temp_output_dir / "benchmark_comparison.html"
+        if generated_file.exists():
+            generated_file.replace(output_file)
+            temp_output_dir.rmdir()
+            print(f"Generated chart: {output_file}")
+        else:
+            print(f"Error: Generated file not found at {generated_file}")
+
+    else:
+        # Multiple runners - TODO: implement tabbed interface
+        print(f"Multi-runner HTML generation with tabs - TODO")
+        print(f"Found {len(runners)} runners: {list(runners.keys())}")
+        print(f"For now, generating chart for first runner only")
+
+        # Temporarily use first runner
+        runner_name = sorted(runners.keys())[0]
+        runner_info = runners[runner_name]
+
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        temp_output_dir = output_file.parent / "temp"
+        temp_output_dir.mkdir(exist_ok=True)
+
+        generate_html_charts(
+            runner_info["baseline_dir"],
+            runner_info["pr_dir"],
+            temp_output_dir,
+            baseline_name,
+            pr_name,
+            benchmark_repo,
+        )
+
+        generated_file = temp_output_dir / "benchmark_comparison.html"
+        if generated_file.exists():
+            generated_file.replace(output_file)
+            temp_output_dir.rmdir()
+            print(f"Generated chart for {runner_name}: {output_file}")
+            print(f"Note: Tabbed multi-runner interface not yet implemented")
+
+
+def discover_runner_results(results_dir: Path) -> Dict[str, Dict]:
+    """Discover runner results from the artifacts directory.
+
+    Returns a dict mapping runner name to {baseline_dir, pr_dir, runner_info}.
+    """
+    runners = {}
+
+    # Find all benchmark-results-* directories
+    for artifact_dir in results_dir.glob("benchmark-results-*"):
+        if not artifact_dir.is_dir():
+            continue
+
+        # Extract runner name from directory name
+        runner_name = artifact_dir.name.replace("benchmark-results-", "")
+
+        baseline_dir = artifact_dir / "baseline_results"
+        pr_dir = artifact_dir / "pr_results"
+        runner_info_file = artifact_dir / "runner_info.json"
+
+        if baseline_dir.exists() and pr_dir.exists():
+            runner_info = {}
+            if runner_info_file.exists():
+                with open(runner_info_file) as f:
+                    runner_info = json.load(f)
+
+            runners[runner_name] = {
+                "baseline_dir": baseline_dir,
+                "pr_dir": pr_dir,
+                "runner_info": runner_info,
+            }
+            print(
+                f"Found runner: {runner_name} ({runner_info.get('os', 'unknown')}/{runner_info.get('arch', 'unknown')})"
+            )
+
+    return runners
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate benchmark comparison charts")
     parser.add_argument(
-        "baseline_dir", type=Path, help="Directory with baseline CSV results"
+        "baseline_dir",
+        nargs="?",
+        type=Path,
+        help="Directory with baseline CSV results (single-runner mode)",
     )
-    parser.add_argument("pr_dir", type=Path, help="Directory with PR CSV results")
-    parser.add_argument("output_dir", type=Path, help="Output directory for HTML chart")
+    parser.add_argument(
+        "pr_dir",
+        nargs="?",
+        type=Path,
+        help="Directory with PR CSV results (single-runner mode)",
+    )
+    parser.add_argument(
+        "output_dir", nargs="?", type=Path, help="Output directory for HTML chart"
+    )
+    parser.add_argument("--multi-runner", action="store_true", help="Multi-runner mode")
+    parser.add_argument(
+        "--results-dir",
+        type=Path,
+        help="Directory containing all runner results (multi-runner mode)",
+    )
+    parser.add_argument(
+        "--output", type=Path, help="Output HTML file path (multi-runner mode)"
+    )
     parser.add_argument(
         "--baseline-name", default="Baseline", help="Name for baseline (e.g., tag name)"
     )
@@ -530,24 +662,60 @@ def main():
 
     args = parser.parse_args()
 
-    if not args.baseline_dir.exists():
-        print(f"Error: Baseline directory not found: {args.baseline_dir}")
-        sys.exit(1)
+    if args.multi_runner:
+        # Multi-runner mode
+        if not args.results_dir or not args.output:
+            print(
+                "Error: --results-dir and --output are required for multi-runner mode"
+            )
+            sys.exit(1)
 
-    if not args.pr_dir.exists():
-        print(f"Error: PR directory not found: {args.pr_dir}")
-        sys.exit(1)
+        if not args.results_dir.exists():
+            print(f"Error: Results directory not found: {args.results_dir}")
+            sys.exit(1)
 
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+        # Discover all runners
+        runners = discover_runner_results(args.results_dir)
 
-    generate_html_charts(
-        args.baseline_dir,
-        args.pr_dir,
-        args.output_dir,
-        args.baseline_name,
-        args.pr_name,
-        args.benchmark_repo,
-    )
+        if not runners:
+            print("Error: No runner results found in", args.results_dir)
+            sys.exit(1)
+
+        # Generate multi-runner HTML
+        generate_multi_runner_html(
+            runners,
+            args.output,
+            args.baseline_name,
+            args.pr_name,
+            args.benchmark_repo,
+        )
+
+    else:
+        # Single-runner mode (backward compatible)
+        if not args.baseline_dir or not args.pr_dir or not args.output_dir:
+            print(
+                "Error: baseline_dir, pr_dir, and output_dir are required for single-runner mode"
+            )
+            sys.exit(1)
+
+        if not args.baseline_dir.exists():
+            print(f"Error: Baseline directory not found: {args.baseline_dir}")
+            sys.exit(1)
+
+        if not args.pr_dir.exists():
+            print(f"Error: PR directory not found: {args.pr_dir}")
+            sys.exit(1)
+
+        args.output_dir.mkdir(parents=True, exist_ok=True)
+
+        generate_html_charts(
+            args.baseline_dir,
+            args.pr_dir,
+            args.output_dir,
+            args.baseline_name,
+            args.pr_name,
+            args.benchmark_repo,
+        )
 
 
 if __name__ == "__main__":
