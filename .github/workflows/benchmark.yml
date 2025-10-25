@@ -277,6 +277,15 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Set Rust target CPU
+        id: rust-target
+        run: |
+          if [ "${{ matrix.arch }}" == "amd64" ]; then
+            echo "target_cpu=skylake" >> $GITHUB_OUTPUT
+          else
+            echo "target_cpu=native" >> $GITHUB_OUTPUT
+          fi
+
       - name: Cache Cargo dependencies
         uses: actions/cache@v4
         with:
@@ -286,14 +295,14 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-benchmark-${{ hashFiles('**/Cargo.lock') }}-skylake
+          key: ${{ runner.os }}-cargo-benchmark-${{ hashFiles('**/Cargo.lock') }}-${{ steps.rust-target.outputs.target_cpu }}
           restore-keys: |
             ${{ runner.os }}-cargo-benchmark-${{ hashFiles('**/Cargo.lock') }}-
             ${{ runner.os }}-cargo-benchmark-
 
       - name: Install target polars-bio from source
         env:
-          RUSTFLAGS: "-Ctarget-cpu=skylake"
+          RUSTFLAGS: "-Ctarget-cpu=${{ steps.rust-target.outputs.target_cpu }}"
           CARGO_INCREMENTAL: "1"
         run: |
           # Install maturin in poetry virtualenv
