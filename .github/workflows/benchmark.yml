@@ -6,7 +6,7 @@ on:
       runners:
         description: 'Runners to benchmark (comma-separated: linux,macos or just linux)'
         required: false
-        default: 'linux'
+        default: 'linux,macos'
         type: string
       benchmark_suite:
         description: 'Benchmark suite to run (fast or full)'
@@ -290,19 +290,19 @@ jobs:
             echo "rustflags=-Ctarget-cpu=skylake" >> $GITHUB_OUTPUT
           fi
 
-      - name: Cache Cargo dependencies
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Cache Cargo registry
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-benchmark-${{ hashFiles('**/Cargo.lock') }}-${{ steps.rust-target.outputs.target_cpu }}
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-benchmark-${{ hashFiles('**/Cargo.lock') }}-
-            ${{ runner.os }}-cargo-benchmark-
+            ${{ runner.os }}-cargo-registry-
 
       - name: Install target polars-bio from source
         env:

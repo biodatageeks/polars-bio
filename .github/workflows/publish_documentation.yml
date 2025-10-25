@@ -29,6 +29,6 @@ jobs:
           source .venv/bin/activate
           pip install polars-bio
       - name: Deploy docs
-        run: poetry run mkdocs gh-deploy --remote-branch gh-pages -f mkdocs.yml --force
+        run: poetry run mkdocs gh-deploy --remote-branch gh-pages -f mkdocs.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
