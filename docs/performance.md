@@ -1,5 +1,13 @@
 # Results summary 📈
 
+## Current Performance 🔥
+
+**Latest Benchmark Comparison**: [View Interactive Performance Report](https://biodatageeks.org/polars-bio/benchmark-comparison/)
+
+The benchmark comparison shows performance across three key operations (overlap, nearest, count_overlaps) comparing polars-bio against alternative tools (pyranges1, genomicranges, bioframe). Updated automatically on each release.
+
+---
+
 ## Single-thread performance 🏃‍
 ![overlap-single.png](assets/overlap-single.png)
 

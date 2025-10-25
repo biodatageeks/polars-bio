@@ -33,6 +33,8 @@ It provides a DataFrame API for genomics data and is designed to be blazing fast
 ## Performance benchmarks
 ![summary-results.png](docs/assets/summary-results.png)
 
+For developers: See [`benchmarks/README_BENCHMARKS.md`](benchmarks/README_BENCHMARKS.md) for information about running performance benchmarks via GitHub Actions.
+
 
 ## Citing
 
