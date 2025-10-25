@@ -508,6 +508,208 @@ def generate_html_charts(
     print(f"Generated comparison chart: {output_file}")
 
 
+def _create_tabbed_html(
+    runner_htmls: Dict[str, str],
+    runner_labels: Dict[str, str],
+    baseline_name: str,
+    pr_name: str,
+) -> str:
+    """Create HTML with tabs for multiple runners.
+
+    Args:
+        runner_htmls: Dict mapping runner name to full HTML content
+        runner_labels: Dict mapping runner name to display label
+        baseline_name: Baseline version name
+        pr_name: PR/target version name
+
+    Returns:
+        Complete HTML with tabbed interface
+    """
+    import re
+    from datetime import datetime
+
+    # Extract body content from each runner's HTML
+    runner_bodies = {}
+    for runner_name, html in runner_htmls.items():
+        # Extract content between <body> tags
+        body_match = re.search(r"<body>(.*?)</body>", html, re.DOTALL)
+        if body_match:
+            runner_bodies[runner_name] = body_match.group(1)
+        else:
+            runner_bodies[runner_name] = html
+
+    # Generate timestamp
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    # Start building tabbed HTML
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benchmark Comparison: {baseline_name} vs {pr_name}</title>
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }}
+        .header {{
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        h1 {{
+            margin: 0 0 10px 0;
+            color: #333;
+        }}
+        .subtitle {{
+            color: #666;
+            font-size: 14px;
+        }}
+
+        /* Tab styling */
+        .tab-container {{
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }}
+        .tab-buttons {{
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            background-color: #fafafa;
+        }}
+        .tab-button {{
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }}
+        .tab-button:hover {{
+            background-color: #f0f0f0;
+            color: #333;
+        }}
+        .tab-button.active {{
+            color: #1976d2;
+            border-bottom-color: #1976d2;
+            background-color: white;
+        }}
+        .tab-content {{
+            display: none;
+            padding: 20px;
+        }}
+        .tab-content.active {{
+            display: block;
+        }}
+
+        /* Chart styling */
+        .chart-container {{
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }}
+        h2 {{
+            margin-top: 0;
+            color: #333;
+            text-transform: capitalize;
+        }}
+        .legend {{
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }}
+        .legend-item {{
+            display: inline-block;
+            margin-right: 20px;
+        }}
+        .legend-color {{
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            vertical-align: middle;
+            border-radius: 2px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Benchmark Comparison: {baseline_name} vs {pr_name}</h1>
+        <div class="subtitle">Generated: {timestamp}</div>
+    </div>
+
+    <div class="tab-container">
+        <div class="tab-buttons">
+"""
+
+    # Add tab buttons
+    for idx, (runner_name, label) in enumerate(sorted(runner_labels.items())):
+        active_class = " active" if idx == 0 else ""
+        html += f'            <button class="tab-button{active_class}" onclick="switchTab(\'{runner_name}\')">{label}</button>\n'
+
+    html += """        </div>
+"""
+
+    # Add tab content panels
+    for idx, runner_name in enumerate(sorted(runner_bodies.keys())):
+        active_class = " active" if idx == 0 else ""
+        body_content = runner_bodies[runner_name]
+
+        # Remove duplicate header if present in body content
+        body_content = re.sub(
+            r'<div class="header">.*?</div>', "", body_content, flags=re.DOTALL
+        )
+
+        html += f"""        <div id="tab-{runner_name}" class="tab-content{active_class}">
+{body_content}
+        </div>
+"""
+
+    html += """    </div>
+
+    <script>
+        function switchTab(runnerName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Deactivate all tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Show selected tab content
+            const tabContent = document.getElementById('tab-' + runnerName);
+            if (tabContent) {
+                tabContent.classList.add('active');
+            }
+
+            // Activate selected tab button
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
+"""
+
+    return html
+
+
 def generate_multi_runner_html(
     runners: Dict[str, Dict],
     output_file: Path,
@@ -515,11 +717,7 @@ def generate_multi_runner_html(
     pr_name: str,
     benchmark_repo: Path = None,
 ):
-    """Generate HTML with tabs for multiple runners.
-
-    For now, this is a simple implementation that uses the first runner.
-    TODO: Implement full tabbed interface for multiple runners.
-    """
+    """Generate HTML with tabs for multiple runners."""
 
     if len(runners) == 1:
         # Single runner - use existing logic
@@ -554,34 +752,79 @@ def generate_multi_runner_html(
             print(f"Error: Generated file not found at {generated_file}")
 
     else:
-        # Multiple runners - TODO: implement tabbed interface
-        print(f"Multi-runner HTML generation with tabs - TODO")
-        print(f"Found {len(runners)} runners: {list(runners.keys())}")
-        print(f"For now, generating chart for first runner only")
-
-        # Temporarily use first runner
-        runner_name = sorted(runners.keys())[0]
-        runner_info = runners[runner_name]
+        # Multiple runners - generate tabbed interface
+        print(
+            f"Generating multi-runner HTML with {len(runners)} tabs: {list(runners.keys())}"
+        )
 
         output_file.parent.mkdir(parents=True, exist_ok=True)
         temp_output_dir = output_file.parent / "temp"
         temp_output_dir.mkdir(exist_ok=True)
 
-        generate_html_charts(
-            runner_info["baseline_dir"],
-            runner_info["pr_dir"],
-            temp_output_dir,
-            baseline_name,
-            pr_name,
-            benchmark_repo,
+        # Generate charts for each runner
+        runner_htmls = {}
+        for runner_name in sorted(runners.keys()):
+            runner_info = runners[runner_name]
+
+            # Generate HTML for this runner
+            temp_runner_dir = temp_output_dir / runner_name
+            temp_runner_dir.mkdir(exist_ok=True)
+
+            generate_html_charts(
+                runner_info["baseline_dir"],
+                runner_info["pr_dir"],
+                temp_runner_dir,
+                baseline_name,
+                pr_name,
+                benchmark_repo,
+            )
+
+            # Read the generated HTML
+            generated_file = temp_runner_dir / "benchmark_comparison.html"
+            if generated_file.exists():
+                with open(generated_file) as f:
+                    runner_htmls[runner_name] = f.read()
+                print(f"Generated chart for {runner_name}")
+            else:
+                print(f"Warning: Could not generate chart for {runner_name}")
+
+        if not runner_htmls:
+            print("Error: No charts were generated")
+            return
+
+        # Get runner labels
+        runner_labels = {}
+        for runner_name, runner_info in runners.items():
+            if "runner_info" in runner_info:
+                info = runner_info["runner_info"]
+                os_name = info.get("os", runner_name)
+                arch = info.get("arch", "")
+                if os_name == "linux":
+                    runner_labels[runner_name] = "Linux AMD64"
+                elif os_name == "macos":
+                    runner_labels[runner_name] = "macOS ARM64"
+                else:
+                    runner_labels[runner_name] = f"{os_name.title()} {arch}".strip()
+            else:
+                runner_labels[runner_name] = runner_name.title()
+
+        # Create tabbed HTML
+        tabs_html = _create_tabbed_html(
+            runner_htmls, runner_labels, baseline_name, pr_name
         )
 
-        generated_file = temp_output_dir / "benchmark_comparison.html"
-        if generated_file.exists():
-            generated_file.replace(output_file)
-            temp_output_dir.rmdir()
-            print(f"Generated chart for {runner_name}: {output_file}")
-            print(f"Note: Tabbed multi-runner interface not yet implemented")
+        # Write output
+        with open(output_file, "w") as f:
+            f.write(tabs_html)
+
+        # Cleanup temp directory
+        import shutil
+
+        shutil.rmtree(temp_output_dir)
+
+        print(
+            f"Generated multi-runner comparison with {len(runner_htmls)} tabs: {output_file}"
+        )
 
 
 def discover_runner_results(results_dir: Path) -> Dict[str, Dict]:
