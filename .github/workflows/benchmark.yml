@@ -546,6 +546,111 @@ jobs:
             echo "✅ Stored dataset: $DATASET_ID"
           done
 
+      - name: Store baseline benchmark data to gh-pages
+        run: |
+          # Store baseline data (from baseline_results)
+          BASELINE_TAG="${{ needs.prepare.outputs.baseline_tag }}"
+
+          if [ -z "$BASELINE_TAG" ]; then
+            echo "No baseline tag specified, skipping baseline data storage"
+            exit 0
+          fi
+
+          echo "Storing baseline benchmark data for tag: $BASELINE_TAG"
+
+          # Get baseline commit SHA (we need to check it out to get the SHA)
+          BASELINE_SHA=$(git rev-parse "$BASELINE_TAG")
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Process each runner's baseline results
+          for RUNNER_DIR in all-results/benchmark-results-*; do
+            if [ ! -d "$RUNNER_DIR" ]; then
+              continue
+            fi
+
+            # Extract runner name
+            RUNNER=$(basename "$RUNNER_DIR" | sed 's/benchmark-results-//')
+            echo "Processing baseline for runner: $RUNNER"
+
+            # Check if baseline_results exists
+            if [ ! -d "$RUNNER_DIR/baseline_results" ]; then
+              echo "No baseline_results for $RUNNER, skipping"
+              continue
+            fi
+
+            # Read runner info
+            if [ -f "$RUNNER_DIR/runner_info.json" ]; then
+              RUNNER_OS=$(jq -r '.os // "linux"' "$RUNNER_DIR/runner_info.json")
+              RUNNER_ARCH=$(jq -r '.arch // "amd64"' "$RUNNER_DIR/runner_info.json")
+              BENCHMARK_SUITE=$(jq -r '.benchmark_suite // "fast"' "$RUNNER_DIR/runner_info.json")
+              BENCHMARK_CONFIG=$(jq -r '.benchmark_config // "conf/benchmark-pull-request-fast.yaml"' "$RUNNER_DIR/runner_info.json")
+            else
+              RUNNER_OS="linux"
+              RUNNER_ARCH="amd64"
+              BENCHMARK_SUITE="fast"
+              BENCHMARK_CONFIG="conf/benchmark-pull-request-fast.yaml"
+            fi
+
+            # Storage path for baseline tag
+            STORAGE_PATH="gh-pages-repo/benchmark-data/tags/$BASELINE_TAG/$RUNNER"
+
+            # Skip if already exists (don't overwrite existing tag data)
+            if [ -d "$STORAGE_PATH" ] && [ -f "$STORAGE_PATH/metadata.json" ]; then
+              echo "Baseline data already exists for $BASELINE_TAG/$RUNNER, skipping"
+              continue
+            fi
+
+            echo "Storage path: $STORAGE_PATH"
+
+            # Create directory
+            mkdir -p "$STORAGE_PATH/results"
+
+            # Copy baseline results
+            cp "$RUNNER_DIR/baseline_results"/*.csv "$STORAGE_PATH/results/" 2>/dev/null || echo "No CSV files to copy from baseline_results"
+
+            # Generate metadata for baseline
+            python3 scripts/generate_benchmark_metadata.py \
+              --ref "$BASELINE_TAG" \
+              --ref-type "tag" \
+              --commit-sha "$BASELINE_SHA" \
+              --runner-os "$RUNNER_OS" \
+              --runner-arch "$RUNNER_ARCH" \
+              --benchmark-suite "$BENCHMARK_SUITE" \
+              --benchmark-config "$BENCHMARK_CONFIG" \
+              --timestamp "$TIMESTAMP" \
+              --output "$STORAGE_PATH/metadata.json" \
+              --verbose
+
+            # Determine runner label
+            if [ "$RUNNER" == "linux" ]; then
+              RUNNER_LABEL="Linux AMD64"
+            elif [ "$RUNNER" == "macos" ]; then
+              RUNNER_LABEL="macOS ARM64"
+            else
+              RUNNER_LABEL="$RUNNER_OS $RUNNER_ARCH"
+            fi
+
+            # Update master index for baseline
+            DATASET_ID="tag-$BASELINE_TAG-$RUNNER"
+            DATASET_PATH="$(echo $STORAGE_PATH | sed 's|gh-pages-repo/benchmark-data/||')"
+
+            python3 scripts/update_benchmark_index.py \
+              --index "gh-pages-repo/benchmark-data/index.json" \
+              --dataset-id "$DATASET_ID" \
+              --label "$BASELINE_TAG" \
+              --ref "$BASELINE_TAG" \
+              --ref-type "tag" \
+              --runner "$RUNNER" \
+              --runner-label "$RUNNER_LABEL" \
+              --path "$DATASET_PATH" \
+              --timestamp "$TIMESTAMP" \
+              --commit-sha "$BASELINE_SHA" \
+              --is-latest-tag \
+              --verbose
+
+            echo "✅ Stored baseline dataset: $DATASET_ID"
+          done
+
       - name: Generate interactive comparison report
         run: |
           python3 benchmarks/generate_interactive_comparison.py \
