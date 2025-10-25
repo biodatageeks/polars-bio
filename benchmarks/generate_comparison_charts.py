@@ -739,6 +739,18 @@ def _create_tabbed_html(
                     button.classList.add('active');
                 }
             });
+
+            // Redraw all Plotly charts in the newly visible tab
+            // This is necessary because Plotly can't render charts correctly in hidden containers
+            setTimeout(() => {
+                const activeTab = document.getElementById('tab-' + runnerName);
+                if (activeTab) {
+                    const charts = activeTab.querySelectorAll('[id^="chart-"]');
+                    charts.forEach(chart => {
+                        Plotly.redraw(chart);
+                    });
+                }
+            }, 50);
         }
     </script>
 </body>
