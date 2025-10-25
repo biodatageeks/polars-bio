@@ -417,11 +417,144 @@ jobs:
             --baseline-name "${{ needs.prepare.outputs.baseline_tag }}" \
             --pr-name "${{ needs.prepare.outputs.target_ref }}"
 
-      - name: Publish comparison charts to gh-pages
+      - name: Clone gh-pages branch
         run: |
           # Clone gh-pages branch
-          git clone --depth 1 --branch gh-pages https://github.com/${{ github.repository }} gh-pages-repo
+          git clone --depth 1 --branch gh-pages https://github.com/${{ github.repository }} gh-pages-repo || {
+            echo "gh-pages branch doesn't exist, creating..."
+            mkdir -p gh-pages-repo
+            cd gh-pages-repo
+            git init
+            git checkout --orphan gh-pages
+            mkdir -p benchmark-data benchmark-comparison
+            echo '{"last_updated":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","datasets":[],"tags":[],"latest_tag":null}' > benchmark-data/index.json
+            git add .
+            git commit -m "Initialize gh-pages"
+            git remote add origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
+            git push origin gh-pages
+            cd ..
+          }
 
+      - name: Store benchmark data to gh-pages
+        run: |
+          # Determine ref type and storage path
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            REF_TYPE="tag"
+            REF_NAME="${GITHUB_REF#refs/tags/}"
+            IS_LATEST_TAG="true"
+          else
+            REF_TYPE="branch"
+            REF_NAME="${{ github.ref_name }}"
+            IS_LATEST_TAG="false"
+          fi
+
+          COMMIT_SHA="${{ github.sha }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          echo "Storing benchmark data for $REF_TYPE: $REF_NAME"
+
+          # Process each runner's results
+          for RUNNER_DIR in all-results/benchmark-results-*; do
+            if [ ! -d "$RUNNER_DIR" ]; then
+              continue
+            fi
+
+            # Extract runner name
+            RUNNER=$(basename "$RUNNER_DIR" | sed 's/benchmark-results-//')
+            echo "Processing runner: $RUNNER"
+
+            # Read runner info if available
+            if [ -f "$RUNNER_DIR/runner_info.json" ]; then
+              RUNNER_OS=$(jq -r '.os // "linux"' "$RUNNER_DIR/runner_info.json")
+              RUNNER_ARCH=$(jq -r '.arch // "amd64"' "$RUNNER_DIR/runner_info.json")
+              BENCHMARK_SUITE=$(jq -r '.benchmark_suite // "fast"' "$RUNNER_DIR/runner_info.json")
+              BENCHMARK_CONFIG=$(jq -r '.benchmark_config // "conf/benchmark-pull-request-fast.yaml"' "$RUNNER_DIR/runner_info.json")
+            else
+              echo "Warning: No runner_info.json for $RUNNER, using defaults"
+              RUNNER_OS="linux"
+              RUNNER_ARCH="amd64"
+              BENCHMARK_SUITE="fast"
+              BENCHMARK_CONFIG="conf/benchmark-pull-request-fast.yaml"
+            fi
+
+            # Determine storage path
+            if [ "$REF_TYPE" == "tag" ]; then
+              STORAGE_PATH="gh-pages-repo/benchmark-data/tags/$REF_NAME/$RUNNER"
+            else
+              COMMIT_SHORT="${COMMIT_SHA:0:10}"
+              STORAGE_PATH="gh-pages-repo/benchmark-data/commits/$COMMIT_SHORT/$RUNNER"
+            fi
+
+            echo "Storage path: $STORAGE_PATH"
+
+            # Create directory
+            mkdir -p "$STORAGE_PATH/results"
+
+            # Copy benchmark results (use pr_results as the target/current data)
+            if [ -d "$RUNNER_DIR/pr_results" ]; then
+              cp "$RUNNER_DIR/pr_results"/*.csv "$STORAGE_PATH/results/" 2>/dev/null || echo "No CSV files to copy from pr_results"
+            fi
+
+            # Generate metadata
+            python3 scripts/generate_benchmark_metadata.py \
+              --ref "$REF_NAME" \
+              --ref-type "$REF_TYPE" \
+              --commit-sha "$COMMIT_SHA" \
+              --runner-os "$RUNNER_OS" \
+              --runner-arch "$RUNNER_ARCH" \
+              --benchmark-suite "$BENCHMARK_SUITE" \
+              --benchmark-config "$BENCHMARK_CONFIG" \
+              --timestamp "$TIMESTAMP" \
+              --output "$STORAGE_PATH/metadata.json" \
+              --verbose
+
+            # Determine runner label
+            if [ "$RUNNER" == "linux" ]; then
+              RUNNER_LABEL="Linux AMD64"
+            elif [ "$RUNNER" == "macos" ]; then
+              RUNNER_LABEL="macOS ARM64"
+            else
+              RUNNER_LABEL="$RUNNER_OS $RUNNER_ARCH"
+            fi
+
+            # Determine dataset label (without architecture)
+            if [ "$REF_TYPE" == "tag" ]; then
+              DATASET_LABEL="$REF_NAME"
+            else
+              COMMIT_SHORT_SHA="${COMMIT_SHA:0:7}"
+              DATASET_LABEL="$REF_NAME ($COMMIT_SHORT_SHA)"
+            fi
+
+            # Update master index
+            DATASET_ID="$REF_TYPE-$REF_NAME-$RUNNER"
+            DATASET_PATH="$(echo $STORAGE_PATH | sed 's|gh-pages-repo/benchmark-data/||')"
+
+            python3 scripts/update_benchmark_index.py \
+              --index "gh-pages-repo/benchmark-data/index.json" \
+              --dataset-id "$DATASET_ID" \
+              --label "$DATASET_LABEL" \
+              --ref "$REF_NAME" \
+              --ref-type "$REF_TYPE" \
+              --runner "$RUNNER" \
+              --runner-label "$RUNNER_LABEL" \
+              --path "$DATASET_PATH" \
+              --timestamp "$TIMESTAMP" \
+              --commit-sha "$COMMIT_SHA" \
+              $([ "$IS_LATEST_TAG" == "true" ] && echo "--is-latest-tag") \
+              --verbose
+
+            echo "✅ Stored dataset: $DATASET_ID"
+          done
+
+      - name: Generate interactive comparison report
+        run: |
+          python3 benchmarks/generate_interactive_comparison.py \
+            --data-dir gh-pages-repo/benchmark-data \
+            --output gh-pages-repo/benchmark-comparison/index.html \
+            --verbose
+
+      - name: Publish static comparison chart to gh-pages
+        run: |
           # Determine output directory based on context
           if [ "${{ github.ref }}" == "refs/heads/master" ] || [ "${{ github.ref }}" == "refs/heads/main" ]; then
             # Main branch: publish to root benchmark-comparison/
@@ -438,16 +571,29 @@ jobs:
           # Create output directory
           mkdir -p "$OUTPUT_DIR"
 
-          # Copy the comparison chart
-          cp comparison_charts/benchmark_comparison.html "$OUTPUT_DIR/index.html"
+          # Copy the static comparison chart (as static.html)
+          cp comparison_charts/benchmark_comparison.html "$OUTPUT_DIR/static.html"
 
-          # Commit and push
+          echo "✅ Published static chart to $OUTPUT_DIR/static.html"
+
+      - name: Commit and push all changes to gh-pages
+        run: |
           cd gh-pages-repo
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Add all changes (benchmark data and comparison reports)
+          git add benchmark-data/
           git add benchmark-comparison/
-          git commit -m "Update benchmark comparison charts for ${{ needs.prepare.outputs.target_ref }}" || echo "No changes to commit"
+
+          # Commit
+          REF_NAME="${{ needs.prepare.outputs.target_ref }}"
+          git commit -m "Update benchmark data and reports for $REF_NAME" || echo "No changes to commit"
+
+          # Push
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} gh-pages
+
+          echo "✅ Pushed to gh-pages"
         continue-on-error: true
 
       - name: Find PR number for branch
@@ -519,8 +665,10 @@ jobs:
 
       - name: Post comparison as workflow summary
         run: |
-          cat comparison_report_combined.md >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f comparison_report_combined.md ]; then
+            cat comparison_report_combined.md >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "## 📊 Interactive Comparison Charts" >> $GITHUB_STEP_SUMMARY
 
           # Determine chart URL based on branch
