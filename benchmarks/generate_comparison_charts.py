@@ -674,6 +674,18 @@ def _create_tabbed_html(
             r'<div class="header">.*?</div>', "", body_content, flags=re.DOTALL
         )
 
+        # Make all chart IDs unique by adding runner suffix
+        # Replace chart div IDs: chart-{operation}-{type} -> chart-{operation}-{type}-{runner}
+        body_content = re.sub(
+            r'id="(chart-[^"]+)"', rf'id="\1-{runner_name}"', body_content
+        )
+        # Replace Plotly.newPlot references: 'chart-{operation}-{type}' -> 'chart-{operation}-{type}-{runner}'
+        body_content = re.sub(
+            r"Plotly\.newPlot\('(chart-[^']+)'",
+            rf"Plotly.newPlot('\1-{runner_name}'",
+            body_content,
+        )
+
         html += f"""        <div id="tab-{runner_name}" class="tab-content{active_class}">
 {body_content}
         </div>
