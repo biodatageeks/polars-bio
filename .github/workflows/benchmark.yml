@@ -8,6 +8,14 @@ on:
         required: false
         default: 'linux'
         type: string
+      benchmark_suite:
+        description: 'Benchmark suite to run (fast or full)'
+        required: false
+        default: 'fast'
+        type: choice
+        options:
+          - fast
+          - full
       alert_threshold:
         description: 'Alert threshold percentage (e.g., 150 for 150% degradation)'
         required: false
@@ -29,8 +37,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
-      baseline_tag: ${{ needs.prepare.outputs.baseline_tag }}
-      target_ref: ${{ needs.prepare.outputs.target_ref }}
+      baseline_tag: ${{ steps.baseline.outputs.tag }}
+      target_ref: ${{ steps.target.outputs.ref }}
+      benchmark_config: ${{ steps.benchmark-config.outputs.config }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -85,6 +94,18 @@ jobs:
 
           echo "Matrix: $MATRIX_JSON"
           echo "matrix=$MATRIX_JSON" >> $GITHUB_OUTPUT
+
+      - name: Determine benchmark config
+        id: benchmark-config
+        run: |
+          SUITE="${{ inputs.benchmark_suite }}"
+          if [ "$SUITE" == "full" ]; then
+            CONFIG="conf/benchmark-pull-request.yaml"
+          else
+            CONFIG="conf/benchmark-pull-request-fast.yaml"
+          fi
+          echo "Using benchmark config: $CONFIG"
+          echo "config=$CONFIG" >> $GITHUB_OUTPUT
 
   benchmark:
     needs: prepare
@@ -192,7 +213,7 @@ jobs:
           export BENCH_DATA_ROOT=/tmp/polars-bio-bench/
           export POLARS_MAX_THREADS=1
           # Run benchmarks using poetry
-          poetry run python src/run-benchmarks.py --bench-config conf/benchmark_single_thread-4tools-pull-request.yaml
+          poetry run python src/run-benchmarks.py --bench-config ${{ needs.prepare.outputs.benchmark_config }}
           # List results directory structure
           echo "Results directory contents:"
           ls -laR results/ || echo "No results directory found"
@@ -266,7 +287,7 @@ jobs:
           export BENCH_DATA_ROOT=/tmp/polars-bio-bench/
           export POLARS_MAX_THREADS=1
           # Run benchmarks using poetry
-          poetry run python src/run-benchmarks.py --bench-config conf/benchmark_single_thread-4tools-pull-request.yaml
+          poetry run python src/run-benchmarks.py --bench-config ${{ needs.prepare.outputs.benchmark_config }}
           # List results directory structure
           echo "Results directory contents:"
           ls -laR results/ || echo "No results directory found"
@@ -307,6 +328,8 @@ jobs:
             "runner": "${{ matrix.runner }}",
             "os": "${{ matrix.os }}",
             "arch": "${{ matrix.arch }}",
+            "benchmark_suite": "${{ inputs.benchmark_suite }}",
+            "benchmark_config": "${{ needs.prepare.outputs.benchmark_config }}",
             "timestamp": "$(date -u +"%Y-%m-%d %H:%M:%S UTC")",
             "baseline_tag": "${{ needs.prepare.outputs.baseline_tag }}",
             "target_ref": "${{ needs.prepare.outputs.target_ref }}"
