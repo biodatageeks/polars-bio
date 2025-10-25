@@ -165,6 +165,9 @@ def generate_html_report(data_dir: Path, output_path: Path):
     # Generate HTML
     html = generate_html_template(index, all_datasets, refs_by_type)
 
+    # Ensure output directory exists
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
     output_path.write_text(html)
     print(f"Generated interactive report: {output_path}")
 
