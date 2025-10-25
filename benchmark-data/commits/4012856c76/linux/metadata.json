@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "ref": "fix/preserve-benchmark-data-gh-pages",
+  "ref_type": "branch",
+  "commit_sha": "4012856c764066c7b7a7dfe4532b087026ca8fac",
+  "timestamp": "2025-10-25T20:20:27Z",
+  "runner": {
+    "os": "linux",
+    "arch": "amd64"
+  },
+  "benchmark_suite": "fast",
+  "benchmark_config": "conf/benchmark-pull-request-fast.yaml"
+}

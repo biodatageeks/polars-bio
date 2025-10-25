@@ -1,0 +1,55 @@
+{
+  "last_updated": "2025-10-25T20:20:27.863900Z",
+  "datasets": [
+    {
+      "id": "tag-0.18.0-linux",
+      "label": "0.18.0",
+      "ref": "0.18.0",
+      "ref_type": "tag",
+      "timestamp": "2025-10-25T20:20:27Z",
+      "runner": "linux",
+      "runner_label": "Linux AMD64",
+      "path": "tags/0.18.0/linux",
+      "commit_sha": "5b8969da366358c42f25f22000fb398a0ef0e365",
+      "is_latest_tag": true
+    },
+    {
+      "id": "tag-0.18.0-macos",
+      "label": "0.18.0",
+      "ref": "0.18.0",
+      "ref_type": "tag",
+      "timestamp": "2025-10-25T20:20:27Z",
+      "runner": "macos",
+      "runner_label": "macOS ARM64",
+      "path": "tags/0.18.0/macos",
+      "commit_sha": "5b8969da366358c42f25f22000fb398a0ef0e365",
+      "is_latest_tag": true
+    },
+    {
+      "id": "branch-fix/preserve-benchmark-data-gh-pages-linux",
+      "label": "fix/preserve-benchmark-data-gh-pages (4012856)",
+      "ref": "fix/preserve-benchmark-data-gh-pages",
+      "ref_type": "branch",
+      "timestamp": "2025-10-25T20:20:27Z",
+      "runner": "linux",
+      "runner_label": "Linux AMD64",
+      "path": "commits/4012856c76/linux",
+      "commit_sha": "4012856c764066c7b7a7dfe4532b087026ca8fac"
+    },
+    {
+      "id": "branch-fix/preserve-benchmark-data-gh-pages-macos",
+      "label": "fix/preserve-benchmark-data-gh-pages (4012856)",
+      "ref": "fix/preserve-benchmark-data-gh-pages",
+      "ref_type": "branch",
+      "timestamp": "2025-10-25T20:20:27Z",
+      "runner": "macos",
+      "runner_label": "macOS ARM64",
+      "path": "commits/4012856c76/macos",
+      "commit_sha": "4012856c764066c7b7a7dfe4532b087026ca8fac"
+    }
+  ],
+  "tags": [
+    "0.18.0"
+  ],
+  "latest_tag": "0.18.0"
+}

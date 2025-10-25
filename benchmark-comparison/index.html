@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benchmark Comparison - Interactive</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        /* Selection Panel Styles */
+        .selection-panel {
+            background-color: white;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .selection-panel h2 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .selection-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .selection-row label {
+            font-weight: 600;
+            min-width: 80px;
+            color: #495057;
+        }
+
+        .selection-row select {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .selection-row select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.25);
+        }
+
+        .vs-label {
+            font-weight: 700;
+            color: #6c757d;
+            font-size: 18px;
+            padding: 0 10px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        /* Header Styles */
+        .header {
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .legend {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+
+        .legend-item {
+            display: inline-block;
+            margin-right: 20px;
+        }
+
+        .legend-color {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+            vertical-align: middle;
+            border-radius: 2px;
+        }
+
+        /* Runner Tabs - More Visible */
+        .runner-tabs-wrapper {
+            background-color: white;
+            padding: 15px 20px 0 20px;
+            margin-bottom: 0;
+            border-radius: 8px 8px 0 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .runner-tabs {
+            display: flex;
+            gap: 10px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .runner-tab {
+            padding: 12px 24px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-bottom: none;
+            border-radius: 6px 6px 0 0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #495057;
+            transition: all 0.2s;
+            margin-bottom: -2px;
+        }
+
+        .runner-tab:hover {
+            background: #e9ecef;
+        }
+
+        .runner-tab.active {
+            background: white;
+            color: #007bff;
+            border-color: #007bff;
+            border-bottom-color: white;
+        }
+
+        .runner-content {
+            display: none;
+        }
+
+        .runner-content.active {
+            display: block;
+        }
+
+        /* Chart Container Styles */
+        .chart-container {
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #333;
+            text-transform: capitalize;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+
+        optgroup {
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="selection-panel">
+        <h2>📊 Select Datasets to Compare</h2>
+
+        <div class="selection-row">
+            <label for="baseline-select">Baseline:</label>
+            <select id="baseline-select">
+                <option value="">Loading...</option>
+            </select>
+        </div>
+
+        <div class="selection-row">
+            <span class="vs-label">vs</span>
+        </div>
+
+        <div class="selection-row">
+            <label for="target-select">Target:</label>
+            <select id="target-select">
+                <option value="">Loading...</option>
+            </select>
+        </div>
+
+        <div class="button-group">
+            <button class="btn-primary" onclick="app.loadComparison()">Compare</button>
+            <button class="btn-secondary" onclick="app.resetToDefault()">Reset to Default</button>
+        </div>
+    </div>
+
+    <div id="runner-tabs-container"></div>
+    <div id="charts-container"></div>
+
+    <script>
+        // Embedded data
+        const DATA = {
+  "index": {
+    "last_updated": "2025-10-25T20:20:27.863900Z",
+    "datasets": [
+      {
+        "id": "tag-0.18.0-linux",
+        "label": "0.18.0",
+        "ref": "0.18.0",
+        "ref_type": "tag",
+        "timestamp": "2025-10-25T20:20:27Z",
+        "runner": "linux",
+        "runner_label": "Linux AMD64",
+        "path": "tags/0.18.0/linux",
+        "commit_sha": "5b8969da366358c42f25f22000fb398a0ef0e365",
+        "is_latest_tag": true
+      },
+      {
+        "id": "tag-0.18.0-macos",
+        "label": "0.18.0",
+        "ref": "0.18.0",
+        "ref_type": "tag",
+        "timestamp": "2025-10-25T20:20:27Z",
+        "runner": "macos",
+        "runner_label": "macOS ARM64",
+        "path": "tags/0.18.0/macos",
+        "commit_sha": "5b8969da366358c42f25f22000fb398a0ef0e365",
+        "is_latest_tag": true
+      },
+      {
+        "id": "branch-fix/preserve-benchmark-data-gh-pages-linux",
+        "label": "fix/preserve-benchmark-data-gh-pages (4012856)",
+        "ref": "fix/preserve-benchmark-data-gh-pages",
+        "ref_type": "branch",
+        "timestamp": "2025-10-25T20:20:27Z",
+        "runner": "linux",
+        "runner_label": "Linux AMD64",
+        "path": "commits/4012856c76/linux",
+        "commit_sha": "4012856c764066c7b7a7dfe4532b087026ca8fac"
+      },
+      {
+        "id": "branch-fix/preserve-benchmark-data-gh-pages-macos",
+        "label": "fix/preserve-benchmark-data-gh-pages (4012856)",
+        "ref": "fix/preserve-benchmark-data-gh-pages",
+        "ref_type": "branch",
+        "timestamp": "2025-10-25T20:20:27Z",
+        "runner": "macos",
+        "runner_label": "macOS ARM64",
+        "path": "commits/4012856c76/macos",
+        "commit_sha": "4012856c764066c7b7a7dfe4532b087026ca8fac"
+      }
+    ],
+    "tags": [
+      "0.18.0"
+    ],
+    "latest_tag": "0.18.0"
+  },
+  "datasets": {
+    "tag-0.18.0-linux": {
+      "id": "tag-0.18.0-linux",
+      "label": "0.18.0",
+      "ref": "0.18.0",
+      "runner": "linux",
+      "runner_label": "Linux AMD64",
+      "metadata": {
+        "version": "1.0",
+        "ref": "0.18.0",
+        "ref_type": "tag",
+        "commit_sha": "5b8969da366358c42f25f22000fb398a0ef0e365",
+        "timestamp": "2025-10-25T20:20:27Z",
+        "runner": {
+          "os": "linux",
+          "arch": "amd64"
+        },
+        "benchmark_suite": "fast",
+        "benchmark_config": "conf/benchmark-pull-request-fast.yaml"
+      },
+      "operations": {
+        "nearest": {
+          "tools": {
+            "polars_bio": {
+              "1-2": 181.891,
+              "7-8": 405.529,
+              "7-3": 396.728,
+              "2-1": 93.899,
+              "3-7": 508.85999999999996
+            },
+            "pyranges1": {
+              "1-2": 143.205,
+              "7-8": 1242.032,
+              "7-3": 1263.283,
+              "2-1": 174.81,
+              "3-7": 1708.564
+            },
+            "genomicranges": {
+              "1-2": 104.08000000000001,
+              "7-8": 570.594,
+              "7-3": 551.9549999999999,
+              "2-1": 66.75399999999999,
+              "3-7": 422.515
+            },
+            "bioframe": {
+              "1-2": 227.03799999999998,
+              "7-8": 1514.7489999999998,
+              "7-3": 1509.8210000000001,
+              "2-1": 320.473,
+              "3-7": 1837.57
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "count_overlaps": {
+          "tools": {
+            "polars_bio": {
+              "2-1": 54.191,
+              "3-7": 284.56,
+              "1-2": 61.258,
+              "7-8": 266.426,
+              "7-3": 263.629
+            },
+            "pyranges1": {
+              "2-1": 79.735,
+              "3-7": 462.792,
+              "1-2": 78.957,
+              "7-8": 476.894,
+              "7-3": 477.539
+            },
+            "genomicranges": {
+              "2-1": 35.06,
+              "3-7": 403.2,
+              "1-2": 35.642,
+              "7-8": 476.334,
+              "7-3": 482.21599999999995
+            },
+            "bioframe": {
+              "2-1": 207.644,
+              "3-7": 1629.767,
+              "1-2": 153.25900000000001,
+              "7-8": 1349.5680000000002,
+              "7-3": 1335.84
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "coverage": {
+          "tools": {
+            "polars_bio": {
+              "3-7": 310.636,
+              "2-1": 66.218,
+              "7-8": 213.376,
+              "7-3": 219.28900000000002,
+              "1-2": 57.397999999999996
+            },
+            "bioframe": {
+              "3-7": 1794.7740000000001,
+              "2-1": 339.89799999999997,
+              "7-8": 1158.862,
+              "7-3": 1167.165,
+              "1-2": 258.29999999999995
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "overlap": {
+          "tools": {
+            "polars_bio": {
+              "3-7": 379.16299999999995,
+              "1-2": 87.379,
+              "7-3": 369.141,
+              "2-1": 62.303,
+              "7-8": 370.67699999999996
+            },
+            "pyranges1": {
+              "3-7": 859.36,
+              "1-2": 98.86699999999999,
+              "7-3": 807.947,
+              "2-1": 91.879,
+              "7-8": 796.767
+            },
+            "genomicranges": {
+              "3-7": 371.28299999999996,
+              "1-2": 36.513,
+              "7-3": 435.002,
+              "2-1": 34.4,
+              "7-8": 433.887
+            },
+            "bioframe": {
+              "3-7": 975.237,
+              "1-2": 101.87100000000001,
+              "7-3": 984.75,
+              "2-1": 101.627,
+              "7-8": 989.576
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        }
+      }
+    },
+    "tag-0.18.0-macos": {
+      "id": "tag-0.18.0-macos",
+      "label": "0.18.0",
+      "ref": "0.18.0",
+      "runner": "macos",
+      "runner_label": "macOS ARM64",
+      "metadata": {
+        "version": "1.0",
+        "ref": "0.18.0",
+        "ref_type": "tag",
+        "commit_sha": "5b8969da366358c42f25f22000fb398a0ef0e365",
+        "timestamp": "2025-10-25T20:20:27Z",
+        "runner": {
+          "os": "macos",
+          "arch": "arm64"
+        },
+        "benchmark_suite": "fast",
+        "benchmark_config": "conf/benchmark-pull-request-fast.yaml"
+      },
+      "operations": {
+        "nearest": {
+          "tools": {
+            "polars_bio": {
+              "1-2": 103.04,
+              "7-8": 398.612,
+              "7-3": 362.631,
+              "2-1": 82.65400000000001,
+              "3-7": 459.87699999999995
+            },
+            "pyranges1": {
+              "1-2": 121.86099999999999,
+              "7-8": 1401.81,
+              "7-3": 1311.661,
+              "2-1": 136.789,
+              "3-7": 1589.034
+            },
+            "genomicranges": {
+              "1-2": 88.108,
+              "7-8": 471.037,
+              "7-3": 455.2,
+              "2-1": 49.518,
+              "3-7": 330.098
+            },
+            "bioframe": {
+              "1-2": 263.23600000000005,
+              "7-8": 2122.902,
+              "7-3": 2251.544,
+              "2-1": 399.291,
+              "3-7": 2796.882
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "count_overlaps": {
+          "tools": {
+            "polars_bio": {
+              "2-1": 45.983000000000004,
+              "3-7": 253.50499999999997,
+              "1-2": 87.269,
+              "7-8": 259.12,
+              "7-3": 256.712
+            },
+            "pyranges1": {
+              "2-1": 66.306,
+              "3-7": 456.238,
+              "1-2": 67.636,
+              "7-8": 406.932,
+              "7-3": 446.88899999999995
+            },
+            "genomicranges": {
+              "2-1": 26.112,
+              "3-7": 443.548,
+              "1-2": 27.855999999999998,
+              "7-8": 571.654,
+              "7-3": 646.2560000000001
+            },
+            "bioframe": {
+              "2-1": 273.312,
+              "3-7": 2114.3559999999998,
+              "1-2": 208.654,
+              "7-8": 1781.2330000000002,
+              "7-3": 1924.074
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "coverage": {
+          "tools": {
+            "polars_bio": {
+              "3-7": 242.906,
+              "2-1": 59.327,
+              "7-8": 157.836,
+              "7-3": 157.798,
+              "1-2": 43.573
+            },
+            "bioframe": {
+              "3-7": 2200.0860000000002,
+              "2-1": 391.98,
+              "7-8": 1173.0210000000002,
+              "7-3": 1192.7250000000001,
+              "1-2": 287.303
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "overlap": {
+          "tools": {
+            "polars_bio": {
+              "3-7": 317.19399999999996,
+              "1-2": 119.755,
+              "7-3": 330.473,
+              "2-1": 51.439,
+              "7-8": 356.634
+            },
+            "pyranges1": {
+              "3-7": 767.6800000000001,
+              "1-2": 71.48400000000001,
+              "7-3": 721.22,
+              "2-1": 59.307,
+              "7-8": 752.937
+            },
+            "genomicranges": {
+              "3-7": 351.83799999999997,
+              "1-2": 24.918,
+              "7-3": 522.0160000000001,
+              "2-1": 21.794,
+              "7-8": 555.754
+            },
+            "bioframe": {
+              "3-7": 1552.948,
+              "1-2": 144.486,
+              "7-3": 1508.1109999999999,
+              "2-1": 134.854,
+              "7-8": 1411.837
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        }
+      }
+    },
+    "branch-fix/preserve-benchmark-data-gh-pages-linux@4012856c764066c7b7a7dfe4532b087026ca8fac": {
+      "id": "branch-fix/preserve-benchmark-data-gh-pages-linux",
+      "label": "fix/preserve-benchmark-data-gh-pages (4012856)",
+      "ref": "fix/preserve-benchmark-data-gh-pages",
+      "runner": "linux",
+      "runner_label": "Linux AMD64",
+      "metadata": {
+        "version": "1.0",
+        "ref": "fix/preserve-benchmark-data-gh-pages",
+        "ref_type": "branch",
+        "commit_sha": "4012856c764066c7b7a7dfe4532b087026ca8fac",
+        "timestamp": "2025-10-25T20:20:27Z",
+        "runner": {
+          "os": "linux",
+          "arch": "amd64"
+        },
+        "benchmark_suite": "fast",
+        "benchmark_config": "conf/benchmark-pull-request-fast.yaml"
+      },
+      "operations": {
+        "nearest": {
+          "tools": {
+            "polars_bio": {
+              "1-2": 74.93900000000001,
+              "7-8": 401.90500000000003,
+              "7-3": 396.62199999999996,
+              "2-1": 99.898,
+              "3-7": 516.086
+            },
+            "pyranges1": {
+              "1-2": 142.202,
+              "7-8": 1253.1680000000001,
+              "7-3": 1269.6970000000001,
+              "2-1": 165.78699999999998,
+              "3-7": 1777.912
+            },
+            "genomicranges": {
+              "1-2": 104.20500000000001,
+              "7-8": 579.538,
+              "7-3": 563.1890000000001,
+              "2-1": 65.556,
+              "3-7": 440.699
+            },
+            "bioframe": {
+              "1-2": 226.409,
+              "7-8": 1475.674,
+              "7-3": 1475.462,
+              "2-1": 304.56600000000003,
+              "3-7": 1794.842
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "count_overlaps": {
+          "tools": {
+            "polars_bio": {
+              "2-1": 56.863,
+              "3-7": 282.95799999999997,
+              "1-2": 54.094,
+              "7-8": 273.245,
+              "7-3": 272.28599999999994
+            },
+            "pyranges1": {
+              "2-1": 79.692,
+              "3-7": 531.0559999999999,
+              "1-2": 78.951,
+              "7-8": 478.308,
+              "7-3": 489.652
+            },
+            "genomicranges": {
+              "2-1": 34.901,
+              "3-7": 391.815,
+              "1-2": 34.673,
+              "7-8": 465.335,
+              "7-3": 484.173
+            },
+            "bioframe": {
+              "2-1": 197.859,
+              "3-7": 1605.9540000000002,
+              "1-2": 148.672,
+              "7-8": 1321.607,
+              "7-3": 1333.4189999999999
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "coverage": {
+          "tools": {
+            "polars_bio": {
+              "3-7": 312.016,
+              "2-1": 69.852,
+              "7-8": 223.386,
+              "7-3": 219.834,
+              "1-2": 60.198
+            },
+            "bioframe": {
+              "3-7": 1747.266,
+              "2-1": 333.397,
+              "7-8": 1131.976,
+              "7-3": 1126.689,
+              "1-2": 251.498
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "overlap": {
+          "tools": {
+            "polars_bio": {
+              "3-7": 386.61600000000004,
+              "1-2": 57.945,
+              "7-3": 356.165,
+              "2-1": 61.243,
+              "7-8": 382.40000000000003
+            },
+            "pyranges1": {
+              "3-7": 864.841,
+              "1-2": 96.009,
+              "7-3": 814.5740000000001,
+              "2-1": 91.014,
+              "7-8": 789.048
+            },
+            "genomicranges": {
+              "3-7": 379.919,
+              "1-2": 35.221000000000004,
+              "7-3": 445.919,
+              "2-1": 35.314,
+              "7-8": 431.858
+            },
+            "bioframe": {
+              "3-7": 1041.913,
+              "1-2": 100.476,
+              "7-3": 1037.512,
+              "2-1": 102.919,
+              "7-8": 1016.406
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        }
+      }
+    },
+    "branch-fix/preserve-benchmark-data-gh-pages-macos@4012856c764066c7b7a7dfe4532b087026ca8fac": {
+      "id": "branch-fix/preserve-benchmark-data-gh-pages-macos",
+      "label": "fix/preserve-benchmark-data-gh-pages (4012856)",
+      "ref": "fix/preserve-benchmark-data-gh-pages",
+      "runner": "macos",
+      "runner_label": "macOS ARM64",
+      "metadata": {
+        "version": "1.0",
+        "ref": "fix/preserve-benchmark-data-gh-pages",
+        "ref_type": "branch",
+        "commit_sha": "4012856c764066c7b7a7dfe4532b087026ca8fac",
+        "timestamp": "2025-10-25T20:20:27Z",
+        "runner": {
+          "os": "macos",
+          "arch": "arm64"
+        },
+        "benchmark_suite": "fast",
+        "benchmark_config": "conf/benchmark-pull-request-fast.yaml"
+      },
+      "operations": {
+        "nearest": {
+          "tools": {
+            "polars_bio": {
+              "1-2": 73.575,
+              "7-8": 316.65,
+              "7-3": 321.14500000000004,
+              "2-1": 74.887,
+              "3-7": 396.562
+            },
+            "pyranges1": {
+              "1-2": 106.07,
+              "7-8": 1094.867,
+              "7-3": 1127.263,
+              "2-1": 124.083,
+              "3-7": 1520.1370000000002
+            },
+            "genomicranges": {
+              "1-2": 78.946,
+              "7-8": 416.58299999999997,
+              "7-3": 428.74600000000004,
+              "2-1": 46.580999999999996,
+              "3-7": 322.538
+            },
+            "bioframe": {
+              "1-2": 246.76500000000001,
+              "7-8": 2085.81,
+              "7-3": 2136.834,
+              "2-1": 348.082,
+              "3-7": 2607.289
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "count_overlaps": {
+          "tools": {
+            "polars_bio": {
+              "2-1": 43.467,
+              "3-7": 233.66899999999998,
+              "1-2": 52.581999999999994,
+              "7-8": 208.027,
+              "7-3": 209.05499999999998
+            },
+            "pyranges1": {
+              "2-1": 58.928000000000004,
+              "3-7": 402.877,
+              "1-2": 58.897999999999996,
+              "7-8": 400.238,
+              "7-3": 422.009
+            },
+            "genomicranges": {
+              "2-1": 23.313,
+              "3-7": 405.582,
+              "1-2": 24.37,
+              "7-8": 542.917,
+              "7-3": 577.351
+            },
+            "bioframe": {
+              "2-1": 245.006,
+              "3-7": 2019.1249999999998,
+              "1-2": 196.927,
+              "7-8": 1700.217,
+              "7-3": 1723.125
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "coverage": {
+          "tools": {
+            "polars_bio": {
+              "3-7": 219.756,
+              "2-1": 45.924,
+              "7-8": 147.99200000000002,
+              "7-3": 145.088,
+              "1-2": 38.120000000000005
+            },
+            "bioframe": {
+              "3-7": 1925.214,
+              "2-1": 362.207,
+              "7-8": 1172.259,
+              "7-3": 1134.2350000000001,
+              "1-2": 256.807
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "overlap": {
+          "tools": {
+            "polars_bio": {
+              "3-7": 313.905,
+              "1-2": 82.247,
+              "7-3": 271.557,
+              "2-1": 49.95,
+              "7-8": 294.728
+            },
+            "pyranges1": {
+              "3-7": 737.736,
+              "1-2": 66.85000000000001,
+              "7-3": 635.928,
+              "2-1": 61.241,
+              "7-8": 681.473
+            },
+            "genomicranges": {
+              "3-7": 330.37699999999995,
+              "1-2": 22.996,
+              "7-3": 470.802,
+              "2-1": 22.284000000000002,
+              "7-8": 499.21500000000003
+            },
+            "bioframe": {
+              "3-7": 1279.426,
+              "1-2": 141.809,
+              "7-3": 1292.878,
+              "2-1": 139.53799999999998,
+              "7-8": 1274.8999999999999
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        }
+      }
+    }
+  },
+  "refs_by_type": {
+    "tag": {
+      "0.18.0": {
+        "label": "0.18.0",
+        "ref": "0.18.0",
+        "ref_type": "tag",
+        "commit_sha": "5b8969da366358c42f25f22000fb398a0ef0e365",
+        "is_latest_tag": true,
+        "runners": {
+          "linux": "tag-0.18.0-linux",
+          "macos": "tag-0.18.0-macos"
+        }
+      }
+    },
+    "branch": {
+      "fix/preserve-benchmark-data-gh-pages@4012856c764066c7b7a7dfe4532b087026ca8fac": {
+        "label": "fix/preserve-benchmark-data-gh-pages (4012856)",
+        "ref": "fix/preserve-benchmark-data-gh-pages",
+        "ref_type": "branch",
+        "commit_sha": "4012856c764066c7b7a7dfe4532b087026ca8fac",
+        "is_latest_tag": false,
+        "runners": {
+          "linux": "branch-fix/preserve-benchmark-data-gh-pages-linux@4012856c764066c7b7a7dfe4532b087026ca8fac",
+          "macos": "branch-fix/preserve-benchmark-data-gh-pages-macos@4012856c764066c7b7a7dfe4532b087026ca8fac"
+        }
+      }
+    }
+  }
+};
+
+        // Tool color scheme
+        const TOOL_COLORS = {
+            "polars_bio": "#636EFA",
+            "pyranges1": "#00CC96",
+            "genomicranges": "#FFA15A",
+            "bioframe": "#FF6692"
+        };
+
+        // Application state
+        const app = {
+            currentBaseline: null,  // ref name
+            currentTarget: null,    // ref name
+            currentRunner: null,
+            availableRunners: [],
+
+            init() {
+                this.populateDropdowns();
+                this.setDefaults();
+                this.loadComparison();
+            },
+
+            populateDropdowns() {
+                const baselineSelect = document.getElementById('baseline-select');
+                const targetSelect = document.getElementById('target-select');
+
+                baselineSelect.innerHTML = '';
+                targetSelect.innerHTML = '';
+
+                // Tags
+                const tags = Object.values(DATA.refs_by_type.tag);
+                if (tags.length > 0) {
+                    const tagGroup = document.createElement('optgroup');
+                    tagGroup.label = 'Tags';
+                    tags.forEach(ref => {
+                        const option = document.createElement('option');
+                        option.value = ref.ref;
+                        option.textContent = ref.label + (ref.is_latest_tag ? ' ⭐ Latest' : '');
+                        tagGroup.appendChild(option);
+                    });
+                    baselineSelect.appendChild(tagGroup.cloneNode(true));
+                    targetSelect.appendChild(tagGroup.cloneNode(true));
+                }
+
+                // Branches (each commit gets a separate entry)
+                const branches = Object.entries(DATA.refs_by_type.branch).map(([key, data]) => {
+                    return { key: key, ...data };
+                });
+                if (branches.length > 0) {
+                    const branchGroup = document.createElement('optgroup');
+                    branchGroup.label = 'Branches/Commits';
+                    branches.forEach(ref => {
+                        const option = document.createElement('option');
+                        option.value = ref.key;  // Use unique key (ref@sha)
+                        option.textContent = ref.label;  // Display with commit SHA
+                        branchGroup.appendChild(option);
+                    });
+                    baselineSelect.appendChild(branchGroup.cloneNode(true));
+                    targetSelect.appendChild(branchGroup.cloneNode(true));
+                }
+            },
+
+            setDefaults() {
+                // Find latest tag
+                const latestTagEntry = Object.entries(DATA.refs_by_type.tag).find(([key, ref]) => ref.is_latest_tag);
+                // Find first branch (most recent commit)
+                const firstBranchEntry = Object.entries(DATA.refs_by_type.branch)[0];
+                const targetEntry = firstBranchEntry || Object.entries(DATA.refs_by_type.tag)[0];
+
+                if (latestTagEntry) {
+                    const [tagKey, tagData] = latestTagEntry;
+                    document.getElementById('baseline-select').value = tagKey;
+                    this.currentBaseline = tagKey;
+                }
+
+                if (targetEntry) {
+                    const [targetKey, targetData] = targetEntry;
+                    document.getElementById('target-select').value = targetKey;
+                    this.currentTarget = targetKey;
+                }
+            },
+
+            resetToDefault() {
+                this.setDefaults();
+                this.loadComparison();
+            },
+
+            getRefData(refKey) {
+                // Find ref in tags or branches using unique key
+                return DATA.refs_by_type.tag[refKey] || DATA.refs_by_type.branch[refKey];
+            },
+
+            loadComparison() {
+                const baselineRef = document.getElementById('baseline-select').value;
+                const targetRef = document.getElementById('target-select').value;
+
+                if (!baselineRef || !targetRef) {
+                    alert('Please select both baseline and target datasets');
+                    return;
+                }
+
+                if (baselineRef === targetRef) {
+                    alert('Please select different datasets for comparison');
+                    return;
+                }
+
+                this.currentBaseline = baselineRef;
+                this.currentTarget = targetRef;
+
+                const baselineRefData = this.getRefData(baselineRef);
+                const targetRefData = this.getRefData(targetRef);
+
+                if (!baselineRefData || !targetRefData) {
+                    document.getElementById('charts-container').innerHTML =
+                        '<div class="error">Error: Could not load dataset data</div>';
+                    return;
+                }
+
+                // Find common runners
+                const baselineRunners = Object.keys(baselineRefData.runners);
+                const targetRunners = Object.keys(targetRefData.runners);
+                const commonRunners = baselineRunners.filter(r => targetRunners.includes(r));
+
+                if (commonRunners.length === 0) {
+                    document.getElementById('charts-container').innerHTML =
+                        '<div class="error">Error: No common runners between selected datasets</div>';
+                    return;
+                }
+
+                this.availableRunners = commonRunners;
+
+                // Setup runner tabs
+                this.setupRunnerTabs();
+
+                // Generate charts for first runner
+                this.currentRunner = commonRunners[0];
+                this.generateCharts();
+            },
+
+            setupRunnerTabs() {
+                const tabsContainer = document.getElementById('runner-tabs-container');
+
+                if (this.availableRunners.length === 1) {
+                    // Single runner - show simple label
+                    const runner = this.availableRunners[0];
+                    const baselineRefData = this.getRefData(this.currentBaseline);
+                    const datasetId = baselineRefData.runners[runner];
+                    const dataset = DATA.datasets[datasetId];
+
+                    tabsContainer.innerHTML = `
+                        <div class="runner-tabs-wrapper">
+                            <div class="runner-tabs">
+                                <div class="runner-tab active">
+                                    ${dataset.runner_label}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Multiple runners - show clickable tabs
+                    const tabs = this.availableRunners.map((runner, idx) => {
+                        const baselineRefData = this.getRefData(this.currentBaseline);
+                        const datasetId = baselineRefData.runners[runner];
+                        const dataset = DATA.datasets[datasetId];
+                        const active = idx === 0 ? 'active' : '';
+
+                        return `<button class="runner-tab ${active}" onclick="app.switchRunner('${runner}')">
+                            ${dataset.runner_label}
+                        </button>`;
+                    }).join('');
+
+                    tabsContainer.innerHTML = `
+                        <div class="runner-tabs-wrapper">
+                            <div class="runner-tabs">
+                                ${tabs}
+                            </div>
+                        </div>
+                    `;
+                }
+            },
+
+            switchRunner(runner) {
+                this.currentRunner = runner;
+
+                // Update active tab
+                document.querySelectorAll('.runner-tab').forEach(tab => {
+                    tab.classList.remove('active');
+                });
+                event.target.classList.add('active');
+
+                // Regenerate charts
+                this.generateCharts();
+            },
+
+            generateCharts() {
+                const container = document.getElementById('charts-container');
+                const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+
+                // Get datasets for current runner
+                const baselineRefData = this.getRefData(this.currentBaseline);
+                const targetRefData = this.getRefData(this.currentTarget);
+
+                const baselineDatasetId = baselineRefData.runners[this.currentRunner];
+                const targetDatasetId = targetRefData.runners[this.currentRunner];
+
+                const baseline = DATA.datasets[baselineDatasetId];
+                const target = DATA.datasets[targetDatasetId];
+
+                // Generate header
+                let html = `
+                    <div class="header">
+                        <h1>Benchmark Comparison</h1>
+                        <div class="subtitle">
+                            <strong>Baseline:</strong> ${baseline.label} &nbsp;|&nbsp;
+                            <strong>Target:</strong> ${target.label} &nbsp;|&nbsp;
+                            <strong>Generated:</strong> ${timestamp}
+                        </div>
+                        <div class="legend">
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: #636EFA;"></span>
+                                <span>Baseline [tag: ${baseline.label}]</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="legend-color" style="background-color: #EF553B;"></span>
+                                <span>Target [branch: ${target.label}]</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Get all unique operations
+                const operations = new Set([
+                    ...Object.keys(baseline.operations),
+                    ...Object.keys(target.operations)
+                ]);
+
+                if (operations.size === 0) {
+                    container.innerHTML = '<div class="error">No benchmark data available</div>';
+                    return;
+                }
+
+                // Generate chart containers
+                const sortedOps = Array.from(operations).sort();
+                sortedOps.forEach(opName => {
+                    const opTitle = opName.replace('_', ' ').charAt(0).toUpperCase() +
+                                   opName.replace('_', ' ').slice(1);
+
+                    html += `
+                        <div class="chart-container">
+                            <h2>${opTitle} Operation - Total Runtime</h2>
+                            <div id="chart-${opName}-total"></div>
+                        </div>
+                        <div class="chart-container">
+                            <h2>${opTitle} Operation - Per Test Case</h2>
+                            <div id="chart-${opName}-detail"></div>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+
+                // Render all charts
+                sortedOps.forEach(opName => {
+                    this.renderTotalChart(opName, baseline, target);
+                    this.renderDetailChart(opName, baseline, target);
+                });
+            },
+
+            renderTotalChart(opName, baseline, target) {
+                const baselineOp = baseline.operations[opName];
+                const targetOp = target.operations[opName];
+
+                if (!baselineOp || !targetOp) {
+                    return;
+                }
+
+                const tools = new Set([
+                    ...Object.keys(baselineOp.tools),
+                    ...Object.keys(targetOp.tools)
+                ]);
+
+                const traces = [];
+
+                Array.from(tools).sort().forEach((tool, idx) => {
+                    const baselineData = baselineOp.tools[tool] || {};
+                    const targetData = targetOp.tools[tool] || {};
+
+                    const baselineTotal = Object.values(baselineData).reduce((a, b) => a + b, 0);
+                    const targetTotal = Object.values(targetData).reduce((a, b) => a + b, 0);
+                    const baselineCount = Object.keys(baselineData).length;
+                    const targetCount = Object.keys(targetData).length;
+
+                    traces.push({
+                        x: [tool],
+                        y: [baselineTotal],
+                        text: [baselineTotal.toFixed(1)],
+                        textposition: 'outside',
+                        name: 'Baseline',
+                        type: 'bar',
+                        marker: { color: '#636EFA' },
+                        showlegend: idx === 0,
+                        hovertemplate: `${tool}<br>Baseline: %{y:.2f} ms (${baselineCount} tests)<extra></extra>`
+                    });
+
+                    traces.push({
+                        x: [tool],
+                        y: [targetTotal],
+                        text: [targetTotal.toFixed(1)],
+                        textposition: 'outside',
+                        name: 'Target',
+                        type: 'bar',
+                        marker: { color: '#EF553B' },
+                        showlegend: idx === 0,
+                        hovertemplate: `${tool}<br>Target: %{y:.2f} ms (${targetCount} tests)<extra></extra>`
+                    });
+                });
+
+                const layout = {
+                    barmode: 'group',
+                    xaxis: {
+                        title: 'Tool',
+                        tickangle: -45
+                    },
+                    yaxis: {
+                        title: 'Total Time (ms) - Sum across all test cases',
+                        type: 'linear'
+                    },
+                    hovermode: 'closest',
+                    height: 500,
+                    margin: {
+                        l: 80,
+                        r: 50,
+                        b: 100,
+                        t: 50
+                    }
+                };
+
+                Plotly.newPlot(`chart-${opName}-total`, traces, layout, { responsive: true });
+            },
+
+            renderDetailChart(opName, baseline, target) {
+                const baselineOp = baseline.operations[opName];
+                const targetOp = target.operations[opName];
+
+                if (!baselineOp || !targetOp) {
+                    return;
+                }
+
+                const testCases = new Set([
+                    ...baselineOp.test_cases,
+                    ...targetOp.test_cases
+                ]);
+                const sortedTestCases = Array.from(testCases).sort();
+
+                const tools = new Set([
+                    ...Object.keys(baselineOp.tools),
+                    ...Object.keys(targetOp.tools)
+                ]);
+
+                const traces = [];
+
+                Array.from(tools).sort().forEach(tool => {
+                    const toolColor = TOOL_COLORS[tool] || '#636EFA';
+                    const baselineData = baselineOp.tools[tool] || {};
+                    const targetData = targetOp.tools[tool] || {};
+
+                    const baselineValues = sortedTestCases.map(tc => baselineData[tc] || 0);
+                    traces.push({
+                        x: sortedTestCases,
+                        y: baselineValues,
+                        name: `${tool} (baseline)`,
+                        type: 'bar',
+                        marker: { color: toolColor },
+                        legendgroup: tool,
+                        hovertemplate: `${tool}<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>`
+                    });
+
+                    const targetValues = sortedTestCases.map(tc => targetData[tc] || 0);
+                    traces.push({
+                        x: sortedTestCases,
+                        y: targetValues,
+                        name: `${tool} (target)`,
+                        type: 'bar',
+                        marker: {
+                            color: toolColor,
+                            pattern: { shape: '/' }
+                        },
+                        legendgroup: tool,
+                        hovertemplate: `${tool}<br>Test: %{x}<br>Target: %{y:.2f} ms<extra></extra>`
+                    });
+                });
+
+                const layout = {
+                    barmode: 'group',
+                    xaxis: {
+                        title: 'Test Case',
+                        type: 'category'
+                    },
+                    yaxis: {
+                        title: 'Time (ms)',
+                        type: 'linear'
+                    },
+                    hovermode: 'closest',
+                    height: 600,
+                    margin: {
+                        l: 80,
+                        r: 50,
+                        b: 80,
+                        t: 50
+                    },
+                    legend: {
+                        orientation: 'v',
+                        x: 1.02,
+                        y: 1
+                    }
+                };
+
+                Plotly.newPlot(`chart-${opName}-detail`, traces, layout, { responsive: true });
+            }
+        };
+
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+    </script>
+</body>
+</html>

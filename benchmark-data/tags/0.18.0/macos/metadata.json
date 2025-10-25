@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "ref": "0.18.0",
+  "ref_type": "tag",
+  "commit_sha": "5b8969da366358c42f25f22000fb398a0ef0e365",
+  "timestamp": "2025-10-25T20:20:27Z",
+  "runner": {
+    "os": "macos",
+    "arch": "arm64"
+  },
+  "benchmark_suite": "fast",
+  "benchmark_config": "conf/benchmark-pull-request-fast.yaml"
+}

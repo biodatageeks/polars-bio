@@ -1,0 +1,2101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benchmark Comparison: 0.18.0 vs fix/preserve-benchmark-data-gh-pages</title>
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* Tab styling */
+        .tab-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .tab-buttons {
+            display: flex;
+            border-bottom: 2px solid #e0e0e0;
+            background-color: #fafafa;
+        }
+        .tab-button {
+            padding: 15px 25px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s ease;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-button:hover {
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        .tab-button.active {
+            color: #1976d2;
+            border-bottom-color: #1976d2;
+            background-color: white;
+        }
+        .tab-content {
+            display: none;
+            padding: 20px;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Chart styling */
+        .chart-container {
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h2 {
+            margin-top: 0;
+            color: #333;
+            text-transform: capitalize;
+        }
+        .legend {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+        .legend-item {
+            display: inline-block;
+            margin-right: 20px;
+        }
+        .legend-color {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            vertical-align: middle;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Benchmark Comparison: 0.18.0 vs fix/preserve-benchmark-data-gh-pages</h1>
+        <div class="subtitle">Generated: 2025-10-25 20:20:26 UTC</div>
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-color" style="background-color: #636EFA;"></span>
+                <span>Baseline [tag: 0.18.0]</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background-color: #EF553B;"></span>
+                <span>PR [branch: fix/preserve-benchmark-data-gh-pages]</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-container">
+        <div class="tab-buttons">
+            <button class="tab-button active" data-runner="linux" onclick="switchTab('linux')">Linux AMD64</button>
+            <button class="tab-button" data-runner="macos" onclick="switchTab('macos')">macOS ARM64</button>
+        </div>
+        <div id="tab-linux" class="tab-content active">
+<div class="chart-container">
+        <h2>Count Overlaps Operation - Total Runtime</h2>
+        <div id="chart-count_overlaps-total-linux"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Coverage Operation - Total Runtime</h2>
+        <div id="chart-coverage-total-linux"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Nearest Operation - Total Runtime</h2>
+        <div id="chart-nearest-total-linux"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Overlap Operation - Total Runtime</h2>
+        <div id="chart-overlap-total-linux"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Count Overlaps Operation - Per Test Case</h2>
+        <div id="chart-count_overlaps-detail-linux"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Coverage Operation - Per Test Case</h2>
+        <div id="chart-coverage-detail-linux"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Nearest Operation - Per Test Case</h2>
+        <div id="chart-nearest-detail-linux"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Overlap Operation - Per Test Case</h2>
+        <div id="chart-overlap-detail-linux"></div>
+    </div>
+
+    <script>
+
+        // Data for count_overlaps - TOTAL RUNTIME
+        var data_count_overlaps_total_linux = [
+
+            {
+                x: ['bioframe'],
+                y: [4676.078],
+                text: ['4676.1'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['bioframe'],
+                y: [4607.511],
+                text: ['4607.5'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['genomicranges'],
+                y: [1432.452],
+                text: ['1432.5'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'genomicranges<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['genomicranges'],
+                y: [1410.897],
+                text: ['1410.9'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'genomicranges<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [930.064],
+                text: ['930.1'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [939.446],
+                text: ['939.4'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['pyranges1'],
+                y: [1575.917],
+                text: ['1575.9'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'pyranges1<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['pyranges1'],
+                y: [1657.659],
+                text: ['1657.7'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'pyranges1<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+        ];
+
+        var layout_count_overlaps_total_linux = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Tool',
+                tickangle: -45
+            },
+            yaxis: {
+                title: 'Total Time (ms) - Sum across all test cases',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 500,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 100,
+                t: 50
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['linux'] = window.runnerInitializers['linux'] || [];
+        window.runnerInitializers['linux'].push(function() {
+            const target = document.getElementById('chart-count_overlaps-total-linux');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_count_overlaps_total_linux, layout_count_overlaps_total_linux, {responsive: true});
+        });
+
+        // Data for coverage - TOTAL RUNTIME
+        var data_coverage_total_linux = [
+
+            {
+                x: ['bioframe'],
+                y: [4718.999],
+                text: ['4719.0'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['bioframe'],
+                y: [4590.826],
+                text: ['4590.8'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [866.917],
+                text: ['866.9'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [885.286],
+                text: ['885.3'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+        ];
+
+        var layout_coverage_total_linux = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Tool',
+                tickangle: -45
+            },
+            yaxis: {
+                title: 'Total Time (ms) - Sum across all test cases',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 500,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 100,
+                t: 50
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['linux'] = window.runnerInitializers['linux'] || [];
+        window.runnerInitializers['linux'].push(function() {
+            const target = document.getElementById('chart-coverage-total-linux');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_coverage_total_linux, layout_coverage_total_linux, {responsive: true});
+        });
+
+        // Data for nearest - TOTAL RUNTIME
+        var data_nearest_total_linux = [
+
+            {
+                x: ['bioframe'],
+                y: [5409.651],
+                text: ['5409.7'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['bioframe'],
+                y: [5276.953],
+                text: ['5277.0'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['genomicranges'],
+                y: [1715.898],
+                text: ['1715.9'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'genomicranges<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['genomicranges'],
+                y: [1753.187],
+                text: ['1753.2'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'genomicranges<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [1586.907],
+                text: ['1586.9'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [1489.450],
+                text: ['1489.5'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['pyranges1'],
+                y: [4531.894],
+                text: ['4531.9'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'pyranges1<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['pyranges1'],
+                y: [4608.766],
+                text: ['4608.8'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'pyranges1<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+        ];
+
+        var layout_nearest_total_linux = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Tool',
+                tickangle: -45
+            },
+            yaxis: {
+                title: 'Total Time (ms) - Sum across all test cases',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 500,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 100,
+                t: 50
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['linux'] = window.runnerInitializers['linux'] || [];
+        window.runnerInitializers['linux'].push(function() {
+            const target = document.getElementById('chart-nearest-total-linux');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_nearest_total_linux, layout_nearest_total_linux, {responsive: true});
+        });
+
+        // Data for overlap - TOTAL RUNTIME
+        var data_overlap_total_linux = [
+
+            {
+                x: ['bioframe'],
+                y: [3153.061],
+                text: ['3153.1'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['bioframe'],
+                y: [3299.226],
+                text: ['3299.2'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['genomicranges'],
+                y: [1311.085],
+                text: ['1311.1'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'genomicranges<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['genomicranges'],
+                y: [1328.231],
+                text: ['1328.2'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'genomicranges<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [1268.663],
+                text: ['1268.7'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [1244.369],
+                text: ['1244.4'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['pyranges1'],
+                y: [2654.820],
+                text: ['2654.8'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'pyranges1<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['pyranges1'],
+                y: [2655.486],
+                text: ['2655.5'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'pyranges1<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+        ];
+
+        var layout_overlap_total_linux = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Tool',
+                tickangle: -45
+            },
+            yaxis: {
+                title: 'Total Time (ms) - Sum across all test cases',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 500,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 100,
+                t: 50
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['linux'] = window.runnerInitializers['linux'] || [];
+        window.runnerInitializers['linux'].push(function() {
+            const target = document.getElementById('chart-overlap-total-linux');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_overlap_total_linux, layout_overlap_total_linux, {responsive: true});
+        });
+
+        // Data for count_overlaps - PER TEST CASE DETAIL
+        var data_count_overlaps_detail_linux = [
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [153.25900000000001, 207.644, 1629.767, 1335.84, 1349.5680000000002],
+                name: 'bioframe (baseline)',
+                type: 'bar',
+                marker: {color: '#FF6692'},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [148.672, 197.859, 1605.9540000000002, 1333.4189999999999, 1321.607],
+                name: 'bioframe (PR)',
+                type: 'bar',
+                marker: {color: '#FF6692', pattern: {shape: '/'}},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [35.642, 35.06, 403.2, 482.21599999999995, 476.334],
+                name: 'genomicranges (baseline)',
+                type: 'bar',
+                marker: {color: '#FFA15A'},
+                legendgroup: 'genomicranges',
+                hovertemplate: 'genomicranges<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [34.673, 34.901, 391.815, 484.173, 465.335],
+                name: 'genomicranges (PR)',
+                type: 'bar',
+                marker: {color: '#FFA15A', pattern: {shape: '/'}},
+                legendgroup: 'genomicranges',
+                hovertemplate: 'genomicranges<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [61.258, 54.191, 284.56, 263.629, 266.426],
+                name: 'polars_bio (baseline)',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [54.094, 56.863, 282.95799999999997, 272.28599999999994, 273.245],
+                name: 'polars_bio (PR)',
+                type: 'bar',
+                marker: {color: '#636EFA', pattern: {shape: '/'}},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [78.957, 79.735, 462.792, 477.539, 476.894],
+                name: 'pyranges1 (baseline)',
+                type: 'bar',
+                marker: {color: '#00CC96'},
+                legendgroup: 'pyranges1',
+                hovertemplate: 'pyranges1<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [78.951, 79.692, 531.0559999999999, 489.652, 478.308],
+                name: 'pyranges1 (PR)',
+                type: 'bar',
+                marker: {color: '#00CC96', pattern: {shape: '/'}},
+                legendgroup: 'pyranges1',
+                hovertemplate: 'pyranges1<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+        ];
+
+        var layout_count_overlaps_detail_linux = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Test Case',
+                type: 'category'
+            },
+            yaxis: {
+                title: 'Time (ms)',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 600,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 80,
+                t: 50
+            },
+            legend: {
+                orientation: 'v',
+                x: 1.02,
+                y: 1
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['linux'] = window.runnerInitializers['linux'] || [];
+        window.runnerInitializers['linux'].push(function() {
+            const target = document.getElementById('chart-count_overlaps-detail-linux');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_count_overlaps_detail_linux, layout_count_overlaps_detail_linux, {responsive: true});
+        });
+
+        // Data for coverage - PER TEST CASE DETAIL
+        var data_coverage_detail_linux = [
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [258.29999999999995, 339.89799999999997, 1794.7740000000001, 1167.165, 1158.862],
+                name: 'bioframe (baseline)',
+                type: 'bar',
+                marker: {color: '#FF6692'},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [251.498, 333.397, 1747.266, 1126.689, 1131.976],
+                name: 'bioframe (PR)',
+                type: 'bar',
+                marker: {color: '#FF6692', pattern: {shape: '/'}},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [57.397999999999996, 66.218, 310.636, 219.28900000000002, 213.376],
+                name: 'polars_bio (baseline)',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [60.198, 69.852, 312.016, 219.834, 223.386],
+                name: 'polars_bio (PR)',
+                type: 'bar',
+                marker: {color: '#636EFA', pattern: {shape: '/'}},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+        ];
+
+        var layout_coverage_detail_linux = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Test Case',
+                type: 'category'
+            },
+            yaxis: {
+                title: 'Time (ms)',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 600,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 80,
+                t: 50
+            },
+            legend: {
+                orientation: 'v',
+                x: 1.02,
+                y: 1
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['linux'] = window.runnerInitializers['linux'] || [];
+        window.runnerInitializers['linux'].push(function() {
+            const target = document.getElementById('chart-coverage-detail-linux');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_coverage_detail_linux, layout_coverage_detail_linux, {responsive: true});
+        });
+
+        // Data for nearest - PER TEST CASE DETAIL
+        var data_nearest_detail_linux = [
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [227.03799999999998, 320.473, 1837.57, 1509.8210000000001, 1514.7489999999998],
+                name: 'bioframe (baseline)',
+                type: 'bar',
+                marker: {color: '#FF6692'},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [226.409, 304.56600000000003, 1794.842, 1475.462, 1475.674],
+                name: 'bioframe (PR)',
+                type: 'bar',
+                marker: {color: '#FF6692', pattern: {shape: '/'}},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [104.08000000000001, 66.75399999999999, 422.515, 551.9549999999999, 570.594],
+                name: 'genomicranges (baseline)',
+                type: 'bar',
+                marker: {color: '#FFA15A'},
+                legendgroup: 'genomicranges',
+                hovertemplate: 'genomicranges<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [104.20500000000001, 65.556, 440.699, 563.1890000000001, 579.538],
+                name: 'genomicranges (PR)',
+                type: 'bar',
+                marker: {color: '#FFA15A', pattern: {shape: '/'}},
+                legendgroup: 'genomicranges',
+                hovertemplate: 'genomicranges<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [181.891, 93.899, 508.85999999999996, 396.728, 405.529],
+                name: 'polars_bio (baseline)',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [74.93900000000001, 99.898, 516.086, 396.62199999999996, 401.90500000000003],
+                name: 'polars_bio (PR)',
+                type: 'bar',
+                marker: {color: '#636EFA', pattern: {shape: '/'}},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [143.205, 174.81, 1708.564, 1263.283, 1242.032],
+                name: 'pyranges1 (baseline)',
+                type: 'bar',
+                marker: {color: '#00CC96'},
+                legendgroup: 'pyranges1',
+                hovertemplate: 'pyranges1<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [142.202, 165.78699999999998, 1777.912, 1269.6970000000001, 1253.1680000000001],
+                name: 'pyranges1 (PR)',
+                type: 'bar',
+                marker: {color: '#00CC96', pattern: {shape: '/'}},
+                legendgroup: 'pyranges1',
+                hovertemplate: 'pyranges1<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+        ];
+
+        var layout_nearest_detail_linux = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Test Case',
+                type: 'category'
+            },
+            yaxis: {
+                title: 'Time (ms)',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 600,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 80,
+                t: 50
+            },
+            legend: {
+                orientation: 'v',
+                x: 1.02,
+                y: 1
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['linux'] = window.runnerInitializers['linux'] || [];
+        window.runnerInitializers['linux'].push(function() {
+            const target = document.getElementById('chart-nearest-detail-linux');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_nearest_detail_linux, layout_nearest_detail_linux, {responsive: true});
+        });
+
+        // Data for overlap - PER TEST CASE DETAIL
+        var data_overlap_detail_linux = [
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [101.87100000000001, 101.627, 975.237, 984.75, 989.576],
+                name: 'bioframe (baseline)',
+                type: 'bar',
+                marker: {color: '#FF6692'},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [100.476, 102.919, 1041.913, 1037.512, 1016.406],
+                name: 'bioframe (PR)',
+                type: 'bar',
+                marker: {color: '#FF6692', pattern: {shape: '/'}},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [36.513, 34.4, 371.28299999999996, 435.002, 433.887],
+                name: 'genomicranges (baseline)',
+                type: 'bar',
+                marker: {color: '#FFA15A'},
+                legendgroup: 'genomicranges',
+                hovertemplate: 'genomicranges<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [35.221000000000004, 35.314, 379.919, 445.919, 431.858],
+                name: 'genomicranges (PR)',
+                type: 'bar',
+                marker: {color: '#FFA15A', pattern: {shape: '/'}},
+                legendgroup: 'genomicranges',
+                hovertemplate: 'genomicranges<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [87.379, 62.303, 379.16299999999995, 369.141, 370.67699999999996],
+                name: 'polars_bio (baseline)',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [57.945, 61.243, 386.61600000000004, 356.165, 382.40000000000003],
+                name: 'polars_bio (PR)',
+                type: 'bar',
+                marker: {color: '#636EFA', pattern: {shape: '/'}},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [98.86699999999999, 91.879, 859.36, 807.947, 796.767],
+                name: 'pyranges1 (baseline)',
+                type: 'bar',
+                marker: {color: '#00CC96'},
+                legendgroup: 'pyranges1',
+                hovertemplate: 'pyranges1<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [96.009, 91.014, 864.841, 814.5740000000001, 789.048],
+                name: 'pyranges1 (PR)',
+                type: 'bar',
+                marker: {color: '#00CC96', pattern: {shape: '/'}},
+                legendgroup: 'pyranges1',
+                hovertemplate: 'pyranges1<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+        ];
+
+        var layout_overlap_detail_linux = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Test Case',
+                type: 'category'
+            },
+            yaxis: {
+                title: 'Time (ms)',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 600,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 80,
+                t: 50
+            },
+            legend: {
+                orientation: 'v',
+                x: 1.02,
+                y: 1
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['linux'] = window.runnerInitializers['linux'] || [];
+        window.runnerInitializers['linux'].push(function() {
+            const target = document.getElementById('chart-overlap-detail-linux');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_overlap_detail_linux, layout_overlap_detail_linux, {responsive: true});
+        });
+
+    </script>
+
+        </div>
+        <div id="tab-macos" class="tab-content">
+<div class="chart-container">
+        <h2>Count Overlaps Operation - Total Runtime</h2>
+        <div id="chart-count_overlaps-total-macos"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Coverage Operation - Total Runtime</h2>
+        <div id="chart-coverage-total-macos"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Nearest Operation - Total Runtime</h2>
+        <div id="chart-nearest-total-macos"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Overlap Operation - Total Runtime</h2>
+        <div id="chart-overlap-total-macos"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Count Overlaps Operation - Per Test Case</h2>
+        <div id="chart-count_overlaps-detail-macos"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Coverage Operation - Per Test Case</h2>
+        <div id="chart-coverage-detail-macos"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Nearest Operation - Per Test Case</h2>
+        <div id="chart-nearest-detail-macos"></div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Overlap Operation - Per Test Case</h2>
+        <div id="chart-overlap-detail-macos"></div>
+    </div>
+
+    <script>
+
+        // Data for count_overlaps - TOTAL RUNTIME
+        var data_count_overlaps_total_macos = [
+
+            {
+                x: ['bioframe'],
+                y: [6301.629],
+                text: ['6301.6'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['bioframe'],
+                y: [5884.400],
+                text: ['5884.4'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['genomicranges'],
+                y: [1715.426],
+                text: ['1715.4'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'genomicranges<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['genomicranges'],
+                y: [1573.533],
+                text: ['1573.5'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'genomicranges<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [902.589],
+                text: ['902.6'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [746.800],
+                text: ['746.8'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['pyranges1'],
+                y: [1444.001],
+                text: ['1444.0'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'pyranges1<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['pyranges1'],
+                y: [1342.950],
+                text: ['1343.0'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'pyranges1<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+        ];
+
+        var layout_count_overlaps_total_macos = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Tool',
+                tickangle: -45
+            },
+            yaxis: {
+                title: 'Total Time (ms) - Sum across all test cases',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 500,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 100,
+                t: 50
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['macos'] = window.runnerInitializers['macos'] || [];
+        window.runnerInitializers['macos'].push(function() {
+            const target = document.getElementById('chart-count_overlaps-total-macos');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_count_overlaps_total_macos, layout_count_overlaps_total_macos, {responsive: true});
+        });
+
+        // Data for coverage - TOTAL RUNTIME
+        var data_coverage_total_macos = [
+
+            {
+                x: ['bioframe'],
+                y: [5245.115],
+                text: ['5245.1'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['bioframe'],
+                y: [4850.722],
+                text: ['4850.7'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [661.440],
+                text: ['661.4'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [596.880],
+                text: ['596.9'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+        ];
+
+        var layout_coverage_total_macos = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Tool',
+                tickangle: -45
+            },
+            yaxis: {
+                title: 'Total Time (ms) - Sum across all test cases',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 500,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 100,
+                t: 50
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['macos'] = window.runnerInitializers['macos'] || [];
+        window.runnerInitializers['macos'].push(function() {
+            const target = document.getElementById('chart-coverage-total-macos');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_coverage_total_macos, layout_coverage_total_macos, {responsive: true});
+        });
+
+        // Data for nearest - TOTAL RUNTIME
+        var data_nearest_total_macos = [
+
+            {
+                x: ['bioframe'],
+                y: [7833.855],
+                text: ['7833.9'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['bioframe'],
+                y: [7424.780],
+                text: ['7424.8'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['genomicranges'],
+                y: [1393.961],
+                text: ['1394.0'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'genomicranges<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['genomicranges'],
+                y: [1293.394],
+                text: ['1293.4'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'genomicranges<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [1406.814],
+                text: ['1406.8'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [1182.819],
+                text: ['1182.8'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['pyranges1'],
+                y: [4561.155],
+                text: ['4561.2'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'pyranges1<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['pyranges1'],
+                y: [3972.420],
+                text: ['3972.4'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'pyranges1<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+        ];
+
+        var layout_nearest_total_macos = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Tool',
+                tickangle: -45
+            },
+            yaxis: {
+                title: 'Total Time (ms) - Sum across all test cases',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 500,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 100,
+                t: 50
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['macos'] = window.runnerInitializers['macos'] || [];
+        window.runnerInitializers['macos'].push(function() {
+            const target = document.getElementById('chart-nearest-total-macos');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_nearest_total_macos, layout_nearest_total_macos, {responsive: true});
+        });
+
+        // Data for overlap - TOTAL RUNTIME
+        var data_overlap_total_macos = [
+
+            {
+                x: ['bioframe'],
+                y: [4752.236],
+                text: ['4752.2'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['bioframe'],
+                y: [4128.551],
+                text: ['4128.6'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: true,
+                hovertemplate: 'bioframe<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['genomicranges'],
+                y: [1476.320],
+                text: ['1476.3'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'genomicranges<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['genomicranges'],
+                y: [1345.674],
+                text: ['1345.7'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'genomicranges<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [1175.495],
+                text: ['1175.5'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['polars_bio'],
+                y: [1012.387],
+                text: ['1012.4'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'polars_bio<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['pyranges1'],
+                y: [2372.628],
+                text: ['2372.6'],
+                textposition: 'outside',
+                name: 'Baseline',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                showlegend: false,
+                hovertemplate: 'pyranges1<br>Baseline: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+            {
+                x: ['pyranges1'],
+                y: [2183.228],
+                text: ['2183.2'],
+                textposition: 'outside',
+                name: 'PR',
+                type: 'bar',
+                marker: {color: '#EF553B'},
+                showlegend: false,
+                hovertemplate: 'pyranges1<br>PR: %{y:.2f} ms (5 tests)<extra></extra>'
+            },
+
+        ];
+
+        var layout_overlap_total_macos = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Tool',
+                tickangle: -45
+            },
+            yaxis: {
+                title: 'Total Time (ms) - Sum across all test cases',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 500,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 100,
+                t: 50
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['macos'] = window.runnerInitializers['macos'] || [];
+        window.runnerInitializers['macos'].push(function() {
+            const target = document.getElementById('chart-overlap-total-macos');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_overlap_total_macos, layout_overlap_total_macos, {responsive: true});
+        });
+
+        // Data for count_overlaps - PER TEST CASE DETAIL
+        var data_count_overlaps_detail_macos = [
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [208.654, 273.312, 2114.3559999999998, 1924.074, 1781.2330000000002],
+                name: 'bioframe (baseline)',
+                type: 'bar',
+                marker: {color: '#FF6692'},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [196.927, 245.006, 2019.1249999999998, 1723.125, 1700.217],
+                name: 'bioframe (PR)',
+                type: 'bar',
+                marker: {color: '#FF6692', pattern: {shape: '/'}},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [27.855999999999998, 26.112, 443.548, 646.2560000000001, 571.654],
+                name: 'genomicranges (baseline)',
+                type: 'bar',
+                marker: {color: '#FFA15A'},
+                legendgroup: 'genomicranges',
+                hovertemplate: 'genomicranges<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [24.37, 23.313, 405.582, 577.351, 542.917],
+                name: 'genomicranges (PR)',
+                type: 'bar',
+                marker: {color: '#FFA15A', pattern: {shape: '/'}},
+                legendgroup: 'genomicranges',
+                hovertemplate: 'genomicranges<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [87.269, 45.983000000000004, 253.50499999999997, 256.712, 259.12],
+                name: 'polars_bio (baseline)',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [52.581999999999994, 43.467, 233.66899999999998, 209.05499999999998, 208.027],
+                name: 'polars_bio (PR)',
+                type: 'bar',
+                marker: {color: '#636EFA', pattern: {shape: '/'}},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [67.636, 66.306, 456.238, 446.88899999999995, 406.932],
+                name: 'pyranges1 (baseline)',
+                type: 'bar',
+                marker: {color: '#00CC96'},
+                legendgroup: 'pyranges1',
+                hovertemplate: 'pyranges1<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [58.897999999999996, 58.928000000000004, 402.877, 422.009, 400.238],
+                name: 'pyranges1 (PR)',
+                type: 'bar',
+                marker: {color: '#00CC96', pattern: {shape: '/'}},
+                legendgroup: 'pyranges1',
+                hovertemplate: 'pyranges1<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+        ];
+
+        var layout_count_overlaps_detail_macos = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Test Case',
+                type: 'category'
+            },
+            yaxis: {
+                title: 'Time (ms)',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 600,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 80,
+                t: 50
+            },
+            legend: {
+                orientation: 'v',
+                x: 1.02,
+                y: 1
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['macos'] = window.runnerInitializers['macos'] || [];
+        window.runnerInitializers['macos'].push(function() {
+            const target = document.getElementById('chart-count_overlaps-detail-macos');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_count_overlaps_detail_macos, layout_count_overlaps_detail_macos, {responsive: true});
+        });
+
+        // Data for coverage - PER TEST CASE DETAIL
+        var data_coverage_detail_macos = [
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [287.303, 391.98, 2200.0860000000002, 1192.7250000000001, 1173.0210000000002],
+                name: 'bioframe (baseline)',
+                type: 'bar',
+                marker: {color: '#FF6692'},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [256.807, 362.207, 1925.214, 1134.2350000000001, 1172.259],
+                name: 'bioframe (PR)',
+                type: 'bar',
+                marker: {color: '#FF6692', pattern: {shape: '/'}},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [43.573, 59.327, 242.906, 157.798, 157.836],
+                name: 'polars_bio (baseline)',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [38.120000000000005, 45.924, 219.756, 145.088, 147.99200000000002],
+                name: 'polars_bio (PR)',
+                type: 'bar',
+                marker: {color: '#636EFA', pattern: {shape: '/'}},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+        ];
+
+        var layout_coverage_detail_macos = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Test Case',
+                type: 'category'
+            },
+            yaxis: {
+                title: 'Time (ms)',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 600,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 80,
+                t: 50
+            },
+            legend: {
+                orientation: 'v',
+                x: 1.02,
+                y: 1
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['macos'] = window.runnerInitializers['macos'] || [];
+        window.runnerInitializers['macos'].push(function() {
+            const target = document.getElementById('chart-coverage-detail-macos');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_coverage_detail_macos, layout_coverage_detail_macos, {responsive: true});
+        });
+
+        // Data for nearest - PER TEST CASE DETAIL
+        var data_nearest_detail_macos = [
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [263.23600000000005, 399.291, 2796.882, 2251.544, 2122.902],
+                name: 'bioframe (baseline)',
+                type: 'bar',
+                marker: {color: '#FF6692'},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [246.76500000000001, 348.082, 2607.289, 2136.834, 2085.81],
+                name: 'bioframe (PR)',
+                type: 'bar',
+                marker: {color: '#FF6692', pattern: {shape: '/'}},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [88.108, 49.518, 330.098, 455.2, 471.037],
+                name: 'genomicranges (baseline)',
+                type: 'bar',
+                marker: {color: '#FFA15A'},
+                legendgroup: 'genomicranges',
+                hovertemplate: 'genomicranges<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [78.946, 46.580999999999996, 322.538, 428.74600000000004, 416.58299999999997],
+                name: 'genomicranges (PR)',
+                type: 'bar',
+                marker: {color: '#FFA15A', pattern: {shape: '/'}},
+                legendgroup: 'genomicranges',
+                hovertemplate: 'genomicranges<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [103.04, 82.65400000000001, 459.87699999999995, 362.631, 398.612],
+                name: 'polars_bio (baseline)',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [73.575, 74.887, 396.562, 321.14500000000004, 316.65],
+                name: 'polars_bio (PR)',
+                type: 'bar',
+                marker: {color: '#636EFA', pattern: {shape: '/'}},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [121.86099999999999, 136.789, 1589.034, 1311.661, 1401.81],
+                name: 'pyranges1 (baseline)',
+                type: 'bar',
+                marker: {color: '#00CC96'},
+                legendgroup: 'pyranges1',
+                hovertemplate: 'pyranges1<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [106.07, 124.083, 1520.1370000000002, 1127.263, 1094.867],
+                name: 'pyranges1 (PR)',
+                type: 'bar',
+                marker: {color: '#00CC96', pattern: {shape: '/'}},
+                legendgroup: 'pyranges1',
+                hovertemplate: 'pyranges1<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+        ];
+
+        var layout_nearest_detail_macos = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Test Case',
+                type: 'category'
+            },
+            yaxis: {
+                title: 'Time (ms)',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 600,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 80,
+                t: 50
+            },
+            legend: {
+                orientation: 'v',
+                x: 1.02,
+                y: 1
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['macos'] = window.runnerInitializers['macos'] || [];
+        window.runnerInitializers['macos'].push(function() {
+            const target = document.getElementById('chart-nearest-detail-macos');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_nearest_detail_macos, layout_nearest_detail_macos, {responsive: true});
+        });
+
+        // Data for overlap - PER TEST CASE DETAIL
+        var data_overlap_detail_macos = [
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [144.486, 134.854, 1552.948, 1508.1109999999999, 1411.837],
+                name: 'bioframe (baseline)',
+                type: 'bar',
+                marker: {color: '#FF6692'},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [141.809, 139.53799999999998, 1279.426, 1292.878, 1274.8999999999999],
+                name: 'bioframe (PR)',
+                type: 'bar',
+                marker: {color: '#FF6692', pattern: {shape: '/'}},
+                legendgroup: 'bioframe',
+                hovertemplate: 'bioframe<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [24.918, 21.794, 351.83799999999997, 522.0160000000001, 555.754],
+                name: 'genomicranges (baseline)',
+                type: 'bar',
+                marker: {color: '#FFA15A'},
+                legendgroup: 'genomicranges',
+                hovertemplate: 'genomicranges<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [22.996, 22.284000000000002, 330.37699999999995, 470.802, 499.21500000000003],
+                name: 'genomicranges (PR)',
+                type: 'bar',
+                marker: {color: '#FFA15A', pattern: {shape: '/'}},
+                legendgroup: 'genomicranges',
+                hovertemplate: 'genomicranges<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [119.755, 51.439, 317.19399999999996, 330.473, 356.634],
+                name: 'polars_bio (baseline)',
+                type: 'bar',
+                marker: {color: '#636EFA'},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [82.247, 49.95, 313.905, 271.557, 294.728],
+                name: 'polars_bio (PR)',
+                type: 'bar',
+                marker: {color: '#636EFA', pattern: {shape: '/'}},
+                legendgroup: 'polars_bio',
+                hovertemplate: 'polars_bio<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [71.48400000000001, 59.307, 767.6800000000001, 721.22, 752.937],
+                name: 'pyranges1 (baseline)',
+                type: 'bar',
+                marker: {color: '#00CC96'},
+                legendgroup: 'pyranges1',
+                hovertemplate: 'pyranges1<br>Test: %{x}<br>Baseline: %{y:.2f} ms<extra></extra>'
+            },
+
+            {
+                x: ['1-2', '2-1', '3-7', '7-3', '7-8'],
+                y: [66.85000000000001, 61.241, 737.736, 635.928, 681.473],
+                name: 'pyranges1 (PR)',
+                type: 'bar',
+                marker: {color: '#00CC96', pattern: {shape: '/'}},
+                legendgroup: 'pyranges1',
+                hovertemplate: 'pyranges1<br>Test: %{x}<br>PR: %{y:.2f} ms<extra></extra>'
+            },
+
+        ];
+
+        var layout_overlap_detail_macos = {
+            barmode: 'group',
+            xaxis: {
+                title: 'Test Case',
+                type: 'category'
+            },
+            yaxis: {
+                title: 'Time (ms)',
+                type: 'linear'
+            },
+            hovermode: 'closest',
+            height: 600,
+            margin: {
+                l: 80,
+                r: 50,
+                b: 80,
+                t: 50
+            },
+            legend: {
+                orientation: 'v',
+                x: 1.02,
+                y: 1
+            }
+        };
+
+                window.runnerInitializers = window.runnerInitializers || {};
+        window.runnerInitializers['macos'] = window.runnerInitializers['macos'] || [];
+        window.runnerInitializers['macos'].push(function() {
+            const target = document.getElementById('chart-overlap-detail-macos');
+            if (!target) { return; }
+            Plotly.newPlot(target, data_overlap_detail_macos, layout_overlap_detail_macos, {responsive: true});
+        });
+
+    </script>
+
+        </div>
+    </div>
+
+    <script>
+        // Manage lazy initialization functions per runner tab
+        window.runnerInitializers = window.runnerInitializers || {};
+        if (typeof window.initializedTabs === 'undefined') {
+            window.initializedTabs = typeof Set !== 'undefined' ? new Set() : {};
+        } else if (typeof Set !== 'undefined' && !(window.initializedTabs instanceof Set)) {
+            window.initializedTabs = new Set();
+        }
+
+        function tabAlreadyInitialized(name) {
+            if (window.initializedTabs instanceof Set) {
+                return window.initializedTabs.has(name);
+            }
+            return Boolean(window.initializedTabs[name]);
+        }
+
+        function markTabInitialized(name) {
+            if (window.initializedTabs instanceof Set) {
+                window.initializedTabs.add(name);
+            } else {
+                window.initializedTabs[name] = true;
+            }
+        }
+
+        function initializeTabCharts(runnerName) {
+            if (tabAlreadyInitialized(runnerName)) {
+                return;
+            }
+
+            const initializers = window.runnerInitializers[runnerName] || [];
+            initializers.forEach(initFn => {
+                try {
+                    initFn();
+                } catch (err) {
+                    console.error('Failed to render charts for', runnerName, err);
+                }
+            });
+
+            markTabInitialized(runnerName);
+        }
+
+        function switchTab(runnerName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Deactivate all tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Show selected tab content
+            const tabContent = document.getElementById('tab-' + runnerName);
+            if (tabContent) {
+                tabContent.classList.add('active');
+            }
+
+            // Activate selected tab button
+            document.querySelectorAll('.tab-button').forEach(button => {
+                if (button.dataset.runner === runnerName) {
+                    button.classList.add('active');
+                }
+            });
+
+            // Initialize charts for this tab (if not already done)
+            setTimeout(() => {
+                initializeTabCharts(runnerName);
+            }, 10);
+        }
+
+        // Initialize the first tab on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const activeTab = document.querySelector('.tab-content.active');
+            if (activeTab) {
+                const runnerName = activeTab.id.replace('tab-', '');
+                initializeTabCharts(runnerName);
+            }
+        });
+    </script>
+</body>
+</html>
