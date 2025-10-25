@@ -555,26 +555,19 @@ jobs:
 
       - name: Publish static comparison chart to gh-pages
         run: |
-          # Determine output directory based on context
-          if [ "${{ github.ref }}" == "refs/heads/master" ] || [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            # Main branch: publish to root benchmark-comparison/
-            OUTPUT_DIR="gh-pages-repo/benchmark-comparison"
-            echo "Publishing to main benchmark comparison page"
-          else
-            # PR or branch: publish to branch-specific directory
-            BRANCH_NAME="${{ needs.prepare.outputs.target_ref }}"
-            SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g')
-            OUTPUT_DIR="gh-pages-repo/benchmark-comparison/$SANITIZED_BRANCH"
-            echo "Publishing to branch-specific page: $SANITIZED_BRANCH"
-          fi
+          # For PR/branch: publish to branch-specific directory
+          # For main: skip (interactive report already at root)
+          BRANCH_NAME="${{ needs.prepare.outputs.target_ref }}"
+          SANITIZED_BRANCH=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9-]/-/g')
+          OUTPUT_DIR="gh-pages-repo/benchmark-comparison/$SANITIZED_BRANCH"
 
           # Create output directory
           mkdir -p "$OUTPUT_DIR"
 
-          # Copy the static comparison chart (as static.html)
-          cp comparison_charts/benchmark_comparison.html "$OUTPUT_DIR/static.html"
+          # Copy the static comparison chart as index.html
+          cp comparison_charts/benchmark_comparison.html "$OUTPUT_DIR/index.html"
 
-          echo "✅ Published static chart to $OUTPUT_DIR/static.html"
+          echo "✅ Published static chart to $OUTPUT_DIR/index.html"
 
       - name: Commit and push all changes to gh-pages
         run: |
