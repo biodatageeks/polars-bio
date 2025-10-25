@@ -6,7 +6,7 @@ on:
       runners:
         description: 'Runners to benchmark (comma-separated: linux,macos or just linux)'
         required: false
-        default: 'linux'
+        default: 'linux,macos'
         type: string
       benchmark_suite:
         description: 'Benchmark suite to run (fast or full)'
