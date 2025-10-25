@@ -734,7 +734,11 @@ def _create_tabbed_html(
             }
 
             // Activate selected tab button
-            event.target.classList.add('active');
+            document.querySelectorAll('.tab-button').forEach(button => {
+                if (button.getAttribute('onclick') === `switchTab('${runnerName}')`) {
+                    button.classList.add('active');
+                }
+            });
         }
     </script>
 </body>
