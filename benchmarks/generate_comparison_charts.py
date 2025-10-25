@@ -508,6 +508,70 @@ def generate_html_charts(
     print(f"Generated comparison chart: {output_file}")
 
 
+def _extract_div_block(html: str, start_marker: str) -> tuple[str, str, str]:
+    """Split *html* around the first DIV that matches *start_marker*.
+
+    Returns a tuple ``(before, block, after)`` where ``block`` contains the
+    complete ``<div ...>...</div>`` segment (including all nested DIVs). If the
+    marker is not found an empty block is returned alongside the original html
+    as the first element.
+    """
+
+    start = html.find(start_marker)
+    if start == -1:
+        return html, "", ""
+
+    before = html[:start]
+    i = start
+    depth = 0
+
+    while i < len(html):
+        char = html[i]
+        if char != "<":
+            i += 1
+            continue
+
+        # Closing divs reduce the depth and potentially terminate the block
+        if html.startswith("</div>", i):
+            depth -= 1
+            i += len("</div>")
+            if depth == 0:
+                block = html[start:i]
+                after = html[i:]
+                return before, block, after
+            continue
+
+        # Opening divs (including the marker itself) increase the depth
+        if html.startswith("<div", i):
+            depth += 1
+            closing = html.find(">", i)
+            if closing == -1:
+                break
+            i = closing + 1
+            continue
+
+        # Skip over other tags such as <h1>, <script>, etc.
+        closing = html.find(">", i)
+        if closing == -1:
+            break
+        i = closing + 1
+
+    # Marker not properly closed – return original content
+    return html, "", ""
+
+
+def _remove_header_block(body_content: str) -> str:
+    """Remove the leading header block from the per-runner HTML fragment."""
+
+    before, header_block, after = _extract_div_block(
+        body_content, '<div class="header">'
+    )
+    if not header_block:
+        return body_content
+    # Trim leading whitespace to keep markup tidy once embedded in the tab
+    return (before + after).lstrip()
+
+
 def _create_tabbed_html(
     runner_htmls: Dict[str, str],
     runner_labels: Dict[str, str],
@@ -540,6 +604,10 @@ def _create_tabbed_html(
 
     # Generate timestamp
     timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    # Strip out the per-runner headers so charts stay within their tab panels
+    for runner_name in list(runner_bodies.keys()):
+        runner_bodies[runner_name] = _remove_header_block(runner_bodies[runner_name])
 
     # Start building tabbed HTML
     html = f"""<!DOCTYPE html>
@@ -647,15 +715,19 @@ def _create_tabbed_html(
     </style>
 </head>
 <body>
-    <script>
-        // Initialize global storage for lazy chart initialization
-        window.chartConfigs = {{}};
-        window.initializedTabs = {{}};
-    </script>
-
     <div class="header">
         <h1>Benchmark Comparison: {baseline_name} vs {pr_name}</h1>
         <div class="subtitle">Generated: {timestamp}</div>
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-color" style="background-color: #636EFA;"></span>
+                <span>Baseline [tag: {baseline_name}]</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-color" style="background-color: #EF553B;"></span>
+                <span>PR [branch: {pr_name}]</span>
+            </div>
+        </div>
     </div>
 
     <div class="tab-container">
@@ -674,11 +746,6 @@ def _create_tabbed_html(
     for idx, runner_name in enumerate(sorted(runner_bodies.keys())):
         active_class = " active" if idx == 0 else ""
         body_content = runner_bodies[runner_name]
-
-        # Remove duplicate header if present in body content
-        body_content = re.sub(
-            r'<div class="header">.*?</div>', "", body_content, flags=re.DOTALL
-        )
 
         # Make all chart IDs and data variable names unique by adding runner suffix
         # Replace chart div IDs: chart-{operation}-{type} -> chart-{operation}-{type}-{runner}
@@ -699,25 +766,26 @@ def _create_tabbed_html(
             body_content,
         )
 
-        # Replace Plotly.newPlot calls with deferred initialization
-        # Store the chart data/layout but only create charts when tab is visible
-        # Pattern: Plotly.newPlot('chart-xxx', data_xxx, layout_xxx, {responsive: true});
-        # Replace with: window.chartConfigs['chart-xxx-runner'] = {data: data_xxx, layout: layout_xxx};
-
-        # Replace Plotly.newPlot calls with config storage
-        def replace_newplot(match):
+        # Replace Plotly.newPlot calls with lazy initialization per runner
+        # Store initializer functions and invoke them when the tab becomes visible
+        def replace_newplot_with_lazy(match):
             chart_id = match.group(1)
             data_var = match.group(2)
             layout_var = match.group(3)
-            full_chart_id = f"{chart_id}-{runner_name}"
+            chart_id_with_runner = f"{chart_id}-{runner_name}"
             return (
-                f"window.chartConfigs['{full_chart_id}'] = "
-                f"{{data: {data_var}_{runner_name}, layout: {layout_var}_{runner_name}}};"
+                "        window.runnerInitializers = window.runnerInitializers || {};\n"
+                f"        window.runnerInitializers['{runner_name}'] = window.runnerInitializers['{runner_name}'] || [];\n"
+                f"        window.runnerInitializers['{runner_name}'].push(function() {{\n"
+                f"            const target = document.getElementById('{chart_id_with_runner}');\n"
+                "            if (!target) { return; }\n"
+                f"            Plotly.newPlot(target, {data_var}_{runner_name}, {layout_var}_{runner_name}, {{responsive: true}});\n"
+                "        });"
             )
 
         body_content = re.sub(
             r"Plotly\.newPlot\('(chart-[^']+)', (data_[a-zA-Z0-9_]+), (layout_[a-zA-Z0-9_]+)(?:, \{responsive: true\})?\);",
-            replace_newplot,
+            replace_newplot_with_lazy,
             body_content,
         )
 
@@ -729,30 +797,44 @@ def _create_tabbed_html(
     html += """    </div>
 
     <script>
-        function initializeTab(runnerName) {
-            // Check if tab is already initialized
-            if (window.initializedTabs[runnerName]) {
+        // Manage lazy initialization functions per runner tab
+        window.runnerInitializers = window.runnerInitializers || {};
+        if (typeof window.initializedTabs === 'undefined') {
+            window.initializedTabs = typeof Set !== 'undefined' ? new Set() : {};
+        } else if (typeof Set !== 'undefined' && !(window.initializedTabs instanceof Set)) {
+            window.initializedTabs = new Set();
+        }
+
+        function tabAlreadyInitialized(name) {
+            if (window.initializedTabs instanceof Set) {
+                return window.initializedTabs.has(name);
+            }
+            return Boolean(window.initializedTabs[name]);
+        }
+
+        function markTabInitialized(name) {
+            if (window.initializedTabs instanceof Set) {
+                window.initializedTabs.add(name);
+            } else {
+                window.initializedTabs[name] = true;
+            }
+        }
+
+        function initializeTabCharts(runnerName) {
+            if (tabAlreadyInitialized(runnerName)) {
                 return;
             }
 
-            const tabContent = document.getElementById('tab-' + runnerName);
-            if (!tabContent) {
-                return;
-            }
-
-            // Find all chart divs in this tab
-            const chartDivs = tabContent.querySelectorAll('[id^="chart-"]');
-            chartDivs.forEach(chartDiv => {
-                const chartId = chartDiv.id;
-                const config = window.chartConfigs[chartId];
-                if (config && config.data && config.layout) {
-                    // Create the chart now that the container is visible
-                    Plotly.newPlot(chartDiv, config.data, config.layout, {responsive: true});
+            const initializers = window.runnerInitializers[runnerName] || [];
+            initializers.forEach(initFn => {
+                try {
+                    initFn();
+                } catch (err) {
+                    console.error('Failed to render charts for', runnerName, err);
                 }
             });
 
-            // Mark tab as initialized
-            window.initializedTabs[runnerName] = true;
+            markTabInitialized(runnerName);
         }
 
         function switchTab(runnerName) {
@@ -779,18 +861,18 @@ def _create_tabbed_html(
                 }
             });
 
-            // Initialize charts in the newly visible tab if not already done
+            // Initialize charts for this tab (if not already done)
             setTimeout(() => {
-                initializeTab(runnerName);
-            }, 50);
+                initializeTabCharts(runnerName);
+            }, 10);
         }
 
-        // Initialize the first (active) tab on page load
+        // Initialize the first tab on page load
         document.addEventListener('DOMContentLoaded', function() {
             const activeTab = document.querySelector('.tab-content.active');
             if (activeTab) {
                 const runnerName = activeTab.id.replace('tab-', '');
-                initializeTab(runnerName);
+                initializeTabCharts(runnerName);
             }
         });
     </script>
