@@ -674,7 +674,7 @@ def _create_tabbed_html(
             r'<div class="header">.*?</div>', "", body_content, flags=re.DOTALL
         )
 
-        # Make all chart IDs unique by adding runner suffix
+        # Make all chart IDs and data variable names unique by adding runner suffix
         # Replace chart div IDs: chart-{operation}-{type} -> chart-{operation}-{type}-{runner}
         body_content = re.sub(
             r'id="(chart-[^"]+)"', rf'id="\1-{runner_name}"', body_content
@@ -683,6 +683,28 @@ def _create_tabbed_html(
         body_content = re.sub(
             r"Plotly\.newPlot\('(chart-[^']+)'",
             rf"Plotly.newPlot('\1-{runner_name}'",
+            body_content,
+        )
+
+        # Make data and layout variable names unique
+        # Replace: var data_{operation}_{type} -> var data_{operation}_{type}_{runner}
+        body_content = re.sub(
+            r"\bvar (data_[a-zA-Z0-9_]+)\b",
+            rf"var \1_{runner_name}",
+            body_content,
+        )
+        # Replace: var layout_{operation}_{type} -> var layout_{operation}_{type}_{runner}
+        body_content = re.sub(
+            r"\bvar (layout_[a-zA-Z0-9_]+)\b",
+            rf"var \1_{runner_name}",
+            body_content,
+        )
+        # Replace references to data variables in Plotly.newPlot calls
+        body_content = re.sub(
+            r"Plotly\.newPlot\(\'chart-([^\']+)-"
+            + runner_name
+            + r"', (data_[a-zA-Z0-9_]+), (layout_[a-zA-Z0-9_]+)",
+            rf"Plotly.newPlot('chart-\1-{runner_name}', \2_{runner_name}, \3_{runner_name}",
             body_content,
         )
 
