@@ -647,6 +647,12 @@ def _create_tabbed_html(
     </style>
 </head>
 <body>
+    <script>
+        // Initialize global storage for lazy chart initialization
+        window.chartConfigs = {{}};
+        window.initializedTabs = {{}};
+    </script>
+
     <div class="header">
         <h1>Benchmark Comparison: {baseline_name} vs {pr_name}</h1>
         <div class="subtitle">Generated: {timestamp}</div>
@@ -679,13 +685,6 @@ def _create_tabbed_html(
         body_content = re.sub(
             r'id="(chart-[^"]+)"', rf'id="\1-{runner_name}"', body_content
         )
-        # Replace Plotly.newPlot references: 'chart-{operation}-{type}' -> 'chart-{operation}-{type}-{runner}'
-        body_content = re.sub(
-            r"Plotly\.newPlot\('(chart-[^']+)'",
-            rf"Plotly.newPlot('\1-{runner_name}'",
-            body_content,
-        )
-
         # Make data and layout variable names unique
         # Replace: var data_{operation}_{type} -> var data_{operation}_{type}_{runner}
         body_content = re.sub(
@@ -699,12 +698,26 @@ def _create_tabbed_html(
             rf"var \1_{runner_name}",
             body_content,
         )
-        # Replace references to data variables in Plotly.newPlot calls
+
+        # Replace Plotly.newPlot calls with deferred initialization
+        # Store the chart data/layout but only create charts when tab is visible
+        # Pattern: Plotly.newPlot('chart-xxx', data_xxx, layout_xxx, {responsive: true});
+        # Replace with: window.chartConfigs['chart-xxx-runner'] = {data: data_xxx, layout: layout_xxx};
+
+        # Replace Plotly.newPlot calls with config storage
+        def replace_newplot(match):
+            chart_id = match.group(1)
+            data_var = match.group(2)
+            layout_var = match.group(3)
+            full_chart_id = f"{chart_id}-{runner_name}"
+            return (
+                f"window.chartConfigs['{full_chart_id}'] = "
+                f"{{data: {data_var}_{runner_name}, layout: {layout_var}_{runner_name}}};"
+            )
+
         body_content = re.sub(
-            r"Plotly\.newPlot\(\'chart-([^\']+)-"
-            + runner_name
-            + r"', (data_[a-zA-Z0-9_]+), (layout_[a-zA-Z0-9_]+)",
-            rf"Plotly.newPlot('chart-\1-{runner_name}', \2_{runner_name}, \3_{runner_name}",
+            r"Plotly\.newPlot\('(chart-[^']+)', (data_[a-zA-Z0-9_]+), (layout_[a-zA-Z0-9_]+)(?:, \{responsive: true\})?\);",
+            replace_newplot,
             body_content,
         )
 
@@ -716,6 +729,32 @@ def _create_tabbed_html(
     html += """    </div>
 
     <script>
+        function initializeTab(runnerName) {
+            // Check if tab is already initialized
+            if (window.initializedTabs[runnerName]) {
+                return;
+            }
+
+            const tabContent = document.getElementById('tab-' + runnerName);
+            if (!tabContent) {
+                return;
+            }
+
+            // Find all chart divs in this tab
+            const chartDivs = tabContent.querySelectorAll('[id^="chart-"]');
+            chartDivs.forEach(chartDiv => {
+                const chartId = chartDiv.id;
+                const config = window.chartConfigs[chartId];
+                if (config && config.data && config.layout) {
+                    // Create the chart now that the container is visible
+                    Plotly.newPlot(chartDiv, config.data, config.layout, {responsive: true});
+                }
+            });
+
+            // Mark tab as initialized
+            window.initializedTabs[runnerName] = true;
+        }
+
         function switchTab(runnerName) {
             // Hide all tab contents
             document.querySelectorAll('.tab-content').forEach(content => {
@@ -740,18 +779,20 @@ def _create_tabbed_html(
                 }
             });
 
-            // Redraw all Plotly charts in the newly visible tab
-            // This is necessary because Plotly can't render charts correctly in hidden containers
+            // Initialize charts in the newly visible tab if not already done
             setTimeout(() => {
-                const activeTab = document.getElementById('tab-' + runnerName);
-                if (activeTab) {
-                    const charts = activeTab.querySelectorAll('[id^="chart-"]');
-                    charts.forEach(chart => {
-                        Plotly.redraw(chart);
-                    });
-                }
+                initializeTab(runnerName);
             }, 50);
         }
+
+        // Initialize the first (active) tab on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const activeTab = document.querySelector('.tab-content.active');
+            if (activeTab) {
+                const runnerName = activeTab.id.replace('tab-', '');
+                initializeTab(runnerName);
+            }
+        });
     </script>
 </body>
 </html>
