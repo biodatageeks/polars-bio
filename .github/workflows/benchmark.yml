@@ -277,13 +277,17 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Set Rust target CPU
+      - name: Set Rust build flags
         id: rust-target
         run: |
-          if [ "${{ matrix.arch }}" == "amd64" ]; then
-            echo "target_cpu=skylake" >> $GITHUB_OUTPUT
-          else
+          if [ "${{ matrix.os }}" == "macos" ]; then
+            # macOS: Use apple-m1 target with dynamic_lookup linker flags
             echo "target_cpu=apple-m1" >> $GITHUB_OUTPUT
+            echo "rustflags=-Clink-arg=-undefined -Clink-arg=dynamic_lookup -Ctarget-cpu=apple-m1" >> $GITHUB_OUTPUT
+          else
+            # Linux: Use skylake target
+            echo "target_cpu=skylake" >> $GITHUB_OUTPUT
+            echo "rustflags=-Ctarget-cpu=skylake" >> $GITHUB_OUTPUT
           fi
 
       - name: Cache Cargo dependencies
@@ -302,7 +306,7 @@ jobs:
 
       - name: Install target polars-bio from source
         env:
-          RUSTFLAGS: "-Ctarget-cpu=${{ steps.rust-target.outputs.target_cpu }}"
+          RUSTFLAGS: "${{ steps.rust-target.outputs.rustflags }}"
           CARGO_INCREMENTAL: "1"
         run: |
           # Install maturin in poetry virtualenv
