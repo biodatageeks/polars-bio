@@ -44,7 +44,7 @@ readme = "README.md"
 python = ">=3.9,<3.14"
 polars = ">=1.30.0"
 pyarrow = "^21.0.0"
-datafusion = "^48.0.0"
+datafusion = "^50.0.0"
 tqdm = "^4.67.1"
 typing-extensions = "^4.14.0"
 
