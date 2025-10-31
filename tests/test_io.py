@@ -429,7 +429,7 @@ class TestIOGFF:
 
         # Test 1: Static columns only (this should work)
         static_result = pb.sql(
-            "SELECT chrom, start, end, type FROM test_gff_projection"
+            "SELECT chrom, start, `end`, type FROM test_gff_projection"
         ).collect()
         assert len(static_result) == 3
         assert list(static_result.columns) == ["chrom", "start", "end", "type"]
@@ -491,7 +491,7 @@ class TestBED:
         count = pb.sql("select count(*) as cnt from test_bed").collect()
         assert count["cnt"][0] == 5
 
-        projection = pb.sql("select chrom, start, end, name from test_bed").collect()
+        projection = pb.sql("select chrom, start, `end`, name from test_bed").collect()
         assert projection["chrom"][0] == "chr16"
         assert projection["start"][1] == 66700001  # example of 1-based for start
         assert projection["end"][2] == 63934965
