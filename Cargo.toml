@@ -25,14 +25,14 @@ log = "0.4.22"
 tracing = { version = "0.1.41", features = ["log"] }
 futures-util = "0.3.31"
 
-datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "e1249df12c02bb645a4ccdc03c956acf11c4051b" }
-datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "e1249df12c02bb645a4ccdc03c956acf11c4051b" }
-datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "e1249df12c02bb645a4ccdc03c956acf11c4051b" }
-datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "e1249df12c02bb645a4ccdc03c956acf11c4051b" }
-datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "e1249df12c02bb645a4ccdc03c956acf11c4051b" }
-datafusion-bio-format-cram = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "e1249df12c02bb645a4ccdc03c956acf11c4051b" }
-datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "e1249df12c02bb645a4ccdc03c956acf11c4051b" }
-datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "e1249df12c02bb645a4ccdc03c956acf11c4051b" }
+datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "d4e6e27cd7deee42572d785ffd04b69917f2a31c" }
+datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "d4e6e27cd7deee42572d785ffd04b69917f2a31c" }
+datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "d4e6e27cd7deee42572d785ffd04b69917f2a31c" }
+datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "d4e6e27cd7deee42572d785ffd04b69917f2a31c" }
+datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "d4e6e27cd7deee42572d785ffd04b69917f2a31c" }
+datafusion-bio-format-cram = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "d4e6e27cd7deee42572d785ffd04b69917f2a31c" }
+datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "d4e6e27cd7deee42572d785ffd04b69917f2a31c" }
+datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "d4e6e27cd7deee42572d785ffd04b69917f2a31c" }
 
 
 async-trait = "0.1.86"
