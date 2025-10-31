@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "ref": "datafusion-50.3.0",
+  "ref_type": "branch",
+  "commit_sha": "2f00631badff8317a80c000eed55fb4805254c73",
+  "timestamp": "2025-10-31T10:12:03Z",
+  "runner": {
+    "os": "macos",
+    "arch": "arm64"
+  },
+  "benchmark_suite": "fast",
+  "benchmark_config": "conf/benchmark-pull-request-fast.yaml"
+}

@@ -1,0 +1,5 @@
+Library,Min (s),Max (s),Mean (s),Speedup
+polars_bio,0.092303,0.092958,0.092736,1.00x
+pyranges1,0.167836,0.169802,0.169093,0.55x
+genomicranges,0.066768,0.095009,0.077577,1.20x
+bioframe,0.315846,0.323623,0.319620,0.29x
