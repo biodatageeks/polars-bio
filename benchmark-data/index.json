@@ -1,5 +1,5 @@
 {
-  "last_updated": "2025-10-31T10:12:03.694760Z",
+  "last_updated": "2025-10-31T11:22:15.784284Z",
   "datasets": [
     {
       "id": "tag-0.18.0-linux",
@@ -24,6 +24,28 @@
       "path": "tags/0.18.0/macos",
       "commit_sha": "5b8969da366358c42f25f22000fb398a0ef0e365",
       "is_latest_tag": true
+    },
+    {
+      "id": "branch-datafusion-50.3.0-linux",
+      "label": "datafusion-50.3.0 (5b7dfb4)",
+      "ref": "datafusion-50.3.0",
+      "ref_type": "branch",
+      "timestamp": "2025-10-31T11:22:15Z",
+      "runner": "linux",
+      "runner_label": "Linux AMD64",
+      "path": "commits/5b7dfb4237/linux",
+      "commit_sha": "5b7dfb423735f29e53bf9426aa426cc446b70098"
+    },
+    {
+      "id": "branch-datafusion-50.3.0-macos",
+      "label": "datafusion-50.3.0 (5b7dfb4)",
+      "ref": "datafusion-50.3.0",
+      "ref_type": "branch",
+      "timestamp": "2025-10-31T11:22:15Z",
+      "runner": "macos",
+      "runner_label": "macOS ARM64",
+      "path": "commits/5b7dfb4237/macos",
+      "commit_sha": "5b7dfb423735f29e53bf9426aa426cc446b70098"
     },
     {
       "id": "branch-datafusion-50.3.0-linux",
