@@ -1,0 +1,3 @@
+Library,Min (s),Max (s),Mean (s),Speedup
+polars_bio,0.217471,0.283691,0.261047,1.00x
+bioframe,2.137368,2.781786,2.394217,0.11x

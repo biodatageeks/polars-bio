@@ -1,5 +1,5 @@
 {
-  "last_updated": "2025-10-25T20:20:27.863900Z",
+  "last_updated": "2025-10-31T05:59:04.691228Z",
   "datasets": [
     {
       "id": "tag-0.18.0-linux",
@@ -24,6 +24,28 @@
       "path": "tags/0.18.0/macos",
       "commit_sha": "5b8969da366358c42f25f22000fb398a0ef0e365",
       "is_latest_tag": true
+    },
+    {
+      "id": "branch-datafusion-50.3.0-linux",
+      "label": "datafusion-50.3.0 (2942c72)",
+      "ref": "datafusion-50.3.0",
+      "ref_type": "branch",
+      "timestamp": "2025-10-31T05:59:04Z",
+      "runner": "linux",
+      "runner_label": "Linux AMD64",
+      "path": "commits/2942c72c9e/linux",
+      "commit_sha": "2942c72c9e0d2fbd6f6cc8856d3bf9e36caa5c77"
+    },
+    {
+      "id": "branch-datafusion-50.3.0-macos",
+      "label": "datafusion-50.3.0 (2942c72)",
+      "ref": "datafusion-50.3.0",
+      "ref_type": "branch",
+      "timestamp": "2025-10-31T05:59:04Z",
+      "runner": "macos",
+      "runner_label": "macOS ARM64",
+      "path": "commits/2942c72c9e/macos",
+      "commit_sha": "2942c72c9e0d2fbd6f6cc8856d3bf9e36caa5c77"
     },
     {
       "id": "branch-fix/preserve-benchmark-data-gh-pages-linux",

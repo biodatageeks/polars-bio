@@ -261,7 +261,7 @@
         // Embedded data
         const DATA = {
   "index": {
-    "last_updated": "2025-10-25T20:20:27.863900Z",
+    "last_updated": "2025-10-31T05:59:04.691228Z",
     "datasets": [
       {
         "id": "tag-0.18.0-linux",
@@ -286,6 +286,28 @@
         "path": "tags/0.18.0/macos",
         "commit_sha": "5b8969da366358c42f25f22000fb398a0ef0e365",
         "is_latest_tag": true
+      },
+      {
+        "id": "branch-datafusion-50.3.0-linux",
+        "label": "datafusion-50.3.0 (2942c72)",
+        "ref": "datafusion-50.3.0",
+        "ref_type": "branch",
+        "timestamp": "2025-10-31T05:59:04Z",
+        "runner": "linux",
+        "runner_label": "Linux AMD64",
+        "path": "commits/2942c72c9e/linux",
+        "commit_sha": "2942c72c9e0d2fbd6f6cc8856d3bf9e36caa5c77"
+      },
+      {
+        "id": "branch-datafusion-50.3.0-macos",
+        "label": "datafusion-50.3.0 (2942c72)",
+        "ref": "datafusion-50.3.0",
+        "ref_type": "branch",
+        "timestamp": "2025-10-31T05:59:04Z",
+        "runner": "macos",
+        "runner_label": "macOS ARM64",
+        "path": "commits/2942c72c9e/macos",
+        "commit_sha": "2942c72c9e0d2fbd6f6cc8856d3bf9e36caa5c77"
       },
       {
         "id": "branch-fix/preserve-benchmark-data-gh-pages-linux",
@@ -644,6 +666,334 @@
         }
       }
     },
+    "branch-datafusion-50.3.0-linux@2942c72c9e0d2fbd6f6cc8856d3bf9e36caa5c77": {
+      "id": "branch-datafusion-50.3.0-linux",
+      "label": "datafusion-50.3.0 (2942c72)",
+      "ref": "datafusion-50.3.0",
+      "runner": "linux",
+      "runner_label": "Linux AMD64",
+      "metadata": {
+        "version": "1.0",
+        "ref": "datafusion-50.3.0",
+        "ref_type": "branch",
+        "commit_sha": "2942c72c9e0d2fbd6f6cc8856d3bf9e36caa5c77",
+        "timestamp": "2025-10-31T05:59:04Z",
+        "runner": {
+          "os": "linux",
+          "arch": "amd64"
+        },
+        "benchmark_suite": "fast",
+        "benchmark_config": "conf/benchmark-pull-request-fast.yaml"
+      },
+      "operations": {
+        "nearest": {
+          "tools": {
+            "polars_bio": {
+              "1-2": 73.453,
+              "7-8": 391.524,
+              "7-3": 382.741,
+              "2-1": 94.754,
+              "3-7": 506.17500000000007
+            },
+            "pyranges1": {
+              "1-2": 141.203,
+              "7-8": 1265.891,
+              "7-3": 1251.967,
+              "2-1": 164.612,
+              "3-7": 1691.7649999999999
+            },
+            "genomicranges": {
+              "1-2": 103.51599999999999,
+              "7-8": 598.112,
+              "7-3": 596.219,
+              "2-1": 67.554,
+              "3-7": 419.285
+            },
+            "bioframe": {
+              "1-2": 221.43099999999998,
+              "7-8": 1462.428,
+              "7-3": 1461.68,
+              "2-1": 303.242,
+              "3-7": 1783.847
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "count_overlaps": {
+          "tools": {
+            "polars_bio": {
+              "2-1": 53.063,
+              "3-7": 279.54,
+              "1-2": 58.893,
+              "7-8": 264.129,
+              "7-3": 263.395
+            },
+            "pyranges1": {
+              "2-1": 78.689,
+              "3-7": 516.3689999999999,
+              "1-2": 77.803,
+              "7-8": 486.124,
+              "7-3": 480.643
+            },
+            "genomicranges": {
+              "2-1": 35.207,
+              "3-7": 388.10299999999995,
+              "1-2": 34.247,
+              "7-8": 478.419,
+              "7-3": 484.11199999999997
+            },
+            "bioframe": {
+              "2-1": 198.629,
+              "3-7": 1606.979,
+              "1-2": 150.145,
+              "7-8": 1309.3980000000001,
+              "7-3": 1312.48
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "coverage": {
+          "tools": {
+            "polars_bio": {
+              "3-7": 310.877,
+              "2-1": 66.482,
+              "7-8": 211.02599999999998,
+              "7-3": 213.96200000000002,
+              "1-2": 56.814
+            },
+            "bioframe": {
+              "3-7": 1735.011,
+              "2-1": 334.978,
+              "7-8": 1116.634,
+              "7-3": 1118.993,
+              "1-2": 251.7
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "overlap": {
+          "tools": {
+            "polars_bio": {
+              "3-7": 373.058,
+              "1-2": 75.824,
+              "7-3": 373.894,
+              "2-1": 60.878,
+              "7-8": 368.833
+            },
+            "pyranges1": {
+              "3-7": 845.226,
+              "1-2": 96.94,
+              "7-3": 799.289,
+              "2-1": 89.059,
+              "7-8": 789.95
+            },
+            "genomicranges": {
+              "3-7": 371.607,
+              "1-2": 34.598,
+              "7-3": 444.849,
+              "2-1": 34.315,
+              "7-8": 441.273
+            },
+            "bioframe": {
+              "3-7": 1009.5559999999999,
+              "1-2": 99.97300000000001,
+              "7-3": 1030.0240000000001,
+              "2-1": 102.63600000000001,
+              "7-8": 1025.433
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        }
+      }
+    },
+    "branch-datafusion-50.3.0-macos@2942c72c9e0d2fbd6f6cc8856d3bf9e36caa5c77": {
+      "id": "branch-datafusion-50.3.0-macos",
+      "label": "datafusion-50.3.0 (2942c72)",
+      "ref": "datafusion-50.3.0",
+      "runner": "macos",
+      "runner_label": "macOS ARM64",
+      "metadata": {
+        "version": "1.0",
+        "ref": "datafusion-50.3.0",
+        "ref_type": "branch",
+        "commit_sha": "2942c72c9e0d2fbd6f6cc8856d3bf9e36caa5c77",
+        "timestamp": "2025-10-31T05:59:04Z",
+        "runner": {
+          "os": "macos",
+          "arch": "arm64"
+        },
+        "benchmark_suite": "fast",
+        "benchmark_config": "conf/benchmark-pull-request-fast.yaml"
+      },
+      "operations": {
+        "nearest": {
+          "tools": {
+            "polars_bio": {
+              "1-2": 88.435,
+              "7-8": 381.03700000000003,
+              "7-3": 455.68399999999997,
+              "2-1": 96.046,
+              "3-7": 601.919
+            },
+            "pyranges1": {
+              "1-2": 125.05199999999999,
+              "7-8": 1400.588,
+              "7-3": 1539.2930000000001,
+              "2-1": 149.06,
+              "3-7": 2035.9199999999998
+            },
+            "genomicranges": {
+              "1-2": 106.041,
+              "7-8": 575.9499999999999,
+              "7-3": 511.77099999999996,
+              "2-1": 65.89,
+              "3-7": 361.987
+            },
+            "bioframe": {
+              "1-2": 306.768,
+              "7-8": 2645.054,
+              "7-3": 2241.2960000000003,
+              "2-1": 461.844,
+              "3-7": 2800.3269999999998
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "count_overlaps": {
+          "tools": {
+            "polars_bio": {
+              "2-1": 66.08200000000001,
+              "3-7": 295.408,
+              "1-2": 116.348,
+              "7-8": 282.884,
+              "7-3": 327.183
+            },
+            "pyranges1": {
+              "2-1": 90.78,
+              "3-7": 484.054,
+              "1-2": 114.069,
+              "7-8": 466.391,
+              "7-3": 484.423
+            },
+            "genomicranges": {
+              "2-1": 43.342,
+              "3-7": 476.99399999999997,
+              "1-2": 25.3,
+              "7-8": 697.761,
+              "7-3": 668.693
+            },
+            "bioframe": {
+              "2-1": 317.861,
+              "3-7": 2573.4880000000003,
+              "1-2": 273.142,
+              "7-8": 1987.5020000000002,
+              "7-3": 1894.997
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "coverage": {
+          "tools": {
+            "polars_bio": {
+              "3-7": 261.04699999999997,
+              "2-1": 58.428,
+              "7-8": 189.142,
+              "7-3": 210.465,
+              "1-2": 65.08
+            },
+            "bioframe": {
+              "3-7": 2394.2169999999996,
+              "2-1": 387.496,
+              "7-8": 1285.25,
+              "7-3": 1478.787,
+              "1-2": 298.493
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        },
+        "overlap": {
+          "tools": {
+            "polars_bio": {
+              "3-7": 643.949,
+              "1-2": 189.162,
+              "7-3": 419.33,
+              "2-1": 91.762,
+              "7-8": 436.202
+            },
+            "pyranges1": {
+              "3-7": 1285.315,
+              "1-2": 139.956,
+              "7-3": 931.6370000000001,
+              "2-1": 94.166,
+              "7-8": 811.936
+            },
+            "genomicranges": {
+              "3-7": 511.389,
+              "1-2": 45.222,
+              "7-3": 673.278,
+              "2-1": 57.245,
+              "7-8": 563.688
+            },
+            "bioframe": {
+              "3-7": 1728.2640000000001,
+              "1-2": 245.117,
+              "7-3": 1655.5420000000001,
+              "2-1": 236.63500000000002,
+              "7-8": 1430.243
+            }
+          },
+          "test_cases": [
+            "1-2",
+            "2-1",
+            "3-7",
+            "7-3",
+            "7-8"
+          ]
+        }
+      }
+    },
     "branch-fix/preserve-benchmark-data-gh-pages-linux@4012856c764066c7b7a7dfe4532b087026ca8fac": {
       "id": "branch-fix/preserve-benchmark-data-gh-pages-linux",
       "label": "fix/preserve-benchmark-data-gh-pages (4012856)",
@@ -988,6 +1338,17 @@
       }
     },
     "branch": {
+      "datafusion-50.3.0@2942c72c9e0d2fbd6f6cc8856d3bf9e36caa5c77": {
+        "label": "datafusion-50.3.0 (2942c72)",
+        "ref": "datafusion-50.3.0",
+        "ref_type": "branch",
+        "commit_sha": "2942c72c9e0d2fbd6f6cc8856d3bf9e36caa5c77",
+        "is_latest_tag": false,
+        "runners": {
+          "linux": "branch-datafusion-50.3.0-linux@2942c72c9e0d2fbd6f6cc8856d3bf9e36caa5c77",
+          "macos": "branch-datafusion-50.3.0-macos@2942c72c9e0d2fbd6f6cc8856d3bf9e36caa5c77"
+        }
+      },
       "fix/preserve-benchmark-data-gh-pages@4012856c764066c7b7a7dfe4532b087026ca8fac": {
         "label": "fix/preserve-benchmark-data-gh-pages (4012856)",
         "ref": "fix/preserve-benchmark-data-gh-pages",
