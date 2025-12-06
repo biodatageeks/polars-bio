@@ -132,9 +132,9 @@ class TestIOCRAM:
         # Verify reads are from chr20
         assert all(df["chrom"] == "chr20")
 
-        # Verify first read details
+        # Verify first read details (0-based coordinates by default)
         assert df["name"][0] == "SRR622461.74266137"
-        assert df["start"][0] == 59993
+        assert df["start"][0] == 59992  # 0-based (was 59993 in 1-based)
         assert df["mapping_quality"][0] == 29
 
 
@@ -209,8 +209,9 @@ class TestIOVCF:
 
     def test_fields(self):
         assert self.df_bgz["chrom"][0] == "21" and self.df_none["chrom"][0] == "21"
+        # 0-based coordinates by default (was 26965148 in 1-based)
         assert (
-            self.df_bgz["start"][1] == 26965148 and self.df_none["start"][1] == 26965148
+            self.df_bgz["start"][1] == 26965147 and self.df_none["start"][1] == 26965147
         )
         assert self.df_bgz["ref"][0] == "G" and self.df_none["ref"][0] == "G"
 
@@ -341,7 +342,8 @@ class TestIOGFF:
 
     def test_fields(self):
         assert self.df_bgz["chrom"][0] == "chr1" and self.df_none["chrom"][0] == "chr1"
-        assert self.df_bgz["start"][1] == 11869 and self.df_none["start"][1] == 11869
+        # 0-based coordinates by default (was 11869 in 1-based)
+        assert self.df_bgz["start"][1] == 11868 and self.df_none["start"][1] == 11868
         assert self.df_bgz["type"][2] == "exon" and self.df_none["type"][2] == "exon"
         assert self.df_bgz["attributes"][0][0] == {
             "tag": "ID",
@@ -479,9 +481,10 @@ class TestBED:
         assert (
             self.df_bgz["chrom"][0] == "chr16" and self.df_none["chrom"][0] == "chr16"
         )
+        # 0-based coordinates by default (was 66700001 in 1-based)
         assert (
-            self.df_bgz["start"][1] == 66700001 and self.df_none["start"][1] == 66700001
-        )  # example of 1-based for start
+            self.df_bgz["start"][1] == 66700000 and self.df_none["start"][1] == 66700000
+        )
         assert (
             self.df_bgz["name"][0] == "FRA16A" and self.df_none["name"][4] == "FRA16E"
         )
@@ -493,6 +496,8 @@ class TestBED:
 
         projection = pb.sql("select chrom, start, `end`, name from test_bed").collect()
         assert projection["chrom"][0] == "chr16"
-        assert projection["start"][1] == 66700001  # example of 1-based for start
-        assert projection["end"][2] == 63934965
+        # 0-based coordinates by default (was 66700001 in 1-based)
+        assert projection["start"][1] == 66700000
+        # end is also 0-based half-open (was 63934965 in 1-based)
+        assert projection["end"][2] == 63934964
         assert projection["name"][4] == "FRA16E"

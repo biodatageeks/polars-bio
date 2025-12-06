@@ -1,4 +1,4 @@
-from typing import Dict, Iterator, Union
+from typing import Dict, Iterator, Optional, Union
 
 import polars as pl
 from datafusion import DataFrame
@@ -23,6 +23,7 @@ from polars_bio.polars_bio import (
     py_register_table,
 )
 
+from .config import _resolve_zero_based
 from .context import ctx
 
 SCHEMAS = {
@@ -204,6 +205,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
+        one_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
         Read a VCF file into a DataFrame.
@@ -220,9 +222,10 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            one_based: If True, output 1-based closed coordinates. If False, output 0-based half-open coordinates. If None (default), uses the global configuration `bio.coordinate_system_zero_based`.
 
         !!! note
-            VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
+            By default, coordinates are output in **0-based half-open** format. Use `one_based=True` or set `pb.set_bio_option("bio.coordinate_system_zero_based", False)` for 1-based coordinates.
         """
         return IOOperations.scan_vcf(
             path,
@@ -236,6 +239,7 @@ class IOOperations:
             timeout,
             compression_type,
             projection_pushdown,
+            one_based,
         ).collect()
 
     @staticmethod
@@ -251,6 +255,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
+        one_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a VCF file into a LazyFrame.
@@ -267,9 +272,10 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            one_based: If True, output 1-based closed coordinates. If False, output 0-based half-open coordinates. If None (default), uses the global configuration `bio.coordinate_system_zero_based`.
 
         !!! note
-            VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
+            By default, coordinates are output in **0-based half-open** format. Use `one_based=True` or set `pb.set_bio_option("bio.coordinate_system_zero_based", False)` for 1-based coordinates.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -304,10 +310,12 @@ class IOOperations:
             # The callback will re-register with only requested info fields for optimization
             initial_info_fields = all_info_fields
 
+        zero_based = _resolve_zero_based(one_based)
         vcf_read_options = VcfReadOptions(
             info_fields=initial_info_fields,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
+            zero_based=zero_based,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
         return _read_file(path, InputFormat.Vcf, read_options, projection_pushdown)
@@ -327,6 +335,7 @@ class IOOperations:
         projection_pushdown: bool = False,
         predicate_pushdown: bool = False,
         parallel: bool = False,
+        one_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
         Read a GFF file into a DataFrame.
@@ -345,9 +354,10 @@ class IOOperations:
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
             predicate_pushdown: Enable predicate pushdown optimization to push filter conditions down to the DataFusion table provider level, reducing data processing and I/O.
             parallel: Whether to use the parallel reader for BGZF-compressed local files (uses BGZF chunk-level parallelism similar to FASTQ).
+            one_based: If True, output 1-based closed coordinates. If False, output 0-based half-open coordinates. If None (default), uses the global configuration `bio.coordinate_system_zero_based`.
 
         !!! note
-            GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
+            By default, coordinates are output in **0-based half-open** format. Use `one_based=True` or set `pb.set_bio_option("bio.coordinate_system_zero_based", False)` for 1-based coordinates.
         """
         return IOOperations.scan_gff(
             path,
@@ -363,6 +373,7 @@ class IOOperations:
             projection_pushdown,
             predicate_pushdown,
             parallel,
+            one_based,
         ).collect()
 
     @staticmethod
@@ -380,6 +391,7 @@ class IOOperations:
         projection_pushdown: bool = False,
         predicate_pushdown: bool = False,
         parallel: bool = False,
+        one_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a GFF file into a LazyFrame.
@@ -398,9 +410,10 @@ class IOOperations:
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
             predicate_pushdown: Enable predicate pushdown optimization to push filter conditions down to the DataFusion table provider level, reducing data processing and I/O.
             parallel: Whether to use the parallel reader for BGZF-compressed local files (use BGZF chunk-level parallelism similar to FASTQ).
+            one_based: If True, output 1-based closed coordinates. If False, output 0-based half-open coordinates. If None (default), uses the global configuration `bio.coordinate_system_zero_based`.
 
         !!! note
-            GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
+            By default, coordinates are output in **0-based half-open** format. Use `one_based=True` or set `pb.set_bio_option("bio.coordinate_system_zero_based", False)` for 1-based coordinates.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -412,11 +425,13 @@ class IOOperations:
             compression_type=compression_type,
         )
 
+        zero_based = _resolve_zero_based(one_based)
         gff_read_options = GffReadOptions(
             attr_fields=attr_fields,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
             parallel=parallel,
+            zero_based=zero_based,
         )
         read_options = ReadOptions(gff_read_options=gff_read_options)
         return _read_file(
@@ -434,6 +449,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
+        one_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
         Read a BAM file into a DataFrame.
@@ -448,9 +464,10 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            one_based: If True, output 1-based closed coordinates. If False, output 0-based half-open coordinates. If None (default), uses the global configuration `bio.coordinate_system_zero_based`.
 
         !!! note
-            BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
+            By default, coordinates are output in **0-based half-open** format. Use `one_based=True` or set `pb.set_bio_option("bio.coordinate_system_zero_based", False)` for 1-based coordinates.
         """
         return IOOperations.scan_bam(
             path,
@@ -462,6 +479,7 @@ class IOOperations:
             max_retries,
             timeout,
             projection_pushdown,
+            one_based,
         ).collect()
 
     @staticmethod
@@ -475,6 +493,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
+        one_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a BAM file into a LazyFrame.
@@ -489,9 +508,10 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            one_based: If True, output 1-based closed coordinates. If False, output 0-based half-open coordinates. If None (default), uses the global configuration `bio.coordinate_system_zero_based`.
 
         !!! note
-            BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
+            By default, coordinates are output in **0-based half-open** format. Use `one_based=True` or set `pb.set_bio_option("bio.coordinate_system_zero_based", False)` for 1-based coordinates.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -503,9 +523,11 @@ class IOOperations:
             compression_type="auto",
         )
 
+        zero_based = _resolve_zero_based(one_based)
         bam_read_options = BamReadOptions(
             thread_num=thread_num,
             object_storage_options=object_storage_options,
+            zero_based=zero_based,
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
         return _read_file(path, InputFormat.Bam, read_options, projection_pushdown)
@@ -521,6 +543,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
+        one_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
         Read a CRAM file into a DataFrame.
@@ -535,9 +558,10 @@ class IOOperations:
             max_retries: The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
+            one_based: If True, output 1-based closed coordinates. If False, output 0-based half-open coordinates. If None (default), uses the global configuration `bio.coordinate_system_zero_based`.
 
         !!! note
-            CRAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
+            By default, coordinates are output in **0-based half-open** format. Use `one_based=True` or set `pb.set_bio_option("bio.coordinate_system_zero_based", False)` for 1-based coordinates.
 
         !!! example "Using External Reference"
             ```python
@@ -603,6 +627,7 @@ class IOOperations:
             max_retries,
             timeout,
             projection_pushdown,
+            one_based,
         ).collect()
 
     @staticmethod
@@ -616,6 +641,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
+        one_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a CRAM file into a LazyFrame.
@@ -630,9 +656,10 @@ class IOOperations:
             max_retries: The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
+            one_based: If True, output 1-based closed coordinates. If False, output 0-based half-open coordinates. If None (default), uses the global configuration `bio.coordinate_system_zero_based`.
 
         !!! note
-            CRAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
+            By default, coordinates are output in **0-based half-open** format. Use `one_based=True` or set `pb.set_bio_option("bio.coordinate_system_zero_based", False)` for 1-based coordinates.
 
         !!! example "Using External Reference"
             ```python
@@ -706,9 +733,11 @@ class IOOperations:
             compression_type="auto",
         )
 
+        zero_based = _resolve_zero_based(one_based)
         cram_read_options = CramReadOptions(
             reference_path=reference_path,
             object_storage_options=object_storage_options,
+            zero_based=zero_based,
         )
         read_options = ReadOptions(cram_read_options=cram_read_options)
         return _read_file(path, InputFormat.Cram, read_options, projection_pushdown)
@@ -810,6 +839,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
+        one_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
         Read a BED file into a DataFrame.
@@ -825,13 +855,14 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compressions is supported ('bgz').
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            one_based: If True, output 1-based closed coordinates. If False, output 0-based half-open coordinates. If None (default), uses the global configuration `bio.coordinate_system_zero_based`.
 
         !!! Note
             Only **BED4** format is supported. It extends the basic BED format (BED3) by adding a name field, resulting in four columns: chromosome, start position, end position, and name.
             Also unlike other text formats, **GZIP** compression is not supported.
 
         !!! note
-            BED reader uses **1-based** coordinate system for the `start`, `end`.
+            By default, coordinates are output in **0-based half-open** format. Use `one_based=True` or set `pb.set_bio_option("bio.coordinate_system_zero_based", False)` for 1-based coordinates.
         """
         return IOOperations.scan_bed(
             path,
@@ -844,6 +875,7 @@ class IOOperations:
             timeout,
             compression_type,
             projection_pushdown,
+            one_based,
         ).collect()
 
     @staticmethod
@@ -858,6 +890,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
+        one_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a BED file into a LazyFrame.
@@ -873,13 +906,14 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compressions is supported ('bgz').
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            one_based: If True, output 1-based closed coordinates. If False, output 0-based half-open coordinates. If None (default), uses the global configuration `bio.coordinate_system_zero_based`.
 
         !!! Note
             Only **BED4** format is supported. It extends the basic BED format (BED3) by adding a name field, resulting in four columns: chromosome, start position, end position, and name.
             Also unlike other text formats, **GZIP** compression is not supported.
 
         !!! note
-            BED reader uses **1-based** coordinate system for the `start`, `end`.
+            By default, coordinates are output in **0-based half-open** format. Use `one_based=True` or set `pb.set_bio_option("bio.coordinate_system_zero_based", False)` for 1-based coordinates.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -891,9 +925,11 @@ class IOOperations:
             compression_type=compression_type,
         )
 
+        zero_based = _resolve_zero_based(one_based)
         bed_read_options = BedReadOptions(
             thread_num=thread_num,
             object_storage_options=object_storage_options,
+            zero_based=zero_based,
         )
         read_options = ReadOptions(bed_read_options=bed_read_options)
         return _read_file(path, InputFormat.Bed, read_options, projection_pushdown)

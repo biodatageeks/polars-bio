@@ -5,6 +5,14 @@ from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions
 
 from . import polars_ext  # registers pl.LazyFrame.pb namespace
+from .config import (
+    describe_bio_option,
+    get_bio_option,
+    list_bio_options,
+    reset_all_bio_options,
+    reset_bio_option,
+    set_bio_option,
+)
 from .context import ctx, set_option
 from .io import IOOperations as data_input
 from .logging import set_loglevel
@@ -84,6 +92,14 @@ __all__ = [
     "ObjectStorageOptions",
     "set_option",
     "set_loglevel",
+    # Config functions
+    "get_bio_option",
+    "set_bio_option",
+    "reset_bio_option",
+    "reset_all_bio_options",
+    "describe_bio_option",
+    "list_bio_options",
+    # I/O functions
     "describe_vcf",
     "from_polars",
     "read_bam",

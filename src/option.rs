@@ -276,17 +276,21 @@ pub struct VcfReadOptions {
     #[pyo3(get, set)]
     pub thread_num: Option<usize>,
     pub object_storage_options: Option<ObjectStorageOptions>,
+    /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
 }
 
 #[pymethods]
 impl VcfReadOptions {
     #[new]
-    #[pyo3(signature = (info_fields=None, format_fields=None, thread_num=None, object_storage_options=None))]
+    #[pyo3(signature = (info_fields=None, format_fields=None, thread_num=None, object_storage_options=None, zero_based=true))]
     pub fn new(
         info_fields: Option<Vec<String>>,
         format_fields: Option<Vec<String>>,
         thread_num: Option<usize>,
         object_storage_options: Option<PyObjectStorageOptions>,
+        zero_based: bool,
     ) -> Self {
         VcfReadOptions {
             info_fields,
@@ -295,6 +299,7 @@ impl VcfReadOptions {
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
+            zero_based,
         }
     }
     #[staticmethod]
@@ -312,6 +317,7 @@ impl VcfReadOptions {
                 timeout: Some(300), // 300 seconds
                 compression_type: Some(CompressionType::AUTO),
             }),
+            zero_based: true,
         }
     }
 }
@@ -326,17 +332,21 @@ pub struct GffReadOptions {
     pub object_storage_options: Option<ObjectStorageOptions>,
     #[pyo3(get, set)]
     pub parallel: bool,
+    /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
 }
 
 #[pymethods]
 impl GffReadOptions {
     #[new]
-    #[pyo3(signature = (attr_fields=None, thread_num=None, object_storage_options=None, parallel=false))]
+    #[pyo3(signature = (attr_fields=None, thread_num=None, object_storage_options=None, parallel=false, zero_based=true))]
     pub fn new(
         attr_fields: Option<Vec<String>>,
         thread_num: Option<usize>,
         object_storage_options: Option<PyObjectStorageOptions>,
         parallel: bool,
+        zero_based: bool,
     ) -> Self {
         GffReadOptions {
             attr_fields,
@@ -345,6 +355,7 @@ impl GffReadOptions {
                 object_storage_options,
             ),
             parallel,
+            zero_based,
         }
     }
     #[staticmethod]
@@ -362,6 +373,7 @@ impl GffReadOptions {
                 compression_type: Some(CompressionType::AUTO),
             }),
             parallel: false,
+            zero_based: true,
         }
     }
 }
@@ -372,21 +384,26 @@ pub struct BamReadOptions {
     #[pyo3(get, set)]
     pub thread_num: Option<usize>,
     pub object_storage_options: Option<ObjectStorageOptions>,
+    /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
 }
 
 #[pymethods]
 impl BamReadOptions {
     #[new]
-    #[pyo3(signature = (thread_num=None, object_storage_options=None))]
+    #[pyo3(signature = (thread_num=None, object_storage_options=None, zero_based=true))]
     pub fn new(
         thread_num: Option<usize>,
         object_storage_options: Option<PyObjectStorageOptions>,
+        zero_based: bool,
     ) -> Self {
         BamReadOptions {
             thread_num,
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
+            zero_based,
         }
     }
     #[staticmethod]
@@ -402,6 +419,7 @@ impl BamReadOptions {
                 timeout: Some(300), // 300 seconds
                 compression_type: Some(CompressionType::AUTO),
             }),
+            zero_based: true,
         }
     }
 }
@@ -412,21 +430,26 @@ pub struct CramReadOptions {
     #[pyo3(get, set)]
     pub reference_path: Option<String>,
     pub object_storage_options: Option<ObjectStorageOptions>,
+    /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
 }
 
 #[pymethods]
 impl CramReadOptions {
     #[new]
-    #[pyo3(signature = (reference_path=None, object_storage_options=None))]
+    #[pyo3(signature = (reference_path=None, object_storage_options=None, zero_based=true))]
     pub fn new(
         reference_path: Option<String>,
         object_storage_options: Option<PyObjectStorageOptions>,
+        zero_based: bool,
     ) -> Self {
         CramReadOptions {
             reference_path,
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
+            zero_based,
         }
     }
     #[staticmethod]
@@ -442,6 +465,7 @@ impl CramReadOptions {
                 timeout: Some(300), // 300 seconds
                 compression_type: Some(CompressionType::AUTO),
             }),
+            zero_based: true,
         }
     }
 }
@@ -452,21 +476,26 @@ pub struct BedReadOptions {
     #[pyo3(get, set)]
     pub thread_num: Option<usize>,
     pub object_storage_options: Option<ObjectStorageOptions>,
+    /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
 }
 
 #[pymethods]
 impl BedReadOptions {
     #[new]
-    #[pyo3(signature = (thread_num=None, object_storage_options=None))]
+    #[pyo3(signature = (thread_num=None, object_storage_options=None, zero_based=true))]
     pub fn new(
         thread_num: Option<usize>,
         object_storage_options: Option<PyObjectStorageOptions>,
+        zero_based: bool,
     ) -> Self {
         BedReadOptions {
             thread_num,
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
+            zero_based,
         }
     }
     #[staticmethod]
@@ -482,6 +511,7 @@ impl BedReadOptions {
                 timeout: Some(300), // 300 seconds
                 compression_type: Some(CompressionType::AUTO),
             }),
+            zero_based: true,
         }
     }
 }
