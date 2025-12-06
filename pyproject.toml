@@ -15,11 +15,11 @@ classifiers = [
 ]
 dependencies = [
   "polars (>=1.30.0)",
-  "pyarrow~=21.0.0",
-  "datafusion ~=50.0.0",
-  "tqdm ~=4.67.1",
-  "typing-extensions~=4.14.0",
-  "mkdocs-glightbox (>=0.5.1,<0.6.0)"
+  "pyarrow (>=21.0.0,<22)",
+  "datafusion (>=50.0.0,<51)",
+  "tqdm (>=4.67.0,<5)",
+  "typing-extensions (>=4.14.0,<5)",
+  "mkdocs-glightbox (>=0.5.1,<1)"
 ]
 
 [project.optional-dependencies]
@@ -43,10 +43,10 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.9,<3.14"
 polars = ">=1.30.0"
-pyarrow = "^21.0.0"
-datafusion = "^50.0.0"
-tqdm = "^4.67.1"
-typing-extensions = "^4.14.0"
+pyarrow = ">=21.0.0,<22"
+datafusion = ">=50.0.0,<51"
+tqdm = ">=4.67.0,<5"
+typing-extensions = ">=4.14.0,<5"
 
 [tool.poetry.extras]
 pandas = ["pandas"]
