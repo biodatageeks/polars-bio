@@ -62,8 +62,8 @@ class TestEnsemblVCFIntegrationWithBgzip:
         # Check that info fields were parsed as columns (parser lowercases them)
         for field in info_fields:
             assert (
-                field.lower() in df.columns
-            ), f"Expected info field '{field.lower()}' not in DataFrame"
+                field in df.columns
+            ), f"Expected info field '{field}' not in DataFrame"
 
         # 4. Save to Parquet
         df.write_parquet(local_parquet_path)
