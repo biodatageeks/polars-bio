@@ -69,12 +69,12 @@ The coordinate system is set at I/O time and stored as DataFrame metadata. Range
 | String (file path) | Arrow schema metadata | Set when table is registered in DataFusion |
 | Pandas DataFrame | `df.attrs["coordinate_system_zero_based"]` | Must be set by user before passing to range ops |
 
-- [ ] 4.1 Add `polars-config-meta` to dependencies in `pyproject.toml`
-- [ ] 4.2 Import and initialize `polars-config-meta` in `polars_bio/__init__.py`
-- [ ] 4.3 Create exception classes in `polars_bio/exceptions.py`:
+- [x] 4.1 Add `polars-config-meta` to dependencies in `pyproject.toml`
+- [x] 4.2 Import and initialize `polars-config-meta` in `polars_bio/__init__.py`
+- [x] 4.3 Create exception classes in `polars_bio/exceptions.py`:
   - `CoordinateSystemMismatchError` - raised when mixing 0-based and 1-based DataFrames
   - `MissingCoordinateSystemError` - raised when any input lacks coordinate system metadata
-- [ ] 4.4 Create unified metadata abstraction in `polars_bio/_metadata.py`:
+- [x] 4.4 Create unified metadata abstraction in `polars_bio/_metadata.py`:
   - `set_coordinate_system(df, zero_based: bool)` - set metadata on DataFrame
   - `get_coordinate_system(df) -> Optional[bool]` - read metadata from DataFrame
   - `validate_coordinate_systems(df1, df2)` - raise `CoordinateSystemMismatchError` if mismatch
@@ -82,7 +82,7 @@ The coordinate system is set at I/O time and stored as DataFrame metadata. Range
     - Polars LazyFrame/DataFrame without `polars-config-meta` metadata
     - Pandas DataFrame without `df.attrs["coordinate_system_zero_based"]`
     - DataFusion table (file path) without `bio.coordinate_system_zero_based` Arrow schema metadata
-- [ ] 4.5 Update I/O functions (`scan_*`, `read_*`) to set coordinate system metadata on returned DataFrames
+- [x] 4.5 Update I/O functions (`scan_*`, `read_*`) to set coordinate system metadata on returned DataFrames
 
 ## 5. Python API Changes - Range Operations (polars_bio/range_op.py)
 
@@ -110,7 +110,7 @@ Remove explicit `use_zero_based` parameter from range operations. Instead, read 
 - [x] 6.5 Add `one_based` parameter to `scan_bed()` / `read_bed()` with default `None`
 - [x] 6.6 Resolve effective `zero_based` value: explicit param > session config > default (via `_resolve_zero_based()`)
 - [x] 6.7 Pass resolved `zero_based` value through to Rust layer
-- [ ] 6.8 Set coordinate system metadata on returned LazyFrames/DataFrames:
+- [x] 6.8 Set coordinate system metadata on returned LazyFrames/DataFrames:
   - Use `polars-config-meta` for Polars DataFrames/LazyFrames (I/O functions only return Polars types)
   - Metadata key: `coordinate_system_zero_based` (bool)
   - Note: Pandas `df.attrs` only applies to range operation outputs when `output_type="pandas"`
@@ -122,14 +122,14 @@ Remove explicit `use_zero_based` parameter from range operations. Instead, read 
 - [x] 7.8 Update tests verifying coordinate values match expected 0-based output
   - Updated `test_vcf_parsing.py` with 0-based expected values
   - Updated `test_filter_select_attributes_bug_fix.py` with 0-based filter values
-- [ ] 7.1 Add tests for DataFrame metadata tracking:
-  - Test that `scan_*`/`read_*` functions set `coordinate_system_zero_based` metadata
+- [x] 7.1 Add tests for DataFrame metadata tracking:
+  - Test that `scan_*`/`read_*` functions set `coordinate_system_zero_based` metadata (VCF, GFF, BAM, CRAM, BED)
   - Test that metadata is preserved through Polars transformations
   - Test that metadata is accessible via `get_coordinate_system()`
-- [ ] 7.2 Add tests for coordinate system mismatch detection:
+- [x] 7.2 Add tests for coordinate system mismatch detection:
   - Test `CoordinateSystemMismatchError` is raised when mixing 0-based and 1-based DataFrames
   - Test that matching coordinate systems work correctly
-- [ ] 7.3 Add tests for `MissingCoordinateSystemError`:
+- [x] 7.3 Add tests for `MissingCoordinateSystemError`:
   - Test error raised when Polars LazyFrame/DataFrame lacks metadata
   - Test error raised when Pandas DataFrame lacks `df.attrs["coordinate_system_zero_based"]`
   - Test error raised when file path registers table without Arrow schema metadata
