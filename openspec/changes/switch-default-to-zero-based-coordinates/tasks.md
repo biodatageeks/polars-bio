@@ -59,18 +59,33 @@
 
 ## 4. DataFrame Metadata Tracking (unified across all types)
 
-Note: Deferred to future work - coordinate system is determined at I/O time via the `one_based` parameter.
+The coordinate system is set at I/O time and stored as DataFrame metadata. Range operations read this metadata instead of requiring an explicit `use_zero_based` parameter.
 
 - [ ] 4.1 Add `polars-config-meta` to dependencies in `pyproject.toml`
 - [ ] 4.2 Import and initialize `polars-config-meta` in `polars_bio/__init__.py`
 - [ ] 4.3 Create `CoordinateSystemMismatchError` exception class in `polars_bio/exceptions.py`
-- [ ] 4.4 Create unified metadata abstraction in `polars_bio/_metadata.py`
+- [ ] 4.4 Create unified metadata abstraction in `polars_bio/_metadata.py`:
+  - `set_coordinate_system(df, zero_based: bool)` - set metadata on DataFrame
+  - `get_coordinate_system(df) -> Optional[bool]` - read metadata from DataFrame
+  - `validate_coordinate_systems(df1, df2)` - raise `CoordinateSystemMismatchError` if mismatch
+- [ ] 4.5 Update I/O functions (`scan_*`, `read_*`) to set coordinate system metadata on returned DataFrames
 
 ## 5. Python API Changes - Range Operations (polars_bio/range_op.py)
 
-Note: Range operations continue to use `use_zero_based` parameter. Coordinate system mismatch validation deferred to future work.
+Remove explicit `use_zero_based` parameter from range operations. Instead, read coordinate system from DataFrame metadata set at I/O time.
 
-- [ ] 5.1-5.8 Deferred to future work
+- [ ] 5.1 Remove `use_zero_based` parameter from `overlap()`
+- [ ] 5.2 Remove `use_zero_based` parameter from `nearest()`
+- [ ] 5.3 Remove `use_zero_based` parameter from `count_overlaps()`
+- [ ] 5.4 Remove `use_zero_based` parameter from `coverage()`
+- [ ] 5.5 Remove `use_zero_based` parameter from `merge()`
+- [ ] 5.6 Add `_get_filter_op_from_metadata(df1, df2)` helper function:
+  - Read coordinate system from both DataFrames' metadata
+  - Call `validate_coordinate_systems(df1, df2)` to check for mismatch
+  - Return `FilterOp.Strict` if 0-based, `FilterOp.Weak` if 1-based
+  - If no metadata on either DataFrame, fall back to global config (`pb.get_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED)`)
+- [ ] 5.7 Update all range operations to use `_get_filter_op_from_metadata()` instead of `use_zero_based` parameter
+- [ ] 5.8 Update docstrings to explain metadata-based coordinate system detection
 
 ## 6. Python API Changes - I/O Layer (polars_bio/io.py, sql.py)
 
@@ -81,7 +96,10 @@ Note: Range operations continue to use `use_zero_based` parameter. Coordinate sy
 - [x] 6.5 Add `one_based` parameter to `scan_bed()` / `read_bed()` with default `None`
 - [x] 6.6 Resolve effective `zero_based` value: explicit param > session config > default (via `_resolve_zero_based()`)
 - [x] 6.7 Pass resolved `zero_based` value through to Rust layer
-- [ ] 6.8 Set coordinate system metadata on returned LazyFrames using `set_metadata()` (deferred)
+- [ ] 6.8 Set coordinate system metadata on returned LazyFrames/DataFrames:
+  - Use `polars-config-meta` for Polars DataFrames/LazyFrames
+  - Use `df.attrs` for Pandas DataFrames
+  - Metadata key: `coordinate_system_zero_based` (bool)
 - [x] 6.9 Update docstrings to document new coordinate behavior and config system
 
 ## 7. Test Updates
@@ -90,17 +108,40 @@ Note: Range operations continue to use `use_zero_based` parameter. Coordinate sy
 - [x] 7.8 Update tests verifying coordinate values match expected 0-based output
   - Updated `test_vcf_parsing.py` with 0-based expected values
   - Updated `test_filter_select_attributes_bug_fix.py` with 0-based filter values
-- [ ] 7.1-7.5, 7.7, 7.9-7.12 Deferred to future work
+- [ ] 7.1 Add tests for DataFrame metadata tracking:
+  - Test that `scan_*`/`read_*` functions set `coordinate_system_zero_based` metadata
+  - Test that metadata is preserved through Polars transformations
+  - Test that metadata is accessible via `get_coordinate_system()`
+- [ ] 7.2 Add tests for coordinate system mismatch detection:
+  - Test `CoordinateSystemMismatchError` is raised when mixing 0-based and 1-based DataFrames
+  - Test that matching coordinate systems work correctly
+- [ ] 7.3 Add tests for range operations without `use_zero_based` parameter:
+  - Test `overlap()` reads coordinate system from metadata
+  - Test `nearest()` reads coordinate system from metadata
+  - Test `count_overlaps()` reads coordinate system from metadata
+  - Test `coverage()` reads coordinate system from metadata
+  - Test `merge()` reads coordinate system from metadata
+- [ ] 7.4 Add tests for fallback to global config when no metadata present
+- [ ] 7.5 Update existing range operation tests to remove `use_zero_based` parameter
 
 ## 8. Documentation
 
 - [x] 8.2 Update docstrings in `io.py` (updated all scan/read functions with coordinate system docs)
-- [ ] 8.1 Update docstrings in `range_op.py` (remove coordinate system parameter docs) - deferred
-- [ ] 8.3 Update tutorials to reflect 0-based default - deferred
-- [ ] 8.4 Add migration guide for users upgrading from previous versions - deferred
-- [ ] 8.5 Document global configuration system with examples - deferred
-- [ ] 8.6 Document that coordinate system is set at I/O time, not operation time - deferred
-- [ ] 8.7 Update `openspec/project.md` domain context section - deferred
+- [ ] 8.1 Update docstrings in `range_op.py`:
+  - Remove `use_zero_based` parameter documentation
+  - Add explanation that coordinate system is read from DataFrame metadata
+  - Document fallback behavior when no metadata present
+- [ ] 8.3 Update tutorials to reflect 0-based default
+- [ ] 8.4 Add migration guide for users upgrading from previous versions:
+  - Explain removal of `use_zero_based` parameter
+  - Explain new metadata-based approach
+  - Show how to use global config for legacy behavior
+- [ ] 8.5 Document global configuration system with examples
+- [ ] 8.6 Document DataFrame metadata tracking:
+  - How coordinate system is set at I/O time
+  - How range operations read from metadata
+  - How mismatch detection works
+- [ ] 8.7 Update `openspec/project.md` domain context section
 
 ## 9. Validation
 
