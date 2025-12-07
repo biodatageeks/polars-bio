@@ -52,10 +52,10 @@
 
 - [x] 3.1 ~~Create `polars_bio/config.py` with session-level configuration~~ → Refactored to use DataFusion context in `context.py`
 - [x] 3.2 Implement `set_option(key, value)` and `get_option(key)` functions in `context.py`
-- [x] 3.3 Add `datafusion.bio.coordinate_system_zero_based` option with default `"true"` (stored in BioSessionContext)
+- [ ] 3.3 Add `datafusion.bio.coordinate_system_zero_based` option with default `"false"` (1-based by default)
 - [x] 3.4 Export `get_option`, `set_option`, and `POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED` constant in `polars_bio/__init__.py`
 - [x] 3.5 Add `POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED` constant in `constants.py` for consistent key naming
-- [x] 3.6 Move `_resolve_zero_based()` helper to `context.py` (priority: explicit param > context config > default)
+- [ ] 3.6 Update `_resolve_zero_based()` helper to use `use_zero_based` parameter with default `False`
 
 ## 4. DataFrame Metadata Tracking (unified across all types)
 
@@ -103,27 +103,28 @@ Remove explicit `use_zero_based` parameter from range operations. Instead, read 
 
 ## 6. Python API Changes - I/O Layer (polars_bio/io.py, sql.py)
 
-- [x] 6.1 Add `one_based` parameter to `scan_vcf()` / `read_vcf()` with default `None` (uses session config)
-- [x] 6.2 Add `one_based` parameter to `scan_gff()` / `read_gff()` with default `None`
-- [x] 6.3 Add `one_based` parameter to `scan_bam()` / `read_bam()` with default `None`
-- [x] 6.4 Add `one_based` parameter to `scan_cram()` / `read_cram()` with default `None`
-- [x] 6.5 Add `one_based` parameter to `scan_bed()` / `read_bed()` with default `None`
-- [x] 6.6 Resolve effective `zero_based` value: explicit param > session config > default (via `_resolve_zero_based()`)
+- [ ] 6.1 Rename `one_based` to `use_zero_based` in `scan_vcf()` / `read_vcf()` with default `False` (1-based by default)
+- [ ] 6.2 Rename `one_based` to `use_zero_based` in `scan_gff()` / `read_gff()` with default `False`
+- [ ] 6.3 Rename `one_based` to `use_zero_based` in `scan_bam()` / `read_bam()` with default `False`
+- [ ] 6.4 Rename `one_based` to `use_zero_based` in `scan_cram()` / `read_cram()` with default `False`
+- [ ] 6.5 Rename `one_based` to `use_zero_based` in `scan_bed()` / `read_bed()` with default `False`
+- [ ] 6.6 Update `_resolve_zero_based()` to handle `use_zero_based` with default `False`
 - [x] 6.7 Pass resolved `zero_based` value through to Rust layer
 - [x] 6.8 Set coordinate system metadata on returned LazyFrames/DataFrames:
   - Use `polars-config-meta` for Polars DataFrames/LazyFrames (I/O functions only return Polars types)
   - Metadata key: `coordinate_system_zero_based` (bool)
   - Note: Pandas `df.attrs` only applies to range operation outputs when `output_type="pandas"`
-- [x] 6.9 Update docstrings to document new coordinate behavior and config system
+- [ ] 6.9 Update docstrings to document 1-based default and `use_zero_based` parameter
 
 ## 7. Test Updates
 
-- [x] 7.6 Update `test_io.py` - verify coordinate values from I/O (updated to use 0-based values)
-- [x] 7.8 Update tests verifying coordinate values match expected 0-based output
-  - Updated `test_vcf_parsing.py` with 0-based expected values
-  - Updated `test_filter_select_attributes_bug_fix.py` with 0-based filter values
-- [x] 7.1 Add tests for DataFrame metadata tracking:
-  - Test that `scan_*`/`read_*` functions set `coordinate_system_zero_based` metadata (VCF, GFF, BAM, CRAM, BED)
+- [ ] 7.6 Update `test_io.py` - verify coordinate values from I/O (update to use 1-based values by default)
+- [ ] 7.8 Update tests verifying coordinate values match expected 1-based output (default)
+  - Update `test_vcf_parsing.py` with 1-based expected values
+  - Update `test_filter_select_attributes_bug_fix.py` with 1-based filter values
+- [ ] 7.1 Update tests for DataFrame metadata tracking:
+  - Test that `scan_*`/`read_*` functions set `coordinate_system_zero_based=False` by default (1-based)
+  - Test that `use_zero_based=True` sets `coordinate_system_zero_based=True`
   - Test that metadata is preserved through Polars transformations
   - Test that metadata is accessible via `get_coordinate_system()`
 - [x] 7.2 Add tests for coordinate system mismatch detection:
@@ -145,15 +146,16 @@ Remove explicit `use_zero_based` parameter from range operations. Instead, read 
 
 ## 8. Documentation
 
-- [x] 8.2 Update docstrings in `io.py` (updated all scan/read functions with coordinate system docs)
+- [ ] 8.2 Update docstrings in `io.py` to document `use_zero_based` parameter (default `False` = 1-based)
 - [ ] 8.1 Update docstrings in `range_op.py`:
   - Remove `use_zero_based` parameter documentation
   - Add explanation that coordinate system is read from DataFrame metadata
   - Document that `MissingCoordinateSystemError` is raised if metadata is missing
   - Document how to set metadata for each input type (Polars, Pandas, file paths)
-- [ ] 8.3 Update tutorials to reflect 0-based default
+- [ ] 8.3 Update tutorials to reflect 1-based default
 - [ ] 8.4 Add migration guide for users upgrading from previous versions:
-  - Explain removal of `use_zero_based` parameter
+  - Explain removal of `use_zero_based` parameter from range operations
+  - Explain rename of `one_based` to `use_zero_based` in I/O functions
   - Explain new metadata-based approach
   - Show how to set metadata for each input type before passing to range ops
 - [ ] 8.5 Document global configuration system with examples (affects I/O functions only)

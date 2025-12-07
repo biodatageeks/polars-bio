@@ -30,10 +30,11 @@ File (native)  →  datafusion-bio-formats  →  scan.rs  →  Python API  →  
 ## Goals / Non-Goals
 
 ### Goals
-- Default to 0-based coordinates to match Python ecosystem conventions
-- Provide clear `one_based` parameter for users who need 1-based behavior
+- Keep 1-based coordinates as the default (consistent with VCF/GFF native formats)
+- Provide clear `use_zero_based` parameter for users who need 0-based behavior
 - Implement conversion at parse time in datafusion-bio-formats (cleanest approach)
-- Maintain full support for 1-based workflows via explicit parameter
+- Maintain full support for 0-based workflows via explicit parameter
+- Support automatic metadata tracking so range operations can detect coordinate system
 
 ### Non-Goals
 - Removing 1-based support entirely
@@ -84,19 +85,15 @@ impl Default for VcfTableProviderConfig {
 - **Wrap TableProviders in polars-bio**: Requires patching Arrow batches after creation, more complex
 - **Python layer conversion**: Slowest option, conversion after data fetch
 
-### Decision 2: Rename parameter from `use_zero_based` to `one_based`
+### Decision 2: Use `use_zero_based` parameter with default `False`
 
-**Rationale**: The current double-negative (`use_zero_based=False` means 1-based) is confusing. Using `one_based=False` (the new default) clearly indicates 0-based coordinates.
+**Rationale**: Keep 1-based as default since VCF and GFF formats are natively 1-based. Users who want 0-based coordinates (e.g., for bioframe compatibility) can explicitly set `use_zero_based=True`.
 
-### Decision 3: FilterOp mapping update
+### Decision 3: FilterOp mapping
 
-Current mapping:
-- `use_zero_based=False` → `FilterOp.Weak` (1-based, closed intervals)
+Mapping (unchanged from current behavior):
+- `use_zero_based=False` → `FilterOp.Weak` (1-based, closed intervals) - **DEFAULT**
 - `use_zero_based=True` → `FilterOp.Strict` (0-based, half-open intervals)
-
-New mapping:
-- `one_based=False` → `FilterOp.Strict` (0-based, half-open intervals) - **DEFAULT**
-- `one_based=True` → `FilterOp.Weak` (1-based, closed intervals)
 
 ### Decision 4: Coordinate columns to convert per format
 
@@ -137,13 +134,18 @@ New mapping:
 
 ### For users upgrading from 0.18.x to 0.19.0:
 
-1. **If using default (1-based) coordinates**:
-   - Add `one_based=True` to all range operations
-   - Add `one_based=True` to I/O functions reading VCF/GTF/BAM/BED
+1. **Default behavior is preserved (1-based coordinates)**:
+   - No changes needed for existing code
+   - Range operations will read coordinate system from DataFrame metadata
 
-2. **If already using `use_zero_based=True`**:
-   - Remove the parameter (new default is 0-based)
-   - Or change to `one_based=False` for explicitness
+2. **If you want 0-based coordinates**:
+   - Use `use_zero_based=True` in I/O functions: `pb.scan_vcf("file.vcf", use_zero_based=True)`
+   - Or set global config: `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)`
+
+3. **Range operations no longer have `use_zero_based` parameter**:
+   - Coordinate system is read from DataFrame metadata set at I/O time
+   - Mixing coordinate systems raises `CoordinateSystemMismatchError`
+   - Missing metadata raises `MissingCoordinateSystemError`
 
 ### Implementation order:
 1. PR to datafusion-bio-formats: Add `zero_based` parameter to all TableProviders
@@ -151,7 +153,7 @@ New mapping:
 3. PR to polars-bio: Update API and pass parameter through
 
 ### Rollback:
-- Users can always specify `one_based=True` to restore previous behavior
+- Default is already 1-based, no rollback needed for most users
 
 ## Open Questions
 
@@ -173,20 +175,19 @@ New mapping:
 ```python
 import polars_bio as pb
 
-# Global session configuration (defaults to zero_based=True)
+# Global session configuration (defaults to zero_based=False, i.e., 1-based)
 # Use the constant for consistent key naming
-pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)  # default
-pb.get_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED)  # returns "true"
+pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, False)  # default (1-based)
+pb.get_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED)  # returns "false"
 
 # Or use the string key directly
-pb.set_option("datafusion.bio.coordinate_system_zero_based", False)
+pb.set_option("datafusion.bio.coordinate_system_zero_based", True)  # switch to 0-based
 
 # Table-level override when needed
-lf = pb.scan_vcf("file.vcf", one_based=True)  # override for this table only
+lf = pb.scan_vcf("file.vcf", use_zero_based=True)  # override for this table only
 
-# Range operations inherit from session, can override
-pb.overlap(df1, df2)  # uses session default (0-based)
-pb.overlap(df1, df2, one_based=True)  # override for this operation
+# Range operations read from DataFrame metadata (no explicit parameter)
+pb.overlap(df1, df2)  # reads coordinate system from df1 and df2 metadata
 ```
 
 **Note**: The option value is stored as a string ("true"/"false") in the DataFusion context. When setting with a Python bool, it's automatically converted.
@@ -203,9 +204,9 @@ pub fn new(
 ```
 
 **Resolution order** (highest to lowest priority):
-1. Explicit parameter on function call (`one_based=True`)
+1. Explicit parameter on function call (`use_zero_based=True`)
 2. Session-level configuration (`pb.set_option(...)`)
-3. Built-in default (`zero_based=True` / `one_based=False`)
+3. Built-in default (`zero_based=False`, i.e., 1-based)
 
 **Coordinate system mismatch validation**:
 
@@ -213,13 +214,13 @@ When performing range operations on two DataFrames/tables, the library SHALL val
 
 ```python
 # Example: This will raise an exception
-df1 = pb.scan_vcf("file1.vcf", one_based=True)   # 1-based
-df2 = pb.scan_vcf("file2.vcf", one_based=False)  # 0-based
+df1 = pb.scan_vcf("file1.vcf", use_zero_based=False)  # 1-based (default)
+df2 = pb.scan_vcf("file2.vcf", use_zero_based=True)   # 0-based
 
 pb.overlap(df1, df2)  # Raises CoordinateSystemMismatchError
 ```
 
-**Note**: Range operations do NOT have a `one_based` parameter. Coordinate system is determined only at I/O time (table-level) or via global config.
+**Note**: Range operations do NOT have a `use_zero_based` parameter. Coordinate system is determined only at I/O time (table-level) or via global config, and is read from DataFrame metadata.
 
 ### Decision 6: Tracking coordinate system across all input/output types
 
