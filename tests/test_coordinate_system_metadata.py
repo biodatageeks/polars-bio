@@ -486,26 +486,73 @@ class TestDefaultMetadataTracking:
             cs is None
         ), "Metadata is not preserved through collect (polars-config-meta limitation)"
 
-    def test_read_functions_return_dataframe_without_metadata(self):
-        """Test that read_* functions return DataFrames without polars-config-meta metadata.
+    def test_read_functions_preserve_metadata(self):
+        """Test that read_* functions preserve metadata on returned DataFrames.
 
-        Note: read_* functions call collect() internally, which loses the metadata.
-        Use scan_* functions for metadata-aware operations.
+        The read_* functions get metadata from the LazyFrame before collecting,
+        then set it on the DataFrame after collection.
         """
         vcf_path = "tests/data/io/vcf/ensembl.vcf"
 
-        # read_vcf returns a DataFrame (collected), so metadata is not attached
+        # read_vcf default (1-based)
         df = pb.read_vcf(vcf_path)
         cs = get_coordinate_system(df)
-        # DataFrames from read_* don't have polars-config-meta metadata
-        assert (
-            cs is None
-        ), "read_vcf returns DataFrame without polars-config-meta metadata"
+        assert cs is False, "read_vcf should preserve 1-based metadata by default"
 
-        # To use metadata-based operations, use scan_* instead
-        lf = pb.scan_vcf(vcf_path)
-        cs_lf = get_coordinate_system(lf)
-        assert cs_lf is False, "scan_vcf sets 1-based metadata by default"
+        # read_vcf with use_zero_based=True
+        df_zero = pb.read_vcf(vcf_path, use_zero_based=True)
+        cs_zero = get_coordinate_system(df_zero)
+        assert (
+            cs_zero is True
+        ), "read_vcf should preserve 0-based metadata when use_zero_based=True"
+
+    def test_read_gff_preserves_metadata(self):
+        """Test that read_gff preserves metadata on returned DataFrames."""
+        gff_path = "tests/data/io/gff/gencode.v38.annotation.gff3"
+
+        df = pb.read_gff(gff_path)
+        cs = get_coordinate_system(df)
+        assert cs is False, "read_gff should preserve 1-based metadata by default"
+
+        df_zero = pb.read_gff(gff_path, use_zero_based=True)
+        cs_zero = get_coordinate_system(df_zero)
+        assert cs_zero is True, "read_gff should preserve 0-based metadata"
+
+    def test_read_bam_preserves_metadata(self):
+        """Test that read_bam preserves metadata on returned DataFrames."""
+        bam_path = "tests/data/io/bam/test.bam"
+
+        df = pb.read_bam(bam_path)
+        cs = get_coordinate_system(df)
+        assert cs is False, "read_bam should preserve 1-based metadata by default"
+
+        df_zero = pb.read_bam(bam_path, use_zero_based=True)
+        cs_zero = get_coordinate_system(df_zero)
+        assert cs_zero is True, "read_bam should preserve 0-based metadata"
+
+    def test_read_cram_preserves_metadata(self):
+        """Test that read_cram preserves metadata on returned DataFrames."""
+        cram_path = "tests/data/io/cram/test.cram"
+
+        df = pb.read_cram(cram_path)
+        cs = get_coordinate_system(df)
+        assert cs is False, "read_cram should preserve 1-based metadata by default"
+
+        df_zero = pb.read_cram(cram_path, use_zero_based=True)
+        cs_zero = get_coordinate_system(df_zero)
+        assert cs_zero is True, "read_cram should preserve 0-based metadata"
+
+    def test_read_bed_preserves_metadata(self):
+        """Test that read_bed preserves metadata on returned DataFrames."""
+        bed_path = "tests/data/io/bed/test.bed"
+
+        df = pb.read_bed(bed_path)
+        cs = get_coordinate_system(df)
+        assert cs is False, "read_bed should preserve 1-based metadata by default"
+
+        df_zero = pb.read_bed(bed_path, use_zero_based=True)
+        cs_zero = get_coordinate_system(df_zero)
+        assert cs_zero is True, "read_bed should preserve 0-based metadata"
 
     def test_metadata_accessible_via_config_meta(self):
         """Test that metadata is accessible via polars-config-meta API."""

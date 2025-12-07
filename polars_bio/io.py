@@ -227,7 +227,7 @@ class IOOperations:
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
-        return IOOperations.scan_vcf(
+        lf = IOOperations.scan_vcf(
             path,
             info_fields,
             thread_num,
@@ -240,7 +240,14 @@ class IOOperations:
             compression_type,
             projection_pushdown,
             use_zero_based,
-        ).collect()
+        )
+        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        # Set metadata on the collected DataFrame
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
 
     @staticmethod
     def scan_vcf(
@@ -365,7 +372,7 @@ class IOOperations:
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
-        return IOOperations.scan_gff(
+        lf = IOOperations.scan_gff(
             path,
             attr_fields,
             thread_num,
@@ -380,7 +387,14 @@ class IOOperations:
             predicate_pushdown,
             parallel,
             use_zero_based,
-        ).collect()
+        )
+        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        # Set metadata on the collected DataFrame
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
 
     @staticmethod
     def scan_gff(
@@ -480,7 +494,7 @@ class IOOperations:
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
-        return IOOperations.scan_bam(
+        lf = IOOperations.scan_bam(
             path,
             thread_num,
             chunk_size,
@@ -491,7 +505,14 @@ class IOOperations:
             timeout,
             projection_pushdown,
             use_zero_based,
-        ).collect()
+        )
+        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        # Set metadata on the collected DataFrame
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
 
     @staticmethod
     def scan_bam(
@@ -634,7 +655,7 @@ class IOOperations:
                 - sequence: Read sequence (String)
                 - quality_scores: Base quality scores (String)
         """
-        return IOOperations.scan_cram(
+        lf = IOOperations.scan_cram(
             path,
             reference_path,
             chunk_size,
@@ -645,7 +666,14 @@ class IOOperations:
             timeout,
             projection_pushdown,
             use_zero_based,
-        ).collect()
+        )
+        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        # Set metadata on the collected DataFrame
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
 
     @staticmethod
     def scan_cram(
@@ -887,7 +915,7 @@ class IOOperations:
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
-        return IOOperations.scan_bed(
+        lf = IOOperations.scan_bed(
             path,
             thread_num,
             chunk_size,
@@ -899,7 +927,14 @@ class IOOperations:
             compression_type,
             projection_pushdown,
             use_zero_based,
-        ).collect()
+        )
+        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        # Set metadata on the collected DataFrame
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
 
     @staticmethod
     def scan_bed(
