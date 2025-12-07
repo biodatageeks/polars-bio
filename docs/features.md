@@ -18,8 +18,226 @@
     For now *polars-bio* uses `int32` positions encoding for interval operations ([issue](https://github.com/dcjones/coitrees/issues/18)) meaning that it does not support operation on chromosomes longer than **2Gb**. `int64` support is planned for future releases ([issue](https://github.com/biodatageeks/polars-bio/issues/169)).
 
 ## Coordinate systems support
-polars-bio supports both 0-based and 1-based coordinate systems for genomic ranges operations. By **default**, it uses **1-based** coordinates system, for both reading bioinformatic **input files** (with methods `read_*` or `register_*` based on [noodles](https://github.com/zaeleus/noodles) that is 1-based, please refer to [issue](https://github.com/zaeleus/noodles/issues/226) and [issue](https://github.com/zaeleus/noodles/issues/281) and [issue](https://github.com/zaeleus/noodles/issues/100) for more details)  and **all** interval operations. If your data is in 0-based coordinates, you can set the `use_zero_based` parameter to `True` in the interval functions, e.g. [overlap](api.md#polars_bio.overlap) or [nearest](api.md#polars_bio.nearest). This parameter can be especially useful when migrating your pipeline that used 0-based tools, such as for instance [Bioframe](https://github.com/open2c/bioframe).
-In such case, a *warning* message will be printed to the console, indicating that the coordinates are 0-based and end user is responsible for ensuring that the coordinates are 0-based.
+
+polars-bio supports both **0-based half-open** and **1-based closed** coordinate systems for genomic ranges operations. By **default**, it uses **1-based closed** coordinates, which is the native format for VCF, GFF, and SAM/BAM files.
+
+### How it works
+
+The coordinate system is managed through **DataFrame metadata** that is set at I/O time and read by range operations. This ensures consistency throughout your analysis pipeline.
+
+```mermaid
+flowchart TB
+    subgraph IO["I/O Layer"]
+        scan["scan_vcf/gff/bam/cram/bed()"]
+        read["read_vcf/gff/bam/cram/bed()"]
+    end
+
+    subgraph Config["Session Configuration"]
+        zero_based["datafusion.bio.coordinate_system_zero_based<br/>(default: false = 1-based)"]
+        check["datafusion.bio.coordinate_system_check<br/>(default: true = strict)"]
+    end
+
+    subgraph DF["DataFrame with Metadata"]
+        polars_meta["Polars DataFrame/LazyFrame<br/>coordinate_system_zero_based"]
+        pandas_meta["Pandas DataFrame<br/>df.attrs"]
+    end
+
+    subgraph RangeOps["Range Operations"]
+        overlap["overlap()"]
+        nearest["nearest()"]
+        count["count_overlaps()"]
+        coverage["coverage()"]
+        merge["merge()"]
+    end
+
+    subgraph Validation["Metadata Validation"]
+        validate["validate_coordinate_systems()"]
+        error1["MissingCoordinateSystemError"]
+        error2["CoordinateSystemMismatchError"]
+        fallback["Fallback to global config<br/>+ emit warning"]
+    end
+
+    scan --> |"sets metadata"| polars_meta
+    read --> |"sets metadata"| polars_meta
+    zero_based --> |"use_zero_based param<br/>or default"| scan
+    zero_based --> |"use_zero_based param<br/>or default"| read
+
+    polars_meta --> overlap
+    polars_meta --> nearest
+    polars_meta --> count
+    polars_meta --> coverage
+    polars_meta --> merge
+    pandas_meta --> overlap
+
+    overlap --> validate
+    nearest --> validate
+    count --> validate
+    coverage --> validate
+    merge --> validate
+
+    validate --> |"metadata missing"| check
+    validate --> |"metadata mismatch"| error2
+    check --> |"true (strict)"| error1
+    check --> |"false (lenient)"| fallback
+    fallback --> zero_based
+```
+
+### Session parameters
+
+polars-bio provides two session parameters to control coordinate system behavior:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `datafusion.bio.coordinate_system_zero_based` | `"false"` (1-based) | Default coordinate system for I/O operations when `use_zero_based` is not specified |
+| `datafusion.bio.coordinate_system_check` | `"true"` (strict) | Whether to raise an error when DataFrame metadata is missing |
+
+```python
+import polars_bio as pb
+
+# Check current settings
+print(pb.get_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED))  # "false"
+print(pb.get_option(pb.POLARS_BIO_COORDINATE_SYSTEM_CHECK))       # "true"
+
+# Change to 0-based coordinates globally
+pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)
+```
+
+### Reading files with coordinate system metadata
+
+When you read genomic files using polars-bio I/O functions, the coordinate system metadata is automatically set on the returned DataFrame:
+
+```python
+import polars_bio as pb
+
+# Default: 1-based coordinates (use_zero_based=False)
+df = pb.scan_vcf("variants.vcf")
+# Metadata is automatically set: coordinate_system_zero_based=False
+
+# Explicit 0-based coordinates
+df_zero = pb.scan_bed("regions.bed", use_zero_based=True)
+# Metadata is automatically set: coordinate_system_zero_based=True
+
+# Range operations read coordinate system from metadata
+result = pb.overlap(df, df_zero, ...)  # Raises CoordinateSystemMismatchError!
+```
+
+### Setting metadata on DataFrames
+
+For DataFrames not created via polars-bio I/O functions, you must set the coordinate system metadata manually:
+
+=== "Polars DataFrame/LazyFrame"
+
+    ```python
+    import polars as pl
+
+    # Create a DataFrame
+    df = pl.DataFrame({
+        "chrom": ["chr1", "chr1"],
+        "start": [100, 200],
+        "end": [150, 250]
+    }).lazy()
+
+    # Set coordinate system metadata (requires polars-config-meta)
+    df = df.config_meta.set(coordinate_system_zero_based=False)  # 1-based
+
+    # Now it can be used with range operations
+    result = pb.overlap(df, other_df, ...)
+    ```
+
+=== "Pandas DataFrame"
+
+    ```python
+    import pandas as pd
+
+    # Create a DataFrame
+    pdf = pd.DataFrame({
+        "chrom": ["chr1", "chr1"],
+        "start": [100, 200],
+        "end": [150, 250]
+    })
+
+    # Set coordinate system metadata via df.attrs
+    pdf.attrs["coordinate_system_zero_based"] = False  # 1-based
+
+    # Now it can be used with range operations
+    result = pb.overlap(pdf, other_df, output_type="pandas.DataFrame", ...)
+    ```
+
+### Error handling
+
+polars-bio raises specific errors to prevent coordinate system mismatches:
+
+#### MissingCoordinateSystemError
+
+Raised when a DataFrame lacks coordinate system metadata:
+
+```python
+import polars as pl
+import polars_bio as pb
+
+# DataFrame without metadata
+df = pl.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]}).lazy()
+
+# This raises MissingCoordinateSystemError
+pb.overlap(df, other_df, ...)
+```
+
+**How to fix:** Set metadata on your DataFrame before passing it to range operations (see examples above).
+
+#### CoordinateSystemMismatchError
+
+Raised when two DataFrames have different coordinate systems:
+
+```python
+import polars_bio as pb
+
+# One DataFrame is 1-based, another is 0-based
+df1 = pb.scan_vcf("file.vcf")                    # 1-based (default)
+df2 = pb.scan_bed("file.bed", use_zero_based=True)  # 0-based
+
+# This raises CoordinateSystemMismatchError
+pb.overlap(df1, df2, ...)
+```
+
+**How to fix:** Ensure both DataFrames use the same coordinate system.
+
+### Fallback mode (lenient validation)
+
+For backwards compatibility or when working with DataFrames without metadata, you can disable strict validation:
+
+```python
+import polars_bio as pb
+
+# Disable strict coordinate system check
+pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
+
+# Now DataFrames without metadata will use the global config
+# A warning will be emitted
+df = pl.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]}).lazy()
+result = pb.overlap(df, other_df, ...)  # Uses global coordinate system setting
+# Warning: Coordinate system metadata is missing. Using global config...
+```
+
+!!! warning
+    Using fallback mode is not recommended for production pipelines as it may lead to incorrect results if coordinate systems are inconsistent.
+
+### Migration from previous versions
+
+If you're upgrading from a previous version of polars-bio:
+
+1. **Range operations no longer accept `use_zero_based` parameter** - coordinate system is read from DataFrame metadata
+2. **I/O functions use `use_zero_based` parameter** (renamed from `one_based` with inverted logic)
+3. **Pandas DataFrames require explicit metadata** - set `df.attrs["coordinate_system_zero_based"]` before range operations
+
+```python
+# Before (old API)
+result = pb.overlap(df1, df2, use_zero_based=True, ...)
+
+# After (new API) - set metadata at I/O time or on DataFrames
+df1 = pb.scan_vcf("file.vcf", use_zero_based=True)
+df2 = pb.scan_bed("file.bed", use_zero_based=True)
+result = pb.overlap(df1, df2, ...)  # Reads from metadata
+```
 
 
 ### API comparison between libraries

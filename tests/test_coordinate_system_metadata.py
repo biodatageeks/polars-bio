@@ -379,5 +379,145 @@ class TestDataFusionTableMetadata:
         ), f"Expected None or bool, got {type(cs)}"
 
 
+class TestDefaultMetadataTracking:
+    """Tests for default coordinate system metadata tracking (7.1).
+
+    Verifies that:
+    - scan_*/read_* functions set coordinate_system_zero_based=False by default (1-based)
+    - use_zero_based=True sets coordinate_system_zero_based=True
+    - Metadata is preserved through Polars transformations
+    - Metadata is accessible via get_coordinate_system()
+    """
+
+    def test_scan_vcf_default_is_one_based(self):
+        """Test that scan_vcf sets 1-based metadata by default."""
+        vcf_path = "tests/data/io/vcf/ensembl.vcf"
+        lf = pb.scan_vcf(vcf_path)  # No use_zero_based parameter
+
+        cs = get_coordinate_system(lf)
+        assert (
+            cs is False
+        ), "Expected default to be 1-based (coordinate_system_zero_based=False)"
+
+    def test_scan_gff_default_is_one_based(self):
+        """Test that scan_gff sets 1-based metadata by default."""
+        gff_path = "tests/data/io/gff/gencode.v38.annotation.gff3"
+        lf = pb.scan_gff(gff_path)
+
+        cs = get_coordinate_system(lf)
+        assert cs is False, "Expected default to be 1-based"
+
+    def test_scan_bam_default_is_one_based(self):
+        """Test that scan_bam sets 1-based metadata by default."""
+        bam_path = "tests/data/io/bam/test.bam"
+        lf = pb.scan_bam(bam_path)
+
+        cs = get_coordinate_system(lf)
+        assert cs is False, "Expected default to be 1-based"
+
+    def test_scan_cram_default_is_one_based(self):
+        """Test that scan_cram sets 1-based metadata by default."""
+        cram_path = "tests/data/io/cram/test.cram"
+        lf = pb.scan_cram(cram_path)
+
+        cs = get_coordinate_system(lf)
+        assert cs is False, "Expected default to be 1-based"
+
+    def test_scan_bed_default_is_one_based(self):
+        """Test that scan_bed sets 1-based metadata by default."""
+        bed_path = "tests/data/io/bed/test.bed"
+        lf = pb.scan_bed(bed_path)
+
+        cs = get_coordinate_system(lf)
+        assert cs is False, "Expected default to be 1-based"
+
+    def test_use_zero_based_true_sets_zero_based_metadata(self):
+        """Test that use_zero_based=True sets 0-based metadata."""
+        vcf_path = "tests/data/io/vcf/ensembl.vcf"
+        lf = pb.scan_vcf(vcf_path, use_zero_based=True)
+
+        cs = get_coordinate_system(lf)
+        assert (
+            cs is True
+        ), "Expected coordinate_system_zero_based=True when use_zero_based=True"
+
+    def test_metadata_preserved_through_select(self):
+        """Test that metadata is preserved through Polars select transformation."""
+        vcf_path = "tests/data/io/vcf/ensembl.vcf"
+        lf = pb.scan_vcf(vcf_path, use_zero_based=True)
+
+        # Apply select transformation
+        lf_selected = lf.select(["chrom", "start", "end"])
+
+        cs = get_coordinate_system(lf_selected)
+        assert cs is True, "Metadata should be preserved through select"
+
+    def test_metadata_preserved_through_filter(self):
+        """Test that metadata is preserved through Polars filter transformation."""
+        vcf_path = "tests/data/io/vcf/ensembl.vcf"
+        lf = pb.scan_vcf(vcf_path, use_zero_based=False)
+
+        # Apply filter transformation
+        lf_filtered = lf.filter(pl.col("chrom") == "21")
+
+        cs = get_coordinate_system(lf_filtered)
+        assert cs is False, "Metadata should be preserved through filter"
+
+    def test_metadata_not_preserved_through_collect(self):
+        """Test that metadata is NOT preserved when collecting LazyFrame to DataFrame.
+
+        Note: This is a known limitation of polars-config-meta. Metadata is attached
+        to LazyFrames but is not carried over when collecting to DataFrames.
+        Range operations should be performed on LazyFrames to take advantage of
+        metadata-based coordinate system detection.
+        """
+        vcf_path = "tests/data/io/vcf/ensembl.vcf"
+        lf = pb.scan_vcf(vcf_path, use_zero_based=True)
+
+        # Verify LazyFrame has metadata
+        assert get_coordinate_system(lf) is True
+
+        # Collect to DataFrame - metadata is NOT preserved
+        df = lf.collect()
+
+        cs = get_coordinate_system(df)
+        # Metadata is lost through collect - this is expected behavior
+        assert (
+            cs is None
+        ), "Metadata is not preserved through collect (polars-config-meta limitation)"
+
+    def test_read_functions_return_dataframe_without_metadata(self):
+        """Test that read_* functions return DataFrames without polars-config-meta metadata.
+
+        Note: read_* functions call collect() internally, which loses the metadata.
+        Use scan_* functions for metadata-aware operations.
+        """
+        vcf_path = "tests/data/io/vcf/ensembl.vcf"
+
+        # read_vcf returns a DataFrame (collected), so metadata is not attached
+        df = pb.read_vcf(vcf_path)
+        cs = get_coordinate_system(df)
+        # DataFrames from read_* don't have polars-config-meta metadata
+        assert (
+            cs is None
+        ), "read_vcf returns DataFrame without polars-config-meta metadata"
+
+        # To use metadata-based operations, use scan_* instead
+        lf = pb.scan_vcf(vcf_path)
+        cs_lf = get_coordinate_system(lf)
+        assert cs_lf is False, "scan_vcf sets 1-based metadata by default"
+
+    def test_metadata_accessible_via_config_meta(self):
+        """Test that metadata is accessible via polars-config-meta API."""
+        vcf_path = "tests/data/io/vcf/ensembl.vcf"
+        lf = pb.scan_vcf(vcf_path, use_zero_based=True)
+
+        # Access via config_meta.get_metadata()
+        meta = lf.config_meta.get_metadata()
+        assert (
+            meta.get("coordinate_system_zero_based") is True
+        ), "Metadata should be accessible via config_meta.get_metadata()"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

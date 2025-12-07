@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import List, Set
 
 import datafusion
 import polars as pl

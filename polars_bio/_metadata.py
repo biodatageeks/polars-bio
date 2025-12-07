@@ -5,7 +5,7 @@ on different DataFrame types (Polars, Pandas) and DataFusion tables.
 """
 
 import warnings
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 import pandas as pd
 import polars as pl

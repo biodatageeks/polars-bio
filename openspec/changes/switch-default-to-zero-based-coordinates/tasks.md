@@ -141,14 +141,14 @@ Add `datafusion.bio.coordinate_system_check` session parameter to allow processi
 
 ## 7. Test Updates
 
-- [ ] 7.6 Update `test_io.py` - verify coordinate values from I/O (update to use 1-based values by default)
-- [ ] 7.8 Update tests verifying coordinate values match expected 1-based output (default)
+- [x] 7.6 Update `test_io.py` - verify coordinate values from I/O (update to use 1-based values by default)
+- [x] 7.8 Update tests verifying coordinate values match expected 1-based output (default)
   - Update `test_vcf_parsing.py` with 1-based expected values
   - Update `test_filter_select_attributes_bug_fix.py` with 1-based filter values
-- [ ] 7.1 Update tests for DataFrame metadata tracking:
+- [x] 7.1 Update tests for DataFrame metadata tracking:
   - Test that `scan_*`/`read_*` functions set `coordinate_system_zero_based=False` by default (1-based)
   - Test that `use_zero_based=True` sets `coordinate_system_zero_based=True`
-  - Test that metadata is preserved through Polars transformations
+  - Test that metadata is preserved through Polars transformations (LazyFrame only - collect loses metadata)
   - Test that metadata is accessible via `get_coordinate_system()`
 - [x] 7.2 Add tests for coordinate system mismatch detection:
   - Test `CoordinateSystemMismatchError` is raised when mixing 0-based and 1-based DataFrames
@@ -169,7 +169,7 @@ Add `datafusion.bio.coordinate_system_check` session parameter to allow processi
 
 ## 8. Documentation
 
-- [ ] 8.1 **Update `docs/features.md` - Coordinate systems support section**:
+- [x] 8.1 **Update `docs/features.md` - Coordinate systems support section**:
   - Add Mermaid diagram showing the coordinate system flow:
     - How I/O functions set metadata on DataFrames
     - How range operations read metadata
@@ -201,8 +201,8 @@ Add `datafusion.bio.coordinate_system_check` session parameter to allow processi
   - Explain rename of `one_based` to `use_zero_based` in I/O functions
   - Explain new metadata-based approach
   - Show how to set metadata for each input type before passing to range ops
-- [ ] 8.6 Document global configuration system with examples (affects I/O functions only)
-- [ ] 8.7 Document DataFrame metadata tracking:
+- [x] 8.6 Document global configuration system with examples (affects I/O functions only)
+- [x] 8.7 Document DataFrame metadata tracking:
   - How coordinate system is set at I/O time (Polars via `scan_*`/`read_*`)
   - How range operations read from metadata
   - How mismatch detection works
@@ -215,7 +215,7 @@ Add `datafusion.bio.coordinate_system_check` session parameter to allow processi
 
 ## 9. Validation
 
-- [x] 9.1 Run full test suite (261 passed, 2 skipped)
+- [x] 9.1 Run full test suite (272 passed, 2 skipped)
 - [x] 9.3 Build and test package installation (maturin develop succeeded)
 - [ ] 9.2 Verify bioframe compatibility tests pass - deferred
 - [ ] 9.4 Test with real VCF/GFF/BAM files to verify coordinate values - deferred
