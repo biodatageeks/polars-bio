@@ -19,7 +19,8 @@ dependencies = [
   "datafusion (>=50.0.0,<51)",
   "tqdm (>=4.67.0,<5)",
   "typing-extensions (>=4.14.0,<5)",
-  "mkdocs-glightbox (>=0.5.1,<1)"
+  "mkdocs-glightbox (>=0.5.1,<1)",
+  "polars-config-meta (>=0.3.0,<1)"
 ]
 
 [project.optional-dependencies]
@@ -47,6 +48,7 @@ pyarrow = ">=21.0.0,<22"
 datafusion = ">=50.0.0,<51"
 tqdm = ">=4.67.0,<5"
 typing-extensions = ">=4.14.0,<5"
+polars-config-meta = ">=0.3.0,<1"
 
 [tool.poetry.extras]
 pandas = ["pandas"]

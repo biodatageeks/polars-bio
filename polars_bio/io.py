@@ -23,6 +23,7 @@ from polars_bio.polars_bio import (
     py_register_table,
 )
 
+from ._metadata import set_coordinate_system
 from .context import _resolve_zero_based, ctx
 
 SCHEMAS = {
@@ -317,7 +318,13 @@ class IOOperations:
             zero_based=zero_based,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
-        return _read_file(path, InputFormat.Vcf, read_options, projection_pushdown)
+        return _read_file(
+            path,
+            InputFormat.Vcf,
+            read_options,
+            projection_pushdown,
+            zero_based=zero_based,
+        )
 
     @staticmethod
     def read_gff(
@@ -434,7 +441,12 @@ class IOOperations:
         )
         read_options = ReadOptions(gff_read_options=gff_read_options)
         return _read_file(
-            path, InputFormat.Gff, read_options, projection_pushdown, predicate_pushdown
+            path,
+            InputFormat.Gff,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
         )
 
     @staticmethod
@@ -529,7 +541,13 @@ class IOOperations:
             zero_based=zero_based,
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
-        return _read_file(path, InputFormat.Bam, read_options, projection_pushdown)
+        return _read_file(
+            path,
+            InputFormat.Bam,
+            read_options,
+            projection_pushdown,
+            zero_based=zero_based,
+        )
 
     @staticmethod
     def read_cram(
@@ -739,7 +757,13 @@ class IOOperations:
             zero_based=zero_based,
         )
         read_options = ReadOptions(cram_read_options=cram_read_options)
-        return _read_file(path, InputFormat.Cram, read_options, projection_pushdown)
+        return _read_file(
+            path,
+            InputFormat.Cram,
+            read_options,
+            projection_pushdown,
+            zero_based=zero_based,
+        )
 
     @staticmethod
     def read_fastq(
@@ -931,7 +955,13 @@ class IOOperations:
             zero_based=zero_based,
         )
         read_options = ReadOptions(bed_read_options=bed_read_options)
-        return _read_file(path, InputFormat.Bed, read_options, projection_pushdown)
+        return _read_file(
+            path,
+            InputFormat.Bed,
+            read_options,
+            projection_pushdown,
+            zero_based=zero_based,
+        )
 
     @staticmethod
     def read_table(path: str, schema: Dict = None, **kwargs) -> pl.DataFrame:
@@ -1376,6 +1406,7 @@ def _read_file(
     read_options: ReadOptions,
     projection_pushdown: bool = False,
     predicate_pushdown: bool = False,
+    zero_based: bool = True,
 ) -> pl.LazyFrame:
     table = py_register_table(ctx, path, None, input_format, read_options)
     df = py_read_table(ctx, table.name)
@@ -1389,6 +1420,9 @@ def _read_file(
         path,
         read_options,
     )
+
+    # Set coordinate system metadata
+    set_coordinate_system(lf, zero_based)
 
     # Wrap GFF LazyFrames with projection-aware wrapper for consistent attribute field handling
     if input_format == InputFormat.Gff:
