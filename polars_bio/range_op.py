@@ -8,7 +8,11 @@ from typing_extensions import TYPE_CHECKING, Union
 
 from polars_bio.polars_bio import ReadOptions
 
-from ._metadata import get_coordinate_system, validate_coordinate_systems
+from ._metadata import (
+    get_coordinate_system,
+    validate_coordinate_system_single,
+    validate_coordinate_systems,
+)
 from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import ctx
 from .interval_op_helpers import (
@@ -43,6 +47,11 @@ def _get_filter_op_from_metadata(
     Reads coordinate system from DataFrame metadata set at I/O time.
     Validates that both inputs have the same coordinate system.
 
+    The behavior when metadata is missing is controlled by the session parameter
+    `datafusion.bio.coordinate_system_check`:
+    - When "true" (default): Raises MissingCoordinateSystemError
+    - When "false": Falls back to `datafusion.bio.coordinate_system_zero_based` and emits a warning
+
     Args:
         df1: First input DataFrame, LazyFrame, or file path.
         df2: Second input DataFrame, LazyFrame, or file path.
@@ -52,7 +61,8 @@ def _get_filter_op_from_metadata(
         FilterOp.Weak if inputs use 1-based coordinates.
 
     Raises:
-        MissingCoordinateSystemError: If either input lacks coordinate system metadata.
+        MissingCoordinateSystemError: If either input lacks coordinate system metadata
+            and datafusion.bio.coordinate_system_check is "true".
         CoordinateSystemMismatchError: If inputs have different coordinate systems.
     """
     zero_based = validate_coordinate_systems(df1, df2, ctx)
@@ -66,6 +76,11 @@ def _get_filter_op_from_metadata_single(
 
     Reads coordinate system from DataFrame metadata set at I/O time.
 
+    The behavior when metadata is missing is controlled by the session parameter
+    `datafusion.bio.coordinate_system_check`:
+    - When "true" (default): Raises MissingCoordinateSystemError
+    - When "false": Falls back to `datafusion.bio.coordinate_system_zero_based` and emits a warning
+
     Args:
         df: Input DataFrame, LazyFrame, or file path.
 
@@ -74,21 +89,10 @@ def _get_filter_op_from_metadata_single(
         FilterOp.Weak if input uses 1-based coordinates.
 
     Raises:
-        MissingCoordinateSystemError: If input lacks coordinate system metadata.
+        MissingCoordinateSystemError: If input lacks coordinate system metadata
+            and datafusion.bio.coordinate_system_check is "true".
     """
-    from ._metadata import (
-        MissingCoordinateSystemError,
-        _get_input_type_name,
-        _get_metadata_hint,
-    )
-
-    zero_based = get_coordinate_system(df, ctx)
-    if zero_based is None:
-        input_type = _get_input_type_name(df)
-        hint = _get_metadata_hint(df)
-        raise MissingCoordinateSystemError(
-            f"{input_type} is missing coordinate system metadata.\n\n{hint}"
-        )
+    zero_based = validate_coordinate_system_single(df, ctx)
     return FilterOp.Strict if zero_based else FilterOp.Weak
 
 
@@ -137,10 +141,13 @@ class IntervalOperations:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
         Raises:
-            MissingCoordinateSystemError: If either input lacks coordinate system metadata.
-                Use polars-bio I/O functions (scan_*, read_*) which automatically set metadata,
-                or set it manually on Polars DataFrames via `df.config_meta.set(coordinate_system_zero_based=True/False)`
+            MissingCoordinateSystemError: If either input lacks coordinate system metadata
+                and `datafusion.bio.coordinate_system_check` is "true" (default). Use polars-bio
+                I/O functions (scan_*, read_*) which automatically set metadata, or set it manually
+                on Polars DataFrames via `df.config_meta.set(coordinate_system_zero_based=True/False)`
                 or on Pandas DataFrames via `df.attrs["coordinate_system_zero_based"] = True/False`.
+                Set `pb.set_option("datafusion.bio.coordinate_system_check", False)` to disable
+                strict checking and fall back to global coordinate system setting.
             CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
         Note:
@@ -247,7 +254,8 @@ class IntervalOperations:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
         Raises:
-            MissingCoordinateSystemError: If either input lacks coordinate system metadata.
+            MissingCoordinateSystemError: If either input lacks coordinate system metadata
+                and `datafusion.bio.coordinate_system_check` is "true" (default).
             CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
         Note:
@@ -321,7 +329,8 @@ class IntervalOperations:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
         Raises:
-            MissingCoordinateSystemError: If either input lacks coordinate system metadata.
+            MissingCoordinateSystemError: If either input lacks coordinate system metadata
+                and `datafusion.bio.coordinate_system_check` is "true" (default).
             CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
         Note:
@@ -395,7 +404,8 @@ class IntervalOperations:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
         Raises:
-            MissingCoordinateSystemError: If either input lacks coordinate system metadata.
+            MissingCoordinateSystemError: If either input lacks coordinate system metadata
+                and `datafusion.bio.coordinate_system_check` is "true" (default).
             CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
         Example:
@@ -567,7 +577,8 @@ class IntervalOperations:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
         Raises:
-            MissingCoordinateSystemError: If input lacks coordinate system metadata.
+            MissingCoordinateSystemError: If input lacks coordinate system metadata
+                and `datafusion.bio.coordinate_system_check` is "true" (default).
 
         Example:
 
@@ -578,16 +589,7 @@ class IntervalOperations:
         _validate_overlap_input(cols, cols, on_cols, suffixes, output_type)
 
         # Get zero_based from DataFrame metadata
-        zero_based = get_coordinate_system(df, ctx)
-        if zero_based is None:
-            from ._metadata import _get_input_type_name, _get_metadata_hint
-            from .exceptions import MissingCoordinateSystemError
-
-            input_type = _get_input_type_name(df)
-            hint = _get_metadata_hint(df)
-            raise MissingCoordinateSystemError(
-                f"{input_type} is missing coordinate system metadata.\n\n{hint}"
-            )
+        zero_based = validate_coordinate_system_single(df, ctx)
 
         my_ctx = get_py_ctx()
         cols = DEFAULT_INTERVAL_COLUMNS if cols is None else cols

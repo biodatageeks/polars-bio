@@ -4,7 +4,8 @@ This module provides functions to get and set coordinate system metadata
 on different DataFrame types (Polars, Pandas) and DataFusion tables.
 """
 
-from typing import Optional, Union
+import warnings
+from typing import Optional, Tuple, Union
 
 import pandas as pd
 import polars as pl
@@ -152,12 +153,44 @@ def _get_metadata_hint(df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str])
         return "Use polars-bio I/O functions to ensure metadata is set correctly."
 
 
+def _get_global_zero_based() -> bool:
+    """Get the global coordinate system setting from context.
+
+    Returns:
+        True if global config is set to 0-based, False for 1-based (default).
+    """
+    from .constants import POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED
+    from .context import get_option
+
+    value = get_option(POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED)
+    return value is not None and value.lower() == "true"
+
+
+def _get_coordinate_system_check() -> bool:
+    """Get the coordinate system check setting from context.
+
+    Returns:
+        True if strict check is enabled (default), False to use fallback mode.
+    """
+    from .constants import POLARS_BIO_COORDINATE_SYSTEM_CHECK
+    from .context import get_option
+
+    value = get_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK)
+    # Default to True (strict check) if not set or if set to "true"
+    return value is None or value.lower() == "true"
+
+
 def validate_coordinate_systems(
     df1: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str],
     df2: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str],
     ctx=None,
 ) -> bool:
     """Validate that both inputs have the same coordinate system.
+
+    The behavior when metadata is missing is controlled by the session parameter
+    `datafusion.bio.coordinate_system_check`:
+    - When "true" (default): Raises MissingCoordinateSystemError
+    - When "false": Falls back to `datafusion.bio.coordinate_system_zero_based` and emits a warning
 
     Args:
         df1: First DataFrame or table name.
@@ -168,7 +201,8 @@ def validate_coordinate_systems(
         True if 0-based coordinates, False if 1-based coordinates.
 
     Raises:
-        MissingCoordinateSystemError: If either input lacks coordinate system metadata.
+        MissingCoordinateSystemError: If either input lacks coordinate system metadata
+            and datafusion.bio.coordinate_system_check is "true".
         CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
     Example:
@@ -182,20 +216,50 @@ def validate_coordinate_systems(
     cs1 = get_coordinate_system(df1, ctx)
     cs2 = get_coordinate_system(df2, ctx)
 
-    # Check for missing metadata
-    if cs1 is None:
-        input_type = _get_input_type_name(df1)
-        hint = _get_metadata_hint(df1)
-        raise MissingCoordinateSystemError(
-            f"{input_type} is missing coordinate system metadata.\n\n{hint}"
-        )
+    # Get the check setting from session config
+    coordinate_system_check = _get_coordinate_system_check()
 
-    if cs2 is None:
-        input_type = _get_input_type_name(df2)
-        hint = _get_metadata_hint(df2)
-        raise MissingCoordinateSystemError(
-            f"{input_type} is missing coordinate system metadata.\n\n{hint}"
-        )
+    # Handle missing metadata
+    if cs1 is None or cs2 is None:
+        if coordinate_system_check:
+            # Strict mode: raise error for missing metadata
+            if cs1 is None:
+                input_type = _get_input_type_name(df1)
+                hint = _get_metadata_hint(df1)
+                raise MissingCoordinateSystemError(
+                    f"{input_type} is missing coordinate system metadata.\n\n{hint}"
+                )
+            if cs2 is None:
+                input_type = _get_input_type_name(df2)
+                hint = _get_metadata_hint(df2)
+                raise MissingCoordinateSystemError(
+                    f"{input_type} is missing coordinate system metadata.\n\n{hint}"
+                )
+        else:
+            # Fallback mode: use global config and emit warning
+            global_zero_based = _get_global_zero_based()
+            cs_str = "0-based" if global_zero_based else "1-based"
+
+            missing_inputs = []
+            if cs1 is None:
+                missing_inputs.append(_get_input_type_name(df1))
+            if cs2 is None:
+                missing_inputs.append(_get_input_type_name(df2))
+
+            warnings.warn(
+                f"Coordinate system metadata is missing for: {', '.join(missing_inputs)}. "
+                f"Using global POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED setting ({cs_str}). "
+                f"Set metadata explicitly on DataFrames or use polars-bio I/O functions "
+                f"(scan_*, read_*) to avoid this warning.",
+                UserWarning,
+                stacklevel=4,
+            )
+
+            # Use global config for missing values
+            if cs1 is None:
+                cs1 = global_zero_based
+            if cs2 is None:
+                cs2 = global_zero_based
 
     # Check for mismatch
     if cs1 != cs2:
@@ -210,3 +274,56 @@ def validate_coordinate_systems(
         )
 
     return cs1
+
+
+def validate_coordinate_system_single(
+    df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str],
+    ctx=None,
+) -> bool:
+    """Validate and get coordinate system from a single input.
+
+    The behavior when metadata is missing is controlled by the session parameter
+    `datafusion.bio.coordinate_system_check`:
+    - When "true" (default): Raises MissingCoordinateSystemError
+    - When "false": Falls back to `datafusion.bio.coordinate_system_zero_based` and emits a warning
+
+    Args:
+        df: DataFrame or table name.
+        ctx: DataFusion context (required when df is a table name).
+
+    Returns:
+        True if 0-based coordinates, False if 1-based coordinates.
+
+    Raises:
+        MissingCoordinateSystemError: If input lacks coordinate system metadata
+            and datafusion.bio.coordinate_system_check is "true".
+    """
+    cs = get_coordinate_system(df, ctx)
+
+    # Get the check setting from session config
+    coordinate_system_check = _get_coordinate_system_check()
+
+    if cs is None:
+        if coordinate_system_check:
+            input_type = _get_input_type_name(df)
+            hint = _get_metadata_hint(df)
+            raise MissingCoordinateSystemError(
+                f"{input_type} is missing coordinate system metadata.\n\n{hint}"
+            )
+        else:
+            # Fallback mode: use global config and emit warning
+            global_zero_based = _get_global_zero_based()
+            cs_str = "0-based" if global_zero_based else "1-based"
+            input_type = _get_input_type_name(df)
+
+            warnings.warn(
+                f"Coordinate system metadata is missing for: {input_type}. "
+                f"Using global POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED setting ({cs_str}). "
+                f"Set metadata explicitly on DataFrames or use polars-bio I/O functions "
+                f"(scan_*, read_*) to avoid this warning.",
+                UserWarning,
+                stacklevel=4,
+            )
+            cs = global_zero_based
+
+    return cs

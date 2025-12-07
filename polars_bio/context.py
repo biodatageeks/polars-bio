@@ -7,7 +7,11 @@ import datafusion
 from polars_bio.polars_bio import BioSessionContext
 from polars_bio.range_op_helpers import tmp_cleanup
 
-from .constants import POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, TMP_CATALOG_DIR
+from .constants import (
+    POLARS_BIO_COORDINATE_SYSTEM_CHECK,
+    POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED,
+    TMP_CATALOG_DIR,
+)
 from .logging import logger
 
 
@@ -42,6 +46,9 @@ class Context:
         # polars-bio specific options (stored in Rust context, not Python SessionConfig)
         # Default to 1-based coordinates (zero_based=false) to match VCF/GFF native formats
         self.ctx.set_option(POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, "false")
+
+        # Default to strict coordinate system check (raise error if metadata is missing)
+        self.ctx.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, "true")
 
         self.ctx.set_option("sequila.interval_join_algorithm", "coitrees")
         self.config = datafusion.context.SessionConfig(datafusion_conf)

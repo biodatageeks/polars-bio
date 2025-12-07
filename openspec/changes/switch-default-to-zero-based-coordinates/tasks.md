@@ -88,18 +88,41 @@ The coordinate system is set at I/O time and stored as DataFrame metadata. Range
 
 Remove explicit `use_zero_based` parameter from range operations. Instead, read coordinate system from DataFrame metadata set at I/O time.
 
-- [ ] 5.1 Remove `use_zero_based` parameter from `overlap()`
-- [ ] 5.2 Remove `use_zero_based` parameter from `nearest()`
-- [ ] 5.3 Remove `use_zero_based` parameter from `count_overlaps()`
-- [ ] 5.4 Remove `use_zero_based` parameter from `coverage()`
-- [ ] 5.5 Remove `use_zero_based` parameter from `merge()`
-- [ ] 5.6 Add `_get_filter_op_from_metadata(df1, df2)` helper function:
+- [x] 5.1 Remove `use_zero_based` parameter from `overlap()`
+- [x] 5.2 Remove `use_zero_based` parameter from `nearest()`
+- [x] 5.3 Remove `use_zero_based` parameter from `count_overlaps()`
+- [x] 5.4 Remove `use_zero_based` parameter from `coverage()`
+- [x] 5.5 Remove `use_zero_based` parameter from `merge()`
+- [x] 5.6 Add `_get_filter_op_from_metadata(df1, df2)` helper function:
   - Read coordinate system from both DataFrames' metadata
   - Raise `MissingCoordinateSystemError` if either input lacks metadata
   - Call `validate_coordinate_systems(df1, df2)` to check for mismatch
   - Return `FilterOp.Strict` if 0-based, `FilterOp.Weak` if 1-based
-- [ ] 5.7 Update all range operations to use `_get_filter_op_from_metadata()` instead of `use_zero_based` parameter
-- [ ] 5.8 Update docstrings to explain metadata-based coordinate system detection
+- [x] 5.7 Update all range operations to use `_get_filter_op_from_metadata()` instead of `use_zero_based` parameter
+- [x] 5.8 Update docstrings to explain metadata-based coordinate system detection
+
+### 5.9 Fallback mode for DataFrames without coordinate system metadata
+
+Add `datafusion.bio.coordinate_system_check` session parameter to allow processing DataFrames without explicit coordinate system metadata by using the global `POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED` configuration.
+
+- [x] 5.9.1 Add `POLARS_BIO_COORDINATE_SYSTEM_CHECK` constant to `constants.py`:
+  - Key: `"datafusion.bio.coordinate_system_check"`
+  - Default value: `"true"` (strict check enabled)
+- [x] 5.9.2 Initialize session parameter in `context.py`:
+  - Set default to `"true"` in `Context.__init__()`
+- [x] 5.9.3 Update `_metadata.py` to read from session parameter:
+  - Add `_get_coordinate_system_check()` helper function
+  - When `"true"` (default): Raise `MissingCoordinateSystemError` if metadata is missing
+  - When `"false"`: Fall back to `POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED` global config and emit a warning
+- [x] 5.9.4 Update `validate_coordinate_systems()` and `validate_coordinate_system_single()`:
+  - Read check setting from session config instead of function parameter
+- [x] 5.9.5 Export constant from `__init__.py`:
+  - Add `POLARS_BIO_COORDINATE_SYSTEM_CHECK` to exports
+- [x] 5.9.6 Add unit tests:
+  - Test that `coordinate_system_check="true"` (default) raises `MissingCoordinateSystemError`
+  - Test that `coordinate_system_check="false"` uses global config when metadata is missing
+  - Test that warning is emitted when falling back to global config
+  - Test all range operations work with session parameter
 
 ## 6. Python API Changes - I/O Layer (polars_bio/io.py, sql.py)
 
