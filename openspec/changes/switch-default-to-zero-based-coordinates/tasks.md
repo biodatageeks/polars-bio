@@ -48,13 +48,14 @@
 - [x] 2.3 Update `register_table()` in `scan.rs` to pass `zero_based` parameter to all TableProviders
 - [x] 2.4 Update `ReadOptions` struct in `option.rs`
 
-## 3. Global Configuration System (polars_bio/config.py - new file)
+## 3. Global Configuration System (polars_bio/context.py)
 
-- [x] 3.1 Create `polars_bio/config.py` with session-level configuration
-- [x] 3.2 Implement `set_bio_option(key, value)` and `get_bio_option(key)` functions
-- [x] 3.3 Add `bio.coordinate_system_zero_based` option with default `True`
-- [x] 3.4 Export config functions in `polars_bio/__init__.py`
-- [x] 3.5 Add `reset_bio_option(key)`, `reset_all_bio_options()`, `describe_bio_option(key)`, and `list_bio_options()` for completeness
+- [x] 3.1 ~~Create `polars_bio/config.py` with session-level configuration~~ → Refactored to use DataFusion context in `context.py`
+- [x] 3.2 Implement `set_option(key, value)` and `get_option(key)` functions in `context.py`
+- [x] 3.3 Add `datafusion.bio.coordinate_system_zero_based` option with default `"true"` (stored in BioSessionContext)
+- [x] 3.4 Export `get_option`, `set_option`, and `POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED` constant in `polars_bio/__init__.py`
+- [x] 3.5 Add `POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED` constant in `constants.py` for consistent key naming
+- [x] 3.6 Move `_resolve_zero_based()` helper to `context.py` (priority: explicit param > context config > default)
 
 ## 4. DataFrame Metadata Tracking (unified across all types)
 

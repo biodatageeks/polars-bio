@@ -174,8 +174,12 @@ New mapping:
 import polars_bio as pb
 
 # Global session configuration (defaults to zero_based=True)
-pb.set_option("datafusion.bio.coordinate_system_zero_based", True)  # default
-pb.get_option("datafusion.bio.coordinate_system_zero_based")  # returns True
+# Use the constant for consistent key naming
+pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)  # default
+pb.get_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED)  # returns "true"
+
+# Or use the string key directly
+pb.set_option("datafusion.bio.coordinate_system_zero_based", False)
 
 # Table-level override when needed
 lf = pb.scan_vcf("file.vcf", one_based=True)  # override for this table only
@@ -184,6 +188,8 @@ lf = pb.scan_vcf("file.vcf", one_based=True)  # override for this table only
 pb.overlap(df1, df2)  # uses session default (0-based)
 pb.overlap(df1, df2, one_based=True)  # override for this operation
 ```
+
+**Note**: The option value is stored as a string ("true"/"false") in the DataFusion context. When setting with a Python bool, it's automatically converted.
 
 **In datafusion-bio-formats**:
 
