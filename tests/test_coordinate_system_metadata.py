@@ -114,6 +114,24 @@ class TestCoordinateSystemMetadata:
         cs = get_coordinate_system(lf)
         assert cs is False, "Expected coordinate_system_zero_based=False for 1-based"
 
+    def test_scan_cram_zero_based_metadata(self):
+        """Test that scan_cram with 0-based coords sets correct metadata."""
+        cram_path = "tests/data/io/cram/test.cram"
+        lf = pb.scan_cram(cram_path, one_based=False)
+
+        # Check metadata is set
+        cs = get_coordinate_system(lf)
+        assert cs is True, "Expected coordinate_system_zero_based=True for 0-based"
+
+    def test_scan_cram_one_based_metadata(self):
+        """Test that scan_cram with 1-based coords sets correct metadata."""
+        cram_path = "tests/data/io/cram/test.cram"
+        lf = pb.scan_cram(cram_path, one_based=True)
+
+        # Check metadata is set
+        cs = get_coordinate_system(lf)
+        assert cs is False, "Expected coordinate_system_zero_based=False for 1-based"
+
     def test_default_uses_global_config(self):
         """Test that default one_based=None uses global config (0-based)."""
         vcf_path = "tests/data/io/vcf/ensembl.vcf"
@@ -171,6 +189,22 @@ class TestCoordinateValuesMatchMetadata:
 
         # Read with 1-based
         df_one = pb.read_bam(bam_path, one_based=True)
+        start_one = df_one.select("start").to_series().to_list()
+
+        # 1-based should be exactly 1 more than 0-based for all rows
+        for s0, s1 in zip(start_zero, start_one):
+            assert s1 == s0 + 1, f"Expected 1-based ({s1}) = 0-based ({s0}) + 1"
+
+    def test_cram_zero_vs_one_based_values(self):
+        """Test that CRAM coordinates differ by 1 between 0-based and 1-based."""
+        cram_path = "tests/data/io/cram/test.cram"
+
+        # Read with 0-based
+        df_zero = pb.read_cram(cram_path, one_based=False)
+        start_zero = df_zero.select("start").to_series().to_list()
+
+        # Read with 1-based
+        df_one = pb.read_cram(cram_path, one_based=True)
         start_one = df_one.select("start").to_series().to_list()
 
         # 1-based should be exactly 1 more than 0-based for all rows
