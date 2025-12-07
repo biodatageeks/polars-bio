@@ -52,10 +52,10 @@
 
 - [x] 3.1 ~~Create `polars_bio/config.py` with session-level configuration~~ → Refactored to use DataFusion context in `context.py`
 - [x] 3.2 Implement `set_option(key, value)` and `get_option(key)` functions in `context.py`
-- [ ] 3.3 Add `datafusion.bio.coordinate_system_zero_based` option with default `"false"` (1-based by default)
+- [x] 3.3 Add `datafusion.bio.coordinate_system_zero_based` option with default `"false"` (1-based by default)
 - [x] 3.4 Export `get_option`, `set_option`, and `POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED` constant in `polars_bio/__init__.py`
 - [x] 3.5 Add `POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED` constant in `constants.py` for consistent key naming
-- [ ] 3.6 Update `_resolve_zero_based()` helper to use `use_zero_based` parameter with default `False`
+- [x] 3.6 Update `_resolve_zero_based()` helper to use `use_zero_based` parameter with default `False`
 
 ## 4. DataFrame Metadata Tracking (unified across all types)
 
@@ -126,18 +126,18 @@ Add `datafusion.bio.coordinate_system_check` session parameter to allow processi
 
 ## 6. Python API Changes - I/O Layer (polars_bio/io.py, sql.py)
 
-- [ ] 6.1 Rename `one_based` to `use_zero_based` in `scan_vcf()` / `read_vcf()` with default `False` (1-based by default)
-- [ ] 6.2 Rename `one_based` to `use_zero_based` in `scan_gff()` / `read_gff()` with default `False`
-- [ ] 6.3 Rename `one_based` to `use_zero_based` in `scan_bam()` / `read_bam()` with default `False`
-- [ ] 6.4 Rename `one_based` to `use_zero_based` in `scan_cram()` / `read_cram()` with default `False`
-- [ ] 6.5 Rename `one_based` to `use_zero_based` in `scan_bed()` / `read_bed()` with default `False`
-- [ ] 6.6 Update `_resolve_zero_based()` to handle `use_zero_based` with default `False`
+- [x] 6.1 Rename `one_based` to `use_zero_based` in `scan_vcf()` / `read_vcf()` with default `False` (1-based by default)
+- [x] 6.2 Rename `one_based` to `use_zero_based` in `scan_gff()` / `read_gff()` with default `False`
+- [x] 6.3 Rename `one_based` to `use_zero_based` in `scan_bam()` / `read_bam()` with default `False`
+- [x] 6.4 Rename `one_based` to `use_zero_based` in `scan_cram()` / `read_cram()` with default `False`
+- [x] 6.5 Rename `one_based` to `use_zero_based` in `scan_bed()` / `read_bed()` with default `False`
+- [x] 6.6 Update `_resolve_zero_based()` to handle `use_zero_based` with default `False`
 - [x] 6.7 Pass resolved `zero_based` value through to Rust layer
 - [x] 6.8 Set coordinate system metadata on returned LazyFrames/DataFrames:
   - Use `polars-config-meta` for Polars DataFrames/LazyFrames (I/O functions only return Polars types)
   - Metadata key: `coordinate_system_zero_based` (bool)
   - Note: Pandas `df.attrs` only applies to range operation outputs when `output_type="pandas"`
-- [ ] 6.9 Update docstrings to document 1-based default and `use_zero_based` parameter
+- [x] 6.9 Update docstrings to document 1-based default and `use_zero_based` parameter
 
 ## 7. Test Updates
 
@@ -159,13 +159,13 @@ Add `datafusion.bio.coordinate_system_check` session parameter to allow processi
   - Test error raised when file path registers table without Arrow schema metadata
   - Test that error message explains how to set metadata for each input type
   - Test that all input types with proper metadata work correctly
-- [ ] 7.4 Add tests for range operations without `use_zero_based` parameter:
+- [x] 7.4 Add tests for range operations without `use_zero_based` parameter:
   - Test `overlap()` reads coordinate system from metadata
   - Test `nearest()` reads coordinate system from metadata
   - Test `count_overlaps()` reads coordinate system from metadata
   - Test `coverage()` reads coordinate system from metadata
   - Test `merge()` reads coordinate system from metadata
-- [ ] 7.5 Update existing range operation tests to remove `use_zero_based` parameter
+- [x] 7.5 Update existing range operation tests to remove `use_zero_based` parameter
 
 ## 8. Documentation
 
@@ -189,8 +189,8 @@ Add `datafusion.bio.coordinate_system_check` session parameter to allow processi
     - `MissingCoordinateSystemError` - when raised and how to fix
     - `CoordinateSystemMismatchError` - when raised and how to fix
   - Add migration guide for users upgrading from previous versions
-- [ ] 8.2 Update docstrings in `io.py` to document `use_zero_based` parameter (default `False` = 1-based)
-- [ ] 8.3 Update docstrings in `range_op.py`:
+- [x] 8.2 Update docstrings in `io.py` to document `use_zero_based` parameter (default `False` = 1-based)
+- [x] 8.3 Update docstrings in `range_op.py`:
   - Remove `use_zero_based` parameter documentation
   - Add explanation that coordinate system is read from DataFrame metadata
   - Document that `MissingCoordinateSystemError` is raised if metadata is missing
@@ -215,7 +215,7 @@ Add `datafusion.bio.coordinate_system_check` session parameter to allow processi
 
 ## 9. Validation
 
-- [x] 9.1 Run full test suite (223 passed, 2 skipped)
+- [x] 9.1 Run full test suite (261 passed, 2 skipped)
 - [x] 9.3 Build and test package installation (maturin develop succeeded)
 - [ ] 9.2 Verify bioframe compatibility tests pass - deferred
 - [ ] 9.4 Test with real VCF/GFF/BAM files to verify coordinate values - deferred
