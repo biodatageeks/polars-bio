@@ -23,8 +23,7 @@ from polars_bio.polars_bio import (
     py_register_table,
 )
 
-from .config import _resolve_zero_based
-from .context import ctx
+from .context import _resolve_zero_based, ctx
 
 SCHEMAS = {
     "bed3": ["chrom", "start", "end"],

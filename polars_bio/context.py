@@ -1,12 +1,13 @@
 import datetime
 from pathlib import Path
+from typing import Optional
 
 import datafusion
 
 from polars_bio.polars_bio import BioSessionContext
 from polars_bio.range_op_helpers import tmp_cleanup
 
-from .constants import TMP_CATALOG_DIR
+from .constants import POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, TMP_CATALOG_DIR
 from .logging import logger
 
 
@@ -29,15 +30,20 @@ class Context:
         seed = str(datetime.datetime.now().timestamp())
         self.session_catalog_dir = f"{TMP_CATALOG_DIR}/{seed}"
         self.ctx = BioSessionContext(seed=seed, catalog_dir=self.session_catalog_dir)
-        init_conf = {
+        # Standard DataFusion options
+        datafusion_conf = {
             "datafusion.execution.target_partitions": "1",
             "datafusion.execution.parquet.schema_force_view_types": "true",
             "datafusion.execution.skip_physical_aggregate_schema_check": "true",
         }
-        for k, v in init_conf.items():
+        for k, v in datafusion_conf.items():
             self.ctx.set_option(k, v)
+
+        # polars-bio specific options (stored in Rust context, not Python SessionConfig)
+        self.ctx.set_option(POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, "true")
+
         self.ctx.set_option("sequila.interval_join_algorithm", "coitrees")
-        self.config = datafusion.context.SessionConfig(init_conf)
+        self.config = datafusion.context.SessionConfig(datafusion_conf)
 
         # create session dir if not exists
         Path(self.session_catalog_dir).mkdir(parents=True, exist_ok=True)
@@ -46,16 +52,83 @@ class Context:
         tmp_cleanup(self.session_catalog_dir)
 
     def set_option(self, key, value):
+        # Convert bool to string for DataFusion context
+        if isinstance(value, bool):
+            value = "true" if value else "false"
         self.ctx.set_option(key, value)
         # Only mirror standard DataFusion options to the Python SessionConfig.
-        # Extension namespaces (e.g., `sequila.*`) are handled by the Rust context
-        # and are not recognized by Python bindings, which would panic.
-        if isinstance(key, str) and key.startswith("datafusion."):
+        # Extension namespaces (e.g., `sequila.*`, `datafusion.bio.*`) are handled
+        # by the Rust context and are not recognized by Python bindings, which would panic.
+        if (
+            isinstance(key, str)
+            and key.startswith("datafusion.")
+            and not key.startswith("datafusion.bio.")
+        ):
             self.config.set(key, value)
+
+    def get_option(self, key):
+        """Get the value of a configuration option.
+
+        Args:
+            key: The configuration key.
+
+        Returns:
+            The current value of the option as a string, or None if not set.
+        """
+        return self.ctx.get_option(key)
 
 
 def set_option(key, value):
+    """Set a configuration option.
+
+    Args:
+        key: The configuration key.
+        value: The value to set (bool values are converted to "true"/"false").
+
+    Example:
+        >>> import polars_bio as pb
+        >>> pb.set_option("datafusion.bio.coordinate_system_zero_based", False)
+    """
     Context().set_option(key, value)
+
+
+def get_option(key):
+    """Get the value of a configuration option.
+
+    Args:
+        key: The configuration key.
+
+    Returns:
+        The current value of the option as a string, or None if not set.
+
+    Example:
+        >>> import polars_bio as pb
+        >>> pb.get_option("datafusion.bio.coordinate_system_zero_based")
+        'true'
+    """
+    return Context().get_option(key)
+
+
+def _resolve_zero_based(one_based: Optional[bool]) -> bool:
+    """Resolve the effective zero_based value based on explicit parameter and global config.
+
+    Priority: explicit parameter > global config > default (True)
+
+    Args:
+        one_based: If True, use 1-based coordinates. If False, use 0-based.
+                   If None, use the global configuration.
+
+    Returns:
+        True if coordinates should be 0-based, False if 1-based.
+    """
+    if one_based is not None:
+        # Explicit parameter takes precedence (invert: one_based=True means zero_based=False)
+        return not one_based
+    else:
+        # Use global configuration from DataFusion context
+        value = Context().get_option(POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED)
+        # Default to True if not set, otherwise parse string to bool
+        return value is None or value.lower() == "true"
 
 
 ctx = Context().ctx
