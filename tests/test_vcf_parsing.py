@@ -50,11 +50,11 @@ def test_vcf_ensembl_1_parsing():
     all_columns_to_select = static_columns_list + actual_info_fields
     df = full_df.select(all_columns_to_select)
 
-    # 0-based coordinates by default (start was 33248751/5025532 in 1-based)
+    # 1-based coordinates by default
     expected_df = pl.DataFrame(
         {
             "chrom": ["21", "21"],
-            "start": [33248750, 5025531],  # 0-based
+            "start": [33248751, 5025532],  # 1-based (default)
             "end": [33248751, 5025532],
             "id": ["rs549962048", "rs1879593094"],
             "ref": ["A", "G"],
@@ -188,11 +188,11 @@ def test_vcf_ensembl_2_parsing():
     all_columns_to_select = static_columns_list + actual_info_fields
     df = full_df.select(all_columns_to_select)
 
-    # 0-based coordinates by default (start was 2491309 in 1-based)
+    # 1-based coordinates by default
     expected_df = pl.DataFrame(
         {
             "chrom": ["1"],
-            "start": [2491308],  # 0-based
+            "start": [2491309],  # 1-based (default)
             "end": [2491309],
             "id": ["rs368445617"],
             "ref": ["T"],

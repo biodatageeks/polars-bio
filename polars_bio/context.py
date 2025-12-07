@@ -40,7 +40,8 @@ class Context:
             self.ctx.set_option(k, v)
 
         # polars-bio specific options (stored in Rust context, not Python SessionConfig)
-        self.ctx.set_option(POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, "true")
+        # Default to 1-based coordinates (zero_based=false) to match VCF/GFF native formats
+        self.ctx.set_option(POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, "false")
 
         self.ctx.set_option("sequila.interval_join_algorithm", "coitrees")
         self.config = datafusion.context.SessionConfig(datafusion_conf)
@@ -109,26 +110,26 @@ def get_option(key):
     return Context().get_option(key)
 
 
-def _resolve_zero_based(one_based: Optional[bool]) -> bool:
+def _resolve_zero_based(use_zero_based: Optional[bool]) -> bool:
     """Resolve the effective zero_based value based on explicit parameter and global config.
 
-    Priority: explicit parameter > global config > default (True)
+    Priority: explicit parameter > global config > default (False, i.e., 1-based)
 
     Args:
-        one_based: If True, use 1-based coordinates. If False, use 0-based.
-                   If None, use the global configuration.
+        use_zero_based: If True, use 0-based half-open coordinates. If False, use 1-based closed.
+                        If None, use the global configuration.
 
     Returns:
         True if coordinates should be 0-based, False if 1-based.
     """
-    if one_based is not None:
-        # Explicit parameter takes precedence (invert: one_based=True means zero_based=False)
-        return not one_based
+    if use_zero_based is not None:
+        # Explicit parameter takes precedence
+        return use_zero_based
     else:
         # Use global configuration from DataFusion context
         value = Context().get_option(POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED)
-        # Default to True if not set, otherwise parse string to bool
-        return value is None or value.lower() == "true"
+        # Default to False (1-based) if not set, otherwise parse string to bool
+        return value is not None and value.lower() == "true"
 
 
 ctx = Context().ctx

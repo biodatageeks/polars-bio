@@ -29,7 +29,7 @@ class TestCoordinateSystemMetadata:
     def test_scan_vcf_zero_based_metadata(self):
         """Test that scan_vcf with 0-based coords sets correct metadata."""
         vcf_path = "tests/data/io/vcf/ensembl.vcf"
-        lf = pb.scan_vcf(vcf_path, one_based=False)
+        lf = pb.scan_vcf(vcf_path, use_zero_based=True)
 
         # Check metadata is set
         cs = get_coordinate_system(lf)
@@ -46,7 +46,7 @@ class TestCoordinateSystemMetadata:
     def test_scan_vcf_one_based_metadata(self):
         """Test that scan_vcf with 1-based coords sets correct metadata."""
         vcf_path = "tests/data/io/vcf/ensembl.vcf"
-        lf = pb.scan_vcf(vcf_path, one_based=True)
+        lf = pb.scan_vcf(vcf_path, use_zero_based=False)
 
         # Check metadata is set
         cs = get_coordinate_system(lf)
@@ -63,7 +63,7 @@ class TestCoordinateSystemMetadata:
     def test_scan_gff_zero_based_metadata(self):
         """Test that scan_gff with 0-based coords sets correct metadata."""
         gff_path = "tests/data/io/gff/gencode.v38.annotation.gff3"
-        lf = pb.scan_gff(gff_path, one_based=False)
+        lf = pb.scan_gff(gff_path, use_zero_based=True)
 
         # Check metadata is set
         cs = get_coordinate_system(lf)
@@ -72,7 +72,7 @@ class TestCoordinateSystemMetadata:
     def test_scan_gff_one_based_metadata(self):
         """Test that scan_gff with 1-based coords sets correct metadata."""
         gff_path = "tests/data/io/gff/gencode.v38.annotation.gff3"
-        lf = pb.scan_gff(gff_path, one_based=True)
+        lf = pb.scan_gff(gff_path, use_zero_based=False)
 
         # Check metadata is set
         cs = get_coordinate_system(lf)
@@ -81,7 +81,7 @@ class TestCoordinateSystemMetadata:
     def test_scan_bam_zero_based_metadata(self):
         """Test that scan_bam with 0-based coords sets correct metadata."""
         bam_path = "tests/data/io/bam/test.bam"
-        lf = pb.scan_bam(bam_path, one_based=False)
+        lf = pb.scan_bam(bam_path, use_zero_based=True)
 
         # Check metadata is set
         cs = get_coordinate_system(lf)
@@ -90,7 +90,7 @@ class TestCoordinateSystemMetadata:
     def test_scan_bam_one_based_metadata(self):
         """Test that scan_bam with 1-based coords sets correct metadata."""
         bam_path = "tests/data/io/bam/test.bam"
-        lf = pb.scan_bam(bam_path, one_based=True)
+        lf = pb.scan_bam(bam_path, use_zero_based=False)
 
         # Check metadata is set
         cs = get_coordinate_system(lf)
@@ -99,7 +99,7 @@ class TestCoordinateSystemMetadata:
     def test_scan_bed_zero_based_metadata(self):
         """Test that scan_bed with 0-based coords sets correct metadata."""
         bed_path = "tests/data/io/bed/test.bed"
-        lf = pb.scan_bed(bed_path, one_based=False)
+        lf = pb.scan_bed(bed_path, use_zero_based=True)
 
         # Check metadata is set
         cs = get_coordinate_system(lf)
@@ -108,7 +108,7 @@ class TestCoordinateSystemMetadata:
     def test_scan_bed_one_based_metadata(self):
         """Test that scan_bed with 1-based coords sets correct metadata."""
         bed_path = "tests/data/io/bed/test.bed"
-        lf = pb.scan_bed(bed_path, one_based=True)
+        lf = pb.scan_bed(bed_path, use_zero_based=False)
 
         # Check metadata is set
         cs = get_coordinate_system(lf)
@@ -117,7 +117,7 @@ class TestCoordinateSystemMetadata:
     def test_scan_cram_zero_based_metadata(self):
         """Test that scan_cram with 0-based coords sets correct metadata."""
         cram_path = "tests/data/io/cram/test.cram"
-        lf = pb.scan_cram(cram_path, one_based=False)
+        lf = pb.scan_cram(cram_path, use_zero_based=True)
 
         # Check metadata is set
         cs = get_coordinate_system(lf)
@@ -126,22 +126,22 @@ class TestCoordinateSystemMetadata:
     def test_scan_cram_one_based_metadata(self):
         """Test that scan_cram with 1-based coords sets correct metadata."""
         cram_path = "tests/data/io/cram/test.cram"
-        lf = pb.scan_cram(cram_path, one_based=True)
+        lf = pb.scan_cram(cram_path, use_zero_based=False)
 
         # Check metadata is set
         cs = get_coordinate_system(lf)
         assert cs is False, "Expected coordinate_system_zero_based=False for 1-based"
 
     def test_default_uses_global_config(self):
-        """Test that default one_based=None uses global config (0-based)."""
+        """Test that default use_zero_based=None uses global config (1-based)."""
         vcf_path = "tests/data/io/vcf/ensembl.vcf"
 
-        # Default should use global config which is 0-based (True)
+        # Default should use global config which is 1-based (False)
         lf = pb.scan_vcf(vcf_path)
         cs = get_coordinate_system(lf)
         assert (
-            cs is True
-        ), "Expected default to be 0-based (coordinate_system_zero_based=True)"
+            cs is False
+        ), "Expected default to be 1-based (coordinate_system_zero_based=False)"
 
 
 class TestCoordinateValuesMatchMetadata:
@@ -152,11 +152,11 @@ class TestCoordinateValuesMatchMetadata:
         vcf_path = "tests/data/io/vcf/ensembl.vcf"
 
         # Read with 0-based
-        df_zero = pb.read_vcf(vcf_path, one_based=False)
+        df_zero = pb.read_vcf(vcf_path, use_zero_based=True)
         start_zero = df_zero.select("start").to_series().to_list()
 
         # Read with 1-based
-        df_one = pb.read_vcf(vcf_path, one_based=True)
+        df_one = pb.read_vcf(vcf_path, use_zero_based=False)
         start_one = df_one.select("start").to_series().to_list()
 
         # 1-based should be exactly 1 more than 0-based for all rows
@@ -168,11 +168,11 @@ class TestCoordinateValuesMatchMetadata:
         gff_path = "tests/data/io/gff/gencode.v38.annotation.gff3"
 
         # Read with 0-based
-        df_zero = pb.read_gff(gff_path, one_based=False)
+        df_zero = pb.read_gff(gff_path, use_zero_based=True)
         start_zero = df_zero.select("start").to_series().to_list()
 
         # Read with 1-based
-        df_one = pb.read_gff(gff_path, one_based=True)
+        df_one = pb.read_gff(gff_path, use_zero_based=False)
         start_one = df_one.select("start").to_series().to_list()
 
         # 1-based should be exactly 1 more than 0-based for all rows
@@ -184,11 +184,11 @@ class TestCoordinateValuesMatchMetadata:
         bam_path = "tests/data/io/bam/test.bam"
 
         # Read with 0-based
-        df_zero = pb.read_bam(bam_path, one_based=False)
+        df_zero = pb.read_bam(bam_path, use_zero_based=True)
         start_zero = df_zero.select("start").to_series().to_list()
 
         # Read with 1-based
-        df_one = pb.read_bam(bam_path, one_based=True)
+        df_one = pb.read_bam(bam_path, use_zero_based=False)
         start_one = df_one.select("start").to_series().to_list()
 
         # 1-based should be exactly 1 more than 0-based for all rows
@@ -200,11 +200,11 @@ class TestCoordinateValuesMatchMetadata:
         cram_path = "tests/data/io/cram/test.cram"
 
         # Read with 0-based
-        df_zero = pb.read_cram(cram_path, one_based=False)
+        df_zero = pb.read_cram(cram_path, use_zero_based=True)
         start_zero = df_zero.select("start").to_series().to_list()
 
         # Read with 1-based
-        df_one = pb.read_cram(cram_path, one_based=True)
+        df_one = pb.read_cram(cram_path, use_zero_based=False)
         start_one = df_one.select("start").to_series().to_list()
 
         # 1-based should be exactly 1 more than 0-based for all rows
@@ -216,11 +216,11 @@ class TestCoordinateValuesMatchMetadata:
         bed_path = "tests/data/io/bed/test.bed"
 
         # Read with 0-based
-        df_zero = pb.read_bed(bed_path, one_based=False)
+        df_zero = pb.read_bed(bed_path, use_zero_based=True)
         start_zero = df_zero.select("start").to_series().to_list()
 
         # Read with 1-based
-        df_one = pb.read_bed(bed_path, one_based=True)
+        df_one = pb.read_bed(bed_path, use_zero_based=False)
         start_one = df_one.select("start").to_series().to_list()
 
         # 1-based should be exactly 1 more than 0-based for all rows
@@ -309,7 +309,7 @@ class TestMissingCoordinateSystemError:
     def test_validate_mixed_types_missing_metadata(self):
         """Test that MissingCoordinateSystemError is raised for mixed types without metadata."""
         lf = pb.scan_vcf(
-            "tests/data/io/vcf/ensembl.vcf", one_based=False
+            "tests/data/io/vcf/ensembl.vcf", use_zero_based=True
         )  # has metadata
         pdf = pd.DataFrame(
             {"chrom": ["chr1"], "start": [100], "end": [200]}
@@ -328,8 +328,8 @@ class TestCoordinateSystemMismatchError:
         """Test that CoordinateSystemMismatchError is raised for coordinate mismatch."""
         vcf_path = "tests/data/io/vcf/ensembl.vcf"
 
-        lf_zero = pb.scan_vcf(vcf_path, one_based=False)  # 0-based
-        lf_one = pb.scan_vcf(vcf_path, one_based=True)  # 1-based
+        lf_zero = pb.scan_vcf(vcf_path, use_zero_based=True)  # 0-based
+        lf_one = pb.scan_vcf(vcf_path, use_zero_based=False)  # 1-based
 
         with pytest.raises(CoordinateSystemMismatchError) as exc_info:
             validate_coordinate_systems(lf_zero, lf_one)
@@ -342,8 +342,8 @@ class TestCoordinateSystemMismatchError:
         """Test that validate_coordinate_systems succeeds when coordinates match."""
         vcf_path = "tests/data/io/vcf/ensembl.vcf"
 
-        lf1 = pb.scan_vcf(vcf_path, one_based=False)
-        lf2 = pb.scan_vcf(vcf_path, one_based=False)
+        lf1 = pb.scan_vcf(vcf_path, use_zero_based=True)
+        lf2 = pb.scan_vcf(vcf_path, use_zero_based=True)
 
         # Should not raise, returns True (0-based)
         result = validate_coordinate_systems(lf1, lf2)
@@ -353,8 +353,8 @@ class TestCoordinateSystemMismatchError:
         """Test that validate_coordinate_systems succeeds for matching 1-based."""
         vcf_path = "tests/data/io/vcf/ensembl.vcf"
 
-        lf1 = pb.scan_vcf(vcf_path, one_based=True)
-        lf2 = pb.scan_vcf(vcf_path, one_based=True)
+        lf1 = pb.scan_vcf(vcf_path, use_zero_based=False)
+        lf2 = pb.scan_vcf(vcf_path, use_zero_based=False)
 
         # Should not raise, returns False (1-based)
         result = validate_coordinate_systems(lf1, lf2)
