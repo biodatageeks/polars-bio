@@ -1374,7 +1374,7 @@ def _lazy_scan(
     return register_io_source(_overlap_source, schema=original_schema)
 
 
-def _extract_column_names_from_expr(with_columns: Union[pl.Expr, list]) -> list[str]:
+def _extract_column_names_from_expr(with_columns: Union[pl.Expr, list]) -> "List[str]":
     """Extract column names from Polars expressions."""
     if with_columns is None:
         return []

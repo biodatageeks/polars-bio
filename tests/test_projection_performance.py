@@ -72,126 +72,116 @@ def test_interval_projection_pushdown():
     """Test projection pushdown with interval operations."""
     print("\n=== Testing Interval Operations Projection Pushdown ===")
 
-    # Create larger test datasets for better performance measurement
-    with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as f1:
-        df1 = pl.DataFrame(
-            {
-                "chrom": ["chr1"] * 1000 + ["chr2"] * 1000,
-                "start": list(range(1, 1001)) + list(range(1, 1001)),
-                "end": list(range(101, 1101)) + list(range(101, 1101)),
-                "name": [f"feature_{i}" for i in range(2000)],
-                "score": list(range(2000)),
-                "extra_col1": [f"extra1_{i}" for i in range(2000)],
-                "extra_col2": [f"extra2_{i}" for i in range(2000)],
-                "extra_col3": [f"extra3_{i}" for i in range(2000)],
-            }
+    # Create larger test datasets with metadata for range operations
+    df1 = pl.DataFrame(
+        {
+            "chrom": ["chr1"] * 1000 + ["chr2"] * 1000,
+            "start": list(range(1, 1001)) + list(range(1, 1001)),
+            "end": list(range(101, 1101)) + list(range(101, 1101)),
+            "name": [f"feature_{i}" for i in range(2000)],
+            "score": list(range(2000)),
+            "extra_col1": [f"extra1_{i}" for i in range(2000)],
+            "extra_col2": [f"extra2_{i}" for i in range(2000)],
+            "extra_col3": [f"extra3_{i}" for i in range(2000)],
+        }
+    )
+    df1.config_meta.set(coordinate_system_zero_based=True)
+
+    df2 = pl.DataFrame(
+        {
+            "chrom": ["chr1"] * 800 + ["chr2"] * 800,
+            "start": list(range(50, 850)) + list(range(50, 850)),
+            "end": list(range(150, 950)) + list(range(150, 950)),
+            "type": [f"type_{i}" for i in range(1600)],
+            "value": [i * 0.5 for i in range(1600)],
+            "category": [f"cat_{i % 10}" for i in range(1600)],
+            "metadata": [f"meta_{i}" for i in range(1600)],
+        }
+    )
+    df2.config_meta.set(coordinate_system_zero_based=True)
+
+    # Test 1: Without projection pushdown
+    print("\n1. Testing overlap without projection pushdown...")
+    start_time = time.time()
+    # First get all available columns
+    all_result = pb.overlap(
+        df1, df2, projection_pushdown=False, output_type="polars.LazyFrame"
+    ).collect()
+    print(f"   Available columns: {all_result.columns}")
+
+    # Select a subset based on available columns
+    available_cols = all_result.columns
+    select_cols = [
+        col
+        for col in ["chrom_1", "start_1", "end_1", "chrom_2", "start_2", "end_2"]
+        if col in available_cols
+    ]
+    # Add extra columns if available
+    extra_cols = [
+        col for col in ["name", "type", "score", "value"] if col in available_cols
+    ]
+    select_cols.extend(extra_cols[:2])  # Only add first 2 to keep it manageable
+
+    result_no_pushdown = (
+        pb.overlap(
+            df1,
+            df2,
+            projection_pushdown=False,
+            output_type="polars.LazyFrame",
         )
-        df1.write_parquet(f1.name)
+        .select(select_cols)
+        .collect()
+    )
+    time_no_pushdown = time.time() - start_time
 
-    with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as f2:
-        df2 = pl.DataFrame(
-            {
-                "chrom": ["chr1"] * 800 + ["chr2"] * 800,
-                "start": list(range(50, 850)) + list(range(50, 850)),
-                "end": list(range(150, 950)) + list(range(150, 950)),
-                "type": [f"type_{i}" for i in range(1600)],
-                "value": [i * 0.5 for i in range(1600)],
-                "category": [f"cat_{i % 10}" for i in range(1600)],
-                "metadata": [f"meta_{i}" for i in range(1600)],
-            }
+    print(f"   Result shape: {result_no_pushdown.shape}")
+    print(f"   Columns: {result_no_pushdown.columns}")
+    print(f"   Time: {time_no_pushdown:.4f}s")
+
+    # Test 2: With projection pushdown
+    print("\n2. Testing overlap with projection pushdown...")
+    start_time = time.time()
+    result_pushdown = (
+        pb.overlap(
+            df1,
+            df2,
+            projection_pushdown=True,
+            output_type="polars.LazyFrame",
         )
-        df2.write_parquet(f2.name)
+        .select(select_cols)
+        .collect()
+    )
+    time_pushdown = time.time() - start_time
 
-    try:
-        # Test 1: Without projection pushdown
-        print("\n1. Testing overlap without projection pushdown...")
-        start_time = time.time()
-        # First get all available columns
-        all_result = pb.overlap(
-            f1.name, f2.name, projection_pushdown=False, output_type="polars.LazyFrame"
-        ).collect()
-        print(f"   Available columns: {all_result.columns}")
+    print(f"   Result shape: {result_pushdown.shape}")
+    print(f"   Columns: {result_pushdown.columns}")
+    print(f"   Time: {time_pushdown:.4f}s")
 
-        # Select a subset based on available columns
-        available_cols = all_result.columns
-        select_cols = [
-            col
-            for col in ["chrom_1", "start_1", "end_1", "chrom_2", "start_2", "end_2"]
-            if col in available_cols
-        ]
-        # Add extra columns if available
-        extra_cols = [
-            col for col in ["name", "type", "score", "value"] if col in available_cols
-        ]
-        select_cols.extend(extra_cols[:2])  # Only add first 2 to keep it manageable
+    # Validate column pruning: both should have exactly the selected columns
+    result_cols_no_pushdown = set(result_no_pushdown.columns)
+    result_cols_pushdown = set(result_pushdown.columns)
+    expected_cols = set(select_cols)
 
-        result_no_pushdown = (
-            pb.overlap(
-                f1.name,
-                f2.name,
-                projection_pushdown=False,
-                output_type="polars.LazyFrame",
-            )
-            .select(select_cols)
-            .collect()
-        )
-        time_no_pushdown = time.time() - start_time
+    assert result_cols_no_pushdown == result_cols_pushdown == expected_cols, (
+        f"Column pruning failed! Expected: {expected_cols}, "
+        f"No pushdown: shape={result_no_pushdown.shape}, columns={result_cols_no_pushdown}, "
+        f"With pushdown: shape={result_pushdown.shape}, columns={result_cols_pushdown}"
+    )
+    print(
+        "   PASS: Column pruning working correctly! Both methods return exactly the requested columns."
+    )
 
-        print(f"   Result shape: {result_no_pushdown.shape}")
-        print(f"   Columns: {result_no_pushdown.columns}")
-        print(f"   Time: {time_no_pushdown:.4f}s")
+    # Verify data content is identical
+    assert result_no_pushdown.equals(result_pushdown), "Data differs between methods"
+    print("   PASS: Data is identical between methods")
 
-        # Test 2: With projection pushdown
-        print("\n2. Testing overlap with projection pushdown...")
-        start_time = time.time()
-        result_pushdown = (
-            pb.overlap(
-                f1.name,
-                f2.name,
-                projection_pushdown=True,
-                output_type="polars.LazyFrame",
-            )
-            .select(select_cols)
-            .collect()
-        )
-        time_pushdown = time.time() - start_time
-
-        print(f"   Result shape: {result_pushdown.shape}")
-        print(f"   Columns: {result_pushdown.columns}")
-        print(f"   Time: {time_pushdown:.4f}s")
-
-        # Validate column pruning: both should have exactly the selected columns
-        result_cols_no_pushdown = set(result_no_pushdown.columns)
-        result_cols_pushdown = set(result_pushdown.columns)
-        expected_cols = set(select_cols)
-
-        assert result_cols_no_pushdown == result_cols_pushdown == expected_cols, (
-            f"Column pruning failed! Expected: {expected_cols}, "
-            f"No pushdown: shape={result_no_pushdown.shape}, columns={result_cols_no_pushdown}, "
-            f"With pushdown: shape={result_pushdown.shape}, columns={result_cols_pushdown}"
-        )
-        print(
-            "   PASS: Column pruning working correctly! Both methods return exactly the requested columns."
-        )
-
-        # Verify data content is identical
-        assert result_no_pushdown.equals(
-            result_pushdown
-        ), "Data differs between methods"
-        print("   PASS: Data is identical between methods")
-
-        # Show performance comparison
-        if time_pushdown < time_no_pushdown:
-            improvement = ((time_no_pushdown - time_pushdown) / time_no_pushdown) * 100
-            print(f"   Performance improvement: {improvement:.1f}%")
-        else:
-            overhead = ((time_pushdown - time_no_pushdown) / time_no_pushdown) * 100
-            print(f"   Projection pushdown overhead: {overhead:.1f}%")
-
-    finally:
-        # Clean up temporary files
-        Path(f1.name).unlink(missing_ok=True)
-        Path(f2.name).unlink(missing_ok=True)
+    # Show performance comparison
+    if time_pushdown < time_no_pushdown:
+        improvement = ((time_no_pushdown - time_pushdown) / time_no_pushdown) * 100
+        print(f"   Performance improvement: {improvement:.1f}%")
+    else:
+        overhead = ((time_pushdown - time_no_pushdown) / time_no_pushdown) * 100
+        print(f"   Projection pushdown overhead: {overhead:.1f}%")
 
 
 def test_column_extraction():

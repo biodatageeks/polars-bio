@@ -1,53 +1,85 @@
-import logging
-
+import pytest
 from _expected import BIO_PD_DF1, BIO_PD_DF2
 
 import polars_bio as pb
+from polars_bio._metadata import (
+    CoordinateSystemMismatchError,
+    MissingCoordinateSystemError,
+)
 
-pb.ctx.set_option("datafusion.execution.parquet.schema_force_view_types", "true", False)
-logging.basicConfig()
-logging.getLogger().setLevel(logging.INFO)
 
+class TestCoordinateSystemMetadata:
+    """Tests for coordinate system metadata handling."""
 
-class TestZeroBasedWarning:
+    def test_missing_coordinate_system_error(self):
+        """Test that MissingCoordinateSystemError is raised when metadata is missing."""
+        # Create DataFrames without coordinate system metadata
+        df1 = BIO_PD_DF1.copy()
+        df2 = BIO_PD_DF2.copy()
+        # Clear any existing metadata
+        df1.attrs.clear()
+        df2.attrs.clear()
 
-    def test_zero_based_warning(self, caplog):
-        # capture WARNING+ on your module’s logger
-        caplog.set_level("WARN")
+        with pytest.raises(MissingCoordinateSystemError):
+            pb.overlap(
+                df1,
+                df2,
+                cols1=("contig", "pos_start", "pos_end"),
+                cols2=("contig", "pos_start", "pos_end"),
+                output_type="pandas.DataFrame",
+                suffixes=("_1", "_3"),
+            )
 
-        # run the code under test
+    def test_coordinate_system_mismatch_error(self):
+        """Test that CoordinateSystemMismatchError is raised when coordinate systems don't match."""
+        # Create DataFrames with mismatched coordinate systems
+        df1 = BIO_PD_DF1.copy()
+        df2 = BIO_PD_DF2.copy()
+        df1.attrs["coordinate_system_zero_based"] = True
+        df2.attrs["coordinate_system_zero_based"] = False
+
+        with pytest.raises(CoordinateSystemMismatchError):
+            pb.overlap(
+                df1,
+                df2,
+                cols1=("contig", "pos_start", "pos_end"),
+                cols2=("contig", "pos_start", "pos_end"),
+                output_type="pandas.DataFrame",
+                suffixes=("_1", "_3"),
+            )
+
+    def test_zero_based_metadata_works(self):
+        """Test that 0-based coordinate system metadata works correctly."""
+        df1 = BIO_PD_DF1.copy()
+        df2 = BIO_PD_DF2.copy()
+        df1.attrs["coordinate_system_zero_based"] = True
+        df2.attrs["coordinate_system_zero_based"] = True
+
+        # Should not raise any errors
         result = pb.overlap(
-            BIO_PD_DF1,
-            BIO_PD_DF2,
+            df1,
+            df2,
             cols1=("contig", "pos_start", "pos_end"),
             cols2=("contig", "pos_start", "pos_end"),
             output_type="pandas.DataFrame",
             suffixes=("_1", "_3"),
-            use_zero_based=True,
         )
+        assert len(result) > 0
 
-        # caplog.records is a list of LogRecord
-        assert len(caplog.records) == 1
-        record = caplog.records[0]
-        assert record.levelno == logging.WARNING
-        assert "0-based coordinate system was selected" in record.getMessage()
+    def test_one_based_metadata_works(self):
+        """Test that 1-based coordinate system metadata works correctly."""
+        df1 = BIO_PD_DF1.copy()
+        df2 = BIO_PD_DF2.copy()
+        df1.attrs["coordinate_system_zero_based"] = False
+        df2.attrs["coordinate_system_zero_based"] = False
 
-    # check no warning when default
-    def test_no_zero_based_warning(self, caplog):
-        # capture WARNING+ on your module’s logger
-        caplog.set_level("WARN")
-
-        # run the code under test
+        # Should not raise any errors
         result = pb.overlap(
-            BIO_PD_DF1,
-            BIO_PD_DF2,
+            df1,
+            df2,
             cols1=("contig", "pos_start", "pos_end"),
             cols2=("contig", "pos_start", "pos_end"),
             output_type="pandas.DataFrame",
             suffixes=("_1", "_3"),
-            use_zero_based=False,
         )
-
-        # check no text in warnings
-        assert "0-based coordinate system was selected" not in caplog.text
-        # check no warning
+        assert len(result) > 0

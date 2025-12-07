@@ -11,6 +11,10 @@ logging.getLogger().setLevel(logging.INFO)
 
 pb.ctx.set_option("datafusion.execution.parquet.schema_force_view_types", "true", False)
 
+# Set coordinate system metadata on pandas DataFrames (0-based for bioframe compatibility)
+BIO_PD_DF1.attrs["coordinate_system_zero_based"] = True
+BIO_PD_DF2.attrs["coordinate_system_zero_based"] = True
+
 
 class TestOverlapAlgorithms:
     result_bio_overlap = bf.overlap(
@@ -29,7 +33,6 @@ class TestOverlapAlgorithms:
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         suffixes=("_1", "_3"),
-        use_zero_based=True,
         algorithm="Coitrees",
     )
 
@@ -40,7 +43,6 @@ class TestOverlapAlgorithms:
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         suffixes=("_1", "_3"),
-        use_zero_based=True,
         algorithm="Lapper",
     )
 
@@ -51,7 +53,6 @@ class TestOverlapAlgorithms:
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         suffixes=("_1", "_3"),
-        use_zero_based=True,
         algorithm="IntervalTree",
     )
 
@@ -62,7 +63,6 @@ class TestOverlapAlgorithms:
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         suffixes=("_1", "_3"),
-        use_zero_based=True,
         algorithm="ArrayIntervalTree",
     )
 
@@ -72,7 +72,6 @@ class TestOverlapAlgorithms:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         suffixes=("_1", "_3"),
-        use_zero_based=True,
         algorithm="Coitrees",
     )
 
@@ -82,7 +81,6 @@ class TestOverlapAlgorithms:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         suffixes=("_1", "_3"),
-        use_zero_based=True,
         algorithm="Lapper",
     )
 
@@ -92,7 +90,6 @@ class TestOverlapAlgorithms:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         suffixes=("_1", "_3"),
-        use_zero_based=True,
         algorithm="IntervalTree",
     )
 
@@ -102,7 +99,6 @@ class TestOverlapAlgorithms:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         suffixes=("_1", "_3"),
-        use_zero_based=True,
         algorithm="ArrayIntervalTree",
     )
 
@@ -113,7 +109,6 @@ class TestOverlapAlgorithms:
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         suffixes=("_1", "_3"),
-        use_zero_based=True,
         algorithm="SuperIntervals",
     )
 
@@ -123,7 +118,6 @@ class TestOverlapAlgorithms:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         suffixes=("_1", "_3"),
-        use_zero_based=True,
         algorithm="SuperIntervals",
     )
 

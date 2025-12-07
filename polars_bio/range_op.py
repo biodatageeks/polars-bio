@@ -8,6 +8,7 @@ from typing_extensions import TYPE_CHECKING, Union
 
 from polars_bio.polars_bio import ReadOptions
 
+from ._metadata import get_coordinate_system, validate_coordinate_systems
 from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import ctx
 from .interval_op_helpers import (
@@ -33,13 +34,70 @@ if TYPE_CHECKING:
 from polars_bio.polars_bio import FilterOp, RangeOp, RangeOptions
 
 
+def _get_filter_op_from_metadata(
+    df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+    df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+) -> FilterOp:
+    """Determine FilterOp based on coordinate system metadata from both inputs.
+
+    Reads coordinate system from DataFrame metadata set at I/O time.
+    Validates that both inputs have the same coordinate system.
+
+    Args:
+        df1: First input DataFrame, LazyFrame, or file path.
+        df2: Second input DataFrame, LazyFrame, or file path.
+
+    Returns:
+        FilterOp.Strict if inputs use 0-based coordinates,
+        FilterOp.Weak if inputs use 1-based coordinates.
+
+    Raises:
+        MissingCoordinateSystemError: If either input lacks coordinate system metadata.
+        CoordinateSystemMismatchError: If inputs have different coordinate systems.
+    """
+    zero_based = validate_coordinate_systems(df1, df2, ctx)
+    return FilterOp.Strict if zero_based else FilterOp.Weak
+
+
+def _get_filter_op_from_metadata_single(
+    df: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+) -> FilterOp:
+    """Determine FilterOp based on coordinate system metadata from a single input.
+
+    Reads coordinate system from DataFrame metadata set at I/O time.
+
+    Args:
+        df: Input DataFrame, LazyFrame, or file path.
+
+    Returns:
+        FilterOp.Strict if input uses 0-based coordinates,
+        FilterOp.Weak if input uses 1-based coordinates.
+
+    Raises:
+        MissingCoordinateSystemError: If input lacks coordinate system metadata.
+    """
+    from ._metadata import (
+        MissingCoordinateSystemError,
+        _get_input_type_name,
+        _get_metadata_hint,
+    )
+
+    zero_based = get_coordinate_system(df, ctx)
+    if zero_based is None:
+        input_type = _get_input_type_name(df)
+        hint = _get_metadata_hint(df)
+        raise MissingCoordinateSystemError(
+            f"{input_type} is missing coordinate system metadata.\n\n{hint}"
+        )
+    return FilterOp.Strict if zero_based else FilterOp.Weak
+
+
 class IntervalOperations:
 
     @staticmethod
     def overlap(
         df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
         df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
-        use_zero_based: bool = False,
         suffixes: tuple[str, str] = ("_1", "_2"),
         on_cols: Union[list[str], None] = None,
         cols1: Union[list[str], None] = ["chrom", "start", "end"],
@@ -55,10 +113,13 @@ class IntervalOperations:
         Find pairs of overlapping genomic intervals.
         Bioframe inspired API.
 
+        The coordinate system (0-based or 1-based) is automatically detected from
+        DataFrame metadata set at I/O time. Both inputs must have the same coordinate
+        system.
+
         Parameters:
             df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
-            use_zero_based: By default **1-based** coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
             cols1: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
             cols2:  The names of columns containing the chromosome, start and end of the
@@ -74,6 +135,13 @@ class IntervalOperations:
 
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
+
+        Raises:
+            MissingCoordinateSystemError: If either input lacks coordinate system metadata.
+                Use polars-bio I/O functions (scan_*, read_*) which automatically set metadata,
+                or set it manually on Polars DataFrames via `df.config_meta.set(coordinate_system_zero_based=True/False)`
+                or on Pandas DataFrames via `df.attrs["coordinate_system_zero_based"] = True/False`.
+            CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
         Note:
             1. The default output format, i.e.  [LazyFrame](https://docs.pola.rs/api/python/stable/reference/lazyframe/index.html), is recommended for large datasets as it supports output streaming and lazy evaluation.
@@ -92,12 +160,15 @@ class IntervalOperations:
                 ['chr1', 12, 14]],
             columns=['chrom', 'start', 'end']
             )
+            df1.attrs["coordinate_system_zero_based"] = False  # 1-based coordinates
 
             df2 = pd.DataFrame(
             [['chr1', 4, 8],
              ['chr1', 10, 11]],
             columns=['chrom', 'start', 'end' ]
             )
+            df2.attrs["coordinate_system_zero_based"] = False  # 1-based coordinates
+
             overlapping_intervals = pb.overlap(df1, df2, output_type="pandas.DataFrame")
 
             overlapping_intervals
@@ -111,15 +182,16 @@ class IntervalOperations:
              Support for on_cols.
         """
 
-        _validate_overlap_input(
-            cols1, cols2, on_cols, suffixes, output_type, use_zero_based
-        )
+        _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type)
+
+        # Get filter_op from DataFrame metadata
+        filter_op = _get_filter_op_from_metadata(df1, df2)
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
         cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
         range_options = RangeOptions(
             range_op=RangeOp.Overlap,
-            filter_op=FilterOp.Weak if not use_zero_based else FilterOp.Strict,
+            filter_op=filter_op,
             suffixes=suffixes,
             columns_1=cols1,
             columns_2=cols2,
@@ -142,7 +214,6 @@ class IntervalOperations:
     def nearest(
         df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
         df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
-        use_zero_based: bool = False,
         suffixes: tuple[str, str] = ("_1", "_2"),
         on_cols: Union[list[str], None] = None,
         cols1: Union[list[str], None] = ["chrom", "start", "end"],
@@ -155,10 +226,13 @@ class IntervalOperations:
         Find pairs of closest genomic intervals.
         Bioframe inspired API.
 
+        The coordinate system (0-based or 1-based) is automatically detected from
+        DataFrame metadata set at I/O time. Both inputs must have the same coordinate
+        system.
+
         Parameters:
             df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
-            use_zero_based: By default **1-based** coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
             cols1: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
             cols2:  The names of columns containing the chromosome, start and end of the
@@ -169,9 +243,12 @@ class IntervalOperations:
             read_options: Additional options for reading the input files.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
-
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
+
+        Raises:
+            MissingCoordinateSystemError: If either input lacks coordinate system metadata.
+            CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
         Note:
             The default output format, i.e. [LazyFrame](https://docs.pola.rs/api/python/stable/reference/lazyframe/index.html), is recommended for large datasets as it supports output streaming and lazy evaluation.
@@ -183,15 +260,16 @@ class IntervalOperations:
             Support for on_cols.
         """
 
-        _validate_overlap_input(
-            cols1, cols2, on_cols, suffixes, output_type, use_zero_based
-        )
+        _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type)
+
+        # Get filter_op from DataFrame metadata
+        filter_op = _get_filter_op_from_metadata(df1, df2)
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
         cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
         range_options = RangeOptions(
             range_op=RangeOp.Nearest,
-            filter_op=FilterOp.Weak if not use_zero_based else FilterOp.Strict,
+            filter_op=filter_op,
             suffixes=suffixes,
             columns_1=cols1,
             columns_2=cols2,
@@ -210,7 +288,6 @@ class IntervalOperations:
     def coverage(
         df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
         df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
-        use_zero_based: bool = False,
         suffixes: tuple[str, str] = ("_1", "_2"),
         on_cols: Union[list[str], None] = None,
         cols1: Union[list[str], None] = ["chrom", "start", "end"],
@@ -223,10 +300,13 @@ class IntervalOperations:
         Calculate intervals coverage.
         Bioframe inspired API.
 
+        The coordinate system (0-based or 1-based) is automatically detected from
+        DataFrame metadata set at I/O time. Both inputs must have the same coordinate
+        system.
+
         Parameters:
             df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
-            use_zero_based: By default **1-based** coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
             cols1: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
             cols2:  The names of columns containing the chromosome, start and end of the
@@ -237,9 +317,12 @@ class IntervalOperations:
             read_options: Additional options for reading the input files.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
-
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
+
+        Raises:
+            MissingCoordinateSystemError: If either input lacks coordinate system metadata.
+            CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
         Note:
             The default output format, i.e. [LazyFrame](https://docs.pola.rs/api/python/stable/reference/lazyframe/index.html), is recommended for large datasets as it supports output streaming and lazy evaluation.
@@ -251,20 +334,16 @@ class IntervalOperations:
             Support for on_cols.
         """
 
-        _validate_overlap_input(
-            cols1,
-            cols2,
-            on_cols,
-            suffixes,
-            output_type,
-            use_zero_based,
-        )
+        _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type)
+
+        # Get filter_op from DataFrame metadata
+        filter_op = _get_filter_op_from_metadata(df1, df2)
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
         cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
         range_options = RangeOptions(
             range_op=RangeOp.Coverage,
-            filter_op=FilterOp.Weak if not use_zero_based else FilterOp.Strict,
+            filter_op=filter_op,
             suffixes=suffixes,
             columns_1=cols1,
             columns_2=cols2,
@@ -283,7 +362,6 @@ class IntervalOperations:
     def count_overlaps(
         df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
         df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
-        use_zero_based: bool = False,
         suffixes: tuple[str, str] = ("", "_"),
         cols1: Union[list[str], None] = ["chrom", "start", "end"],
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
@@ -296,10 +374,13 @@ class IntervalOperations:
         Count pairs of overlapping genomic intervals.
         Bioframe inspired API.
 
+        The coordinate system (0-based or 1-based) is automatically detected from
+        DataFrame metadata set at I/O time. Both inputs must have the same coordinate
+        system.
+
         Parameters:
             df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
-            use_zero_based: By default **1-based** coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
             suffixes: Suffixes for the columns of the two overlapped sets.
             cols1: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
@@ -309,8 +390,13 @@ class IntervalOperations:
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             naive_query: If True, use naive query for counting overlaps based on overlaps.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
+
+        Raises:
+            MissingCoordinateSystemError: If either input lacks coordinate system metadata.
+            CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
         Example:
             ```python
@@ -324,12 +410,15 @@ class IntervalOperations:
                 ['chr1', 12, 14]],
             columns=['chrom', 'start', 'end']
             )
+            df1.attrs["coordinate_system_zero_based"] = False  # 1-based coordinates
 
             df2 = pd.DataFrame(
             [['chr1', 4, 8],
              ['chr1', 10, 11]],
             columns=['chrom', 'start', 'end' ]
             )
+            df2.attrs["coordinate_system_zero_based"] = False  # 1-based coordinates
+
             counts = pb.count_overlaps(df1, df2, output_type="pandas.DataFrame")
 
             counts
@@ -344,9 +433,12 @@ class IntervalOperations:
         Todo:
              Support return_input.
         """
-        _validate_overlap_input(
-            cols1, cols2, on_cols, suffixes, output_type, use_zero_based
-        )
+        _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type)
+
+        # Get filter_op and zero_based from DataFrame metadata
+        zero_based = validate_coordinate_systems(df1, df2, ctx)
+        filter_op = FilterOp.Strict if zero_based else FilterOp.Weak
+
         my_ctx = get_py_ctx()
         on_cols = [] if on_cols is None else on_cols
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
@@ -354,7 +446,7 @@ class IntervalOperations:
         if naive_query:
             range_options = RangeOptions(
                 range_op=RangeOp.CountOverlapsNaive,
-                filter_op=FilterOp.Weak if not use_zero_based else FilterOp.Strict,
+                filter_op=filter_op,
                 suffixes=suffixes,
                 columns_1=cols1,
                 columns_2=cols2,
@@ -412,7 +504,7 @@ class IntervalOperations:
                             partition_by=partitioning,
                             order_by=[
                                 col(s1start_s2end).sort(),
-                                col(is_s1).sort(ascending=use_zero_based),
+                                col(is_s1).sort(ascending=zero_based),
                             ],
                         )
                     )
@@ -423,7 +515,7 @@ class IntervalOperations:
                             partition_by=partitioning,
                             order_by=[
                                 col(s1end_s2start).sort(),
-                                col(is_s1).sort(ascending=(not use_zero_based)),
+                                col(is_s1).sort(ascending=(not zero_based)),
                             ],
                         )
                     )
@@ -450,7 +542,6 @@ class IntervalOperations:
     @staticmethod
     def merge(
         df: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
-        use_zero_based: bool = False,
         min_dist: float = 0,
         cols: Union[list[str], None] = ["chrom", "start", "end"],
         on_cols: Union[list[str], None] = None,
@@ -460,10 +551,12 @@ class IntervalOperations:
         """
         Merge overlapping intervals. It is assumed that start < end.
 
+        The coordinate system (0-based or 1-based) is automatically detected from
+        DataFrame metadata set at I/O time.
 
         Parameters:
             df: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED  and Parquet are supported.
-            use_zero_based: By default **1-based** coordinates system is used, as all input file readers use 1-based coordinates. If enabled, 0-based is used instead and end user is responsible for ensuring that both datasets follow this coordinates system.
+            min_dist: Minimum distance between intervals to merge. Default is 0.
             cols: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
             on_cols: List of additional column names for clustering. default is None.
@@ -473,15 +566,28 @@ class IntervalOperations:
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
+        Raises:
+            MissingCoordinateSystemError: If input lacks coordinate system metadata.
+
         Example:
 
         Todo:
             Support for on_cols.
         """
         suffixes = ("_1", "_2")
-        _validate_overlap_input(
-            cols, cols, on_cols, suffixes, output_type, use_zero_based
-        )
+        _validate_overlap_input(cols, cols, on_cols, suffixes, output_type)
+
+        # Get zero_based from DataFrame metadata
+        zero_based = get_coordinate_system(df, ctx)
+        if zero_based is None:
+            from ._metadata import _get_input_type_name, _get_metadata_hint
+            from .exceptions import MissingCoordinateSystemError
+
+            input_type = _get_input_type_name(df)
+            hint = _get_metadata_hint(df)
+            raise MissingCoordinateSystemError(
+                f"{input_type} is missing coordinate system metadata.\n\n{hint}"
+            )
 
         my_ctx = get_py_ctx()
         cols = DEFAULT_INTERVAL_COLUMNS if cols is None else cols
@@ -523,7 +629,7 @@ class IntervalOperations:
 
         sorting = [
             col(start_end).sort(),
-            col(is_start_end).sort(ascending=use_zero_based),
+            col(is_start_end).sort(ascending=zero_based),
         ]
         all_positions = all_positions.sort(*sorting)
 

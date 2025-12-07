@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List, Optional, Set
 
 import datafusion
 import polars as pl
@@ -16,8 +17,8 @@ except ImportError:
 
 def prevent_column_collision(
     new_col: str,
-    current_cols: set[str],
-) -> list[str]:
+    current_cols: Set[str],
+) -> List[str]:
     if new_col not in current_cols:
         current_cols.add(new_col)
         return new_col
@@ -69,10 +70,10 @@ def df_to_lazyframe(df: datafusion.DataFrame) -> pl.LazyFrame:
     # TODO: make it actually lazy
     """
     def _get_lazy(
-        with_columns: list[str] | None,
-        predicate: pl.Expr | None,
-        n_rows: int | None,
-        batch_size: int | None
+        with_columns: Optional[List[str]],
+        predicate: Optional[pl.Expr],
+        n_rows: Optional[int],
+        batch_size: Optional[int]
     ) -> Iterator[pl.DataFrame]:
 
     return register_io_source(_overlap_source, schema=schema)

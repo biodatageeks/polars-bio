@@ -8,6 +8,12 @@ import pytest
 import polars_bio as pb
 
 
+def _df_with_metadata(df: pl.DataFrame, zero_based: bool = True) -> pl.DataFrame:
+    """Add coordinate system metadata to a DataFrame."""
+    df.config_meta.set(coordinate_system_zero_based=zero_based)
+    return df
+
+
 class TestSuffixHandling:
     """Tests to ensure suffix handling is correct for overlap operations."""
 
@@ -23,6 +29,7 @@ class TestSuffixHandling:
                 "shared_col": ["A1", "A2"],
             }
         )
+        df_a.config_meta.set(coordinate_system_zero_based=True)
 
         df_b = pl.DataFrame(
             {
@@ -34,6 +41,7 @@ class TestSuffixHandling:
                 "shared_col": ["B1"],
             }
         )
+        df_b.config_meta.set(coordinate_system_zero_based=True)
 
         return df_a, df_b
 
@@ -98,11 +106,17 @@ class TestSuffixHandling:
         assert "shared_col_right" in result_custom.columns
 
     def test_suffix_handling_file_paths(self, sample_parquet_files):
-        """Test suffix handling with file path inputs."""
+        """Test suffix handling with file path inputs loaded via LazyFrames with metadata."""
         file_a, file_b = sample_parquet_files
 
+        # Load parquet files as LazyFrames and set metadata
+        lf_a = pl.scan_parquet(file_a)
+        lf_a.config_meta.set(coordinate_system_zero_based=True)
+        lf_b = pl.scan_parquet(file_b)
+        lf_b.config_meta.set(coordinate_system_zero_based=True)
+
         # Test with default suffixes (_1, _2)
-        result = pb.overlap(file_a, file_b, output_type="polars.DataFrame")
+        result = pb.overlap(lf_a, lf_b, output_type="polars.DataFrame")
 
         # Check that coordinate columns have correct suffixes
         assert "chrom_1" in result.columns
@@ -129,7 +143,7 @@ class TestSuffixHandling:
 
         # Test with custom suffixes
         result_custom = pb.overlap(
-            file_a, file_b, suffixes=("_A", "_B"), output_type="polars.DataFrame"
+            lf_a, lf_b, suffixes=("_A", "_B"), output_type="polars.DataFrame"
         )
 
         # Check coordinate columns

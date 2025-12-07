@@ -15,7 +15,6 @@ class PolarsRangesOperations:
         self,
         other_df: pl.LazyFrame,
         suffixes: tuple[str, str] = ("_1", "_2"),
-        use_zero_based: bool = False,
         cols1=["chrom", "start", "end"],
         cols2=["chrom", "start", "end"],
         algorithm: str = "Coitrees",
@@ -23,11 +22,14 @@ class PolarsRangesOperations:
         """
         !!! note
             Alias for [overlap](api.md#polars_bio.overlap)
+
+        Note:
+            Coordinate system is determined from DataFrame metadata.
+            Set metadata using: `df.config_meta.set(coordinate_system_zero_based=True)`
         """
         return pb.overlap(
             self._ldf,
             other_df,
-            use_zero_based=use_zero_based,
             suffixes=suffixes,
             cols1=cols1,
             cols2=cols2,
@@ -38,18 +40,20 @@ class PolarsRangesOperations:
         self,
         other_df: pl.LazyFrame,
         suffixes: tuple[str, str] = ("_1", "_2"),
-        use_zero_based: bool = False,
         cols1=["chrom", "start", "end"],
         cols2=["chrom", "start", "end"],
     ) -> pl.LazyFrame:
         """
         !!! note
             Alias for [nearest](api.md#polars_bio.nearest)
+
+        Note:
+            Coordinate system is determined from DataFrame metadata.
+            Set metadata using: `df.config_meta.set(coordinate_system_zero_based=True)`
         """
         return pb.nearest(
             self._ldf,
             other_df,
-            use_zero_based=use_zero_based,
             suffixes=suffixes,
             cols1=cols1,
             cols2=cols2,
@@ -58,7 +62,6 @@ class PolarsRangesOperations:
     def count_overlaps(
         self,
         other_df: pl.LazyFrame,
-        use_zero_based: bool = False,
         suffixes: tuple[str, str] = ("", "_"),
         cols1=["chrom", "start", "end"],
         cols2=["chrom", "start", "end"],
@@ -68,11 +71,14 @@ class PolarsRangesOperations:
         """
         !!! note
             Alias for [count_overlaps](api.md#polars_bio.count_overlaps)
+
+        Note:
+            Coordinate system is determined from DataFrame metadata.
+            Set metadata using: `df.config_meta.set(coordinate_system_zero_based=True)`
         """
         return pb.count_overlaps(
             self._ldf,
             other_df,
-            use_zero_based=use_zero_based,
             suffixes=suffixes,
             cols1=cols1,
             cols2=cols2,
@@ -82,17 +88,19 @@ class PolarsRangesOperations:
 
     def merge(
         self,
-        overlap_filter: FilterOp = FilterOp.Strict,
         min_dist: float = 0,
         cols: Union[list[str], None] = None,
     ) -> pl.LazyFrame:
         """
         !!! note
             Alias for [merge](api.md#polars_bio.merge)
+
+        Note:
+            Coordinate system is determined from DataFrame metadata.
+            Set metadata using: `df.config_meta.set(coordinate_system_zero_based=True)`
         """
         return pb.merge(
             self._ldf,
-            use_zero_based=True,
             min_dist=min_dist,
             cols=cols,
         )
@@ -236,6 +244,10 @@ class PolarsRangesOperations:
         """
         !!! note
             Alias for [coverage](api.md#polars_bio.coverage)
+
+        Note:
+            Coordinate system is determined from DataFrame metadata.
+            Set metadata using: `df.config_meta.set(coordinate_system_zero_based=True)`
         """
         return pb.coverage(
             self._ldf, other_df, cols1=cols1, cols2=cols2, suffixes=suffixes

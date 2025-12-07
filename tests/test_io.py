@@ -15,11 +15,24 @@ from _expected import (
 
 import polars_bio as pb
 
+# Set coordinate system metadata on test DataFrames (1-based)
+PD_OVERLAP_DF1.attrs["coordinate_system_zero_based"] = False
+PD_OVERLAP_DF2.attrs["coordinate_system_zero_based"] = False
+PL_DF1.config_meta.set(coordinate_system_zero_based=False)
+PL_DF2.config_meta.set(coordinate_system_zero_based=False)
+
+
+def _lazy_with_metadata(df: pl.DataFrame) -> pl.LazyFrame:
+    """Create a LazyFrame with coordinate system metadata."""
+    lf = df.lazy()
+    lf.config_meta.set(coordinate_system_zero_based=False)
+    return lf
+
 
 class TestMemoryCombinations:
     def test_frames(self):
-        for df1 in [PD_OVERLAP_DF1, PL_DF1, PL_DF1.lazy()]:
-            for df2 in [PD_OVERLAP_DF2, PL_DF2, PL_DF2.lazy()]:
+        for df1 in [PD_OVERLAP_DF1, PL_DF1, _lazy_with_metadata(PL_DF1)]:
+            for df2 in [PD_OVERLAP_DF2, PL_DF2, _lazy_with_metadata(PL_DF2)]:
                 for output_type in [
                     "pandas.DataFrame",
                     "polars.DataFrame",
@@ -31,7 +44,6 @@ class TestMemoryCombinations:
                         cols1=("contig", "pos_start", "pos_end"),
                         cols2=("contig", "pos_start", "pos_end"),
                         output_type=output_type,
-                        use_zero_based=False,
                     )
                     if output_type == "polars.LazyFrame":
                         result = result.collect()

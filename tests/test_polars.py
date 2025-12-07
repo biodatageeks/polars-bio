@@ -14,13 +14,23 @@ from _expected import (
 
 import polars_bio as pb
 
+# Set coordinate system metadata on Polars DataFrames
+# 1-based for overlap, nearest, count_overlaps (zero_based=False)
+PL_DF1.config_meta.set(coordinate_system_zero_based=False)
+PL_DF2.config_meta.set(coordinate_system_zero_based=False)
+PL_NEAREST_DF1.config_meta.set(coordinate_system_zero_based=False)
+PL_NEAREST_DF2.config_meta.set(coordinate_system_zero_based=False)
+PL_COUNT_OVERLAPS_DF1.config_meta.set(coordinate_system_zero_based=False)
+PL_COUNT_OVERLAPS_DF2.config_meta.set(coordinate_system_zero_based=False)
+# 0-based for merge (zero_based=True)
+PL_MERGE_DF.config_meta.set(coordinate_system_zero_based=True)
+
 
 class TestOverlapPolars:
     result_frame = pb.overlap(
         PL_DF1,
         PL_DF2,
         output_type="polars.DataFrame",
-        use_zero_based=False,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
     )
@@ -28,7 +38,6 @@ class TestOverlapPolars:
         PL_DF1,
         PL_DF2,
         output_type="polars.LazyFrame",
-        use_zero_based=False,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
     ).collect()
@@ -84,7 +93,6 @@ class TestCountOverlapsPolars:
         output_type="polars.DataFrame",
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        use_zero_based=False,
         naive_query=False,
     )
     result_lazy = pb.count_overlaps(
@@ -93,7 +101,6 @@ class TestCountOverlapsPolars:
         output_type="polars.LazyFrame",
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        use_zero_based=False,
         naive_query=False,
     ).collect()
     expected = PL_DF_COUNT_OVERLAPS
@@ -114,13 +121,11 @@ class TestCountOverlapsPolars:
 class TestMergePolars:
     result_frame = pb.merge(
         PL_MERGE_DF,
-        use_zero_based=True,
         output_type="polars.DataFrame",
         cols=("contig", "pos_start", "pos_end"),
     )
     result_lazy = pb.merge(
         PL_MERGE_DF,
-        use_zero_based=True,
         output_type="polars.LazyFrame",
         cols=("contig", "pos_start", "pos_end"),
     ).collect()

@@ -31,41 +31,64 @@ from polars_bio import FilterOp
 columns = ["contig", "pos_start", "pos_end"]
 
 
+def _load_csv_with_metadata(path: str, zero_based: bool = False) -> pl.LazyFrame:
+    """Load CSV file as LazyFrame with coordinate system metadata."""
+    lf = pl.scan_csv(path)
+    lf.config_meta.set(coordinate_system_zero_based=zero_based)
+    return lf
+
+
+# Module-level LazyFrames with metadata for TestStreamingWithPolarsOperations
+_OVER_LF1 = _load_csv_with_metadata(DF_OVER_PATH1, zero_based=False)
+_OVER_LF2 = _load_csv_with_metadata(DF_OVER_PATH2, zero_based=False)
+_NEAR_LF1 = _load_csv_with_metadata(DF_NEAREST_PATH1, zero_based=False)
+_NEAR_LF2 = _load_csv_with_metadata(DF_NEAREST_PATH2, zero_based=False)
+_COUNT_LF1 = _load_csv_with_metadata(DF_COUNT_OVERLAPS_PATH1, zero_based=False)
+_COUNT_LF2 = _load_csv_with_metadata(DF_COUNT_OVERLAPS_PATH2, zero_based=False)
+_COV_LF1 = _load_csv_with_metadata(DF_COVERAGE_PATH1, zero_based=False)
+_COV_LF2 = _load_csv_with_metadata(DF_COVERAGE_PATH2, zero_based=False)
+_MERGE_LF = _load_csv_with_metadata(DF_MERGE_PATH, zero_based=True)
+
+
 class TestStreaming:
+    # Load CSVs with 1-based metadata
+    _over1 = _load_csv_with_metadata(DF_OVER_PATH1, zero_based=False)
+    _over2 = _load_csv_with_metadata(DF_OVER_PATH2, zero_based=False)
+    _near1 = _load_csv_with_metadata(DF_NEAREST_PATH1, zero_based=False)
+    _near2 = _load_csv_with_metadata(DF_NEAREST_PATH2, zero_based=False)
+    _count1 = _load_csv_with_metadata(DF_COUNT_OVERLAPS_PATH1, zero_based=False)
+    _count2 = _load_csv_with_metadata(DF_COUNT_OVERLAPS_PATH2, zero_based=False)
+
     result_overlap_stream = pb.overlap(
-        DF_OVER_PATH1,
-        DF_OVER_PATH2,
+        _over1,
+        _over2,
         cols1=columns,
         cols2=columns,
         output_type="polars.LazyFrame",
-        use_zero_based=False,
     )
 
     result_nearest_stream = pb.nearest(
-        DF_NEAREST_PATH1,
-        DF_NEAREST_PATH2,
+        _near1,
+        _near2,
         cols1=columns,
         cols2=columns,
         output_type="polars.LazyFrame",
-        use_zero_based=False,
     )
 
     result_count_overlaps_stream = pb.count_overlaps(
-        DF_COUNT_OVERLAPS_PATH1,
-        DF_COUNT_OVERLAPS_PATH2,
+        _count1,
+        _count2,
         cols1=columns,
         cols2=columns,
         output_type="polars.LazyFrame",
-        use_zero_based=False,
     )
 
     result_coverage_stream = pb.coverage(
-        DF_COUNT_OVERLAPS_PATH1,
-        DF_COUNT_OVERLAPS_PATH2,
+        _count1,
+        _count2,
         cols1=columns,
         cols2=columns,
         output_type="polars.LazyFrame",
-        use_zero_based=False,
     )
 
     result_coverage_bio = bf.coverage(
@@ -273,8 +296,8 @@ class TestStreamingWithPolarsOperations:
         """Test streaming overlap operation with column selection."""
         # Get full result first
         full_result = pb.overlap(
-            DF_OVER_PATH1,
-            DF_OVER_PATH2,
+            _OVER_LF1,
+            _OVER_LF2,
             cols1=columns,
             cols2=columns,
             output_type="polars.LazyFrame",
@@ -297,8 +320,8 @@ class TestStreamingWithPolarsOperations:
         """Test streaming overlap operation with filtering."""
         # Get the full result first
         full_result = pb.overlap(
-            DF_OVER_PATH1,
-            DF_OVER_PATH2,
+            _OVER_LF1,
+            _OVER_LF2,
             cols1=columns,
             cols2=columns,
             output_type="polars.LazyFrame",
@@ -318,8 +341,8 @@ class TestStreamingWithPolarsOperations:
         """Test streaming nearest operation with distance-based filtering."""
         # Get full result first, then apply filtering
         full_result = pb.nearest(
-            DF_NEAREST_PATH1,
-            DF_NEAREST_PATH2,
+            _NEAR_LF1,
+            _NEAR_LF2,
             cols1=columns,
             cols2=columns,
             output_type="polars.LazyFrame",
@@ -338,8 +361,8 @@ class TestStreamingWithPolarsOperations:
         """Test streaming count overlaps with aggregation operations."""
         # Get full result first
         full_result = pb.count_overlaps(
-            DF_COUNT_OVERLAPS_PATH1,
-            DF_COUNT_OVERLAPS_PATH2,
+            _COUNT_LF1,
+            _COUNT_LF2,
             cols1=columns,
             cols2=columns,
             output_type="polars.LazyFrame",
@@ -364,8 +387,8 @@ class TestStreamingWithPolarsOperations:
         """Test streaming coverage operation with coverage threshold filtering."""
         # Get full result first
         full_result = pb.coverage(
-            DF_COVERAGE_PATH1,
-            DF_COVERAGE_PATH2,
+            _COV_LF1,
+            _COV_LF2,
             cols1=columns,
             cols2=columns,
             output_type="polars.LazyFrame",
@@ -384,7 +407,7 @@ class TestStreamingWithPolarsOperations:
         """Test streaming merge operation with size calculations."""
         # Get full result first
         full_result = pb.merge(
-            DF_MERGE_PATH,
+            _MERGE_LF,
             cols=columns,
             output_type="polars.LazyFrame",
         ).collect(engine="streaming")
@@ -410,8 +433,8 @@ class TestStreamingWithPolarsOperations:
         """Test complex chained operations with streaming."""
         # Get overlap result with streaming first
         overlap_result = pb.overlap(
-            DF_OVER_PATH1,
-            DF_OVER_PATH2,
+            _OVER_LF1,
+            _OVER_LF2,
             cols1=columns,
             cols2=columns,
             output_type="polars.LazyFrame",
@@ -524,8 +547,8 @@ class TestStreamingWithPolarsOperations:
         """Test overlap operation with streaming and aggregation operations."""
         result = (
             pb.overlap(
-                DF_OVER_PATH1,
-                DF_OVER_PATH2,
+                _OVER_LF1,
+                _OVER_LF2,
                 cols1=columns,
                 cols2=columns,
                 output_type="polars.LazyFrame",
@@ -623,8 +646,8 @@ class TestStreamingWithPolarsOperations:
         """Test a complex streaming pipeline with multiple operations."""
         # Get overlap result first
         overlap_result = pb.overlap(
-            DF_OVER_PATH1,
-            DF_OVER_PATH2,
+            _OVER_LF1,
+            _OVER_LF2,
             cols1=columns,
             cols2=columns,
             output_type="polars.LazyFrame",
