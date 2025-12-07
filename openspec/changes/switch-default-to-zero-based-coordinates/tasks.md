@@ -61,13 +61,24 @@
 
 The coordinate system is set at I/O time and stored as DataFrame metadata. Range operations read this metadata instead of requiring an explicit `use_zero_based` parameter.
 
+**Input types for range operations and their metadata storage:**
+
+| Input Type | Metadata Storage | Notes |
+|------------|------------------|-------|
+| Polars LazyFrame/DataFrame | `polars-config-meta` | Set by `scan_*`/`read_*` functions |
+| String (file path) | Arrow schema metadata | Set when table is registered in DataFusion |
+| Pandas DataFrame | `df.attrs["coordinate_system_zero_based"]` | Must be set by user before passing to range ops |
+
 - [ ] 4.1 Add `polars-config-meta` to dependencies in `pyproject.toml`
 - [ ] 4.2 Import and initialize `polars-config-meta` in `polars_bio/__init__.py`
-- [ ] 4.3 Create `CoordinateSystemMismatchError` exception class in `polars_bio/exceptions.py`
+- [ ] 4.3 Create exception classes in `polars_bio/exceptions.py`:
+  - `CoordinateSystemMismatchError` - raised when mixing 0-based and 1-based DataFrames
+  - `MissingCoordinateSystemError` - raised when Pandas DataFrame lacks `coordinate_system_zero_based` attr
 - [ ] 4.4 Create unified metadata abstraction in `polars_bio/_metadata.py`:
   - `set_coordinate_system(df, zero_based: bool)` - set metadata on DataFrame
   - `get_coordinate_system(df) -> Optional[bool]` - read metadata from DataFrame
   - `validate_coordinate_systems(df1, df2)` - raise `CoordinateSystemMismatchError` if mismatch
+  - For Pandas input without metadata: raise `MissingCoordinateSystemError` with helpful message
 - [ ] 4.5 Update I/O functions (`scan_*`, `read_*`) to set coordinate system metadata on returned DataFrames
 
 ## 5. Python API Changes - Range Operations (polars_bio/range_op.py)
@@ -115,14 +126,18 @@ Remove explicit `use_zero_based` parameter from range operations. Instead, read 
 - [ ] 7.2 Add tests for coordinate system mismatch detection:
   - Test `CoordinateSystemMismatchError` is raised when mixing 0-based and 1-based DataFrames
   - Test that matching coordinate systems work correctly
-- [ ] 7.3 Add tests for range operations without `use_zero_based` parameter:
+- [ ] 7.3 Add tests for Pandas DataFrame without metadata:
+  - Test `MissingCoordinateSystemError` is raised when Pandas DataFrame lacks `coordinate_system_zero_based` attr
+  - Test that error message explains how to set the attribute
+  - Test that Pandas DataFrame with proper attr works correctly
+- [ ] 7.4 Add tests for range operations without `use_zero_based` parameter:
   - Test `overlap()` reads coordinate system from metadata
   - Test `nearest()` reads coordinate system from metadata
   - Test `count_overlaps()` reads coordinate system from metadata
   - Test `coverage()` reads coordinate system from metadata
   - Test `merge()` reads coordinate system from metadata
-- [ ] 7.4 Add tests for fallback to global config when no metadata present
-- [ ] 7.5 Update existing range operation tests to remove `use_zero_based` parameter
+- [ ] 7.5 Add tests for fallback to global config when no metadata present (Polars only)
+- [ ] 7.6 Update existing range operation tests to remove `use_zero_based` parameter
 
 ## 8. Documentation
 
@@ -130,17 +145,21 @@ Remove explicit `use_zero_based` parameter from range operations. Instead, read 
 - [ ] 8.1 Update docstrings in `range_op.py`:
   - Remove `use_zero_based` parameter documentation
   - Add explanation that coordinate system is read from DataFrame metadata
-  - Document fallback behavior when no metadata present
+  - Document fallback behavior when no metadata present (Polars only - uses global config)
+  - Document that Pandas DataFrames require `df.attrs["coordinate_system_zero_based"]` to be set
 - [ ] 8.3 Update tutorials to reflect 0-based default
 - [ ] 8.4 Add migration guide for users upgrading from previous versions:
   - Explain removal of `use_zero_based` parameter
   - Explain new metadata-based approach
   - Show how to use global config for legacy behavior
+  - Show how to set metadata on Pandas DataFrames before passing to range ops
 - [ ] 8.5 Document global configuration system with examples
 - [ ] 8.6 Document DataFrame metadata tracking:
-  - How coordinate system is set at I/O time
+  - How coordinate system is set at I/O time (Polars)
   - How range operations read from metadata
   - How mismatch detection works
+  - **Pandas requirement**: Users must set `df.attrs["coordinate_system_zero_based"]` before passing to range ops
+  - Example code for setting Pandas metadata
 - [ ] 8.7 Update `openspec/project.md` domain context section
 
 ## 9. Validation
