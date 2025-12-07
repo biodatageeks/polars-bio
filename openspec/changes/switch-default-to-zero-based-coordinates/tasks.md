@@ -97,9 +97,9 @@ Remove explicit `use_zero_based` parameter from range operations. Instead, read 
 - [x] 6.6 Resolve effective `zero_based` value: explicit param > session config > default (via `_resolve_zero_based()`)
 - [x] 6.7 Pass resolved `zero_based` value through to Rust layer
 - [ ] 6.8 Set coordinate system metadata on returned LazyFrames/DataFrames:
-  - Use `polars-config-meta` for Polars DataFrames/LazyFrames
-  - Use `df.attrs` for Pandas DataFrames
+  - Use `polars-config-meta` for Polars DataFrames/LazyFrames (I/O functions only return Polars types)
   - Metadata key: `coordinate_system_zero_based` (bool)
+  - Note: Pandas `df.attrs` only applies to range operation outputs when `output_type="pandas"`
 - [x] 6.9 Update docstrings to document new coordinate behavior and config system
 
 ## 7. Test Updates
