@@ -691,8 +691,8 @@ jobs:
           REF_NAME="${{ needs.prepare.outputs.target_ref }}"
           git commit -m "Update benchmark data and reports for $REF_NAME" || echo "No changes to commit"
 
-          # Push
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} gh-pages
+          # Push (force to handle concurrent gh-pages updates from docs workflow)
+          git push --force https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} gh-pages
 
           echo "✅ Pushed to gh-pages"
         continue-on-error: true
