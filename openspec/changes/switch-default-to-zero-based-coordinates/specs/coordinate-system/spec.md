@@ -59,11 +59,11 @@ The library SHALL provide a DataFusion-style session configuration system for co
 
 #### Scenario: Default configuration value
 - **WHEN** no configuration has been set
-- **THEN** `datafusion.bio.coordinate_system_zero_based` SHALL default to `True` (0-based coordinates)
+- **THEN** `datafusion.bio.coordinate_system_zero_based` SHALL default to `False` (1-based coordinates)
 
-#### Scenario: Migration support
-- **WHEN** a user sets `pb.set_option("datafusion.bio.coordinate_system_zero_based", False)`
-- **THEN** all operations SHALL use 1-based coordinates (matching pre-0.19 behavior)
+#### Scenario: Switch to 0-based coordinates
+- **WHEN** a user sets `pb.set_option("datafusion.bio.coordinate_system_zero_based", True)`
+- **THEN** all operations SHALL use 0-based coordinates (matching Python bioinformatics ecosystem)
 
 ### Requirement: Coordinate System Mismatch Validation
 
