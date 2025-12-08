@@ -13,7 +13,7 @@
 ## Tech Stack
 
 ### Core Languages
-- **Python** (>=3.9, <3.14) - Primary API and user-facing interface
+- **Python** (>=3.10, <3.14) - Primary API and user-facing interface
 - **Rust** (1.86.0) - Performance-critical native extensions via PyO3
 
 ### Python Dependencies
@@ -108,8 +108,16 @@
 
 ### Genomic Intervals
 - A genomic interval represents a region on a chromosome: `(chromosome, start, end)`
-- Coordinates are typically 0-based, half-open `[start, end)`
+- polars-bio defaults to **1-based closed** coordinates `[start, end]` (matching VCF, GFF, SAM/BAM native formats)
+- 0-based half-open coordinates `[start, end)` can be enabled via `use_zero_based=True` at I/O time
 - Common column names: `chrom`/`contig`, `start`/`chromStart`, `end`/`chromEnd`
+
+### Coordinate System Configuration
+- **Session parameters**:
+  - `datafusion.bio.coordinate_system_zero_based` - Default coordinate system (default: `"false"` = 1-based)
+  - `datafusion.bio.coordinate_system_check` - Metadata validation behavior (default: `"true"` = strict)
+- **DataFrame metadata**: Coordinate system is stored as metadata on DataFrames via `polars-config-meta`
+- **Range operations**: Read coordinate system from DataFrame metadata (no explicit parameter)
 
 ### Key Operations
 - **Overlap**: Find intervals that share genomic positions
@@ -131,7 +139,7 @@
 1. **Performance Critical**: Operations must handle millions of intervals efficiently
 2. **Memory Efficiency**: Support out-of-core processing for large datasets
 3. **Cross-Platform**: Must build wheels for Linux, macOS (arm64/x86_64), Windows
-4. **Python Version Support**: 3.9 through 3.13
+4. **Python Version Support**: 3.10 through 3.13
 5. **Rust Compiler Warnings**: All warnings treated as errors in CI (`-Dwarnings`)
 
 ## External Dependencies

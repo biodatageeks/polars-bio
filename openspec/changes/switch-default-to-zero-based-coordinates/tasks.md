@@ -195,8 +195,8 @@ Add `datafusion.bio.coordinate_system_check` session parameter to allow processi
   - Add explanation that coordinate system is read from DataFrame metadata
   - Document that `MissingCoordinateSystemError` is raised if metadata is missing
   - Document how to set metadata for each input type (Polars, Pandas, file paths)
-- [ ] 8.4 Update tutorials to reflect 1-based default
-- [ ] 8.5 Add migration guide for users upgrading from previous versions:
+- [x] 8.4 Update tutorials to reflect 1-based default
+- [x] 8.5 Add migration guide for users upgrading from previous versions:
   - Explain removal of `use_zero_based` parameter from range operations
   - Explain rename of `one_based` to `use_zero_based` in I/O functions
   - Explain new metadata-based approach
@@ -211,7 +211,7 @@ Add `datafusion.bio.coordinate_system_check` session parameter to allow processi
     - Polars: `lf.config_meta.set(coordinate_system_zero_based=True)`
     - Pandas: `df.attrs["coordinate_system_zero_based"] = True`
     - File paths: Use `pb.scan_*()` to ensure Arrow metadata is set
-- [ ] 8.8 Update `openspec/project.md` domain context section
+- [x] 8.8 Update `openspec/project.md` domain context section
 
 ## 9. Validation
 
