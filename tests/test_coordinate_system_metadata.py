@@ -1197,6 +1197,177 @@ class TestMetadataPreservationThroughTransformations:
         assert get_coordinate_system(lf_transformed) is True
 
 
+class TestMetadataPropagationToResults:
+    """Tests for coordinate system metadata propagation to range operation results.
+
+    Range operations (overlap, nearest, coverage, count_overlaps) should propagate
+    the coordinate system metadata from their inputs to their outputs. This enables
+    chaining operations without manually re-tagging results.
+    """
+
+    def test_overlap_propagates_zero_based_metadata_to_dataframe(self):
+        """Test that overlap propagates 0-based metadata to polars.DataFrame result."""
+        df1 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [100, 300], "end": [200, 400]}
+        )
+        df2 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [150, 350], "end": [250, 450]}
+        )
+        set_coordinate_system(df1, zero_based=True)
+        set_coordinate_system(df2, zero_based=True)
+
+        result = pb.overlap(df1, df2, output_type="polars.DataFrame")
+        assert get_coordinate_system(result) is True
+
+    def test_overlap_propagates_one_based_metadata_to_dataframe(self):
+        """Test that overlap propagates 1-based metadata to polars.DataFrame result."""
+        df1 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [100, 300], "end": [200, 400]}
+        )
+        df2 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [150, 350], "end": [250, 450]}
+        )
+        set_coordinate_system(df1, zero_based=False)
+        set_coordinate_system(df2, zero_based=False)
+
+        result = pb.overlap(df1, df2, output_type="polars.DataFrame")
+        assert get_coordinate_system(result) is False
+
+    def test_overlap_propagates_metadata_to_lazyframe(self):
+        """Test that overlap propagates metadata to polars.LazyFrame result."""
+        df1 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [100, 300], "end": [200, 400]}
+        )
+        df2 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [150, 350], "end": [250, 450]}
+        )
+        set_coordinate_system(df1, zero_based=True)
+        set_coordinate_system(df2, zero_based=True)
+
+        result = pb.overlap(df1, df2, output_type="polars.LazyFrame")
+        assert get_coordinate_system(result) is True
+
+    def test_overlap_propagates_metadata_to_pandas(self):
+        """Test that overlap propagates metadata to pandas.DataFrame result."""
+        df1 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [100, 300], "end": [200, 400]}
+        )
+        df2 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [150, 350], "end": [250, 450]}
+        )
+        set_coordinate_system(df1, zero_based=True)
+        set_coordinate_system(df2, zero_based=True)
+
+        result = pb.overlap(df1, df2, output_type="pandas.DataFrame")
+        assert get_coordinate_system(result) is True
+
+    def test_coverage_propagates_metadata(self):
+        """Test that coverage propagates coordinate system metadata."""
+        df1 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [100, 300], "end": [200, 400]}
+        )
+        df2 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [150, 350], "end": [250, 450]}
+        )
+        set_coordinate_system(df1, zero_based=True)
+        set_coordinate_system(df2, zero_based=True)
+
+        result = pb.coverage(df1, df2, output_type="polars.DataFrame")
+        assert get_coordinate_system(result) is True
+
+    def test_count_overlaps_propagates_metadata(self):
+        """Test that count_overlaps propagates coordinate system metadata."""
+        df1 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [100, 300], "end": [200, 400]}
+        )
+        df2 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [150, 350], "end": [250, 450]}
+        )
+        set_coordinate_system(df1, zero_based=False)
+        set_coordinate_system(df2, zero_based=False)
+
+        result = pb.count_overlaps(df1, df2, output_type="polars.DataFrame")
+        assert get_coordinate_system(result) is False
+
+    def test_nearest_propagates_metadata(self):
+        """Test that nearest propagates coordinate system metadata."""
+        df1 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [100, 300], "end": [200, 400]}
+        )
+        df2 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [150, 350], "end": [250, 450]}
+        )
+        set_coordinate_system(df1, zero_based=True)
+        set_coordinate_system(df2, zero_based=True)
+
+        result = pb.nearest(df1, df2, output_type="polars.DataFrame")
+        assert get_coordinate_system(result) is True
+
+    def test_merge_propagates_metadata(self):
+        """Test that merge propagates coordinate system metadata."""
+        df = pl.DataFrame(
+            {
+                "chrom": ["chr1", "chr1", "chr1"],
+                "start": [100, 150, 300],
+                "end": [200, 250, 400],
+            }
+        )
+        set_coordinate_system(df, zero_based=True)
+
+        result = pb.merge(df, output_type="polars.DataFrame")
+        assert get_coordinate_system(result) is True
+
+    def test_chained_overlap_then_nearest_preserves_metadata(self):
+        """Test that chaining overlap then nearest preserves metadata."""
+        df1 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [100, 300], "end": [200, 400]}
+        )
+        df2 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [150, 350], "end": [250, 450]}
+        )
+        df3 = pl.DataFrame({"chrom": ["chr1"], "start": [175], "end": [225]})
+        set_coordinate_system(df1, zero_based=True)
+        set_coordinate_system(df2, zero_based=True)
+        set_coordinate_system(df3, zero_based=True)
+
+        # First operation
+        overlap_result = pb.overlap(df1, df2, output_type="polars.DataFrame")
+        assert get_coordinate_system(overlap_result) is True
+
+        # Rename columns to match expected format for nearest
+        overlap_result = overlap_result.rename(
+            {"chrom_1": "chrom", "start_1": "start", "end_1": "end"}
+        ).select(["chrom", "start", "end"])
+        # Re-apply metadata after column operations
+        set_coordinate_system(overlap_result, zero_based=True)
+
+        # Second operation - should work without MissingCoordinateSystemError
+        nearest_result = pb.nearest(overlap_result, df3, output_type="polars.DataFrame")
+        assert get_coordinate_system(nearest_result) is True
+
+    def test_propagated_metadata_enables_chained_operations(self):
+        """Test that propagated metadata enables subsequent range operations.
+
+        This is a regression test for the Codex review issue where chained
+        operations would fail with MissingCoordinateSystemError.
+        """
+        df1 = pl.DataFrame(
+            {"chrom": ["chr1", "chr1"], "start": [100, 300], "end": [200, 400]}
+        )
+        df2 = pl.DataFrame({"chrom": ["chr1"], "start": [150], "end": [250]})
+        set_coordinate_system(df1, zero_based=True)
+        set_coordinate_system(df2, zero_based=True)
+
+        # coverage result should have metadata
+        coverage_result = pb.coverage(df1, df2, output_type="polars.DataFrame")
+        assert get_coordinate_system(coverage_result) is True
+
+        # Should be able to use coverage result in another operation
+        # (merge only needs single input)
+        merge_result = pb.merge(coverage_result, output_type="polars.DataFrame")
+        assert get_coordinate_system(merge_result) is True
+
+
 class TestUnsignedIntegerSupport:
     """Tests for UInt32/UInt64 column support in range operations.
 

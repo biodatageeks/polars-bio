@@ -10,6 +10,7 @@ from polars_bio.polars_bio import ReadOptions
 
 from ._metadata import (
     get_coordinate_system,
+    set_coordinate_system,
     validate_coordinate_system_single,
     validate_coordinate_systems,
 )
@@ -704,4 +705,10 @@ class IntervalOperations:
             )
         )
 
-        return convert_result(result, output_type)
+        output = convert_result(result, output_type)
+
+        # Propagate coordinate system metadata to result
+        if output_type in ("polars.DataFrame", "polars.LazyFrame", "pandas.DataFrame"):
+            set_coordinate_system(output, zero_based)
+
+        return output
