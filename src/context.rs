@@ -2,9 +2,11 @@ use std::collections::HashMap;
 
 use datafusion::config::ConfigOptions;
 use datafusion::prelude::{SessionConfig, SessionContext};
+use datafusion_python::dataframe::PyDataFrame;
 use log::debug;
-use pyo3::{pyclass, pymethods, PyResult};
+use pyo3::{pyclass, pymethods, PyResult, Python};
 use sequila_core::session_context::{SeQuiLaSessionExt, SequilaConfig};
+use tokio::runtime::Runtime;
 
 #[pyclass(name = "BioSessionContext")]
 // #[derive(Clone)]
@@ -51,6 +53,28 @@ impl PyBioSessionContext {
             debug!("Setting option {} to {}", key, value);
             set_option_internal(&self.ctx, key, value);
         }
+    }
+
+    /// Returns a DataFrame for a registered table by name.
+    #[pyo3(signature = (name))]
+    pub fn table(&self, name: &str, py: Python) -> PyResult<PyDataFrame> {
+        let table_name = name.to_string();
+        py.allow_threads(|| {
+            let rt = Runtime::new().map_err(|e| {
+                pyo3::exceptions::PyRuntimeError::new_err(format!(
+                    "Failed to create Tokio runtime: {}",
+                    e
+                ))
+            })?;
+            let ctx = &self.ctx;
+            match rt.block_on(ctx.table(&table_name)) {
+                Ok(df) => Ok(PyDataFrame::new(df)),
+                Err(e) => Err(pyo3::exceptions::PyKeyError::new_err(format!(
+                    "Table '{}' not found: {}",
+                    table_name, e
+                ))),
+            }
+        })
     }
 }
 
