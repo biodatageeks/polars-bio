@@ -284,6 +284,35 @@ pb.register_vcf("gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.
 pb.sql("SELECT * FROM gnomad_sv WHERE SVTYPE = 'DEL' AND SVLEN > 1000").limit(3).collect()
 ```
 
+### Accessing registered tables
+
+You can access registered tables programmatically using the `ctx.table()` method, which returns a DataFusion DataFrame:
+
+```python
+import polars_bio as pb
+from polars_bio.context import ctx
+
+# Register a file as a table
+pb.register_vcf("variants.vcf", name="my_variants")
+
+# Get the table as a DataFusion DataFrame
+df = ctx.table("my_variants")
+
+# Access the Arrow schema (includes coordinate system metadata)
+schema = df.schema()
+print(schema.metadata)  # {b'bio.coordinate_system_zero_based': b'false'}
+
+# Execute queries on the DataFrame
+result = df.filter(df["chrom"] == "chr1").collect()
+```
+
+!!! tip
+    The `ctx.table()` method is useful for:
+
+    1. Accessing Arrow schema metadata (including coordinate system information)
+    2. Using the DataFusion DataFrame API directly
+    3. Integrating with other DataFusion-based tools
+
 ```shell
 shape: (3, 10)
 ┌───────┬───────┬───────┬────────────────────────────────┬───┬───────┬────────────┬────────┬───────┐
