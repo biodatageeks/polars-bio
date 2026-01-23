@@ -4,7 +4,8 @@ use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use arrow_array::{
-    Array, GenericStringArray, Int32Array, Int64Array, RecordBatch, StringViewArray,
+    Array, GenericStringArray, Int32Array, Int64Array, RecordBatch, StringViewArray, UInt32Array,
+    UInt64Array,
 };
 use arrow_schema::{DataType, Field, FieldRef, Schema, SchemaRef};
 use async_trait::async_trait;
@@ -297,6 +298,8 @@ impl ContigArray<'_> {
 enum PosArray<'a> {
     Int32(&'a Int32Array),
     Int64(&'a Int64Array),
+    UInt32(&'a UInt32Array),
+    UInt64(&'a UInt64Array),
 }
 
 impl PosArray<'_> {
@@ -304,6 +307,8 @@ impl PosArray<'_> {
         match self {
             PosArray::Int32(arr) => arr.value(i),
             PosArray::Int64(arr) => arr.value(i) as i32,
+            PosArray::UInt32(arr) => arr.value(i) as i32,
+            PosArray::UInt64(arr) => arr.value(i) as i32,
         }
     }
 }
@@ -362,7 +367,25 @@ fn get_join_col_arrays(
                 .unwrap();
             PosArray::Int64(start_arr)
         },
-        _ => todo!(),
+        DataType::UInt32 => {
+            let start_arr = batch
+                .column_by_name(&columns.1)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<UInt32Array>()
+                .unwrap();
+            PosArray::UInt32(start_arr)
+        },
+        DataType::UInt64 => {
+            let start_arr = batch
+                .column_by_name(&columns.1)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .unwrap();
+            PosArray::UInt64(start_arr)
+        },
+        dt => panic!("Unsupported data type for start column: {:?}", dt),
     };
 
     let end_arr = match batch.column_by_name(&columns.2).unwrap().data_type() {
@@ -384,7 +407,25 @@ fn get_join_col_arrays(
                 .unwrap();
             PosArray::Int64(end_arr)
         },
-        _ => todo!(),
+        DataType::UInt32 => {
+            let end_arr = batch
+                .column_by_name(&columns.2)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<UInt32Array>()
+                .unwrap();
+            PosArray::UInt32(end_arr)
+        },
+        DataType::UInt64 => {
+            let end_arr = batch
+                .column_by_name(&columns.2)
+                .unwrap()
+                .as_any()
+                .downcast_ref::<UInt64Array>()
+                .unwrap();
+            PosArray::UInt64(end_arr)
+        },
+        dt => panic!("Unsupported data type for end column: {:?}", dt),
     };
 
     (contig_arr, start_arr, end_arr)
