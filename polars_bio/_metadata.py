@@ -21,6 +21,35 @@ def _has_config_meta(df) -> bool:
     return hasattr(df, "config_meta")
 
 
+def _is_file_path(s: str) -> bool:
+    """Check if a string looks like a file path.
+
+    Detects file paths by checking for:
+    - Path separators (/, \\)
+    - Relative path prefixes (./, ../)
+    - Common bioinformatics file extensions
+    """
+    import os
+
+    common_extensions = {
+        ".bed",
+        ".vcf",
+        ".gff",
+        ".gff3",
+        ".bam",
+        ".cram",
+        ".parquet",
+        ".csv",
+    }
+    _, ext = os.path.splitext(s.lower())
+    return (
+        os.path.sep in s
+        or s.startswith("./")
+        or s.startswith("../")
+        or ext in common_extensions
+    )
+
+
 def set_coordinate_system(
     df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame], zero_based: bool
 ) -> None:
@@ -89,6 +118,10 @@ def get_coordinate_system(
     elif isinstance(df, pd.DataFrame):
         return df.attrs.get(COORDINATE_SYSTEM_KEY)
     elif isinstance(df, str):
+        # File paths cannot have metadata until they're read by I/O functions
+        if _is_file_path(df):
+            return None
+
         # Table name - read from Arrow schema metadata
         if ctx is None:
             from .context import ctx as default_ctx
@@ -98,9 +131,19 @@ def get_coordinate_system(
             table = ctx.table(df)
             schema = table.schema()
             metadata = schema.metadata or {}
-            key = "bio.coordinate_system_zero_based"
-            if key in metadata:
-                return metadata[key].lower() == "true"
+            # Handle both str and bytes keys/values (Arrow metadata can be bytes)
+            key_str = "bio.coordinate_system_zero_based"
+            key_bytes = b"bio.coordinate_system_zero_based"
+            if key_str in metadata:
+                value = metadata[key_str]
+                if isinstance(value, bytes):
+                    value = value.decode("utf-8")
+                return value.lower() == "true"
+            elif key_bytes in metadata:
+                value = metadata[key_bytes]
+                if isinstance(value, bytes):
+                    value = value.decode("utf-8")
+                return value.lower() == "true"
         except Exception:
             pass
         return None
@@ -125,6 +168,8 @@ def _get_input_type_name(
     elif isinstance(df, pd.DataFrame):
         return "Pandas DataFrame"
     elif isinstance(df, str):
+        if _is_file_path(df):
+            return f"file path '{df}'"
         return f"table '{df}'"
     else:
         return type(df).__name__
@@ -145,9 +190,16 @@ def _get_metadata_hint(df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str])
             '  df.attrs["coordinate_system_zero_based"] = False  # for 1-based coords'
         )
     elif isinstance(df, str):
+        if _is_file_path(df):
+            return (
+                "For file paths, use polars-bio I/O functions (scan_*, read_*) "
+                "instead of passing the path directly, as they set coordinate system metadata.\n"
+                "Alternatively, disable strict checking with:\n"
+                '  pb.set_option("datafusion.bio.coordinate_system_check", False)'
+            )
         return (
-            "For file paths, use polars-bio I/O functions (scan_*, read_*) "
-            "instead of passing the path directly, as they set Arrow schema metadata."
+            "For registered tables, ensure the table was registered with coordinate system "
+            "metadata. Use polars-bio I/O functions (scan_*, read_*) to load data first."
         )
     else:
         return "Use polars-bio I/O functions to ensure metadata is set correctly."
