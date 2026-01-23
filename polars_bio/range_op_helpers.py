@@ -6,6 +6,7 @@ import polars as pl
 
 from polars_bio.polars_bio import (
     BioSessionContext,
+    FilterOp,
     RangeOp,
     RangeOptions,
     ReadOptions,
@@ -13,6 +14,7 @@ from polars_bio.polars_bio import (
     range_operation_scan,
 )
 
+from ._metadata import set_coordinate_system
 from .constants import TMP_CATALOG_DIR
 from .logging import logger
 from .range_op_io import _df_to_reader, _get_schema, _rename_columns, range_lazy_scan
@@ -21,6 +23,35 @@ try:
     import pandas as pd
 except ImportError:
     pd = None
+
+
+def _get_zero_based_from_filter_op(filter_op: FilterOp) -> bool:
+    """Derive zero_based value from FilterOp.
+
+    FilterOp.Strict means 0-based (half-open) coordinates.
+    FilterOp.Weak means 1-based (closed) coordinates.
+    """
+    return filter_op == FilterOp.Strict
+
+
+def _set_result_metadata(
+    result: Union[pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+    zero_based: bool,
+) -> Union[pl.DataFrame, pl.LazyFrame, "pd.DataFrame"]:
+    """Set coordinate system metadata on a range operation result.
+
+    Args:
+        result: The DataFrame result from a range operation.
+        zero_based: True for 0-based, False for 1-based coordinates.
+
+    Returns:
+        The same result with metadata set.
+    """
+    if isinstance(result, (pl.DataFrame, pl.LazyFrame)):
+        set_coordinate_system(result, zero_based)
+    elif pd is not None and isinstance(result, pd.DataFrame):
+        set_coordinate_system(result, zero_based)
+    return result
 
 
 def _generate_overlap_schema(
@@ -158,8 +189,11 @@ def range_operation(
             # Nearest adds an extra computed column
             if range_options.range_op == RangeOp.Nearest:
                 merged_schema = pl.Schema({**merged_schema, **{"distance": pl.Int64}})
+        # Derive coordinate system from filter_op for metadata propagation
+        zero_based = _get_zero_based_from_filter_op(range_options.filter_op)
+
         if output_type == "polars.LazyFrame":
-            return range_lazy_scan(
+            result = range_lazy_scan(
                 df1,
                 df2,
                 merged_schema,
@@ -169,8 +203,9 @@ def range_operation(
                 read_options2=read_options2,
                 projection_pushdown=projection_pushdown,
             )
+            return _set_result_metadata(result, zero_based)
         elif output_type == "polars.DataFrame":
-            return range_operation_scan(
+            result = range_operation_scan(
                 ctx,
                 df1,
                 df2,
@@ -178,6 +213,7 @@ def range_operation(
                 read_options1,
                 read_options2,
             ).to_polars()
+            return _set_result_metadata(result, zero_based)
         elif output_type == "pandas.DataFrame":
             if pd is None:
                 raise ImportError(
@@ -191,8 +227,8 @@ def range_operation(
                 range_options,
                 read_options1,
                 read_options2,
-            )
-            return result.to_pandas()
+            ).to_pandas()
+            return _set_result_metadata(result, zero_based)
         elif output_type == "datafusion.DataFrame":
             return range_operation_scan(
                 ctx,
@@ -208,6 +244,9 @@ def range_operation(
                 "are supported"
             )
     else:
+        # Derive coordinate system from filter_op for metadata propagation
+        zero_based = _get_zero_based_from_filter_op(range_options.filter_op)
+
         if output_type == "polars.LazyFrame":
             # Get base schemas without suffixes
             df1_base_schema = _rename_columns(df1, "").schema
@@ -224,7 +263,7 @@ def range_operation(
                 merged_schema = pl.Schema({**merged_schema, **{"count": pl.Int64}})
             elif range_options.range_op == RangeOp.Coverage:
                 merged_schema = pl.Schema({**merged_schema, **{"coverage": pl.Int64}})
-            return range_lazy_scan(
+            result = range_lazy_scan(
                 df1,
                 df2,
                 merged_schema,
@@ -232,6 +271,7 @@ def range_operation(
                 ctx,
                 projection_pushdown=projection_pushdown,
             )
+            return _set_result_metadata(result, zero_based)
         else:
             df1 = _df_to_reader(
                 df1,
@@ -248,14 +288,16 @@ def range_operation(
                 range_options,
             )
             if output_type == "polars.DataFrame":
-                return result.to_polars()
+                result_df = result.to_polars()
+                return _set_result_metadata(result_df, zero_based)
             elif output_type == "pandas.DataFrame":
                 if pd is None:
                     raise ImportError(
                         "pandas is not installed. Install pandas or "
                         "use `polars-bio[pandas]`."
                     )
-                return result.to_pandas()
+                result_df = result.to_pandas()
+                return _set_result_metadata(result_df, zero_based)
             else:
                 raise ValueError(
                     "Only polars.LazyFrame, polars.DataFrame and pandas "
