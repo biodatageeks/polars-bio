@@ -3,6 +3,7 @@
 import re
 import tempfile
 from pathlib import Path
+from typing import List
 
 import polars as pl
 import pytest
@@ -12,7 +13,7 @@ from polars_bio.polars_bio import RangeOp
 from tests._expected import DATA_DIR
 
 
-def extract_projected_columns_from_plan(plan_str: str) -> list[int]:
+def extract_projected_columns_from_plan(plan_str: str) -> List[int]:
     """Extract projected column indices from DataFusion execution plan.
 
     Returns list of column indices that are projected in the plan.
@@ -126,83 +127,75 @@ class TestProjectionPushdown:
 
     def test_projection_pushdown_interval_operations(self):
         """Test projection pushdown with interval operations validates column pruning."""
-        # Create test data
-        with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as f1:
-            df1 = pl.DataFrame(
-                {
-                    "chrom": ["chr1", "chr1", "chr2"],
-                    "start": [100, 500, 200],
-                    "end": [200, 600, 300],
-                    "name": ["A", "B", "C"],
-                    "score": [10, 20, 30],
-                }
-            )
-            df1.write_parquet(f1.name)
+        # Create test data as DataFrames with metadata
+        df1 = pl.DataFrame(
+            {
+                "chrom": ["chr1", "chr1", "chr2"],
+                "start": [100, 500, 200],
+                "end": [200, 600, 300],
+                "name": ["A", "B", "C"],
+                "score": [10, 20, 30],
+            }
+        )
+        df1.config_meta.set(coordinate_system_zero_based=True)
 
-        with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as f2:
-            df2 = pl.DataFrame(
-                {
-                    "chrom": ["chr1", "chr1", "chr2"],
-                    "start": [150, 550, 250],
-                    "end": [250, 650, 350],
-                    "type": ["X", "Y", "Z"],
-                    "value": [1.5, 2.5, 3.5],
-                }
-            )
-            df2.write_parquet(f2.name)
+        df2 = pl.DataFrame(
+            {
+                "chrom": ["chr1", "chr1", "chr2"],
+                "start": [150, 550, 250],
+                "end": [250, 650, 350],
+                "type": ["X", "Y", "Z"],
+                "value": [1.5, 2.5, 3.5],
+            }
+        )
+        df2.config_meta.set(coordinate_system_zero_based=True)
 
-        try:
-            # First get full result to know all available columns
-            full_result = pb.overlap(
-                f1.name,
-                f2.name,
-                projection_pushdown=False,
-                output_type="polars.LazyFrame",
-            ).collect()
-            all_columns = set(full_result.columns)
+        # First get full result to know all available columns
+        full_result = pb.overlap(
+            df1,
+            df2,
+            projection_pushdown=False,
+            output_type="polars.LazyFrame",
+        ).collect()
+        all_columns = set(full_result.columns)
 
-            # Test overlap with projection pushdown and column selection
-            lazy_result = pb.overlap(
-                f1.name,
-                f2.name,
-                projection_pushdown=True,
-                output_type="polars.LazyFrame",
-            )
+        # Test overlap with projection pushdown and column selection
+        lazy_result = pb.overlap(
+            df1,
+            df2,
+            projection_pushdown=True,
+            output_type="polars.LazyFrame",
+        )
 
-            # Select only specific columns
-            requested_columns = [
-                "chrom_1",
-                "start_1",
-                "end_1",
-                "chrom_2",
-                "start_2",
-                "end_2",
-            ]
-            selected_result = lazy_result.select(requested_columns)
-            collected = selected_result.collect()
+        # Select only specific columns
+        requested_columns = [
+            "chrom_1",
+            "start_1",
+            "end_1",
+            "chrom_2",
+            "start_2",
+            "end_2",
+        ]
+        selected_result = lazy_result.select(requested_columns)
+        collected = selected_result.collect()
 
-            # Validate column pruning: result should have EXACTLY the requested columns
-            result_columns = set(collected.columns)
-            requested_columns_set = set(requested_columns)
+        # Validate column pruning: result should have EXACTLY the requested columns
+        result_columns = set(collected.columns)
+        requested_columns_set = set(requested_columns)
 
-            assert len(collected) > 0
-            assert result_columns == requested_columns_set, (
-                f"Column pruning failed for interval operations. "
-                f"Expected exactly {requested_columns_set}, but got {result_columns}. "
-                f"Extra columns: {result_columns - requested_columns_set}, "
-                f"Missing columns: {requested_columns_set - result_columns}"
-            )
+        assert len(collected) > 0
+        assert result_columns == requested_columns_set, (
+            f"Column pruning failed for interval operations. "
+            f"Expected exactly {requested_columns_set}, but got {result_columns}. "
+            f"Extra columns: {result_columns - requested_columns_set}, "
+            f"Missing columns: {requested_columns_set - result_columns}"
+        )
 
-            # Verify that we didn't get all columns (actual pruning occurred)
-            assert result_columns != all_columns, (
-                f"No column pruning occurred in interval operations. "
-                f"Got all {len(all_columns)} columns instead of requested {len(requested_columns)} columns"
-            )
-
-        finally:
-            # Clean up temporary files
-            Path(f1.name).unlink(missing_ok=True)
-            Path(f2.name).unlink(missing_ok=True)
+        # Verify that we didn't get all columns (actual pruning occurred)
+        assert result_columns != all_columns, (
+            f"No column pruning occurred in interval operations. "
+            f"Got all {len(all_columns)} columns instead of requested {len(requested_columns)} columns"
+        )
 
     def test_projection_pushdown_behavior_difference(self):
         """Test that projection pushdown works correctly when column selection is applied."""

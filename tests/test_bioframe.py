@@ -7,6 +7,10 @@ import polars_bio as pb
 
 pb.ctx.set_option("datafusion.execution.parquet.schema_force_view_types", "true", False)
 
+# Set coordinate system metadata on pandas DataFrames (0-based for bioframe compatibility)
+BIO_PD_DF1.attrs["coordinate_system_zero_based"] = True
+BIO_PD_DF2.attrs["coordinate_system_zero_based"] = True
+
 
 class TestBioframe:
     result_overlap = pb.overlap(
@@ -16,7 +20,6 @@ class TestBioframe:
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
         suffixes=("_1", "_3"),
-        use_zero_based=True,
     )
     result_overlap_lf = (
         pb.overlap(
@@ -26,7 +29,6 @@ class TestBioframe:
             cols2=("contig", "pos_start", "pos_end"),
             output_type="polars.LazyFrame",
             suffixes=("_1", "_3"),
-            use_zero_based=True,
         )
         .collect()
         .to_pandas()
@@ -46,7 +48,6 @@ class TestBioframe:
         BIO_PD_DF2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        use_zero_based=True,
         output_type="pandas.DataFrame",
     )
     result_bio_nearest = bf.closest(
@@ -62,17 +63,22 @@ class TestBioframe:
         BIO_PD_DF2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        use_zero_based=True,
         output_type="pandas.DataFrame",
         naive_query=False,
     )
 
+    # For file paths, we need to use polars scan with metadata set.
+    import polars as pl
+
+    _df1_parquet = pl.scan_parquet(BIO_DF_PATH1)
+    _df1_parquet.config_meta.set(coordinate_system_zero_based=True)
+    _df2_parquet = pl.scan_parquet(BIO_DF_PATH2)
+    _df2_parquet.config_meta.set(coordinate_system_zero_based=True)
     result_count_overlaps_naive = pb.count_overlaps(
-        BIO_DF_PATH1,
-        BIO_DF_PATH2,
+        _df1_parquet,
+        _df2_parquet,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
-        use_zero_based=True,
         naive_query=True,
     )
 
@@ -86,13 +92,11 @@ class TestBioframe:
 
     result_merge = pb.merge(
         BIO_PD_DF1,
-        use_zero_based=True,
         cols=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
     )
     result_merge_lf = pb.merge(
         BIO_PD_DF1,
-        use_zero_based=True,
         cols=("contig", "pos_start", "pos_end"),
         output_type="polars.LazyFrame",
     )
@@ -187,7 +191,6 @@ class TestBioframe:
             cols1=("contig", "pos_start", "pos_end"),
             cols2=("contig", "pos_start", "pos_end"),
             output_type="pandas.DataFrame",
-            use_zero_based=True,
         )
         result_bio = bf.coverage(
             BIO_PD_DF1,
@@ -205,7 +208,6 @@ class TestBioframe:
             cols1=("contig", "pos_start", "pos_end"),
             cols2=("contig", "pos_start", "pos_end"),
             output_type="pandas.DataFrame",
-            use_zero_based=True,
         )
         result_bio = bf.coverage(
             BIO_PD_DF1,

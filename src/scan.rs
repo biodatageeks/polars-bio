@@ -175,6 +175,7 @@ pub(crate) async fn register_table(
                 vcf_read_options.format_fields,
                 vcf_read_options.thread_num,
                 vcf_read_options.object_storage_options.clone(),
+                vcf_read_options.zero_based,
             )
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
@@ -198,6 +199,7 @@ pub(crate) async fn register_table(
                     let table_provider = BgzfParallelGffTableProvider::try_new(
                         path,
                         gff_read_options.attr_fields.clone(),
+                        gff_read_options.zero_based,
                     )
                     .unwrap();
                     ctx.register_table(table_name, Arc::new(table_provider))
@@ -208,6 +210,7 @@ pub(crate) async fn register_table(
                     match BgzfParallelGffTableProvider::try_new(
                         path,
                         gff_read_options.attr_fields.clone(),
+                        gff_read_options.zero_based,
                     ) {
                         Ok(table_provider) => {
                             ctx.register_table(table_name, Arc::new(table_provider))
@@ -226,6 +229,7 @@ pub(crate) async fn register_table(
                     gff_read_options.attr_fields,
                     gff_read_options.thread_num,
                     gff_read_options.object_storage_options.clone(),
+                    gff_read_options.zero_based,
                 )
                 .unwrap();
                 ctx.register_table(table_name, Arc::new(table_provider))
@@ -248,6 +252,7 @@ pub(crate) async fn register_table(
                 path.to_string(),
                 bam_read_options.thread_num,
                 bam_read_options.object_storage_options.clone(),
+                bam_read_options.zero_based,
             )
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
@@ -270,6 +275,7 @@ pub(crate) async fn register_table(
                 BEDFields::BED4,
                 bed_read_options.thread_num,
                 bed_read_options.object_storage_options.clone(),
+                bed_read_options.zero_based,
             )
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
@@ -314,6 +320,7 @@ pub(crate) async fn register_table(
                 path.to_string(),
                 cram_read_options.reference_path,
                 cram_read_options.object_storage_options.clone(),
+                cram_read_options.zero_based,
             )
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))

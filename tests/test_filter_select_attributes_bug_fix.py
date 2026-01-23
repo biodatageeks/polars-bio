@@ -182,9 +182,12 @@ class TestFilterSelectAttributesBug:
 
     def test_complex_filter_with_attributes(self, test_gff_file):
         """Test complex filters with attribute column selection."""
+        # Note: coordinates are 1-based by default
+        # GFF file has: chr1 gene 1000-2000, chr2 gene 5000-6000 (1-based in file)
+        # With 1-based (default): chr1 gene 1000-2000, chr2 gene 5000-6000
         predicate = (
             (pl.col("chrom").is_in(["chr1", "chr2"]))
-            & (pl.col("start") >= 1000)
+            & (pl.col("start") >= 1000)  # 1-based (default)
             & (pl.col("end") <= 6000)
             & (pl.col("type") == "gene")
         )

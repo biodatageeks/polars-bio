@@ -1,5 +1,6 @@
 import bioframe as bf
 import pandas as pd
+import polars as pl
 from _expected import (
     BIO_DF_PATH1,
     BIO_DF_PATH2,
@@ -21,14 +22,23 @@ from _expected import (
 import polars_bio as pb
 
 
+def _load_csv_with_metadata(path: str, zero_based: bool = False) -> pl.LazyFrame:
+    """Load CSV file as LazyFrame with coordinate system metadata."""
+    lf = pl.scan_csv(path)
+    lf.config_meta.set(coordinate_system_zero_based=zero_based)
+    return lf
+
+
 class TestOverlapNative:
+    # Load data with 1-based metadata (zero_based=False)
+    _df1 = _load_csv_with_metadata(DF_OVER_PATH1, zero_based=False)
+    _df2 = _load_csv_with_metadata(DF_OVER_PATH2, zero_based=False)
     result_csv = pb.overlap(
-        DF_OVER_PATH1,
-        DF_OVER_PATH2,
+        _df1,
+        _df2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        use_zero_based=False,
     )
 
     def test_overlap_count(self):
@@ -43,13 +53,14 @@ class TestOverlapNative:
 
 
 class TestNearestNative:
+    _df1 = _load_csv_with_metadata(DF_NEAREST_PATH1, zero_based=False)
+    _df2 = _load_csv_with_metadata(DF_NEAREST_PATH2, zero_based=False)
     result = pb.nearest(
-        DF_NEAREST_PATH1,
-        DF_NEAREST_PATH2,
+        _df1,
+        _df2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        use_zero_based=False,
     )
 
     def test_nearest_count(self):
@@ -65,13 +76,14 @@ class TestNearestNative:
 
 
 class TestCountOverlapsNative:
+    _df1 = _load_csv_with_metadata(DF_COUNT_OVERLAPS_PATH1, zero_based=False)
+    _df2 = _load_csv_with_metadata(DF_COUNT_OVERLAPS_PATH2, zero_based=False)
     result = pb.count_overlaps(
-        DF_COUNT_OVERLAPS_PATH1,
-        DF_COUNT_OVERLAPS_PATH2,
+        _df1,
+        _df2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        use_zero_based=False,
         naive_query=True,
     )
 
@@ -88,11 +100,11 @@ class TestCountOverlapsNative:
 
 
 class TestMergeNative:
+    _df = _load_csv_with_metadata(DF_MERGE_PATH, zero_based=True)
     result = pb.merge(
-        DF_MERGE_PATH,
+        _df,
         cols=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        use_zero_based=True,
     )
 
     def test_merge_count(self):
@@ -108,13 +120,16 @@ class TestMergeNative:
 
 
 class TestCoverageNative:
+    _df1 = pl.scan_parquet(BIO_DF_PATH1)
+    _df1.config_meta.set(coordinate_system_zero_based=True)
+    _df2 = pl.scan_parquet(BIO_DF_PATH2)
+    _df2.config_meta.set(coordinate_system_zero_based=True)
     result = pb.coverage(
-        BIO_DF_PATH1,
-        BIO_DF_PATH2,
+        _df1,
+        _df2,
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        use_zero_based=True,
     )
     result_bio = bf.coverage(
         BIO_PD_DF1,

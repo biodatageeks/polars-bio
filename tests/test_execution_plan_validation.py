@@ -6,13 +6,14 @@ projection works at the execution plan level.
 """
 
 import re
+from typing import List
 
 import pytest
 
 from tests._expected import DATA_DIR
 
 
-def extract_projected_columns_from_plan(plan_str: str) -> list[int]:
+def extract_projected_columns_from_plan(plan_str: str) -> List[int]:
     """Extract projected column indices from DataFusion execution plan."""
     match = re.search(r"projection: Some\(\[(.*?)\]", plan_str)
     if match:

@@ -1,11 +1,18 @@
 import os
 
+import polars_config_meta  # noqa: F401 - initializes DataFrame metadata support
+
 from polars_bio.polars_bio import InputFormat
 from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions
 
 from . import polars_ext  # registers pl.LazyFrame.pb namespace
-from .context import ctx, set_option
+from .constants import (
+    POLARS_BIO_COORDINATE_SYSTEM_CHECK,
+    POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED,
+)
+from .context import ctx, get_option, set_option
+from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemError
 from .io import IOOperations as data_input
 from .logging import set_loglevel
 from .range_op import FilterOp
@@ -82,8 +89,15 @@ __all__ = [
     "ReadOptions",
     "VcfReadOptions",
     "ObjectStorageOptions",
+    "POLARS_BIO_COORDINATE_SYSTEM_CHECK",
+    "POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED",
+    "get_option",
     "set_option",
     "set_loglevel",
+    # Exceptions
+    "CoordinateSystemMismatchError",
+    "MissingCoordinateSystemError",
+    # I/O functions
     "describe_vcf",
     "from_polars",
     "read_bam",

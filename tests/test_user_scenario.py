@@ -11,6 +11,18 @@ import pytest
 import polars_bio as pb
 
 
+def _lf_with_metadata(lf: pl.LazyFrame, zero_based: bool = True) -> pl.LazyFrame:
+    """Add coordinate system metadata to a LazyFrame."""
+    lf.config_meta.set(coordinate_system_zero_based=zero_based)
+    return lf
+
+
+def _df_with_metadata(df: pl.DataFrame, zero_based: bool = True) -> pl.DataFrame:
+    """Add coordinate system metadata to a DataFrame."""
+    df.config_meta.set(coordinate_system_zero_based=zero_based)
+    return df
+
+
 class TestUserScenario:
     """Test the specific user scenario that was failing."""
 
@@ -24,10 +36,12 @@ class TestUserScenario:
                 "end": [150, 250, 350],
             }
         )
+        df.config_meta.set(coordinate_system_zero_based=True)
 
         df2 = pl.LazyFrame(
             {"chrom": ["chr1", "chr2"], "start": [120, 280], "end": [180, 320]}
         )
+        df2.config_meta.set(coordinate_system_zero_based=True)
 
         # This was the exact line that was failing for the user
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -46,8 +60,10 @@ class TestUserScenario:
         df = pl.LazyFrame(
             {"chrom": ["chr1", "chr1"], "start": [100, 200], "end": [150, 250]}
         )
+        df.config_meta.set(coordinate_system_zero_based=True)
 
         df2 = pl.LazyFrame({"chrom": ["chr1"], "start": [120], "end": [180]})
+        df2.config_meta.set(coordinate_system_zero_based=True)
 
         # Test various operations that users might chain after overlap
         result_lazy = pb.overlap(df, df2)
@@ -75,8 +91,10 @@ class TestUserScenario:
         lazy_df = pl.LazyFrame(
             {"chrom": ["chr1", "chr1"], "start": [100, 200], "end": [150, 250]}
         )
+        lazy_df.config_meta.set(coordinate_system_zero_based=True)
 
         regular_df = pl.DataFrame({"chrom": ["chr1"], "start": [120], "end": [180]})
+        regular_df.config_meta.set(coordinate_system_zero_based=True)
 
         # Test both combinations
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -93,8 +111,10 @@ class TestUserScenario:
     def test_lazyframe_default_vs_explicit_output_type(self):
         """Test that default and explicit LazyFrame output work the same."""
         df = pl.LazyFrame({"chrom": ["chr1"], "start": [100], "end": [150]})
+        df.config_meta.set(coordinate_system_zero_based=True)
 
         df2 = pl.LazyFrame({"chrom": ["chr1"], "start": [120], "end": [180]})
+        df2.config_meta.set(coordinate_system_zero_based=True)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             # Default output (should be LazyFrame)

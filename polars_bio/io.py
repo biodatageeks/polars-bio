@@ -1,4 +1,4 @@
-from typing import Dict, Iterator, Union
+from typing import Dict, Iterator, Optional, Union
 
 import polars as pl
 from datafusion import DataFrame
@@ -23,7 +23,8 @@ from polars_bio.polars_bio import (
     py_register_table,
 )
 
-from .context import ctx
+from ._metadata import set_coordinate_system
+from .context import _resolve_zero_based, ctx
 
 SCHEMAS = {
     "bed3": ["chrom", "start", "end"],
@@ -204,6 +205,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
+        use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
         Read a VCF file into a DataFrame.
@@ -220,11 +222,12 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
-            VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
-        return IOOperations.scan_vcf(
+        lf = IOOperations.scan_vcf(
             path,
             info_fields,
             thread_num,
@@ -236,7 +239,15 @@ class IOOperations:
             timeout,
             compression_type,
             projection_pushdown,
-        ).collect()
+            use_zero_based,
+        )
+        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        # Set metadata on the collected DataFrame
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
 
     @staticmethod
     def scan_vcf(
@@ -251,6 +262,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
+        use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a VCF file into a LazyFrame.
@@ -267,9 +279,10 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
-            VCF reader uses **1-based** coordinate system for the `start` and `end` columns.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -304,13 +317,21 @@ class IOOperations:
             # The callback will re-register with only requested info fields for optimization
             initial_info_fields = all_info_fields
 
+        zero_based = _resolve_zero_based(use_zero_based)
         vcf_read_options = VcfReadOptions(
             info_fields=initial_info_fields,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
+            zero_based=zero_based,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
-        return _read_file(path, InputFormat.Vcf, read_options, projection_pushdown)
+        return _read_file(
+            path,
+            InputFormat.Vcf,
+            read_options,
+            projection_pushdown,
+            zero_based=zero_based,
+        )
 
     @staticmethod
     def read_gff(
@@ -327,6 +348,7 @@ class IOOperations:
         projection_pushdown: bool = False,
         predicate_pushdown: bool = False,
         parallel: bool = False,
+        use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
         Read a GFF file into a DataFrame.
@@ -345,11 +367,12 @@ class IOOperations:
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
             predicate_pushdown: Enable predicate pushdown optimization to push filter conditions down to the DataFusion table provider level, reducing data processing and I/O.
             parallel: Whether to use the parallel reader for BGZF-compressed local files (uses BGZF chunk-level parallelism similar to FASTQ).
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
-            GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
-        return IOOperations.scan_gff(
+        lf = IOOperations.scan_gff(
             path,
             attr_fields,
             thread_num,
@@ -363,7 +386,15 @@ class IOOperations:
             projection_pushdown,
             predicate_pushdown,
             parallel,
-        ).collect()
+            use_zero_based,
+        )
+        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        # Set metadata on the collected DataFrame
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
 
     @staticmethod
     def scan_gff(
@@ -380,6 +411,7 @@ class IOOperations:
         projection_pushdown: bool = False,
         predicate_pushdown: bool = False,
         parallel: bool = False,
+        use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a GFF file into a LazyFrame.
@@ -398,9 +430,10 @@ class IOOperations:
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
             predicate_pushdown: Enable predicate pushdown optimization to push filter conditions down to the DataFusion table provider level, reducing data processing and I/O.
             parallel: Whether to use the parallel reader for BGZF-compressed local files (use BGZF chunk-level parallelism similar to FASTQ).
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
-            GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -412,15 +445,22 @@ class IOOperations:
             compression_type=compression_type,
         )
 
+        zero_based = _resolve_zero_based(use_zero_based)
         gff_read_options = GffReadOptions(
             attr_fields=attr_fields,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
             parallel=parallel,
+            zero_based=zero_based,
         )
         read_options = ReadOptions(gff_read_options=gff_read_options)
         return _read_file(
-            path, InputFormat.Gff, read_options, projection_pushdown, predicate_pushdown
+            path,
+            InputFormat.Gff,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
         )
 
     @staticmethod
@@ -434,6 +474,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
+        use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
         Read a BAM file into a DataFrame.
@@ -448,11 +489,12 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
-            BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
-        return IOOperations.scan_bam(
+        lf = IOOperations.scan_bam(
             path,
             thread_num,
             chunk_size,
@@ -462,7 +504,15 @@ class IOOperations:
             max_retries,
             timeout,
             projection_pushdown,
-        ).collect()
+            use_zero_based,
+        )
+        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        # Set metadata on the collected DataFrame
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
 
     @staticmethod
     def scan_bam(
@@ -475,6 +525,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
+        use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a BAM file into a LazyFrame.
@@ -489,9 +540,10 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
-            BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -503,12 +555,20 @@ class IOOperations:
             compression_type="auto",
         )
 
+        zero_based = _resolve_zero_based(use_zero_based)
         bam_read_options = BamReadOptions(
             thread_num=thread_num,
             object_storage_options=object_storage_options,
+            zero_based=zero_based,
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
-        return _read_file(path, InputFormat.Bam, read_options, projection_pushdown)
+        return _read_file(
+            path,
+            InputFormat.Bam,
+            read_options,
+            projection_pushdown,
+            zero_based=zero_based,
+        )
 
     @staticmethod
     def read_cram(
@@ -521,6 +581,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
+        use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
         Read a CRAM file into a DataFrame.
@@ -535,9 +596,10 @@ class IOOperations:
             max_retries: The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
-            CRAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
 
         !!! example "Using External Reference"
             ```python
@@ -593,7 +655,7 @@ class IOOperations:
                 - sequence: Read sequence (String)
                 - quality_scores: Base quality scores (String)
         """
-        return IOOperations.scan_cram(
+        lf = IOOperations.scan_cram(
             path,
             reference_path,
             chunk_size,
@@ -603,7 +665,15 @@ class IOOperations:
             max_retries,
             timeout,
             projection_pushdown,
-        ).collect()
+            use_zero_based,
+        )
+        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        # Set metadata on the collected DataFrame
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
 
     @staticmethod
     def scan_cram(
@@ -616,6 +686,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
+        use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a CRAM file into a LazyFrame.
@@ -630,9 +701,10 @@ class IOOperations:
             max_retries: The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
-            CRAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
 
         !!! example "Using External Reference"
             ```python
@@ -706,12 +778,20 @@ class IOOperations:
             compression_type="auto",
         )
 
+        zero_based = _resolve_zero_based(use_zero_based)
         cram_read_options = CramReadOptions(
             reference_path=reference_path,
             object_storage_options=object_storage_options,
+            zero_based=zero_based,
         )
         read_options = ReadOptions(cram_read_options=cram_read_options)
-        return _read_file(path, InputFormat.Cram, read_options, projection_pushdown)
+        return _read_file(
+            path,
+            InputFormat.Cram,
+            read_options,
+            projection_pushdown,
+            zero_based=zero_based,
+        )
 
     @staticmethod
     def read_fastq(
@@ -810,6 +890,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
+        use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
         Read a BED file into a DataFrame.
@@ -825,15 +906,16 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compressions is supported ('bgz').
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! Note
             Only **BED4** format is supported. It extends the basic BED format (BED3) by adding a name field, resulting in four columns: chromosome, start position, end position, and name.
             Also unlike other text formats, **GZIP** compression is not supported.
 
         !!! note
-            BED reader uses **1-based** coordinate system for the `start`, `end`.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
-        return IOOperations.scan_bed(
+        lf = IOOperations.scan_bed(
             path,
             thread_num,
             chunk_size,
@@ -844,7 +926,15 @@ class IOOperations:
             timeout,
             compression_type,
             projection_pushdown,
-        ).collect()
+            use_zero_based,
+        )
+        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        # Set metadata on the collected DataFrame
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
 
     @staticmethod
     def scan_bed(
@@ -858,6 +948,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
+        use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a BED file into a LazyFrame.
@@ -873,13 +964,14 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the BED file. If not specified, it will be detected automatically based on the file extension. BGZF compressions is supported ('bgz').
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! Note
             Only **BED4** format is supported. It extends the basic BED format (BED3) by adding a name field, resulting in four columns: chromosome, start position, end position, and name.
             Also unlike other text formats, **GZIP** compression is not supported.
 
         !!! note
-            BED reader uses **1-based** coordinate system for the `start`, `end`.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -891,12 +983,20 @@ class IOOperations:
             compression_type=compression_type,
         )
 
+        zero_based = _resolve_zero_based(use_zero_based)
         bed_read_options = BedReadOptions(
             thread_num=thread_num,
             object_storage_options=object_storage_options,
+            zero_based=zero_based,
         )
         read_options = ReadOptions(bed_read_options=bed_read_options)
-        return _read_file(path, InputFormat.Bed, read_options, projection_pushdown)
+        return _read_file(
+            path,
+            InputFormat.Bed,
+            read_options,
+            projection_pushdown,
+            zero_based=zero_based,
+        )
 
     @staticmethod
     def read_table(path: str, schema: Dict = None, **kwargs) -> pl.DataFrame:
@@ -1180,9 +1280,10 @@ def _lazy_scan(
             }
             attr_fields = [c for c in requested_cols if c not in STATIC]
 
-            # Derive thread/parallel from read_options when available
+            # Derive thread/parallel/zero_based from read_options when available
             thread_num = 1
             parallel = False
+            zero_based = False  # Default to 1-based (matches Python default)
             if read_options is not None:
                 try:
                     gopt = getattr(read_options, "gff_read_options", None)
@@ -1193,6 +1294,9 @@ def _lazy_scan(
                         par = getattr(gopt, "parallel", None)
                         if par is not None:
                             parallel = par
+                        zb = getattr(gopt, "zero_based", None)
+                        if zb is not None:
+                            zero_based = zb
                 except Exception:
                     pass
 
@@ -1222,6 +1326,7 @@ def _lazy_scan(
                 thread_num=thread_num,
                 object_storage_options=obj,
                 parallel=parallel,
+                zero_based=zero_based,
             )
             ropts = _ReadOptions(gff_read_options=gff_opts)
 
@@ -1304,7 +1409,7 @@ def _lazy_scan(
     return register_io_source(_overlap_source, schema=original_schema)
 
 
-def _extract_column_names_from_expr(with_columns: Union[pl.Expr, list]) -> list[str]:
+def _extract_column_names_from_expr(with_columns: Union[pl.Expr, list]) -> "List[str]":
     """Extract column names from Polars expressions."""
     if with_columns is None:
         return []
@@ -1341,6 +1446,7 @@ def _read_file(
     read_options: ReadOptions,
     projection_pushdown: bool = False,
     predicate_pushdown: bool = False,
+    zero_based: bool = True,
 ) -> pl.LazyFrame:
     table = py_register_table(ctx, path, None, input_format, read_options)
     df = py_read_table(ctx, table.name)
@@ -1354,6 +1460,9 @@ def _read_file(
         path,
         read_options,
     )
+
+    # Set coordinate system metadata
+    set_coordinate_system(lf, zero_based)
 
     # Wrap GFF LazyFrames with projection-aware wrapper for consistent attribute field handling
     if input_format == InputFormat.Gff:
@@ -1431,9 +1540,10 @@ class GffLazyFrameWrapper:
 
             from .context import ctx
 
-            # Pull thread_num/parallel from original read options
+            # Pull thread_num/parallel/zero_based from original read options
             thread_num = 1
             parallel = False
+            zero_based = False  # Default to 1-based (matches Python default)
             try:
                 gopt = getattr(self._read_options, "gff_read_options", None)
                 if gopt is not None:
@@ -1443,6 +1553,9 @@ class GffLazyFrameWrapper:
                     par = getattr(gopt, "parallel", None)
                     if par is not None:
                         parallel = par
+                    zb = getattr(gopt, "zero_based", None)
+                    if zb is not None:
+                        zero_based = zb
             except Exception:
                 pass
 
@@ -1467,6 +1580,7 @@ class GffLazyFrameWrapper:
                 thread_num=thread_num,
                 object_storage_options=obj,
                 parallel=parallel,
+                zero_based=zero_based,
             )
             ropts = _ReadOptions(gff_read_options=gff_opts)
             table = py_register_table(

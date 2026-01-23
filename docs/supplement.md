@@ -282,7 +282,7 @@ All Parquet files from this dataset shared the same schema:
 | 10000000  | 90,005,371                             | 90,005,371                           | 90,005,371                | 90,005,371                |
 
 
-<sup>1</sup> bioframe and pyranges are zero-based, this is why we need to set `use_zero_based=True` (polars-bio >= 0.10.3) in polars-bio to get the same results as in bioframe and pyranges.
+<sup>1</sup> bioframe and pyranges are zero-based. In polars-bio >= 0.19.0, coordinate system is managed via DataFrame metadata. Use `pb.scan_*(..., use_zero_based=True)` to read data in 0-based coordinates.
 
 <sup>2</sup> bioframe `how` parameter is set to `inner` (`left` by default)
 
@@ -495,7 +495,11 @@ memory usage: 151.7+ MB
 ```
 ###### polars-bio output DataFrames schema and memory used (Polars and Pandas)
 ```python
-df_pb = pb.overlap(df_1, df_2, cols1=cols, cols2=cols, use_zero_based=True)
+# Note: In polars-bio >= 0.19.0, coordinate system is read from DataFrame metadata
+# Set metadata on DataFrames before range operations:
+df_1.config_meta.set(coordinate_system_zero_based=True)
+df_2.config_meta.set(coordinate_system_zero_based=True)
+df_pb = pb.overlap(df_1, df_2, cols1=cols, cols2=cols)
 df_pb.count().collect()
 ```
 

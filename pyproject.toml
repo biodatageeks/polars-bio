@@ -7,7 +7,7 @@ name = "polars-bio"
 version = "0.19.0"
 description = "Blazing fast genomic operations on large Python dataframes"
 authors = []
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
   "Programming Language :: Rust",
   "Programming Language :: Python :: Implementation :: CPython",
@@ -19,7 +19,8 @@ dependencies = [
   "datafusion (>=50.0.0,<51)",
   "tqdm (>=4.67.0,<5)",
   "typing-extensions (>=4.14.0,<5)",
-  "mkdocs-glightbox (>=0.5.1,<1)"
+  "mkdocs-glightbox (>=0.5.1,<1)",
+  "polars-config-meta (>=0.3.0,<1)"
 ]
 
 [project.optional-dependencies]
@@ -41,12 +42,13 @@ authors = ["Marek Wiewiórka <marek.wiewiorka@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.14"
+python = ">=3.10,<3.14"
 polars = ">=1.30.0"
 pyarrow = ">=21.0.0,<22"
 datafusion = ">=50.0.0,<51"
 tqdm = ">=4.67.0,<5"
 typing-extensions = ">=4.14.0,<5"
+polars-config-meta = ">=0.3.0,<1"
 
 [tool.poetry.extras]
 pandas = ["pandas"]

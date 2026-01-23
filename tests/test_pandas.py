@@ -15,6 +15,17 @@ from _expected import (
 
 import polars_bio as pb
 
+# Set coordinate system metadata on pandas DataFrames
+# 1-based for overlap, nearest, count_overlaps (zero_based=False)
+PD_OVERLAP_DF1.attrs["coordinate_system_zero_based"] = False
+PD_OVERLAP_DF2.attrs["coordinate_system_zero_based"] = False
+PD_NEAREST_DF1.attrs["coordinate_system_zero_based"] = False
+PD_NEAREST_DF2.attrs["coordinate_system_zero_based"] = False
+PD_COUNT_OVERLAPS_DF1.attrs["coordinate_system_zero_based"] = False
+PD_COUNT_OVERLAPS_DF2.attrs["coordinate_system_zero_based"] = False
+# 0-based for merge (zero_based=True)
+PD_MERGE_DF.attrs["coordinate_system_zero_based"] = True
+
 
 class TestOverlapPandas:
     result = pb.overlap(
@@ -23,7 +34,6 @@ class TestOverlapPandas:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        use_zero_based=False,
     )
 
     def test_overlap_count(self):
@@ -44,7 +54,6 @@ class TestNearestPandas:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        use_zero_based=False,
     )
 
     def test_nearest_count(self):
@@ -65,7 +74,6 @@ class TestCountOverlapsPandas:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        use_zero_based=False,
         naive_query=False,
     )
 
@@ -75,7 +83,6 @@ class TestCountOverlapsPandas:
         cols1=("contig", "pos_start", "pos_end"),
         cols2=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
-        use_zero_based=False,
         naive_query=True,
     )
 
@@ -99,7 +106,6 @@ class TestCountOverlapsPandas:
 class TestMergePandas:
     result = pb.merge(
         PD_MERGE_DF,
-        use_zero_based=True,
         cols=("contig", "pos_start", "pos_end"),
         output_type="pandas.DataFrame",
     )

@@ -6,6 +6,18 @@ from _expected import DATA_DIR
 import polars_bio as pb
 
 
+def _df_with_metadata(df: pl.DataFrame, zero_based: bool = True) -> pl.DataFrame:
+    """Add coordinate system metadata to a DataFrame."""
+    df.config_meta.set(coordinate_system_zero_based=zero_based)
+    return df
+
+
+def _lf_with_metadata(lf: pl.LazyFrame, zero_based: bool = True) -> pl.LazyFrame:
+    """Add coordinate system metadata to a LazyFrame."""
+    lf.config_meta.set(coordinate_system_zero_based=zero_based)
+    return lf
+
+
 class TestPolarsExt:
     file = f"{DATA_DIR}/io/bed/ENCFF001XKR.bed.gz"
 
@@ -53,10 +65,10 @@ class TestPolarsExt:
             .reset_index(drop=True)
         )
         #
+        lf_1 = _lf_with_metadata(pl.DataFrame(df_1).lazy(), zero_based=True)
+        lf_2 = _lf_with_metadata(pl.DataFrame(df_2).lazy(), zero_based=True)
         df_4 = (
-            pl.DataFrame(df_1)
-            .lazy()
-            .pb.overlap(pl.DataFrame(df_2).lazy(), suffixes=("_1", "_2"))
+            lf_1.pb.overlap(lf_2, suffixes=("_1", "_2"))
             .collect()
             .to_pandas()
             .sort_values(by=["chrom_1", "start_1", "end_1"])
@@ -86,10 +98,10 @@ class TestPolarsExt:
             .reset_index(drop=True)
         )
 
+        lf_1 = _lf_with_metadata(pl.DataFrame(df_1).lazy(), zero_based=True)
+        lf_2 = _lf_with_metadata(pl.DataFrame(df_2).lazy(), zero_based=True)
         df_4 = (
-            pl.DataFrame(df_1)
-            .lazy()
-            .pb.nearest(pl.DataFrame(df_2).lazy(), suffixes=("_1", "_2"))
+            lf_1.pb.nearest(lf_2, suffixes=("_1", "_2"))
             .collect()
             .to_pandas()
             .sort_values(by=["chrom_1", "start_1", "end_1"])
@@ -122,10 +134,9 @@ class TestPolarsExt:
             .reset_index(drop=True)
         )
         #
+        lf_1 = _lf_with_metadata(pl.DataFrame(df_1).lazy(), zero_based=True)
         df_4 = (
-            pl.DataFrame(df_1)
-            .lazy()
-            .pb.merge()
+            lf_1.pb.merge()
             .collect()
             .to_pandas()
             .sort_values(by=["chrom", "start", "end"])
@@ -161,12 +172,10 @@ class TestPolarsExt:
             .reset_index(drop=True)
         )
         #
+        lf_1 = _lf_with_metadata(pl.DataFrame(df_1).lazy(), zero_based=True)
+        lf_2 = _lf_with_metadata(pl.DataFrame(df_2).lazy(), zero_based=True)
         df_4 = (
-            pl.DataFrame(df_1)
-            .lazy()
-            .pb.count_overlaps(
-                pl.DataFrame(df_2).lazy(), suffixes=("", "_"), naive_query=False
-            )
+            lf_1.pb.count_overlaps(lf_2, suffixes=("", "_"), naive_query=False)
             .collect()
             .to_pandas()
             .sort_values(by=["chrom", "start", "end"])
