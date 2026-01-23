@@ -497,13 +497,11 @@ class TestDefaultMetadataTracking:
         cs = get_coordinate_system(lf_filtered)
         assert cs is False, "Metadata should be preserved through filter"
 
-    def test_metadata_not_preserved_through_collect(self):
-        """Test that metadata is NOT preserved when collecting LazyFrame to DataFrame.
+    def test_metadata_preserved_through_collect(self):
+        """Test that metadata IS preserved when collecting LazyFrame to DataFrame.
 
-        Note: This is a known limitation of polars-config-meta. Metadata is attached
-        to LazyFrames but is not carried over when collecting to DataFrames.
-        Range operations should be performed on LazyFrames to take advantage of
-        metadata-based coordinate system detection.
+        Note: As of polars-config-meta 0.3.2, metadata is now preserved through collect.
+        This enables coordinate system detection on both LazyFrames and DataFrames.
         """
         vcf_path = "tests/data/io/vcf/ensembl.vcf"
         lf = pb.scan_vcf(vcf_path, use_zero_based=True)
@@ -511,14 +509,14 @@ class TestDefaultMetadataTracking:
         # Verify LazyFrame has metadata
         assert get_coordinate_system(lf) is True
 
-        # Collect to DataFrame - metadata is NOT preserved
+        # Collect to DataFrame - metadata IS now preserved
         df = lf.collect()
 
         cs = get_coordinate_system(df)
-        # Metadata is lost through collect - this is expected behavior
+        # Metadata is preserved through collect as of polars-config-meta 0.3.2
         assert (
-            cs is None
-        ), "Metadata is not preserved through collect (polars-config-meta limitation)"
+            cs is True
+        ), "Metadata should be preserved through collect (polars-config-meta 0.3.2+)"
 
     def test_read_functions_preserve_metadata(self):
         """Test that read_* functions preserve metadata on returned DataFrames.
