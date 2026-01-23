@@ -163,17 +163,21 @@ def range_operation(
 
         if range_options.range_op == RangeOp.CountOverlapsNaive:
             # add count column to the schema (Int64 to match engine)
+            # Note: Use df2's schema because range_op.py swaps df1/df2 for these operations,
+            # and the Rust code iterates over right_table (which is df2 here) and returns its rows
             merged_schema = pl.Schema(
                 {
-                    **_get_schema(df1, ctx, None, read_options1),
+                    **_get_schema(df2, ctx, None, read_options2),
                     **{"count": pl.Int64},
                 }
             )
         elif range_options.range_op == RangeOp.Coverage:
             # add coverage column to the schema (Int64 to match engine)
+            # Note: Use df2's schema because range_op.py swaps df1/df2 for these operations,
+            # and the Rust code iterates over right_table (which is df2 here) and returns its rows
             merged_schema = pl.Schema(
                 {
-                    **_get_schema(df1, ctx, None, read_options1),
+                    **_get_schema(df2, ctx, None, read_options2),
                     **{"coverage": pl.Int64},
                 }
             )

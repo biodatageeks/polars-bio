@@ -53,6 +53,8 @@ impl CountOverlapsProvider {
             left_table,
             right_table,
             schema: {
+                // Use right_table schema since the execution iterates over right_table
+                // and returns its rows with count/coverage appended
                 let mut fields = right_table_schema.fields().to_vec();
                 let name = if coverage { "coverage" } else { "count" };
                 let new_field = Field::new(name, DataType::Int64, false);

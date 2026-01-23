@@ -130,6 +130,8 @@ async fn do_count_overlaps_coverage_naive(
     let columns_1 = range_opts.columns_1.unwrap();
     let columns_2 = range_opts.columns_2.unwrap();
     let session = ctx.clone();
+    // Get schema from right_table since the Rust code iterates over right_table
+    // and returns its rows with count/coverage appended
     let right_table_ref = TableReference::from(right_table.clone());
     let right_schema = ctx
         .table(right_table_ref.clone())

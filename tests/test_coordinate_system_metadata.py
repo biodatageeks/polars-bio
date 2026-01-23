@@ -1582,15 +1582,11 @@ class TestUnsignedIntegerSupport:
         assert bed_schema["start"] == pl.UInt32
         assert bed_schema["end"] == pl.UInt32
 
-    @pytest.mark.xfail(
-        reason="Known bug: coverage returns schema from df2 instead of df1"
-    )
     def test_coverage_vcf_bed_lazyframe_output(self):
         """Test coverage with VCF/BED files returns correct LazyFrame schema.
 
-        This is a regression test for a bug where the LazyFrame schema was
-        incorrectly built from df2's schema instead of df1's schema, causing
-        ColumnNotFoundError when collecting.
+        Verifies that coverage(vcf, bed) returns VCF columns + coverage,
+        not BED columns + coverage.
         """
         vcf_path = "tests/data/io/vcf/ensembl.vcf"
         bed_path = "tests/data/io/bed/test.bed"
