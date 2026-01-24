@@ -115,9 +115,14 @@ impl PartitionStream for PythonIteratorPartitionStream {
 
 /// A RecordBatchStream that pulls batches from a Python iterator on-demand.
 /// Each poll acquires the GIL to get the next batch from Python.
+///
+/// Handles chunked Arrow tables by buffering all batches from a single Python
+/// iteration and returning them one at a time.
 pub struct PythonBatchStream {
     schema: SchemaRef,
     py_iterator: Arc<Py<PyAny>>,
+    /// Buffer for batches from chunked Arrow tables
+    pending_batches: std::collections::VecDeque<RecordBatch>,
     exhausted: bool,
 }
 
@@ -126,85 +131,181 @@ impl PythonBatchStream {
         Self {
             schema,
             py_iterator,
+            pending_batches: std::collections::VecDeque::new(),
             exhausted: false,
         }
     }
 
     /// Pull the next batch from the Python iterator.
     /// This acquires the GIL and calls next() on the iterator.
+    ///
+    /// Handles chunked Arrow tables by buffering all batches from a single
+    /// Python iteration and returning them one at a time.
     fn next_batch(&mut self) -> Option<Result<RecordBatch, DataFusionError>> {
-        if self.exhausted {
-            return None;
-        }
+        loop {
+            // First check if we have pending batches from a previous chunked table
+            if let Some(batch) = self.pending_batches.pop_front() {
+                return Some(Ok(batch));
+            }
 
-        Python::with_gil(|py| {
-            let iter = self.py_iterator.bind(py);
+            if self.exhausted {
+                return None;
+            }
 
-            // Call __next__ on the iterator
-            match iter.call_method0("__next__") {
-                Ok(py_batch) => {
-                    // The batch should be a Polars DataFrame - convert to Arrow
-                    // First try to get the Arrow table via to_arrow()
-                    match py_batch.call_method0("to_arrow") {
-                        Ok(arrow_table) => {
-                            // Convert PyArrow Table to RecordBatches
-                            match arrow_table.call_method0("to_batches") {
-                                Ok(batches_list) => {
-                                    // Get first batch (there should typically be one)
-                                    match batches_list.get_item(0) {
-                                        Ok(first_batch) => {
-                                            match RecordBatch::from_pyarrow_bound(&first_batch) {
-                                                Ok(batch) => Some(Ok(batch)),
-                                                Err(e) => Some(Err(DataFusionError::External(
-                                                    Box::new(std::io::Error::new(
-                                                        std::io::ErrorKind::Other,
-                                                        format!(
-                                                            "Failed to convert PyArrow batch: {}",
-                                                            e
+            // Try to get the next batch from Python
+            let result = Python::with_gil(|py| {
+                let iter = self.py_iterator.bind(py);
+
+                // Call __next__ on the iterator
+                match iter.call_method0("__next__") {
+                    Ok(py_batch) => {
+                        // The batch should be a Polars DataFrame - convert to Arrow
+                        // First try to get the Arrow table via to_arrow()
+                        match py_batch.call_method0("to_arrow") {
+                            Ok(arrow_table) => {
+                                // Convert PyArrow Table to RecordBatches
+                                match arrow_table.call_method0("to_batches") {
+                                    Ok(batches_list) => {
+                                        // Get the length of batches list
+                                        let len = match batches_list.len() {
+                                            Ok(l) => l,
+                                            Err(e) => {
+                                                return LoopResult::Error(
+                                                    DataFusionError::External(Box::new(
+                                                        std::io::Error::new(
+                                                            std::io::ErrorKind::Other,
+                                                            format!(
+                                                                "Failed to get batches length: {}",
+                                                                e
+                                                            ),
                                                         ),
                                                     )),
-                                                ))),
+                                                );
+                                            },
+                                        };
+
+                                        if len == 0 {
+                                            // Empty batches list - continue to next iteration
+                                            return LoopResult::Continue;
+                                        }
+
+                                        // Collect all batches from the chunked table
+                                        let mut collected_batches = Vec::with_capacity(len);
+                                        for i in 0..len {
+                                            match batches_list.get_item(i) {
+                                                Ok(py_batch) => {
+                                                    match RecordBatch::from_pyarrow_bound(&py_batch)
+                                                    {
+                                                        Ok(batch) => collected_batches.push(batch),
+                                                        Err(e) => {
+                                                            return LoopResult::Error(
+                                                                DataFusionError::External(
+                                                                    Box::new(std::io::Error::new(
+                                                                        std::io::ErrorKind::Other,
+                                                                        format!(
+                                                                        "Failed to convert PyArrow batch {}: {}",
+                                                                        i, e
+                                                                    ),
+                                                                    )),
+                                                                ),
+                                                            );
+                                                        },
+                                                    }
+                                                },
+                                                Err(e) => {
+                                                    return LoopResult::Error(
+                                                        DataFusionError::External(Box::new(
+                                                            std::io::Error::new(
+                                                                std::io::ErrorKind::Other,
+                                                                format!(
+                                                                "Failed to get batch {} from list: {}",
+                                                                i, e
+                                                            ),
+                                                            ),
+                                                        )),
+                                                    );
+                                                },
                                             }
-                                        },
-                                        Err(_) => {
-                                            // Empty batches list - continue to next
-                                            self.next_batch()
-                                        },
-                                    }
-                                },
-                                Err(e) => Some(Err(DataFusionError::External(Box::new(
-                                    std::io::Error::new(
-                                        std::io::ErrorKind::Other,
-                                        format!("Failed to get batches from Arrow table: {}", e),
-                                    ),
-                                )))),
-                            }
-                        },
-                        Err(e) => Some(Err(DataFusionError::External(Box::new(
-                            std::io::Error::new(
-                                std::io::ErrorKind::Other,
-                                format!("Failed to convert to Arrow: {}", e),
-                            ),
-                        )))),
+                                        }
+
+                                        LoopResult::Batches(collected_batches)
+                                    },
+                                    Err(e) => LoopResult::Error(DataFusionError::External(
+                                        Box::new(std::io::Error::new(
+                                            std::io::ErrorKind::Other,
+                                            format!(
+                                                "Failed to get batches from Arrow table: {}",
+                                                e
+                                            ),
+                                        )),
+                                    )),
+                                }
+                            },
+                            Err(e) => LoopResult::Error(DataFusionError::External(Box::new(
+                                std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    format!("Failed to convert to Arrow: {}", e),
+                                ),
+                            ))),
+                        }
+                    },
+                    Err(e) => {
+                        // Check if it's StopIteration (iterator exhausted)
+                        if e.is_instance_of::<PyStopIteration>(py) {
+                            LoopResult::Exhausted
+                        } else {
+                            LoopResult::Error(DataFusionError::External(Box::new(
+                                std::io::Error::new(
+                                    std::io::ErrorKind::Other,
+                                    format!("Python iterator error: {}", e),
+                                ),
+                            )))
+                        }
+                    },
+                }
+            });
+
+            // Process the result outside with_gil
+            match result {
+                LoopResult::Batches(mut batches) => {
+                    if batches.is_empty() {
+                        // Continue to next iteration
+                        continue;
                     }
+                    // Take first batch to return
+                    let first_batch = batches.remove(0);
+                    // Store remaining batches in pending buffer
+                    if !batches.is_empty() {
+                        self.pending_batches.extend(batches);
+                    }
+                    return Some(Ok(first_batch));
                 },
-                Err(e) => {
-                    // Check if it's StopIteration (iterator exhausted)
-                    if e.is_instance_of::<PyStopIteration>(py) {
-                        self.exhausted = true;
-                        None
-                    } else {
-                        Some(Err(DataFusionError::External(Box::new(
-                            std::io::Error::new(
-                                std::io::ErrorKind::Other,
-                                format!("Python iterator error: {}", e),
-                            ),
-                        ))))
-                    }
+                LoopResult::Continue => {
+                    // Empty batch, try next iteration
+                    continue;
+                },
+                LoopResult::Exhausted => {
+                    self.exhausted = true;
+                    return None;
+                },
+                LoopResult::Error(e) => {
+                    return Some(Err(e));
                 },
             }
-        })
+        }
     }
+}
+
+/// Result type for the batch fetching loop to avoid recursion inside with_gil
+enum LoopResult {
+    /// Successfully collected batches from a chunked table
+    Batches(Vec<RecordBatch>),
+    /// Empty batch list, should continue to next iteration
+    Continue,
+    /// Iterator exhausted (StopIteration)
+    Exhausted,
+    /// Error occurred
+    Error(DataFusionError),
 }
 
 impl Stream for PythonBatchStream {
