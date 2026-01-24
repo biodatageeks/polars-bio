@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use arrow::array::RecordBatch;
+use arrow::array::{RecordBatch, RecordBatchReader};
 use arrow::error::ArrowError;
 use arrow::ffi_stream::ArrowArrayStreamReader;
 use arrow::pyarrow::PyArrowType;
@@ -33,10 +33,14 @@ pub(crate) fn register_frame(
     df: PyArrowType<ArrowArrayStreamReader>,
     table_name: String,
 ) {
+    // Get the schema from the stream reader before consuming it
+    let reader_schema = df.0.schema();
     let batches =
         df.0.collect::<Result<Vec<RecordBatch>, ArrowError>>()
             .unwrap();
-    let schema = batches[0].schema();
+    // Use the reader's schema (which is always available) instead of batches[0].schema()
+    // This handles the case when batches is empty
+    let schema = reader_schema;
     let ctx = &py_ctx.ctx;
     let rt = tokio::runtime::Runtime::new().unwrap();
     let table_source = MemTable::try_new(schema, vec![batches]).unwrap();

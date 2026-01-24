@@ -1,4 +1,3 @@
-import tempfile
 from pathlib import Path
 from typing import Union
 
@@ -15,7 +14,6 @@ from polars_bio.polars_bio import (
 )
 
 from ._metadata import set_coordinate_system
-from .constants import TMP_CATALOG_DIR
 from .logging import logger
 from .range_op_io import _df_to_reader, _get_schema, _rename_columns, range_lazy_scan
 
@@ -76,30 +74,20 @@ def _generate_overlap_schema(
     return pl.Schema(merged_schema_dict)
 
 
-def _lazyframe_to_parquet(
-    df: Union[pl.LazyFrame, "GffLazyFrameWrapper"], ctx: BioSessionContext
-) -> str:
-    """Convert LazyFrame or GffLazyFrameWrapper to temporary parquet file and return the path."""
-    # Create temporary parquet file in the session catalog path
-    # Use a timestamped directory under TMP_CATALOG_DIR
-    import datetime
+def _lazyframe_to_dataframe(
+    df: Union[pl.LazyFrame, "GffLazyFrameWrapper"],
+) -> pl.DataFrame:
+    """Convert LazyFrame or GffLazyFrameWrapper to DataFrame via collection.
 
-    timestamp = str(datetime.datetime.now().timestamp())
-    catalog_path = Path(f"{TMP_CATALOG_DIR}/{timestamp}")
-    catalog_path.mkdir(parents=True, exist_ok=True)
-
-    # Create a unique temporary file
-    temp_file = tempfile.NamedTemporaryFile(
-        delete=False, suffix=".parquet", dir=catalog_path
-    )
-    temp_path = temp_file.name
-    temp_file.close()
-
-    # Sink LazyFrame to parquet (works for both LazyFrame and GffLazyFrameWrapper)
-    df.sink_parquet(temp_path)
-    logger.info(f"LazyFrame sunk to temporary parquet: {temp_path}")
-
-    return temp_path
+    This is more efficient than writing to parquet now that GIL is released
+    during Arrow operations via py.allow_threads().
+    """
+    if hasattr(df, "_base_lf"):
+        # GffLazyFrameWrapper or similar - collect the underlying LazyFrame
+        return df.collect()
+    else:
+        # Regular LazyFrame
+        return df.collect()
 
 
 def range_operation(
@@ -114,40 +102,14 @@ def range_operation(
 ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame"]:
     ctx.sync_options()
 
-    # Handle LazyFrames and GffLazyFrameWrapper by converting them to temporary parquet files
-    original_df1_is_lazy = isinstance(df1, pl.LazyFrame) or hasattr(df1, "_base_lf")
-    original_df2_is_lazy = isinstance(df2, pl.LazyFrame) or hasattr(df2, "_base_lf")
-
-    if original_df1_is_lazy:
-        df1 = _lazyframe_to_parquet(df1, ctx)
-    if original_df2_is_lazy:
-        df2 = _lazyframe_to_parquet(df2, ctx)
-
-    # If we have mixed case (one LazyFrame converted to parquet, one DataFrame),
-    # convert the DataFrame to parquet as well for consistency
-    if (original_df1_is_lazy or original_df2_is_lazy) and not (
-        isinstance(df1, str) and isinstance(df2, str)
-    ):
-        if not isinstance(df1, str) and isinstance(
-            df1, (pl.DataFrame, pd.DataFrame if pd else type(None))
-        ):
-            # Convert DataFrame to temporary parquet
-            temp_df1_lazy = (
-                df1.lazy()
-                if isinstance(df1, pl.DataFrame)
-                else pl.from_pandas(df1).lazy()
-            )
-            df1 = _lazyframe_to_parquet(temp_df1_lazy, ctx)
-        if not isinstance(df2, str) and isinstance(
-            df2, (pl.DataFrame, pd.DataFrame if pd else type(None))
-        ):
-            # Convert DataFrame to temporary parquet
-            temp_df2_lazy = (
-                df2.lazy()
-                if isinstance(df2, pl.DataFrame)
-                else pl.from_pandas(df2).lazy()
-            )
-            df2 = _lazyframe_to_parquet(temp_df2_lazy, ctx)
+    # For non-LazyFrame outputs, convert LazyFrames to DataFrames directly.
+    # This is efficient now that GIL is released during Arrow operations via py.allow_threads().
+    # For LazyFrame outputs, we need to collect first since Arrow readers can only be consumed once.
+    if output_type != "polars.LazyFrame":
+        if isinstance(df1, pl.LazyFrame) or hasattr(df1, "_base_lf"):
+            df1 = _lazyframe_to_dataframe(df1)
+        if isinstance(df2, pl.LazyFrame) or hasattr(df2, "_base_lf"):
+            df2 = _lazyframe_to_dataframe(df2)
 
     if isinstance(df1, str) and isinstance(df2, str):
         supported_exts = set([".parquet", ".csv", ".bed", ".vcf"])
@@ -251,22 +213,33 @@ def range_operation(
         # Derive coordinate system from filter_op for metadata propagation
         zero_based = _get_zero_based_from_filter_op(range_options.filter_op)
 
+        # Handle GffLazyFrameWrapper by collecting to DataFrame
+        if hasattr(df1, "_base_lf"):
+            df1 = df1.collect()
+        if hasattr(df2, "_base_lf"):
+            df2 = df2.collect()
+
         if output_type == "polars.LazyFrame":
             # Get base schemas without suffixes
             df1_base_schema = _rename_columns(df1, "").schema
             df2_base_schema = _rename_columns(df2, "").schema
 
-            # Generate the correct schema using common function
-            merged_schema = _generate_overlap_schema(
-                df1_base_schema, df2_base_schema, range_options
-            )
-            # Add computed columns for streaming outputs
-            if range_options.range_op == RangeOp.Nearest:
-                merged_schema = pl.Schema({**merged_schema, **{"distance": pl.Int64}})
-            elif range_options.range_op == RangeOp.CountOverlapsNaive:
-                merged_schema = pl.Schema({**merged_schema, **{"count": pl.Int64}})
+            # Generate schema based on operation type
+            if range_options.range_op == RangeOp.CountOverlapsNaive:
+                merged_schema = pl.Schema({**df2_base_schema, **{"count": pl.Int64}})
             elif range_options.range_op == RangeOp.Coverage:
-                merged_schema = pl.Schema({**merged_schema, **{"coverage": pl.Int64}})
+                merged_schema = pl.Schema({**df2_base_schema, **{"coverage": pl.Int64}})
+            else:
+                merged_schema = _generate_overlap_schema(
+                    df1_base_schema, df2_base_schema, range_options
+                )
+                if range_options.range_op == RangeOp.Nearest:
+                    merged_schema = pl.Schema(
+                        {**merged_schema, **{"distance": pl.Int64}}
+                    )
+
+            # Use range_lazy_scan which handles LazyFrame collection and
+            # creates fresh Arrow readers per streaming call
             result = range_lazy_scan(
                 df1,
                 df2,
@@ -277,20 +250,16 @@ def range_operation(
             )
             return _set_result_metadata(result, zero_based)
         else:
-            df1 = _df_to_reader(
-                df1,
-                range_options.columns_1[0],
-            )
-            df2 = _df_to_reader(
-                df2,
-                range_options.columns_2[0],
-            )
-            result = range_operation_frame(
-                ctx,
-                df1,
-                df2,
-                range_options,
-            )
+            # For non-LazyFrame outputs, collect and run eagerly
+            if isinstance(df1, pl.LazyFrame):
+                df1 = df1.collect()
+            if isinstance(df2, pl.LazyFrame):
+                df2 = df2.collect()
+
+            df1_reader = _df_to_reader(df1, range_options.columns_1[0])
+            df2_reader = _df_to_reader(df2, range_options.columns_2[0])
+            result = range_operation_frame(ctx, df1_reader, df2_reader, range_options)
+
             if output_type == "polars.DataFrame":
                 result_df = result.to_polars()
                 return _set_result_metadata(result_df, zero_based)

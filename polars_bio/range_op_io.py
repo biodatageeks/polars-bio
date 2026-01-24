@@ -37,12 +37,24 @@ def range_lazy_scan(
     projection_pushdown: bool = False,
 ) -> pl.LazyFrame:
     range_function = None
-    if isinstance(df_1, str) and isinstance(df_2, str):
+    use_file_paths = isinstance(df_1, str) and isinstance(df_2, str)
+
+    if use_file_paths:
         range_function = range_operation_scan
+        # Store paths for reuse in streaming source
+        stored_df1, stored_df2 = df_1, df_2
     else:
         range_function = range_operation_frame
-        df_1 = _df_to_reader(df_1, range_options.columns_1[0])
-        df_2 = _df_to_reader(df_2, range_options.columns_2[0])
+        # For DataFrame/LazyFrame inputs: collect LazyFrames ONCE and store.
+        # We create fresh Arrow readers on each _range_source call to avoid
+        # the "reader consumed" issue. This avoids disk I/O (no parquet).
+        if isinstance(df_1, pl.LazyFrame):
+            df_1 = df_1.collect()
+        if isinstance(df_2, pl.LazyFrame):
+            df_2 = df_2.collect()
+        # Store DataFrames (not readers) - readers will be created per-call
+        stored_df1, stored_df2 = df_1, df_2
+        col1, col2 = range_options.columns_1[0], range_options.columns_2[0]
 
     def _range_source(
         with_columns: Union[pl.Expr, None],
@@ -75,25 +87,29 @@ def range_lazy_scan(
         except Exception:
             pass
 
-        df_lazy: datafusion.DataFrame = (
-            range_function(
+        # For file paths, use stored paths directly
+        # For DataFrames, create fresh Arrow readers from stored DataFrames
+        if use_file_paths:
+            df_lazy: datafusion.DataFrame = range_function(
                 ctx,
-                df_1,
-                df_2,
+                stored_df1,
+                stored_df2,
                 modified_range_options,
                 read_options1,
                 read_options2,
                 _n_rows,
             )
-            if isinstance(df_1, str) and isinstance(df_2, str)
-            else range_function(
+        else:
+            # Create fresh readers each time to avoid "reader consumed" issue
+            reader1 = _df_to_reader(stored_df1, col1)
+            reader2 = _df_to_reader(stored_df2, col2)
+            df_lazy: datafusion.DataFrame = range_function(
                 ctx,
-                df_1,
-                df_2,
+                reader1,
+                reader2,
                 modified_range_options,
                 _n_rows,
             )
-        )
 
         # Apply DataFusion-level projection if enabled
         datafusion_projection_applied = False

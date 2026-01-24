@@ -36,6 +36,7 @@ const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
 #[pyfunction]
 #[pyo3(signature = (py_ctx, df1, df2, range_options, limit=None))]
 fn range_operation_frame(
+    py: Python<'_>,
     py_ctx: &PyBioSessionContext,
     df1: PyArrowType<ArrowArrayStreamReader>,
     df2: PyArrowType<ArrowArrayStreamReader>,
@@ -43,39 +44,42 @@ fn range_operation_frame(
     limit: Option<usize>,
 ) -> PyResult<PyDataFrame> {
     #[allow(clippy::useless_conversion)]
-    let rt = Runtime::new()?;
-    let ctx = &py_ctx.ctx;
-    register_frame(py_ctx, df1, LEFT_TABLE.to_string());
-    register_frame(py_ctx, df2, RIGHT_TABLE.to_string());
-    match limit {
-        Some(l) => Ok(PyDataFrame::new(
-            do_range_operation(
-                ctx,
-                &rt,
-                range_options,
-                LEFT_TABLE.to_string(),
-                RIGHT_TABLE.to_string(),
-            )
-            .limit(0, Some(l))
-            .map_err(|e| PyValueError::new_err(e.to_string()))?,
-        )),
-        _ => {
-            let df = do_range_operation(
-                ctx,
-                &rt,
-                range_options,
-                LEFT_TABLE.to_string(),
-                RIGHT_TABLE.to_string(),
-            );
-            let py_df = PyDataFrame::new(df);
-            Ok(py_df)
-        },
-    }
+    py.allow_threads(|| {
+        let rt = Runtime::new()?;
+        let ctx = &py_ctx.ctx;
+        register_frame(py_ctx, df1, LEFT_TABLE.to_string());
+        register_frame(py_ctx, df2, RIGHT_TABLE.to_string());
+        match limit {
+            Some(l) => Ok(PyDataFrame::new(
+                do_range_operation(
+                    ctx,
+                    &rt,
+                    range_options,
+                    LEFT_TABLE.to_string(),
+                    RIGHT_TABLE.to_string(),
+                )
+                .limit(0, Some(l))
+                .map_err(|e| PyValueError::new_err(e.to_string()))?,
+            )),
+            _ => {
+                let df = do_range_operation(
+                    ctx,
+                    &rt,
+                    range_options,
+                    LEFT_TABLE.to_string(),
+                    RIGHT_TABLE.to_string(),
+                );
+                let py_df = PyDataFrame::new(df);
+                Ok(py_df)
+            },
+        }
+    })
 }
 
 #[pyfunction]
 #[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None, limit=None))]
 fn range_operation_scan(
+    py: Python<'_>,
     py_ctx: &PyBioSessionContext,
     df_path_or_table1: String,
     df_path_or_table2: String,
@@ -85,36 +89,38 @@ fn range_operation_scan(
     limit: Option<usize>,
 ) -> PyResult<PyDataFrame> {
     #[allow(clippy::useless_conversion)]
-    let rt = Runtime::new()?;
-    let ctx = &py_ctx.ctx;
-    let left_table = maybe_register_table(
-        df_path_or_table1,
-        &LEFT_TABLE.to_string(),
-        read_options1,
-        ctx,
-        &rt,
-    );
-    let right_table = maybe_register_table(
-        df_path_or_table2,
-        &RIGHT_TABLE.to_string(),
-        read_options2,
-        ctx,
-        &rt,
-    );
-    match limit {
-        Some(l) => Ok(PyDataFrame::new(
-            do_range_operation(ctx, &rt, range_options, left_table, right_table)
-                .limit(0, Some(l))
-                .map_err(|e| PyValueError::new_err(e.to_string()))?,
-        )),
-        _ => Ok(PyDataFrame::new(do_range_operation(
+    py.allow_threads(|| {
+        let rt = Runtime::new()?;
+        let ctx = &py_ctx.ctx;
+        let left_table = maybe_register_table(
+            df_path_or_table1,
+            &LEFT_TABLE.to_string(),
+            read_options1,
             ctx,
             &rt,
-            range_options,
-            left_table,
-            right_table,
-        ))),
-    }
+        );
+        let right_table = maybe_register_table(
+            df_path_or_table2,
+            &RIGHT_TABLE.to_string(),
+            read_options2,
+            ctx,
+            &rt,
+        );
+        match limit {
+            Some(l) => Ok(PyDataFrame::new(
+                do_range_operation(ctx, &rt, range_options, left_table, right_table)
+                    .limit(0, Some(l))
+                    .map_err(|e| PyValueError::new_err(e.to_string()))?,
+            )),
+            _ => Ok(PyDataFrame::new(do_range_operation(
+                ctx,
+                &rt,
+                range_options,
+                left_table,
+                right_table,
+            ))),
+        }
+    })
 }
 
 #[pyfunction]
