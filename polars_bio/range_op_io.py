@@ -17,7 +17,6 @@ from polars_bio.polars_bio import (
     py_read_table,
     py_register_table,
     range_operation_frame,
-    range_operation_lazy,
     range_operation_scan,
 )
 
@@ -39,42 +38,12 @@ def range_lazy_scan(
 ) -> pl.LazyFrame:
     range_function = None
     use_file_paths = isinstance(df_1, str) and isinstance(df_2, str)
-    use_lazy_streaming = isinstance(df_1, pl.LazyFrame) and isinstance(
-        df_2, pl.LazyFrame
-    )
 
     if use_file_paths:
         range_function = range_operation_scan
         # Store paths for reuse in streaming source
         stored_df1, stored_df2 = df_1, df_2
         stored_arrow_tbl1, stored_arrow_tbl2 = None, None
-    elif use_lazy_streaming:
-        # Single-pass LazyFrame streaming: collect all batches ONCE, then reuse.
-        # This avoids re-scanning file-backed LazyFrames on each _range_source call.
-        range_function = range_operation_frame
-
-        # Collect all batches from LazyFrame in a single pass
-        batches1 = list(df_1.collect_batches())
-        batches2 = list(df_2.collect_batches())
-
-        # Convert collected batches to Arrow tables for reuse
-        if batches1:
-            arrow_batches1 = [b.to_arrow() for b in batches1]
-            stored_arrow_tbl1 = pa.concat_tables(
-                [pa.Table.from_batches([b]) for b in arrow_batches1]
-            )
-        else:
-            stored_arrow_tbl1 = pa.table({})
-
-        if batches2:
-            arrow_batches2 = [b.to_arrow() for b in batches2]
-            stored_arrow_tbl2 = pa.concat_tables(
-                [pa.Table.from_batches([b]) for b in arrow_batches2]
-            )
-        else:
-            stored_arrow_tbl2 = pa.table({})
-
-        stored_df1, stored_df2 = None, None
     else:
         range_function = range_operation_frame
         # For DataFrame inputs: convert to Arrow tables.
