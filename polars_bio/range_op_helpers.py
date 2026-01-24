@@ -90,6 +90,31 @@ def _lazyframe_to_dataframe(
         return df.collect()
 
 
+def _get_lazyframe_actual_schema(lf: pl.LazyFrame) -> pl.Schema:
+    """Get the actual schema from a LazyFrame by peeking the first batch.
+
+    collect_schema() can return placeholder Arrow types like Utf8View that differ
+    from the actual batch types (LargeUtf8) produced at execution. This function
+    peeks the first batch to get the real schema that matches what the iterator
+    will produce.
+
+    Args:
+        lf: A Polars LazyFrame.
+
+    Returns:
+        The schema derived from the actual first batch, or collect_schema() as fallback.
+    """
+    iter_peek = lf.collect_batches()
+    first_batch = next(iter_peek, None)
+
+    if first_batch is not None:
+        # Get schema from actual batch
+        return first_batch.schema
+    else:
+        # Fallback to collect_schema if no batches
+        return lf.collect_schema()
+
+
 def range_operation(
     df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame", "GffLazyFrameWrapper"],
     df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame", "GffLazyFrameWrapper"],
@@ -221,8 +246,16 @@ def range_operation(
 
         if output_type == "polars.LazyFrame":
             # Get base schemas without suffixes
-            df1_base_schema = _rename_columns(df1, "").schema
-            df2_base_schema = _rename_columns(df2, "").schema
+            # For LazyFrames, use actual batch schema to avoid type mismatches
+            # (collect_schema() can return Utf8View while batches have LargeUtf8)
+            if isinstance(df1, pl.LazyFrame):
+                df1_base_schema = _get_lazyframe_actual_schema(df1)
+            else:
+                df1_base_schema = _rename_columns(df1, "").schema
+            if isinstance(df2, pl.LazyFrame):
+                df2_base_schema = _get_lazyframe_actual_schema(df2)
+            else:
+                df2_base_schema = _rename_columns(df2, "").schema
 
             # Generate schema based on operation type
             if range_options.range_op == RangeOp.CountOverlapsNaive:
