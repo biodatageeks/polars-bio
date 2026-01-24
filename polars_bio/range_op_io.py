@@ -49,33 +49,32 @@ def range_lazy_scan(
         stored_df1, stored_df2 = df_1, df_2
         stored_arrow_tbl1, stored_arrow_tbl2 = None, None
     elif use_lazy_streaming:
-        # True streaming path for LazyFrame inputs
-        # Pass iterators directly to Rust - batches pulled on-demand
-        range_function = range_operation_lazy
+        # Single-pass LazyFrame streaming: collect all batches ONCE, then reuse.
+        # This avoids re-scanning file-backed LazyFrames on each _range_source call.
+        range_function = range_operation_frame
 
-        # Peek first batch to get actual schema (collect_schema().to_arrow()
-        # may return different types like Utf8View vs actual LargeUtf8 in batches)
-        iter1_peek = df_1.collect_batches()
-        iter2_peek = df_2.collect_batches()
+        # Collect all batches from LazyFrame in a single pass
+        batches1 = list(df_1.collect_batches())
+        batches2 = list(df_2.collect_batches())
 
-        first_batch1 = next(iter1_peek, None)
-        first_batch2 = next(iter2_peek, None)
-
-        if first_batch1 is not None:
-            stored_schema1 = first_batch1.to_arrow().schema
+        # Convert collected batches to Arrow tables for reuse
+        if batches1:
+            arrow_batches1 = [b.to_arrow() for b in batches1]
+            stored_arrow_tbl1 = pa.concat_tables(
+                [pa.Table.from_batches([b]) for b in arrow_batches1]
+            )
         else:
-            stored_schema1 = df_1.collect_schema().to_arrow()
+            stored_arrow_tbl1 = pa.table({})
 
-        if first_batch2 is not None:
-            stored_schema2 = first_batch2.to_arrow().schema
+        if batches2:
+            arrow_batches2 = [b.to_arrow() for b in batches2]
+            stored_arrow_tbl2 = pa.concat_tables(
+                [pa.Table.from_batches([b]) for b in arrow_batches2]
+            )
         else:
-            stored_schema2 = df_2.collect_schema().to_arrow()
+            stored_arrow_tbl2 = pa.table({})
 
-        # Store LazyFrames for creating fresh iterators on each _range_source call
-        # (Polars may call _range_source multiple times)
-        stored_lf1, stored_lf2 = df_1, df_2
         stored_df1, stored_df2 = None, None
-        stored_arrow_tbl1, stored_arrow_tbl2 = None, None
     else:
         range_function = range_operation_frame
         # For DataFrame inputs: convert to Arrow tables.
@@ -147,8 +146,7 @@ def range_lazy_scan(
             pass
 
         # For file paths, use stored paths directly
-        # For LazyFrames, pass iterators for true streaming
-        # For DataFrames, create fresh Arrow readers from stored DataFrames
+        # For DataFrames/LazyFrames, create fresh Arrow readers from stored tables
         if use_file_paths:
             df_lazy: datafusion.DataFrame = range_function(
                 ctx,
@@ -157,20 +155,6 @@ def range_lazy_scan(
                 modified_range_options,
                 read_options1,
                 read_options2,
-                _n_rows,
-            )
-        elif use_lazy_streaming:
-            # True streaming: create fresh iterators from stored LazyFrames
-            # (Polars may call _range_source multiple times, so we can't reuse iterators)
-            iter1 = stored_lf1.collect_batches()
-            iter2 = stored_lf2.collect_batches()
-            df_lazy: datafusion.DataFrame = range_function(
-                ctx,
-                iter1,
-                iter2,
-                stored_schema1,
-                stored_schema2,
-                modified_range_options,
                 _n_rows,
             )
         else:
