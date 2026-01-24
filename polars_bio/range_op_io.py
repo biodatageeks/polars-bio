@@ -43,6 +43,7 @@ def range_lazy_scan(
         range_function = range_operation_scan
         # Store paths for reuse in streaming source
         stored_df1, stored_df2 = df_1, df_2
+        stored_arrow_tbl1, stored_arrow_tbl2 = None, None
     else:
         range_function = range_operation_frame
         # For DataFrame/LazyFrame inputs: collect LazyFrames ONCE and store.
@@ -52,9 +53,27 @@ def range_lazy_scan(
             df_1 = df_1.collect()
         if isinstance(df_2, pl.LazyFrame):
             df_2 = df_2.collect()
-        # Store DataFrames (not readers) - readers will be created per-call
+        # Store DataFrames for schema access
         stored_df1, stored_df2 = df_1, df_2
         col1, col2 = range_options.columns_1[0], range_options.columns_2[0]
+        # Convert to Arrow tables in the MAIN thread (thread-safe).
+        # df.to_arrow() may not be thread-safe when called from Polars worker threads on Linux.
+        # Handle both Polars and Pandas DataFrames
+        if isinstance(df_1, pl.DataFrame):
+            stored_arrow_tbl1 = df_1.to_arrow()
+        elif pd is not None and isinstance(df_1, pd.DataFrame):
+            stored_arrow_tbl1 = pa.Table.from_pandas(df_1)
+            stored_arrow_tbl1 = _string_to_largestring(stored_arrow_tbl1, col1)
+        else:
+            raise ValueError("df_1 must be a Polars or Pandas DataFrame")
+
+        if isinstance(df_2, pl.DataFrame):
+            stored_arrow_tbl2 = df_2.to_arrow()
+        elif pd is not None and isinstance(df_2, pd.DataFrame):
+            stored_arrow_tbl2 = pa.Table.from_pandas(df_2)
+            stored_arrow_tbl2 = _string_to_largestring(stored_arrow_tbl2, col2)
+        else:
+            raise ValueError("df_2 must be a Polars or Pandas DataFrame")
 
     def _range_source(
         with_columns: Union[pl.Expr, None],
@@ -100,9 +119,11 @@ def range_lazy_scan(
                 _n_rows,
             )
         else:
-            # Create fresh readers each time to avoid "reader consumed" issue
-            reader1 = _df_to_reader(stored_df1, col1)
-            reader2 = _df_to_reader(stored_df2, col2)
+            # Create fresh readers from pre-converted Arrow tables.
+            # Arrow tables were converted in the main thread (thread-safe).
+            # Creating readers from tables is thread-safe.
+            reader1 = stored_arrow_tbl1.to_reader()
+            reader2 = stored_arrow_tbl2.to_reader()
             df_lazy: datafusion.DataFrame = range_function(
                 ctx,
                 reader1,
