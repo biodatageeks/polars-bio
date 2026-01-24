@@ -1,13 +1,16 @@
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::{Context, Poll};
 
 use arrow::array::{RecordBatch, RecordBatchReader};
 use arrow::error::ArrowError;
 use arrow::ffi_stream::ArrowArrayStreamReader;
-use arrow::pyarrow::PyArrowType;
+use arrow::pyarrow::{FromPyArrow, PyArrowType};
 use arrow_schema::SchemaRef;
 use datafusion::catalog::streaming::StreamingTable;
+use datafusion::common::DataFusionError;
 use datafusion::dataframe::DataFrameWriteOptions;
-use datafusion::execution::{SendableRecordBatchStream, TaskContext};
+use datafusion::execution::{RecordBatchStream, SendableRecordBatchStream, TaskContext};
 use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
 use datafusion::physical_plan::streaming::PartitionStream;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions, SessionContext};
@@ -20,7 +23,10 @@ use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::bgzf_parallel_reader::BgzfGffTableProvider as BgzfParallelGffTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
+use futures::Stream;
 use log::info;
+use pyo3::exceptions::PyStopIteration;
+use pyo3::prelude::*;
 use tokio::runtime::Runtime;
 use tracing::debug;
 
@@ -60,6 +66,159 @@ impl PartitionStream for RecordBatchPartitionStream {
         let batches = self.batches.clone();
         let stream = futures::stream::iter(batches.into_iter().map(Ok));
         Box::pin(RecordBatchStreamAdapter::new(self.schema.clone(), stream))
+    }
+}
+
+/// A PartitionStream that lazily pulls batches from a Python iterator.
+/// This enables true streaming from Polars LazyFrame.collect_batches() without
+/// materializing all batches in memory upfront.
+///
+/// The Python iterator should yield PyArrow RecordBatches or Tables.
+pub struct PythonIteratorPartitionStream {
+    schema: SchemaRef,
+    // Wrap in Arc for cheap cloning in execute()
+    py_iterator: Arc<Py<PyAny>>,
+}
+
+// Safety: Py<PyAny> is Send + Sync, and we only access it with GIL held
+unsafe impl Send for PythonIteratorPartitionStream {}
+unsafe impl Sync for PythonIteratorPartitionStream {}
+
+impl std::fmt::Debug for PythonIteratorPartitionStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PythonIteratorPartitionStream")
+            .field("schema", &self.schema)
+            .finish()
+    }
+}
+
+impl PythonIteratorPartitionStream {
+    pub fn new(schema: SchemaRef, py_iterator: Py<PyAny>) -> Self {
+        Self {
+            schema,
+            py_iterator: Arc::new(py_iterator),
+        }
+    }
+}
+
+impl PartitionStream for PythonIteratorPartitionStream {
+    fn schema(&self) -> &SchemaRef {
+        &self.schema
+    }
+
+    fn execute(&self, _ctx: Arc<TaskContext>) -> SendableRecordBatchStream {
+        let py_iter = Arc::clone(&self.py_iterator);
+        let schema = self.schema.clone();
+        Box::pin(PythonBatchStream::new(schema, py_iter))
+    }
+}
+
+/// A RecordBatchStream that pulls batches from a Python iterator on-demand.
+/// Each poll acquires the GIL to get the next batch from Python.
+pub struct PythonBatchStream {
+    schema: SchemaRef,
+    py_iterator: Arc<Py<PyAny>>,
+    exhausted: bool,
+}
+
+impl PythonBatchStream {
+    pub fn new(schema: SchemaRef, py_iterator: Arc<Py<PyAny>>) -> Self {
+        Self {
+            schema,
+            py_iterator,
+            exhausted: false,
+        }
+    }
+
+    /// Pull the next batch from the Python iterator.
+    /// This acquires the GIL and calls next() on the iterator.
+    fn next_batch(&mut self) -> Option<Result<RecordBatch, DataFusionError>> {
+        if self.exhausted {
+            return None;
+        }
+
+        Python::with_gil(|py| {
+            let iter = self.py_iterator.bind(py);
+
+            // Call __next__ on the iterator
+            match iter.call_method0("__next__") {
+                Ok(py_batch) => {
+                    // The batch should be a Polars DataFrame - convert to Arrow
+                    // First try to get the Arrow table via to_arrow()
+                    match py_batch.call_method0("to_arrow") {
+                        Ok(arrow_table) => {
+                            // Convert PyArrow Table to RecordBatches
+                            match arrow_table.call_method0("to_batches") {
+                                Ok(batches_list) => {
+                                    // Get first batch (there should typically be one)
+                                    match batches_list.get_item(0) {
+                                        Ok(first_batch) => {
+                                            match RecordBatch::from_pyarrow_bound(&first_batch) {
+                                                Ok(batch) => Some(Ok(batch)),
+                                                Err(e) => Some(Err(DataFusionError::External(
+                                                    Box::new(std::io::Error::new(
+                                                        std::io::ErrorKind::Other,
+                                                        format!(
+                                                            "Failed to convert PyArrow batch: {}",
+                                                            e
+                                                        ),
+                                                    )),
+                                                ))),
+                                            }
+                                        },
+                                        Err(_) => {
+                                            // Empty batches list - continue to next
+                                            self.next_batch()
+                                        },
+                                    }
+                                },
+                                Err(e) => Some(Err(DataFusionError::External(Box::new(
+                                    std::io::Error::new(
+                                        std::io::ErrorKind::Other,
+                                        format!("Failed to get batches from Arrow table: {}", e),
+                                    ),
+                                )))),
+                            }
+                        },
+                        Err(e) => Some(Err(DataFusionError::External(Box::new(
+                            std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!("Failed to convert to Arrow: {}", e),
+                            ),
+                        )))),
+                    }
+                },
+                Err(e) => {
+                    // Check if it's StopIteration (iterator exhausted)
+                    if e.is_instance_of::<PyStopIteration>(py) {
+                        self.exhausted = true;
+                        None
+                    } else {
+                        Some(Err(DataFusionError::External(Box::new(
+                            std::io::Error::new(
+                                std::io::ErrorKind::Other,
+                                format!("Python iterator error: {}", e),
+                            ),
+                        ))))
+                    }
+                },
+            }
+        })
+    }
+}
+
+impl Stream for PythonBatchStream {
+    type Item = Result<RecordBatch, DataFusionError>;
+
+    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        // Since we're doing synchronous Python calls, we just poll once and return
+        Poll::Ready(self.next_batch())
+    }
+}
+
+impl RecordBatchStream for PythonBatchStream {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
 
@@ -153,6 +312,34 @@ pub(crate) fn register_frame_from_batches(
             None,
         ));
     }
+}
+
+/// Register a table from a Python iterator that yields batches lazily.
+/// This enables true streaming from Polars LazyFrame.collect_batches() without
+/// materializing all batches in memory upfront.
+///
+/// The iterator should yield Polars DataFrames (which will be converted to Arrow).
+/// Uses a single partition with lazy batch fetching from Python.
+pub(crate) fn register_frame_from_py_iterator(
+    py_ctx: &PyBioSessionContext,
+    py_iterator: Py<PyAny>,
+    schema: Arc<arrow::datatypes::Schema>,
+    table_name: String,
+) {
+    let ctx = &py_ctx.ctx;
+
+    // Create a single partition stream that lazily pulls from Python iterator
+    let partition = Arc::new(PythonIteratorPartitionStream::new(
+        schema.clone(),
+        py_iterator,
+    )) as Arc<dyn PartitionStream>;
+
+    // Use StreamingTable with the lazy partition
+    let table_source = StreamingTable::try_new(schema, vec![partition]).unwrap();
+
+    ctx.deregister_table(&table_name).unwrap();
+    ctx.register_table(&table_name, Arc::new(table_source))
+        .unwrap();
 }
 
 pub(crate) fn get_input_format(path: &str) -> InputFormat {

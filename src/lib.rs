@@ -29,7 +29,8 @@ use crate::option::{
     PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
 };
 use crate::scan::{
-    maybe_register_table, register_frame, register_frame_from_batches, register_table,
+    maybe_register_table, register_frame, register_frame_from_batches,
+    register_frame_from_py_iterator, register_table,
 };
 
 const LEFT_TABLE: &str = "s1";
@@ -91,6 +92,59 @@ fn range_operation_frame(
             },
         }
     })
+}
+
+/// Execute a range operation with lazy streaming from Python iterators.
+/// This enables true streaming from Polars LazyFrame.collect_batches() without
+/// materializing all batches in memory upfront.
+///
+/// The iterators should yield Polars DataFrames (batches from collect_batches()).
+#[pyfunction]
+#[pyo3(signature = (py_ctx, iter1, iter2, schema1, schema2, range_options, limit=None))]
+fn range_operation_lazy(
+    _py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    iter1: Py<PyAny>,
+    iter2: Py<PyAny>,
+    schema1: PyArrowType<arrow::datatypes::Schema>,
+    schema2: PyArrowType<arrow::datatypes::Schema>,
+    range_options: RangeOptions,
+    limit: Option<usize>,
+) -> PyResult<PyDataFrame> {
+    let schema1 = Arc::new(schema1.0);
+    let schema2 = Arc::new(schema2.0);
+
+    // Register tables with lazy Python iterators
+    // Note: We cannot release GIL here because the iterators need Python access
+    let rt = Runtime::new().map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let ctx = &py_ctx.ctx;
+
+    register_frame_from_py_iterator(py_ctx, iter1, schema1, LEFT_TABLE.to_string());
+    register_frame_from_py_iterator(py_ctx, iter2, schema2, RIGHT_TABLE.to_string());
+
+    match limit {
+        Some(l) => Ok(PyDataFrame::new(
+            do_range_operation(
+                ctx,
+                &rt,
+                range_options,
+                LEFT_TABLE.to_string(),
+                RIGHT_TABLE.to_string(),
+            )
+            .limit(0, Some(l))
+            .map_err(|e| PyValueError::new_err(e.to_string()))?,
+        )),
+        _ => {
+            let df = do_range_operation(
+                ctx,
+                &rt,
+                range_options,
+                LEFT_TABLE.to_string(),
+                RIGHT_TABLE.to_string(),
+            );
+            Ok(PyDataFrame::new(df))
+        },
+    }
 }
 
 #[pyfunction]
@@ -302,6 +356,7 @@ fn py_from_polars(
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
+    m.add_function(wrap_pyfunction!(range_operation_lazy, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
