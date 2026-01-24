@@ -46,34 +46,61 @@ def range_lazy_scan(
         stored_arrow_tbl1, stored_arrow_tbl2 = None, None
     else:
         range_function = range_operation_frame
-        # For DataFrame/LazyFrame inputs: collect LazyFrames ONCE and store.
+        # For DataFrame/LazyFrame inputs: convert to Arrow tables.
+        # For LazyFrames, use collect_batches() to stream without full materialization.
         # We create fresh Arrow readers on each _range_source call to avoid
         # the "reader consumed" issue. This avoids disk I/O (no parquet).
-        if isinstance(df_1, pl.LazyFrame):
-            df_1 = df_1.collect()
-        if isinstance(df_2, pl.LazyFrame):
-            df_2 = df_2.collect()
-        # Store DataFrames for schema access
-        stored_df1, stored_df2 = df_1, df_2
         col1, col2 = range_options.columns_1[0], range_options.columns_2[0]
+
         # Convert to Arrow tables in the MAIN thread (thread-safe).
         # df.to_arrow() may not be thread-safe when called from Polars worker threads on Linux.
-        # Handle both Polars and Pandas DataFrames
-        if isinstance(df_1, pl.DataFrame):
+        if isinstance(df_1, pl.LazyFrame):
+            # Stream LazyFrame in batches - more memory efficient than collect()
+            # Polars streaming engine processes in chunks, we convert each to Arrow immediately
+            arrow_batches = []
+            for batch_df in df_1.collect_batches():
+                arrow_batches.extend(batch_df.to_arrow().to_batches())
+            if arrow_batches:
+                stored_arrow_tbl1 = pa.Table.from_batches(arrow_batches)
+            else:
+                # Empty LazyFrame - get schema and create empty table
+                schema = df_1.collect_schema().to_arrow()
+                stored_arrow_tbl1 = pa.Table.from_batches([], schema=schema)
+            stored_df1 = None  # No need to store DataFrame for LazyFrame path
+        elif isinstance(df_1, pl.DataFrame):
             stored_arrow_tbl1 = df_1.to_arrow()
+            stored_df1 = df_1
         elif pd is not None and isinstance(df_1, pd.DataFrame):
             stored_arrow_tbl1 = pa.Table.from_pandas(df_1)
             stored_arrow_tbl1 = _string_to_largestring(stored_arrow_tbl1, col1)
+            stored_df1 = df_1
         else:
-            raise ValueError("df_1 must be a Polars or Pandas DataFrame")
+            raise ValueError(
+                "df_1 must be a Polars DataFrame, LazyFrame, or Pandas DataFrame"
+            )
 
-        if isinstance(df_2, pl.DataFrame):
+        if isinstance(df_2, pl.LazyFrame):
+            # Stream LazyFrame in batches - more memory efficient than collect()
+            arrow_batches = []
+            for batch_df in df_2.collect_batches():
+                arrow_batches.extend(batch_df.to_arrow().to_batches())
+            if arrow_batches:
+                stored_arrow_tbl2 = pa.Table.from_batches(arrow_batches)
+            else:
+                schema = df_2.collect_schema().to_arrow()
+                stored_arrow_tbl2 = pa.Table.from_batches([], schema=schema)
+            stored_df2 = None
+        elif isinstance(df_2, pl.DataFrame):
             stored_arrow_tbl2 = df_2.to_arrow()
+            stored_df2 = df_2
         elif pd is not None and isinstance(df_2, pd.DataFrame):
             stored_arrow_tbl2 = pa.Table.from_pandas(df_2)
             stored_arrow_tbl2 = _string_to_largestring(stored_arrow_tbl2, col2)
+            stored_df2 = df_2
         else:
-            raise ValueError("df_2 must be a Polars or Pandas DataFrame")
+            raise ValueError(
+                "df_2 must be a Polars DataFrame, LazyFrame, or Pandas DataFrame"
+            )
 
     def _range_source(
         with_columns: Union[pl.Expr, None],
