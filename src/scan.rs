@@ -9,7 +9,6 @@ use arrow::pyarrow::{FromPyArrow, PyArrowType};
 use arrow_schema::SchemaRef;
 use datafusion::catalog::streaming::StreamingTable;
 use datafusion::common::DataFusionError;
-use datafusion::dataframe::DataFrameWriteOptions;
 use datafusion::execution::{RecordBatchStream, SendableRecordBatchStream, TaskContext};
 use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
 use datafusion::physical_plan::streaming::PartitionStream;
@@ -35,8 +34,6 @@ use crate::option::{
     BamReadOptions, BedReadOptions, CramReadOptions, FastaReadOptions, FastqReadOptions,
     GffReadOptions, InputFormat, ReadOptions, VcfReadOptions,
 };
-
-const MAX_IN_MEMORY_ROWS: usize = 1024 * 1024;
 
 /// A PartitionStream that yields pre-collected RecordBatches.
 /// Used to enable multi-partition parallel execution for DataFrame inputs.
@@ -383,7 +380,6 @@ pub(crate) fn register_frame_from_batches(
     table_name: String,
 ) {
     let ctx = &py_ctx.ctx;
-    let rt = tokio::runtime::Runtime::new().unwrap();
 
     // Get target partitions from session config for parallel execution
     let target_partitions = ctx.state().config().options().execution.target_partitions;
@@ -397,22 +393,6 @@ pub(crate) fn register_frame_from_batches(
     ctx.deregister_table(&table_name).unwrap();
     ctx.register_table(&table_name, Arc::new(table_source))
         .unwrap();
-    let df = rt.block_on(ctx.table(&table_name)).unwrap();
-    let table_size = rt.block_on(df.clone().count()).unwrap();
-    if table_size > MAX_IN_MEMORY_ROWS {
-        let path = format!("{}/{}.parquet", py_ctx.catalog_dir, table_name);
-        ctx.deregister_table(&table_name).unwrap();
-        rt.block_on(df.write_parquet(&path, DataFrameWriteOptions::new(), None))
-            .unwrap();
-        ctx.deregister_table(&table_name).unwrap();
-        rt.block_on(register_table(
-            ctx,
-            &path,
-            &table_name,
-            InputFormat::Parquet,
-            None,
-        ));
-    }
 }
 
 /// Register a table from a Python iterator that yields batches lazily.

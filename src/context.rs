@@ -15,14 +15,13 @@ pub struct PyBioSessionContext {
     pub session_config: HashMap<String, String>,
     #[pyo3(get, set)]
     pub seed: String,
-    pub catalog_dir: String,
 }
 
 #[pymethods]
 impl PyBioSessionContext {
-    #[pyo3(signature = (seed, catalog_dir))]
+    #[pyo3(signature = (seed))]
     #[new]
-    pub fn new(seed: String, catalog_dir: String) -> PyResult<Self> {
+    pub fn new(seed: String) -> PyResult<Self> {
         let ctx = create_context();
         let session_config: HashMap<String, String> = HashMap::new();
 
@@ -30,7 +29,6 @@ impl PyBioSessionContext {
             ctx,
             session_config,
             seed,
-            catalog_dir,
         })
     }
     #[pyo3(signature = (key, value, temporary=Some(false)))]

@@ -332,12 +332,3 @@ def _validate_overlap_input(
     ], (
         "Only polars.LazyFrame, polars.DataFrame and pandas DataFrame are " "supported"
     )
-
-
-def tmp_cleanup(session_catalog_path: str):
-    # remove temp parquet files
-    logger.info(f"Cleaning up temp files for catalog path: '{session_catalog_path}'")
-    path = Path(session_catalog_path)
-    for path in path.glob("*.parquet"):
-        path.unlink(missing_ok=True)
-    path.rmdir()
