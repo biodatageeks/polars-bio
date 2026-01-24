@@ -41,6 +41,18 @@ pub(crate) fn register_frame(
     // Use the reader's schema (which is always available) instead of batches[0].schema()
     // This handles the case when batches is empty
     let schema = reader_schema;
+    register_frame_from_batches(py_ctx, batches, schema, table_name);
+}
+
+/// Register a table from pre-collected RecordBatches and schema.
+/// This is used when Arrow streams are consumed with GIL held (to avoid segfault),
+/// and then the batches are passed to this function for registration without GIL.
+pub(crate) fn register_frame_from_batches(
+    py_ctx: &PyBioSessionContext,
+    batches: Vec<RecordBatch>,
+    schema: Arc<arrow::datatypes::Schema>,
+    table_name: String,
+) {
     let ctx = &py_ctx.ctx;
     let rt = tokio::runtime::Runtime::new().unwrap();
     let table_source = MemTable::try_new(schema, vec![batches]).unwrap();

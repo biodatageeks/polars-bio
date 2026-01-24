@@ -9,6 +9,7 @@ mod utils;
 use std::string::ToString;
 use std::sync::Arc;
 
+use datafusion::arrow::array::RecordBatchReader;
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
 use datafusion::datasource::MemTable;
@@ -27,7 +28,9 @@ use crate::option::{
     CramReadOptions, FastaReadOptions, FastqReadOptions, FilterOp, GffReadOptions, InputFormat,
     PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
 };
-use crate::scan::{maybe_register_table, register_frame, register_table};
+use crate::scan::{
+    maybe_register_table, register_frame, register_frame_from_batches, register_table,
+};
 
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
@@ -43,12 +46,26 @@ fn range_operation_frame(
     range_options: RangeOptions,
     limit: Option<usize>,
 ) -> PyResult<PyDataFrame> {
+    // Consume Arrow streams WITH GIL held to avoid segfault.
+    // Arrow FFI streams exported from Python may require GIL access for callbacks.
+    let schema1 = df1.0.schema();
+    let batches1 = df1
+        .0
+        .collect::<Result<Vec<datafusion::arrow::array::RecordBatch>, datafusion::arrow::error::ArrowError>>()
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let schema2 = df2.0.schema();
+    let batches2 = df2
+        .0
+        .collect::<Result<Vec<datafusion::arrow::array::RecordBatch>, datafusion::arrow::error::ArrowError>>()
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+    // Now release GIL for the actual computation (registration and join)
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
-        register_frame(py_ctx, df1, LEFT_TABLE.to_string());
-        register_frame(py_ctx, df2, RIGHT_TABLE.to_string());
+        register_frame_from_batches(py_ctx, batches1, schema1, LEFT_TABLE.to_string());
+        register_frame_from_batches(py_ctx, batches2, schema2, RIGHT_TABLE.to_string());
         match limit {
             Some(l) => Ok(PyDataFrame::new(
                 do_range_operation(
