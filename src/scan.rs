@@ -4,8 +4,12 @@ use arrow::array::{RecordBatch, RecordBatchReader};
 use arrow::error::ArrowError;
 use arrow::ffi_stream::ArrowArrayStreamReader;
 use arrow::pyarrow::PyArrowType;
+use arrow_schema::SchemaRef;
+use datafusion::catalog::streaming::StreamingTable;
 use datafusion::dataframe::DataFrameWriteOptions;
-use datafusion::datasource::MemTable;
+use datafusion::execution::{SendableRecordBatchStream, TaskContext};
+use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
+use datafusion::physical_plan::streaming::PartitionStream;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions, SessionContext};
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
@@ -28,6 +32,63 @@ use crate::option::{
 
 const MAX_IN_MEMORY_ROWS: usize = 1024 * 1024;
 
+/// A PartitionStream that yields pre-collected RecordBatches.
+/// Used to enable multi-partition parallel execution for DataFrame inputs.
+#[derive(Debug)]
+struct RecordBatchPartitionStream {
+    schema: SchemaRef,
+    batches: Vec<RecordBatch>,
+}
+
+impl RecordBatchPartitionStream {
+    fn new(schema: SchemaRef, batches: Vec<RecordBatch>) -> Self {
+        Self { schema, batches }
+    }
+}
+
+impl PartitionStream for RecordBatchPartitionStream {
+    fn schema(&self) -> &SchemaRef {
+        &self.schema
+    }
+
+    fn execute(&self, _ctx: Arc<TaskContext>) -> SendableRecordBatchStream {
+        let batches = self.batches.clone();
+        let stream = futures::stream::iter(batches.into_iter().map(Ok));
+        Box::pin(RecordBatchStreamAdapter::new(self.schema.clone(), stream))
+    }
+}
+
+/// Distributes RecordBatches into PartitionStreams for parallel execution.
+/// Uses round-robin distribution to balance batches across partitions.
+fn create_partition_streams(
+    schema: SchemaRef,
+    batches: Vec<RecordBatch>,
+    target_partitions: usize,
+) -> Vec<Arc<dyn PartitionStream>> {
+    if batches.is_empty() {
+        // Return single empty partition
+        return vec![Arc::new(RecordBatchPartitionStream::new(schema, vec![]))];
+    }
+
+    let num_partitions = target_partitions.min(batches.len()).max(1);
+    let mut partition_batches: Vec<Vec<RecordBatch>> =
+        (0..num_partitions).map(|_| Vec::new()).collect();
+
+    // Round-robin distribution
+    for (i, batch) in batches.into_iter().enumerate() {
+        partition_batches[i % num_partitions].push(batch);
+    }
+
+    partition_batches
+        .into_iter()
+        .filter(|p| !p.is_empty())
+        .map(|batches| {
+            Arc::new(RecordBatchPartitionStream::new(schema.clone(), batches))
+                as Arc<dyn PartitionStream>
+        })
+        .collect()
+}
+
 pub(crate) fn register_frame(
     py_ctx: &PyBioSessionContext,
     df: PyArrowType<ArrowArrayStreamReader>,
@@ -47,6 +108,9 @@ pub(crate) fn register_frame(
 /// Register a table from pre-collected RecordBatches and schema.
 /// This is used when Arrow streams are consumed with GIL held (to avoid segfault),
 /// and then the batches are passed to this function for registration without GIL.
+///
+/// Uses StreamingTable with multi-partition support for parallel execution,
+/// distributing batches across partitions using round-robin for better performance.
 pub(crate) fn register_frame_from_batches(
     py_ctx: &PyBioSessionContext,
     batches: Vec<RecordBatch>,
@@ -55,7 +119,16 @@ pub(crate) fn register_frame_from_batches(
 ) {
     let ctx = &py_ctx.ctx;
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let table_source = MemTable::try_new(schema, vec![batches]).unwrap();
+
+    // Get target partitions from session config for parallel execution
+    let target_partitions = ctx.state().config().options().execution.target_partitions;
+
+    // Create partition streams for parallel execution (instead of single-partition MemTable)
+    let partitions = create_partition_streams(schema.clone(), batches, target_partitions);
+
+    // Use StreamingTable instead of MemTable for multi-partition support
+    let table_source = StreamingTable::try_new(schema, partitions).unwrap();
+
     ctx.deregister_table(&table_name).unwrap();
     ctx.register_table(&table_name, Arc::new(table_source))
         .unwrap();
