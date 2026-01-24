@@ -34,6 +34,9 @@ const MAX_IN_MEMORY_ROWS: usize = 1024 * 1024;
 
 /// A PartitionStream that yields pre-collected RecordBatches.
 /// Used to enable multi-partition parallel execution for DataFrame inputs.
+///
+/// Note: RecordBatch::clone() is cheap - it uses Arc internally for column data,
+/// so cloning only increments reference counts (O(num_columns)), not copying data.
 #[derive(Debug)]
 struct RecordBatchPartitionStream {
     schema: SchemaRef,
@@ -52,6 +55,8 @@ impl PartitionStream for RecordBatchPartitionStream {
     }
 
     fn execute(&self, _ctx: Arc<TaskContext>) -> SendableRecordBatchStream {
+        // Clone is cheap: RecordBatch uses Arc internally, so this just increments
+        // reference counts for each column (O(num_columns)), no data copying.
         let batches = self.batches.clone();
         let stream = futures::stream::iter(batches.into_iter().map(Ok));
         Box::pin(RecordBatchStreamAdapter::new(self.schema.clone(), stream))
