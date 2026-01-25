@@ -1,11 +1,11 @@
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
 
 use arrow::array::{RecordBatch, RecordBatchReader};
 use arrow::error::ArrowError;
 use arrow::ffi_stream::ArrowArrayStreamReader;
-use arrow::pyarrow::{FromPyArrow, PyArrowType};
+use arrow::pyarrow::PyArrowType;
 use arrow_schema::SchemaRef;
 use datafusion::catalog::streaming::StreamingTable;
 use datafusion::common::DataFusionError;
@@ -24,8 +24,6 @@ use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
 use futures::Stream;
 use log::info;
-use pyo3::exceptions::PyStopIteration;
-use pyo3::prelude::*;
 use tokio::runtime::Runtime;
 use tracing::debug;
 
@@ -66,255 +64,77 @@ impl PartitionStream for RecordBatchPartitionStream {
     }
 }
 
-/// A PartitionStream that lazily pulls batches from a Python iterator.
-/// This enables true streaming from Polars LazyFrame.collect_batches() without
-/// materializing all batches in memory upfront.
+/// A PartitionStream that consumes an Arrow C Stream directly.
+/// Enables GIL-free streaming from Polars LazyFrame via ArrowStreamExportable.
 ///
-/// The Python iterator should yield PyArrow RecordBatches or Tables.
-pub struct PythonIteratorPartitionStream {
+/// This approach uses Polars' `__arrow_c_stream__()` method (available since Polars 1.37.1)
+/// to export data via Arrow C FFI, eliminating per-batch GIL acquisition.
+pub struct ArrowCStreamPartitionStream {
     schema: SchemaRef,
-    // Wrap in Arc for cheap cloning in execute()
-    py_iterator: Arc<Py<PyAny>>,
+    stream_reader: Arc<Mutex<Option<ArrowArrayStreamReader>>>,
 }
 
-// Safety: Py<PyAny> is Send + Sync, and we only access it with GIL held
-unsafe impl Send for PythonIteratorPartitionStream {}
-unsafe impl Sync for PythonIteratorPartitionStream {}
+impl ArrowCStreamPartitionStream {
+    pub fn new(schema: SchemaRef, stream_reader: ArrowArrayStreamReader) -> Self {
+        Self {
+            schema,
+            stream_reader: Arc::new(Mutex::new(Some(stream_reader))),
+        }
+    }
+}
 
-impl std::fmt::Debug for PythonIteratorPartitionStream {
+impl std::fmt::Debug for ArrowCStreamPartitionStream {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PythonIteratorPartitionStream")
+        f.debug_struct("ArrowCStreamPartitionStream")
             .field("schema", &self.schema)
             .finish()
     }
 }
 
-impl PythonIteratorPartitionStream {
-    pub fn new(schema: SchemaRef, py_iterator: Py<PyAny>) -> Self {
-        Self {
-            schema,
-            py_iterator: Arc::new(py_iterator),
-        }
-    }
-}
-
-impl PartitionStream for PythonIteratorPartitionStream {
+impl PartitionStream for ArrowCStreamPartitionStream {
     fn schema(&self) -> &SchemaRef {
         &self.schema
     }
 
     fn execute(&self, _ctx: Arc<TaskContext>) -> SendableRecordBatchStream {
-        let py_iter = Arc::clone(&self.py_iterator);
-        let schema = self.schema.clone();
-        Box::pin(PythonBatchStream::new(schema, py_iter))
+        let reader = self
+            .stream_reader
+            .lock()
+            .unwrap()
+            .take()
+            .expect("Arrow C Stream already consumed");
+        Box::pin(ArrowCStreamBatchStream::new(reader, self.schema.clone()))
     }
 }
 
-/// A RecordBatchStream that pulls batches from a Python iterator on-demand.
-/// Each poll acquires the GIL to get the next batch from Python.
+/// RecordBatchStream that reads from ArrowArrayStreamReader (no GIL needed).
 ///
-/// Handles chunked Arrow tables by buffering all batches from a single Python
-/// iteration and returning them one at a time.
-pub struct PythonBatchStream {
+/// After the initial stream export from Python (single GIL acquisition),
+/// all batch iteration happens in pure Rust without any Python interaction.
+pub struct ArrowCStreamBatchStream {
+    reader: ArrowArrayStreamReader,
     schema: SchemaRef,
-    py_iterator: Arc<Py<PyAny>>,
-    /// Buffer for batches from chunked Arrow tables
-    pending_batches: std::collections::VecDeque<RecordBatch>,
-    exhausted: bool,
 }
 
-impl PythonBatchStream {
-    pub fn new(schema: SchemaRef, py_iterator: Arc<Py<PyAny>>) -> Self {
-        Self {
-            schema,
-            py_iterator,
-            pending_batches: std::collections::VecDeque::new(),
-            exhausted: false,
-        }
-    }
-
-    /// Pull the next batch from the Python iterator.
-    /// This acquires the GIL and calls next() on the iterator.
-    ///
-    /// Handles chunked Arrow tables by buffering all batches from a single
-    /// Python iteration and returning them one at a time.
-    fn next_batch(&mut self) -> Option<Result<RecordBatch, DataFusionError>> {
-        loop {
-            // First check if we have pending batches from a previous chunked table
-            if let Some(batch) = self.pending_batches.pop_front() {
-                return Some(Ok(batch));
-            }
-
-            if self.exhausted {
-                return None;
-            }
-
-            // Try to get the next batch from Python
-            let result = Python::with_gil(|py| {
-                let iter = self.py_iterator.bind(py);
-
-                // Call __next__ on the iterator
-                match iter.call_method0("__next__") {
-                    Ok(py_batch) => {
-                        // The batch should be a Polars DataFrame - convert to Arrow
-                        // First try to get the Arrow table via to_arrow()
-                        match py_batch.call_method0("to_arrow") {
-                            Ok(arrow_table) => {
-                                // Convert PyArrow Table to RecordBatches
-                                match arrow_table.call_method0("to_batches") {
-                                    Ok(batches_list) => {
-                                        // Get the length of batches list
-                                        let len = match batches_list.len() {
-                                            Ok(l) => l,
-                                            Err(e) => {
-                                                return LoopResult::Error(
-                                                    DataFusionError::External(Box::new(
-                                                        std::io::Error::new(
-                                                            std::io::ErrorKind::Other,
-                                                            format!(
-                                                                "Failed to get batches length: {}",
-                                                                e
-                                                            ),
-                                                        ),
-                                                    )),
-                                                );
-                                            },
-                                        };
-
-                                        if len == 0 {
-                                            // Empty batches list - continue to next iteration
-                                            return LoopResult::Continue;
-                                        }
-
-                                        // Collect all batches from the chunked table
-                                        let mut collected_batches = Vec::with_capacity(len);
-                                        for i in 0..len {
-                                            match batches_list.get_item(i) {
-                                                Ok(py_batch) => {
-                                                    match RecordBatch::from_pyarrow_bound(&py_batch)
-                                                    {
-                                                        Ok(batch) => collected_batches.push(batch),
-                                                        Err(e) => {
-                                                            return LoopResult::Error(
-                                                                DataFusionError::External(
-                                                                    Box::new(std::io::Error::new(
-                                                                        std::io::ErrorKind::Other,
-                                                                        format!(
-                                                                        "Failed to convert PyArrow batch {}: {}",
-                                                                        i, e
-                                                                    ),
-                                                                    )),
-                                                                ),
-                                                            );
-                                                        },
-                                                    }
-                                                },
-                                                Err(e) => {
-                                                    return LoopResult::Error(
-                                                        DataFusionError::External(Box::new(
-                                                            std::io::Error::new(
-                                                                std::io::ErrorKind::Other,
-                                                                format!(
-                                                                "Failed to get batch {} from list: {}",
-                                                                i, e
-                                                            ),
-                                                            ),
-                                                        )),
-                                                    );
-                                                },
-                                            }
-                                        }
-
-                                        LoopResult::Batches(collected_batches)
-                                    },
-                                    Err(e) => LoopResult::Error(DataFusionError::External(
-                                        Box::new(std::io::Error::new(
-                                            std::io::ErrorKind::Other,
-                                            format!(
-                                                "Failed to get batches from Arrow table: {}",
-                                                e
-                                            ),
-                                        )),
-                                    )),
-                                }
-                            },
-                            Err(e) => LoopResult::Error(DataFusionError::External(Box::new(
-                                std::io::Error::new(
-                                    std::io::ErrorKind::Other,
-                                    format!("Failed to convert to Arrow: {}", e),
-                                ),
-                            ))),
-                        }
-                    },
-                    Err(e) => {
-                        // Check if it's StopIteration (iterator exhausted)
-                        if e.is_instance_of::<PyStopIteration>(py) {
-                            LoopResult::Exhausted
-                        } else {
-                            LoopResult::Error(DataFusionError::External(Box::new(
-                                std::io::Error::new(
-                                    std::io::ErrorKind::Other,
-                                    format!("Python iterator error: {}", e),
-                                ),
-                            )))
-                        }
-                    },
-                }
-            });
-
-            // Process the result outside with_gil
-            match result {
-                LoopResult::Batches(mut batches) => {
-                    if batches.is_empty() {
-                        // Continue to next iteration
-                        continue;
-                    }
-                    // Take first batch to return
-                    let first_batch = batches.remove(0);
-                    // Store remaining batches in pending buffer
-                    if !batches.is_empty() {
-                        self.pending_batches.extend(batches);
-                    }
-                    return Some(Ok(first_batch));
-                },
-                LoopResult::Continue => {
-                    // Empty batch, try next iteration
-                    continue;
-                },
-                LoopResult::Exhausted => {
-                    self.exhausted = true;
-                    return None;
-                },
-                LoopResult::Error(e) => {
-                    return Some(Err(e));
-                },
-            }
-        }
+impl ArrowCStreamBatchStream {
+    pub fn new(reader: ArrowArrayStreamReader, schema: SchemaRef) -> Self {
+        Self { reader, schema }
     }
 }
 
-/// Result type for the batch fetching loop to avoid recursion inside with_gil
-enum LoopResult {
-    /// Successfully collected batches from a chunked table
-    Batches(Vec<RecordBatch>),
-    /// Empty batch list, should continue to next iteration
-    Continue,
-    /// Iterator exhausted (StopIteration)
-    Exhausted,
-    /// Error occurred
-    Error(DataFusionError),
-}
-
-impl Stream for PythonBatchStream {
+impl Stream for ArrowCStreamBatchStream {
     type Item = Result<RecordBatch, DataFusionError>;
 
     fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        // Since we're doing synchronous Python calls, we just poll once and return
-        Poll::Ready(self.next_batch())
+        match self.reader.next() {
+            Some(Ok(batch)) => Poll::Ready(Some(Ok(batch))),
+            Some(Err(e)) => Poll::Ready(Some(Err(DataFusionError::External(Box::new(e))))),
+            None => Poll::Ready(None),
+        }
     }
 }
 
-impl RecordBatchStream for PythonBatchStream {
+impl RecordBatchStream for ArrowCStreamBatchStream {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -395,27 +215,26 @@ pub(crate) fn register_frame_from_batches(
         .unwrap();
 }
 
-/// Register a table from a Python iterator that yields batches lazily.
-/// This enables true streaming from Polars LazyFrame.collect_batches() without
-/// materializing all batches in memory upfront.
+/// Register a table from an Arrow C Stream (from Polars LazyFrame via ArrowStreamExportable).
+/// This enables GIL-free streaming by using Arrow FFI instead of Python iterators.
 ///
-/// The iterator should yield Polars DataFrames (which will be converted to Arrow).
-/// Uses a single partition with lazy batch fetching from Python.
-pub(crate) fn register_frame_from_py_iterator(
+/// The stream is extracted from a Polars LazyFrame's `__arrow_c_stream__()` method,
+/// which provides direct Arrow C Stream access without per-batch GIL acquisition.
+pub(crate) fn register_frame_from_arrow_stream(
     py_ctx: &PyBioSessionContext,
-    py_iterator: Py<PyAny>,
+    stream_reader: ArrowArrayStreamReader,
     schema: Arc<arrow::datatypes::Schema>,
     table_name: String,
 ) {
     let ctx = &py_ctx.ctx;
 
-    // Create a single partition stream that lazily pulls from Python iterator
-    let partition = Arc::new(PythonIteratorPartitionStream::new(
+    // Create a single partition stream that reads from Arrow C Stream
+    let partition = Arc::new(ArrowCStreamPartitionStream::new(
         schema.clone(),
-        py_iterator,
+        stream_reader,
     )) as Arc<dyn PartitionStream>;
 
-    // Use StreamingTable with the lazy partition
+    // Use StreamingTable with the Arrow C Stream partition
     let table_source = StreamingTable::try_new(schema, vec![partition]).unwrap();
 
     ctx.deregister_table(&table_name).unwrap();

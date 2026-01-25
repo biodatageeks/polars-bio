@@ -1,8 +1,14 @@
 1. What versions of Polars are supported?
 
-    Short answer: Polars == **1.29.0** is supported.
+    Short answer: Polars >= **1.37.0** is required.
 
-    Long answer: We recommend handling most of the heavy lifting on the DataFusion side (e.g., using SQL and views) and relying on Polars’ streaming capabilities primarily for projection, filtering and sinking results. Right now, Polars 1.29.0 is the last version that supports pyo3 0.24.x that is required by DataFusion. With the most recet version of polars-bio (0.13.0) we migrated to the Polars new streaming engine.
+    Long answer: polars-bio requires Polars 1.37.1 or later because it uses the `ArrowStreamExportable` feature ([PR #25994](https://github.com/pola-rs/polars/pull/25994)) for efficient zero-copy data exchange between Polars LazyFrames and the Rust-based genomic operations engine. This feature provides:
+
+    - **Arrow C Stream FFI**: LazyFrames export data via `__arrow_c_stream__()`, enabling direct Arrow FFI transfer to Rust without Python object conversions
+    - **GIL-free streaming**: The GIL is only acquired once when exporting the stream; all subsequent batch processing happens in pure Rust
+    - **Reduced memory overhead**: No Python iterator objects or intermediate conversions
+
+    We recommend handling most of the heavy lifting on the DataFusion side (e.g., using SQL and views) and relying on Polars' streaming capabilities primarily for projection, filtering, and sinking results. See the [Polars Integration](features.md#polars-integration) section for more details on the architecture.
 
 2. What to do if I get  `Illegal instruction (core dumped)` when using polars-bio?
 This error is likely due to the fact that the ABI of the polars-bio wheel package does not match the ABI of the Python interpreter.

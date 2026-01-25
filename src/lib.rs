@@ -29,8 +29,8 @@ use crate::option::{
     PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
 };
 use crate::scan::{
-    maybe_register_table, register_frame, register_frame_from_batches,
-    register_frame_from_py_iterator, register_table,
+    maybe_register_table, register_frame, register_frame_from_arrow_stream,
+    register_frame_from_batches, register_table,
 };
 
 const LEFT_TABLE: &str = "s1";
@@ -94,18 +94,20 @@ fn range_operation_frame(
     })
 }
 
-/// Execute a range operation with lazy streaming from Python iterators.
-/// This enables true streaming from Polars LazyFrame.collect_batches() without
-/// materializing all batches in memory upfront.
+/// Execute a range operation with Arrow C Stream inputs from LazyFrames.
+/// Uses ArrowStreamExportable (Polars >= 1.37.1) for GIL-free streaming.
 ///
-/// The iterators should yield Polars DataFrames (batches from collect_batches()).
+/// This function accepts Arrow C Streams directly, which are extracted from
+/// Polars LazyFrames via their `__arrow_c_stream__()` method. The streams
+/// are consumed with GIL held (required for Arrow FFI export), but all
+/// subsequent batch processing happens in pure Rust without GIL.
 #[pyfunction]
-#[pyo3(signature = (py_ctx, iter1, iter2, schema1, schema2, range_options, limit=None))]
+#[pyo3(signature = (py_ctx, stream1, stream2, schema1, schema2, range_options, limit=None))]
 fn range_operation_lazy(
-    _py: Python<'_>,
+    py: Python<'_>,
     py_ctx: &PyBioSessionContext,
-    iter1: Py<PyAny>,
-    iter2: Py<PyAny>,
+    stream1: PyArrowType<ArrowArrayStreamReader>,
+    stream2: PyArrowType<ArrowArrayStreamReader>,
     schema1: PyArrowType<arrow::datatypes::Schema>,
     schema2: PyArrowType<arrow::datatypes::Schema>,
     range_options: RangeOptions,
@@ -114,37 +116,43 @@ fn range_operation_lazy(
     let schema1 = Arc::new(schema1.0);
     let schema2 = Arc::new(schema2.0);
 
-    // Register tables with lazy Python iterators
-    // Note: We cannot release GIL here because the iterators need Python access
-    let rt = Runtime::new().map_err(|e| PyValueError::new_err(e.to_string()))?;
-    let ctx = &py_ctx.ctx;
+    // Extract the stream readers (this consumes them)
+    let reader1 = stream1.0;
+    let reader2 = stream2.0;
 
-    register_frame_from_py_iterator(py_ctx, iter1, schema1, LEFT_TABLE.to_string());
-    register_frame_from_py_iterator(py_ctx, iter2, schema2, RIGHT_TABLE.to_string());
+    // Release GIL for the actual computation (registration and join)
+    // The Arrow C Streams have been extracted - no more Python interaction needed
+    py.allow_threads(|| {
+        let rt = Runtime::new().map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let ctx = &py_ctx.ctx;
 
-    match limit {
-        Some(l) => Ok(PyDataFrame::new(
-            do_range_operation(
-                ctx,
-                &rt,
-                range_options,
-                LEFT_TABLE.to_string(),
-                RIGHT_TABLE.to_string(),
-            )
-            .limit(0, Some(l))
-            .map_err(|e| PyValueError::new_err(e.to_string()))?,
-        )),
-        _ => {
-            let df = do_range_operation(
-                ctx,
-                &rt,
-                range_options,
-                LEFT_TABLE.to_string(),
-                RIGHT_TABLE.to_string(),
-            );
-            Ok(PyDataFrame::new(df))
-        },
-    }
+        register_frame_from_arrow_stream(py_ctx, reader1, schema1, LEFT_TABLE.to_string());
+        register_frame_from_arrow_stream(py_ctx, reader2, schema2, RIGHT_TABLE.to_string());
+
+        match limit {
+            Some(l) => Ok(PyDataFrame::new(
+                do_range_operation(
+                    ctx,
+                    &rt,
+                    range_options,
+                    LEFT_TABLE.to_string(),
+                    RIGHT_TABLE.to_string(),
+                )
+                .limit(0, Some(l))
+                .map_err(|e| PyValueError::new_err(e.to_string()))?,
+            )),
+            _ => {
+                let df = do_range_operation(
+                    ctx,
+                    &rt,
+                    range_options,
+                    LEFT_TABLE.to_string(),
+                    RIGHT_TABLE.to_string(),
+                );
+                Ok(PyDataFrame::new(df))
+            },
+        }
+    })
 }
 
 #[pyfunction]

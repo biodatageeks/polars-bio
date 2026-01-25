@@ -515,3 +515,81 @@ For BGZIP it is possible to parallelize decoding of compressed blocks to substan
 | Polars DataFrame |                    | :white_check_mark:     |                    |            |            | :white_check_mark:     |
 | Polars LazyFrame |                    | :white_check_mark:     |                    |            |            |                        |
 | Native readers   |                    | :white_check_mark:     |                    |            |            |                        |
+
+## Polars Integration
+
+polars-bio leverages deep integration with Polars through the [Arrow C Data Interface](https://arrow.apache.org/docs/format/CDataInterface.html), enabling high-performance zero-copy data exchange between Polars LazyFrames and the Rust-based genomic range operations engine.
+
+### Architecture
+
+```mermaid
+flowchart LR
+    subgraph Python["Python Layer"]
+        LF["Polars LazyFrame"]
+        DF["Polars DataFrame"]
+    end
+
+    subgraph FFI["Arrow C Data Interface"]
+        stream["Arrow C Stream<br/>(__arrow_c_stream__)"]
+    end
+
+    subgraph Rust["Rust Layer (polars-bio)"]
+        reader["ArrowArrayStreamReader"]
+        datafusion["DataFusion Engine"]
+        range_ops["Range Operations<br/>(overlap, nearest, etc.)"]
+    end
+
+    LF --> |"ArrowStreamExportable"| stream
+    DF --> |"to_arrow()"| stream
+    stream --> |"Zero-copy FFI"| reader
+    reader --> datafusion
+    datafusion --> range_ops
+```
+
+### How It Works
+
+When you pass a Polars LazyFrame to range operations like `overlap()` or `nearest()`:
+
+1. **Stream Export**: The LazyFrame exports itself as an Arrow C Stream via `collect_batches(lazy=True)._inner.__arrow_c_stream__()` (Polars >= 1.37.0)
+2. **Zero-Copy Transfer**: The stream pointer is passed directly to Rust - no data copying or Python object conversion
+3. **GIL-Free Execution**: Once the stream is exported, all data processing happens in Rust without holding Python's GIL
+4. **Streaming Execution**: Data flows through DataFusion's streaming engine, processing batches on-demand
+
+### Performance Benefits
+
+| Aspect | Previous Approach | Arrow C Stream |
+|--------|------------------|----------------|
+| GIL acquisition | Per batch | Once at export |
+| Data conversion | Polars → PyArrow → Arrow | Direct FFI |
+| Memory overhead | Python iterator objects | None |
+| Batch processing | Python `__next__()` calls | Native Rust iteration |
+
+### Requirements
+
+- **Polars >= 1.37.0** (required for `ArrowStreamExportable`)
+
+### Example
+
+```python
+import polars as pl
+import polars_bio as pb
+
+# Create a LazyFrame from a large file
+lf1 = pl.scan_parquet("variants.parquet")
+lf2 = pl.scan_parquet("regions.parquet")
+
+# Set coordinate system metadata
+lf1 = lf1.config_meta.set(coordinate_system_zero_based=True)
+lf2 = lf2.config_meta.set(coordinate_system_zero_based=True)
+
+# Range operation uses Arrow C Stream for efficient data transfer
+result = pb.overlap(
+    lf1, lf2,
+    cols1=["chrom", "start", "end"],
+    cols2=["chrom", "start", "end"],
+    output_type="polars.LazyFrame"
+)
+
+# Execute with Polars streaming engine
+result.collect(engine="streaming")
+```
