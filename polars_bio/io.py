@@ -196,6 +196,7 @@ class IOOperations:
     def read_vcf(
         path: str,
         info_fields: Union[list[str], None] = None,
+        format_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -213,6 +214,7 @@ class IOOperations:
         Parameters:
             path: The path to the VCF file.
             info_fields: List of INFO field names to include. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit fields for better performance.
+            format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields will be automatically detected from the VCF header. Column naming depends on the number of samples: for **single-sample** VCFs, columns are named directly by the FORMAT field (e.g., `GT`, `DP`); for **multi-sample** VCFs, columns are named `{sample_name}_{format_field}` (e.g., `NA12878_GT`, `NA12879_DP`). The GT field is always converted to string with `/` (unphased) or `|` (phased) separator.
             thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -226,10 +228,39 @@ class IOOperations:
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
+
+        !!! Example "Reading VCF with INFO and FORMAT fields"
+            ```python
+            import polars_bio as pb
+
+            # Read VCF with both INFO and FORMAT fields
+            df = pb.read_vcf(
+                "sample.vcf.gz",
+                info_fields=["END"],              # INFO field
+                format_fields=["GT", "DP", "GQ"]  # FORMAT fields
+            )
+
+            # Single-sample VCF: FORMAT columns named directly (GT, DP, GQ)
+            print(df.select(["chrom", "start", "ref", "alt", "END", "GT", "DP", "GQ"]))
+            # Output:
+            # shape: (10, 8)
+            # ┌───────┬───────┬─────┬─────┬──────┬─────┬─────┬─────┐
+            # │ chrom ┆ start ┆ ref ┆ alt ┆ END  ┆ GT  ┆ DP  ┆ GQ  │
+            # │ str   ┆ u32   ┆ str ┆ str ┆ i32  ┆ str ┆ i32 ┆ i32 │
+            # ╞═══════╪═══════╪═════╪═════╪══════╪═════╪═════╪═════╡
+            # │ 1     ┆ 10009 ┆ A   ┆ .   ┆ null ┆ 0/0 ┆ 10  ┆ 27  │
+            # │ 1     ┆ 10015 ┆ A   ┆ .   ┆ null ┆ 0/0 ┆ 17  ┆ 35  │
+            # └───────┴───────┴─────┴─────┴──────┴─────┴─────┴─────┘
+
+            # Multi-sample VCF: FORMAT columns named {sample}_{field}
+            df = pb.read_vcf("multisample.vcf", format_fields=["GT", "DP"])
+            print(df.select(["chrom", "start", "NA12878_GT", "NA12878_DP", "NA12879_GT"]))
+            ```
         """
         lf = IOOperations.scan_vcf(
             path,
             info_fields,
+            format_fields,
             thread_num,
             chunk_size,
             concurrent_fetches,
@@ -253,6 +284,7 @@ class IOOperations:
     def scan_vcf(
         path: str,
         info_fields: Union[list[str], None] = None,
+        format_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -270,6 +302,7 @@ class IOOperations:
         Parameters:
             path: The path to the VCF file.
             info_fields: List of INFO field names to include. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit fields for better performance.
+            format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields will be automatically detected from the VCF header. Column naming depends on the number of samples: for **single-sample** VCFs, columns are named directly by the FORMAT field (e.g., `GT`, `DP`); for **multi-sample** VCFs, columns are named `{sample_name}_{format_field}` (e.g., `NA12878_GT`, `NA12879_DP`). The GT field is always converted to string with `/` (unphased) or `|` (phased) separator.
             thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -283,6 +316,26 @@ class IOOperations:
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
+
+        !!! Example "Lazy scanning VCF with INFO and FORMAT fields"
+            ```python
+            import polars_bio as pb
+
+            # Lazily scan VCF with both INFO and FORMAT fields
+            lf = pb.scan_vcf(
+                "sample.vcf.gz",
+                info_fields=["END"],              # INFO field
+                format_fields=["GT", "DP", "GQ"]  # FORMAT fields
+            )
+
+            # Apply filters and collect only what's needed
+            df = lf.filter(pl.col("DP") > 20).select(
+                ["chrom", "start", "ref", "alt", "GT", "DP", "GQ"]
+            ).collect()
+
+            # Single-sample VCF: FORMAT columns named directly (GT, DP, GQ)
+            # Multi-sample VCF: FORMAT columns named {sample}_{field}
+            ```
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -320,6 +373,7 @@ class IOOperations:
         zero_based = _resolve_zero_based(use_zero_based)
         vcf_read_options = VcfReadOptions(
             info_fields=initial_info_fields,
+            format_fields=format_fields,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
             zero_based=zero_based,

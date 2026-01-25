@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele Frequency">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	NA12878	NA12879	NA12880
+1	10000	rs1	A	G	30	PASS	AF=0.5	GT:DP:GQ	0/1:25:99	1/1:30:95	0/0:20:85
+1	20000	rs2	C	T	40	PASS	AF=0.3	GT:DP:GQ	0/0:22:90	0/1:28:88	1/1:35:99
+1	30000	rs3	G	A	50	PASS	AF=0.1	GT:DP:GQ	1/1:18:75	0/0:32:92	0/1:27:80
