@@ -1,0 +1,2588 @@
+<!DOCTYPE html>
+<html class="no-js" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<link href="https://biodatageeks.org/polars-bio/features/" rel="canonical"/>
+<link href="../quickstart/" rel="prev"/>
+<link href="../notebooks/tutorial/" rel="next"/>
+<link href="../assets/logo.png" rel="icon"/>
+<meta content="mkdocs-1.6.1, mkdocs-material-9.7.1" name="generator"/>
+<title>🔨Features - polars-bio</title>
+<link href="../assets/stylesheets/main.484c7ddc.min.css" rel="stylesheet"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
+<style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+<link href="../assets/_markdown_exec_pyodide.css" rel="stylesheet"/>
+<link href="../assets/_mkdocstrings.css" rel="stylesheet"/>
+<script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+<script id="__analytics">function __md_analytics(){function e(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],e("js",new Date),e("config","G-1M9PLLGBYS"),document.addEventListener("DOMContentLoaded",(function(){document.forms.search&&document.forms.search.query.addEventListener("blur",(function(){this.value&&e("event","search",{search_term:this.value})}));document$.subscribe((function(){var t=document.forms.feedback;if(void 0!==t)for(var a of t.querySelectorAll("[type=submit]"))a.addEventListener("click",(function(a){a.preventDefault();var n=document.location.pathname,d=this.getAttribute("data-md-value");e("event","feedback",{page:n,data:d}),t.firstElementChild.disabled=!0;var r=t.querySelector(".md-feedback__note [data-md-value='"+d+"']");r&&(r.hidden=!1)})),t.hidden=!1})),location$.subscribe((function(t){e("config","G-1M9PLLGBYS",{page_path:t.pathname})}))}));var t=document.createElement("script");t.async=!0,t.src="https://www.googletagmanager.com/gtag/js?id=G-1M9PLLGBYS",document.getElementById("__analytics").insertAdjacentElement("afterEnd",t)}</script>
+<script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
+<meta content="website" property="og:type"/>
+<meta content="🔨Features - polars-bio" property="og:title"/>
+<meta content="https://biodatageeks.org/polars-bio/assets/images/social/features.png" property="og:image"/>
+<meta content="image/png" property="og:image:type"/>
+<meta content="1200" property="og:image:width"/>
+<meta content="630" property="og:image:height"/>
+<meta content="https://biodatageeks.org/polars-bio/features/" property="og:url"/>
+<meta content="summary_large_image" property="twitter:card"/>
+<meta content="🔨Features - polars-bio" property="twitter:title"/>
+<meta content="https://biodatageeks.org/polars-bio/assets/images/social/features.png" property="twitter:image"/>
+<link href="../assets/stylesheets/glightbox.min.css" rel="stylesheet"/><script src="../assets/javascripts/glightbox.min.js"></script><style id="glightbox-style">
+            html.glightbox-open { overflow: initial; height: 100%; }
+            .gslide-title { margin-top: 0px; user-select: text; }
+            .gslide-desc { color: #666; user-select: text; }
+            .gslide-image img { background: white; }
+            .gscrollbar-fixer { padding-right: 15px; }
+            .gdesc-inner { font-size: 0.75rem; }
+            body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color); }
+            body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color); }
+            body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color); }
+        </style></head>
+<body dir="ltr">
+<input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
+<input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
+<label class="md-overlay" for="__drawer"></label>
+<div data-md-component="skip">
+<a class="md-skip" href="#genomic-ranges-operations">
+          Skip to content
+        </a>
+</div>
+<div data-md-component="announce">
+</div>
+<div data-md-color-scheme="default" data-md-component="outdated" hidden="">
+</div>
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+<nav aria-label="Header" class="md-header__inner md-grid">
+<a aria-label="polars-bio" class="md-header__button md-logo" data-md-component="logo" href=".." title="polars-bio">
+<img alt="logo" src="../assets/logo.png"/>
+</a>
+<label class="md-header__button md-icon" for="__drawer">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+</label>
+<div class="md-header__title" data-md-component="header-title">
+<div class="md-header__ellipsis">
+<div class="md-header__topic">
+<span class="md-ellipsis">
+            polars-bio
+          </span>
+</div>
+<div class="md-header__topic" data-md-component="header-topic">
+<span class="md-ellipsis">
+            
+              🔨Features
+            
+          </span>
+</div>
+</div>
+</div>
+<script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+<label class="md-header__button md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+</label>
+<div class="md-search" data-md-component="search" role="dialog">
+<label class="md-search__overlay" for="__search"></label>
+<div class="md-search__inner" role="search">
+<form class="md-search__form" name="search">
+<input aria-label="Search" autocapitalize="off" autocomplete="off" autocorrect="off" class="md-search__input" data-md-component="search-query" name="query" placeholder="Search" required="" spellcheck="false" type="text"/>
+<label class="md-search__icon md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+</label>
+<nav aria-label="Search" class="md-search__options">
+<button aria-label="Clear" class="md-search__icon md-icon" tabindex="-1" title="Clear" type="reset">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+</button>
+</nav>
+</form>
+<div class="md-search__output">
+<div class="md-search__scrollwrap" data-md-scrollfix="" tabindex="0">
+<div class="md-search-result" data-md-component="search-result">
+<div class="md-search-result__meta">
+            Initializing search
+          </div>
+<ol class="md-search-result__list" role="presentation"></ol>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="md-header__source">
+<a class="md-source" data-md-component="source" href="https://github.com/biodatageeks/polars-bio" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+</div>
+<div class="md-source__repository">
+    biodatageeks/polars-bio
+  </div>
+</a>
+</div>
+</nav>
+<nav aria-label="Tabs" class="md-tabs" data-md-component="tabs">
+<div class="md-grid">
+<ul class="md-tabs__list">
+<li class="md-tabs__item md-tabs__item--active">
+<a class="md-tabs__link" href="..">
+          
+  
+  
+  Home
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../quickstart/">
+        
+  
+  
+    
+  
+  🏃🏼‍♂️ Quick start
+
+      </a>
+</li>
+<li class="md-tabs__item md-tabs__item--active">
+<a class="md-tabs__link" href="./">
+        
+  
+  
+    
+  
+  🔨Features
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../notebooks/tutorial/">
+        
+  
+  
+    
+  
+  📚Tutorial
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../api/">
+        
+  
+  
+    
+  
+  ⚙️ API reference
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../performance/">
+        
+  
+  
+    
+  
+  🚀 Performance
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../faq/">
+        
+  
+  
+    
+  
+  ❓ FAQ
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../supplement/">
+        
+  
+  
+    
+  
+  🔬 Auxiliary materials
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../contact/">
+        
+  
+  
+    
+  
+  📡 Contact
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../blog/">
+          
+  
+  
+  📖 Blog
+
+        </a>
+</li>
+</ul>
+</div>
+</nav>
+</header>
+<div class="md-container" data-md-component="container">
+<main class="md-main" data-md-component="main">
+<div class="md-main__inner md-grid">
+<div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Navigation" class="md-nav md-nav--primary md-nav--lifted" data-md-level="0">
+<label class="md-nav__title" for="__drawer">
+<a aria-label="polars-bio" class="md-nav__button md-logo" data-md-component="logo" href=".." title="polars-bio">
+<img alt="logo" src="../assets/logo.png"/>
+</a>
+    polars-bio
+  </label>
+<div class="md-nav__source">
+<a class="md-source" data-md-component="source" href="https://github.com/biodatageeks/polars-bio" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+</div>
+<div class="md-source__repository">
+    biodatageeks/polars-bio
+  </div>
+</a>
+</div>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" id="__nav_1" type="checkbox"/>
+<label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="">
+<span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="true" aria-labelledby="__nav_1_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_1">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    Home
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="..">
+<span class="md-ellipsis">
+    
+  
+    polars-bio
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../quickstart/">
+<span class="md-ellipsis">
+    
+  
+    🏃🏼‍♂️ Quick start
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--active">
+<input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
+<label class="md-nav__link md-nav__link--active" for="__toc">
+<span class="md-ellipsis">
+    
+  
+    🔨Features
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<a class="md-nav__link md-nav__link--active" href="./">
+<span class="md-ellipsis">
+    
+  
+    🔨Features
+  
+
+    
+  </span>
+</a>
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#genomic-ranges-operations">
+<span class="md-ellipsis">
+      
+        Genomic ranges operations
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#coordinate-systems-support">
+<span class="md-ellipsis">
+      
+        Coordinate systems support
+      
+    </span>
+</a>
+<nav aria-label="Coordinate systems support" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#how-it-works">
+<span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#session-parameters">
+<span class="md-ellipsis">
+      
+        Session parameters
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#reading-files-with-coordinate-system-metadata">
+<span class="md-ellipsis">
+      
+        Reading files with coordinate system metadata
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#setting-metadata-on-dataframes">
+<span class="md-ellipsis">
+      
+        Setting metadata on DataFrames
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#error-handling">
+<span class="md-ellipsis">
+      
+        Error handling
+      
+    </span>
+</a>
+<nav aria-label="Error handling" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#missingcoordinatesystemerror">
+<span class="md-ellipsis">
+      
+        MissingCoordinateSystemError
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#coordinatesystemmismatcherror">
+<span class="md-ellipsis">
+      
+        CoordinateSystemMismatchError
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#default-behavior-lenient-validation">
+<span class="md-ellipsis">
+      
+        Default behavior (lenient validation)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#strict-mode">
+<span class="md-ellipsis">
+      
+        Strict mode
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#migration-from-previous-versions">
+<span class="md-ellipsis">
+      
+        Migration from previous versions
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#api-comparison-between-libraries">
+<span class="md-ellipsis">
+      
+        API comparison between libraries
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#file-formats-support">
+<span class="md-ellipsis">
+      
+        File formats support
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#sql-powered-data-processing">
+<span class="md-ellipsis">
+      
+        SQL-powered data processing
+      
+    </span>
+</a>
+<nav aria-label="SQL-powered data processing" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#accessing-registered-tables">
+<span class="md-ellipsis">
+      
+        Accessing registered tables
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#parallel-engine">
+<span class="md-ellipsis">
+      
+        Parallel engine 🏎️
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#cloud-storage">
+<span class="md-ellipsis">
+      
+        Cloud storage ☁️
+      
+    </span>
+</a>
+<nav aria-label="Cloud storage ☁️" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#example">
+<span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#supported-features">
+<span class="md-ellipsis">
+      
+        Supported features
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#aws-s3-configuration">
+<span class="md-ellipsis">
+      
+        AWS S3 configuration
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#google-cloud-storage-configuration">
+<span class="md-ellipsis">
+      
+        Google Cloud Storage configuration
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#azure-blob-storage-configuration">
+<span class="md-ellipsis">
+      
+        Azure Blob Storage configuration
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#streaming">
+<span class="md-ellipsis">
+      
+        Streaming 🚂
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#compression">
+<span class="md-ellipsis">
+      
+        Compression
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#dataframes-support">
+<span class="md-ellipsis">
+      
+        DataFrames support
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#polars-integration">
+<span class="md-ellipsis">
+      
+        Polars Integration
+      
+    </span>
+</a>
+<nav aria-label="Polars Integration" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#architecture">
+<span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#how-it-works_1">
+<span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#performance-benefits">
+<span class="md-ellipsis">
+      
+        Performance Benefits
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#requirements">
+<span class="md-ellipsis">
+      
+        Requirements
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#batch-size-configuration">
+<span class="md-ellipsis">
+      
+        Batch Size Configuration
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#example_1">
+<span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../notebooks/tutorial/">
+<span class="md-ellipsis">
+    
+  
+    📚Tutorial
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../api/">
+<span class="md-ellipsis">
+    
+  
+    ⚙️ API reference
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../performance/">
+<span class="md-ellipsis">
+    
+  
+    🚀 Performance
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../faq/">
+<span class="md-ellipsis">
+    
+  
+    ❓ FAQ
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../supplement/">
+<span class="md-ellipsis">
+    
+  
+    🔬 Auxiliary materials
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../contact/">
+<span class="md-ellipsis">
+    
+  
+    📡 Contact
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../quickstart/">
+<span class="md-ellipsis">
+    
+  
+    🏃🏼‍♂️ Quick start
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--active">
+<input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
+<label class="md-nav__link md-nav__link--active" for="__toc">
+<span class="md-ellipsis">
+    
+  
+    🔨Features
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<a class="md-nav__link md-nav__link--active" href="./">
+<span class="md-ellipsis">
+    
+  
+    🔨Features
+  
+
+    
+  </span>
+</a>
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#genomic-ranges-operations">
+<span class="md-ellipsis">
+      
+        Genomic ranges operations
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#coordinate-systems-support">
+<span class="md-ellipsis">
+      
+        Coordinate systems support
+      
+    </span>
+</a>
+<nav aria-label="Coordinate systems support" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#how-it-works">
+<span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#session-parameters">
+<span class="md-ellipsis">
+      
+        Session parameters
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#reading-files-with-coordinate-system-metadata">
+<span class="md-ellipsis">
+      
+        Reading files with coordinate system metadata
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#setting-metadata-on-dataframes">
+<span class="md-ellipsis">
+      
+        Setting metadata on DataFrames
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#error-handling">
+<span class="md-ellipsis">
+      
+        Error handling
+      
+    </span>
+</a>
+<nav aria-label="Error handling" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#missingcoordinatesystemerror">
+<span class="md-ellipsis">
+      
+        MissingCoordinateSystemError
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#coordinatesystemmismatcherror">
+<span class="md-ellipsis">
+      
+        CoordinateSystemMismatchError
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#default-behavior-lenient-validation">
+<span class="md-ellipsis">
+      
+        Default behavior (lenient validation)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#strict-mode">
+<span class="md-ellipsis">
+      
+        Strict mode
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#migration-from-previous-versions">
+<span class="md-ellipsis">
+      
+        Migration from previous versions
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#api-comparison-between-libraries">
+<span class="md-ellipsis">
+      
+        API comparison between libraries
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#file-formats-support">
+<span class="md-ellipsis">
+      
+        File formats support
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#sql-powered-data-processing">
+<span class="md-ellipsis">
+      
+        SQL-powered data processing
+      
+    </span>
+</a>
+<nav aria-label="SQL-powered data processing" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#accessing-registered-tables">
+<span class="md-ellipsis">
+      
+        Accessing registered tables
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#parallel-engine">
+<span class="md-ellipsis">
+      
+        Parallel engine 🏎️
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#cloud-storage">
+<span class="md-ellipsis">
+      
+        Cloud storage ☁️
+      
+    </span>
+</a>
+<nav aria-label="Cloud storage ☁️" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#example">
+<span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#supported-features">
+<span class="md-ellipsis">
+      
+        Supported features
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#aws-s3-configuration">
+<span class="md-ellipsis">
+      
+        AWS S3 configuration
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#google-cloud-storage-configuration">
+<span class="md-ellipsis">
+      
+        Google Cloud Storage configuration
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#azure-blob-storage-configuration">
+<span class="md-ellipsis">
+      
+        Azure Blob Storage configuration
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#streaming">
+<span class="md-ellipsis">
+      
+        Streaming 🚂
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#compression">
+<span class="md-ellipsis">
+      
+        Compression
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#dataframes-support">
+<span class="md-ellipsis">
+      
+        DataFrames support
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#polars-integration">
+<span class="md-ellipsis">
+      
+        Polars Integration
+      
+    </span>
+</a>
+<nav aria-label="Polars Integration" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#architecture">
+<span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#how-it-works_1">
+<span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#performance-benefits">
+<span class="md-ellipsis">
+      
+        Performance Benefits
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#requirements">
+<span class="md-ellipsis">
+      
+        Requirements
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#batch-size-configuration">
+<span class="md-ellipsis">
+      
+        Batch Size Configuration
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#example_1">
+<span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../notebooks/tutorial/">
+<span class="md-ellipsis">
+    
+  
+    📚Tutorial
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../api/">
+<span class="md-ellipsis">
+    
+  
+    ⚙️ API reference
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../performance/">
+<span class="md-ellipsis">
+    
+  
+    🚀 Performance
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../faq/">
+<span class="md-ellipsis">
+    
+  
+    ❓ FAQ
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../supplement/">
+<span class="md-ellipsis">
+    
+  
+    🔬 Auxiliary materials
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../contact/">
+<span class="md-ellipsis">
+    
+  
+    📡 Contact
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_10" type="checkbox"/>
+<label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+<span class="md-ellipsis">
+    
+  
+    📖 Blog
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_10_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_10">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    📖 Blog
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../blog/">
+<span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_10_2" type="checkbox"/>
+<label class="md-nav__link" for="__nav_10_2" id="__nav_10_2_label" tabindex="0">
+<span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_10_2_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_10_2">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../blog/category/benchmarks/">
+<span class="md-ellipsis">
+    
+  
+    benchmarks
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../blog/category/file-formats/">
+<span class="md-ellipsis">
+    
+  
+    file formats
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../blog/category/performance/">
+<span class="md-ellipsis">
+    
+  
+    performance
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#genomic-ranges-operations">
+<span class="md-ellipsis">
+      
+        Genomic ranges operations
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#coordinate-systems-support">
+<span class="md-ellipsis">
+      
+        Coordinate systems support
+      
+    </span>
+</a>
+<nav aria-label="Coordinate systems support" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#how-it-works">
+<span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#session-parameters">
+<span class="md-ellipsis">
+      
+        Session parameters
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#reading-files-with-coordinate-system-metadata">
+<span class="md-ellipsis">
+      
+        Reading files with coordinate system metadata
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#setting-metadata-on-dataframes">
+<span class="md-ellipsis">
+      
+        Setting metadata on DataFrames
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#error-handling">
+<span class="md-ellipsis">
+      
+        Error handling
+      
+    </span>
+</a>
+<nav aria-label="Error handling" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#missingcoordinatesystemerror">
+<span class="md-ellipsis">
+      
+        MissingCoordinateSystemError
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#coordinatesystemmismatcherror">
+<span class="md-ellipsis">
+      
+        CoordinateSystemMismatchError
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#default-behavior-lenient-validation">
+<span class="md-ellipsis">
+      
+        Default behavior (lenient validation)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#strict-mode">
+<span class="md-ellipsis">
+      
+        Strict mode
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#migration-from-previous-versions">
+<span class="md-ellipsis">
+      
+        Migration from previous versions
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#api-comparison-between-libraries">
+<span class="md-ellipsis">
+      
+        API comparison between libraries
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#file-formats-support">
+<span class="md-ellipsis">
+      
+        File formats support
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#sql-powered-data-processing">
+<span class="md-ellipsis">
+      
+        SQL-powered data processing
+      
+    </span>
+</a>
+<nav aria-label="SQL-powered data processing" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#accessing-registered-tables">
+<span class="md-ellipsis">
+      
+        Accessing registered tables
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#parallel-engine">
+<span class="md-ellipsis">
+      
+        Parallel engine 🏎️
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#cloud-storage">
+<span class="md-ellipsis">
+      
+        Cloud storage ☁️
+      
+    </span>
+</a>
+<nav aria-label="Cloud storage ☁️" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#example">
+<span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#supported-features">
+<span class="md-ellipsis">
+      
+        Supported features
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#aws-s3-configuration">
+<span class="md-ellipsis">
+      
+        AWS S3 configuration
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#google-cloud-storage-configuration">
+<span class="md-ellipsis">
+      
+        Google Cloud Storage configuration
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#azure-blob-storage-configuration">
+<span class="md-ellipsis">
+      
+        Azure Blob Storage configuration
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#streaming">
+<span class="md-ellipsis">
+      
+        Streaming 🚂
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#compression">
+<span class="md-ellipsis">
+      
+        Compression
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#dataframes-support">
+<span class="md-ellipsis">
+      
+        DataFrames support
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#polars-integration">
+<span class="md-ellipsis">
+      
+        Polars Integration
+      
+    </span>
+</a>
+<nav aria-label="Polars Integration" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#architecture">
+<span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#how-it-works_1">
+<span class="md-ellipsis">
+      
+        How It Works
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#performance-benefits">
+<span class="md-ellipsis">
+      
+        Performance Benefits
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#requirements">
+<span class="md-ellipsis">
+      
+        Requirements
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#batch-size-configuration">
+<span class="md-ellipsis">
+      
+        Batch Size Configuration
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#example_1">
+<span class="md-ellipsis">
+      
+        Example
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-content" data-md-component="content">
+<article class="md-content__inner md-typeset">
+<a class="md-content__button md-icon" href="https://github.com/biodatageeks/polars-bio/edit/master/docs/features.md" rel="edit" title="Edit this page">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"></path></svg>
+</a>
+<h1>🔨Features</h1>
+<h2 id="genomic-ranges-operations">Genomic ranges operations<a class="headerlink" href="#genomic-ranges-operations" title="Permanent link"></a></h2>
+<table>
+<thead>
+<tr>
+<th>Features</th>
+<th>Bioframe</th>
+<th>polars-bio</th>
+<th>PyRanges</th>
+<th>Pybedtools</th>
+<th>PyGenomics</th>
+<th>GenomicRanges</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../api/#polars_bio.overlap">overlap</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+</tr>
+<tr>
+<td><a href="../api/#polars_bio.nearest">nearest</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+</tr>
+<tr>
+<td><a href="../api/#polars_bio.count_overlaps">count_overlaps</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+</tr>
+<tr>
+<td>cluster</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="../api/#polars_bio.merge">merge</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+</tr>
+<tr>
+<td>complement</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:"/></td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="../api/#polars_bio.coverage">coverage</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+</tr>
+<tr>
+<td><a href="../api/#polars_bio.LazyFrame.expand">expand</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+</tr>
+<tr>
+<td><a href="../api/#polars_bio.LazyFrame.sort_bedframe">sort</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+</tr>
+<tr>
+<td><a href="../api/#polars_bio.read_table">read_table</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition limitations">
+<p class="admonition-title">Limitations</p>
+<p>For now <em>polars-bio</em> uses <code>int32</code> positions encoding for interval operations (<a href="https://github.com/dcjones/coitrees/issues/18">issue</a>) meaning that it does not support operation on chromosomes longer than <strong>2Gb</strong>. <code>int64</code> support is planned for future releases (<a href="https://github.com/biodatageeks/polars-bio/issues/169">issue</a>).</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Memory Optimization</p>
+<p>For <code>overlap()</code> operations that produce very large result sets, use the <code>low_memory=True</code> parameter to reduce peak memory consumption:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="n">result</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">df1</span><span class="p">,</span> <span class="n">df2</span><span class="p">,</span> <span class="n">low_memory</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></code></pre></div>
+<p>This enables streaming output generation that caps the output batch size, trading some performance for significantly lower memory usage.</p>
+</div>
+<h2 id="coordinate-systems-support">Coordinate systems support<a class="headerlink" href="#coordinate-systems-support" title="Permanent link"></a></h2>
+<p>polars-bio supports both <strong>0-based half-open</strong> and <strong>1-based closed</strong> coordinate systems for genomic ranges operations. By <strong>default</strong>, it uses <strong>1-based closed</strong> coordinates, which is the native format for VCF, GFF, and SAM/BAM files.</p>
+<h3 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link"></a></h3>
+<p>The coordinate system is managed through <strong>DataFrame metadata</strong> that is set at I/O time and read by range operations. This ensures consistency throughout your analysis pipeline.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph IO["I/O Layer"]
+        scan["scan_vcf/gff/bam/cram/bed()"]
+        read["read_vcf/gff/bam/cram/bed()"]
+    end
+
+    subgraph Config["Session Configuration"]
+        zero_based["datafusion.bio.coordinate_system_zero_based&lt;br/&gt;(default: false = 1-based)"]
+        check["datafusion.bio.coordinate_system_check&lt;br/&gt;(default: false = lenient)"]
+    end
+
+    subgraph DF["DataFrame with Metadata"]
+        polars_meta["Polars DataFrame/LazyFrame&lt;br/&gt;coordinate_system_zero_based"]
+        pandas_meta["Pandas DataFrame&lt;br/&gt;df.attrs"]
+    end
+
+    subgraph RangeOps["Range Operations"]
+        overlap["overlap()"]
+        nearest["nearest()"]
+        count["count_overlaps()"]
+        coverage["coverage()"]
+        merge["merge()"]
+    end
+
+    subgraph Validation["Metadata Validation"]
+        validate["validate_coordinate_systems()"]
+        error1["MissingCoordinateSystemError"]
+        error2["CoordinateSystemMismatchError"]
+        fallback["Fallback to global config&lt;br/&gt;+ emit warning"]
+    end
+
+    scan --&gt; |"sets metadata"| polars_meta
+    read --&gt; |"sets metadata"| polars_meta
+    zero_based --&gt; |"use_zero_based param&lt;br/&gt;or default"| scan
+    zero_based --&gt; |"use_zero_based param&lt;br/&gt;or default"| read
+
+    polars_meta --&gt; overlap
+    polars_meta --&gt; nearest
+    polars_meta --&gt; count
+    polars_meta --&gt; coverage
+    polars_meta --&gt; merge
+    pandas_meta --&gt; overlap
+
+    overlap --&gt; validate
+    nearest --&gt; validate
+    count --&gt; validate
+    coverage --&gt; validate
+    merge --&gt; validate
+
+    validate --&gt; |"metadata missing"| check
+    validate --&gt; |"metadata mismatch"| error2
+    check --&gt; |"true (strict)"| error1
+    check --&gt; |"false (lenient)"| fallback
+    fallback --&gt; zero_based</code></pre>
+<h3 id="session-parameters">Session parameters<a class="headerlink" href="#session-parameters" title="Permanent link"></a></h3>
+<p>polars-bio provides two session parameters to control coordinate system behavior:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>datafusion.bio.coordinate_system_zero_based</code></td>
+<td><code>"false"</code> (1-based)</td>
+<td>Default coordinate system for I/O operations when <code>use_zero_based</code> is not specified</td>
+</tr>
+<tr>
+<td><code>datafusion.bio.coordinate_system_check</code></td>
+<td><code>"false"</code> (lenient)</td>
+<td>Whether to raise an error when DataFrame metadata is missing</td>
+</tr>
+</tbody>
+</table>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a href="#__codelineno-1-1" id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-1-2"><a href="#__codelineno-1-2" id="__codelineno-1-2" name="__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a href="#__codelineno-1-3" id="__codelineno-1-3" name="__codelineno-1-3"></a><span class="c1"># Check current settings</span>
+</span><span id="__span-1-4"><a href="#__codelineno-1-4" id="__codelineno-1-4" name="__codelineno-1-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">pb</span><span class="o">.</span><span class="n">get_option</span><span class="p">(</span><span class="n">pb</span><span class="o">.</span><span class="n">POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED</span><span class="p">))</span>  <span class="c1"># "false"</span>
+</span><span id="__span-1-5"><a href="#__codelineno-1-5" id="__codelineno-1-5" name="__codelineno-1-5"></a><span class="nb">print</span><span class="p">(</span><span class="n">pb</span><span class="o">.</span><span class="n">get_option</span><span class="p">(</span><span class="n">pb</span><span class="o">.</span><span class="n">POLARS_BIO_COORDINATE_SYSTEM_CHECK</span><span class="p">))</span>       <span class="c1"># "false"</span>
+</span><span id="__span-1-6"><a href="#__codelineno-1-6" id="__codelineno-1-6" name="__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a href="#__codelineno-1-7" id="__codelineno-1-7" name="__codelineno-1-7"></a><span class="c1"># Change to 0-based coordinates globally</span>
+</span><span id="__span-1-8"><a href="#__codelineno-1-8" id="__codelineno-1-8" name="__codelineno-1-8"></a><span class="n">pb</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="n">pb</span><span class="o">.</span><span class="n">POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="reading-files-with-coordinate-system-metadata">Reading files with coordinate system metadata<a class="headerlink" href="#reading-files-with-coordinate-system-metadata" title="Permanent link"></a></h3>
+<p>When you read genomic files using polars-bio I/O functions, the coordinate system metadata is automatically set on the returned DataFrame:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a href="#__codelineno-2-1" id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-2-2"><a href="#__codelineno-2-2" id="__codelineno-2-2" name="__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a href="#__codelineno-2-3" id="__codelineno-2-3" name="__codelineno-2-3"></a><span class="c1"># Default: 1-based coordinates (use_zero_based=False)</span>
+</span><span id="__span-2-4"><a href="#__codelineno-2-4" id="__codelineno-2-4" name="__codelineno-2-4"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">scan_vcf</span><span class="p">(</span><span class="s2">"variants.vcf"</span><span class="p">)</span>
+</span><span id="__span-2-5"><a href="#__codelineno-2-5" id="__codelineno-2-5" name="__codelineno-2-5"></a><span class="c1"># Metadata is automatically set: coordinate_system_zero_based=False</span>
+</span><span id="__span-2-6"><a href="#__codelineno-2-6" id="__codelineno-2-6" name="__codelineno-2-6"></a>
+</span><span id="__span-2-7"><a href="#__codelineno-2-7" id="__codelineno-2-7" name="__codelineno-2-7"></a><span class="c1"># Explicit 0-based coordinates</span>
+</span><span id="__span-2-8"><a href="#__codelineno-2-8" id="__codelineno-2-8" name="__codelineno-2-8"></a><span class="n">df_zero</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">scan_bed</span><span class="p">(</span><span class="s2">"regions.bed"</span><span class="p">,</span> <span class="n">use_zero_based</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-2-9"><a href="#__codelineno-2-9" id="__codelineno-2-9" name="__codelineno-2-9"></a><span class="c1"># Metadata is automatically set: coordinate_system_zero_based=True</span>
+</span><span id="__span-2-10"><a href="#__codelineno-2-10" id="__codelineno-2-10" name="__codelineno-2-10"></a>
+</span><span id="__span-2-11"><a href="#__codelineno-2-11" id="__codelineno-2-11" name="__codelineno-2-11"></a><span class="c1"># Range operations read coordinate system from metadata</span>
+</span><span id="__span-2-12"><a href="#__codelineno-2-12" id="__codelineno-2-12" name="__codelineno-2-12"></a><span class="n">result</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">df_zero</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>  <span class="c1"># Raises CoordinateSystemMismatchError!</span>
+</span></code></pre></div>
+<h3 id="setting-metadata-on-dataframes">Setting metadata on DataFrames<a class="headerlink" href="#setting-metadata-on-dataframes" title="Permanent link"></a></h3>
+<p>For DataFrames not created via polars-bio I/O functions, you must set the coordinate system metadata manually:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio"/><input id="__tabbed_1_2" name="__tabbed_1" type="radio"/><div class="tabbed-labels"><label for="__tabbed_1_1">Polars DataFrame/LazyFrame</label><label for="__tabbed_1_2">Pandas DataFrame</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a href="#__codelineno-3-1" id="__codelineno-3-1" name="__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
+</span><span id="__span-3-2"><a href="#__codelineno-3-2" id="__codelineno-3-2" name="__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a href="#__codelineno-3-3" id="__codelineno-3-3" name="__codelineno-3-3"></a><span class="c1"># Create a DataFrame</span>
+</span><span id="__span-3-4"><a href="#__codelineno-3-4" id="__codelineno-3-4" name="__codelineno-3-4"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+</span><span id="__span-3-5"><a href="#__codelineno-3-5" id="__codelineno-3-5" name="__codelineno-3-5"></a>    <span class="s2">"chrom"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"chr1"</span><span class="p">,</span> <span class="s2">"chr1"</span><span class="p">],</span>
+</span><span id="__span-3-6"><a href="#__codelineno-3-6" id="__codelineno-3-6" name="__codelineno-3-6"></a>    <span class="s2">"start"</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">],</span>
+</span><span id="__span-3-7"><a href="#__codelineno-3-7" id="__codelineno-3-7" name="__codelineno-3-7"></a>    <span class="s2">"end"</span><span class="p">:</span> <span class="p">[</span><span class="mi">150</span><span class="p">,</span> <span class="mi">250</span><span class="p">]</span>
+</span><span id="__span-3-8"><a href="#__codelineno-3-8" id="__codelineno-3-8" name="__codelineno-3-8"></a><span class="p">})</span><span class="o">.</span><span class="n">lazy</span><span class="p">()</span>
+</span><span id="__span-3-9"><a href="#__codelineno-3-9" id="__codelineno-3-9" name="__codelineno-3-9"></a>
+</span><span id="__span-3-10"><a href="#__codelineno-3-10" id="__codelineno-3-10" name="__codelineno-3-10"></a><span class="c1"># Set coordinate system metadata (requires polars-config-meta)</span>
+</span><span id="__span-3-11"><a href="#__codelineno-3-11" id="__codelineno-3-11" name="__codelineno-3-11"></a><span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">config_meta</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">coordinate_system_zero_based</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>  <span class="c1"># 1-based</span>
+</span><span id="__span-3-12"><a href="#__codelineno-3-12" id="__codelineno-3-12" name="__codelineno-3-12"></a>
+</span><span id="__span-3-13"><a href="#__codelineno-3-13" id="__codelineno-3-13" name="__codelineno-3-13"></a><span class="c1"># Now it can be used with range operations</span>
+</span><span id="__span-3-14"><a href="#__codelineno-3-14" id="__codelineno-3-14" name="__codelineno-3-14"></a><span class="n">result</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">other_df</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a href="#__codelineno-4-1" id="__codelineno-4-1" name="__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+</span><span id="__span-4-2"><a href="#__codelineno-4-2" id="__codelineno-4-2" name="__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a href="#__codelineno-4-3" id="__codelineno-4-3" name="__codelineno-4-3"></a><span class="c1"># Create a DataFrame</span>
+</span><span id="__span-4-4"><a href="#__codelineno-4-4" id="__codelineno-4-4" name="__codelineno-4-4"></a><span class="n">pdf</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+</span><span id="__span-4-5"><a href="#__codelineno-4-5" id="__codelineno-4-5" name="__codelineno-4-5"></a>    <span class="s2">"chrom"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"chr1"</span><span class="p">,</span> <span class="s2">"chr1"</span><span class="p">],</span>
+</span><span id="__span-4-6"><a href="#__codelineno-4-6" id="__codelineno-4-6" name="__codelineno-4-6"></a>    <span class="s2">"start"</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">],</span>
+</span><span id="__span-4-7"><a href="#__codelineno-4-7" id="__codelineno-4-7" name="__codelineno-4-7"></a>    <span class="s2">"end"</span><span class="p">:</span> <span class="p">[</span><span class="mi">150</span><span class="p">,</span> <span class="mi">250</span><span class="p">]</span>
+</span><span id="__span-4-8"><a href="#__codelineno-4-8" id="__codelineno-4-8" name="__codelineno-4-8"></a><span class="p">})</span>
+</span><span id="__span-4-9"><a href="#__codelineno-4-9" id="__codelineno-4-9" name="__codelineno-4-9"></a>
+</span><span id="__span-4-10"><a href="#__codelineno-4-10" id="__codelineno-4-10" name="__codelineno-4-10"></a><span class="c1"># Set coordinate system metadata via df.attrs</span>
+</span><span id="__span-4-11"><a href="#__codelineno-4-11" id="__codelineno-4-11" name="__codelineno-4-11"></a><span class="n">pdf</span><span class="o">.</span><span class="n">attrs</span><span class="p">[</span><span class="s2">"coordinate_system_zero_based"</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># 1-based</span>
+</span><span id="__span-4-12"><a href="#__codelineno-4-12" id="__codelineno-4-12" name="__codelineno-4-12"></a>
+</span><span id="__span-4-13"><a href="#__codelineno-4-13" id="__codelineno-4-13" name="__codelineno-4-13"></a><span class="c1"># Now it can be used with range operations</span>
+</span><span id="__span-4-14"><a href="#__codelineno-4-14" id="__codelineno-4-14" name="__codelineno-4-14"></a><span class="n">result</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">pdf</span><span class="p">,</span> <span class="n">other_df</span><span class="p">,</span> <span class="n">output_type</span><span class="o">=</span><span class="s2">"pandas.DataFrame"</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<h3 id="error-handling">Error handling<a class="headerlink" href="#error-handling" title="Permanent link"></a></h3>
+<p>polars-bio raises specific errors to prevent coordinate system mismatches:</p>
+<h4 id="missingcoordinatesystemerror">MissingCoordinateSystemError<a class="headerlink" href="#missingcoordinatesystemerror" title="Permanent link"></a></h4>
+<p>Raised when a DataFrame lacks coordinate system metadata:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a href="#__codelineno-5-1" id="__codelineno-5-1" name="__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
+</span><span id="__span-5-2"><a href="#__codelineno-5-2" id="__codelineno-5-2" name="__codelineno-5-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-5-3"><a href="#__codelineno-5-3" id="__codelineno-5-3" name="__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a href="#__codelineno-5-4" id="__codelineno-5-4" name="__codelineno-5-4"></a><span class="c1"># DataFrame without metadata</span>
+</span><span id="__span-5-5"><a href="#__codelineno-5-5" id="__codelineno-5-5" name="__codelineno-5-5"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"chrom"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"chr1"</span><span class="p">],</span> <span class="s2">"start"</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">],</span> <span class="s2">"end"</span><span class="p">:</span> <span class="p">[</span><span class="mi">200</span><span class="p">]})</span><span class="o">.</span><span class="n">lazy</span><span class="p">()</span>
+</span><span id="__span-5-6"><a href="#__codelineno-5-6" id="__codelineno-5-6" name="__codelineno-5-6"></a>
+</span><span id="__span-5-7"><a href="#__codelineno-5-7" id="__codelineno-5-7" name="__codelineno-5-7"></a><span class="c1"># This raises MissingCoordinateSystemError</span>
+</span><span id="__span-5-8"><a href="#__codelineno-5-8" id="__codelineno-5-8" name="__codelineno-5-8"></a><span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">other_df</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</span></code></pre></div>
+<p><strong>How to fix:</strong> Set metadata on your DataFrame before passing it to range operations (see examples above).</p>
+<h4 id="coordinatesystemmismatcherror">CoordinateSystemMismatchError<a class="headerlink" href="#coordinatesystemmismatcherror" title="Permanent link"></a></h4>
+<p>Raised when two DataFrames have different coordinate systems:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a href="#__codelineno-6-1" id="__codelineno-6-1" name="__codelineno-6-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-6-2"><a href="#__codelineno-6-2" id="__codelineno-6-2" name="__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a href="#__codelineno-6-3" id="__codelineno-6-3" name="__codelineno-6-3"></a><span class="c1"># One DataFrame is 1-based, another is 0-based</span>
+</span><span id="__span-6-4"><a href="#__codelineno-6-4" id="__codelineno-6-4" name="__codelineno-6-4"></a><span class="n">df1</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">scan_vcf</span><span class="p">(</span><span class="s2">"file.vcf"</span><span class="p">)</span>                    <span class="c1"># 1-based (default)</span>
+</span><span id="__span-6-5"><a href="#__codelineno-6-5" id="__codelineno-6-5" name="__codelineno-6-5"></a><span class="n">df2</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">scan_bed</span><span class="p">(</span><span class="s2">"file.bed"</span><span class="p">,</span> <span class="n">use_zero_based</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># 0-based</span>
+</span><span id="__span-6-6"><a href="#__codelineno-6-6" id="__codelineno-6-6" name="__codelineno-6-6"></a>
+</span><span id="__span-6-7"><a href="#__codelineno-6-7" id="__codelineno-6-7" name="__codelineno-6-7"></a><span class="c1"># This raises CoordinateSystemMismatchError</span>
+</span><span id="__span-6-8"><a href="#__codelineno-6-8" id="__codelineno-6-8" name="__codelineno-6-8"></a><span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">df1</span><span class="p">,</span> <span class="n">df2</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</span></code></pre></div>
+<p><strong>How to fix:</strong> Ensure both DataFrames use the same coordinate system.</p>
+<h3 id="default-behavior-lenient-validation">Default behavior (lenient validation)<a class="headerlink" href="#default-behavior-lenient-validation" title="Permanent link"></a></h3>
+<p>By default, polars-bio uses lenient validation (<code>coordinate_system_check=false</code>). When a DataFrame lacks coordinate system metadata, it falls back to the global configuration and emits a warning:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a href="#__codelineno-7-1" id="__codelineno-7-1" name="__codelineno-7-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
+</span><span id="__span-7-2"><a href="#__codelineno-7-2" id="__codelineno-7-2" name="__codelineno-7-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-7-3"><a href="#__codelineno-7-3" id="__codelineno-7-3" name="__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a href="#__codelineno-7-4" id="__codelineno-7-4" name="__codelineno-7-4"></a><span class="c1"># DataFrames without metadata will use the global config with a warning</span>
+</span><span id="__span-7-5"><a href="#__codelineno-7-5" id="__codelineno-7-5" name="__codelineno-7-5"></a><span class="n">df</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">"chrom"</span><span class="p">:</span> <span class="p">[</span><span class="s2">"chr1"</span><span class="p">],</span> <span class="s2">"start"</span><span class="p">:</span> <span class="p">[</span><span class="mi">100</span><span class="p">],</span> <span class="s2">"end"</span><span class="p">:</span> <span class="p">[</span><span class="mi">200</span><span class="p">]})</span><span class="o">.</span><span class="n">lazy</span><span class="p">()</span>
+</span><span id="__span-7-6"><a href="#__codelineno-7-6" id="__codelineno-7-6" name="__codelineno-7-6"></a><span class="n">result</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">other_df</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>  <span class="c1"># Uses global coordinate system setting</span>
+</span><span id="__span-7-7"><a href="#__codelineno-7-7" id="__codelineno-7-7" name="__codelineno-7-7"></a><span class="c1"># Warning: Coordinate system metadata is missing. Using global config...</span>
+</span></code></pre></div>
+<h3 id="strict-mode">Strict mode<a class="headerlink" href="#strict-mode" title="Permanent link"></a></h3>
+<p>For production pipelines where coordinate system consistency is critical, you can enable strict validation:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a href="#__codelineno-8-1" id="__codelineno-8-1" name="__codelineno-8-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-8-2"><a href="#__codelineno-8-2" id="__codelineno-8-2" name="__codelineno-8-2"></a>
+</span><span id="__span-8-3"><a href="#__codelineno-8-3" id="__codelineno-8-3" name="__codelineno-8-3"></a><span class="c1"># Enable strict coordinate system check</span>
+</span><span id="__span-8-4"><a href="#__codelineno-8-4" id="__codelineno-8-4" name="__codelineno-8-4"></a><span class="n">pb</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="n">pb</span><span class="o">.</span><span class="n">POLARS_BIO_COORDINATE_SYSTEM_CHECK</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-8-5"><a href="#__codelineno-8-5" id="__codelineno-8-5" name="__codelineno-8-5"></a>
+</span><span id="__span-8-6"><a href="#__codelineno-8-6" id="__codelineno-8-6" name="__codelineno-8-6"></a><span class="c1"># Now DataFrames without metadata will raise MissingCoordinateSystemError</span>
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Enable strict mode in production pipelines to catch coordinate system mismatches early and prevent incorrect results.</p>
+</div>
+<h3 id="migration-from-previous-versions">Migration from previous versions<a class="headerlink" href="#migration-from-previous-versions" title="Permanent link"></a></h3>
+<p>If you're upgrading from a previous version of polars-bio:</p>
+<ol>
+<li><strong>Range operations no longer accept <code>use_zero_based</code> parameter</strong> - coordinate system is read from DataFrame metadata</li>
+<li><strong>I/O functions use <code>use_zero_based</code> parameter</strong> (renamed from <code>one_based</code> with inverted logic)</li>
+<li><strong>Pandas DataFrames require explicit metadata</strong> - set <code>df.attrs["coordinate_system_zero_based"]</code> before range operations</li>
+</ol>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a href="#__codelineno-9-1" id="__codelineno-9-1" name="__codelineno-9-1"></a><span class="c1"># Before (old API)</span>
+</span><span id="__span-9-2"><a href="#__codelineno-9-2" id="__codelineno-9-2" name="__codelineno-9-2"></a><span class="n">result</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">df1</span><span class="p">,</span> <span class="n">df2</span><span class="p">,</span> <span class="n">use_zero_based</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</span><span id="__span-9-3"><a href="#__codelineno-9-3" id="__codelineno-9-3" name="__codelineno-9-3"></a>
+</span><span id="__span-9-4"><a href="#__codelineno-9-4" id="__codelineno-9-4" name="__codelineno-9-4"></a><span class="c1"># After (new API) - set metadata at I/O time or on DataFrames</span>
+</span><span id="__span-9-5"><a href="#__codelineno-9-5" id="__codelineno-9-5" name="__codelineno-9-5"></a><span class="n">df1</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">scan_vcf</span><span class="p">(</span><span class="s2">"file.vcf"</span><span class="p">,</span> <span class="n">use_zero_based</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-9-6"><a href="#__codelineno-9-6" id="__codelineno-9-6" name="__codelineno-9-6"></a><span class="n">df2</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">scan_bed</span><span class="p">(</span><span class="s2">"file.bed"</span><span class="p">,</span> <span class="n">use_zero_based</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-9-7"><a href="#__codelineno-9-7" id="__codelineno-9-7" name="__codelineno-9-7"></a><span class="n">result</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">df1</span><span class="p">,</span> <span class="n">df2</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>  <span class="c1"># Reads from metadata</span>
+</span></code></pre></div>
+<h2 id="api-comparison-between-libraries">API comparison between libraries<a class="headerlink" href="#api-comparison-between-libraries" title="Permanent link"></a></h2>
+<p>There is no standard API for genomic ranges operations in Python.
+This table compares the API of the libraries. The table is not exhaustive and only shows the most common operations used in benchmarking.</p>
+<table>
+<thead>
+<tr>
+<th>operation</th>
+<th>Bioframe</th>
+<th>polars-bio</th>
+<th>PyRanges0</th>
+<th>PyRanges1</th>
+<th>Pybedtools</th>
+<th>GenomicRanges</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>overlap</td>
+<td><a href="https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.overlap">overlap</a></td>
+<td><a href="../api/#polars_bio.overlap">overlap</a></td>
+<td><a href="https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.join">join</a><sup>1</sup></td>
+<td><a href="https://pyranges1.readthedocs.io/en/latest/pyranges_objects.html#pyranges.PyRanges.join_ranges">join_ranges</a></td>
+<td><a href="https://bedtools.readthedocs.io/en/latest/content/tools/intersect.html?highlight=intersect#usage-and-option-summary">intersect</a><sup>2</sup></td>
+<td><a href="https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.find_overlaps">find_overlaps</a><sup>3</sup></td>
+</tr>
+<tr>
+<td>nearest</td>
+<td><a href="https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.closest">closest</a></td>
+<td><a href="../api/#polars_bio.nearest">nearest</a></td>
+<td><a href="https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.nearest">nearest</a></td>
+<td><a href="https://pyranges1.readthedocs.io/en/latest/pyranges_objects.html#pyranges.PyRanges.nearest">nearest</a></td>
+<td><a href="https://daler.github.io/pybedtools/autodocs/pybedtools.bedtool.BedTool.closest.html#pybedtools.bedtool.BedTool.closest">closest</a><sup>4</sup></td>
+<td><a href="https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.nearest">nearest</a><sup>5</sup></td>
+</tr>
+<tr>
+<td>read_table</td>
+<td><a href="https://bioframe.readthedocs.io/en/latest/api-fileops.html#bioframe.io.fileops.read_table">read_table</a></td>
+<td><a href="../api/#polars_bio.read_table">read_table</a></td>
+<td><a href="https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/readers/index.html#pyranges.readers.read_bed">read_bed</a></td>
+<td><a href="https://pyranges1.readthedocs.io/en/latest/pyranges_module.html#pyranges.read_bed">read_bed</a></td>
+<td><a href="https://daler.github.io/pybedtools/topical-create-a-bedtool.html#creating-a-bedtool">BedTool</a></td>
+<td><a href="https://biocpy.github.io/GenomicRanges/tutorial.html#from-bioinformatic-file-formats">read_bed</a></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ol>
+<li>There is an <a href="https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.overlap">overlap</a> method in PyRanges, but its output is only limited to indices of intervals from the other Dataframe that overlap.
+In Bioframe's <a href="https://bioframe.readthedocs.io/en/latest/guide-performance.html#vs-pyranges-and-optionally-pybedtools">benchmark</a> also <strong>join</strong> method instead of overlap was used.</li>
+<li><strong>wa</strong> and <strong>wb</strong> options used to obtain a comparable output.</li>
+<li>Output contains only a list with the same length as query, containing hits to overlapping indices. Data transformation is required to obtain the same output as in other libraries.
+  Since the performance was far worse than in more efficient libraries anyway, additional data transformation was not included in the benchmark.</li>
+<li><strong>s=first</strong> was used to obtain a comparable output.</li>
+<li><strong>select="arbitrary"</strong> was used to obtain a comparable output.</li>
+</ol>
+</div>
+<h2 id="file-formats-support">File formats support<a class="headerlink" href="#file-formats-support" title="Permanent link"></a></h2>
+<p>For bioinformatic format there are always three methods available: <code>read_*</code> (eager), <code>scan_*</code> (lazy) and <code>register_*</code> that can be used to either read file into Polars DataFrame/LazyFrame or register it as a DataFusion table for further processing using SQL or builtin interval methods. In either case, local and or cloud storage files can be used as an input. Please refer to <a href="#cloud-storage">cloud storage</a> section for more details.</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Single-threaded</th>
+<th>Parallel</th>
+<th>Limit pushdown</th>
+<th>Predicate pushdown</th>
+<th>Projection pushdown</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="../api/#polars_bio.data_input.read_bed">BED</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td>❌</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><a href="../api/#polars_bio.data_input.read_vcf">VCF</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:"/></td>
+<td><img alt="🚧" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/1f6a7.svg" title=":construction:"/></td>
+</tr>
+<tr>
+<td><a href="../api/#polars_bio.data_input.read_bam">BAM</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td>❌</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><a href="../api/#polars_bio.data_input.read_cram">CRAM</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td>❌</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><a href="../api/#polars_bio.data_input.read_fastq">FASTQ</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><a href="../api/#polars_bio.data_input.read_fasta">FASTA</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td>❌</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td>❌</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><a href="../api/#polars_bio.data_input.read_gff">GFF3</a></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+</tr>
+</tbody>
+</table>
+<h2 id="sql-powered-data-processing">SQL-powered data processing<a class="headerlink" href="#sql-powered-data-processing" title="Permanent link"></a></h2>
+<p>polars-bio provides a SQL-like API for bioinformatic data querying or manipulation.
+Check <a href="https://datafusion.apache.org/user-guide/sql/index.html">SQL reference</a> for more details.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a href="#__codelineno-10-1" id="__codelineno-10-1" name="__codelineno-10-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-10-2"><a href="#__codelineno-10-2" id="__codelineno-10-2" name="__codelineno-10-2"></a><span class="n">pb</span><span class="o">.</span><span class="n">register_vcf</span><span class="p">(</span><span class="s2">"gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz"</span><span class="p">,</span> <span class="s2">"gnomad_sv"</span><span class="p">,</span> <span class="n">thread_num</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">info_fields</span><span class="o">=</span><span class="p">[</span><span class="s2">"SVTYPE"</span><span class="p">,</span> <span class="s2">"SVLEN"</span><span class="p">])</span>
+</span><span id="__span-10-3"><a href="#__codelineno-10-3" id="__codelineno-10-3" name="__codelineno-10-3"></a><span class="n">pb</span><span class="o">.</span><span class="n">sql</span><span class="p">(</span><span class="s2">"SELECT * FROM gnomad_sv WHERE SVTYPE = 'DEL' AND SVLEN &gt; 1000"</span><span class="p">)</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+</span></code></pre></div>
+<h3 id="accessing-registered-tables">Accessing registered tables<a class="headerlink" href="#accessing-registered-tables" title="Permanent link"></a></h3>
+<p>You can access registered tables programmatically using the <code>ctx.table()</code> method, which returns a DataFusion DataFrame:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a href="#__codelineno-11-1" id="__codelineno-11-1" name="__codelineno-11-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-11-2"><a href="#__codelineno-11-2" id="__codelineno-11-2" name="__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">polars_bio.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">ctx</span>
+</span><span id="__span-11-3"><a href="#__codelineno-11-3" id="__codelineno-11-3" name="__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a href="#__codelineno-11-4" id="__codelineno-11-4" name="__codelineno-11-4"></a><span class="c1"># Register a file as a table</span>
+</span><span id="__span-11-5"><a href="#__codelineno-11-5" id="__codelineno-11-5" name="__codelineno-11-5"></a><span class="n">pb</span><span class="o">.</span><span class="n">register_vcf</span><span class="p">(</span><span class="s2">"variants.vcf"</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"my_variants"</span><span class="p">)</span>
+</span><span id="__span-11-6"><a href="#__codelineno-11-6" id="__codelineno-11-6" name="__codelineno-11-6"></a>
+</span><span id="__span-11-7"><a href="#__codelineno-11-7" id="__codelineno-11-7" name="__codelineno-11-7"></a><span class="c1"># Get the table as a DataFusion DataFrame</span>
+</span><span id="__span-11-8"><a href="#__codelineno-11-8" id="__codelineno-11-8" name="__codelineno-11-8"></a><span class="n">df</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">table</span><span class="p">(</span><span class="s2">"my_variants"</span><span class="p">)</span>
+</span><span id="__span-11-9"><a href="#__codelineno-11-9" id="__codelineno-11-9" name="__codelineno-11-9"></a>
+</span><span id="__span-11-10"><a href="#__codelineno-11-10" id="__codelineno-11-10" name="__codelineno-11-10"></a><span class="c1"># Access the Arrow schema (includes coordinate system metadata)</span>
+</span><span id="__span-11-11"><a href="#__codelineno-11-11" id="__codelineno-11-11" name="__codelineno-11-11"></a><span class="n">schema</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">schema</span><span class="p">()</span>
+</span><span id="__span-11-12"><a href="#__codelineno-11-12" id="__codelineno-11-12" name="__codelineno-11-12"></a><span class="nb">print</span><span class="p">(</span><span class="n">schema</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span>  <span class="c1"># {b'bio.coordinate_system_zero_based': b'false'}</span>
+</span><span id="__span-11-13"><a href="#__codelineno-11-13" id="__codelineno-11-13" name="__codelineno-11-13"></a>
+</span><span id="__span-11-14"><a href="#__codelineno-11-14" id="__codelineno-11-14" name="__codelineno-11-14"></a><span class="c1"># Execute queries on the DataFrame</span>
+</span><span id="__span-11-15"><a href="#__codelineno-11-15" id="__codelineno-11-15" name="__codelineno-11-15"></a><span class="n">result</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">"chrom"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"chr1"</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+</span></code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The <code>ctx.table()</code> method is useful for:</p>
+<ol>
+<li>Accessing Arrow schema metadata (including coordinate system information)</li>
+<li>Using the DataFusion DataFrame API directly</li>
+<li>Integrating with other DataFusion-based tools</li>
+</ol>
+</div>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-12-1"><a href="#__codelineno-12-1" id="__codelineno-12-1" name="__codelineno-12-1"></a>shape:<span class="w"> </span><span class="o">(</span><span class="m">3</span>,<span class="w"> </span><span class="m">10</span><span class="o">)</span>
+</span><span id="__span-12-2"><a href="#__codelineno-12-2" id="__codelineno-12-2" name="__codelineno-12-2"></a>┌───────┬───────┬───────┬────────────────────────────────┬───┬───────┬────────────┬────────┬───────┐
+</span><span id="__span-12-3"><a href="#__codelineno-12-3" id="__codelineno-12-3" name="__codelineno-12-3"></a>│<span class="w"> </span>chrom<span class="w"> </span>┆<span class="w"> </span>start<span class="w"> </span>┆<span class="w"> </span>end<span class="w">   </span>┆<span class="w"> </span>id<span class="w">                             </span>┆<span class="w"> </span>…<span class="w"> </span>┆<span class="w"> </span>qual<span class="w">  </span>┆<span class="w"> </span>filter<span class="w">     </span>┆<span class="w"> </span>svtype<span class="w"> </span>┆<span class="w"> </span>svlen<span class="w"> </span>│
+</span><span id="__span-12-4"><a href="#__codelineno-12-4" id="__codelineno-12-4" name="__codelineno-12-4"></a>│<span class="w"> </span>---<span class="w">   </span>┆<span class="w"> </span>---<span class="w">   </span>┆<span class="w"> </span>---<span class="w">   </span>┆<span class="w"> </span>---<span class="w">                            </span>┆<span class="w">   </span>┆<span class="w"> </span>---<span class="w">   </span>┆<span class="w"> </span>---<span class="w">        </span>┆<span class="w"> </span>---<span class="w">    </span>┆<span class="w"> </span>---<span class="w">   </span>│
+</span><span id="__span-12-5"><a href="#__codelineno-12-5" id="__codelineno-12-5" name="__codelineno-12-5"></a>│<span class="w"> </span>str<span class="w">   </span>┆<span class="w"> </span>u32<span class="w">   </span>┆<span class="w"> </span>u32<span class="w">   </span>┆<span class="w"> </span>str<span class="w">                            </span>┆<span class="w">   </span>┆<span class="w"> </span>f64<span class="w">   </span>┆<span class="w"> </span>str<span class="w">        </span>┆<span class="w"> </span>str<span class="w">    </span>┆<span class="w"> </span>i32<span class="w">   </span>│
+</span><span id="__span-12-6"><a href="#__codelineno-12-6" id="__codelineno-12-6" name="__codelineno-12-6"></a>╞═══════╪═══════╪═══════╪════════════════════════════════╪═══╪═══════╪════════════╪════════╪═══════╡
+</span><span id="__span-12-7"><a href="#__codelineno-12-7" id="__codelineno-12-7" name="__codelineno-12-7"></a>│<span class="w"> </span>chr1<span class="w">  </span>┆<span class="w"> </span><span class="m">22000</span><span class="w"> </span>┆<span class="w"> </span><span class="m">30000</span><span class="w"> </span>┆<span class="w"> </span>gnomAD-SV_v3_DEL_chr1_fa103016<span class="w"> </span>┆<span class="w"> </span>…<span class="w"> </span>┆<span class="w"> </span><span class="m">999</span>.0<span class="w"> </span>┆<span class="w"> </span>HIGH_NCR<span class="w">   </span>┆<span class="w"> </span>DEL<span class="w">    </span>┆<span class="w"> </span><span class="m">8000</span><span class="w">  </span>│
+</span><span id="__span-12-8"><a href="#__codelineno-12-8" id="__codelineno-12-8" name="__codelineno-12-8"></a>│<span class="w"> </span>chr1<span class="w">  </span>┆<span class="w"> </span><span class="m">40000</span><span class="w"> </span>┆<span class="w"> </span><span class="m">47000</span><span class="w"> </span>┆<span class="w"> </span>gnomAD-SV_v3_DEL_chr1_b26f63f7<span class="w"> </span>┆<span class="w"> </span>…<span class="w"> </span>┆<span class="w"> </span><span class="m">145</span>.0<span class="w"> </span>┆<span class="w"> </span>PASS<span class="w">       </span>┆<span class="w"> </span>DEL<span class="w">    </span>┆<span class="w"> </span><span class="m">7000</span><span class="w">  </span>│
+</span><span id="__span-12-9"><a href="#__codelineno-12-9" id="__codelineno-12-9" name="__codelineno-12-9"></a>│<span class="w"> </span>chr1<span class="w">  </span>┆<span class="w"> </span><span class="m">79086</span><span class="w"> </span>┆<span class="w"> </span><span class="m">88118</span><span class="w"> </span>┆<span class="w"> </span>gnomAD-SV_v3_DEL_chr1_733c4ef0<span class="w"> </span>┆<span class="w"> </span>…<span class="w"> </span>┆<span class="w"> </span><span class="m">344</span>.0<span class="w"> </span>┆<span class="w"> </span>UNRESOLVED<span class="w"> </span>┆<span class="w"> </span>DEL<span class="w">    </span>┆<span class="w"> </span><span class="m">9032</span><span class="w">  </span>│
+</span><span id="__span-12-10"><a href="#__codelineno-12-10" id="__codelineno-12-10" name="__codelineno-12-10"></a>└───────┴───────┴───────┴────────────────────────────────┴───┴───────┴────────────┴────────┴───────┘
+</span></code></pre></div>
+<p>You can use <a href="../api/#polars_bio.register_view">view</a> mechanism to create a virtual table from a DataFrame that contain preprocessing steps and reuse it in multiple steps.
+To avoid materializing the intermediate results in memory, you can run your processing in  <a href="./#streaming">streaming</a> mode.</p>
+<h2 id="parallel-engine">Parallel engine 🏎️<a class="headerlink" href="#parallel-engine" title="Permanent link"></a></h2>
+<p>It is straightforward to parallelize operations in polars-bio. The library is built on top of <a href="https://datafusion.apache.org/">Apache DataFusion</a>  you can set
+the degree of parallelism using the <code>datafusion.execution.target_partitions</code> option, e.g.:
+</p><div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a href="#__codelineno-13-1" id="__codelineno-13-1" name="__codelineno-13-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-13-2"><a href="#__codelineno-13-2" id="__codelineno-13-2" name="__codelineno-13-2"></a><span class="n">pb</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s2">"datafusion.execution.target_partitions"</span><span class="p">,</span> <span class="s2">"8"</span><span class="p">)</span>
+</span></code></pre></div><p></p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<ol>
+<li>The default value is <strong>1</strong> (parallel execution disabled).</li>
+<li>The <code>datafusion.execution.target_partitions</code> option is a global setting and affects all operations in the current session.</li>
+<li>Check <a href="../performance/#parallel-execution-and-scalability">available strategies</a> for optimal performance.</li>
+<li>See  the other configuration settings in the Apache DataFusion <a href="https://datafusion.apache.org/user-guide/configs.html">documentation</a>.</li>
+</ol>
+</div>
+<h2 id="cloud-storage">Cloud storage ☁️<a class="headerlink" href="#cloud-storage" title="Permanent link"></a></h2>
+<p>polars-bio supports direct streamed reading from cloud storages (e.g. S3, GCS) enabling processing large-scale genomics data without materializing in memory.
+It is built upon the <a href="https://opendal.apache.org/">OpenDAL</a> project, a unified data access layer for cloud storage, which allows to read  bioinformatic file formats from various cloud storage providers. For Apache DataFusion <strong>native</strong> file formats, such as Parquet or CSV please
+refer to <a href="https://datafusion.apache.org/user-guide/cli/datasources.html#locations">DataFusion user guide</a>.</p>
+<h3 id="example">Example<a class="headerlink" href="#example" title="Permanent link"></a></h3>
+<p></p><div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a href="#__codelineno-14-1" id="__codelineno-14-1" name="__codelineno-14-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-14-2"><a href="#__codelineno-14-2" id="__codelineno-14-2" name="__codelineno-14-2"></a><span class="c1">## Register VCF files from Google Cloud Storage that will be streamed - no need to download them to the local disk, size ~0.8TB</span>
+</span><span id="__span-14-3"><a href="#__codelineno-14-3" id="__codelineno-14-3" name="__codelineno-14-3"></a><span class="n">pb</span><span class="o">.</span><span class="n">register_vcf</span><span class="p">(</span><span class="s2">"gs://gcp-public-data--gnomad/release/2.1.1/liftover_grch38/vcf/genomes/gnomad.genomes.r2.1.1.sites.liftover_grch38.vcf.bgz"</span><span class="p">,</span> <span class="s2">"gnomad_big"</span><span class="p">,</span> <span class="n">allow_anonymous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-14-4"><a href="#__codelineno-14-4" id="__codelineno-14-4" name="__codelineno-14-4"></a><span class="n">pb</span><span class="o">.</span><span class="n">register_vcf</span><span class="p">(</span><span class="s2">"gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz"</span><span class="p">,</span> <span class="s2">"gnomad_sv"</span><span class="p">,</span> <span class="n">allow_anonymous</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-14-5"><a href="#__codelineno-14-5" id="__codelineno-14-5" name="__codelineno-14-5"></a><span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="s2">"gnomad_sv"</span><span class="p">,</span> <span class="s2">"gnomad_big"</span><span class="p">,</span> <span class="n">streaming</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">sink_parquet</span><span class="p">(</span><span class="s2">"/tmp/overlap.parquet"</span><span class="p">)</span>
+</span></code></pre></div>
+It is  especially useful when combined with <a href="./#sql-powered-data-processing">SQL</a> support for preprocessing and <a href="./#streaming">streaming</a> processing capabilities.<p></p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you access cloud storage with authentication provided, please make sure the <code>allow_anonymous</code> parameter is set to <code>False</code> in the read/describe/register_table functions.</p>
+</div>
+<h3 id="supported-features">Supported features<a class="headerlink" href="#supported-features" title="Permanent link"></a></h3>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>AWS S3</th>
+<th>Google Cloud Storage</th>
+<th>Azure Blob Storage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Anonymous access</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+</tr>
+<tr>
+<td>Authenticated access</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+</tr>
+<tr>
+<td>Requester Pays</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Concurrent requests<sup>1</sup></td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+</tr>
+<tr>
+<td>Streaming reads</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><sup>1</sup>For more information on concurrent requests and block size tuning please refer to <a href="https://github.com/biodatageeks/polars-bio/issues/132#issuecomment-2967687947">issue</a>.</p>
+</div>
+<h3 id="aws-s3-configuration">AWS S3 configuration<a class="headerlink" href="#aws-s3-configuration" title="Permanent link"></a></h3>
+<p>Supported environment variables:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AWS_ACCESS_KEY_ID</td>
+<td>AWS access key ID for authenticated access to S3.</td>
+</tr>
+<tr>
+<td>AWS_SECRET_ACCESS_KEY</td>
+<td>AWS secret access key for authenticated access to S3.</td>
+</tr>
+<tr>
+<td>AWS_ENDPOINT_URL</td>
+<td>Custom S3 endpoint URL for accessing S3-compatible storage.</td>
+</tr>
+<tr>
+<td>AWS_REGION  or AWS_DEFAULT_REGION</td>
+<td>AWS region for accessing S3.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="google-cloud-storage-configuration">Google Cloud Storage configuration<a class="headerlink" href="#google-cloud-storage-configuration" title="Permanent link"></a></h3>
+<p>Supported environment variables:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GOOGLE_APPLICATION_CREDENTIALS</td>
+<td>Path to the Google Cloud service account key file for authenticated access to GCS.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="azure-blob-storage-configuration">Azure Blob Storage configuration<a class="headerlink" href="#azure-blob-storage-configuration" title="Permanent link"></a></h3>
+<p>Supported environment variables:</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AZURE_STORAGE_ACCOUNT</td>
+<td>Azure Storage account name for authenticated access to Azure Blob Storage.</td>
+</tr>
+<tr>
+<td>AZURE_STORAGE_KEY</td>
+<td>Azure Storage account key for authenticated access to Azure Blob Storage.</td>
+</tr>
+<tr>
+<td>AZURE_ENDPOINT_URL</td>
+<td>Azure Blob Storage endpoint URL for accessing Azure Blob Storage.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="streaming">Streaming 🚂<a class="headerlink" href="#streaming" title="Permanent link"></a></h2>
+<p>polars-bio supports out-of-core processing with Apache DataFusion async <a href="https://docs.rs/datafusion/46.0.0/datafusion/physical_plan/trait.ExecutionPlan.html#tymethod.execute">streams</a> and Polars LazyFrame <a href="https://docs.pola.rs/user-guide/concepts/_streaming/">streaming</a> option.
+It can bring  significant speedup as well reduction in memory usage allowing to process large datasets that do not fit in memory.
+See our benchmark <a href="../performance/#calculate-overlaps-and-export-to-a-csv-file-7-8">results</a>.
+There are 2 ways of using streaming mode:</p>
+<ol>
+<li>
+<p>By setting the <code>output_type</code> to <code>datafusion.DataFrame</code> and using the Python DataFrame <a href="https://datafusion.apache.org/python/autoapi/datafusion/dataframe/index.html">API</a>, including methods such as <a href="https://datafusion.apache.org/python/autoapi/datafusion/dataframe/index.html#datafusion.dataframe.DataFrame.count">count</a>, <a href="https://datafusion.apache.org/python/autoapi/datafusion/dataframe/index.html#datafusion.dataframe.DataFrame.write_parquet">write_parquet</a> or <a href="https://datafusion.apache.org/python/autoapi/datafusion/dataframe/index.html#datafusion.dataframe.DataFrame.write_csv">write_csv</a> or <a href="https://datafusion.apache.org/python/autoapi/datafusion/dataframe/index.html#datafusion.dataframe.DataFrame.write_json">write_json</a>. In this option you completely bypass the polars streaming engine.</p>
+<p><code>python
+import polars_bio as pb
+import polars as pl
+pb.overlap("/tmp/gnomad.v4.1.sv.sites.parquet", "/tmp/gnomad.exomes.v4.1.sites.chr1.parquet", output_type="datafusion.DataFrame").write_parquet("/tmp/overlap.parquet")
+pl.scan_parquet("/tmp/overlap.parquet").collect().count()</code>
+</p><div class="language-shell highlight"><pre><span></span><code><span id="__span-15-1"><a href="#__codelineno-15-1" id="__codelineno-15-1" name="__codelineno-15-1"></a><span class="w"> </span>shape:<span class="w"> </span><span class="o">(</span><span class="m">1</span>,<span class="w"> </span><span class="m">6</span><span class="o">)</span>
+</span><span id="__span-15-2"><a href="#__codelineno-15-2" id="__codelineno-15-2" name="__codelineno-15-2"></a><span class="w"> </span>┌────────────┬────────────┬────────────┬────────────┬────────────┬────────────┐
+</span><span id="__span-15-3"><a href="#__codelineno-15-3" id="__codelineno-15-3" name="__codelineno-15-3"></a><span class="w"> </span>│<span class="w"> </span>chrom_1<span class="w">    </span>┆<span class="w"> </span>start_1<span class="w">    </span>┆<span class="w"> </span>end_1<span class="w">      </span>┆<span class="w"> </span>chrom_2<span class="w">    </span>┆<span class="w"> </span>start_2<span class="w">    </span>┆<span class="w"> </span>end_2<span class="w">      </span>│
+</span><span id="__span-15-4"><a href="#__codelineno-15-4" id="__codelineno-15-4" name="__codelineno-15-4"></a><span class="w"> </span>│<span class="w"> </span>---<span class="w">        </span>┆<span class="w"> </span>---<span class="w">        </span>┆<span class="w"> </span>---<span class="w">        </span>┆<span class="w"> </span>---<span class="w">        </span>┆<span class="w"> </span>---<span class="w">        </span>┆<span class="w"> </span>---<span class="w">        </span>│
+</span><span id="__span-15-5"><a href="#__codelineno-15-5" id="__codelineno-15-5" name="__codelineno-15-5"></a><span class="w"> </span>│<span class="w"> </span>u32<span class="w">        </span>┆<span class="w"> </span>u32<span class="w">        </span>┆<span class="w"> </span>u32<span class="w">        </span>┆<span class="w"> </span>u32<span class="w">        </span>┆<span class="w"> </span>u32<span class="w">        </span>┆<span class="w"> </span>u32<span class="w">        </span>│
+</span><span id="__span-15-6"><a href="#__codelineno-15-6" id="__codelineno-15-6" name="__codelineno-15-6"></a><span class="w"> </span>╞════════════╪════════════╪════════════╪════════════╪════════════╪════════════╡
+</span><span id="__span-15-7"><a href="#__codelineno-15-7" id="__codelineno-15-7" name="__codelineno-15-7"></a><span class="w"> </span>│<span class="w"> </span><span class="m">2629727337</span><span class="w"> </span>┆<span class="w"> </span><span class="m">2629727337</span><span class="w"> </span>┆<span class="w"> </span><span class="m">2629727337</span><span class="w"> </span>┆<span class="w"> </span><span class="m">2629727337</span><span class="w"> </span>┆<span class="w"> </span><span class="m">2629727337</span><span class="w"> </span>┆<span class="w"> </span><span class="m">2629727337</span><span class="w"> </span>│
+</span><span id="__span-15-8"><a href="#__codelineno-15-8" id="__codelineno-15-8" name="__codelineno-15-8"></a><span class="w"> </span>└────────────┴────────────┴────────────┴────────────┴────────────┴────────────┘
+</span></code></pre></div><p></p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If you only need to write the results as fast as possible into one of the above file formats or quickly get the row count, then it is in the most cases the <strong>best</strong> option.</p>
+</div>
+</li>
+<li>
+<p>Using polars new streaming engine:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a href="#__codelineno-16-1" id="__codelineno-16-1" name="__codelineno-16-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+</span><span id="__span-16-2"><a href="#__codelineno-16-2" id="__codelineno-16-2" name="__codelineno-16-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-16-3"><a href="#__codelineno-16-3" id="__codelineno-16-3" name="__codelineno-16-3"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">'BENCH_DATA_ROOT'</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"/Users/mwiewior/research/data/databio"</span>
+</span><span id="__span-16-4"><a href="#__codelineno-16-4" id="__codelineno-16-4" name="__codelineno-16-4"></a><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s1">'POLARS_VERBOSE'</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"1"</span>
+</span><span id="__span-16-5"><a href="#__codelineno-16-5" id="__codelineno-16-5" name="__codelineno-16-5"></a>
+</span><span id="__span-16-6"><a href="#__codelineno-16-6" id="__codelineno-16-6" name="__codelineno-16-6"></a><span class="n">cols</span><span class="o">=</span><span class="p">[</span><span class="s2">"contig"</span><span class="p">,</span> <span class="s2">"pos_start"</span><span class="p">,</span> <span class="s2">"pos_end"</span><span class="p">]</span>
+</span><span id="__span-16-7"><a href="#__codelineno-16-7" id="__codelineno-16-7" name="__codelineno-16-7"></a><span class="n">BENCH_DATA_ROOT</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s1">'BENCH_DATA_ROOT'</span><span class="p">,</span> <span class="s1">'/data/bench_data/databio'</span><span class="p">)</span>
+</span><span id="__span-16-8"><a href="#__codelineno-16-8" id="__codelineno-16-8" name="__codelineno-16-8"></a><span class="n">df_1</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">BENCH_DATA_ROOT</span><span class="si">}</span><span class="s2">/exons/*.parquet"</span>
+</span><span id="__span-16-9"><a href="#__codelineno-16-9" id="__codelineno-16-9" name="__codelineno-16-9"></a><span class="n">df_2</span> <span class="o">=</span>  <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">BENCH_DATA_ROOT</span><span class="si">}</span><span class="s2">/exons/*.parquet"</span>
+</span><span id="__span-16-10"><a href="#__codelineno-16-10" id="__codelineno-16-10" name="__codelineno-16-10"></a><span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">df_1</span><span class="p">,</span> <span class="n">df_2</span><span class="p">,</span> <span class="n">cols1</span><span class="o">=</span><span class="n">cols</span><span class="p">,</span> <span class="n">cols2</span><span class="o">=</span><span class="n">cols</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="s2">"streaming"</span><span class="p">)</span><span class="o">.</span><span class="n">limit</span><span class="p">()</span>
+</span></code></pre></div>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-17-1"><a href="#__codelineno-17-1" id="__codelineno-17-1" name="__codelineno-17-1"></a>1652814rows<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00,<span class="w"> </span><span class="m">20208793</span>.67rows/s<span class="o">]</span>
+</span><span id="__span-17-2"><a href="#__codelineno-17-2" id="__codelineno-17-2" name="__codelineno-17-2"></a><span class="o">[</span>MultiScanState<span class="o">]</span>:<span class="w"> </span>Readers<span class="w"> </span>disconnected
+</span><span id="__span-17-3"><a href="#__codelineno-17-3" id="__codelineno-17-3" name="__codelineno-17-3"></a>polars-stream:<span class="w"> </span><span class="k">done</span><span class="w"> </span>running<span class="w"> </span>graph<span class="w"> </span>phase
+</span><span id="__span-17-4"><a href="#__codelineno-17-4" id="__codelineno-17-4" name="__codelineno-17-4"></a>polars-stream:<span class="w"> </span>updating<span class="w"> </span>graph<span class="w"> </span>state
+</span><span id="__span-17-5"><a href="#__codelineno-17-5" id="__codelineno-17-5" name="__codelineno-17-5"></a>shape:<span class="w"> </span><span class="o">(</span><span class="m">5</span>,<span class="w"> </span><span class="m">6</span><span class="o">)</span>
+</span><span id="__span-17-6"><a href="#__codelineno-17-6" id="__codelineno-17-6" name="__codelineno-17-6"></a>┌──────────┬─────────────┬───────────┬──────────┬─────────────┬───────────┐
+</span><span id="__span-17-7"><a href="#__codelineno-17-7" id="__codelineno-17-7" name="__codelineno-17-7"></a>│<span class="w"> </span>contig_1<span class="w"> </span>┆<span class="w"> </span>pos_start_1<span class="w"> </span>┆<span class="w"> </span>pos_end_1<span class="w"> </span>┆<span class="w"> </span>contig_2<span class="w"> </span>┆<span class="w"> </span>pos_start_2<span class="w"> </span>┆<span class="w"> </span>pos_end_2<span class="w"> </span>│
+</span><span id="__span-17-8"><a href="#__codelineno-17-8" id="__codelineno-17-8" name="__codelineno-17-8"></a>│<span class="w"> </span>---<span class="w">      </span>┆<span class="w"> </span>---<span class="w">         </span>┆<span class="w"> </span>---<span class="w">       </span>┆<span class="w"> </span>---<span class="w">      </span>┆<span class="w"> </span>---<span class="w">         </span>┆<span class="w"> </span>---<span class="w">       </span>│
+</span><span id="__span-17-9"><a href="#__codelineno-17-9" id="__codelineno-17-9" name="__codelineno-17-9"></a>│<span class="w"> </span>str<span class="w">      </span>┆<span class="w"> </span>i32<span class="w">         </span>┆<span class="w"> </span>i32<span class="w">       </span>┆<span class="w"> </span>str<span class="w">      </span>┆<span class="w"> </span>i32<span class="w">         </span>┆<span class="w"> </span>i32<span class="w">       </span>│
+</span><span id="__span-17-10"><a href="#__codelineno-17-10" id="__codelineno-17-10" name="__codelineno-17-10"></a>╞══════════╪═════════════╪═══════════╪══════════╪═════════════╪═══════════╡
+</span><span id="__span-17-11"><a href="#__codelineno-17-11" id="__codelineno-17-11" name="__codelineno-17-11"></a>│<span class="w"> </span>chr1<span class="w">     </span>┆<span class="w"> </span><span class="m">11873</span><span class="w">       </span>┆<span class="w"> </span><span class="m">12227</span><span class="w">     </span>┆<span class="w"> </span>chr1<span class="w">     </span>┆<span class="w"> </span><span class="m">11873</span><span class="w">       </span>┆<span class="w"> </span><span class="m">12227</span><span class="w">     </span>│
+</span><span id="__span-17-12"><a href="#__codelineno-17-12" id="__codelineno-17-12" name="__codelineno-17-12"></a>│<span class="w"> </span>chr1<span class="w">     </span>┆<span class="w"> </span><span class="m">12612</span><span class="w">       </span>┆<span class="w"> </span><span class="m">12721</span><span class="w">     </span>┆<span class="w"> </span>chr1<span class="w">     </span>┆<span class="w"> </span><span class="m">12612</span><span class="w">       </span>┆<span class="w"> </span><span class="m">12721</span><span class="w">     </span>│
+</span><span id="__span-17-13"><a href="#__codelineno-17-13" id="__codelineno-17-13" name="__codelineno-17-13"></a>│<span class="w"> </span>chr1<span class="w">     </span>┆<span class="w"> </span><span class="m">13220</span><span class="w">       </span>┆<span class="w"> </span><span class="m">14409</span><span class="w">     </span>┆<span class="w"> </span>chr1<span class="w">     </span>┆<span class="w"> </span><span class="m">13220</span><span class="w">       </span>┆<span class="w"> </span><span class="m">14409</span><span class="w">     </span>│
+</span><span id="__span-17-14"><a href="#__codelineno-17-14" id="__codelineno-17-14" name="__codelineno-17-14"></a>│<span class="w"> </span>chr1<span class="w">     </span>┆<span class="w"> </span><span class="m">13220</span><span class="w">       </span>┆<span class="w"> </span><span class="m">14409</span><span class="w">     </span>┆<span class="w"> </span>chr1<span class="w">     </span>┆<span class="w"> </span><span class="m">14361</span><span class="w">       </span>┆<span class="w"> </span><span class="m">14829</span><span class="w">     </span>│
+</span><span id="__span-17-15"><a href="#__codelineno-17-15" id="__codelineno-17-15" name="__codelineno-17-15"></a>│<span class="w"> </span>chr1<span class="w">     </span>┆<span class="w"> </span><span class="m">14361</span><span class="w">       </span>┆<span class="w"> </span><span class="m">14829</span><span class="w">     </span>┆<span class="w"> </span>chr1<span class="w">     </span>┆<span class="w"> </span><span class="m">13220</span><span class="w">       </span>┆<span class="w"> </span><span class="m">14409</span><span class="w">     </span>│
+</span><span id="__span-17-16"><a href="#__codelineno-17-16" id="__codelineno-17-16" name="__codelineno-17-16"></a>└──────────┴─────────────┴───────────┴──────────┴─────────────┴───────────┘
+</span></code></pre></div>
+</li>
+</ol>
+<p>Parallellism can be controlled using the <code>datafusion.execution.target_partitions</code>option as described in the <a href="./#parallel-engine-🏎️">parallel engine</a> section (compare the row/s metric in the following examples).</p>
+<p></p><div class="language-python highlight"><pre><span></span><code><span id="__span-18-1"><a href="#__codelineno-18-1" id="__codelineno-18-1" name="__codelineno-18-1"></a> <span class="n">pb</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s2">"datafusion.execution.target_partitions"</span><span class="p">,</span> <span class="s2">"1"</span><span class="p">)</span>
+</span><span id="__span-18-2"><a href="#__codelineno-18-2" id="__codelineno-18-2" name="__codelineno-18-2"></a> <span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">df_1</span><span class="p">,</span> <span class="n">df_2</span><span class="p">,</span> <span class="n">cols1</span><span class="o">=</span><span class="n">cols</span><span class="p">,</span> <span class="n">cols2</span><span class="o">=</span><span class="n">cols</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="s2">"streaming"</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+</span></code></pre></div>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-19-1"><a href="#__codelineno-19-1" id="__codelineno-19-1" name="__codelineno-19-1"></a><span class="w"> </span>1652814rows<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00,<span class="w"> </span><span class="m">19664163</span>.99rows/s<span class="o">]</span>
+</span><span id="__span-19-2"><a href="#__codelineno-19-2" id="__codelineno-19-2" name="__codelineno-19-2"></a><span class="w"> </span>shape:<span class="w"> </span><span class="o">(</span><span class="m">1</span>,<span class="w"> </span><span class="m">6</span><span class="o">)</span>
+</span><span id="__span-19-3"><a href="#__codelineno-19-3" id="__codelineno-19-3" name="__codelineno-19-3"></a><span class="w"> </span>┌──────────┬─────────────┬───────────┬──────────┬─────────────┬───────────┐
+</span><span id="__span-19-4"><a href="#__codelineno-19-4" id="__codelineno-19-4" name="__codelineno-19-4"></a><span class="w"> </span>│<span class="w"> </span>contig_1<span class="w"> </span>┆<span class="w"> </span>pos_start_1<span class="w"> </span>┆<span class="w"> </span>pos_end_1<span class="w"> </span>┆<span class="w"> </span>contig_2<span class="w"> </span>┆<span class="w"> </span>pos_start_2<span class="w"> </span>┆<span class="w"> </span>pos_end_2<span class="w"> </span>│
+</span><span id="__span-19-5"><a href="#__codelineno-19-5" id="__codelineno-19-5" name="__codelineno-19-5"></a><span class="w"> </span>│<span class="w"> </span>---<span class="w">      </span>┆<span class="w"> </span>---<span class="w">         </span>┆<span class="w"> </span>---<span class="w">       </span>┆<span class="w"> </span>---<span class="w">      </span>┆<span class="w"> </span>---<span class="w">         </span>┆<span class="w"> </span>---<span class="w">       </span>│
+</span><span id="__span-19-6"><a href="#__codelineno-19-6" id="__codelineno-19-6" name="__codelineno-19-6"></a><span class="w"> </span>│<span class="w"> </span>u32<span class="w">      </span>┆<span class="w"> </span>u32<span class="w">         </span>┆<span class="w"> </span>u32<span class="w">       </span>┆<span class="w"> </span>u32<span class="w">      </span>┆<span class="w"> </span>u32<span class="w">         </span>┆<span class="w"> </span>u32<span class="w">       </span>│
+</span><span id="__span-19-7"><a href="#__codelineno-19-7" id="__codelineno-19-7" name="__codelineno-19-7"></a><span class="w"> </span>╞══════════╪═════════════╪═══════════╪══════════╪═════════════╪═══════════╡
+</span><span id="__span-19-8"><a href="#__codelineno-19-8" id="__codelineno-19-8" name="__codelineno-19-8"></a><span class="w"> </span>│<span class="w"> </span><span class="m">1652814</span><span class="w">  </span>┆<span class="w"> </span><span class="m">1652814</span><span class="w">     </span>┆<span class="w"> </span><span class="m">1652814</span><span class="w">   </span>┆<span class="w"> </span><span class="m">1652814</span><span class="w">  </span>┆<span class="w"> </span><span class="m">1652814</span><span class="w">     </span>┆<span class="w"> </span><span class="m">1652814</span><span class="w">   </span>│
+</span><span id="__span-19-9"><a href="#__codelineno-19-9" id="__codelineno-19-9" name="__codelineno-19-9"></a><span class="w"> </span>└──────────┴─────────────┴───────────┴──────────┴─────────────┴───────────┘
+</span></code></pre></div>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-20-1"><a href="#__codelineno-20-1" id="__codelineno-20-1" name="__codelineno-20-1"></a> <span class="n">pb</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s2">"datafusion.execution.target_partitions"</span><span class="p">,</span> <span class="s2">"2"</span><span class="p">)</span>
+</span><span id="__span-20-2"><a href="#__codelineno-20-2" id="__codelineno-20-2" name="__codelineno-20-2"></a> <span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span><span class="n">df_1</span><span class="p">,</span> <span class="n">df_2</span><span class="p">,</span> <span class="n">cols1</span><span class="o">=</span><span class="n">cols</span><span class="p">,</span> <span class="n">cols2</span><span class="o">=</span><span class="n">cols</span><span class="p">)</span><span class="o">.</span><span class="n">collect</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="s2">"streaming"</span><span class="p">)</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+</span></code></pre></div><p></p>
+<div class="language-shell highlight"><pre><span></span><code><span id="__span-21-1"><a href="#__codelineno-21-1" id="__codelineno-21-1" name="__codelineno-21-1"></a><span class="w"> </span>1652814rows<span class="w"> </span><span class="o">[</span><span class="m">00</span>:00,<span class="w"> </span><span class="m">27841987</span>.75rows/s<span class="o">]</span>
+</span><span id="__span-21-2"><a href="#__codelineno-21-2" id="__codelineno-21-2" name="__codelineno-21-2"></a><span class="w"> </span>shape:<span class="w"> </span><span class="o">(</span><span class="m">1</span>,<span class="w"> </span><span class="m">6</span><span class="o">)</span>
+</span><span id="__span-21-3"><a href="#__codelineno-21-3" id="__codelineno-21-3" name="__codelineno-21-3"></a><span class="w"> </span>┌──────────┬─────────────┬───────────┬──────────┬─────────────┬───────────┐
+</span><span id="__span-21-4"><a href="#__codelineno-21-4" id="__codelineno-21-4" name="__codelineno-21-4"></a><span class="w"> </span>│<span class="w"> </span>contig_1<span class="w"> </span>┆<span class="w"> </span>pos_start_1<span class="w"> </span>┆<span class="w"> </span>pos_end_1<span class="w"> </span>┆<span class="w"> </span>contig_2<span class="w"> </span>┆<span class="w"> </span>pos_start_2<span class="w"> </span>┆<span class="w"> </span>pos_end_2<span class="w"> </span>│
+</span><span id="__span-21-5"><a href="#__codelineno-21-5" id="__codelineno-21-5" name="__codelineno-21-5"></a><span class="w"> </span>│<span class="w"> </span>---<span class="w">      </span>┆<span class="w"> </span>---<span class="w">         </span>┆<span class="w"> </span>---<span class="w">       </span>┆<span class="w"> </span>---<span class="w">      </span>┆<span class="w"> </span>---<span class="w">         </span>┆<span class="w"> </span>---<span class="w">       </span>│
+</span><span id="__span-21-6"><a href="#__codelineno-21-6" id="__codelineno-21-6" name="__codelineno-21-6"></a><span class="w"> </span>│<span class="w"> </span>u32<span class="w">      </span>┆<span class="w"> </span>u32<span class="w">         </span>┆<span class="w"> </span>u32<span class="w">       </span>┆<span class="w"> </span>u32<span class="w">      </span>┆<span class="w"> </span>u32<span class="w">         </span>┆<span class="w"> </span>u32<span class="w">       </span>│
+</span><span id="__span-21-7"><a href="#__codelineno-21-7" id="__codelineno-21-7" name="__codelineno-21-7"></a><span class="w"> </span>╞══════════╪═════════════╪═══════════╪══════════╪═════════════╪═══════════╡
+</span><span id="__span-21-8"><a href="#__codelineno-21-8" id="__codelineno-21-8" name="__codelineno-21-8"></a><span class="w"> </span>│<span class="w"> </span><span class="m">1652814</span><span class="w">  </span>┆<span class="w"> </span><span class="m">1652814</span><span class="w">     </span>┆<span class="w"> </span><span class="m">1652814</span><span class="w">   </span>┆<span class="w"> </span><span class="m">1652814</span><span class="w">  </span>┆<span class="w"> </span><span class="m">1652814</span><span class="w">     </span>┆<span class="w"> </span><span class="m">1652814</span><span class="w">   </span>│
+</span><span id="__span-21-9"><a href="#__codelineno-21-9" id="__codelineno-21-9" name="__codelineno-21-9"></a><span class="w"> </span>└──────────┴─────────────┴───────────┴──────────┴─────────────┴───────────┘
+</span></code></pre></div>
+<h2 id="compression">Compression<a class="headerlink" href="#compression" title="Permanent link"></a></h2>
+<p><em>polars-bio</em> supports <strong>GZIP</strong> ( default file extension <code>*.gz</code>) and <strong>Block GZIP</strong> (BGZIP, default file extension <code>*.bgz</code>) when reading files from local and cloud storages.
+For BGZIP it is possible to parallelize decoding of compressed blocks to substantially speedup reading VCF, FASTQ or GFF files by increasing <code>thread_num</code> parameter. Please take a look at the following <a href="https://github.com/biodatageeks/polars-bio/issues/132">GitHub discussion</a>.</p>
+<h2 id="dataframes-support">DataFrames support<a class="headerlink" href="#dataframes-support" title="Permanent link"></a></h2>
+<table>
+<thead>
+<tr>
+<th>I/O</th>
+<th>Bioframe</th>
+<th>polars-bio</th>
+<th>PyRanges</th>
+<th>Pybedtools</th>
+<th>PyGenomics</th>
+<th>GenomicRanges</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pandas DataFrame</td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+</tr>
+<tr>
+<td>Polars DataFrame</td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+<td></td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+</tr>
+<tr>
+<td>Polars LazyFrame</td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Native readers</td>
+<td></td>
+<td><img alt="✅" class="twemoji" src="https://cdn.jsdelivr.net/gh/jdecked/twemoji@16.0.1/assets/svg/2705.svg" title=":white_check_mark:"/></td>
+<td></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h2 id="polars-integration">Polars Integration<a class="headerlink" href="#polars-integration" title="Permanent link"></a></h2>
+<p>polars-bio leverages deep integration with Polars through the <a href="https://arrow.apache.org/docs/format/CDataInterface.html">Arrow C Data Interface</a>, enabling high-performance zero-copy data exchange between Polars LazyFrames and the Rust-based genomic range operations engine.</p>
+<h3 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link"></a></h3>
+<pre class="mermaid"><code>flowchart LR
+    subgraph Python["Python Layer"]
+        LF["Polars LazyFrame"]
+        DF["Polars DataFrame"]
+    end
+
+    subgraph FFI["Arrow C Data Interface"]
+        stream["Arrow C Stream&lt;br/&gt;(__arrow_c_stream__)"]
+    end
+
+    subgraph Rust["Rust Layer (polars-bio)"]
+        reader["ArrowArrayStreamReader"]
+        datafusion["DataFusion Engine"]
+        range_ops["Range Operations&lt;br/&gt;(overlap, nearest, etc.)"]
+    end
+
+    LF --&gt; |"ArrowStreamExportable"| stream
+    DF --&gt; |"to_arrow()"| stream
+    stream --&gt; |"Zero-copy FFI"| reader
+    reader --&gt; datafusion
+    datafusion --&gt; range_ops</code></pre>
+<h3 id="how-it-works_1">How It Works<a class="headerlink" href="#how-it-works_1" title="Permanent link"></a></h3>
+<p>When you pass a Polars LazyFrame to range operations like <code>overlap()</code> or <code>nearest()</code>:</p>
+<ol>
+<li><strong>Stream Export</strong>: The LazyFrame exports itself as an Arrow C Stream via <code>collect_batches(lazy=True)._inner.__arrow_c_stream__()</code> (Polars &gt;= 1.37.0)</li>
+<li><strong>Zero-Copy Transfer</strong>: The stream pointer is passed directly to Rust - no data copying or Python object conversion</li>
+<li><strong>GIL-Free Execution</strong>: Once the stream is exported, all data processing happens in Rust without holding Python's GIL</li>
+<li><strong>Streaming Execution</strong>: Data flows through DataFusion's streaming engine, processing batches on-demand</li>
+</ol>
+<h3 id="performance-benefits">Performance Benefits<a class="headerlink" href="#performance-benefits" title="Permanent link"></a></h3>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Previous Approach</th>
+<th>Arrow C Stream</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GIL acquisition</td>
+<td>Per batch</td>
+<td>Once at export</td>
+</tr>
+<tr>
+<td>Data conversion</td>
+<td>Polars → PyArrow → Arrow</td>
+<td>Direct FFI</td>
+</tr>
+<tr>
+<td>Memory overhead</td>
+<td>Python iterator objects</td>
+<td>None</td>
+</tr>
+<tr>
+<td>Batch processing</td>
+<td>Python <code>__next__()</code> calls</td>
+<td>Native Rust iteration</td>
+</tr>
+</tbody>
+</table>
+<h3 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link"></a></h3>
+<ul>
+<li><strong>Polars &gt;= 1.37.0</strong> (required for <code>ArrowStreamExportable</code>)</li>
+</ul>
+<h3 id="batch-size-configuration">Batch Size Configuration<a class="headerlink" href="#batch-size-configuration" title="Permanent link"></a></h3>
+<p>polars-bio automatically synchronizes the batch size between Polars streaming and DataFusion execution. When you set <code>datafusion.execution.batch_size</code>, Polars' <code>collect_batches()</code> will use the same chunk size:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-22-1"><a href="#__codelineno-22-1" id="__codelineno-22-1" name="__codelineno-22-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-22-2"><a href="#__codelineno-22-2" id="__codelineno-22-2" name="__codelineno-22-2"></a>
+</span><span id="__span-22-3"><a href="#__codelineno-22-3" id="__codelineno-22-3" name="__codelineno-22-3"></a><span class="c1"># Set batch size for both Polars and DataFusion</span>
+</span><span id="__span-22-4"><a href="#__codelineno-22-4" id="__codelineno-22-4" name="__codelineno-22-4"></a><span class="n">pb</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s2">"datafusion.execution.batch_size"</span><span class="p">,</span> <span class="s2">"8192"</span><span class="p">)</span>
+</span><span id="__span-22-5"><a href="#__codelineno-22-5" id="__codelineno-22-5" name="__codelineno-22-5"></a>
+</span><span id="__span-22-6"><a href="#__codelineno-22-6" id="__codelineno-22-6" name="__codelineno-22-6"></a><span class="c1"># Now LazyFrame streaming uses 8192-row batches</span>
+</span><span id="__span-22-7"><a href="#__codelineno-22-7" id="__codelineno-22-7" name="__codelineno-22-7"></a><span class="c1"># This ensures consistent memory usage and processing patterns</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>datafusion.execution.batch_size</code></td>
+<td>Controls batch size for both Polars streaming export and DataFusion processing</td>
+</tr>
+<tr>
+<td>Default</td>
+<td>8192 rows (synchronized between Polars and DataFusion)</td>
+</tr>
+<tr>
+<td><code>"65536"</code></td>
+<td>Larger batches for high-throughput scenarios</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Matching batch sizes between Polars and DataFusion improves cache locality and reduces memory fragmentation when processing large datasets.</p>
+</div>
+<h3 id="example_1">Example<a class="headerlink" href="#example_1" title="Permanent link"></a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-23-1"><a href="#__codelineno-23-1" id="__codelineno-23-1" name="__codelineno-23-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pl</span>
+</span><span id="__span-23-2"><a href="#__codelineno-23-2" id="__codelineno-23-2" name="__codelineno-23-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-23-3"><a href="#__codelineno-23-3" id="__codelineno-23-3" name="__codelineno-23-3"></a>
+</span><span id="__span-23-4"><a href="#__codelineno-23-4" id="__codelineno-23-4" name="__codelineno-23-4"></a><span class="c1"># Create a LazyFrame from a large file</span>
+</span><span id="__span-23-5"><a href="#__codelineno-23-5" id="__codelineno-23-5" name="__codelineno-23-5"></a><span class="n">lf1</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">scan_parquet</span><span class="p">(</span><span class="s2">"variants.parquet"</span><span class="p">)</span>
+</span><span id="__span-23-6"><a href="#__codelineno-23-6" id="__codelineno-23-6" name="__codelineno-23-6"></a><span class="n">lf2</span> <span class="o">=</span> <span class="n">pl</span><span class="o">.</span><span class="n">scan_parquet</span><span class="p">(</span><span class="s2">"regions.parquet"</span><span class="p">)</span>
+</span><span id="__span-23-7"><a href="#__codelineno-23-7" id="__codelineno-23-7" name="__codelineno-23-7"></a>
+</span><span id="__span-23-8"><a href="#__codelineno-23-8" id="__codelineno-23-8" name="__codelineno-23-8"></a><span class="c1"># Set coordinate system metadata</span>
+</span><span id="__span-23-9"><a href="#__codelineno-23-9" id="__codelineno-23-9" name="__codelineno-23-9"></a><span class="n">lf1</span> <span class="o">=</span> <span class="n">lf1</span><span class="o">.</span><span class="n">config_meta</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">coordinate_system_zero_based</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-23-10"><a href="#__codelineno-23-10" id="__codelineno-23-10" name="__codelineno-23-10"></a><span class="n">lf2</span> <span class="o">=</span> <span class="n">lf2</span><span class="o">.</span><span class="n">config_meta</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">coordinate_system_zero_based</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-23-11"><a href="#__codelineno-23-11" id="__codelineno-23-11" name="__codelineno-23-11"></a>
+</span><span id="__span-23-12"><a href="#__codelineno-23-12" id="__codelineno-23-12" name="__codelineno-23-12"></a><span class="c1"># Range operation uses Arrow C Stream for efficient data transfer</span>
+</span><span id="__span-23-13"><a href="#__codelineno-23-13" id="__codelineno-23-13" name="__codelineno-23-13"></a><span class="n">result</span> <span class="o">=</span> <span class="n">pb</span><span class="o">.</span><span class="n">overlap</span><span class="p">(</span>
+</span><span id="__span-23-14"><a href="#__codelineno-23-14" id="__codelineno-23-14" name="__codelineno-23-14"></a>    <span class="n">lf1</span><span class="p">,</span> <span class="n">lf2</span><span class="p">,</span>
+</span><span id="__span-23-15"><a href="#__codelineno-23-15" id="__codelineno-23-15" name="__codelineno-23-15"></a>    <span class="n">cols1</span><span class="o">=</span><span class="p">[</span><span class="s2">"chrom"</span><span class="p">,</span> <span class="s2">"start"</span><span class="p">,</span> <span class="s2">"end"</span><span class="p">],</span>
+</span><span id="__span-23-16"><a href="#__codelineno-23-16" id="__codelineno-23-16" name="__codelineno-23-16"></a>    <span class="n">cols2</span><span class="o">=</span><span class="p">[</span><span class="s2">"chrom"</span><span class="p">,</span> <span class="s2">"start"</span><span class="p">,</span> <span class="s2">"end"</span><span class="p">],</span>
+</span><span id="__span-23-17"><a href="#__codelineno-23-17" id="__codelineno-23-17" name="__codelineno-23-17"></a>    <span class="n">output_type</span><span class="o">=</span><span class="s2">"polars.LazyFrame"</span>
+</span><span id="__span-23-18"><a href="#__codelineno-23-18" id="__codelineno-23-18" name="__codelineno-23-18"></a><span class="p">)</span>
+</span><span id="__span-23-19"><a href="#__codelineno-23-19" id="__codelineno-23-19" name="__codelineno-23-19"></a>
+</span><span id="__span-23-20"><a href="#__codelineno-23-20" id="__codelineno-23-20" name="__codelineno-23-20"></a><span class="c1"># Execute with Polars streaming engine</span>
+</span><span id="__span-23-21"><a href="#__codelineno-23-21" id="__codelineno-23-21" name="__codelineno-23-21"></a><span class="n">result</span><span class="o">.</span><span class="n">collect</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="s2">"streaming"</span><span class="p">)</span>
+</span></code></pre></div>
+</article>
+</div>
+<script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+</div>
+<button class="md-top md-icon" data-md-component="top" hidden="" type="button">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"></path></svg>
+  Back to top
+</button>
+</main>
+<footer class="md-footer">
+<nav aria-label="Footer" class="md-footer__inner md-grid">
+<a aria-label="Previous: 🏃🏼‍♂️ Quick start" class="md-footer__link md-footer__link--prev" href="../quickstart/">
+<div class="md-footer__button md-icon">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+</div>
+<div class="md-footer__title">
+<span class="md-footer__direction">
+                Previous
+              </span>
+<div class="md-ellipsis">
+                🏃🏼‍♂️ Quick start
+              </div>
+</div>
+</a>
+<a aria-label="Next: 📚Tutorial" class="md-footer__link md-footer__link--next" href="../notebooks/tutorial/">
+<div class="md-footer__title">
+<span class="md-footer__direction">
+                Next
+              </span>
+<div class="md-ellipsis">
+                📚Tutorial
+              </div>
+</div>
+<div class="md-footer__button md-icon">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"></path></svg>
+</div>
+</a>
+</nav>
+<div class="md-footer-meta md-typeset">
+<div class="md-footer-meta__inner md-grid">
+<div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener" target="_blank">
+      Material for MkDocs
+    </a>
+</div>
+<div class="md-social">
+<a class="md-social__link" href="https://discord.gg/bpxQ4Yxhk5" rel="noopener" target="_blank" title="Discord">
+<svg viewbox="0 0 576 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M492.5 69.8c-.2-.3-.4-.6-.8-.7-38.1-17.5-78.4-30-119.7-37.1-.4-.1-.8 0-1.1.1s-.6.4-.8.8c-5.5 9.9-10.5 20.2-14.9 30.6-44.6-6.8-89.9-6.8-134.4 0-4.5-10.5-9.5-20.7-15.1-30.6-.2-.3-.5-.6-.8-.8s-.7-.2-1.1-.2C162.5 39 122.2 51.5 84.1 69c-.3.1-.6.4-.8.7C7.1 183.5-13.8 294.6-3.6 404.2c0 .3.1.5.2.8s.3.4.5.6c44.4 32.9 94 58 146.8 74.2.4.1.8.1 1.1 0s.7-.4.9-.7c11.3-15.4 21.4-31.8 30-48.8.1-.2.2-.5.2-.8s0-.5-.1-.8-.2-.5-.4-.6-.4-.3-.7-.4c-15.8-6.1-31.2-13.4-45.9-21.9-.3-.2-.5-.4-.7-.6s-.3-.6-.3-.9 0-.6.2-.9.3-.5.6-.7c3.1-2.3 6.2-4.7 9.1-7.1.3-.2.6-.4.9-.4s.7 0 1 .1c96.2 43.9 200.4 43.9 295.5 0 .3-.1.7-.2 1-.2s.7.2.9.4c2.9 2.4 6 4.9 9.1 7.2.2.2.4.4.6.7s.2.6.2.9-.1.6-.3.9-.4.5-.6.6c-14.7 8.6-30 15.9-45.9 21.8-.2.1-.5.2-.7.4s-.3.4-.4.7-.1.5-.1.8.1.5.2.8c8.8 17 18.8 33.3 30 48.8.2.3.6.6.9.7s.8.1 1.1 0c52.9-16.2 102.6-41.3 147.1-74.2.2-.2.4-.4.5-.6s.2-.5.2-.8c12.3-126.8-20.5-236.9-86.9-334.5zm-302 267.7c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.4 59.2-52.8 59.2m195.4 0c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.2 59.2-52.8 59.2"></path></svg>
+</a>
+<a class="md-social__link" href="mailto:marek.wiewiorka@pw.edu.pl" rel="noopener" target="_blank" title="Email">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="m20 8-8 5-8-5V6l8 5 8-5m0-2H4c-1.11 0-2 .89-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2"></path></svg>
+</a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+<div class="md-dialog" data-md-component="dialog">
+<div class="md-dialog__inner md-typeset"></div>
+</div>
+<script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "content.code.select", "content.code.annotate", "content.tabs.link", "content.action.edit", "content.tooltips", "toc.follow", "navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.footer", "navigation.tracking", "navigation.instant", "content.footnote.tooltips"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": ["latest"], "provider": "mike"}}</script>
+<script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+<script src="../assets/_markdown_exec_pyodide.js"></script>
+<script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(()=>{ lightbox.reload(); });
+</script></body></html>
