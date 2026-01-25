@@ -316,6 +316,26 @@ class IOOperations:
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
+
+        !!! Example "Lazy scanning VCF with INFO and FORMAT fields"
+            ```python
+            import polars_bio as pb
+
+            # Lazily scan VCF with both INFO and FORMAT fields
+            lf = pb.scan_vcf(
+                "sample.vcf.gz",
+                info_fields=["END"],              # INFO field
+                format_fields=["GT", "DP", "GQ"]  # FORMAT fields
+            )
+
+            # Apply filters and collect only what's needed
+            df = lf.filter(pl.col("DP") > 20).select(
+                ["chrom", "start", "ref", "alt", "GT", "DP", "GQ"]
+            ).collect()
+
+            # Single-sample VCF: FORMAT columns named directly (GT, DP, GQ)
+            # Multi-sample VCF: FORMAT columns named {sample}_{field}
+            ```
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
