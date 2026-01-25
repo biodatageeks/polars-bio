@@ -228,6 +228,34 @@ class IOOperations:
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
+
+        !!! Example "Reading VCF with INFO and FORMAT fields"
+            ```python
+            import polars_bio as pb
+
+            # Read VCF with both INFO and FORMAT fields
+            df = pb.read_vcf(
+                "sample.vcf.gz",
+                info_fields=["END"],              # INFO field
+                format_fields=["GT", "DP", "GQ"]  # FORMAT fields
+            )
+
+            # Single-sample VCF: FORMAT columns named directly (GT, DP, GQ)
+            print(df.select(["chrom", "start", "ref", "alt", "END", "GT", "DP", "GQ"]))
+            # Output:
+            # shape: (10, 8)
+            # ┌───────┬───────┬─────┬─────┬──────┬─────┬─────┬─────┐
+            # │ chrom ┆ start ┆ ref ┆ alt ┆ END  ┆ GT  ┆ DP  ┆ GQ  │
+            # │ str   ┆ u32   ┆ str ┆ str ┆ i32  ┆ str ┆ i32 ┆ i32 │
+            # ╞═══════╪═══════╪═════╪═════╪══════╪═════╪═════╪═════╡
+            # │ 1     ┆ 10009 ┆ A   ┆ .   ┆ null ┆ 0/0 ┆ 10  ┆ 27  │
+            # │ 1     ┆ 10015 ┆ A   ┆ .   ┆ null ┆ 0/0 ┆ 17  ┆ 35  │
+            # └───────┴───────┴─────┴─────┴──────┴─────┴─────┴─────┘
+
+            # Multi-sample VCF: FORMAT columns named {sample}_{field}
+            df = pb.read_vcf("multisample.vcf", format_fields=["GT", "DP"])
+            print(df.select(["chrom", "start", "NA12878_GT", "NA12878_DP", "NA12879_GT"]))
+            ```
         """
         lf = IOOperations.scan_vcf(
             path,
