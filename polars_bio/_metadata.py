@@ -4,11 +4,26 @@ This module provides functions to get and set coordinate system metadata
 on different DataFrame types (Polars, Pandas) and DataFusion tables.
 """
 
-import warnings
-from typing import Optional, Union
+from __future__ import annotations
 
-import pandas as pd
+import warnings
+from typing import TYPE_CHECKING, Any, Optional, Union
+
 import polars as pl
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+
+def _is_pandas_dataframe(obj: Any) -> bool:
+    """Check if object is a pandas DataFrame without requiring pandas."""
+    try:
+        import pandas as pd
+
+        return isinstance(obj, pd.DataFrame)
+    except ImportError:
+        return False
+
 
 from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemError
 
@@ -76,7 +91,7 @@ def set_coordinate_system(
     elif _has_config_meta(df):
         # Wrapper types like GffLazyFrameWrapper that delegate to underlying LazyFrame
         df.config_meta.set(**{COORDINATE_SYSTEM_KEY: zero_based})
-    elif isinstance(df, pd.DataFrame):
+    elif _is_pandas_dataframe(df):
         df.attrs[COORDINATE_SYSTEM_KEY] = zero_based
     else:
         raise TypeError(
@@ -115,7 +130,7 @@ def get_coordinate_system(
         # Wrapper types like GffLazyFrameWrapper that delegate to underlying LazyFrame
         metadata = df.config_meta.get_metadata()
         return metadata.get(COORDINATE_SYSTEM_KEY)
-    elif isinstance(df, pd.DataFrame):
+    elif _is_pandas_dataframe(df):
         return df.attrs.get(COORDINATE_SYSTEM_KEY)
     elif isinstance(df, str):
         # File paths cannot have metadata until they're read by I/O functions
@@ -165,7 +180,7 @@ def _get_input_type_name(
     elif _has_config_meta(df):
         # Wrapper types like GffLazyFrameWrapper
         return f"Polars LazyFrame ({type(df).__name__})"
-    elif isinstance(df, pd.DataFrame):
+    elif _is_pandas_dataframe(df):
         return "Pandas DataFrame"
     elif isinstance(df, str):
         if _is_file_path(df):
@@ -183,7 +198,7 @@ def _get_metadata_hint(df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str])
             "which automatically set the metadata, or set it manually:\n"
             "  df.config_meta.set(coordinate_system_zero_based=True)"
         )
-    elif isinstance(df, pd.DataFrame):
+    elif _is_pandas_dataframe(df):
         return (
             "For Pandas DataFrames, set the attribute before passing to range operations:\n"
             '  df.attrs["coordinate_system_zero_based"] = True  # for 0-based coords\n'
