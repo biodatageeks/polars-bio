@@ -50,8 +50,9 @@ def range_lazy_scan(
         range_function = range_operation_lazy
         col1, col2 = range_options.columns_1[0], range_options.columns_2[0]
         # Sync batch size with DataFusion's execution.batch_size for consistent processing
+        # DataFusion default is 8192, use same default for Polars streaming
         batch_size_str = ctx.get_option("datafusion.execution.batch_size")
-        batch_size = int(batch_size_str) if batch_size_str else None
+        batch_size = int(batch_size_str) if batch_size_str else 8192
         lazy_sources = (
             _prepare_lazy_stream_input(df_1, col1, batch_size),
             _prepare_lazy_stream_input(df_2, col2, batch_size),

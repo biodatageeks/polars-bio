@@ -17,6 +17,15 @@
 !!! Limitations
     For now *polars-bio* uses `int32` positions encoding for interval operations ([issue](https://github.com/dcjones/coitrees/issues/18)) meaning that it does not support operation on chromosomes longer than **2Gb**. `int64` support is planned for future releases ([issue](https://github.com/biodatageeks/polars-bio/issues/169)).
 
+!!! tip "Memory Optimization"
+    For `overlap()` operations that produce very large result sets, use the `low_memory=True` parameter to reduce peak memory consumption:
+
+    ```python
+    result = pb.overlap(df1, df2, low_memory=True)
+    ```
+
+    This enables streaming output generation that caps the output batch size, trading some performance for significantly lower memory usage.
+
 ## Coordinate systems support
 
 polars-bio supports both **0-based half-open** and **1-based closed** coordinate systems for genomic ranges operations. By **default**, it uses **1-based closed** coordinates, which is the native format for VCF, GFF, and SAM/BAM files.
@@ -250,7 +259,7 @@ result = pb.overlap(df1, df2, ...)  # Reads from metadata
 ```
 
 
-### API comparison between libraries
+## API comparison between libraries
 There is no standard API for genomic ranges operations in Python.
 This table compares the API of the libraries. The table is not exhaustive and only shows the most common operations used in benchmarking.
 
@@ -595,12 +604,11 @@ pb.set_option("datafusion.execution.batch_size", "8192")
 | Setting | Effect |
 |---------|--------|
 | `datafusion.execution.batch_size` | Controls batch size for both Polars streaming export and DataFusion processing |
-| Default (None) | Polars uses its internal default (~19K rows) |
-| `"8192"` | Standard batch size, good balance of throughput and memory |
+| Default | 8192 rows (synchronized between Polars and DataFusion) |
 | `"65536"` | Larger batches for high-throughput scenarios |
 
 !!! tip
-    Matching batch sizes between Polars and DataFusion can improve cache locality and reduce memory fragmentation when processing large datasets.
+    Matching batch sizes between Polars and DataFusion improves cache locality and reduces memory fragmentation when processing large datasets.
 
 ### Example
 
