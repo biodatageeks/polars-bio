@@ -49,9 +49,12 @@ def range_lazy_scan(
     elif use_lazy_sources:
         range_function = range_operation_lazy
         col1, col2 = range_options.columns_1[0], range_options.columns_2[0]
+        # Sync batch size with DataFusion's execution.batch_size for consistent processing
+        batch_size_str = ctx.get_option("datafusion.execution.batch_size")
+        batch_size = int(batch_size_str) if batch_size_str else None
         lazy_sources = (
-            _prepare_lazy_stream_input(df_1, col1),
-            _prepare_lazy_stream_input(df_2, col2),
+            _prepare_lazy_stream_input(df_1, col1, batch_size),
+            _prepare_lazy_stream_input(df_2, col2, batch_size),
         )
         stored_df1 = stored_df2 = None
         stored_arrow_tbl1 = stored_arrow_tbl2 = None
@@ -195,6 +198,7 @@ def _is_lazyframe_like(df: object) -> bool:
 def _prepare_lazy_stream_input(
     df: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
     contig_col: str,
+    batch_size: Union[int, None] = None,
 ) -> tuple[pa.Schema, Callable[[], object]]:
     """Prepare schema + factory for Arrow C Stream exportable objects.
 
@@ -215,6 +219,11 @@ def _prepare_lazy_stream_input(
     For DataFrames, this exports via to_arrow().to_reader() which also supports
     the Arrow C Stream protocol for zero-copy FFI transfer.
 
+    Args:
+        df: Input DataFrame or LazyFrame
+        contig_col: Name of the contig/chromosome column
+        batch_size: Batch size for streaming (synced with datafusion.execution.batch_size)
+
     Note: The schema is extracted from the actual stream (not from Polars schema)
     to ensure type compatibility (e.g., Utf8View vs LargeUtf8).
     """
@@ -226,13 +235,18 @@ def _prepare_lazy_stream_input(
     if isinstance(df, pl.LazyFrame) or _is_lazyframe_like(df):
         # Get schema from a temporary stream to ensure type compatibility
         # (Polars may use Utf8View which differs from LargeUtf8 in empty DataFrame)
-        temp_batches = df.collect_batches(lazy=True, engine="streaming")
+        temp_batches = df.collect_batches(
+            lazy=True, engine="streaming", chunk_size=batch_size
+        )
         arrow_schema = pa.RecordBatchReader.from_stream(temp_batches._inner).schema
 
         # Return a factory that creates a fresh stream each time
         # This allows the LazyFrame result to be collected multiple times
+        # batch_size is captured in the closure to sync with DataFusion
         def stream_factory():
-            batches = df.collect_batches(lazy=True, engine="streaming")
+            batches = df.collect_batches(
+                lazy=True, engine="streaming", chunk_size=batch_size
+            )
             return batches._inner
 
         return arrow_schema, stream_factory
@@ -243,6 +257,7 @@ def _prepare_lazy_stream_input(
         arrow_schema = arrow_table.schema
 
         # Factory creates a fresh reader each time
+        # Note: PyArrow RecordBatchReader uses its own default batch size
         def stream_factory():
             return arrow_table.to_reader()
 
