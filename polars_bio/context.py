@@ -43,8 +43,8 @@ class Context:
         # Default to 1-based coordinates (zero_based=false) to match VCF/GFF native formats
         self.ctx.set_option(POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, "false")
 
-        # Default to strict coordinate system check (raise error if metadata is missing)
-        self.ctx.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, "true")
+        # Default to lenient coordinate system check (warn if metadata is missing, use global config)
+        self.ctx.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, "false")
 
         self.ctx.set_option("sequila.interval_join_algorithm", "coitrees")
         self.config = datafusion.context.SessionConfig(datafusion_conf)

@@ -34,7 +34,7 @@ flowchart TB
 
     subgraph Config["Session Configuration"]
         zero_based["datafusion.bio.coordinate_system_zero_based<br/>(default: false = 1-based)"]
-        check["datafusion.bio.coordinate_system_check<br/>(default: true = strict)"]
+        check["datafusion.bio.coordinate_system_check<br/>(default: false = lenient)"]
     end
 
     subgraph DF["DataFrame with Metadata"]
@@ -89,14 +89,14 @@ polars-bio provides two session parameters to control coordinate system behavior
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `datafusion.bio.coordinate_system_zero_based` | `"false"` (1-based) | Default coordinate system for I/O operations when `use_zero_based` is not specified |
-| `datafusion.bio.coordinate_system_check` | `"true"` (strict) | Whether to raise an error when DataFrame metadata is missing |
+| `datafusion.bio.coordinate_system_check` | `"false"` (lenient) | Whether to raise an error when DataFrame metadata is missing |
 
 ```python
 import polars_bio as pb
 
 # Check current settings
 print(pb.get_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED))  # "false"
-print(pb.get_option(pb.POLARS_BIO_COORDINATE_SYSTEM_CHECK))       # "true"
+print(pb.get_option(pb.POLARS_BIO_COORDINATE_SYSTEM_CHECK))       # "false"
 
 # Change to 0-based coordinates globally
 pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)
@@ -201,25 +201,35 @@ pb.overlap(df1, df2, ...)
 
 **How to fix:** Ensure both DataFrames use the same coordinate system.
 
-### Fallback mode (lenient validation)
+### Default behavior (lenient validation)
 
-For backwards compatibility or when working with DataFrames without metadata, you can disable strict validation:
+By default, polars-bio uses lenient validation (`coordinate_system_check=false`). When a DataFrame lacks coordinate system metadata, it falls back to the global configuration and emits a warning:
 
 ```python
+import polars as pl
 import polars_bio as pb
 
-# Disable strict coordinate system check
-pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
-
-# Now DataFrames without metadata will use the global config
-# A warning will be emitted
+# DataFrames without metadata will use the global config with a warning
 df = pl.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]}).lazy()
 result = pb.overlap(df, other_df, ...)  # Uses global coordinate system setting
 # Warning: Coordinate system metadata is missing. Using global config...
 ```
 
-!!! warning
-    Using fallback mode is not recommended for production pipelines as it may lead to incorrect results if coordinate systems are inconsistent.
+### Strict mode
+
+For production pipelines where coordinate system consistency is critical, you can enable strict validation:
+
+```python
+import polars_bio as pb
+
+# Enable strict coordinate system check
+pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+
+# Now DataFrames without metadata will raise MissingCoordinateSystemError
+```
+
+!!! tip
+    Enable strict mode in production pipelines to catch coordinate system mismatches early and prevent incorrect results.
 
 ### Migration from previous versions
 
