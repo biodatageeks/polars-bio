@@ -17,6 +17,15 @@
 !!! Limitations
     For now *polars-bio* uses `int32` positions encoding for interval operations ([issue](https://github.com/dcjones/coitrees/issues/18)) meaning that it does not support operation on chromosomes longer than **2Gb**. `int64` support is planned for future releases ([issue](https://github.com/biodatageeks/polars-bio/issues/169)).
 
+!!! tip "Memory Optimization"
+    For `overlap()` operations that produce very large result sets, use the `low_memory=True` parameter to reduce peak memory consumption:
+
+    ```python
+    result = pb.overlap(df1, df2, low_memory=True)
+    ```
+
+    This enables streaming output generation that caps the output batch size, trading some performance for significantly lower memory usage.
+
 ## Coordinate systems support
 
 polars-bio supports both **0-based half-open** and **1-based closed** coordinate systems for genomic ranges operations. By **default**, it uses **1-based closed** coordinates, which is the native format for VCF, GFF, and SAM/BAM files.
@@ -34,7 +43,7 @@ flowchart TB
 
     subgraph Config["Session Configuration"]
         zero_based["datafusion.bio.coordinate_system_zero_based<br/>(default: false = 1-based)"]
-        check["datafusion.bio.coordinate_system_check<br/>(default: true = strict)"]
+        check["datafusion.bio.coordinate_system_check<br/>(default: false = lenient)"]
     end
 
     subgraph DF["DataFrame with Metadata"]
@@ -89,14 +98,14 @@ polars-bio provides two session parameters to control coordinate system behavior
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `datafusion.bio.coordinate_system_zero_based` | `"false"` (1-based) | Default coordinate system for I/O operations when `use_zero_based` is not specified |
-| `datafusion.bio.coordinate_system_check` | `"true"` (strict) | Whether to raise an error when DataFrame metadata is missing |
+| `datafusion.bio.coordinate_system_check` | `"false"` (lenient) | Whether to raise an error when DataFrame metadata is missing |
 
 ```python
 import polars_bio as pb
 
 # Check current settings
 print(pb.get_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED))  # "false"
-print(pb.get_option(pb.POLARS_BIO_COORDINATE_SYSTEM_CHECK))       # "true"
+print(pb.get_option(pb.POLARS_BIO_COORDINATE_SYSTEM_CHECK))       # "false"
 
 # Change to 0-based coordinates globally
 pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)
@@ -201,25 +210,35 @@ pb.overlap(df1, df2, ...)
 
 **How to fix:** Ensure both DataFrames use the same coordinate system.
 
-### Fallback mode (lenient validation)
+### Default behavior (lenient validation)
 
-For backwards compatibility or when working with DataFrames without metadata, you can disable strict validation:
+By default, polars-bio uses lenient validation (`coordinate_system_check=false`). When a DataFrame lacks coordinate system metadata, it falls back to the global configuration and emits a warning:
 
 ```python
+import polars as pl
 import polars_bio as pb
 
-# Disable strict coordinate system check
-pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
-
-# Now DataFrames without metadata will use the global config
-# A warning will be emitted
+# DataFrames without metadata will use the global config with a warning
 df = pl.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]}).lazy()
 result = pb.overlap(df, other_df, ...)  # Uses global coordinate system setting
 # Warning: Coordinate system metadata is missing. Using global config...
 ```
 
-!!! warning
-    Using fallback mode is not recommended for production pipelines as it may lead to incorrect results if coordinate systems are inconsistent.
+### Strict mode
+
+For production pipelines where coordinate system consistency is critical, you can enable strict validation:
+
+```python
+import polars_bio as pb
+
+# Enable strict coordinate system check
+pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+
+# Now DataFrames without metadata will raise MissingCoordinateSystemError
+```
+
+!!! tip
+    Enable strict mode in production pipelines to catch coordinate system mismatches early and prevent incorrect results.
 
 ### Migration from previous versions
 
@@ -240,7 +259,7 @@ result = pb.overlap(df1, df2, ...)  # Reads from metadata
 ```
 
 
-### API comparison between libraries
+## API comparison between libraries
 There is no standard API for genomic ranges operations in Python.
 This table compares the API of the libraries. The table is not exhaustive and only shows the most common operations used in benchmarking.
 
@@ -515,3 +534,104 @@ For BGZIP it is possible to parallelize decoding of compressed blocks to substan
 | Polars DataFrame |                    | :white_check_mark:     |                    |            |            | :white_check_mark:     |
 | Polars LazyFrame |                    | :white_check_mark:     |                    |            |            |                        |
 | Native readers   |                    | :white_check_mark:     |                    |            |            |                        |
+
+## Polars Integration
+
+polars-bio leverages deep integration with Polars through the [Arrow C Data Interface](https://arrow.apache.org/docs/format/CDataInterface.html), enabling high-performance zero-copy data exchange between Polars LazyFrames and the Rust-based genomic range operations engine.
+
+### Architecture
+
+```mermaid
+flowchart LR
+    subgraph Python["Python Layer"]
+        LF["Polars LazyFrame"]
+        DF["Polars DataFrame"]
+    end
+
+    subgraph FFI["Arrow C Data Interface"]
+        stream["Arrow C Stream<br/>(__arrow_c_stream__)"]
+    end
+
+    subgraph Rust["Rust Layer (polars-bio)"]
+        reader["ArrowArrayStreamReader"]
+        datafusion["DataFusion Engine"]
+        range_ops["Range Operations<br/>(overlap, nearest, etc.)"]
+    end
+
+    LF --> |"ArrowStreamExportable"| stream
+    DF --> |"to_arrow()"| stream
+    stream --> |"Zero-copy FFI"| reader
+    reader --> datafusion
+    datafusion --> range_ops
+```
+
+### How It Works
+
+When you pass a Polars LazyFrame to range operations like `overlap()` or `nearest()`:
+
+1. **Stream Export**: The LazyFrame exports itself as an Arrow C Stream via `collect_batches(lazy=True)._inner.__arrow_c_stream__()` (Polars >= 1.37.0)
+2. **Zero-Copy Transfer**: The stream pointer is passed directly to Rust - no data copying or Python object conversion
+3. **GIL-Free Execution**: Once the stream is exported, all data processing happens in Rust without holding Python's GIL
+4. **Streaming Execution**: Data flows through DataFusion's streaming engine, processing batches on-demand
+
+### Performance Benefits
+
+| Aspect | Previous Approach | Arrow C Stream |
+|--------|------------------|----------------|
+| GIL acquisition | Per batch | Once at export |
+| Data conversion | Polars → PyArrow → Arrow | Direct FFI |
+| Memory overhead | Python iterator objects | None |
+| Batch processing | Python `__next__()` calls | Native Rust iteration |
+
+### Requirements
+
+- **Polars >= 1.37.0** (required for `ArrowStreamExportable`)
+
+### Batch Size Configuration
+
+polars-bio automatically synchronizes the batch size between Polars streaming and DataFusion execution. When you set `datafusion.execution.batch_size`, Polars' `collect_batches()` will use the same chunk size:
+
+```python
+import polars_bio as pb
+
+# Set batch size for both Polars and DataFusion
+pb.set_option("datafusion.execution.batch_size", "8192")
+
+# Now LazyFrame streaming uses 8192-row batches
+# This ensures consistent memory usage and processing patterns
+```
+
+| Setting | Effect |
+|---------|--------|
+| `datafusion.execution.batch_size` | Controls batch size for both Polars streaming export and DataFusion processing |
+| Default | 8192 rows (synchronized between Polars and DataFusion) |
+| `"65536"` | Larger batches for high-throughput scenarios |
+
+!!! tip
+    Matching batch sizes between Polars and DataFusion improves cache locality and reduces memory fragmentation when processing large datasets.
+
+### Example
+
+```python
+import polars as pl
+import polars_bio as pb
+
+# Create a LazyFrame from a large file
+lf1 = pl.scan_parquet("variants.parquet")
+lf2 = pl.scan_parquet("regions.parquet")
+
+# Set coordinate system metadata
+lf1 = lf1.config_meta.set(coordinate_system_zero_based=True)
+lf2 = lf2.config_meta.set(coordinate_system_zero_based=True)
+
+# Range operation uses Arrow C Stream for efficient data transfer
+result = pb.overlap(
+    lf1, lf2,
+    cols1=["chrom", "start", "end"],
+    cols2=["chrom", "start", "end"],
+    output_type="polars.LazyFrame"
+)
+
+# Execute with Polars streaming engine
+result.collect(engine="streaming")
+```

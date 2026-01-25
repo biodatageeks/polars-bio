@@ -1,11 +1,17 @@
-use std::sync::Arc;
+use std::pin::Pin;
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll};
 
-use arrow::array::RecordBatch;
+use arrow::array::{RecordBatch, RecordBatchReader};
 use arrow::error::ArrowError;
 use arrow::ffi_stream::ArrowArrayStreamReader;
 use arrow::pyarrow::PyArrowType;
-use datafusion::dataframe::DataFrameWriteOptions;
-use datafusion::datasource::MemTable;
+use arrow_schema::SchemaRef;
+use datafusion::catalog::streaming::StreamingTable;
+use datafusion::common::DataFusionError;
+use datafusion::execution::{RecordBatchStream, SendableRecordBatchStream, TaskContext};
+use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
+use datafusion::physical_plan::streaming::PartitionStream;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions, SessionContext};
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
@@ -16,6 +22,7 @@ use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::bgzf_parallel_reader::BgzfGffTableProvider as BgzfParallelGffTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
+use futures::Stream;
 use log::info;
 use tokio::runtime::Runtime;
 use tracing::debug;
@@ -26,39 +33,213 @@ use crate::option::{
     GffReadOptions, InputFormat, ReadOptions, VcfReadOptions,
 };
 
-const MAX_IN_MEMORY_ROWS: usize = 1024 * 1024;
+/// A PartitionStream that yields pre-collected RecordBatches.
+/// Used to enable multi-partition parallel execution for DataFrame inputs.
+///
+/// Note: RecordBatch::clone() is cheap - it uses Arc internally for column data,
+/// so cloning only increments reference counts (O(num_columns)), not copying data.
+#[derive(Debug)]
+struct RecordBatchPartitionStream {
+    schema: SchemaRef,
+    batches: Vec<RecordBatch>,
+}
+
+impl RecordBatchPartitionStream {
+    fn new(schema: SchemaRef, batches: Vec<RecordBatch>) -> Self {
+        Self { schema, batches }
+    }
+}
+
+impl PartitionStream for RecordBatchPartitionStream {
+    fn schema(&self) -> &SchemaRef {
+        &self.schema
+    }
+
+    fn execute(&self, _ctx: Arc<TaskContext>) -> SendableRecordBatchStream {
+        // Clone is cheap: RecordBatch uses Arc internally, so this just increments
+        // reference counts for each column (O(num_columns)), no data copying.
+        let batches = self.batches.clone();
+        let stream = futures::stream::iter(batches.into_iter().map(Ok));
+        Box::pin(RecordBatchStreamAdapter::new(self.schema.clone(), stream))
+    }
+}
+
+/// A PartitionStream that consumes an Arrow C Stream directly.
+/// Enables GIL-free streaming from Polars LazyFrame via ArrowStreamExportable.
+///
+/// This approach uses Polars' `__arrow_c_stream__()` method (available since Polars 1.37.1)
+/// to export data via Arrow C FFI, eliminating per-batch GIL acquisition.
+pub struct ArrowCStreamPartitionStream {
+    schema: SchemaRef,
+    stream_reader: Arc<Mutex<Option<ArrowArrayStreamReader>>>,
+}
+
+impl ArrowCStreamPartitionStream {
+    pub fn new(schema: SchemaRef, stream_reader: ArrowArrayStreamReader) -> Self {
+        Self {
+            schema,
+            stream_reader: Arc::new(Mutex::new(Some(stream_reader))),
+        }
+    }
+}
+
+impl std::fmt::Debug for ArrowCStreamPartitionStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ArrowCStreamPartitionStream")
+            .field("schema", &self.schema)
+            .finish()
+    }
+}
+
+impl PartitionStream for ArrowCStreamPartitionStream {
+    fn schema(&self) -> &SchemaRef {
+        &self.schema
+    }
+
+    fn execute(&self, _ctx: Arc<TaskContext>) -> SendableRecordBatchStream {
+        let reader = self
+            .stream_reader
+            .lock()
+            .unwrap()
+            .take()
+            .expect("Arrow C Stream already consumed");
+        Box::pin(ArrowCStreamBatchStream::new(reader, self.schema.clone()))
+    }
+}
+
+/// RecordBatchStream that reads from ArrowArrayStreamReader (no GIL needed).
+///
+/// After the initial stream export from Python (single GIL acquisition),
+/// all batch iteration happens in pure Rust without any Python interaction.
+pub struct ArrowCStreamBatchStream {
+    reader: ArrowArrayStreamReader,
+    schema: SchemaRef,
+}
+
+impl ArrowCStreamBatchStream {
+    pub fn new(reader: ArrowArrayStreamReader, schema: SchemaRef) -> Self {
+        Self { reader, schema }
+    }
+}
+
+impl Stream for ArrowCStreamBatchStream {
+    type Item = Result<RecordBatch, DataFusionError>;
+
+    fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        match self.reader.next() {
+            Some(Ok(batch)) => Poll::Ready(Some(Ok(batch))),
+            Some(Err(e)) => Poll::Ready(Some(Err(DataFusionError::External(Box::new(e))))),
+            None => Poll::Ready(None),
+        }
+    }
+}
+
+impl RecordBatchStream for ArrowCStreamBatchStream {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+}
+
+/// Distributes RecordBatches into PartitionStreams for parallel execution.
+/// Uses round-robin distribution to balance batches across partitions.
+fn create_partition_streams(
+    schema: SchemaRef,
+    batches: Vec<RecordBatch>,
+    target_partitions: usize,
+) -> Vec<Arc<dyn PartitionStream>> {
+    if batches.is_empty() {
+        // Return single empty partition
+        return vec![Arc::new(RecordBatchPartitionStream::new(schema, vec![]))];
+    }
+
+    let num_partitions = target_partitions.min(batches.len()).max(1);
+    let mut partition_batches: Vec<Vec<RecordBatch>> =
+        (0..num_partitions).map(|_| Vec::new()).collect();
+
+    // Round-robin distribution
+    for (i, batch) in batches.into_iter().enumerate() {
+        partition_batches[i % num_partitions].push(batch);
+    }
+
+    partition_batches
+        .into_iter()
+        .filter(|p| !p.is_empty())
+        .map(|batches| {
+            Arc::new(RecordBatchPartitionStream::new(schema.clone(), batches))
+                as Arc<dyn PartitionStream>
+        })
+        .collect()
+}
 
 pub(crate) fn register_frame(
     py_ctx: &PyBioSessionContext,
     df: PyArrowType<ArrowArrayStreamReader>,
     table_name: String,
 ) {
+    // Get the schema from the stream reader before consuming it
+    let reader_schema = df.0.schema();
     let batches =
         df.0.collect::<Result<Vec<RecordBatch>, ArrowError>>()
             .unwrap();
-    let schema = batches[0].schema();
+    // Use the reader's schema (which is always available) instead of batches[0].schema()
+    // This handles the case when batches is empty
+    let schema = reader_schema;
+    register_frame_from_batches(py_ctx, batches, schema, table_name);
+}
+
+/// Register a table from pre-collected RecordBatches and schema.
+/// This is used when Arrow streams are consumed with GIL held (to avoid segfault),
+/// and then the batches are passed to this function for registration without GIL.
+///
+/// Uses StreamingTable with multi-partition support for parallel execution,
+/// distributing batches across partitions using round-robin for better performance.
+pub(crate) fn register_frame_from_batches(
+    py_ctx: &PyBioSessionContext,
+    batches: Vec<RecordBatch>,
+    schema: Arc<arrow::datatypes::Schema>,
+    table_name: String,
+) {
     let ctx = &py_ctx.ctx;
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    let table_source = MemTable::try_new(schema, vec![batches]).unwrap();
+
+    // Get target partitions from session config for parallel execution
+    let target_partitions = ctx.state().config().options().execution.target_partitions;
+
+    // Create partition streams for parallel execution (instead of single-partition MemTable)
+    let partitions = create_partition_streams(schema.clone(), batches, target_partitions);
+
+    // Use StreamingTable instead of MemTable for multi-partition support
+    let table_source = StreamingTable::try_new(schema, partitions).unwrap();
+
     ctx.deregister_table(&table_name).unwrap();
     ctx.register_table(&table_name, Arc::new(table_source))
         .unwrap();
-    let df = rt.block_on(ctx.table(&table_name)).unwrap();
-    let table_size = rt.block_on(df.clone().count()).unwrap();
-    if table_size > MAX_IN_MEMORY_ROWS {
-        let path = format!("{}/{}.parquet", py_ctx.catalog_dir, table_name);
-        ctx.deregister_table(&table_name).unwrap();
-        rt.block_on(df.write_parquet(&path, DataFrameWriteOptions::new(), None))
-            .unwrap();
-        ctx.deregister_table(&table_name).unwrap();
-        rt.block_on(register_table(
-            ctx,
-            &path,
-            &table_name,
-            InputFormat::Parquet,
-            None,
-        ));
-    }
+}
+
+/// Register a table from an Arrow C Stream (from Polars LazyFrame via ArrowStreamExportable).
+/// This enables GIL-free streaming by using Arrow FFI instead of Python iterators.
+///
+/// The stream is extracted from a Polars LazyFrame's `__arrow_c_stream__()` method,
+/// which provides direct Arrow C Stream access without per-batch GIL acquisition.
+pub(crate) fn register_frame_from_arrow_stream(
+    py_ctx: &PyBioSessionContext,
+    stream_reader: ArrowArrayStreamReader,
+    schema: Arc<arrow::datatypes::Schema>,
+    table_name: String,
+) {
+    let ctx = &py_ctx.ctx;
+
+    // Create a single partition stream that reads from Arrow C Stream
+    let partition = Arc::new(ArrowCStreamPartitionStream::new(
+        schema.clone(),
+        stream_reader,
+    )) as Arc<dyn PartitionStream>;
+
+    // Use StreamingTable with the Arrow C Stream partition
+    let table_source = StreamingTable::try_new(schema, vec![partition]).unwrap();
+
+    ctx.deregister_table(&table_name).unwrap();
+    ctx.register_table(&table_name, Arc::new(table_source))
+        .unwrap();
 }
 
 pub(crate) fn get_input_format(path: &str) -> InputFormat {

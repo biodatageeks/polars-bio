@@ -222,14 +222,15 @@ def _get_coordinate_system_check() -> bool:
     """Get the coordinate system check setting from context.
 
     Returns:
-        True if strict check is enabled (default), False to use fallback mode.
+        True if strict check is enabled, False for fallback/lenient mode (default).
     """
     from .constants import POLARS_BIO_COORDINATE_SYSTEM_CHECK
     from .context import get_option
 
     value = get_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK)
-    # Default to True (strict check) if not set or if set to "true"
-    return value is None or value.lower() == "true"
+    # Default is "false" (lenient mode) set in context.py
+    # Return True only if explicitly set to "true"
+    return value is not None and value.lower() == "true"
 
 
 def validate_coordinate_systems(

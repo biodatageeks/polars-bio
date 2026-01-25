@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Iterator, Union
+from typing import Callable, Iterator, Union
 
 import datafusion
 import polars as pl
@@ -17,6 +17,7 @@ from polars_bio.polars_bio import (
     py_read_table,
     py_register_table,
     range_operation_frame,
+    range_operation_lazy,
     range_operation_scan,
 )
 
@@ -37,12 +38,51 @@ def range_lazy_scan(
     projection_pushdown: bool = False,
 ) -> pl.LazyFrame:
     range_function = None
-    if isinstance(df_1, str) and isinstance(df_2, str):
+    use_file_paths = isinstance(df_1, str) and isinstance(df_2, str)
+    use_lazy_sources = _is_lazyframe_like(df_1) or _is_lazyframe_like(df_2)
+
+    if use_file_paths:
         range_function = range_operation_scan
+        stored_df1, stored_df2 = df_1, df_2
+        stored_arrow_tbl1 = stored_arrow_tbl2 = None
+        lazy_sources = None
+    elif use_lazy_sources:
+        range_function = range_operation_lazy
+        col1, col2 = range_options.columns_1[0], range_options.columns_2[0]
+        # Sync batch size with DataFusion's execution.batch_size for consistent processing
+        # DataFusion default is 8192, use same default for Polars streaming
+        batch_size_str = ctx.get_option("datafusion.execution.batch_size")
+        batch_size = int(batch_size_str) if batch_size_str else 8192
+        lazy_sources = (
+            _prepare_lazy_stream_input(df_1, col1, batch_size),
+            _prepare_lazy_stream_input(df_2, col2, batch_size),
+        )
+        stored_df1 = stored_df2 = None
+        stored_arrow_tbl1 = stored_arrow_tbl2 = None
     else:
         range_function = range_operation_frame
-        df_1 = _df_to_reader(df_1, range_options.columns_1[0])
-        df_2 = _df_to_reader(df_2, range_options.columns_2[0])
+        col1, col2 = range_options.columns_1[0], range_options.columns_2[0]
+
+        if isinstance(df_1, pl.DataFrame):
+            stored_arrow_tbl1 = df_1.to_arrow()
+            stored_df1 = df_1
+        elif pd is not None and isinstance(df_1, pd.DataFrame):
+            stored_arrow_tbl1 = pa.Table.from_pandas(df_1)
+            stored_arrow_tbl1 = _string_to_largestring(stored_arrow_tbl1, col1)
+            stored_df1 = df_1
+        else:
+            raise ValueError("df_1 must be a Polars DataFrame or Pandas DataFrame")
+
+        if isinstance(df_2, pl.DataFrame):
+            stored_arrow_tbl2 = df_2.to_arrow()
+            stored_df2 = df_2
+        elif pd is not None and isinstance(df_2, pd.DataFrame):
+            stored_arrow_tbl2 = pa.Table.from_pandas(df_2)
+            stored_arrow_tbl2 = _string_to_largestring(stored_arrow_tbl2, col2)
+            stored_df2 = df_2
+        else:
+            raise ValueError("df_2 must be a Polars DataFrame or Pandas DataFrame")
+        lazy_sources = None
 
     def _range_source(
         with_columns: Union[pl.Expr, None],
@@ -75,25 +115,47 @@ def range_lazy_scan(
         except Exception:
             pass
 
-        df_lazy: datafusion.DataFrame = (
-            range_function(
+        # For file paths, use stored paths directly.
+        # For LazyFrames, create fresh iterators from collect_batches().
+        # For DataFrames, create fresh Arrow readers from stored tables.
+        if use_file_paths:
+            df_lazy: datafusion.DataFrame = range_function(
                 ctx,
-                df_1,
-                df_2,
+                stored_df1,
+                stored_df2,
                 modified_range_options,
                 read_options1,
                 read_options2,
                 _n_rows,
             )
-            if isinstance(df_1, str) and isinstance(df_2, str)
-            else range_function(
+        elif use_lazy_sources:
+            assert lazy_sources is not None
+            left_schema, left_stream_factory = lazy_sources[0]
+            right_schema, right_stream_factory = lazy_sources[1]
+            # Call factories to get fresh streams - allows LazyFrame to be collected multiple times
+            # Rust extracts Arrow C Stream via __arrow_c_stream__ protocol
+            df_lazy = range_function(
                 ctx,
-                df_1,
-                df_2,
+                left_stream_factory(),
+                right_stream_factory(),
+                left_schema,
+                right_schema,
                 modified_range_options,
                 _n_rows,
             )
-        )
+        else:
+            # Create fresh readers from pre-converted Arrow tables.
+            # Arrow tables were converted in the main thread (thread-safe).
+            # Creating readers from tables is thread-safe.
+            reader1 = stored_arrow_tbl1.to_reader()
+            reader2 = stored_arrow_tbl2.to_reader()
+            df_lazy: datafusion.DataFrame = range_function(
+                ctx,
+                reader1,
+                reader2,
+                modified_range_options,
+                _n_rows,
+            )
 
         # Apply DataFusion-level projection if enabled
         datafusion_projection_applied = False
@@ -124,6 +186,110 @@ def range_lazy_scan(
             yield df
 
     return register_io_source(_range_source, schema=schema)
+
+
+def _is_lazyframe_like(df: object) -> bool:
+    """Return True for Polars LazyFrames or wrappers exposing collect_batches."""
+
+    if isinstance(df, pl.LazyFrame):
+        return True
+    return hasattr(df, "collect_batches") and hasattr(df, "collect_schema")
+
+
+def _prepare_lazy_stream_input(
+    df: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+    contig_col: str,
+    batch_size: Union[int, None] = None,
+) -> tuple[pa.Schema, Callable[[], object]]:
+    """Prepare schema + factory for Arrow C Stream exportable objects.
+
+    Returns (arrow_schema, stream_factory) where stream_factory() returns an object
+    that implements the Arrow C Stream protocol (__arrow_c_stream__). Rust receives
+    the stream via PyO3's PyArrowType which automatically extracts the Arrow C Stream.
+
+    A factory is returned (instead of the stream directly) because Arrow C Streams
+    can only be consumed once. This allows the returned LazyFrame to be collected
+    multiple times - each collect() will create a fresh stream.
+
+    For LazyFrames, this uses Polars' ArrowStreamExportable feature (>= 1.37.0)
+    via collect_batches(lazy=True)._inner, enabling GIL-free streaming:
+    - Single GIL acquisition when exporting the stream to Rust
+    - All subsequent batch processing happens in pure Rust without GIL
+    - True streaming execution - batches are computed on-demand
+
+    For DataFrames, this exports via to_arrow().to_reader() which also supports
+    the Arrow C Stream protocol for zero-copy FFI transfer.
+
+    Args:
+        df: Input DataFrame or LazyFrame
+        contig_col: Name of the contig/chromosome column
+        batch_size: Batch size for streaming (synced with datafusion.execution.batch_size)
+
+    Note: The schema is extracted from the actual stream (not from Polars schema)
+    to ensure type compatibility (e.g., Utf8View vs LargeUtf8).
+    """
+    if isinstance(df, str):
+        raise ValueError(
+            "File path inputs must be provided for both arguments to use scan-based streaming."
+        )
+
+    if isinstance(df, pl.LazyFrame) or _is_lazyframe_like(df):
+        # Get schema from a temporary stream to ensure type compatibility
+        # (Polars may use Utf8View which differs from LargeUtf8 in empty DataFrame)
+        temp_batches = df.collect_batches(
+            lazy=True, engine="streaming", chunk_size=batch_size
+        )
+        arrow_schema = pa.RecordBatchReader.from_stream(temp_batches._inner).schema
+
+        # Return a factory that creates a fresh stream each time
+        # This allows the LazyFrame result to be collected multiple times
+        # batch_size is captured in the closure to sync with DataFusion
+        def stream_factory():
+            batches = df.collect_batches(
+                lazy=True, engine="streaming", chunk_size=batch_size
+            )
+            return batches._inner
+
+        return arrow_schema, stream_factory
+
+    if isinstance(df, pl.DataFrame):
+        # DataFrame -> Arrow table (stored for reuse)
+        arrow_table = df.to_arrow()
+        arrow_schema = arrow_table.schema
+
+        # Factory creates a fresh reader each time
+        # Note: PyArrow RecordBatchReader uses its own default batch size
+        def stream_factory():
+            return arrow_table.to_reader()
+
+        return arrow_schema, stream_factory
+
+    if pd is not None and isinstance(df, pd.DataFrame):
+        polars_df = pl.from_pandas(df)
+        polars_df = polars_df.with_columns(
+            [pl.col(contig_col).cast(pl.Utf8)]
+            if contig_col in polars_df.columns
+            else []
+        )
+        arrow_table = polars_df.to_arrow()
+        arrow_schema = arrow_table.schema
+
+        # Factory creates a fresh reader each time
+        def stream_factory():
+            return arrow_table.to_reader()
+
+        return arrow_schema, stream_factory
+
+    raise ValueError(
+        "Inputs must be Polars LazyFrame/DataFrame or Pandas DataFrame for streaming operations"
+    )
+
+
+def _schema_to_arrow(schema: pl.Schema) -> pa.Schema:
+    """Convert a Polars schema to a PyArrow schema without materializing data."""
+
+    empty_df = pl.DataFrame(schema=schema)
+    return empty_df.to_arrow().schema
 
 
 def _rename_columns_pl(df: pl.DataFrame, suffix: str) -> pl.DataFrame:

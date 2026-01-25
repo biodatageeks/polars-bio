@@ -9,6 +9,7 @@ mod utils;
 use std::string::ToString;
 use std::sync::Arc;
 
+use datafusion::arrow::array::RecordBatchReader;
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
 use datafusion::datasource::MemTable;
@@ -27,7 +28,10 @@ use crate::option::{
     CramReadOptions, FastaReadOptions, FastqReadOptions, FilterOp, GffReadOptions, InputFormat,
     PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
 };
-use crate::scan::{maybe_register_table, register_frame, register_table};
+use crate::scan::{
+    maybe_register_table, register_frame, register_frame_from_arrow_stream,
+    register_frame_from_batches, register_table,
+};
 
 const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
@@ -36,46 +40,125 @@ const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
 #[pyfunction]
 #[pyo3(signature = (py_ctx, df1, df2, range_options, limit=None))]
 fn range_operation_frame(
+    py: Python<'_>,
     py_ctx: &PyBioSessionContext,
     df1: PyArrowType<ArrowArrayStreamReader>,
     df2: PyArrowType<ArrowArrayStreamReader>,
     range_options: RangeOptions,
     limit: Option<usize>,
 ) -> PyResult<PyDataFrame> {
+    // Consume Arrow streams WITH GIL held to avoid segfault.
+    // Arrow FFI streams exported from Python may require GIL access for callbacks.
+    let schema1 = df1.0.schema();
+    let batches1 = df1
+        .0
+        .collect::<Result<Vec<datafusion::arrow::array::RecordBatch>, datafusion::arrow::error::ArrowError>>()
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let schema2 = df2.0.schema();
+    let batches2 = df2
+        .0
+        .collect::<Result<Vec<datafusion::arrow::array::RecordBatch>, datafusion::arrow::error::ArrowError>>()
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+    // Now release GIL for the actual computation (registration and join)
     #[allow(clippy::useless_conversion)]
-    let rt = Runtime::new()?;
-    let ctx = &py_ctx.ctx;
-    register_frame(py_ctx, df1, LEFT_TABLE.to_string());
-    register_frame(py_ctx, df2, RIGHT_TABLE.to_string());
-    match limit {
-        Some(l) => Ok(PyDataFrame::new(
-            do_range_operation(
-                ctx,
-                &rt,
-                range_options,
-                LEFT_TABLE.to_string(),
-                RIGHT_TABLE.to_string(),
-            )
-            .limit(0, Some(l))
-            .map_err(|e| PyValueError::new_err(e.to_string()))?,
-        )),
-        _ => {
-            let df = do_range_operation(
-                ctx,
-                &rt,
-                range_options,
-                LEFT_TABLE.to_string(),
-                RIGHT_TABLE.to_string(),
-            );
-            let py_df = PyDataFrame::new(df);
-            Ok(py_df)
-        },
-    }
+    py.allow_threads(|| {
+        let rt = Runtime::new()?;
+        let ctx = &py_ctx.ctx;
+        register_frame_from_batches(py_ctx, batches1, schema1, LEFT_TABLE.to_string());
+        register_frame_from_batches(py_ctx, batches2, schema2, RIGHT_TABLE.to_string());
+        match limit {
+            Some(l) => Ok(PyDataFrame::new(
+                do_range_operation(
+                    ctx,
+                    &rt,
+                    range_options,
+                    LEFT_TABLE.to_string(),
+                    RIGHT_TABLE.to_string(),
+                )
+                .limit(0, Some(l))
+                .map_err(|e| PyValueError::new_err(e.to_string()))?,
+            )),
+            _ => {
+                let df = do_range_operation(
+                    ctx,
+                    &rt,
+                    range_options,
+                    LEFT_TABLE.to_string(),
+                    RIGHT_TABLE.to_string(),
+                );
+                let py_df = PyDataFrame::new(df);
+                Ok(py_df)
+            },
+        }
+    })
+}
+
+/// Execute a range operation with Arrow C Stream inputs from LazyFrames.
+/// Uses ArrowStreamExportable (Polars >= 1.37.1) for GIL-free streaming.
+///
+/// This function accepts Arrow C Streams directly, which are extracted from
+/// Polars LazyFrames via their `__arrow_c_stream__()` method. The streams
+/// are consumed with GIL held (required for Arrow FFI export), but all
+/// subsequent batch processing happens in pure Rust without GIL.
+#[pyfunction]
+#[pyo3(signature = (py_ctx, stream1, stream2, schema1, schema2, range_options, limit=None))]
+fn range_operation_lazy(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    stream1: PyArrowType<ArrowArrayStreamReader>,
+    stream2: PyArrowType<ArrowArrayStreamReader>,
+    schema1: PyArrowType<arrow::datatypes::Schema>,
+    schema2: PyArrowType<arrow::datatypes::Schema>,
+    range_options: RangeOptions,
+    limit: Option<usize>,
+) -> PyResult<PyDataFrame> {
+    let schema1 = Arc::new(schema1.0);
+    let schema2 = Arc::new(schema2.0);
+
+    // Extract the stream readers (this consumes them)
+    let reader1 = stream1.0;
+    let reader2 = stream2.0;
+
+    // Release GIL for the actual computation (registration and join)
+    // The Arrow C Streams have been extracted - no more Python interaction needed
+    py.allow_threads(|| {
+        let rt = Runtime::new().map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let ctx = &py_ctx.ctx;
+
+        register_frame_from_arrow_stream(py_ctx, reader1, schema1, LEFT_TABLE.to_string());
+        register_frame_from_arrow_stream(py_ctx, reader2, schema2, RIGHT_TABLE.to_string());
+
+        match limit {
+            Some(l) => Ok(PyDataFrame::new(
+                do_range_operation(
+                    ctx,
+                    &rt,
+                    range_options,
+                    LEFT_TABLE.to_string(),
+                    RIGHT_TABLE.to_string(),
+                )
+                .limit(0, Some(l))
+                .map_err(|e| PyValueError::new_err(e.to_string()))?,
+            )),
+            _ => {
+                let df = do_range_operation(
+                    ctx,
+                    &rt,
+                    range_options,
+                    LEFT_TABLE.to_string(),
+                    RIGHT_TABLE.to_string(),
+                );
+                Ok(PyDataFrame::new(df))
+            },
+        }
+    })
 }
 
 #[pyfunction]
 #[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None, limit=None))]
 fn range_operation_scan(
+    py: Python<'_>,
     py_ctx: &PyBioSessionContext,
     df_path_or_table1: String,
     df_path_or_table2: String,
@@ -85,36 +168,38 @@ fn range_operation_scan(
     limit: Option<usize>,
 ) -> PyResult<PyDataFrame> {
     #[allow(clippy::useless_conversion)]
-    let rt = Runtime::new()?;
-    let ctx = &py_ctx.ctx;
-    let left_table = maybe_register_table(
-        df_path_or_table1,
-        &LEFT_TABLE.to_string(),
-        read_options1,
-        ctx,
-        &rt,
-    );
-    let right_table = maybe_register_table(
-        df_path_or_table2,
-        &RIGHT_TABLE.to_string(),
-        read_options2,
-        ctx,
-        &rt,
-    );
-    match limit {
-        Some(l) => Ok(PyDataFrame::new(
-            do_range_operation(ctx, &rt, range_options, left_table, right_table)
-                .limit(0, Some(l))
-                .map_err(|e| PyValueError::new_err(e.to_string()))?,
-        )),
-        _ => Ok(PyDataFrame::new(do_range_operation(
+    py.allow_threads(|| {
+        let rt = Runtime::new()?;
+        let ctx = &py_ctx.ctx;
+        let left_table = maybe_register_table(
+            df_path_or_table1,
+            &LEFT_TABLE.to_string(),
+            read_options1,
             ctx,
             &rt,
-            range_options,
-            left_table,
-            right_table,
-        ))),
-    }
+        );
+        let right_table = maybe_register_table(
+            df_path_or_table2,
+            &RIGHT_TABLE.to_string(),
+            read_options2,
+            ctx,
+            &rt,
+        );
+        match limit {
+            Some(l) => Ok(PyDataFrame::new(
+                do_range_operation(ctx, &rt, range_options, left_table, right_table)
+                    .limit(0, Some(l))
+                    .map_err(|e| PyValueError::new_err(e.to_string()))?,
+            )),
+            _ => Ok(PyDataFrame::new(do_range_operation(
+                ctx,
+                &rt,
+                range_options,
+                left_table,
+                right_table,
+            ))),
+        }
+    })
 }
 
 #[pyfunction]
@@ -279,6 +364,7 @@ fn py_from_polars(
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
+    m.add_function(wrap_pyfunction!(range_operation_lazy, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;

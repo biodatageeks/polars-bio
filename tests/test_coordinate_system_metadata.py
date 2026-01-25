@@ -17,6 +17,7 @@ from polars_bio._metadata import (
     set_coordinate_system,
     validate_coordinate_systems,
 )
+from polars_bio.constants import POLARS_BIO_COORDINATE_SYSTEM_CHECK
 from polars_bio.exceptions import (
     CoordinateSystemMismatchError,
     MissingCoordinateSystemError,
@@ -278,33 +279,48 @@ class TestMissingCoordinateSystemError:
         df1 = pl.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]})
         df2 = pl.DataFrame({"chrom": ["chr1"], "start": [150], "end": [250]})
 
-        with pytest.raises(MissingCoordinateSystemError) as exc_info:
-            validate_coordinate_systems(df1, df2)
+        # Enable strict mode for this test
+        pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+        try:
+            with pytest.raises(MissingCoordinateSystemError) as exc_info:
+                validate_coordinate_systems(df1, df2)
 
-        assert "Polars DataFrame" in str(exc_info.value)
-        assert "missing coordinate system metadata" in str(exc_info.value)
+            assert "Polars DataFrame" in str(exc_info.value)
+            assert "missing coordinate system metadata" in str(exc_info.value)
+        finally:
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_validate_polars_lf_missing_metadata(self):
         """Test that MissingCoordinateSystemError is raised for Polars LF without metadata."""
         lf1 = pl.LazyFrame({"chrom": ["chr1"], "start": [100], "end": [200]})
         lf2 = pl.LazyFrame({"chrom": ["chr1"], "start": [150], "end": [250]})
 
-        with pytest.raises(MissingCoordinateSystemError) as exc_info:
-            validate_coordinate_systems(lf1, lf2)
+        # Enable strict mode for this test
+        pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+        try:
+            with pytest.raises(MissingCoordinateSystemError) as exc_info:
+                validate_coordinate_systems(lf1, lf2)
 
-        assert "Polars LazyFrame" in str(exc_info.value)
-        assert "missing coordinate system metadata" in str(exc_info.value)
+            assert "Polars LazyFrame" in str(exc_info.value)
+            assert "missing coordinate system metadata" in str(exc_info.value)
+        finally:
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_validate_pandas_df_missing_metadata(self):
         """Test that MissingCoordinateSystemError is raised for Pandas DF without metadata."""
         pdf1 = pd.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]})
         pdf2 = pd.DataFrame({"chrom": ["chr1"], "start": [150], "end": [250]})
 
-        with pytest.raises(MissingCoordinateSystemError) as exc_info:
-            validate_coordinate_systems(pdf1, pdf2)
+        # Enable strict mode for this test
+        pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+        try:
+            with pytest.raises(MissingCoordinateSystemError) as exc_info:
+                validate_coordinate_systems(pdf1, pdf2)
 
-        assert "Pandas DataFrame" in str(exc_info.value)
-        assert "missing coordinate system metadata" in str(exc_info.value)
+            assert "Pandas DataFrame" in str(exc_info.value)
+            assert "missing coordinate system metadata" in str(exc_info.value)
+        finally:
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_validate_mixed_types_missing_metadata(self):
         """Test that MissingCoordinateSystemError is raised for mixed types without metadata."""
@@ -315,10 +331,15 @@ class TestMissingCoordinateSystemError:
             {"chrom": ["chr1"], "start": [100], "end": [200]}
         )  # no metadata
 
-        with pytest.raises(MissingCoordinateSystemError) as exc_info:
-            validate_coordinate_systems(lf, pdf)
+        # Enable strict mode for this test
+        pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+        try:
+            with pytest.raises(MissingCoordinateSystemError) as exc_info:
+                validate_coordinate_systems(lf, pdf)
 
-        assert "Pandas DataFrame" in str(exc_info.value)
+            assert "Pandas DataFrame" in str(exc_info.value)
+        finally:
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
 
 class TestCoordinateSystemMismatchError:
@@ -653,8 +674,13 @@ class TestCoverageCoordinateSystem:
         df1 = pl.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]})
         df2 = pl.DataFrame({"chrom": ["chr1"], "start": [150], "end": [250]})
 
-        with pytest.raises(MissingCoordinateSystemError):
-            pb.coverage(df1, df2).collect()
+        # Enable strict mode for this test
+        pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+        try:
+            with pytest.raises(MissingCoordinateSystemError):
+                pb.coverage(df1, df2).collect()
+        finally:
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
 
 class TestMixedInputTypesCoordinateSystem:
@@ -895,35 +921,53 @@ class TestErrorMessageQuality:
         """Test MissingCoordinateSystemError includes Polars DataFrame hint."""
         df = pl.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]})
 
-        with pytest.raises(MissingCoordinateSystemError) as exc_info:
-            validate_coordinate_systems(df, df)
+        # Enable strict mode for this test
+        pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+        try:
+            with pytest.raises(MissingCoordinateSystemError) as exc_info:
+                validate_coordinate_systems(df, df)
 
-        error_msg = str(exc_info.value)
-        assert "config_meta.set" in error_msg or "polars-bio I/O functions" in error_msg
-        assert "coordinate_system_zero_based" in error_msg
+            error_msg = str(exc_info.value)
+            assert (
+                "config_meta.set" in error_msg
+                or "polars-bio I/O functions" in error_msg
+            )
+            assert "coordinate_system_zero_based" in error_msg
+        finally:
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_missing_metadata_error_has_polars_lf_hint(self):
         """Test MissingCoordinateSystemError includes Polars LazyFrame hint."""
         lf = pl.LazyFrame({"chrom": ["chr1"], "start": [100], "end": [200]})
 
-        with pytest.raises(MissingCoordinateSystemError) as exc_info:
-            validate_coordinate_systems(lf, lf)
+        # Enable strict mode for this test
+        pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+        try:
+            with pytest.raises(MissingCoordinateSystemError) as exc_info:
+                validate_coordinate_systems(lf, lf)
 
-        error_msg = str(exc_info.value)
-        assert "Polars LazyFrame" in error_msg
-        assert "coordinate_system_zero_based" in error_msg
+            error_msg = str(exc_info.value)
+            assert "Polars LazyFrame" in error_msg
+            assert "coordinate_system_zero_based" in error_msg
+        finally:
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_missing_metadata_error_has_pandas_hint(self):
         """Test MissingCoordinateSystemError includes Pandas-specific hint."""
         pdf = pd.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]})
 
-        with pytest.raises(MissingCoordinateSystemError) as exc_info:
-            validate_coordinate_systems(pdf, pdf)
+        # Enable strict mode for this test
+        pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+        try:
+            with pytest.raises(MissingCoordinateSystemError) as exc_info:
+                validate_coordinate_systems(pdf, pdf)
 
-        error_msg = str(exc_info.value)
-        assert "Pandas DataFrame" in error_msg
-        assert "df.attrs" in error_msg
-        assert "coordinate_system_zero_based" in error_msg
+            error_msg = str(exc_info.value)
+            assert "Pandas DataFrame" in error_msg
+            assert "df.attrs" in error_msg
+            assert "coordinate_system_zero_based" in error_msg
+        finally:
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_mismatch_error_identifies_both_systems(self):
         """Test CoordinateSystemMismatchError identifies both coordinate systems."""
@@ -977,8 +1021,13 @@ class TestMergeCoordinateSystem:
             {"chrom": ["chr1", "chr1"], "start": [100, 140], "end": [150, 180]}
         )
 
-        with pytest.raises(MissingCoordinateSystemError):
-            pb.merge(df, output_type="polars.DataFrame")
+        # Enable strict mode for this test
+        pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+        try:
+            with pytest.raises(MissingCoordinateSystemError):
+                pb.merge(df, output_type="polars.DataFrame")
+        finally:
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_merge_adjacent_intervals_zero_based(self):
         """Test merge behavior with adjacent intervals in 0-based system."""
@@ -1047,8 +1096,13 @@ class TestNearestCoordinateSystem:
         df1 = pl.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]})
         df2 = pl.DataFrame({"chrom": ["chr1"], "start": [300], "end": [400]})
 
-        with pytest.raises(MissingCoordinateSystemError):
-            pb.nearest(df1, df2, output_type="polars.DataFrame")
+        # Enable strict mode for this test
+        pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+        try:
+            with pytest.raises(MissingCoordinateSystemError):
+                pb.nearest(df1, df2, output_type="polars.DataFrame")
+        finally:
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
 
 class TestCountOverlapsCoordinateSystem:
@@ -1107,8 +1161,13 @@ class TestCountOverlapsCoordinateSystem:
         df1 = pl.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]})
         df2 = pl.DataFrame({"chrom": ["chr1"], "start": [150], "end": [250]})
 
-        with pytest.raises(MissingCoordinateSystemError):
-            pb.count_overlaps(df1, df2, output_type="polars.DataFrame")
+        # Enable strict mode for this test
+        pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+        try:
+            with pytest.raises(MissingCoordinateSystemError):
+                pb.count_overlaps(df1, df2, output_type="polars.DataFrame")
+        finally:
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_count_overlaps_adjacent_intervals_zero_based(self):
         """Test count_overlaps with adjacent intervals in 0-based (no overlap expected)."""

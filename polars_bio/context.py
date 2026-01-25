@@ -1,16 +1,13 @@
 import datetime
-from pathlib import Path
 from typing import Optional
 
 import datafusion
 
 from polars_bio.polars_bio import BioSessionContext
-from polars_bio.range_op_helpers import tmp_cleanup
 
 from .constants import (
     POLARS_BIO_COORDINATE_SYSTEM_CHECK,
     POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED,
-    TMP_CATALOG_DIR,
 )
 from .logging import logger
 
@@ -32,8 +29,7 @@ class Context:
     def __init__(self):
         logger.info("Creating BioSessionContext")
         seed = str(datetime.datetime.now().timestamp())
-        self.session_catalog_dir = f"{TMP_CATALOG_DIR}/{seed}"
-        self.ctx = BioSessionContext(seed=seed, catalog_dir=self.session_catalog_dir)
+        self.ctx = BioSessionContext(seed=seed)
         # Standard DataFusion options
         datafusion_conf = {
             "datafusion.execution.target_partitions": "1",
@@ -47,17 +43,11 @@ class Context:
         # Default to 1-based coordinates (zero_based=false) to match VCF/GFF native formats
         self.ctx.set_option(POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, "false")
 
-        # Default to strict coordinate system check (raise error if metadata is missing)
-        self.ctx.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, "true")
+        # Default to lenient coordinate system check (warn if metadata is missing, use global config)
+        self.ctx.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, "false")
 
         self.ctx.set_option("sequila.interval_join_algorithm", "coitrees")
         self.config = datafusion.context.SessionConfig(datafusion_conf)
-
-        # create session dir if not exists
-        Path(self.session_catalog_dir).mkdir(parents=True, exist_ok=True)
-
-    def __del__(self):
-        tmp_cleanup(self.session_catalog_dir)
 
     def set_option(self, key, value):
         # Convert bool to string for DataFusion context

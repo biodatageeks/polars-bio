@@ -18,7 +18,7 @@ class TestCoordinateSystemMetadata:
     """Tests for coordinate system metadata handling."""
 
     def test_missing_coordinate_system_error(self):
-        """Test that MissingCoordinateSystemError is raised when metadata is missing."""
+        """Test that MissingCoordinateSystemError is raised when metadata is missing and strict mode enabled."""
         # Create DataFrames without coordinate system metadata
         df1 = BIO_PD_DF1.copy()
         df2 = BIO_PD_DF2.copy()
@@ -26,15 +26,22 @@ class TestCoordinateSystemMetadata:
         df1.attrs.clear()
         df2.attrs.clear()
 
-        with pytest.raises(MissingCoordinateSystemError):
-            pb.overlap(
-                df1,
-                df2,
-                cols1=("contig", "pos_start", "pos_end"),
-                cols2=("contig", "pos_start", "pos_end"),
-                output_type="pandas.DataFrame",
-                suffixes=("_1", "_3"),
-            )
+        # Enable strict mode (not the default)
+        pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+
+        try:
+            with pytest.raises(MissingCoordinateSystemError):
+                pb.overlap(
+                    df1,
+                    df2,
+                    cols1=("contig", "pos_start", "pos_end"),
+                    cols2=("contig", "pos_start", "pos_end"),
+                    output_type="pandas.DataFrame",
+                    suffixes=("_1", "_3"),
+                )
+        finally:
+            # Reset to default (lenient mode)
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_coordinate_system_mismatch_error(self):
         """Test that CoordinateSystemMismatchError is raised when coordinate systems don't match."""
@@ -95,17 +102,17 @@ class TestCoordinateSystemCheckSessionParameter:
     """Tests for datafusion.bio.coordinate_system_check session parameter behavior."""
 
     def test_coordinate_system_check_true_raises_error(self):
-        """Test that coordinate_system_check=true (default) raises error for missing metadata."""
+        """Test that coordinate_system_check=true raises error for missing metadata."""
         df1 = BIO_PD_DF1.copy()
         df2 = BIO_PD_DF2.copy()
         df1.attrs.clear()
         df2.attrs.clear()
 
-        # Ensure default behavior (check=true)
+        # Enable strict mode (not the default)
         pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
 
         try:
-            # Default behavior should raise MissingCoordinateSystemError
+            # Strict mode should raise MissingCoordinateSystemError
             with pytest.raises(MissingCoordinateSystemError):
                 pb.overlap(
                     df1,
@@ -116,7 +123,8 @@ class TestCoordinateSystemCheckSessionParameter:
                     suffixes=("_1", "_3"),
                 )
         finally:
-            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+            # Reset to default (lenient mode)
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_coordinate_system_check_false_uses_global_config(self):
         """Test that coordinate_system_check=false uses global config when metadata is missing."""
@@ -155,7 +163,7 @@ class TestCoordinateSystemCheckSessionParameter:
             assert len(result) > 0
         finally:
             # Reset to default (strict check)
-            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_coordinate_system_check_false_with_custom_global_config(self):
         """Test that coordinate_system_check=false uses the correct global config value."""
@@ -188,7 +196,7 @@ class TestCoordinateSystemCheckSessionParameter:
         finally:
             # Reset global config back to defaults
             pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, False)
-            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_coordinate_system_check_false_no_warning_with_metadata(self):
         """Test that no warning is emitted when metadata is present even with check=false."""
@@ -221,7 +229,7 @@ class TestCoordinateSystemCheckSessionParameter:
 
             assert len(result) > 0
         finally:
-            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_coordinate_system_check_false_merge_operation(self):
         """Test coordinate_system_check=false works for merge operation."""
@@ -250,7 +258,7 @@ class TestCoordinateSystemCheckSessionParameter:
 
             assert len(result) > 0
         finally:
-            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_coordinate_system_check_false_nearest_operation(self):
         """Test coordinate_system_check=false works for nearest operation."""
@@ -284,7 +292,7 @@ class TestCoordinateSystemCheckSessionParameter:
 
             assert len(result) > 0
         finally:
-            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
 
     def test_coordinate_system_check_false_count_overlaps_operation(self):
         """Test coordinate_system_check=false works for count_overlaps operation."""
@@ -317,4 +325,4 @@ class TestCoordinateSystemCheckSessionParameter:
 
             assert len(result) > 0
         finally:
-            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
+            pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)

@@ -17,6 +17,8 @@ from _expected import (
     DF_OVER_PATH2,
     PD_COVERAGE_DF1,
     PD_COVERAGE_DF2,
+    PL_DF1,
+    PL_DF2,
     PL_DF_COUNT_OVERLAPS,
     PL_DF_NEAREST,
     PL_DF_OVERLAP,
@@ -48,6 +50,34 @@ _COUNT_LF2 = _load_csv_with_metadata(DF_COUNT_OVERLAPS_PATH2, zero_based=False)
 _COV_LF1 = _load_csv_with_metadata(DF_COVERAGE_PATH1, zero_based=False)
 _COV_LF2 = _load_csv_with_metadata(DF_COVERAGE_PATH2, zero_based=False)
 _MERGE_LF = _load_csv_with_metadata(DF_MERGE_PATH, zero_based=True)
+
+
+class TestArrowCStreamSupport:
+    """Test that LazyFrames support Arrow C Stream via ArrowStreamExportable."""
+
+    def test_lazyframe_collect_batches_has_arrow_c_stream(self):
+        """Verify collect_batches()._inner supports __arrow_c_stream__ (Polars >= 1.37.0).
+
+        This uses Polars' ArrowStreamExportable feature (PR #25994) which enables
+        GIL-free streaming from LazyFrames to Rust via Arrow C Data Interface.
+        """
+        lf = pl.scan_csv(DF_OVER_PATH1)
+        batches = lf.collect_batches(lazy=True, engine="streaming")
+        assert hasattr(
+            batches, "_inner"
+        ), "collect_batches() must return an object with _inner attribute."
+        assert hasattr(batches._inner, "__arrow_c_stream__"), (
+            "collect_batches()._inner must support __arrow_c_stream__ for Arrow C Stream export. "
+            "This requires Polars >= 1.37.0 with ArrowStreamExportable feature."
+        )
+
+    def test_dataframe_to_arrow_has_arrow_c_stream(self):
+        """Verify DataFrame.to_arrow().to_reader() supports __arrow_c_stream__."""
+        df = pl.read_csv(DF_OVER_PATH1)
+        reader = df.to_arrow().to_reader()
+        assert hasattr(
+            reader, "__arrow_c_stream__"
+        ), "RecordBatchReader from DataFrame.to_arrow().to_reader() must support __arrow_c_stream__."
 
 
 class TestStreaming:
@@ -170,6 +200,29 @@ class TestStreaming:
         expected = pl.read_csv(file).to_pandas()
         expected.equals(self.result_coverage_bio)
         file_path.unlink(missing_ok=True)
+
+    def test_overlap_scan_parquet_lazyframe(self, tmp_path):
+        left_path = tmp_path / "left.parquet"
+        right_path = tmp_path / "right.parquet"
+        PL_DF1.write_parquet(left_path)
+        PL_DF2.write_parquet(right_path)
+
+        lf1 = pl.scan_parquet(str(left_path))
+        lf2 = pl.scan_parquet(str(right_path))
+        lf1.config_meta.set(coordinate_system_zero_based=False)
+        lf2.config_meta.set(coordinate_system_zero_based=False)
+
+        result = pb.overlap(
+            lf1,
+            lf2,
+            cols1=columns,
+            cols2=columns,
+            output_type="polars.LazyFrame",
+        ).collect()
+
+        result_sorted = result.sort(by=result.columns)
+        expected_sorted = PL_DF_OVERLAP.sort(by=PL_DF_OVERLAP.columns)
+        assert result_sorted.equals(expected_sorted)
 
 
 class TestStreamingIO:
