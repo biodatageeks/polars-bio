@@ -568,6 +568,30 @@ When you pass a Polars LazyFrame to range operations like `overlap()` or `neares
 
 - **Polars >= 1.37.0** (required for `ArrowStreamExportable`)
 
+### Batch Size Configuration
+
+polars-bio automatically synchronizes the batch size between Polars streaming and DataFusion execution. When you set `datafusion.execution.batch_size`, Polars' `collect_batches()` will use the same chunk size:
+
+```python
+import polars_bio as pb
+
+# Set batch size for both Polars and DataFusion
+pb.set_option("datafusion.execution.batch_size", "8192")
+
+# Now LazyFrame streaming uses 8192-row batches
+# This ensures consistent memory usage and processing patterns
+```
+
+| Setting | Effect |
+|---------|--------|
+| `datafusion.execution.batch_size` | Controls batch size for both Polars streaming export and DataFusion processing |
+| Default (None) | Polars uses its internal default (~19K rows) |
+| `"8192"` | Standard batch size, good balance of throughput and memory |
+| `"65536"` | Larger batches for high-throughput scenarios |
+
+!!! tip
+    Matching batch sizes between Polars and DataFusion can improve cache locality and reduce memory fragmentation when processing large datasets.
+
 ### Example
 
 ```python
