@@ -213,19 +213,6 @@ def range_operation(
         # Derive coordinate system from filter_op for metadata propagation
         zero_based = _get_zero_based_from_filter_op(range_options.filter_op)
 
-        # Handle GffLazyFrameWrapper by collecting to DataFrame
-        if hasattr(df1, "_base_lf"):
-            df1 = df1.collect()
-        if hasattr(df2, "_base_lf"):
-            df2 = df2.collect()
-
-        # Collect LazyFrames to DataFrames ONCE before schema derivation.
-        # This ensures single-pass scanning for file-backed LazyFrames.
-        if isinstance(df1, pl.LazyFrame):
-            df1 = df1.collect()
-        if isinstance(df2, pl.LazyFrame):
-            df2 = df2.collect()
-
         if output_type == "polars.LazyFrame":
             # Get base schemas from collected DataFrames
             df1_base_schema = _rename_columns(df1, "").schema
@@ -257,12 +244,8 @@ def range_operation(
             )
             return _set_result_metadata(result, zero_based)
         else:
-            # For non-LazyFrame outputs, collect and run eagerly
-            if isinstance(df1, pl.LazyFrame):
-                df1 = df1.collect()
-            if isinstance(df2, pl.LazyFrame):
-                df2 = df2.collect()
-
+            # Note: LazyFrames and GffLazyFrameWrapper are already collected
+            # at the start of range_operation() when output_type != "polars.LazyFrame"
             df1_reader = _df_to_reader(df1, range_options.columns_1[0])
             df2_reader = _df_to_reader(df2, range_options.columns_2[0])
             result = range_operation_frame(ctx, df1_reader, df2_reader, range_options)
