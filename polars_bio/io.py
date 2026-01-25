@@ -196,6 +196,7 @@ class IOOperations:
     def read_vcf(
         path: str,
         info_fields: Union[list[str], None] = None,
+        format_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -213,6 +214,7 @@ class IOOperations:
         Parameters:
             path: The path to the VCF file.
             info_fields: List of INFO field names to include. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit fields for better performance.
+            format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, no FORMAT fields will be included. Columns are named `{sample_name}_{format_field}` (e.g., `Sample1_GT`, `NA12878_DP`). The GT field is always converted to string with `/` (unphased) or `|` (phased) separator.
             thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -230,6 +232,7 @@ class IOOperations:
         lf = IOOperations.scan_vcf(
             path,
             info_fields,
+            format_fields,
             thread_num,
             chunk_size,
             concurrent_fetches,
@@ -253,6 +256,7 @@ class IOOperations:
     def scan_vcf(
         path: str,
         info_fields: Union[list[str], None] = None,
+        format_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -270,6 +274,7 @@ class IOOperations:
         Parameters:
             path: The path to the VCF file.
             info_fields: List of INFO field names to include. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit fields for better performance.
+            format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, no FORMAT fields will be included. Columns are named `{sample_name}_{format_field}` (e.g., `Sample1_GT`, `NA12878_DP`). The GT field is always converted to string with `/` (unphased) or `|` (phased) separator.
             thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -320,6 +325,7 @@ class IOOperations:
         zero_based = _resolve_zero_based(use_zero_based)
         vcf_read_options = VcfReadOptions(
             info_fields=initial_info_fields,
+            format_fields=format_fields,
             thread_num=thread_num,
             object_storage_options=object_storage_options,
             zero_based=zero_based,
