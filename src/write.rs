@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use datafusion::arrow::array::Array;
 use datafusion::arrow::datatypes::{DataType, Schema, SchemaRef};
 use datafusion::catalog::TableProvider;
 use datafusion::common::DataFusionError;
@@ -33,21 +34,27 @@ fn apply_vcf_metadata_to_schema(
 
     // Parse INFO field metadata
     let info_meta: HashMap<String, Value> = if let Some(json) = info_meta_json {
-        serde_json::from_str(&json).unwrap_or_default()
+        serde_json::from_str(&json).map_err(|e| {
+            DataFusionError::Internal(format!("Failed to parse INFO field metadata JSON: {}", e))
+        })?
     } else {
         HashMap::new()
     };
 
     // Parse FORMAT field metadata
     let format_meta: HashMap<String, Value> = if let Some(json) = format_meta_json {
-        serde_json::from_str(&json).unwrap_or_default()
+        serde_json::from_str(&json).map_err(|e| {
+            DataFusionError::Internal(format!("Failed to parse FORMAT field metadata JSON: {}", e))
+        })?
     } else {
         HashMap::new()
     };
 
     // Parse sample names
     let sample_names: Vec<String> = if let Some(json) = sample_names_json {
-        serde_json::from_str(&json).unwrap_or_default()
+        serde_json::from_str(&json).map_err(|e| {
+            DataFusionError::Internal(format!("Failed to parse sample names JSON: {}", e))
+        })?
     } else {
         Vec::new()
     };
@@ -300,7 +307,7 @@ async fn execute_vcf_streaming_write(
                 .as_any()
                 .downcast_ref::<datafusion::arrow::array::UInt64Array>()
             {
-                if count_array.len() > 0 {
+                if count_array.len() > 0 && !count_array.is_null(0) {
                     total_rows += count_array.value(0);
                 }
             }
@@ -440,7 +447,7 @@ async fn execute_streaming_write(
                 .as_any()
                 .downcast_ref::<datafusion::arrow::array::UInt64Array>()
             {
-                if count_array.len() > 0 {
+                if count_array.len() > 0 && !count_array.is_null(0) {
                     total_rows += count_array.value(0);
                 }
             }

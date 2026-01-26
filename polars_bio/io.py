@@ -1302,7 +1302,7 @@ def _write_file(
     if output_format == OutputFormat.Vcf:
         try:
             vcf_metadata = get_vcf_metadata(df)
-        except Exception:
+        except (KeyError, AttributeError, TypeError):
             pass
 
     # Collect LazyFrame if needed
@@ -1313,7 +1313,7 @@ def _write_file(
             zero_based_meta = df.config_meta.get_metadata().get(
                 "coordinate_system_zero_based"
             )
-        except Exception:
+        except (KeyError, AttributeError):
             pass
         df = df.collect()
         # Restore metadata on collected DataFrame
