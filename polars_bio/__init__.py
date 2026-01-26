@@ -67,6 +67,10 @@ scan_fastq = data_input.scan_fastq
 scan_gff = data_input.scan_gff
 scan_table = data_input.scan_table
 scan_vcf = data_input.scan_vcf
+write_vcf = data_input.write_vcf
+sink_vcf = data_input.sink_vcf
+write_fastq = data_input.write_fastq
+sink_fastq = data_input.sink_fastq
 
 overlap = range_operations.overlap
 nearest = range_operations.nearest
@@ -116,6 +120,10 @@ __all__ = [
     "scan_gff",
     "scan_table",
     "scan_vcf",
+    "write_vcf",
+    "sink_vcf",
+    "write_fastq",
+    "sink_fastq",
     "register_gff",
     "register_vcf",
     "register_fastq",

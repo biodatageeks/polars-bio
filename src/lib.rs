@@ -5,6 +5,7 @@ mod query;
 mod scan;
 mod udtf;
 mod utils;
+mod write;
 
 use std::string::ToString;
 use std::sync::Arc;
@@ -25,8 +26,9 @@ use crate::context::PyBioSessionContext;
 use crate::operation::do_range_operation;
 use crate::option::{
     pyobject_storage_options_to_object_storage_options, BamReadOptions, BedReadOptions, BioTable,
-    CramReadOptions, FastaReadOptions, FastqReadOptions, FilterOp, GffReadOptions, InputFormat,
-    PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
+    CramReadOptions, FastaReadOptions, FastqReadOptions, FastqWriteOptions, FilterOp,
+    GffReadOptions, InputFormat, OutputFormat, PyObjectStorageOptions, RangeOp, RangeOptions,
+    ReadOptions, VcfReadOptions, VcfWriteOptions, WriteOptions,
 };
 use crate::scan::{
     maybe_register_table, register_frame, register_frame_from_arrow_stream,
@@ -360,6 +362,70 @@ fn py_from_polars(
     })
 }
 
+/// Write a DataFrame to a file in the specified format.
+///
+/// # Arguments
+/// * `py_ctx` - The PyBioSessionContext
+/// * `df` - Arrow stream reader containing the DataFrame data
+/// * `path` - Output file path
+/// * `output_format` - Output format (Vcf or Fastq)
+/// * `write_options` - Optional write options
+///
+/// # Returns
+/// The number of rows written
+#[pyfunction]
+#[pyo3(signature = (py_ctx, df, path, output_format, write_options=None))]
+fn py_write_table(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    df: PyArrowType<ArrowArrayStreamReader>,
+    path: String,
+    output_format: OutputFormat,
+    write_options: Option<WriteOptions>,
+) -> PyResult<u64> {
+    // Consume Arrow stream with GIL held
+    let schema = df.0.schema();
+    let batches =
+        df.0.collect::<Result<
+            Vec<datafusion::arrow::array::RecordBatch>,
+            datafusion::arrow::error::ArrowError,
+        >>()
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+    // Release GIL for the actual write operation
+    py.allow_threads(|| {
+        let rt = Runtime::new()?;
+        let ctx = &py_ctx.ctx;
+
+        // Create a MemTable from the batches
+        let mem_table = MemTable::try_new(schema, vec![batches])
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+        // Register temporary table and create DataFrame
+        let temp_table_name = format!("_write_temp_{}", rand::random::<u32>());
+        rt.block_on(async {
+            ctx.register_table(&temp_table_name, Arc::new(mem_table))
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+            let df = ctx
+                .table(&temp_table_name)
+                .await
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+            // Write the table
+            let row_count = crate::write::write_table(ctx, df, &path, output_format, write_options)
+                .await
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+            // Cleanup temporary table
+            ctx.deregister_table(&temp_table_name)
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+            Ok(row_count)
+        })
+    })
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -372,15 +438,20 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
+    m.add_function(wrap_pyfunction!(py_write_table, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;
     m.add_class::<RangeOptions>()?;
     m.add_class::<InputFormat>()?;
+    m.add_class::<OutputFormat>()?;
     m.add_class::<ReadOptions>()?;
+    m.add_class::<WriteOptions>()?;
     m.add_class::<GffReadOptions>()?;
     m.add_class::<VcfReadOptions>()?;
+    m.add_class::<VcfWriteOptions>()?;
     m.add_class::<FastqReadOptions>()?;
+    m.add_class::<FastqWriteOptions>()?;
     m.add_class::<BamReadOptions>()?;
     m.add_class::<CramReadOptions>()?;
     m.add_class::<BedReadOptions>()?;

@@ -30,6 +30,11 @@ from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemEr
 # Metadata key used for coordinate system
 COORDINATE_SYSTEM_KEY = "coordinate_system_zero_based"
 
+# VCF metadata keys
+VCF_INFO_FIELDS_KEY = "vcf_info_fields"
+VCF_FORMAT_FIELDS_KEY = "vcf_format_fields"
+VCF_SAMPLE_NAMES_KEY = "vcf_sample_names"
+
 
 def _has_config_meta(df) -> bool:
     """Check if object has config_meta attribute (Polars or wrapper types)."""
@@ -395,3 +400,116 @@ def validate_coordinate_system_single(
             cs = global_zero_based
 
     return cs
+
+
+# =============================================================================
+# VCF Metadata Functions
+# =============================================================================
+
+
+def set_vcf_metadata(
+    df: Union[pl.DataFrame, pl.LazyFrame],
+    info_fields: Optional[dict] = None,
+    format_fields: Optional[dict] = None,
+    sample_names: Optional[list] = None,
+) -> None:
+    """Set VCF-specific metadata on a DataFrame.
+
+    This metadata is used when writing VCF files to preserve field definitions
+    (Number, Type, Description) from the original VCF header.
+
+    Args:
+        df: The DataFrame to set metadata on.
+        info_fields: Dict mapping INFO field names to their VCF definitions.
+            Each value is a dict with keys: 'number', 'type', 'description'.
+            Example: {"AF": {"number": "A", "type": "Float", "description": "Allele Frequency"}}
+        format_fields: Dict mapping FORMAT field names to their VCF definitions.
+            Example: {"GT": {"number": "1", "type": "String", "description": "Genotype"}}
+        sample_names: List of sample names from the VCF header.
+
+    Example:
+        >>> import polars as pl
+        >>> import polars_bio as pb
+        >>> from polars_bio._metadata import set_vcf_metadata
+        >>>
+        >>> df = pb.read_vcf("file.vcf")
+        >>> set_vcf_metadata(df, info_fields={"AF": {"number": "A", "type": "Float", "description": "Allele Frequency"}})
+    """
+    import json
+
+    if not isinstance(df, (pl.DataFrame, pl.LazyFrame)):
+        raise TypeError(
+            f"Cannot set VCF metadata on {type(df).__name__}. "
+            f"Supported types: pl.DataFrame, pl.LazyFrame"
+        )
+
+    metadata_updates = {}
+
+    if info_fields is not None:
+        metadata_updates[VCF_INFO_FIELDS_KEY] = json.dumps(info_fields)
+
+    if format_fields is not None:
+        metadata_updates[VCF_FORMAT_FIELDS_KEY] = json.dumps(format_fields)
+
+    if sample_names is not None:
+        metadata_updates[VCF_SAMPLE_NAMES_KEY] = json.dumps(sample_names)
+
+    if metadata_updates:
+        df.config_meta.set(**metadata_updates)
+
+
+def get_vcf_metadata(
+    df: Union[pl.DataFrame, pl.LazyFrame],
+) -> dict:
+    """Get VCF-specific metadata from a DataFrame.
+
+    Args:
+        df: The DataFrame to read metadata from.
+
+    Returns:
+        A dict with keys 'info_fields', 'format_fields', 'sample_names'.
+        Each value is None if not set, otherwise contains the metadata dict/list.
+
+    Example:
+        >>> import polars_bio as pb
+        >>> from polars_bio._metadata import get_vcf_metadata
+        >>>
+        >>> df = pb.read_vcf("file.vcf")
+        >>> meta = get_vcf_metadata(df)
+        >>> print(meta["info_fields"])
+    """
+    import json
+
+    if not isinstance(df, (pl.DataFrame, pl.LazyFrame)):
+        raise TypeError(
+            f"Cannot get VCF metadata from {type(df).__name__}. "
+            f"Supported types: pl.DataFrame, pl.LazyFrame"
+        )
+
+    metadata = df.config_meta.get_metadata()
+
+    result = {
+        "info_fields": None,
+        "format_fields": None,
+        "sample_names": None,
+    }
+
+    if VCF_INFO_FIELDS_KEY in metadata:
+        try:
+            result["info_fields"] = json.loads(metadata[VCF_INFO_FIELDS_KEY])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    if VCF_FORMAT_FIELDS_KEY in metadata:
+        try:
+            result["format_fields"] = json.loads(metadata[VCF_FORMAT_FIELDS_KEY])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    if VCF_SAMPLE_NAMES_KEY in metadata:
+        try:
+            result["sample_names"] = json.loads(metadata[VCF_SAMPLE_NAMES_KEY])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    return result

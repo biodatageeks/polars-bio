@@ -1215,7 +1215,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bam"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=e877bef9de047764b83d0a4a9320782e9f361628#e877bef9de047764b83d0a4a9320782e9f361628"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=8d4b540#8d4b540ef6d69ba4af740cd533c0fa43c4b7247d"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1236,7 +1236,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bed"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=e877bef9de047764b83d0a4a9320782e9f361628#e877bef9de047764b83d0a4a9320782e9f361628"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=8d4b540#8d4b540ef6d69ba4af740cd533c0fa43c4b7247d"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1260,7 +1260,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-core"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=e877bef9de047764b83d0a4a9320782e9f361628#e877bef9de047764b83d0a4a9320782e9f361628"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=8d4b540#8d4b540ef6d69ba4af740cd533c0fa43c4b7247d"
 dependencies = [
  "async-compression",
  "bytes",
@@ -1279,7 +1279,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-cram"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=e877bef9de047764b83d0a4a9320782e9f361628#e877bef9de047764b83d0a4a9320782e9f361628"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=8d4b540#8d4b540ef6d69ba4af740cd533c0fa43c4b7247d"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1301,7 +1301,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fasta"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=e877bef9de047764b83d0a4a9320782e9f361628#e877bef9de047764b83d0a4a9320782e9f361628"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=8d4b540#8d4b540ef6d69ba4af740cd533c0fa43c4b7247d"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1323,7 +1323,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fastq"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=e877bef9de047764b83d0a4a9320782e9f361628#e877bef9de047764b83d0a4a9320782e9f361628"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=8d4b540#8d4b540ef6d69ba4af740cd533c0fa43c4b7247d"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1331,6 +1331,7 @@ dependencies = [
  "bytes",
  "datafusion",
  "datafusion-bio-format-core",
+ "flate2",
  "futures",
  "futures-util",
  "log",
@@ -1347,7 +1348,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-gff"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=e877bef9de047764b83d0a4a9320782e9f361628#e877bef9de047764b83d0a4a9320782e9f361628"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=8d4b540#8d4b540ef6d69ba4af740cd533c0fa43c4b7247d"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1372,7 +1373,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-vcf"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=e877bef9de047764b83d0a4a9320782e9f361628#e877bef9de047764b83d0a4a9320782e9f361628"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=8d4b540#8d4b540ef6d69ba4af740cd533c0fa43c4b7247d"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1382,6 +1383,7 @@ dependencies = [
  "datafusion-bio-format-core",
  "datafusion-execution",
  "env_logger",
+ "flate2",
  "futures",
  "log",
  "noodles 0.100.0",
@@ -4257,7 +4259,7 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
 name = "polars_bio"
-version = "0.20.0"
+version = "0.20.1"
 dependencies = [
  "arrow",
  "arrow-array",
@@ -4282,6 +4284,7 @@ dependencies = [
  "pyo3-log",
  "rand 0.8.5",
  "sequila-core",
+ "serde_json",
  "tokio",
  "tracing",
 ]
