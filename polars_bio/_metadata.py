@@ -6,6 +6,7 @@ on different DataFrame types (Polars, Pandas) and DataFusion tables.
 
 from __future__ import annotations
 
+import json
 import warnings
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -30,7 +31,13 @@ from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemEr
 # Metadata key used for coordinate system
 COORDINATE_SYSTEM_KEY = "coordinate_system_zero_based"
 
-# VCF metadata keys
+# Source file metadata keys (standardized across all formats)
+SOURCE_FORMAT_KEY = "source_format"
+SOURCE_PATH_KEY = "source_path"
+SOURCE_HEADER_KEY = "source_header"
+
+# DEPRECATED: VCF metadata keys (kept for backward compatibility in wrappers)
+# Use get_source_metadata() instead - VCF metadata now stored in source_header
 VCF_INFO_FIELDS_KEY = "vcf_info_fields"
 VCF_FORMAT_FIELDS_KEY = "vcf_format_fields"
 VCF_SAMPLE_NAMES_KEY = "vcf_sample_names"
@@ -413,7 +420,10 @@ def set_vcf_metadata(
     format_fields: Optional[dict] = None,
     sample_names: Optional[list] = None,
 ) -> None:
-    """Set VCF-specific metadata on a DataFrame.
+    """Set VCF-specific metadata on a DataFrame (convenience wrapper).
+
+    This is a convenience wrapper that stores VCF metadata in the standardized
+    source_header field. Use get_source_metadata() to access the underlying data.
 
     This metadata is used when writing VCF files to preserve field definitions
     (Number, Type, Description) from the original VCF header.
@@ -435,33 +445,44 @@ def set_vcf_metadata(
         >>> df = pb.read_vcf("file.vcf")
         >>> set_vcf_metadata(df, info_fields={"AF": {"number": "A", "type": "Float", "description": "Allele Frequency"}})
     """
-    import json
-
     if not isinstance(df, (pl.DataFrame, pl.LazyFrame)):
         raise TypeError(
             f"Cannot set VCF metadata on {type(df).__name__}. "
             f"Supported types: pl.DataFrame, pl.LazyFrame"
         )
 
-    metadata_updates = {}
-
+    # Build header dict for VCF-specific fields
+    header = {}
     if info_fields is not None:
-        metadata_updates[VCF_INFO_FIELDS_KEY] = json.dumps(info_fields)
-
+        header["info_fields"] = info_fields
     if format_fields is not None:
-        metadata_updates[VCF_FORMAT_FIELDS_KEY] = json.dumps(format_fields)
-
+        header["format_fields"] = format_fields
     if sample_names is not None:
-        metadata_updates[VCF_SAMPLE_NAMES_KEY] = json.dumps(sample_names)
+        header["sample_names"] = sample_names
 
-    if metadata_updates:
-        df.config_meta.set(**metadata_updates)
+    # Get existing source metadata to preserve format/path
+    existing = get_source_metadata(df)
+
+    # Merge with existing header
+    existing_header = existing.get("header") or {}
+    merged_header = {**existing_header, **header}
+
+    # Set source metadata with merged header
+    set_source_metadata(
+        df,
+        format=existing.get("format") or "vcf",
+        path=existing.get("path") or "",
+        header=merged_header if merged_header else None,
+    )
 
 
 def get_vcf_metadata(
     df: Union[pl.DataFrame, pl.LazyFrame],
 ) -> dict:
-    """Get VCF-specific metadata from a DataFrame.
+    """Get VCF-specific metadata from a DataFrame (convenience wrapper).
+
+    This is a convenience wrapper that extracts VCF fields from the standardized
+    source_header field.
 
     Args:
         df: The DataFrame to read metadata from.
@@ -478,38 +499,117 @@ def get_vcf_metadata(
         >>> meta = get_vcf_metadata(df)
         >>> print(meta["info_fields"])
     """
-    import json
-
     if not isinstance(df, (pl.DataFrame, pl.LazyFrame)):
         raise TypeError(
             f"Cannot get VCF metadata from {type(df).__name__}. "
             f"Supported types: pl.DataFrame, pl.LazyFrame"
         )
 
-    metadata = df.config_meta.get_metadata()
+    # Get source metadata
+    source = get_source_metadata(df)
+    header = source.get("header") or {}
 
+    # Extract VCF-specific fields from header
     result = {
-        "info_fields": None,
-        "format_fields": None,
-        "sample_names": None,
+        "info_fields": header.get("info_fields"),
+        "format_fields": header.get("format_fields"),
+        "sample_names": header.get("sample_names"),
     }
 
-    if VCF_INFO_FIELDS_KEY in metadata:
-        try:
-            result["info_fields"] = json.loads(metadata[VCF_INFO_FIELDS_KEY])
-        except (json.JSONDecodeError, TypeError):
-            pass
+    return result
 
-    if VCF_FORMAT_FIELDS_KEY in metadata:
-        try:
-            result["format_fields"] = json.loads(metadata[VCF_FORMAT_FIELDS_KEY])
-        except (json.JSONDecodeError, TypeError):
-            pass
 
-    if VCF_SAMPLE_NAMES_KEY in metadata:
+def set_source_metadata(df, format: str, path: str = "", header: dict = None):
+    """Set standardized source file metadata.
+
+    Stores metadata about the source file format, path, and format-specific
+    header information. This standardized approach works across all file
+    formats (VCF, FASTQ, BAM, GFF, BED, FASTA, CRAM).
+
+    Args:
+        df: Polars DataFrame or LazyFrame (or Pandas DataFrame)
+        format: File format identifier (e.g., "vcf", "fastq", "bam")
+        path: Original file path (default: "")
+        header: Format-specific header data as dict (default: None)
+                For VCF: {"info_fields": {...}, "format_fields": {...}, "sample_names": [...], ...}
+                For other formats: format-specific metadata
+
+    Example:
+        >>> lf = pb.scan_vcf("sample.vcf")
+        >>> set_source_metadata(lf, format="vcf", path="sample.vcf",
+        ...                     header={"info_fields": {...}})
+    """
+    if _has_config_meta(df):
+        # Polars DataFrame/LazyFrame
+        metadata_updates = {
+            SOURCE_FORMAT_KEY: format,
+            SOURCE_PATH_KEY: path,
+            SOURCE_HEADER_KEY: json.dumps(header) if header else "",
+        }
+        df.config_meta.set(**metadata_updates)
+    elif _is_pandas_dataframe(df):
+        # Pandas DataFrame
+        if not hasattr(df, "attrs"):
+            df.attrs = {}
+        df.attrs[SOURCE_FORMAT_KEY] = format
+        df.attrs[SOURCE_PATH_KEY] = path
+        df.attrs[SOURCE_HEADER_KEY] = json.dumps(header) if header else ""
+
+
+def get_source_metadata(df) -> dict:
+    """Get standardized source file metadata.
+
+    Retrieves metadata about the source file format, path, and format-specific
+    header information.
+
+    Args:
+        df: Polars DataFrame or LazyFrame (or Pandas DataFrame)
+
+    Returns:
+        Dict with keys:
+        - "format": File format identifier (e.g., "vcf", "fastq")
+        - "path": Original file path
+        - "header": Format-specific header data as dict (or None)
+
+    Example:
+        >>> meta = get_source_metadata(lf)
+        >>> meta["format"]  # "vcf"
+        >>> meta["header"]["info_fields"]  # VCF INFO field definitions
+    """
+    result = {
+        "format": None,
+        "path": None,
+        "header": None,
+    }
+
+    if _has_config_meta(df):
+        # Polars DataFrame/LazyFrame
         try:
-            result["sample_names"] = json.loads(metadata[VCF_SAMPLE_NAMES_KEY])
-        except (json.JSONDecodeError, TypeError):
-            pass
+            metadata = df.config_meta.get_metadata()
+        except (KeyError, AttributeError, TypeError):
+            return result
+
+        result["format"] = metadata.get(SOURCE_FORMAT_KEY)
+        result["path"] = metadata.get(SOURCE_PATH_KEY)
+
+        header_json = metadata.get(SOURCE_HEADER_KEY)
+        if header_json:
+            try:
+                result["header"] = json.loads(header_json)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    elif _is_pandas_dataframe(df):
+        # Pandas DataFrame
+        if hasattr(df, "attrs"):
+            result["format"] = df.attrs.get(SOURCE_FORMAT_KEY)
+            result["path"] = df.attrs.get(SOURCE_PATH_KEY)
+
+            header_json = df.attrs.get(SOURCE_HEADER_KEY)
+            if header_json:
+                try:
+                    result["header"] = json.loads(header_json)
+                except (json.JSONDecodeError, TypeError):
+                    pass
 
     return result

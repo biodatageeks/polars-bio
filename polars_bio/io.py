@@ -1295,13 +1295,15 @@ def _write_file(
     """
     import json
 
-    from ._metadata import get_coordinate_system
+    from ._metadata import get_coordinate_system, get_source_metadata
 
-    # Get VCF metadata before collecting (if VCF format)
-    vcf_metadata = None
+    # Get source metadata before collecting
+    source_meta = None
+    vcf_header = None
     if output_format == OutputFormat.Vcf:
         try:
-            vcf_metadata = get_vcf_metadata(df)
+            source_meta = get_source_metadata(df)
+            vcf_header = source_meta.get("header") if source_meta else None
         except (KeyError, AttributeError, TypeError):
             pass
 
@@ -1313,12 +1315,28 @@ def _write_file(
             zero_based_meta = df.config_meta.get_metadata().get(
                 "coordinate_system_zero_based"
             )
-        except (KeyError, AttributeError):
+            # Also preserve source metadata if not already retrieved
+            if source_meta is None:
+                source_meta = get_source_metadata(df)
+                if output_format == OutputFormat.Vcf:
+                    vcf_header = source_meta.get("header") if source_meta else None
+        except (KeyError, AttributeError, TypeError):
             pass
+
         df = df.collect()
+
         # Restore metadata on collected DataFrame
         if zero_based_meta is not None:
             set_coordinate_system(df, zero_based_meta)
+        if source_meta is not None:
+            from ._metadata import set_source_metadata
+
+            set_source_metadata(
+                df,
+                format=source_meta.get("format") or "",
+                path=source_meta.get("path") or "",
+                header=source_meta.get("header"),
+            )
 
     # Get coordinate system from DataFrame metadata, fall back to global config
     zero_based = get_coordinate_system(df)
@@ -1327,17 +1345,17 @@ def _write_file(
 
     # Build write options based on format
     if output_format == OutputFormat.Vcf:
-        # Serialize VCF metadata to JSON strings for Rust
+        # Extract VCF metadata from source_header (NEW approach)
         info_fields_json = None
         format_fields_json = None
         sample_names_json = None
-        if vcf_metadata:
-            if vcf_metadata.get("info_fields"):
-                info_fields_json = json.dumps(vcf_metadata["info_fields"])
-            if vcf_metadata.get("format_fields"):
-                format_fields_json = json.dumps(vcf_metadata["format_fields"])
-            if vcf_metadata.get("sample_names"):
-                sample_names_json = json.dumps(vcf_metadata["sample_names"])
+        if vcf_header:
+            if vcf_header.get("info_fields"):
+                info_fields_json = json.dumps(vcf_header["info_fields"])
+            if vcf_header.get("format_fields"):
+                format_fields_json = json.dumps(vcf_header["format_fields"])
+            if vcf_header.get("sample_names"):
+                sample_names_json = json.dumps(vcf_header["sample_names"])
 
         vcf_opts = VcfWriteOptions(
             zero_based=zero_based,
@@ -1785,6 +1803,95 @@ def _extract_vcf_metadata_from_schema(schema) -> dict:
     }
 
 
+def _extract_vcf_header_extras(schema) -> dict:
+    """Extract VCF schema-level metadata from Arrow schema.
+
+    Based on datafusion-bio-formats PR #47 naming convention: bio.vcf.*
+    Extracts schema-level metadata that provides provenance and validation info.
+
+    Args:
+        schema: PyArrow schema with VCF schema-level metadata
+
+    Returns:
+        Dict with optional keys:
+        - "version": VCF version (e.g., "VCFv4.2")
+        - "contigs": List of contig definitions
+        - "filters": List of filter definitions
+        - "alt_definitions": List of ALT allele definitions
+
+    Schema-level metadata keys (from datafusion-bio-formats):
+        - bio.vcf.file_format: VCF version string
+        - bio.vcf.contigs: JSON array of ContigMetadata
+        - bio.vcf.filters: JSON array of FilterMetadata
+        - bio.vcf.alternative_alleles: JSON array of AltAlleleMetadata
+        - bio.vcf.samples: JSON array of sample names (redundant with column-based extraction)
+    """
+    import json
+
+    extras = {}
+    schema_meta = schema.metadata or {}
+
+    # Helper to safely decode bytes or string keys
+    def get_meta(key: str):
+        # Try string key first, then bytes
+        value = schema_meta.get(key) or schema_meta.get(key.encode())
+        if isinstance(value, bytes):
+            return value.decode("utf-8")
+        return value
+
+    # Extract version (plain string)
+    version = get_meta("bio.vcf.file_format")
+    if version:
+        extras["version"] = version
+
+    # Extract JSON-encoded schema-level metadata
+    json_fields = [
+        ("bio.vcf.contigs", "contigs"),
+        ("bio.vcf.filters", "filters"),
+        ("bio.vcf.alternative_alleles", "alt_definitions"),
+    ]
+
+    for key, target_key in json_fields:
+        value = get_meta(key)
+        if value:
+            try:
+                extras[target_key] = json.loads(value)
+            except json.JSONDecodeError:
+                # Silently skip malformed JSON
+                pass
+
+    return extras
+
+
+def _format_to_string(input_format: InputFormat) -> str:
+    """Convert InputFormat enum to string identifier for metadata storage.
+
+    Args:
+        input_format: InputFormat enum value
+
+    Returns:
+        String identifier (e.g., "vcf", "fastq", "bam")
+    """
+    # Use string comparison since InputFormat is not hashable
+    format_str = str(input_format)
+    if "Vcf" in format_str:
+        return "vcf"
+    elif "Bam" in format_str:
+        return "bam"
+    elif "Cram" in format_str:
+        return "cram"
+    elif "Fastq" in format_str:
+        return "fastq"
+    elif "Fasta" in format_str:
+        return "fasta"
+    elif "Gff" in format_str:
+        return "gff"
+    elif "Bed" in format_str:
+        return "bed"
+    else:
+        return "unknown"
+
+
 def _read_file(
     path: str,
     input_format: InputFormat,
@@ -1796,10 +1903,21 @@ def _read_file(
     table = py_register_table(ctx, path, None, input_format, read_options)
     df = py_read_table(ctx, table.name)
 
-    # Extract VCF metadata from Arrow schema before Polars conversion loses it
-    vcf_metadata = None
+    # Extract format-specific header metadata from Arrow schema before Polars conversion loses it
+    header_metadata = None
     if input_format == InputFormat.Vcf:
+        # Extract field-level metadata (INFO/FORMAT/samples)
         vcf_metadata = _extract_vcf_metadata_from_schema(df.schema())
+        # Extract schema-level metadata (version, contigs, filters, etc.)
+        vcf_extras = _extract_vcf_header_extras(df.schema())
+
+        # Build combined header dict
+        header_metadata = {
+            "info_fields": vcf_metadata.get("info_fields"),
+            "format_fields": vcf_metadata.get("format_fields"),
+            "sample_names": vcf_metadata.get("sample_names"),
+            **vcf_extras,  # Add version, contigs, filters, alt_definitions
+        }
 
     lf = _lazy_scan(
         df,
@@ -1814,14 +1932,11 @@ def _read_file(
     # Set coordinate system metadata
     set_coordinate_system(lf, zero_based)
 
-    # Set VCF metadata if available
-    if vcf_metadata is not None:
-        set_vcf_metadata(
-            lf,
-            info_fields=vcf_metadata.get("info_fields"),
-            format_fields=vcf_metadata.get("format_fields"),
-            sample_names=vcf_metadata.get("sample_names"),
-        )
+    # Set source metadata (replaces old VCF-specific metadata setting)
+    from polars_bio._metadata import set_source_metadata
+
+    format_str = _format_to_string(input_format)
+    set_source_metadata(lf, format=format_str, path=path, header=header_metadata)
 
     # Wrap GFF LazyFrames with projection-aware wrapper for consistent attribute field handling
     if input_format == InputFormat.Gff:
