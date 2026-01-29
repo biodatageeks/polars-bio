@@ -3049,7 +3049,7 @@ version = "0.5.2"
 description = "MkDocs plugin supports image lightbox with GLightbox."
 optional = false
 python-versions = ">=3.8"
-groups = ["main", "dev"]
+groups = ["dev"]
 files = [
     {file = "mkdocs_glightbox-0.5.2-py3-none-any.whl", hash = "sha256:23a431ea802b60b1030c73323db2eed6ba859df1a0822ce575afa43e0ea3f47e"},
     {file = "mkdocs_glightbox-0.5.2.tar.gz", hash = "sha256:c7622799347c32310878e01ccf14f70648445561010911c80590cec0353370ac"},
@@ -5114,7 +5114,7 @@ version = "0.4.6"
 description = "A fast HTML5 parser with CSS selectors, written in Cython, using Modest and Lexbor engines."
 optional = false
 python-versions = "<3.15,>=3.9"
-groups = ["main", "dev"]
+groups = ["dev"]
 files = [
     {file = "selectolax-0.4.6-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:0e870cc935a36b8e37945c5e2055191df84e7af278dd386e5ff9f04552e5da6b"},
     {file = "selectolax-0.4.6-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:b9008e4c5f708634baa6dbeb4cd8922edc8467eb842cf12da5cdf03399a969f3"},
@@ -5757,4 +5757,4 @@ viz = ["bioframe", "matplotlib"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14"
-content-hash = "d5c47a0b3032f567c847dd0d92d7420fa24d50f11091b9ab926b9ca9c74507f1"
+content-hash = "388a502dc662fd09d77354d5a3a76af99b033ddc4dcb1fbf1116bf45e6eb39b1"

@@ -552,3 +552,109 @@ impl FastaReadOptions {
         }
     }
 }
+
+// ============================================================================
+// Write Options
+// ============================================================================
+
+/// Output format for write operations
+#[pyclass(eq, eq_int)]
+#[derive(Clone, PartialEq, Debug)]
+pub enum OutputFormat {
+    Vcf,
+    Fastq,
+}
+
+impl fmt::Display for OutputFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OutputFormat::Vcf => write!(f, "VCF"),
+            OutputFormat::Fastq => write!(f, "FASTQ"),
+        }
+    }
+}
+
+/// Options for writing VCF files
+#[pyclass(name = "VcfWriteOptions")]
+#[derive(Clone, Debug)]
+pub struct VcfWriteOptions {
+    /// Whether the source DataFrame uses 0-based coordinates
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+    /// INFO field metadata as JSON string: {"field_name": {"number": "A", "type": "Float", "description": "..."}}
+    #[pyo3(get, set)]
+    pub info_fields_metadata: Option<String>,
+    /// FORMAT field metadata as JSON string: {"field_name": {"number": "1", "type": "String", "description": "..."}}
+    #[pyo3(get, set)]
+    pub format_fields_metadata: Option<String>,
+    /// Sample names as JSON string: ["sample1", "sample2"]
+    #[pyo3(get, set)]
+    pub sample_names: Option<String>,
+}
+
+#[pymethods]
+impl VcfWriteOptions {
+    #[new]
+    #[pyo3(signature = (zero_based=true, info_fields_metadata=None, format_fields_metadata=None, sample_names=None))]
+    pub fn new(
+        zero_based: bool,
+        info_fields_metadata: Option<String>,
+        format_fields_metadata: Option<String>,
+        sample_names: Option<String>,
+    ) -> Self {
+        VcfWriteOptions {
+            zero_based,
+            info_fields_metadata,
+            format_fields_metadata,
+            sample_names,
+        }
+    }
+
+    #[staticmethod]
+    pub fn default() -> Self {
+        VcfWriteOptions {
+            zero_based: true,
+            info_fields_metadata: None,
+            format_fields_metadata: None,
+            sample_names: None,
+        }
+    }
+}
+
+/// Options for writing FASTQ files (placeholder for future options)
+#[pyclass(name = "FastqWriteOptions")]
+#[derive(Clone, Debug, Default)]
+pub struct FastqWriteOptions {}
+
+#[pymethods]
+impl FastqWriteOptions {
+    #[new]
+    pub fn new() -> Self {
+        FastqWriteOptions {}
+    }
+}
+
+/// Container for write options for different formats
+#[pyclass(name = "WriteOptions")]
+#[derive(Clone, Debug)]
+pub struct WriteOptions {
+    #[pyo3(get, set)]
+    pub vcf_write_options: Option<VcfWriteOptions>,
+    #[pyo3(get, set)]
+    pub fastq_write_options: Option<FastqWriteOptions>,
+}
+
+#[pymethods]
+impl WriteOptions {
+    #[new]
+    #[pyo3(signature = (vcf_write_options=None, fastq_write_options=None))]
+    pub fn new(
+        vcf_write_options: Option<VcfWriteOptions>,
+        fastq_write_options: Option<FastqWriteOptions>,
+    ) -> Self {
+        WriteOptions {
+            vcf_write_options,
+            fastq_write_options,
+        }
+    }
+}

@@ -252,3 +252,97 @@ class PolarsRangesOperations:
         return pb.coverage(
             self._ldf, other_df, cols1=cols1, cols2=cols2, suffixes=suffixes
         )
+
+    def sink_vcf(self, path: str) -> None:
+        """
+        Streaming write LazyFrame to VCF format.
+
+        Coordinate system is automatically read from LazyFrame metadata.
+        Compression is auto-detected from file extension.
+
+        Parameters:
+            path: Output file path. Compression detected from extension
+                  (.vcf.bgz for BGZF, .vcf.gz for GZIP, .vcf for uncompressed).
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+
+            lf = pb.scan_vcf("input.vcf").filter(pl.col("qual") > 30)
+            lf.pb.sink_vcf("filtered.vcf.bgz")
+            ```
+        """
+        pb.sink_vcf(self._ldf, path)
+
+    def sink_fastq(self, path: str) -> None:
+        """
+        Streaming write LazyFrame to FASTQ format.
+
+        Compression is auto-detected from file extension.
+
+        Parameters:
+            path: Output file path. Compression detected from extension
+                  (.fastq.bgz for BGZF, .fastq.gz for GZIP, .fastq for uncompressed).
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+
+            lf = pb.scan_fastq("input.fastq.gz").limit(1000)
+            lf.pb.sink_fastq("sample.fastq")
+            ```
+        """
+        pb.sink_fastq(self._ldf, path)
+
+
+@pl.api.register_dataframe_namespace("pb")
+class PolarsDataFrameOperations:
+    def __init__(self, df: pl.DataFrame) -> None:
+        self._df = df
+
+    def write_vcf(self, path: str) -> int:
+        """
+        Write DataFrame to VCF format.
+
+        Coordinate system is automatically read from DataFrame metadata.
+        Compression is auto-detected from file extension.
+
+        Parameters:
+            path: Output file path. Compression detected from extension
+                  (.vcf.bgz for BGZF, .vcf.gz for GZIP, .vcf for uncompressed).
+
+        Returns:
+            The number of rows written.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+
+            df = pb.read_vcf("input.vcf")
+            df.pb.write_vcf("output.vcf.gz")
+            ```
+        """
+        return pb.write_vcf(self._df, path)
+
+    def write_fastq(self, path: str) -> int:
+        """
+        Write DataFrame to FASTQ format.
+
+        Compression is auto-detected from file extension.
+
+        Parameters:
+            path: Output file path. Compression detected from extension
+                  (.fastq.bgz for BGZF, .fastq.gz for GZIP, .fastq for uncompressed).
+
+        Returns:
+            The number of rows written.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+
+            df = pb.read_fastq("input.fastq")
+            df.pb.write_fastq("output.fastq.gz")
+            ```
+        """
+        return pb.write_fastq(self._df, path)

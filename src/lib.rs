@@ -5,6 +5,7 @@ mod query;
 mod scan;
 mod udtf;
 mod utils;
+mod write;
 
 use std::string::ToString;
 use std::sync::Arc;
@@ -12,12 +13,13 @@ use std::sync::Arc;
 use datafusion::arrow::array::RecordBatchReader;
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
+use datafusion::dataframe::DataFrame;
 use datafusion::datasource::MemTable;
 use datafusion_bio_format_core::object_storage::ObjectStorageOptions;
 use datafusion_bio_format_vcf::storage::VcfReader;
 use datafusion_python::dataframe::PyDataFrame;
 use log::{debug, error, info};
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
 
@@ -25,8 +27,9 @@ use crate::context::PyBioSessionContext;
 use crate::operation::do_range_operation;
 use crate::option::{
     pyobject_storage_options_to_object_storage_options, BamReadOptions, BedReadOptions, BioTable,
-    CramReadOptions, FastaReadOptions, FastqReadOptions, FilterOp, GffReadOptions, InputFormat,
-    PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
+    CramReadOptions, FastaReadOptions, FastqReadOptions, FastqWriteOptions, FilterOp,
+    GffReadOptions, InputFormat, OutputFormat, PyObjectStorageOptions, RangeOp, RangeOptions,
+    ReadOptions, VcfReadOptions, VcfWriteOptions, WriteOptions,
 };
 use crate::scan::{
     maybe_register_table, register_frame, register_frame_from_arrow_stream,
@@ -270,7 +273,9 @@ fn py_read_sql(
     py.allow_threads(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
-        let df = rt.block_on(ctx.sql(&sql_text)).unwrap();
+        let df = rt
+            .block_on(ctx.sql(&sql_text))
+            .map_err(|e| PyValueError::new_err(format!("SQL query failed: {}", e)))?;
         Ok(PyDataFrame::new(df))
     })
 }
@@ -288,8 +293,69 @@ fn py_read_table(
         let ctx = &py_ctx.ctx;
         let df = rt
             .block_on(ctx.sql(&format!("SELECT * FROM {}", table_name)))
-            .unwrap();
+            .map_err(|e| {
+                PyValueError::new_err(format!("Failed to read table '{}': {}", table_name, e))
+            })?;
         Ok(PyDataFrame::new(df))
+    })
+}
+
+/// Get the schema of a registered table without materializing data.
+///
+/// This function extracts the Arrow schema from a table registered in DataFusion
+/// without executing any queries or reading data. It enables metadata extraction
+/// from file-backed tables (VCF, FASTQ, etc.) without loading the entire file
+/// into memory, which is critical for large genomics files.
+///
+/// # Arguments
+/// * `py_ctx` - The PyBioSessionContext containing the DataFusion context
+/// * `table_name` - Name of the registered table
+///
+/// # Returns
+/// PyArrow schema with all field metadata preserved
+///
+/// # Example
+/// ```python
+/// from polars_bio.polars_bio import py_register_table, py_get_table_schema
+/// from polars_bio.context import ctx
+///
+/// # Register VCF table (no data read yet)
+/// table = py_register_table(ctx, "large.vcf", None, InputFormat.Vcf, None)
+///
+/// # Get schema without materializing (lightweight operation)
+/// schema = py_get_table_schema(ctx, table.name)
+///
+/// # Extract metadata from schema
+/// vcf_metadata = extract_vcf_metadata_from_schema(schema)
+/// ```
+#[pyfunction]
+#[pyo3(signature = (py_ctx, table_name))]
+fn py_get_table_schema(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    table_name: String,
+) -> PyResult<PyArrowType<datafusion::arrow::datatypes::Schema>> {
+    py.allow_threads(|| {
+        let rt = Runtime::new()
+            .map_err(|e| PyValueError::new_err(format!("Failed to create runtime: {}", e)))?;
+        let ctx = &py_ctx.ctx;
+
+        // Get table from context
+        let table = rt.block_on(ctx.table(&table_name)).map_err(|e| {
+            PyValueError::new_err(format!("Failed to get table '{}': {}", table_name, e))
+        })?;
+
+        // Extract schema without reading data
+        let schema = table.schema();
+        let arrow_schema = schema.as_arrow();
+
+        info!(
+            "Extracted schema for table '{}' without materializing data",
+            table_name
+        );
+        debug!("Schema: {:?}", arrow_schema);
+
+        Ok(PyArrowType((*arrow_schema).clone()))
     })
 }
 
@@ -316,16 +382,26 @@ fn py_describe_vcf(
         };
         info!("{}", desc_object_storage_options);
 
-        let df = rt.block_on(async {
-            let mut reader = VcfReader::new(path, None, Some(desc_object_storage_options)).await;
-            let rb = reader.describe().await.unwrap();
-            let mem_table = MemTable::try_new(rb.schema().clone(), vec![vec![rb]]).unwrap();
-            let random_table_name = format!("vcf_schema_{}", rand::random::<u32>());
-            ctx.register_table(random_table_name.clone(), Arc::new(mem_table))
-                .unwrap();
-            let df = ctx.table(random_table_name).await.unwrap();
-            df
-        });
+        let df = rt
+            .block_on(async {
+                let mut reader =
+                    VcfReader::new(path, None, Some(desc_object_storage_options)).await;
+                let rb = reader
+                    .describe()
+                    .await
+                    .map_err(|e| format!("Failed to describe VCF: {}", e))?;
+                let mem_table = MemTable::try_new(rb.schema().clone(), vec![vec![rb]])
+                    .map_err(|e| format!("Failed to create memory table: {}", e))?;
+                let random_table_name = format!("vcf_schema_{}", rand::random::<u32>());
+                ctx.register_table(random_table_name.clone(), Arc::new(mem_table))
+                    .map_err(|e| format!("Failed to register table: {}", e))?;
+                let df = ctx
+                    .table(random_table_name)
+                    .await
+                    .map_err(|e| format!("Failed to get table: {}", e))?;
+                Ok::<DataFrame, String>(df)
+            })
+            .map_err(|e| PyRuntimeError::new_err(format!("VCF schema extraction failed: {}", e)))?;
         Ok(PyDataFrame::new(df))
     })
 }
@@ -342,7 +418,9 @@ fn py_register_view(
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         rt.block_on(ctx.sql(&format!("CREATE OR REPLACE VIEW {} AS {}", name, query)))
-            .unwrap();
+            .map_err(|e| {
+                PyValueError::new_err(format!("Failed to create view '{}': {}", name, e))
+            })?;
         Ok(())
     })
 }
@@ -360,6 +438,127 @@ fn py_from_polars(
     })
 }
 
+/// Write a DataFrame to a file in the specified format.
+///
+/// # Arguments
+/// * `py_ctx` - The PyBioSessionContext
+/// * `df` - Arrow stream reader containing the DataFrame data
+/// * `path` - Output file path
+/// * `output_format` - Output format (Vcf or Fastq)
+/// * `write_options` - Optional write options
+///
+/// # Returns
+/// The number of rows written
+#[pyfunction]
+#[pyo3(signature = (py_ctx, sql, path, output_format, write_options=None))]
+fn py_write_from_sql(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    sql: String,
+    path: String,
+    output_format: OutputFormat,
+    write_options: Option<WriteOptions>,
+) -> PyResult<u64> {
+    py.allow_threads(|| {
+        let rt = Runtime::new().map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let ctx = &py_ctx.ctx;
+
+        rt.block_on(async {
+            // Execute SQL to get DataFrame
+            let df = ctx
+                .sql(&sql)
+                .await
+                .map_err(|e| PyValueError::new_err(format!("SQL execution failed: {}", e)))?;
+
+            // Write directly from DataFusion DataFrame
+            let row_count = crate::write::write_table(ctx, df, &path, output_format, write_options)
+                .await
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+            Ok(row_count)
+        })
+    })
+}
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, df, path, output_format, write_options=None))]
+fn py_write_table(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    df: PyArrowType<ArrowArrayStreamReader>,
+    path: String,
+    output_format: OutputFormat,
+    write_options: Option<WriteOptions>,
+) -> PyResult<u64> {
+    let PyArrowType(stream_reader) = df;
+    let schema = stream_reader.schema();
+    let temp_table_name = format!("_write_stream_{}", rand::random::<u32>());
+
+    py.allow_threads(move || {
+        let rt = Runtime::new().map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let ctx = &py_ctx.ctx;
+
+        // Register a streaming table backed directly by the Arrow C Stream.
+        // This avoids materializing all batches in Python and lets DataFusion
+        // pull data on demand without the GIL.
+        register_frame_from_arrow_stream(
+            py_ctx,
+            stream_reader,
+            schema.clone(),
+            temp_table_name.clone(),
+        );
+
+        rt.block_on(async {
+            let mut df = ctx
+                .table(&temp_table_name)
+                .await
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+            // Convert Utf8View columns to LargeUtf8 for bio format compatibility
+            // DataFusion-bio-formats doesn't support Utf8View yet
+            use datafusion::arrow::datatypes::DataType;
+            use datafusion::logical_expr::{Cast, Expr};
+            use datafusion::prelude::*;
+
+            let schema = df.schema().inner();
+            let mut select_exprs = Vec::new();
+
+            for field in schema.fields().iter() {
+                // Use qualified column name with proper quoting for special characters
+                // Format: table."column" to handle uppercase/special chars
+                let qualified_name = format!("{}.\"{}\"", temp_table_name, field.name());
+
+                if matches!(field.data_type(), DataType::Utf8View) {
+                    // Cast Utf8View to LargeUtf8 and remove table prefix
+                    let expr = Expr::Cast(Cast::new(
+                        Box::new(col(qualified_name)),
+                        DataType::LargeUtf8,
+                    ))
+                    .alias(field.name());
+                    select_exprs.push(expr);
+                } else {
+                    // Keep as-is but remove table prefix
+                    select_exprs.push(col(qualified_name).alias(field.name()));
+                }
+            }
+
+            // Always apply select to remove table prefix and cast types
+            df = df
+                .select(select_exprs)
+                .map_err(|e| PyValueError::new_err(format!("Failed to cast Utf8View: {}", e)))?;
+
+            let row_count = crate::write::write_table(ctx, df, &path, output_format, write_options)
+                .await
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+            ctx.deregister_table(&temp_table_name)
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+            Ok(row_count)
+        })
+    })
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -369,18 +568,25 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_sql, m)?)?;
+    m.add_function(wrap_pyfunction!(py_get_table_schema, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
+    m.add_function(wrap_pyfunction!(py_write_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_write_from_sql, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;
     m.add_class::<RangeOptions>()?;
     m.add_class::<InputFormat>()?;
+    m.add_class::<OutputFormat>()?;
     m.add_class::<ReadOptions>()?;
+    m.add_class::<WriteOptions>()?;
     m.add_class::<GffReadOptions>()?;
     m.add_class::<VcfReadOptions>()?;
+    m.add_class::<VcfWriteOptions>()?;
     m.add_class::<FastqReadOptions>()?;
+    m.add_class::<FastqWriteOptions>()?;
     m.add_class::<BamReadOptions>()?;
     m.add_class::<CramReadOptions>()?;
     m.add_class::<BedReadOptions>()?;

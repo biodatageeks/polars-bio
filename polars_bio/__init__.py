@@ -7,6 +7,12 @@ from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions
 
 from . import polars_ext  # registers pl.LazyFrame.pb namespace
+from ._metadata import (
+    get_metadata,
+    print_metadata_json,
+    print_metadata_summary,
+    set_source_metadata,
+)
 from .constants import (
     POLARS_BIO_COORDINATE_SYSTEM_CHECK,
     POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED,
@@ -67,6 +73,10 @@ scan_fastq = data_input.scan_fastq
 scan_gff = data_input.scan_gff
 scan_table = data_input.scan_table
 scan_vcf = data_input.scan_vcf
+write_vcf = data_input.write_vcf
+sink_vcf = data_input.sink_vcf
+write_fastq = data_input.write_fastq
+sink_fastq = data_input.sink_fastq
 
 overlap = range_operations.overlap
 nearest = range_operations.nearest
@@ -97,6 +107,11 @@ __all__ = [
     # Exceptions
     "CoordinateSystemMismatchError",
     "MissingCoordinateSystemError",
+    # Metadata functions
+    "get_metadata",
+    "set_source_metadata",
+    "print_metadata_json",
+    "print_metadata_summary",
     # I/O functions
     "describe_vcf",
     "from_polars",
@@ -116,6 +131,10 @@ __all__ = [
     "scan_gff",
     "scan_table",
     "scan_vcf",
+    "write_vcf",
+    "sink_vcf",
+    "write_fastq",
+    "sink_fastq",
     "register_gff",
     "register_vcf",
     "register_fastq",

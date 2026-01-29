@@ -8,15 +8,17 @@ logger.setLevel(logging.WARN)
 
 
 def set_loglevel(level: str):
-    """
-    Set the log level for the logger and root logger.
+    """Set the log level for the logger and root logger.
 
-    Parameters:
+    Args:
         level: The log level to set. Can be "debug", "info", "warn", or "warning".
 
     !!! note
-        Please note that the log level should be set as a **first** step after importing the library.
-        Once set it can be only **decreased**, not increased. In order to increase the log level, you need to restart the Python session.
+        The log level should be set as a **first** step after importing the library.
+        Once set it can be only **decreased**, not increased. In order to increase
+        the log level, you need to restart the Python session.
+
+        Example:
         ```python
         import polars_bio as pb
         pb.set_loglevel("info")

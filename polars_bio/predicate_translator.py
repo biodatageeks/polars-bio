@@ -52,13 +52,15 @@ def translate_polars_predicate_to_datafusion(predicate: pl.Expr):
         PredicateTranslationError: If predicate cannot be translated
 
     Examples:
-        >>> df_expr = translate_polars_predicate_to_datafusion(pl.col("chrom") == "chr1")
-        >>> datafusion_df.filter(df_expr)
+        ```python
+        df_expr = translate_polars_predicate_to_datafusion(pl.col("chrom") == "chr1")
+        datafusion_df.filter(df_expr)
 
-        >>> df_expr = translate_polars_predicate_to_datafusion(
-        ...     (pl.col("chrom") == "chr1") & (pl.col("start") > 100000)
-        ... )
-        >>> datafusion_df.filter(df_expr)
+        df_expr = translate_polars_predicate_to_datafusion(
+            (pl.col("chrom") == "chr1") & (pl.col("start") > 100000)
+        )
+        datafusion_df.filter(df_expr)
+        ```
     """
     try:
         return _translate_polars_expr(predicate)

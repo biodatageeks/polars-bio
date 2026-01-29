@@ -11,19 +11,25 @@ from polars_bio.polars_bio import (
     CramReadOptions,
     FastaReadOptions,
     FastqReadOptions,
+    FastqWriteOptions,
     GffReadOptions,
     InputFormat,
+    OutputFormat,
     PyObjectStorageOptions,
     ReadOptions,
     VcfReadOptions,
+    VcfWriteOptions,
+    WriteOptions,
     py_describe_vcf,
     py_from_polars,
+    py_get_table_schema,
     py_read_sql,
     py_read_table,
     py_register_table,
+    py_write_table,
 )
 
-from ._metadata import set_coordinate_system
+from ._metadata import get_vcf_metadata, set_coordinate_system, set_vcf_metadata
 from .context import _resolve_zero_based, ctx
 
 SCHEMAS = {
@@ -1130,11 +1136,238 @@ class IOOperations:
         )
         py_from_polars(ctx, name, reader)
 
+    @staticmethod
+    def write_vcf(
+        df: Union[pl.DataFrame, pl.LazyFrame],
+        path: str,
+    ) -> int:
+        """
+        Write a DataFrame to VCF format.
+
+        Coordinate system is automatically read from DataFrame metadata (set during
+        read_vcf). Compression is auto-detected from the file extension.
+
+        Parameters:
+            df: The DataFrame or LazyFrame to write.
+            path: The output file path. Compression is auto-detected from extension
+                  (.vcf.bgz for BGZF, .vcf.gz for GZIP, .vcf for uncompressed).
+
+        Returns:
+            The number of rows written.
+
+        !!! Example "Writing VCF files"
+            ```python
+            import polars_bio as pb
+
+            # Read a VCF file
+            df = pb.read_vcf("input.vcf")
+
+            # Write to uncompressed VCF
+            pb.write_vcf(df, "output.vcf")
+
+            # Write to BGZF-compressed VCF
+            pb.write_vcf(df, "output.vcf.bgz")
+
+            # Write to GZIP-compressed VCF
+            pb.write_vcf(df, "output.vcf.gz")
+            ```
+        """
+        return _write_file(df, path, OutputFormat.Vcf)
+
+    @staticmethod
+    def sink_vcf(
+        lf: pl.LazyFrame,
+        path: str,
+    ) -> None:
+        """
+        Streaming write a LazyFrame to VCF format.
+
+        This method executes the LazyFrame immediately and writes the results
+        to the specified path. Unlike `write_vcf`, it doesn't return the row count.
+
+        Coordinate system is automatically read from LazyFrame metadata (set during
+        scan_vcf). Compression is auto-detected from the file extension.
+
+        Parameters:
+            lf: The LazyFrame to write.
+            path: The output file path. Compression is auto-detected from extension
+                  (.vcf.bgz for BGZF, .vcf.gz for GZIP, .vcf for uncompressed).
+
+        !!! Example "Streaming write VCF"
+            ```python
+            import polars_bio as pb
+
+            # Lazy read and filter, then sink to VCF
+            lf = pb.scan_vcf("large_input.vcf").filter(pl.col("qual") > 30)
+            pb.sink_vcf(lf, "filtered_output.vcf.bgz")
+            ```
+        """
+        _write_file(lf, path, OutputFormat.Vcf)
+
+    @staticmethod
+    def write_fastq(
+        df: Union[pl.DataFrame, pl.LazyFrame],
+        path: str,
+    ) -> int:
+        """
+        Write a DataFrame to FASTQ format.
+
+        Compression is auto-detected from the file extension.
+
+        Parameters:
+            df: The DataFrame or LazyFrame to write. Must have columns:
+                - name: Read name/identifier
+                - sequence: DNA sequence
+                - quality_scores: Quality scores string
+                Optional: description (added after name on header line)
+            path: The output file path. Compression is auto-detected from extension
+                  (.fastq.bgz for BGZF, .fastq.gz for GZIP, .fastq for uncompressed).
+
+        Returns:
+            The number of rows written.
+
+        !!! Example "Writing FASTQ files"
+            ```python
+            import polars_bio as pb
+
+            # Read a FASTQ file
+            df = pb.read_fastq("input.fastq")
+
+            # Write to uncompressed FASTQ
+            pb.write_fastq(df, "output.fastq")
+
+            # Write to GZIP-compressed FASTQ
+            pb.write_fastq(df, "output.fastq.gz")
+            ```
+        """
+        return _write_file(df, path, OutputFormat.Fastq)
+
+    @staticmethod
+    def sink_fastq(
+        lf: pl.LazyFrame,
+        path: str,
+    ) -> None:
+        """
+        Streaming write a LazyFrame to FASTQ format.
+
+        Compression is auto-detected from the file extension.
+
+        Parameters:
+            lf: The LazyFrame to write.
+            path: The output file path. Compression is auto-detected from extension
+                  (.fastq.bgz for BGZF, .fastq.gz for GZIP, .fastq for uncompressed).
+
+        !!! Example "Streaming write FASTQ"
+            ```python
+            import polars_bio as pb
+
+            # Lazy read, filter by quality, then sink
+            lf = pb.scan_fastq("large_input.fastq.gz")
+            pb.sink_fastq(lf.limit(1000), "sample_output.fastq")
+            ```
+        """
+        _write_file(lf, path, OutputFormat.Fastq)
+
 
 def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
     if t is None:
         return None
     return [x.strip() for x in t]
+
+
+def _write_file(
+    df: Union[pl.DataFrame, pl.LazyFrame],
+    path: str,
+    output_format: OutputFormat,
+) -> int:
+    """
+    Internal helper to write DataFrame to a file with TRUE STREAMING.
+
+    This function now streams data directly from LazyFrame to file without
+    materializing the entire dataset in memory. This is critical for large files!
+
+    Coordinate system is read from DataFrame/LazyFrame metadata.
+    Compression is auto-detected from file extension.
+
+    Parameters:
+        df: The DataFrame or LazyFrame to write.
+        path: The output file path.
+        output_format: The output format (Vcf or Fastq).
+
+    Returns:
+        The number of rows written.
+    """
+    import json
+
+    from ._metadata import get_coordinate_system, get_metadata
+
+    # Get metadata WITHOUT collecting (works for both DataFrame and LazyFrame)
+    source_meta = None
+    vcf_header = None
+    zero_based = None
+
+    try:
+        source_meta = get_metadata(df)
+        if output_format == OutputFormat.Vcf:
+            vcf_header = source_meta.get("header") if source_meta else None
+    except (KeyError, AttributeError, TypeError):
+        pass
+
+    # Get coordinate system from metadata
+    try:
+        zero_based = get_coordinate_system(df)
+    except (KeyError, AttributeError, TypeError):
+        pass
+
+    if zero_based is None:
+        zero_based = _resolve_zero_based(None)
+
+    # Build write options based on format
+    if output_format == OutputFormat.Vcf:
+        # Extract VCF metadata from source_header
+        info_fields_json = None
+        format_fields_json = None
+        sample_names_json = None
+        if vcf_header:
+            if vcf_header.get("info_fields"):
+                info_fields_json = json.dumps(vcf_header["info_fields"])
+            if vcf_header.get("format_fields"):
+                format_fields_json = json.dumps(vcf_header["format_fields"])
+            if vcf_header.get("sample_names"):
+                sample_names_json = json.dumps(vcf_header["sample_names"])
+
+        vcf_opts = VcfWriteOptions(
+            zero_based=zero_based,
+            info_fields_metadata=info_fields_json,
+            format_fields_metadata=format_fields_json,
+            sample_names=sample_names_json,
+        )
+        write_options = WriteOptions(vcf_write_options=vcf_opts)
+    elif output_format == OutputFormat.Fastq:
+        fastq_opts = FastqWriteOptions()
+        write_options = WriteOptions(fastq_write_options=fastq_opts)
+    else:
+        write_options = None
+
+    # ✅ TRUE STREAMING: Use collect_batches pattern with Utf8View → LargeUtf8 conversion
+    # This works for filtered/transformed LazyFrames
+    # NOTE: Filtering currently materializes all data - predicate pushdown to DataFusion not yet implemented
+    if isinstance(df, pl.LazyFrame):
+        import pyarrow as pa
+        import pyarrow.compute as pc
+
+        # Get streaming batches from Polars
+        batches_iter = df.collect_batches(lazy=True, engine="streaming")
+        stream = batches_iter._inner
+
+        # We need to convert Utf8View to LargeUtf8 on the Rust side
+        # Pass the stream and let Rust handle the conversion
+        return py_write_table(ctx, stream, path, output_format, write_options)
+    else:
+        # Already a DataFrame
+        arrow_table = df.to_arrow()
+        reader = arrow_table.to_reader()
+        return py_write_table(ctx, reader, path, output_format, write_options)
 
 
 def _apply_combined_pushdown_via_sql(
@@ -1282,7 +1515,7 @@ def _build_sql_where_from_predicate_safe(predicate):
 
 
 def _lazy_scan(
-    df: Union[pl.DataFrame, pl.LazyFrame],
+    schema_or_df,  # Either: PyArrow schema (from py_get_table_schema) or DataFusion DataFrame (from py_read_sql for SQL path)
     projection_pushdown: bool = False,
     predicate_pushdown: bool = False,
     table_name: str = None,
@@ -1291,8 +1524,40 @@ def _lazy_scan(
     read_options: ReadOptions = None,
 ) -> pl.LazyFrame:
 
-    df_lazy: DataFrame = df
-    original_schema = df_lazy.schema()
+    # Handle both PyArrow schema (new streaming path) and DataFusion DataFrame (old SQL path)
+    import pyarrow as pa
+
+    df_for_stream = None  # Used for SQL path
+
+    # Check if it's a DataFusion DataFrame by checking for schema() method
+    # We use hasattr because there are multiple DataFrame classes in datafusion package
+    is_datafusion_df = hasattr(schema_or_df, "schema") and hasattr(
+        schema_or_df, "execute_stream"
+    )
+
+    if isinstance(schema_or_df, pa.Schema):
+        # PyArrow schema (from py_get_table_schema or df.schema())
+        # Convert to Polars schema dict for register_io_source
+        empty_table = pa.table(
+            {field.name: pa.array([], type=field.type) for field in schema_or_df}
+        )
+        temp_df = pl.from_arrow(empty_table)
+        original_schema = dict(temp_df.schema)  # Convert to dict for register_io_source
+    elif is_datafusion_df:
+        # DataFusion DataFrame from py_read_sql (sql() function)
+        # Extract PyArrow schema and convert to Polars schema dict
+        df_for_stream = schema_or_df
+        pa_schema = schema_or_df.schema()
+        empty_table = pa.table(
+            {field.name: pa.array([], type=field.type) for field in pa_schema}
+        )
+        temp_df = pl.from_arrow(empty_table)
+        original_schema = dict(temp_df.schema)  # Convert to dict for register_io_source
+    else:
+        # Fallback: already a Polars schema
+        original_schema = (
+            dict(schema_or_df) if not isinstance(schema_or_df, dict) else schema_or_df
+        )
 
     def _overlap_source(
         with_columns: Union[pl.Expr, None],
@@ -1300,18 +1565,20 @@ def _lazy_scan(
         n_rows: Union[int, None],
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
+        # Import here to ensure availability in all code paths
+        from polars_bio.polars_bio import py_read_sql
+
+        from .context import ctx as _ctx
+
         # If this is a GFF scan, perform pushdown by building a single SELECT ... WHERE ...
         if input_format == InputFormat.Gff and file_path is not None:
             from polars_bio.polars_bio import GffReadOptions, PyObjectStorageOptions
             from polars_bio.polars_bio import ReadOptions as _ReadOptions
             from polars_bio.polars_bio import (
-                py_read_sql,
                 py_read_table,
                 py_register_table,
                 py_register_view,
             )
-
-            from .context import ctx
 
             # Extract columns requested by Polars optimizer
             requested_cols = (
@@ -1389,7 +1656,7 @@ def _lazy_scan(
             if projection_pushdown and requested_cols:
                 # Only re-register when projection is active (we know column needs)
                 table_obj = py_register_table(
-                    ctx, file_path, None, InputFormat.Gff, ropts
+                    _ctx, file_path, None, InputFormat.Gff, ropts
                 )
                 table_name_use = table_obj.name
 
@@ -1413,7 +1680,7 @@ def _lazy_scan(
             if n_rows and n_rows > 0:
                 sql += f" LIMIT {int(n_rows)}"
 
-            query_df = py_read_sql(ctx, sql)
+            query_df = py_read_sql(_ctx, sql)
 
             # Stream results, applying any non-pushed operations locally
             df_stream = query_df.execute_stream()
@@ -1435,8 +1702,17 @@ def _lazy_scan(
                 yield out
             return
 
-        # Default path (non-GFF): stream and optionally apply local filter/projection
-        query_df = df_lazy
+        # Default path (non-GFF): stream from table or DataFrame
+        if df_for_stream is not None:
+            # SQL path: use the DataFrame directly
+            query_df = df_for_stream
+        else:
+            # Scan path: build SQL query for the registered table
+            sql = f"SELECT * FROM {table_name}"
+            if n_rows and n_rows > 0:
+                sql += f" LIMIT {int(n_rows)}"
+            query_df = py_read_sql(_ctx, sql)
+
         df_stream = query_df.execute_stream()
         progress_bar = tqdm(unit="rows")
         remaining = int(n_rows) if n_rows is not None else None
@@ -1494,6 +1770,166 @@ def _extract_column_names_from_expr(with_columns: Union[pl.Expr, list]) -> "List
     return []
 
 
+def _extract_vcf_metadata_from_schema(schema) -> dict:
+    """Extract VCF field metadata from a PyArrow schema.
+
+    This extracts the VCF-specific metadata (vcf_number, vcf_type, vcf_description)
+    from Arrow field metadata and organizes it for storage in Polars config_meta.
+
+    Args:
+        schema: PyArrow schema with VCF field metadata
+
+    Returns:
+        Dict with 'info_fields', 'format_fields', and 'sample_names'
+    """
+    info_fields = {}
+    format_fields = {}
+    sample_names = []
+    seen_samples = set()
+
+    for field in schema:
+        if not field.metadata:
+            continue
+
+        # Decode bytes to strings
+        metadata = {
+            k.decode("utf-8") if isinstance(k, bytes) else k: (
+                v.decode("utf-8") if isinstance(v, bytes) else v
+            )
+            for k, v in field.metadata.items()
+        }
+
+        field_type = metadata.get("vcf_field_type")
+        if field_type == "INFO":
+            info_fields[field.name] = {
+                "number": metadata.get("vcf_number", "."),
+                "type": metadata.get("vcf_type", "String"),
+                "description": metadata.get("vcf_description", ""),
+            }
+        elif field_type == "FORMAT":
+            format_id = metadata.get("vcf_format_id", field.name)
+            if format_id not in format_fields:
+                format_fields[format_id] = {
+                    "number": metadata.get("vcf_number", "1"),
+                    "type": metadata.get("vcf_type", "String"),
+                    "description": metadata.get("vcf_description", ""),
+                }
+
+            # Extract sample name from column name pattern: {sample}_{format}
+            if field.name.endswith(f"_{format_id}"):
+                sample = field.name[: -len(format_id) - 1]
+                if sample and sample not in seen_samples:
+                    seen_samples.add(sample)
+                    sample_names.append(sample)
+
+    # Handle single-sample VCFs where column name equals format_id (no sample prefix)
+    # In this case, we infer the sample name. The bio-formats library uses a default
+    # single sample name, so we check if any FORMAT fields exist without sample prefixes.
+    if format_fields and not sample_names:
+        # Check if any FORMAT column name matches a format_id directly
+        format_ids = set(format_fields.keys())
+        for field in schema:
+            if field.name in format_ids:
+                # Single-sample VCF detected - use "sample" as default name
+                sample_names = ["sample"]
+                break
+
+    return {
+        "info_fields": info_fields if info_fields else None,
+        "format_fields": format_fields if format_fields else None,
+        "sample_names": sample_names if sample_names else None,
+    }
+
+
+def _extract_vcf_header_extras(schema) -> dict:
+    """Extract VCF schema-level metadata from Arrow schema.
+
+    Based on datafusion-bio-formats PR #47 naming convention: bio.vcf.*
+    Extracts schema-level metadata that provides provenance and validation info.
+
+    Args:
+        schema: PyArrow schema with VCF schema-level metadata
+
+    Returns:
+        Dict with optional keys:
+        - "version": VCF version (e.g., "VCFv4.2")
+        - "contigs": List of contig definitions
+        - "filters": List of filter definitions
+        - "alt_definitions": List of ALT allele definitions
+
+    Schema-level metadata keys (from datafusion-bio-formats):
+        - bio.vcf.file_format: VCF version string
+        - bio.vcf.contigs: JSON array of ContigMetadata
+        - bio.vcf.filters: JSON array of FilterMetadata
+        - bio.vcf.alternative_alleles: JSON array of AltAlleleMetadata
+        - bio.vcf.samples: JSON array of sample names (redundant with column-based extraction)
+    """
+    import json
+
+    extras = {}
+    schema_meta = schema.metadata or {}
+
+    # Helper to safely decode bytes or string keys
+    def get_meta(key: str):
+        # Try string key first, then bytes
+        value = schema_meta.get(key) or schema_meta.get(key.encode())
+        if isinstance(value, bytes):
+            return value.decode("utf-8")
+        return value
+
+    # Extract version (plain string)
+    version = get_meta("bio.vcf.file_format")
+    if version:
+        extras["version"] = version
+
+    # Extract JSON-encoded schema-level metadata
+    json_fields = [
+        ("bio.vcf.contigs", "contigs"),
+        ("bio.vcf.filters", "filters"),
+        ("bio.vcf.alternative_alleles", "alt_definitions"),
+    ]
+
+    for key, target_key in json_fields:
+        value = get_meta(key)
+        if value:
+            try:
+                extras[target_key] = json.loads(value)
+            except json.JSONDecodeError:
+                # Silently skip malformed JSON
+                pass
+
+    return extras
+
+
+def _format_to_string(input_format: InputFormat) -> str:
+    """Convert InputFormat enum to string identifier for metadata storage.
+
+    Args:
+        input_format: InputFormat enum value
+
+    Returns:
+        String identifier (e.g., "vcf", "fastq", "bam")
+    """
+    # Use string comparison since InputFormat is not hashable
+    format_str = str(input_format)
+    if "Vcf" in format_str:
+        return "vcf"
+    elif "Bam" in format_str:
+        return "bam"
+    elif "Cram" in format_str:
+        return "cram"
+    elif "Fastq" in format_str:
+        return "fastq"
+    elif "Fasta" in format_str:
+        return "fasta"
+    elif "Gff" in format_str:
+        return "gff"
+    elif "Bed" in format_str:
+        return "bed"
+    else:
+        return "unknown"
+
+
 def _read_file(
     path: str,
     input_format: InputFormat,
@@ -1503,10 +1939,45 @@ def _read_file(
     zero_based: bool = True,
 ) -> pl.LazyFrame:
     table = py_register_table(ctx, path, None, input_format, read_options)
-    df = py_read_table(ctx, table.name)
+
+    # Get schema WITHOUT materializing data - critical for large files!
+    schema = py_get_table_schema(ctx, table.name)
+
+    # Extract ALL metadata from schema (works for all formats!)
+    from polars_bio.metadata_extractors import extract_all_schema_metadata
+
+    full_metadata = extract_all_schema_metadata(schema)
+
+    # Build format-specific header metadata for backward compatibility
+    header_metadata = None
+    format_str = _format_to_string(input_format)
+
+    # Extract format-specific metadata from the comprehensive extraction
+    format_specific = full_metadata.get("format_specific", {})
+
+    if format_str in format_specific:
+        # Use the parsed format-specific metadata
+        if format_str == "vcf":
+            vcf_meta = format_specific["vcf"]
+            header_metadata = {
+                "info_fields": vcf_meta.get("info_fields"),
+                "format_fields": vcf_meta.get("format_fields"),
+                "sample_names": vcf_meta.get("sample_names"),
+                "version": vcf_meta.get("version"),
+                "contigs": vcf_meta.get("contigs"),
+                "filters": vcf_meta.get("filters"),
+                "alt_definitions": vcf_meta.get("alt_definitions"),
+            }
+        elif format_str in ["fastq", "bam", "gff", "fasta", "bed", "cram"]:
+            # For other formats, include their specific metadata
+            header_metadata = format_specific.get(format_str, {})
+
+    # Note: We don't store _full_metadata to avoid duplication
+    # All relevant metadata is already parsed into user-friendly fields
+    # (info_fields, format_fields, sample_names, version, etc.)
 
     lf = _lazy_scan(
-        df,
+        schema,
         projection_pushdown,
         predicate_pushdown,
         table.name,
@@ -1517,6 +1988,18 @@ def _read_file(
 
     # Set coordinate system metadata
     set_coordinate_system(lf, zero_based)
+
+    # Set source metadata (replaces old VCF-specific metadata setting)
+    from polars_bio._metadata import set_source_metadata
+
+    format_str = _format_to_string(input_format)
+
+    # Store DataFusion table name for debugging
+    if header_metadata is None:
+        header_metadata = {}
+    header_metadata["_datafusion_table_name"] = table.name
+
+    set_source_metadata(lf, format=format_str, path=path, header=header_metadata)
 
     # Wrap GFF LazyFrames with projection-aware wrapper for consistent attribute field handling
     if input_format == InputFormat.Gff:
