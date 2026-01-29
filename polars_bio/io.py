@@ -526,6 +526,7 @@ class IOOperations:
     @staticmethod
     def read_bam(
         path: str,
+        tag_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -541,6 +542,7 @@ class IOOperations:
 
         Parameters:
             path: The path to the BAM file.
+            tag_fields: List of BAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
             thread_num: The number of threads to use for reading the BAM file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large-scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large-scale operations, it is recommended to increase this value to 8 or even more.
@@ -556,6 +558,7 @@ class IOOperations:
         """
         lf = IOOperations.scan_bam(
             path,
+            tag_fields,
             thread_num,
             chunk_size,
             concurrent_fetches,
@@ -577,6 +580,7 @@ class IOOperations:
     @staticmethod
     def scan_bam(
         path: str,
+        tag_fields: Union[list[str], None] = None,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -592,6 +596,7 @@ class IOOperations:
 
         Parameters:
             path: The path to the BAM file.
+            tag_fields: List of BAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
             thread_num: The number of threads to use for reading the BAM file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -620,6 +625,7 @@ class IOOperations:
             thread_num=thread_num,
             object_storage_options=object_storage_options,
             zero_based=zero_based,
+            tag_fields=tag_fields,
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
         return _read_file(
@@ -634,6 +640,7 @@ class IOOperations:
     def read_cram(
         path: str,
         reference_path: str = None,
+        tag_fields: Union[list[str], None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -649,6 +656,7 @@ class IOOperations:
         Parameters:
             path: The path to the CRAM file (local or cloud storage: S3, GCS, Azure Blob).
             reference_path: Optional path to external FASTA reference file (**local path only**, cloud storage not supported). If not provided, the CRAM file must contain embedded reference sequences. The FASTA file must have an accompanying index file (.fai) in the same directory. Create the index using: `samtools faidx reference.fasta`
+            tag_fields: List of CRAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -718,6 +726,7 @@ class IOOperations:
         lf = IOOperations.scan_cram(
             path,
             reference_path,
+            tag_fields,
             chunk_size,
             concurrent_fetches,
             allow_anonymous,
@@ -739,6 +748,7 @@ class IOOperations:
     def scan_cram(
         path: str,
         reference_path: str = None,
+        tag_fields: Union[list[str], None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -754,6 +764,7 @@ class IOOperations:
         Parameters:
             path: The path to the CRAM file (local or cloud storage: S3, GCS, Azure Blob).
             reference_path: Optional path to external FASTA reference file (**local path only**, cloud storage not supported). If not provided, the CRAM file must contain embedded reference sequences. The FASTA file must have an accompanying index file (.fai) in the same directory. Create the index using: `samtools faidx reference.fasta`
+            tag_fields: List of CRAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -843,6 +854,7 @@ class IOOperations:
             reference_path=reference_path,
             object_storage_options=object_storage_options,
             zero_based=zero_based,
+            tag_fields=tag_fields,
         )
         read_options = ReadOptions(cram_read_options=cram_read_options)
         return _read_file(

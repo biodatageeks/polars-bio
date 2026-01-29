@@ -434,6 +434,7 @@ pub(crate) async fn register_table(
                 bam_read_options.thread_num,
                 bam_read_options.object_storage_options.clone(),
                 bam_read_options.zero_based,
+                bam_read_options.tag_fields.clone(),
             )
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
@@ -504,6 +505,10 @@ pub(crate) async fn register_table(
                 cram_read_options.zero_based,
             )
             .unwrap();
+            // TODO: Add tag_fields support for CRAM once implemented in datafusion-bio-formats
+            if cram_read_options.tag_fields.is_some() {
+                log::warn!("CRAM tag_fields parameter is not yet supported and will be ignored");
+            }
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register CRAM table");
         },

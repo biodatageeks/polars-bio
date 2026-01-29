@@ -85,6 +85,46 @@ class TestIOBAM:
         assert projection["name"][2] == "20FUKAAXX100202:1:22:19822:80281"
         assert projection["flags"][3] == 1123
 
+    def test_bam_no_tags_default(self):
+        """Test backward compatibility - no tags by default"""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        assert len(df.columns) == 11  # Original columns only
+        assert "NM" not in df.columns
+        assert "AS" not in df.columns
+        assert "MD" not in df.columns
+
+    def test_bam_single_tag(self):
+        """Test reading a single BAM tag"""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam", tag_fields=["NM"])
+        assert "NM" in df.columns
+        assert len(df.columns) == 12  # 11 original + 1 tag
+
+    def test_bam_multiple_tags(self):
+        """Test reading multiple BAM tags"""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam", tag_fields=["NM", "AS", "MD"])
+        assert "NM" in df.columns
+        assert "AS" in df.columns
+        assert "MD" in df.columns
+        assert len(df.columns) == 14  # 11 original + 3 tags
+
+    def test_bam_scan_with_tags(self):
+        """Test lazy scan with tags and filtering"""
+        lf = pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam", tag_fields=["NM", "AS"])
+        df = lf.select(["name", "chrom", "NM", "AS"]).collect()
+        assert "NM" in df.columns
+        assert "AS" in df.columns
+        assert len(df.columns) == 4
+
+    def test_bam_sql_with_tags(self):
+        """Test SQL queries with tags"""
+        pb.register_bam(
+            f"{DATA_DIR}/io/bam/test.bam", "test_tags", tag_fields=["NM", "AS"]
+        )
+        result = pb.sql('SELECT name, "NM", "AS" FROM test_tags LIMIT 5').collect()
+        assert "NM" in result.columns
+        assert "AS" in result.columns
+        assert len(result) == 5
+
 
 class TestIOCRAM:
     # Test with embedded reference (default)
@@ -148,6 +188,53 @@ class TestIOCRAM:
         assert df["name"][0] == "SRR622461.74266137"
         assert df["start"][0] == 59993  # 1-based (default)
         assert df["mapping_quality"][0] == 29
+
+    def test_cram_no_tags_default(self):
+        """Test backward compatibility - no tags by default"""
+        df = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram")
+        assert len(df.columns) == 11  # Original columns only
+        assert "NM" not in df.columns
+        assert "AS" not in df.columns
+
+    def test_cram_single_tag(self):
+        """Test that CRAM tag_fields parameter is accepted but ignored (not yet supported)"""
+        df = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram", tag_fields=["NM"])
+        # CRAM tag support not yet implemented - tags should be ignored
+        assert "NM" not in df.columns
+        assert len(df.columns) == 11  # Original columns only
+
+    def test_cram_multiple_tags(self):
+        """Test that multiple CRAM tags are accepted but ignored (not yet supported)"""
+        df = pb.read_cram(
+            f"{DATA_DIR}/io/cram/test.cram", tag_fields=["NM", "AS", "MD"]
+        )
+        # CRAM tag support not yet implemented - tags should be ignored
+        assert "NM" not in df.columns
+        assert "AS" not in df.columns
+        assert "MD" not in df.columns
+        assert len(df.columns) == 11  # Original columns only
+
+    def test_cram_scan_with_tags(self):
+        """Test that lazy scan with CRAM tags is accepted but ignored (not yet supported)"""
+        lf = pb.scan_cram(f"{DATA_DIR}/io/cram/test.cram", tag_fields=["NM", "AS"])
+        # CRAM tag support not yet implemented - should only have standard columns
+        df = lf.select(["name", "chrom", "start"]).collect()
+        assert "NM" not in df.columns
+        assert "AS" not in df.columns
+        assert len(df.columns) == 3
+
+    def test_cram_sql_with_tags(self):
+        """Test that SQL registration with CRAM tags is accepted but ignored (not yet supported)"""
+        pb.register_cram(
+            f"{DATA_DIR}/io/cram/test.cram",
+            "test_cram_tags_sql",
+            tag_fields=["NM", "AS"],
+        )
+        # CRAM tag support not yet implemented - should only have standard columns
+        result = pb.sql("SELECT name, chrom FROM test_cram_tags_sql LIMIT 5").collect()
+        assert "NM" not in result.columns
+        assert "AS" not in result.columns
+        assert len(result) == 5
 
 
 class TestIOBED:

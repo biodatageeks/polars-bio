@@ -572,6 +572,53 @@ result = df.filter(df["chrom"] == "chr1").collect()
     2. Using the DataFusion DataFrame API directly
     3. Integrating with other DataFusion-based tools
 
+### BAM Optional Tags
+
+polars-bio supports reading BAM optional alignment tags as individual columns. Tags are only parsed when explicitly requested, ensuring zero overhead for standard reads.
+
+> **Note**: CRAM tag support is planned for a future release. The `tag_fields` parameter is accepted for CRAM functions but currently ignored with a warning.
+
+#### Usage
+
+```python
+import polars_bio as pb
+
+# Read BAM with specific tags
+df = pb.read_bam(
+    "alignments.bam",
+    tag_fields=["NM", "AS", "MD"]  # Edit distance, alignment score, mismatch string
+)
+
+# Tags appear as regular columns
+print(df.select(["name", "chrom", "NM", "AS"]))
+
+# Lazy scan with tag filtering
+lf = pb.scan_bam("alignments.bam", tag_fields=["NM", "AS"])
+high_quality = lf.filter((pl.col("NM") <= 2) & (pl.col("AS") >= 100)).collect()
+
+# SQL queries (tags must be quoted)
+pb.register_bam("alignments.bam", "reads", tag_fields=["NM", "RG"])
+result = pb.sql('SELECT name, "NM" FROM reads WHERE "NM" <= 2').collect()
+```
+
+#### Common Tags
+
+- **NM** (Int32): Edit distance to reference
+- **MD** (Utf8): Mismatch positions string
+- **AS** (Int32): Alignment score
+- **XS** (Int32): Secondary alignment score
+- **RG** (Utf8): Read group identifier
+- **CB** (Utf8): Cell barcode (single-cell)
+- **UB** (Utf8): UMI barcode (single-cell)
+
+Full registry includes ~40 common SAM tags.
+
+#### Performance
+
+- Zero overhead when `tag_fields=None` (default)
+- Projection pushdown: only selected tags are parsed
+- Tags parsed once per batch, not per record
+
 ```shell
 shape: (3, 10)
 ┌───────┬───────┬───────┬────────────────────────────────┬───┬───────┬────────────┬────────┬───────┐
