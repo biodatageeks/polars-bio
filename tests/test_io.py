@@ -125,6 +125,37 @@ class TestIOBAM:
         assert "AS" in result.columns
         assert len(result) == 5
 
+    def test_describe_bam_no_tags(self):
+        """Test describe_bam without tags"""
+        schema = pb.describe_bam(f"{DATA_DIR}/io/bam/test.bam")
+        assert "column" in schema.columns
+        assert "datatype" in schema.columns
+        assert len(schema) == 11  # 11 standard columns
+        assert "name" in schema["column"].to_list()
+        assert "chrom" in schema["column"].to_list()
+        assert "String" in schema["datatype"].to_list()
+
+    def test_describe_bam_with_tags(self):
+        """Test describe_bam with tags"""
+        schema = pb.describe_bam(
+            f"{DATA_DIR}/io/bam/test.bam", tag_fields=["NM", "AS", "MD"]
+        )
+        assert "column" in schema.columns
+        assert "datatype" in schema.columns
+        assert len(schema) == 14  # 11 standard + 3 tag columns
+        columns = schema["column"].to_list()
+        datatypes = schema["datatype"].to_list()
+        assert "NM" in columns
+        assert "AS" in columns
+        assert "MD" in columns
+        # Check that NM and AS are Int32
+        nm_idx = columns.index("NM")
+        as_idx = columns.index("AS")
+        md_idx = columns.index("MD")
+        assert datatypes[nm_idx] == "Int32"
+        assert datatypes[as_idx] == "Int32"
+        assert datatypes[md_idx] == "String"
+
 
 class TestIOCRAM:
     # Test with embedded reference (default)
@@ -235,6 +266,29 @@ class TestIOCRAM:
         assert "NM" not in result.columns
         assert "AS" not in result.columns
         assert len(result) == 5
+
+    def test_describe_cram_no_tags(self):
+        """Test describe_cram without tags"""
+        schema = pb.describe_cram(f"{DATA_DIR}/io/cram/test.cram")
+        assert "column" in schema.columns
+        assert "datatype" in schema.columns
+        assert len(schema) == 11  # 11 standard columns
+        assert "name" in schema["column"].to_list()
+        assert "chrom" in schema["column"].to_list()
+        assert "String" in schema["datatype"].to_list()
+
+    def test_describe_cram_with_tags(self):
+        """Test describe_cram with tags (currently ignored)"""
+        schema = pb.describe_cram(
+            f"{DATA_DIR}/io/cram/test.cram", tag_fields=["NM", "AS"]
+        )
+        assert "column" in schema.columns
+        assert "datatype" in schema.columns
+        # CRAM tag support not yet implemented - should only show standard columns
+        assert len(schema) == 11  # 11 standard columns only
+        columns = schema["column"].to_list()
+        assert "NM" not in columns
+        assert "AS" not in columns
 
 
 class TestIOBED:

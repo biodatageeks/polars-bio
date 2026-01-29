@@ -572,6 +572,35 @@ result = df.filter(df["chrom"] == "chr1").collect()
     2. Using the DataFusion DataFrame API directly
     3. Integrating with other DataFusion-based tools
 
+### Schema Inspection
+
+Quickly inspect BAM/CRAM file schemas without reading the entire file:
+
+```python
+import polars_bio as pb
+
+# Get schema information for BAM file
+schema = pb.describe_bam("file.bam")
+print(schema)
+# shape: (11, 2)
+# ┌─────────────────┬──────────┐
+# │ column          ┆ datatype │
+# │ ---             ┆ ---      │
+# │ str             ┆ str      │
+# ╞═════════════════╪══════════╡
+# │ name            ┆ String   │
+# │ chrom           ┆ String   │
+# │ start           ┆ UInt32   │
+# ...
+
+# Include tag columns in schema
+schema = pb.describe_bam("file.bam", tag_fields=["NM", "AS", "MD"])
+print(schema)  # Shows 14 columns including tags
+
+# CRAM schema
+schema = pb.describe_cram("file.cram")
+```
+
 ### BAM Optional Tags
 
 polars-bio supports reading BAM optional alignment tags as individual columns. Tags are only parsed when explicitly requested, ensuring zero overhead for standard reads.

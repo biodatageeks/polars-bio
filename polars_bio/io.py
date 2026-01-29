@@ -866,6 +866,156 @@ class IOOperations:
         )
 
     @staticmethod
+    def describe_bam(
+        path: str,
+        tag_fields: Union[list[str], None] = None,
+        thread_num: int = 1,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Get schema information for a BAM file by reading the first row.
+
+        Returns a DataFrame with column names and their data types.
+
+        Parameters:
+            path: The path to the BAM file.
+            tag_fields: List of BAM tag names to include in schema (e.g., ["NM", "MD", "AS"]).
+            thread_num: The number of threads to use for reading.
+            chunk_size: The size in MB of a chunk when reading from object storage.
+            concurrent_fetches: The number of concurrent fetches when reading from object storage.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            max_retries: The maximum number of retries for reading the file.
+            timeout: The timeout in seconds for reading the file.
+            use_zero_based: If True, output 0-based coordinates. If False, 1-based coordinates.
+
+        Returns:
+            DataFrame with columns: "column" (str) and "datatype" (str)
+
+        Example:
+            >>> import polars_bio as pb
+            >>> schema = pb.describe_bam("file.bam", tag_fields=["NM", "AS"])
+            >>> print(schema)
+            shape: (13, 2)
+            ┌──────────────────┬──────────┐
+            │ column           ┆ datatype │
+            │ ---              ┆ ---      │
+            │ str              ┆ str      │
+            ╞══════════════════╪══════════╡
+            │ name             ┆ String   │
+            │ chrom            ┆ String   │
+            │ ...              ┆ ...      │
+            │ NM               ┆ Int32    │
+            │ AS               ┆ Int32    │
+            └──────────────────┴──────────┘
+        """
+        # Read just the first row to get schema
+        lf = IOOperations.scan_bam(
+            path,
+            tag_fields,
+            thread_num,
+            chunk_size,
+            concurrent_fetches,
+            allow_anonymous,
+            enable_request_payer,
+            max_retries,
+            timeout,
+            False,  # projection_pushdown
+            use_zero_based,
+        )
+
+        # Get schema from the lazy frame
+        df_sample = lf.limit(1).collect()
+
+        # Create schema DataFrame
+        schema_data = {
+            "column": list(df_sample.columns),
+            "datatype": [str(dtype) for dtype in df_sample.dtypes],
+        }
+
+        return pl.DataFrame(schema_data)
+
+    @staticmethod
+    def describe_cram(
+        path: str,
+        reference_path: str = None,
+        tag_fields: Union[list[str], None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Get schema information for a CRAM file by reading the first row.
+
+        Returns a DataFrame with column names and their data types.
+
+        Parameters:
+            path: The path to the CRAM file.
+            reference_path: Optional path to external FASTA reference file.
+            tag_fields: List of CRAM tag names to include in schema (currently not supported).
+            chunk_size: The size in MB of a chunk when reading from object storage.
+            concurrent_fetches: The number of concurrent fetches when reading from object storage.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            max_retries: The maximum number of retries for reading the file.
+            timeout: The timeout in seconds for reading the file.
+            use_zero_based: If True, output 0-based coordinates. If False, 1-based coordinates.
+
+        Returns:
+            DataFrame with columns: "column" (str) and "datatype" (str)
+
+        Example:
+            >>> import polars_bio as pb
+            >>> schema = pb.describe_cram("file.cram")
+            >>> print(schema)
+            shape: (11, 2)
+            ┌──────────────────┬──────────┐
+            │ column           ┆ datatype │
+            │ ---              ┆ ---      │
+            │ str              ┆ str      │
+            ╞══════════════════╪══════════╡
+            │ name             ┆ String   │
+            │ chrom            ┆ String   │
+            │ ...              ┆ ...      │
+            └──────────────────┴──────────┘
+        """
+        # Read just the first row to get schema
+        lf = IOOperations.scan_cram(
+            path,
+            reference_path,
+            tag_fields,
+            chunk_size,
+            concurrent_fetches,
+            allow_anonymous,
+            enable_request_payer,
+            max_retries,
+            timeout,
+            False,  # projection_pushdown
+            use_zero_based,
+        )
+
+        # Get schema from the lazy frame
+        df_sample = lf.limit(1).collect()
+
+        # Create schema DataFrame
+        schema_data = {
+            "column": list(df_sample.columns),
+            "datatype": [str(dtype) for dtype in df_sample.dtypes],
+        }
+
+        return pl.DataFrame(schema_data)
+
+    @staticmethod
     def read_fastq(
         path: str,
         chunk_size: int = 8,
