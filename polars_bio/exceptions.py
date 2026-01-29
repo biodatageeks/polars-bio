@@ -9,9 +9,11 @@ class CoordinateSystemMismatchError(Exception):
     coordinates.
 
     Example:
-        >>> df1 = pb.scan_vcf("file1.vcf", one_based=False)  # 0-based
-        >>> df2 = pb.scan_vcf("file2.vcf", one_based=True)   # 1-based
-        >>> pb.overlap(df1, df2)  # Raises CoordinateSystemMismatchError
+        ```python
+        df1 = pb.scan_vcf("file1.vcf", one_based=False)  # 0-based
+        df2 = pb.scan_vcf("file2.vcf", one_based=True)   # 1-based
+        pb.overlap(df1, df2)  # Raises CoordinateSystemMismatchError
+        ```
     """
 
     pass
@@ -31,17 +33,22 @@ class MissingCoordinateSystemError(Exception):
     automatically set the metadata.
 
     For Pandas DataFrames, set the attribute before passing to range operations:
-        >>> df.attrs["coordinate_system_zero_based"] = True  # 0-based coords
+        ```python
+        df.attrs["coordinate_system_zero_based"] = True  # 0-based coords
+        ```
 
     Example:
-        >>> import pandas as pd
-        >>> import polars_bio as pb
-        >>> pdf = pd.read_csv("intervals.bed", sep="\\t", names=["chrom", "start", "end"])
-        >>> pb.overlap(pdf, pdf)  # Raises MissingCoordinateSystemError
-        >>>
-        >>> # Fix: set the coordinate system metadata
-        >>> pdf.attrs["coordinate_system_zero_based"] = True
-        >>> pb.overlap(pdf, pdf)  # Works correctly
+        ```python
+        import pandas as pd
+        import polars_bio as pb
+
+        pdf = pd.read_csv("intervals.bed", sep="\t", names=["chrom", "start", "end"])
+        pb.overlap(pdf, pdf)  # Raises MissingCoordinateSystemError
+
+        # Fix: set the coordinate system metadata
+        pdf.attrs["coordinate_system_zero_based"] = True
+        pb.overlap(pdf, pdf)  # Works correctly
+        ```
     """
 
     pass

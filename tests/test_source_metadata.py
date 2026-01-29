@@ -7,8 +7,9 @@ import pytest
 
 import polars_bio as pb
 
-# Import from public API (also available as pb.get_source_metadata, pb.set_source_metadata)
-from polars_bio import get_source_metadata, set_source_metadata
+# Import from public API (also available as pb.get_metadata, pb.set_source_metadata)
+from polars_bio import get_metadata as get_source_metadata
+from polars_bio import set_source_metadata
 
 TEST_DIR = Path(__file__).parent
 DATA_DIR = TEST_DIR / "data"

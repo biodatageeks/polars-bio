@@ -7,7 +7,12 @@ from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions
 
 from . import polars_ext  # registers pl.LazyFrame.pb namespace
-from ._metadata import get_source_metadata, set_source_metadata
+from ._metadata import (
+    get_metadata,
+    print_metadata_json,
+    print_metadata_summary,
+    set_source_metadata,
+)
 from .constants import (
     POLARS_BIO_COORDINATE_SYSTEM_CHECK,
     POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED,
@@ -103,8 +108,10 @@ __all__ = [
     "CoordinateSystemMismatchError",
     "MissingCoordinateSystemError",
     # Metadata functions
-    "get_source_metadata",
+    "get_metadata",
     "set_source_metadata",
+    "print_metadata_json",
+    "print_metadata_summary",
     # I/O functions
     "describe_vcf",
     "from_polars",

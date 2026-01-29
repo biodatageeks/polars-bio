@@ -295,6 +295,65 @@ fn py_read_table(
     })
 }
 
+/// Get the schema of a registered table without materializing data.
+///
+/// This function extracts the Arrow schema from a table registered in DataFusion
+/// without executing any queries or reading data. It enables metadata extraction
+/// from file-backed tables (VCF, FASTQ, etc.) without loading the entire file
+/// into memory, which is critical for large genomics files.
+///
+/// # Arguments
+/// * `py_ctx` - The PyBioSessionContext containing the DataFusion context
+/// * `table_name` - Name of the registered table
+///
+/// # Returns
+/// PyArrow schema with all field metadata preserved
+///
+/// # Example
+/// ```python
+/// from polars_bio.polars_bio import py_register_table, py_get_table_schema
+/// from polars_bio.context import ctx
+///
+/// # Register VCF table (no data read yet)
+/// table = py_register_table(ctx, "large.vcf", None, InputFormat.Vcf, None)
+///
+/// # Get schema without materializing (lightweight operation)
+/// schema = py_get_table_schema(ctx, table.name)
+///
+/// # Extract metadata from schema
+/// vcf_metadata = extract_vcf_metadata_from_schema(schema)
+/// ```
+#[pyfunction]
+#[pyo3(signature = (py_ctx, table_name))]
+fn py_get_table_schema(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    table_name: String,
+) -> PyResult<PyArrowType<datafusion::arrow::datatypes::Schema>> {
+    py.allow_threads(|| {
+        let rt = Runtime::new()
+            .map_err(|e| PyValueError::new_err(format!("Failed to create runtime: {}", e)))?;
+        let ctx = &py_ctx.ctx;
+
+        // Get table from context
+        let table = rt.block_on(ctx.table(&table_name)).map_err(|e| {
+            PyValueError::new_err(format!("Failed to get table '{}': {}", table_name, e))
+        })?;
+
+        // Extract schema without reading data
+        let schema = table.schema();
+        let arrow_schema = schema.as_arrow();
+
+        info!(
+            "Extracted schema for table '{}' without materializing data",
+            table_name
+        );
+        debug!("Schema: {:?}", arrow_schema);
+
+        Ok(PyArrowType((*arrow_schema).clone()))
+    })
+}
+
 #[pyfunction]
 #[pyo3(signature = (py_ctx, path, object_storage_options=None))]
 fn py_describe_vcf(
@@ -374,6 +433,37 @@ fn py_from_polars(
 /// # Returns
 /// The number of rows written
 #[pyfunction]
+#[pyo3(signature = (py_ctx, sql, path, output_format, write_options=None))]
+fn py_write_from_sql(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    sql: String,
+    path: String,
+    output_format: OutputFormat,
+    write_options: Option<WriteOptions>,
+) -> PyResult<u64> {
+    py.allow_threads(|| {
+        let rt = Runtime::new().map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let ctx = &py_ctx.ctx;
+
+        rt.block_on(async {
+            // Execute SQL to get DataFrame
+            let df = ctx
+                .sql(&sql)
+                .await
+                .map_err(|e| PyValueError::new_err(format!("SQL execution failed: {}", e)))?;
+
+            // Write directly from DataFusion DataFrame
+            let row_count = crate::write::write_table(ctx, df, &path, output_format, write_options)
+                .await
+                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+            Ok(row_count)
+        })
+    })
+}
+
+#[pyfunction]
 #[pyo3(signature = (py_ctx, df, path, output_format, write_options=None))]
 fn py_write_table(
     py: Python<'_>,
@@ -383,41 +473,67 @@ fn py_write_table(
     output_format: OutputFormat,
     write_options: Option<WriteOptions>,
 ) -> PyResult<u64> {
-    // Consume Arrow stream with GIL held
-    let schema = df.0.schema();
-    let batches =
-        df.0.collect::<Result<
-            Vec<datafusion::arrow::array::RecordBatch>,
-            datafusion::arrow::error::ArrowError,
-        >>()
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    let PyArrowType(stream_reader) = df;
+    let schema = stream_reader.schema();
+    let temp_table_name = format!("_write_stream_{}", rand::random::<u32>());
 
-    // Release GIL for the actual write operation
-    py.allow_threads(|| {
-        let rt = Runtime::new()?;
+    py.allow_threads(move || {
+        let rt = Runtime::new().map_err(|e| PyValueError::new_err(e.to_string()))?;
         let ctx = &py_ctx.ctx;
 
-        // Create a MemTable from the batches
-        let mem_table = MemTable::try_new(schema, vec![batches])
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        // Register a streaming table backed directly by the Arrow C Stream.
+        // This avoids materializing all batches in Python and lets DataFusion
+        // pull data on demand without the GIL.
+        register_frame_from_arrow_stream(
+            py_ctx,
+            stream_reader,
+            schema.clone(),
+            temp_table_name.clone(),
+        );
 
-        // Register temporary table and create DataFrame
-        let temp_table_name = format!("_write_temp_{}", rand::random::<u32>());
         rt.block_on(async {
-            ctx.register_table(&temp_table_name, Arc::new(mem_table))
-                .map_err(|e| PyValueError::new_err(e.to_string()))?;
-
-            let df = ctx
+            let mut df = ctx
                 .table(&temp_table_name)
                 .await
                 .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
-            // Write the table
+            // Convert Utf8View columns to LargeUtf8 for bio format compatibility
+            // DataFusion-bio-formats doesn't support Utf8View yet
+            use datafusion::arrow::datatypes::DataType;
+            use datafusion::logical_expr::{Cast, Expr};
+            use datafusion::prelude::*;
+
+            let schema = df.schema().inner();
+            let mut select_exprs = Vec::new();
+
+            for field in schema.fields().iter() {
+                // Use qualified column name with proper quoting for special characters
+                // Format: table."column" to handle uppercase/special chars
+                let qualified_name = format!("{}.\"{}\"", temp_table_name, field.name());
+
+                if matches!(field.data_type(), DataType::Utf8View) {
+                    // Cast Utf8View to LargeUtf8 and remove table prefix
+                    let expr = Expr::Cast(Cast::new(
+                        Box::new(col(qualified_name)),
+                        DataType::LargeUtf8,
+                    ))
+                    .alias(field.name());
+                    select_exprs.push(expr);
+                } else {
+                    // Keep as-is but remove table prefix
+                    select_exprs.push(col(qualified_name).alias(field.name()));
+                }
+            }
+
+            // Always apply select to remove table prefix and cast types
+            df = df
+                .select(select_exprs)
+                .map_err(|e| PyValueError::new_err(format!("Failed to cast Utf8View: {}", e)))?;
+
             let row_count = crate::write::write_table(ctx, df, &path, output_format, write_options)
                 .await
                 .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
-            // Cleanup temporary table
             ctx.deregister_table(&temp_table_name)
                 .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
@@ -435,10 +551,12 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_sql, m)?)?;
+    m.add_function(wrap_pyfunction!(py_get_table_schema, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
     m.add_function(wrap_pyfunction!(py_write_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_write_from_sql, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;

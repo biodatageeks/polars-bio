@@ -37,7 +37,7 @@ SOURCE_PATH_KEY = "source_path"
 SOURCE_HEADER_KEY = "source_header"
 
 # DEPRECATED: VCF metadata keys (kept for backward compatibility in wrappers)
-# Use get_source_metadata() instead - VCF metadata now stored in source_header
+# Use get_metadata() instead - VCF metadata now stored in source_header
 VCF_INFO_FIELDS_KEY = "vcf_info_fields"
 VCF_FORMAT_FIELDS_KEY = "vcf_format_fields"
 VCF_SAMPLE_NAMES_KEY = "vcf_sample_names"
@@ -91,12 +91,14 @@ def set_coordinate_system(
         TypeError: If df is not a supported DataFrame type.
 
     Example:
-        >>> import polars as pl
-        >>> import polars_bio as pb
-        >>> from polars_bio._metadata import set_coordinate_system
-        >>>
-        >>> df = pl.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]})
-        >>> set_coordinate_system(df, zero_based=True)
+        ```python
+        import polars as pl
+        import polars_bio as pb
+        from polars_bio._metadata import set_coordinate_system
+
+        df = pl.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]})
+        set_coordinate_system(df, zero_based=True)
+        ```
     """
     if isinstance(df, (pl.DataFrame, pl.LazyFrame)):
         df.config_meta.set(**{COORDINATE_SYSTEM_KEY: zero_based})
@@ -129,11 +131,13 @@ def get_coordinate_system(
         TypeError: If df is not a supported type.
 
     Example:
-        >>> import polars_bio as pb
-        >>> lf = pb.scan_vcf("file.vcf")
-        >>> from polars_bio._metadata import get_coordinate_system
-        >>> get_coordinate_system(lf)
-        True
+        ```python
+        import polars_bio as pb
+        from polars_bio._metadata import get_coordinate_system
+
+        lf = pb.scan_vcf("file.vcf")
+        get_coordinate_system(lf)  # Returns: True
+        ```
     """
     if isinstance(df, (pl.DataFrame, pl.LazyFrame)):
         metadata = df.config_meta.get_metadata()
@@ -286,12 +290,14 @@ def validate_coordinate_systems(
         CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
     Example:
-        >>> import polars_bio as pb
-        >>> from polars_bio._metadata import validate_coordinate_systems
-        >>>
-        >>> df1 = pb.scan_vcf("file1.vcf")
-        >>> df2 = pb.scan_vcf("file2.vcf")
-        >>> zero_based = validate_coordinate_systems(df1, df2)
+        ```python
+        import polars_bio as pb
+        from polars_bio._metadata import validate_coordinate_systems
+
+        df1 = pb.scan_vcf("file1.vcf")
+        df2 = pb.scan_vcf("file2.vcf")
+        zero_based = validate_coordinate_systems(df1, df2)
+        ```
     """
     cs1 = get_coordinate_system(df1, ctx)
     cs2 = get_coordinate_system(df2, ctx)
@@ -423,7 +429,7 @@ def set_vcf_metadata(
     """Set VCF-specific metadata on a DataFrame (convenience wrapper).
 
     This is a convenience wrapper that stores VCF metadata in the standardized
-    source_header field. Use get_source_metadata() to access the underlying data.
+    source_header field. Use get_metadata() to access the underlying data.
 
     This metadata is used when writing VCF files to preserve field definitions
     (Number, Type, Description) from the original VCF header.
@@ -438,12 +444,14 @@ def set_vcf_metadata(
         sample_names: List of sample names from the VCF header.
 
     Example:
-        >>> import polars as pl
-        >>> import polars_bio as pb
-        >>> from polars_bio._metadata import set_vcf_metadata
-        >>>
-        >>> df = pb.read_vcf("file.vcf")
-        >>> set_vcf_metadata(df, info_fields={"AF": {"number": "A", "type": "Float", "description": "Allele Frequency"}})
+        ```python
+        import polars as pl
+        import polars_bio as pb
+        from polars_bio._metadata import set_vcf_metadata
+
+        df = pb.read_vcf("file.vcf")
+        set_vcf_metadata(df, info_fields={"AF": {"number": "A", "type": "Float", "description": "Allele Frequency"}})
+        ```
     """
     if not isinstance(df, (pl.DataFrame, pl.LazyFrame)):
         raise TypeError(
@@ -461,7 +469,7 @@ def set_vcf_metadata(
         header["sample_names"] = sample_names
 
     # Get existing source metadata to preserve format/path
-    existing = get_source_metadata(df)
+    existing = get_metadata(df)
 
     # Merge with existing header
     existing_header = existing.get("header") or {}
@@ -492,12 +500,14 @@ def get_vcf_metadata(
         Each value is None if not set, otherwise contains the metadata dict/list.
 
     Example:
-        >>> import polars_bio as pb
-        >>> from polars_bio._metadata import get_vcf_metadata
-        >>>
-        >>> df = pb.read_vcf("file.vcf")
-        >>> meta = get_vcf_metadata(df)
-        >>> print(meta["info_fields"])
+        ```python
+        import polars_bio as pb
+        from polars_bio._metadata import get_vcf_metadata
+
+        df = pb.read_vcf("file.vcf")
+        meta = get_vcf_metadata(df)
+        print(meta["info_fields"])
+        ```
     """
     if not isinstance(df, (pl.DataFrame, pl.LazyFrame)):
         raise TypeError(
@@ -506,7 +516,7 @@ def get_vcf_metadata(
         )
 
     # Get source metadata
-    source = get_source_metadata(df)
+    source = get_metadata(df)
     header = source.get("header") or {}
 
     # Extract VCF-specific fields from header
@@ -535,9 +545,12 @@ def set_source_metadata(df, format: str, path: str = "", header: dict = None):
                 For other formats: format-specific metadata
 
     Example:
-        >>> lf = pb.scan_vcf("sample.vcf")
-        >>> set_source_metadata(lf, format="vcf", path="sample.vcf",
-        ...                     header={"info_fields": {...}})
+        ```python
+        import polars_bio as pb
+        lf = pb.scan_vcf("sample.vcf")
+        header = {"info_fields": {...}, "sample_names": ["sample1"]}
+        pb.set_source_metadata(lf, format="vcf", path="sample.vcf", header=header)
+        ```
     """
     if _has_config_meta(df):
         # Polars DataFrame/LazyFrame
@@ -556,29 +569,56 @@ def set_source_metadata(df, format: str, path: str = "", header: dict = None):
         df.attrs[SOURCE_HEADER_KEY] = json.dumps(header) if header else ""
 
 
-def get_source_metadata(df) -> dict:
-    """Get standardized source file metadata.
+def get_metadata(df) -> dict:
+    """Get all metadata attached to a DataFrame or LazyFrame.
 
-    Retrieves metadata about the source file format, path, and format-specific
-    header information.
+    Returns all metadata including:
+    - Source file information (format, path)
+    - Format-specific metadata (VCF INFO/FORMAT fields, FASTQ quality encoding, etc.)
+    - Comprehensive Arrow schema metadata (if available)
 
     Args:
         df: Polars DataFrame or LazyFrame (or Pandas DataFrame)
 
     Returns:
         Dict with keys:
-        - "format": File format identifier (e.g., "vcf", "fastq")
+        - "format": File format identifier (e.g., "vcf", "fastq", "bam")
         - "path": Original file path
-        - "header": Format-specific header data as dict (or None)
+        - "coordinate_system_zero_based": Boolean indicating coordinate system (True=0-based, False=1-based, None=not set)
+        - "header": Format-specific header data as dict, may include:
+            - For VCF: "info_fields", "format_fields", "sample_names", "version", "contigs", "filters", etc.
+            - For FASTQ: quality encoding information
+            - For other formats: format-specific metadata
+            - "_datafusion_table_name": Internal DataFusion table name (for debugging)
 
-    Example:
-        >>> meta = get_source_metadata(lf)
-        >>> meta["format"]  # "vcf"
-        >>> meta["header"]["info_fields"]  # VCF INFO field definitions
+    Examples:
+        Get all metadata from a VCF file:
+        ```python
+        import polars_bio as pb
+        lf = pb.scan_vcf("file.vcf")
+        meta = pb.get_metadata(lf)
+        ```
+
+        Access basic metadata:
+        ```python
+        meta["format"]                        # Returns: 'vcf'
+        meta["path"]                          # Returns: 'file.vcf'
+        meta["coordinate_system_zero_based"]  # Returns: False (1-based for VCF)
+        ```
+
+        Access VCF-specific metadata:
+        ```python
+        info_fields = meta["header"]["info_fields"]
+        format_fields = meta["header"]["format_fields"]
+        sample_names = meta["header"]["sample_names"]
+        version = meta["header"]["version"]
+        contigs = meta["header"]["contigs"]
+        ```
     """
     result = {
         "format": None,
         "path": None,
+        "coordinate_system_zero_based": None,
         "header": None,
     }
 
@@ -591,6 +631,7 @@ def get_source_metadata(df) -> dict:
 
         result["format"] = metadata.get(SOURCE_FORMAT_KEY)
         result["path"] = metadata.get(SOURCE_PATH_KEY)
+        result["coordinate_system_zero_based"] = metadata.get(COORDINATE_SYSTEM_KEY)
 
         header_json = metadata.get(SOURCE_HEADER_KEY)
         if header_json:
@@ -604,6 +645,7 @@ def get_source_metadata(df) -> dict:
         if hasattr(df, "attrs"):
             result["format"] = df.attrs.get(SOURCE_FORMAT_KEY)
             result["path"] = df.attrs.get(SOURCE_PATH_KEY)
+            result["coordinate_system_zero_based"] = df.attrs.get(COORDINATE_SYSTEM_KEY)
 
             header_json = df.attrs.get(SOURCE_HEADER_KEY)
             if header_json:
@@ -613,3 +655,101 @@ def get_source_metadata(df) -> dict:
                     pass
 
     return result
+
+
+def print_metadata_json(df: Union[pl.DataFrame, pl.LazyFrame], indent: int = 2) -> None:
+    """Print metadata as pretty-formatted JSON.
+
+    Args:
+        df: Polars DataFrame or LazyFrame
+        indent: Number of spaces for indentation (default: 2)
+
+    Example:
+        ```python
+        import polars_bio as pb
+        lf = pb.scan_vcf("file.vcf")
+        pb.print_metadata_json(lf)
+        ```
+    """
+    meta = get_metadata(df)
+    print(json.dumps(meta, indent=indent, default=str))
+
+
+def print_metadata_summary(df: Union[pl.DataFrame, pl.LazyFrame]) -> None:
+    """Print a human-readable summary of all metadata.
+
+    Displays a formatted summary of all metadata attached to a DataFrame or LazyFrame,
+    including format, path, coordinate system, and format-specific information.
+
+    Args:
+        df: Polars DataFrame or LazyFrame
+
+    Example:
+        ```python
+        import polars_bio as pb
+        lf = pb.scan_vcf("file.vcf")
+        pb.print_metadata_summary(lf)
+        ```
+    """
+    meta = get_metadata(df)
+    if not meta or not any([meta.get("format"), meta.get("path"), meta.get("header")]):
+        print("No metadata available")
+        return
+
+    print("=" * 70)
+    print("Metadata Summary")
+    print("=" * 70)
+    print()
+
+    # Basic metadata
+    if meta.get("format"):
+        print(f"Format: {meta['format']}")
+    if meta.get("path"):
+        print(f"Path: {meta['path']}")
+    if meta.get("coordinate_system_zero_based") is not None:
+        coord_sys = "0-based" if meta["coordinate_system_zero_based"] else "1-based"
+        print(f"Coordinate System: {coord_sys}")
+
+    # Format-specific metadata
+    if meta.get("header"):
+        header = meta["header"]
+        print()
+        print("Format-specific metadata:")
+        print("-" * 70)
+
+        # VCF-specific
+        if meta.get("format") == "vcf":
+            if "version" in header:
+                print(f"  VCF Version: {header['version']}")
+            if "sample_names" in header:
+                samples = header["sample_names"]
+                print(f"  Samples ({len(samples)}): {', '.join(samples[:5])}")
+                if len(samples) > 5:
+                    print(f"    ... and {len(samples) - 5} more")
+            if "info_fields" in header:
+                print(f"  INFO fields: {len(header['info_fields'])}")
+                for field_id in list(header["info_fields"].keys())[:3]:
+                    field = header["info_fields"][field_id]
+                    print(
+                        f"    - {field_id}: {field.get('type')} ({field.get('description', 'No description')})"
+                    )
+                if len(header["info_fields"]) > 3:
+                    print(f"    ... and {len(header['info_fields']) - 3} more")
+            if "format_fields" in header:
+                print(f"  FORMAT fields: {len(header['format_fields'])}")
+                for field_id in list(header["format_fields"].keys())[:3]:
+                    field = header["format_fields"][field_id]
+                    print(
+                        f"    - {field_id}: {field.get('type')} ({field.get('description', 'No description')})"
+                    )
+                if len(header["format_fields"]) > 3:
+                    print(f"    ... and {len(header['format_fields']) - 3} more")
+            if "contigs" in header and header["contigs"]:
+                print(f"  Contigs: {len(header['contigs'])}")
+            if "filters" in header and header["filters"]:
+                print(f"  Filters: {len(header['filters'])}")
+
+        # Other formats can be added here as needed
+
+    print()
+    print("=" * 70)

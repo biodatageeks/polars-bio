@@ -84,8 +84,10 @@ def set_option(key, value):
         value: The value to set (bool values are converted to "true"/"false").
 
     Example:
-        >>> import polars_bio as pb
-        >>> pb.set_option("datafusion.bio.coordinate_system_zero_based", False)
+        ```python
+        import polars_bio as pb
+        pb.set_option("datafusion.bio.coordinate_system_zero_based", False)
+        ```
     """
     Context().set_option(key, value)
 
@@ -100,9 +102,11 @@ def get_option(key):
         The current value of the option as a string, or None if not set.
 
     Example:
-        >>> import polars_bio as pb
-        >>> pb.get_option("datafusion.bio.coordinate_system_zero_based")
+        ```python
+        import polars_bio as pb
+        pb.get_option("datafusion.bio.coordinate_system_zero_based")
         'true'
+        ```
     """
     return Context().get_option(key)
 

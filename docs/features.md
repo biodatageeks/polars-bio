@@ -258,6 +258,246 @@ df2 = pb.scan_bed("file.bed", use_zero_based=True)
 result = pb.overlap(df1, df2, ...)  # Reads from metadata
 ```
 
+## File Metadata
+
+polars-bio automatically attaches comprehensive metadata to DataFrames when reading genomic files. This metadata includes format information, coordinate systems, and format-specific details like VCF header fields.
+
+### Metadata Structure
+
+The metadata is stored in a clean, user-friendly structure:
+
+```python
+import polars_bio as pb
+
+lf = pb.scan_vcf("variants.vcf")
+meta = pb.get_metadata(lf)
+
+# Returns:
+{
+  "format": "vcf",                           # File format
+  "path": "variants.vcf",                    # Source file path
+  "coordinate_system_zero_based": False,     # Coordinate system (VCF is 1-based)
+  "header": {
+    "version": "VCFv4.2",                    # VCF version
+    "sample_names": ["Sample1", "Sample2"],  # Sample names
+    "info_fields": {                         # INFO field definitions
+      "AF": {
+        "number": "A",
+        "type": "Float",
+        "description": "Allele Frequency",
+        "id": "AF"
+      }
+    },
+    "format_fields": {                       # FORMAT field definitions
+      "GT": {
+        "number": "1",
+        "type": "String",
+        "description": "Genotype"
+      }
+    },
+    "contigs": [...],                        # Contig definitions
+    "filters": [...],                        # Filter definitions
+    "_datafusion_table_name": "variants"     # Internal table name (for debugging)
+  }
+}
+```
+
+### Accessing Metadata
+
+polars-bio provides three main functions for working with metadata:
+
+#### 1. Get all metadata as a dictionary
+
+```python
+import polars_bio as pb
+
+lf = pb.scan_vcf("file.vcf")
+meta = pb.get_metadata(lf)
+
+# Access different parts
+print(meta["format"])                       # "vcf"
+print(meta["path"])                         # "file.vcf"
+print(meta["coordinate_system_zero_based"]) # False (1-based)
+
+# Access VCF-specific fields
+print(meta["header"]["version"])            # "VCFv4.2"
+print(meta["header"]["sample_names"])       # ["Sample1", "Sample2"]
+
+# Access INFO field definitions
+af_field = meta["header"]["info_fields"]["AF"]
+print(af_field["type"])                     # "Float"
+print(af_field["description"])              # "Allele Frequency"
+
+# Access FORMAT field definitions
+gt_field = meta["header"]["format_fields"]["GT"]
+print(gt_field["type"])                     # "String"
+```
+
+#### 2. Print metadata as formatted JSON
+
+```python
+import polars_bio as pb
+
+lf = pb.scan_vcf("file.vcf")
+
+# Print as pretty JSON
+pb.print_metadata_json(lf)
+
+# Customize indentation
+pb.print_metadata_json(lf, indent=4)
+```
+
+#### 3. Print human-readable summary
+
+```python
+import polars_bio as pb
+
+lf = pb.scan_vcf("file.vcf")
+pb.print_metadata_summary(lf)
+```
+
+Output:
+```
+======================================================================
+Metadata Summary
+======================================================================
+
+Format: vcf
+Path: file.vcf
+Coordinate System: 1-based
+
+Format-specific metadata:
+----------------------------------------------------------------------
+  VCF Version: VCFv4.2
+  Samples (3): Sample1, Sample2, Sample3
+  INFO fields: 5
+    - AF: Float (Allele Frequency)
+    - DP: Integer (Total Depth)
+    - AC: Integer (Allele Count)
+  FORMAT fields: 3
+    - GT: String (Genotype)
+    - DP: Integer (Read Depth)
+    - GQ: Integer (Genotype Quality)
+
+======================================================================
+```
+
+### Format-Specific Metadata
+
+Different file formats include different metadata:
+
+=== "VCF"
+
+    ```python
+    lf = pb.scan_vcf("variants.vcf")
+    meta = pb.get_metadata(lf)
+
+    # VCF header metadata
+    meta["header"]["version"]          # VCF version
+    meta["header"]["sample_names"]     # Sample names
+    meta["header"]["info_fields"]      # INFO field definitions
+    meta["header"]["format_fields"]    # FORMAT field definitions
+    meta["header"]["contigs"]          # Contig definitions
+    meta["header"]["filters"]          # Filter definitions
+    ```
+
+=== "FASTQ"
+
+    ```python
+    lf = pb.scan_fastq("reads.fastq.gz")
+    meta = pb.get_metadata(lf)
+
+    # FASTQ-specific metadata
+    meta["format"]                     # "fastq"
+    meta["path"]                       # "reads.fastq.gz"
+    meta["coordinate_system_zero_based"] # None (N/A for FASTQ)
+    ```
+
+=== "BED/BAM/GFF"
+
+    ```python
+    lf = pb.scan_bed("regions.bed")
+    meta = pb.get_metadata(lf)
+
+    # Basic metadata
+    meta["format"]                     # "bed"
+    meta["coordinate_system_zero_based"] # True (0-based)
+    ```
+
+### Setting Custom Metadata
+
+You can set metadata on DataFrames created from other sources:
+
+```python
+import polars as pl
+import polars_bio as pb
+
+# Create a DataFrame
+df = pl.DataFrame({
+    "chrom": ["chr1", "chr1"],
+    "start": [100, 200],
+    "end": [150, 250]
+}).lazy()
+
+# Set metadata
+pb.set_source_metadata(
+    df,
+    format="bed",
+    path="custom.bed",
+    header={"description": "Custom intervals"}
+)
+
+# Now metadata is available
+meta = pb.get_metadata(df)
+print(meta["format"])  # "bed"
+print(meta["header"]["description"])  # "Custom intervals"
+```
+
+### Metadata Preservation
+
+Metadata is preserved through Polars operations:
+
+```python
+lf = pb.scan_vcf("variants.vcf")
+
+# Metadata persists after operations
+filtered = lf.filter(pl.col("qual") > 30)
+selected = lf.select(["chrom", "start", "end"])
+limited = lf.head(100)
+
+# All have the same metadata
+meta1 = pb.get_metadata(lf)
+meta2 = pb.get_metadata(filtered)
+meta3 = pb.get_metadata(selected)
+
+assert meta1["format"] == meta2["format"] == meta3["format"]  # All "vcf"
+```
+
+### Using Metadata for Debugging
+
+The `_datafusion_table_name` field is useful for debugging DataFusion SQL queries:
+
+```python
+lf = pb.scan_vcf("variants.vcf")
+meta = pb.get_metadata(lf)
+
+# Get internal table name
+table_name = meta["header"]["_datafusion_table_name"]
+print(f"Table name: {table_name}")  # "variants"
+
+# Use it in SQL queries for debugging
+result = pb.sql(f"SELECT COUNT(*) FROM {table_name}")
+```
+
+### API Reference
+
+| Function | Description |
+|----------|-------------|
+| [`get_metadata(df)`](api.md#polars_bio.get_metadata) | Get all metadata as a dictionary |
+| [`print_metadata_json(df, indent=2)`](api.md#polars_bio.print_metadata_json) | Print metadata as formatted JSON |
+| [`print_metadata_summary(df)`](api.md#polars_bio.print_metadata_summary) | Print human-readable metadata summary |
+| [`set_source_metadata(df, format, path, header)`](api.md#polars_bio.set_source_metadata) | Set metadata on a DataFrame |
+
 
 ## API comparison between libraries
 There is no standard API for genomic ranges operations in Python.

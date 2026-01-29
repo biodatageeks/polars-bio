@@ -13,6 +13,9 @@ use datafusion::common::DataFusionError;
 use datafusion::dataframe::DataFrame;
 use datafusion::execution::context::SessionContext;
 use datafusion::logical_expr::dml::InsertOp;
+use datafusion_bio_format_core::metadata::{
+    VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
+};
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
 use futures::StreamExt;
@@ -83,16 +86,15 @@ fn apply_vcf_metadata_to_schema(
         if let Some(meta_value) = info_meta.get(name) {
             if let Value::Object(meta_obj) = meta_value {
                 let mut field_metadata = HashMap::new();
-                field_metadata.insert("vcf_field_type".to_string(), "INFO".to_string());
 
                 if let Some(Value::String(number)) = meta_obj.get("number") {
-                    field_metadata.insert("vcf_number".to_string(), number.clone());
+                    field_metadata.insert(VCF_FIELD_NUMBER_KEY.to_string(), number.clone());
                 }
                 if let Some(Value::String(ty)) = meta_obj.get("type") {
-                    field_metadata.insert("vcf_type".to_string(), ty.clone());
+                    field_metadata.insert(VCF_FIELD_TYPE_KEY.to_string(), ty.clone());
                 }
                 if let Some(Value::String(desc)) = meta_obj.get("description") {
-                    field_metadata.insert("vcf_description".to_string(), desc.clone());
+                    field_metadata.insert(VCF_FIELD_DESCRIPTION_KEY.to_string(), desc.clone());
                 }
 
                 info_fields.push(name.clone());
@@ -112,17 +114,16 @@ fn apply_vcf_metadata_to_schema(
                 if name == &col_pattern {
                     if let Some(Value::Object(meta_obj)) = format_meta.get(format_name) {
                         let mut field_metadata = HashMap::new();
-                        field_metadata.insert("vcf_field_type".to_string(), "FORMAT".to_string());
-                        field_metadata.insert("vcf_format_id".to_string(), format_name.clone());
 
                         if let Some(Value::String(number)) = meta_obj.get("number") {
-                            field_metadata.insert("vcf_number".to_string(), number.clone());
+                            field_metadata.insert(VCF_FIELD_NUMBER_KEY.to_string(), number.clone());
                         }
                         if let Some(Value::String(ty)) = meta_obj.get("type") {
-                            field_metadata.insert("vcf_type".to_string(), ty.clone());
+                            field_metadata.insert(VCF_FIELD_TYPE_KEY.to_string(), ty.clone());
                         }
                         if let Some(Value::String(desc)) = meta_obj.get("description") {
-                            field_metadata.insert("vcf_description".to_string(), desc.clone());
+                            field_metadata
+                                .insert(VCF_FIELD_DESCRIPTION_KEY.to_string(), desc.clone());
                         }
 
                         if !format_fields.contains(format_name) {
@@ -143,17 +144,15 @@ fn apply_vcf_metadata_to_schema(
         if !is_format {
             if let Some(Value::Object(meta_obj)) = format_meta.get(name) {
                 let mut field_metadata = HashMap::new();
-                field_metadata.insert("vcf_field_type".to_string(), "FORMAT".to_string());
-                field_metadata.insert("vcf_format_id".to_string(), name.clone());
 
                 if let Some(Value::String(number)) = meta_obj.get("number") {
-                    field_metadata.insert("vcf_number".to_string(), number.clone());
+                    field_metadata.insert(VCF_FIELD_NUMBER_KEY.to_string(), number.clone());
                 }
                 if let Some(Value::String(ty)) = meta_obj.get("type") {
-                    field_metadata.insert("vcf_type".to_string(), ty.clone());
+                    field_metadata.insert(VCF_FIELD_TYPE_KEY.to_string(), ty.clone());
                 }
                 if let Some(Value::String(desc)) = meta_obj.get("description") {
-                    field_metadata.insert("vcf_description".to_string(), desc.clone());
+                    field_metadata.insert(VCF_FIELD_DESCRIPTION_KEY.to_string(), desc.clone());
                 }
 
                 if !format_fields.contains(name) {

@@ -22,6 +22,7 @@ from polars_bio.polars_bio import (
     WriteOptions,
     py_describe_vcf,
     py_from_polars,
+    py_get_table_schema,
     py_read_sql,
     py_read_table,
     py_register_table,
@@ -1280,7 +1281,10 @@ def _write_file(
     output_format: OutputFormat,
 ) -> int:
     """
-    Internal helper to write DataFrame to a file.
+    Internal helper to write DataFrame to a file with TRUE STREAMING.
+
+    This function now streams data directly from LazyFrame to file without
+    materializing the entire dataset in memory. This is critical for large files!
 
     Coordinate system is read from DataFrame/LazyFrame metadata.
     Compression is auto-detected from file extension.
@@ -1295,57 +1299,32 @@ def _write_file(
     """
     import json
 
-    from ._metadata import get_coordinate_system, get_source_metadata
+    from ._metadata import get_coordinate_system, get_metadata
 
-    # Get source metadata before collecting
+    # Get metadata WITHOUT collecting (works for both DataFrame and LazyFrame)
     source_meta = None
     vcf_header = None
-    if output_format == OutputFormat.Vcf:
-        try:
-            source_meta = get_source_metadata(df)
+    zero_based = None
+
+    try:
+        source_meta = get_metadata(df)
+        if output_format == OutputFormat.Vcf:
             vcf_header = source_meta.get("header") if source_meta else None
-        except (KeyError, AttributeError, TypeError):
-            pass
+    except (KeyError, AttributeError, TypeError):
+        pass
 
-    # Collect LazyFrame if needed
-    if isinstance(df, pl.LazyFrame):
-        # Get metadata before collecting
-        zero_based_meta = None
-        try:
-            zero_based_meta = df.config_meta.get_metadata().get(
-                "coordinate_system_zero_based"
-            )
-            # Also preserve source metadata if not already retrieved
-            if source_meta is None:
-                source_meta = get_source_metadata(df)
-                if output_format == OutputFormat.Vcf:
-                    vcf_header = source_meta.get("header") if source_meta else None
-        except (KeyError, AttributeError, TypeError):
-            pass
+    # Get coordinate system from metadata
+    try:
+        zero_based = get_coordinate_system(df)
+    except (KeyError, AttributeError, TypeError):
+        pass
 
-        df = df.collect()
-
-        # Restore metadata on collected DataFrame
-        if zero_based_meta is not None:
-            set_coordinate_system(df, zero_based_meta)
-        if source_meta is not None:
-            from ._metadata import set_source_metadata
-
-            set_source_metadata(
-                df,
-                format=source_meta.get("format") or "",
-                path=source_meta.get("path") or "",
-                header=source_meta.get("header"),
-            )
-
-    # Get coordinate system from DataFrame metadata, fall back to global config
-    zero_based = get_coordinate_system(df)
     if zero_based is None:
         zero_based = _resolve_zero_based(None)
 
     # Build write options based on format
     if output_format == OutputFormat.Vcf:
-        # Extract VCF metadata from source_header (NEW approach)
+        # Extract VCF metadata from source_header
         info_fields_json = None
         format_fields_json = None
         sample_names_json = None
@@ -1370,9 +1349,25 @@ def _write_file(
     else:
         write_options = None
 
-    # Convert to Arrow and write
-    reader = df.to_arrow().to_reader()
-    return py_write_table(ctx, reader, path, output_format, write_options)
+    # ✅ TRUE STREAMING: Use collect_batches pattern with Utf8View → LargeUtf8 conversion
+    # This works for filtered/transformed LazyFrames
+    # NOTE: Filtering currently materializes all data - predicate pushdown to DataFusion not yet implemented
+    if isinstance(df, pl.LazyFrame):
+        import pyarrow as pa
+        import pyarrow.compute as pc
+
+        # Get streaming batches from Polars
+        batches_iter = df.collect_batches(lazy=True, engine="streaming")
+        stream = batches_iter._inner
+
+        # We need to convert Utf8View to LargeUtf8 on the Rust side
+        # Pass the stream and let Rust handle the conversion
+        return py_write_table(ctx, stream, path, output_format, write_options)
+    else:
+        # Already a DataFrame
+        arrow_table = df.to_arrow()
+        reader = arrow_table.to_reader()
+        return py_write_table(ctx, reader, path, output_format, write_options)
 
 
 def _apply_combined_pushdown_via_sql(
@@ -1520,7 +1515,7 @@ def _build_sql_where_from_predicate_safe(predicate):
 
 
 def _lazy_scan(
-    df: Union[pl.DataFrame, pl.LazyFrame],
+    schema_or_df,  # Either: PyArrow schema (from py_get_table_schema) or DataFusion DataFrame (from py_read_sql for SQL path)
     projection_pushdown: bool = False,
     predicate_pushdown: bool = False,
     table_name: str = None,
@@ -1529,8 +1524,40 @@ def _lazy_scan(
     read_options: ReadOptions = None,
 ) -> pl.LazyFrame:
 
-    df_lazy: DataFrame = df
-    original_schema = df_lazy.schema()
+    # Handle both PyArrow schema (new streaming path) and DataFusion DataFrame (old SQL path)
+    import pyarrow as pa
+
+    df_for_stream = None  # Used for SQL path
+
+    # Check if it's a DataFusion DataFrame by checking for schema() method
+    # We use hasattr because there are multiple DataFrame classes in datafusion package
+    is_datafusion_df = hasattr(schema_or_df, "schema") and hasattr(
+        schema_or_df, "execute_stream"
+    )
+
+    if isinstance(schema_or_df, pa.Schema):
+        # PyArrow schema (from py_get_table_schema or df.schema())
+        # Convert to Polars schema dict for register_io_source
+        empty_table = pa.table(
+            {field.name: pa.array([], type=field.type) for field in schema_or_df}
+        )
+        temp_df = pl.from_arrow(empty_table)
+        original_schema = dict(temp_df.schema)  # Convert to dict for register_io_source
+    elif is_datafusion_df:
+        # DataFusion DataFrame from py_read_sql (sql() function)
+        # Extract PyArrow schema and convert to Polars schema dict
+        df_for_stream = schema_or_df
+        pa_schema = schema_or_df.schema()
+        empty_table = pa.table(
+            {field.name: pa.array([], type=field.type) for field in pa_schema}
+        )
+        temp_df = pl.from_arrow(empty_table)
+        original_schema = dict(temp_df.schema)  # Convert to dict for register_io_source
+    else:
+        # Fallback: already a Polars schema
+        original_schema = (
+            dict(schema_or_df) if not isinstance(schema_or_df, dict) else schema_or_df
+        )
 
     def _overlap_source(
         with_columns: Union[pl.Expr, None],
@@ -1538,18 +1565,20 @@ def _lazy_scan(
         n_rows: Union[int, None],
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
+        # Import here to ensure availability in all code paths
+        from polars_bio.polars_bio import py_read_sql
+
+        from .context import ctx as _ctx
+
         # If this is a GFF scan, perform pushdown by building a single SELECT ... WHERE ...
         if input_format == InputFormat.Gff and file_path is not None:
             from polars_bio.polars_bio import GffReadOptions, PyObjectStorageOptions
             from polars_bio.polars_bio import ReadOptions as _ReadOptions
             from polars_bio.polars_bio import (
-                py_read_sql,
                 py_read_table,
                 py_register_table,
                 py_register_view,
             )
-
-            from .context import ctx
 
             # Extract columns requested by Polars optimizer
             requested_cols = (
@@ -1627,7 +1656,7 @@ def _lazy_scan(
             if projection_pushdown and requested_cols:
                 # Only re-register when projection is active (we know column needs)
                 table_obj = py_register_table(
-                    ctx, file_path, None, InputFormat.Gff, ropts
+                    _ctx, file_path, None, InputFormat.Gff, ropts
                 )
                 table_name_use = table_obj.name
 
@@ -1651,7 +1680,7 @@ def _lazy_scan(
             if n_rows and n_rows > 0:
                 sql += f" LIMIT {int(n_rows)}"
 
-            query_df = py_read_sql(ctx, sql)
+            query_df = py_read_sql(_ctx, sql)
 
             # Stream results, applying any non-pushed operations locally
             df_stream = query_df.execute_stream()
@@ -1673,8 +1702,17 @@ def _lazy_scan(
                 yield out
             return
 
-        # Default path (non-GFF): stream and optionally apply local filter/projection
-        query_df = df_lazy
+        # Default path (non-GFF): stream from table or DataFrame
+        if df_for_stream is not None:
+            # SQL path: use the DataFrame directly
+            query_df = df_for_stream
+        else:
+            # Scan path: build SQL query for the registered table
+            sql = f"SELECT * FROM {table_name}"
+            if n_rows and n_rows > 0:
+                sql += f" LIMIT {int(n_rows)}"
+            query_df = py_read_sql(_ctx, sql)
+
         df_stream = query_df.execute_stream()
         progress_bar = tqdm(unit="rows")
         remaining = int(n_rows) if n_rows is not None else None
@@ -1901,26 +1939,45 @@ def _read_file(
     zero_based: bool = True,
 ) -> pl.LazyFrame:
     table = py_register_table(ctx, path, None, input_format, read_options)
-    df = py_read_table(ctx, table.name)
 
-    # Extract format-specific header metadata from Arrow schema before Polars conversion loses it
+    # Get schema WITHOUT materializing data - critical for large files!
+    schema = py_get_table_schema(ctx, table.name)
+
+    # Extract ALL metadata from schema (works for all formats!)
+    from polars_bio.metadata_extractors import extract_all_schema_metadata
+
+    full_metadata = extract_all_schema_metadata(schema)
+
+    # Build format-specific header metadata for backward compatibility
     header_metadata = None
-    if input_format == InputFormat.Vcf:
-        # Extract field-level metadata (INFO/FORMAT/samples)
-        vcf_metadata = _extract_vcf_metadata_from_schema(df.schema())
-        # Extract schema-level metadata (version, contigs, filters, etc.)
-        vcf_extras = _extract_vcf_header_extras(df.schema())
+    format_str = _format_to_string(input_format)
 
-        # Build combined header dict
-        header_metadata = {
-            "info_fields": vcf_metadata.get("info_fields"),
-            "format_fields": vcf_metadata.get("format_fields"),
-            "sample_names": vcf_metadata.get("sample_names"),
-            **vcf_extras,  # Add version, contigs, filters, alt_definitions
-        }
+    # Extract format-specific metadata from the comprehensive extraction
+    format_specific = full_metadata.get("format_specific", {})
+
+    if format_str in format_specific:
+        # Use the parsed format-specific metadata
+        if format_str == "vcf":
+            vcf_meta = format_specific["vcf"]
+            header_metadata = {
+                "info_fields": vcf_meta.get("info_fields"),
+                "format_fields": vcf_meta.get("format_fields"),
+                "sample_names": vcf_meta.get("sample_names"),
+                "version": vcf_meta.get("version"),
+                "contigs": vcf_meta.get("contigs"),
+                "filters": vcf_meta.get("filters"),
+                "alt_definitions": vcf_meta.get("alt_definitions"),
+            }
+        elif format_str in ["fastq", "bam", "gff", "fasta", "bed", "cram"]:
+            # For other formats, include their specific metadata
+            header_metadata = format_specific.get(format_str, {})
+
+    # Note: We don't store _full_metadata to avoid duplication
+    # All relevant metadata is already parsed into user-friendly fields
+    # (info_fields, format_fields, sample_names, version, etc.)
 
     lf = _lazy_scan(
-        df,
+        schema,
         projection_pushdown,
         predicate_pushdown,
         table.name,
@@ -1936,6 +1993,12 @@ def _read_file(
     from polars_bio._metadata import set_source_metadata
 
     format_str = _format_to_string(input_format)
+
+    # Store DataFusion table name for debugging
+    if header_metadata is None:
+        header_metadata = {}
+    header_metadata["_datafusion_table_name"] = table.name
+
     set_source_metadata(lf, format=format_str, path=path, header=header_metadata)
 
     # Wrap GFF LazyFrames with projection-aware wrapper for consistent attribute field handling

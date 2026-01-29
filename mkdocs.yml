@@ -2,6 +2,10 @@ site_name: polars-bio
 site_url: https://biodatageeks.org/polars-bio/
 repo_url: https://github.com/biodatageeks/polars-bio
 repo_name: biodatageeks/polars-bio
+
+# Watch Python source files for auto-reload during development
+watch:
+  - polars_bio
 nav:
   - Home:
       - polars-bio: index.md
