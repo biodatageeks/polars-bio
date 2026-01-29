@@ -13,12 +13,13 @@ use std::sync::Arc;
 use datafusion::arrow::array::RecordBatchReader;
 use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
+use datafusion::dataframe::DataFrame;
 use datafusion::datasource::MemTable;
 use datafusion_bio_format_core::object_storage::ObjectStorageOptions;
 use datafusion_bio_format_vcf::storage::VcfReader;
 use datafusion_python::dataframe::PyDataFrame;
 use log::{debug, error, info};
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
 
@@ -272,7 +273,9 @@ fn py_read_sql(
     py.allow_threads(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
-        let df = rt.block_on(ctx.sql(&sql_text)).unwrap();
+        let df = rt
+            .block_on(ctx.sql(&sql_text))
+            .map_err(|e| PyValueError::new_err(format!("SQL query failed: {}", e)))?;
         Ok(PyDataFrame::new(df))
     })
 }
@@ -290,7 +293,9 @@ fn py_read_table(
         let ctx = &py_ctx.ctx;
         let df = rt
             .block_on(ctx.sql(&format!("SELECT * FROM {}", table_name)))
-            .unwrap();
+            .map_err(|e| {
+                PyValueError::new_err(format!("Failed to read table '{}': {}", table_name, e))
+            })?;
         Ok(PyDataFrame::new(df))
     })
 }
@@ -377,16 +382,26 @@ fn py_describe_vcf(
         };
         info!("{}", desc_object_storage_options);
 
-        let df = rt.block_on(async {
-            let mut reader = VcfReader::new(path, None, Some(desc_object_storage_options)).await;
-            let rb = reader.describe().await.unwrap();
-            let mem_table = MemTable::try_new(rb.schema().clone(), vec![vec![rb]]).unwrap();
-            let random_table_name = format!("vcf_schema_{}", rand::random::<u32>());
-            ctx.register_table(random_table_name.clone(), Arc::new(mem_table))
-                .unwrap();
-            let df = ctx.table(random_table_name).await.unwrap();
-            df
-        });
+        let df = rt
+            .block_on(async {
+                let mut reader =
+                    VcfReader::new(path, None, Some(desc_object_storage_options)).await;
+                let rb = reader
+                    .describe()
+                    .await
+                    .map_err(|e| format!("Failed to describe VCF: {}", e))?;
+                let mem_table = MemTable::try_new(rb.schema().clone(), vec![vec![rb]])
+                    .map_err(|e| format!("Failed to create memory table: {}", e))?;
+                let random_table_name = format!("vcf_schema_{}", rand::random::<u32>());
+                ctx.register_table(random_table_name.clone(), Arc::new(mem_table))
+                    .map_err(|e| format!("Failed to register table: {}", e))?;
+                let df = ctx
+                    .table(random_table_name)
+                    .await
+                    .map_err(|e| format!("Failed to get table: {}", e))?;
+                Ok::<DataFrame, String>(df)
+            })
+            .map_err(|e| PyRuntimeError::new_err(format!("VCF schema extraction failed: {}", e)))?;
         Ok(PyDataFrame::new(df))
     })
 }
@@ -403,7 +418,9 @@ fn py_register_view(
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         rt.block_on(ctx.sql(&format!("CREATE OR REPLACE VIEW {} AS {}", name, query)))
-            .unwrap();
+            .map_err(|e| {
+                PyValueError::new_err(format!("Failed to create view '{}': {}", name, e))
+            })?;
         Ok(())
     })
 }

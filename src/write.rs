@@ -23,6 +23,58 @@ use log::info;
 
 use crate::option::{OutputFormat, WriteOptions};
 
+/// Build field metadata HashMap from a VCF meta object.
+///
+/// Extracts "number", "type", and "description" fields from a JSON metadata object
+/// and converts them to VCF field metadata keys.
+fn build_field_metadata_from_vcf_meta(
+    meta_obj: &serde_json::Map<String, serde_json::Value>,
+) -> HashMap<String, String> {
+    use serde_json::Value;
+
+    let mut field_metadata = HashMap::new();
+
+    if let Some(Value::String(number)) = meta_obj.get("number") {
+        field_metadata.insert(VCF_FIELD_NUMBER_KEY.to_string(), number.clone());
+    }
+    if let Some(Value::String(ty)) = meta_obj.get("type") {
+        field_metadata.insert(VCF_FIELD_TYPE_KEY.to_string(), ty.clone());
+    }
+    if let Some(Value::String(desc)) = meta_obj.get("description") {
+        field_metadata.insert(VCF_FIELD_DESCRIPTION_KEY.to_string(), desc.clone());
+    }
+
+    field_metadata
+}
+
+/// Consume a write stream and count total rows written.
+///
+/// The WriteExec returns batches with a "count" column containing the number of rows written.
+/// This helper function consumes the stream and aggregates the total row count.
+async fn consume_write_stream(
+    mut stream: datafusion::physical_plan::SendableRecordBatchStream,
+) -> Result<u64, DataFusionError> {
+    let mut total_rows: u64 = 0;
+    while let Some(batch_result) = stream.next().await {
+        let batch = batch_result?;
+        // WriteExec returns a batch with a "count" column containing the number of rows written
+        if let Some(count_col) = batch.column_by_name("count") {
+            if let Some(count_array) = count_col
+                .as_any()
+                .downcast_ref::<datafusion::arrow::array::UInt64Array>()
+            {
+                if count_array.len() > 0 && !count_array.is_null(0) {
+                    total_rows += count_array.value(0);
+                }
+            }
+        } else {
+            // Fallback: count rows in the batch itself
+            total_rows += batch.num_rows() as u64;
+        }
+    }
+    Ok(total_rows)
+}
+
 /// Apply VCF metadata from JSON strings to an Arrow schema.
 ///
 /// This parses the metadata JSON and adds VCF field metadata to the schema fields,
@@ -85,17 +137,7 @@ fn apply_vcf_metadata_to_schema(
         // Check if this is an INFO field
         if let Some(meta_value) = info_meta.get(name) {
             if let Value::Object(meta_obj) = meta_value {
-                let mut field_metadata = HashMap::new();
-
-                if let Some(Value::String(number)) = meta_obj.get("number") {
-                    field_metadata.insert(VCF_FIELD_NUMBER_KEY.to_string(), number.clone());
-                }
-                if let Some(Value::String(ty)) = meta_obj.get("type") {
-                    field_metadata.insert(VCF_FIELD_TYPE_KEY.to_string(), ty.clone());
-                }
-                if let Some(Value::String(desc)) = meta_obj.get("description") {
-                    field_metadata.insert(VCF_FIELD_DESCRIPTION_KEY.to_string(), desc.clone());
-                }
+                let field_metadata = build_field_metadata_from_vcf_meta(meta_obj);
 
                 info_fields.push(name.clone());
                 new_fields.push(field.as_ref().clone().with_metadata(field_metadata));
@@ -113,18 +155,7 @@ fn apply_vcf_metadata_to_schema(
                 let col_pattern = format!("{}_{}", sample, format_name);
                 if name == &col_pattern {
                     if let Some(Value::Object(meta_obj)) = format_meta.get(format_name) {
-                        let mut field_metadata = HashMap::new();
-
-                        if let Some(Value::String(number)) = meta_obj.get("number") {
-                            field_metadata.insert(VCF_FIELD_NUMBER_KEY.to_string(), number.clone());
-                        }
-                        if let Some(Value::String(ty)) = meta_obj.get("type") {
-                            field_metadata.insert(VCF_FIELD_TYPE_KEY.to_string(), ty.clone());
-                        }
-                        if let Some(Value::String(desc)) = meta_obj.get("description") {
-                            field_metadata
-                                .insert(VCF_FIELD_DESCRIPTION_KEY.to_string(), desc.clone());
-                        }
+                        let field_metadata = build_field_metadata_from_vcf_meta(meta_obj);
 
                         if !format_fields.contains(format_name) {
                             format_fields.push(format_name.clone());
@@ -143,17 +174,7 @@ fn apply_vcf_metadata_to_schema(
         // If not found, try single-sample pattern: column name equals format_id directly
         if !is_format {
             if let Some(Value::Object(meta_obj)) = format_meta.get(name) {
-                let mut field_metadata = HashMap::new();
-
-                if let Some(Value::String(number)) = meta_obj.get("number") {
-                    field_metadata.insert(VCF_FIELD_NUMBER_KEY.to_string(), number.clone());
-                }
-                if let Some(Value::String(ty)) = meta_obj.get("type") {
-                    field_metadata.insert(VCF_FIELD_TYPE_KEY.to_string(), ty.clone());
-                }
-                if let Some(Value::String(desc)) = meta_obj.get("description") {
-                    field_metadata.insert(VCF_FIELD_DESCRIPTION_KEY.to_string(), desc.clone());
-                }
+                let field_metadata = build_field_metadata_from_vcf_meta(meta_obj);
 
                 if !format_fields.contains(name) {
                     format_fields.push(name.clone());
@@ -295,25 +316,10 @@ async fn execute_vcf_streaming_write(
 
     // Execute the write plan - this streams batches through the writer
     let task_ctx = ctx.task_ctx();
-    let mut stream = write_plan.execute(0, task_ctx)?;
+    let stream = write_plan.execute(0, task_ctx)?;
 
     // Consume the stream to execute the write
-    let mut total_rows: u64 = 0;
-    while let Some(batch_result) = stream.next().await {
-        let batch = batch_result?;
-        if let Some(count_col) = batch.column_by_name("count") {
-            if let Some(count_array) = count_col
-                .as_any()
-                .downcast_ref::<datafusion::arrow::array::UInt64Array>()
-            {
-                if count_array.len() > 0 && !count_array.is_null(0) {
-                    total_rows += count_array.value(0);
-                }
-            }
-        } else {
-            total_rows += batch.num_rows() as u64;
-        }
-    }
+    let total_rows = consume_write_stream(stream).await?;
 
     info!("Successfully wrote {} rows to output", total_rows);
     Ok(total_rows)
@@ -433,28 +439,10 @@ async fn execute_streaming_write(
 
     // Execute the write plan - this streams batches through the writer
     let task_ctx = ctx.task_ctx();
-    let mut stream = write_plan.execute(0, task_ctx)?;
+    let stream = write_plan.execute(0, task_ctx)?;
 
     // Consume the stream to execute the write
-    // The WriteExec typically returns a single batch with the row count
-    let mut total_rows: u64 = 0;
-    while let Some(batch_result) = stream.next().await {
-        let batch = batch_result?;
-        // WriteExec returns a batch with a "count" column containing the number of rows written
-        if let Some(count_col) = batch.column_by_name("count") {
-            if let Some(count_array) = count_col
-                .as_any()
-                .downcast_ref::<datafusion::arrow::array::UInt64Array>()
-            {
-                if count_array.len() > 0 && !count_array.is_null(0) {
-                    total_rows += count_array.value(0);
-                }
-            }
-        } else {
-            // Fallback: count rows in the batch itself
-            total_rows += batch.num_rows() as u64;
-        }
-    }
+    let total_rows = consume_write_stream(stream).await?;
 
     info!("Successfully wrote {} rows to output", total_rows);
     Ok(total_rows)
