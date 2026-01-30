@@ -55,6 +55,8 @@ register_view = data_processing.register_view
 sql = data_processing.sql
 
 describe_vcf = data_input.describe_vcf
+describe_bam = data_input.describe_bam
+describe_cram = data_input.describe_cram
 from_polars = data_input.from_polars
 read_bam = data_input.read_bam
 read_cram = data_input.read_cram
@@ -114,6 +116,8 @@ __all__ = [
     "print_metadata_summary",
     # I/O functions
     "describe_vcf",
+    "describe_bam",
+    "describe_cram",
     "from_polars",
     "read_bam",
     "read_cram",

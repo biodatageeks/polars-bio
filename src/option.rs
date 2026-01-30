@@ -387,16 +387,20 @@ pub struct BamReadOptions {
     /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
     #[pyo3(get, set)]
     pub zero_based: bool,
+    /// Optional list of BAM tag names to include as columns (e.g., ["NM", "AS", "MD"])
+    #[pyo3(get, set)]
+    pub tag_fields: Option<Vec<String>>,
 }
 
 #[pymethods]
 impl BamReadOptions {
     #[new]
-    #[pyo3(signature = (thread_num=None, object_storage_options=None, zero_based=true))]
+    #[pyo3(signature = (thread_num=None, object_storage_options=None, zero_based=true, tag_fields=None))]
     pub fn new(
         thread_num: Option<usize>,
         object_storage_options: Option<PyObjectStorageOptions>,
         zero_based: bool,
+        tag_fields: Option<Vec<String>>,
     ) -> Self {
         BamReadOptions {
             thread_num,
@@ -404,6 +408,7 @@ impl BamReadOptions {
                 object_storage_options,
             ),
             zero_based,
+            tag_fields,
         }
     }
     #[staticmethod]
@@ -420,6 +425,7 @@ impl BamReadOptions {
                 compression_type: Some(CompressionType::AUTO),
             }),
             zero_based: true,
+            tag_fields: None,
         }
     }
 }
@@ -433,16 +439,20 @@ pub struct CramReadOptions {
     /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
     #[pyo3(get, set)]
     pub zero_based: bool,
+    /// Optional list of CRAM tag names to include as columns (e.g., ["NM", "AS", "MD"])
+    #[pyo3(get, set)]
+    pub tag_fields: Option<Vec<String>>,
 }
 
 #[pymethods]
 impl CramReadOptions {
     #[new]
-    #[pyo3(signature = (reference_path=None, object_storage_options=None, zero_based=true))]
+    #[pyo3(signature = (reference_path=None, object_storage_options=None, zero_based=true, tag_fields=None))]
     pub fn new(
         reference_path: Option<String>,
         object_storage_options: Option<PyObjectStorageOptions>,
         zero_based: bool,
+        tag_fields: Option<Vec<String>>,
     ) -> Self {
         CramReadOptions {
             reference_path,
@@ -450,6 +460,7 @@ impl CramReadOptions {
                 object_storage_options,
             ),
             zero_based,
+            tag_fields,
         }
     }
     #[staticmethod]
@@ -466,6 +477,7 @@ impl CramReadOptions {
                 compression_type: Some(CompressionType::AUTO),
             }),
             zero_based: true,
+            tag_fields: None,
         }
     }
 }

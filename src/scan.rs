@@ -434,6 +434,7 @@ pub(crate) async fn register_table(
                 bam_read_options.thread_num,
                 bam_read_options.object_storage_options.clone(),
                 bam_read_options.zero_based,
+                bam_read_options.tag_fields.clone(),
             )
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
@@ -502,8 +503,9 @@ pub(crate) async fn register_table(
                 cram_read_options.reference_path,
                 cram_read_options.object_storage_options.clone(),
                 cram_read_options.zero_based,
+                cram_read_options.tag_fields.clone(),
             )
-            .unwrap();
+            .expect("Failed to create CRAM table provider. Check that the file exists and requested tags are valid.");
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register CRAM table");
         },
@@ -543,4 +545,141 @@ pub(crate) fn maybe_register_table(
         _ => df_path_or_table,
     }
     .to_string()
+}
+#[pyo3::pyfunction]
+#[pyo3(signature = (py_ctx, path, thread_num=None, object_storage_options=None, zero_based=true, tag_fields=None, sample_size=None))]
+pub fn py_describe_bam(
+    py: pyo3::Python<'_>,
+    py_ctx: &crate::context::PyBioSessionContext,
+    path: String,
+    thread_num: Option<usize>,
+    object_storage_options: Option<crate::option::PyObjectStorageOptions>,
+    zero_based: bool,
+    tag_fields: Option<Vec<String>>,
+    sample_size: Option<usize>,
+) -> pyo3::PyResult<datafusion_python::dataframe::PyDataFrame> {
+    use crate::option::pyobject_storage_options_to_object_storage_options;
+    use datafusion::datasource::MemTable;
+    use pyo3::exceptions::PyRuntimeError;
+
+    py.allow_threads(|| {
+        let rt = Runtime::new()?;
+        let ctx = &py_ctx.ctx;
+        let object_storage_opts =
+            pyobject_storage_options_to_object_storage_options(object_storage_options);
+
+        let df = rt
+            .block_on(async {
+                // Create table provider
+                let table_provider = BamTableProvider::new(
+                    path.clone(),
+                    thread_num,
+                    object_storage_opts,
+                    zero_based,
+                    tag_fields,
+                )
+                .map_err(|e| format!("Failed to create BAM table provider: {}", e))?;
+
+                // Call describe - returns a DataFrame
+                let describe_df = table_provider
+                    .describe(ctx, sample_size)
+                    .await
+                    .map_err(|e| format!("Failed to describe BAM: {}", e))?;
+
+                // Execute to get RecordBatches
+                let batches = describe_df
+                    .collect()
+                    .await
+                    .map_err(|e| format!("Failed to collect batches: {}", e))?;
+
+                // Register result as temporary table
+                let schema = if let Some(first_batch) = batches.first() {
+                    first_batch.schema()
+                } else {
+                    return Err("No batches returned from describe".to_string());
+                };
+
+                let mem_table = MemTable::try_new(schema, vec![batches])
+                    .map_err(|e| format!("Failed to create memory table: {}", e))?;
+                let random_table_name = format!("bam_schema_{}", rand::random::<u32>());
+                ctx.register_table(random_table_name.clone(), Arc::new(mem_table))
+                    .map_err(|e| format!("Failed to register table: {}", e))?;
+                let df = ctx
+                    .table(random_table_name)
+                    .await
+                    .map_err(|e| format!("Failed to get table: {}", e))?;
+                Ok::<datafusion::dataframe::DataFrame, String>(df)
+            })
+            .map_err(|e| PyRuntimeError::new_err(format!("BAM schema extraction failed: {}", e)))?;
+        Ok(datafusion_python::dataframe::PyDataFrame::new(df))
+    })
+}
+
+#[pyo3::pyfunction]
+#[pyo3(signature = (py_ctx, path, reference_path=None, thread_num=None, object_storage_options=None, zero_based=true, tag_fields=None, sample_size=None))]
+#[allow(unused_variables)]
+pub fn py_describe_cram(
+    py: pyo3::Python<'_>,
+    py_ctx: &crate::context::PyBioSessionContext,
+    path: String,
+    reference_path: Option<String>,
+    thread_num: Option<usize>,
+    object_storage_options: Option<crate::option::PyObjectStorageOptions>,
+    zero_based: bool,
+    tag_fields: Option<Vec<String>>,
+    sample_size: Option<usize>,
+) -> pyo3::PyResult<datafusion_python::dataframe::PyDataFrame> {
+    use crate::option::pyobject_storage_options_to_object_storage_options;
+    use datafusion::datasource::MemTable;
+    use pyo3::exceptions::PyRuntimeError;
+
+    py.allow_threads(|| {
+        let rt = Runtime::new()?;
+        let ctx = &py_ctx.ctx;
+        let object_storage_opts =
+            pyobject_storage_options_to_object_storage_options(object_storage_options);
+
+        let df = rt
+            .block_on(async {
+                let table_provider = CramTableProvider::new(
+                    path.clone(),
+                    reference_path,
+                    object_storage_opts,
+                    zero_based,
+                    tag_fields,
+                )
+                .map_err(|e| format!("Failed to create CRAM table provider: {}", e))?;
+
+                let describe_df = table_provider
+                    .describe(ctx, sample_size)
+                    .await
+                    .map_err(|e| format!("Failed to describe CRAM: {}", e))?;
+
+                let batches = describe_df
+                    .collect()
+                    .await
+                    .map_err(|e| format!("Failed to collect batches: {}", e))?;
+
+                let schema = if let Some(first_batch) = batches.first() {
+                    first_batch.schema()
+                } else {
+                    return Err("No batches returned from describe".to_string());
+                };
+
+                let mem_table = MemTable::try_new(schema, vec![batches])
+                    .map_err(|e| format!("Failed to create memory table: {}", e))?;
+                let random_table_name = format!("cram_schema_{}", rand::random::<u32>());
+                ctx.register_table(random_table_name.clone(), Arc::new(mem_table))
+                    .map_err(|e| format!("Failed to register table: {}", e))?;
+                let df = ctx
+                    .table(random_table_name)
+                    .await
+                    .map_err(|e| format!("Failed to get table: {}", e))?;
+                Ok::<datafusion::dataframe::DataFrame, String>(df)
+            })
+            .map_err(|e| {
+                PyRuntimeError::new_err(format!("CRAM schema extraction failed: {}", e))
+            })?;
+        Ok(datafusion_python::dataframe::PyDataFrame::new(df))
+    })
 }
