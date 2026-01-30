@@ -574,6 +574,8 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
     m.add_function(wrap_pyfunction!(py_write_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_write_from_sql, m)?)?;
+    m.add_function(wrap_pyfunction!(scan::py_describe_bam, m)?)?;
+    m.add_function(wrap_pyfunction!(scan::py_describe_cram, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;

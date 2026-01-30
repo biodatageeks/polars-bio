@@ -126,35 +126,48 @@ class TestIOBAM:
         assert len(result) == 5
 
     def test_describe_bam_no_tags(self):
-        """Test describe_bam without tags"""
-        schema = pb.describe_bam(f"{DATA_DIR}/io/bam/test.bam")
-        assert "column" in schema.columns
-        assert "datatype" in schema.columns
-        assert len(schema) == 11  # 11 standard columns
-        assert "name" in schema["column"].to_list()
-        assert "chrom" in schema["column"].to_list()
-        assert "String" in schema["datatype"].to_list()
+        """Test describe_bam with auto-discovery (sample_size=0 to skip tags)"""
+        schema = pb.describe_bam(f"{DATA_DIR}/io/bam/test.bam", sample_size=0)
+        assert "column_name" in schema.columns
+        assert "data_type" in schema.columns
+        assert "category" in schema.columns
+        assert len(schema) == 11  # 11 core columns
+        columns = schema["column_name"].to_list()
+        assert "name" in columns
+        assert "chrom" in columns
+        # All should be core columns
+        assert all(schema["category"] == "core")
 
     def test_describe_bam_with_tags(self):
-        """Test describe_bam with tags"""
-        schema = pb.describe_bam(
-            f"{DATA_DIR}/io/bam/test.bam", tag_fields=["NM", "AS", "MD"]
-        )
-        assert "column" in schema.columns
-        assert "datatype" in schema.columns
-        assert len(schema) == 14  # 11 standard + 3 tag columns
-        columns = schema["column"].to_list()
-        datatypes = schema["datatype"].to_list()
-        assert "NM" in columns
-        assert "AS" in columns
-        assert "MD" in columns
-        # Check that NM and AS are Int32
-        nm_idx = columns.index("NM")
-        as_idx = columns.index("AS")
-        md_idx = columns.index("MD")
-        assert datatypes[nm_idx] == "Int32"
-        assert datatypes[as_idx] == "Int32"
-        assert datatypes[md_idx] == "String"
+        """Test describe_bam with automatic tag discovery"""
+        schema = pb.describe_bam(f"{DATA_DIR}/io/bam/test.bam", sample_size=100)
+        assert "column_name" in schema.columns
+        assert "data_type" in schema.columns
+        assert "category" in schema.columns
+        assert "sam_type" in schema.columns
+        assert "description" in schema.columns
+
+        # Should have core + discovered tag columns
+        assert len(schema) > 11
+
+        columns = schema["column_name"].to_list()
+        # Check core columns present
+        assert "name" in columns
+        assert "chrom" in columns
+
+        # Check some expected tags discovered
+        tags = schema.filter(schema["category"] == "tag")
+        tag_names = tags["column_name"].to_list()
+        assert "NM" in tag_names  # Edit distance
+        assert "MD" in tag_names  # Mismatch string
+
+        # Verify tag data types
+        nm_row = schema.filter(schema["column_name"] == "NM")
+        md_row = schema.filter(schema["column_name"] == "MD")
+        assert len(nm_row) == 1
+        assert nm_row["data_type"][0] == "Int32"
+        assert len(md_row) == 1
+        assert md_row["data_type"][0] == "Utf8"
 
 
 class TestIOCRAM:
@@ -228,67 +241,65 @@ class TestIOCRAM:
         assert "AS" not in df.columns
 
     def test_cram_single_tag(self):
-        """Test that CRAM tag_fields parameter is accepted but ignored (not yet supported)"""
+        """Test that CRAM tag_fields parameter includes the tag"""
         df = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram", tag_fields=["NM"])
-        # CRAM tag support not yet implemented - tags should be ignored
-        assert "NM" not in df.columns
-        assert len(df.columns) == 11  # Original columns only
+        assert "NM" in df.columns
+        assert len(df.columns) == 12  # 11 + 1 tag
 
     def test_cram_multiple_tags(self):
-        """Test that multiple CRAM tags are accepted but ignored (not yet supported)"""
+        """Test that multiple CRAM tags are included"""
         df = pb.read_cram(
             f"{DATA_DIR}/io/cram/test.cram", tag_fields=["NM", "AS", "MD"]
         )
-        # CRAM tag support not yet implemented - tags should be ignored
-        assert "NM" not in df.columns
-        assert "AS" not in df.columns
-        assert "MD" not in df.columns
-        assert len(df.columns) == 11  # Original columns only
+        assert "NM" in df.columns
+        assert "AS" in df.columns
+        assert "MD" in df.columns
+        assert len(df.columns) == 14  # 11 + 3 tags
 
     def test_cram_scan_with_tags(self):
-        """Test that lazy scan with CRAM tags is accepted but ignored (not yet supported)"""
+        """Test that lazy scan with CRAM tags includes the tags"""
         lf = pb.scan_cram(f"{DATA_DIR}/io/cram/test.cram", tag_fields=["NM", "AS"])
-        # CRAM tag support not yet implemented - should only have standard columns
-        df = lf.select(["name", "chrom", "start"]).collect()
-        assert "NM" not in df.columns
-        assert "AS" not in df.columns
-        assert len(df.columns) == 3
+        df = lf.select(["name", "chrom", "NM", "AS"]).collect()
+        assert "NM" in df.columns
+        assert "AS" in df.columns
+        assert len(df.columns) == 4
 
     def test_cram_sql_with_tags(self):
-        """Test that SQL registration with CRAM tags is accepted but ignored (not yet supported)"""
+        """Test that SQL registration with CRAM tags includes the tags"""
         pb.register_cram(
             f"{DATA_DIR}/io/cram/test.cram",
             "test_cram_tags_sql",
             tag_fields=["NM", "AS"],
         )
-        # CRAM tag support not yet implemented - should only have standard columns
-        result = pb.sql("SELECT name, chrom FROM test_cram_tags_sql LIMIT 5").collect()
-        assert "NM" not in result.columns
-        assert "AS" not in result.columns
-        assert len(result) == 5
+        result = pb.sql(
+            'SELECT name, "NM", "AS" FROM test_cram_tags_sql LIMIT 5'
+        ).collect()
+        assert "NM" in result.columns
+        assert "AS" in result.columns
 
     def test_describe_cram_no_tags(self):
-        """Test describe_cram without tags"""
-        schema = pb.describe_cram(f"{DATA_DIR}/io/cram/test.cram")
-        assert "column" in schema.columns
-        assert "datatype" in schema.columns
-        assert len(schema) == 11  # 11 standard columns
-        assert "name" in schema["column"].to_list()
-        assert "chrom" in schema["column"].to_list()
-        assert "String" in schema["datatype"].to_list()
+        """Test describe_cram without tags (sample_size=0 for core columns only)"""
+        schema = pb.describe_cram(f"{DATA_DIR}/io/cram/test.cram", sample_size=0)
+        assert "column_name" in schema.columns
+        assert "data_type" in schema.columns
+        assert "category" in schema.columns
+        assert len(schema) == 11  # Core columns only
+        assert all(schema["category"] == "core")
 
     def test_describe_cram_with_tags(self):
-        """Test describe_cram with tags (currently ignored)"""
-        schema = pb.describe_cram(
-            f"{DATA_DIR}/io/cram/test.cram", tag_fields=["NM", "AS"]
-        )
-        assert "column" in schema.columns
-        assert "datatype" in schema.columns
-        # CRAM tag support not yet implemented - should only show standard columns
-        assert len(schema) == 11  # 11 standard columns only
-        columns = schema["column"].to_list()
-        assert "NM" not in columns
-        assert "AS" not in columns
+        """Test describe_cram with automatic tag discovery"""
+        schema = pb.describe_cram(f"{DATA_DIR}/io/cram/test.cram", sample_size=100)
+        assert "column_name" in schema.columns
+        assert "category" in schema.columns
+        assert "sam_type" in schema.columns
+        assert len(schema) > 11  # Core + tags
+
+        tags = schema.filter(schema["category"] == "tag")
+        tag_names = tags["column_name"].to_list()
+        # Check for tags that are actually present in test.cram
+        assert "RG" in tag_names  # Read group
+        assert "MQ" in tag_names  # Mapping quality
+        assert len(tag_names) > 0  # At least some tags discovered
 
 
 class TestIOBED:

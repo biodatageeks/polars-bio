@@ -20,6 +20,8 @@ from polars_bio.polars_bio import (
     VcfReadOptions,
     VcfWriteOptions,
     WriteOptions,
+    py_describe_bam,
+    py_describe_cram,
     py_describe_vcf,
     py_from_polars,
     py_get_table_schema,
@@ -868,7 +870,7 @@ class IOOperations:
     @staticmethod
     def describe_bam(
         path: str,
-        tag_fields: Union[list[str], None] = None,
+        sample_size: int = 100,
         thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -876,16 +878,20 @@ class IOOperations:
         enable_request_payer: bool = False,
         max_retries: int = 5,
         timeout: int = 300,
+        compression_type: str = "auto",
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
-        Get schema information for a BAM file by reading the first row.
+        Get schema information for a BAM file with automatic tag discovery.
 
-        Returns a DataFrame with column names and their data types.
+        Samples the first N records to discover all available tags and their types.
+        Returns detailed schema information including column names, data types,
+        nullability, category (standard/tag), SAM type, and descriptions.
 
         Parameters:
             path: The path to the BAM file.
-            tag_fields: List of BAM tag names to include in schema (e.g., ["NM", "MD", "AS"]).
+            sample_size: Number of records to sample for tag discovery (default: 100).
+                Use higher values for more comprehensive tag discovery.
             thread_num: The number of threads to use for reading.
             chunk_size: The size in MB of a chunk when reading from object storage.
             concurrent_fetches: The number of concurrent fetches when reading from object storage.
@@ -893,127 +899,154 @@ class IOOperations:
             enable_request_payer: Whether to enable request payer for object storage.
             max_retries: The maximum number of retries for reading the file.
             timeout: The timeout in seconds for reading the file.
+            compression_type: The compression type of the file. If "auto" (default), compression is detected automatically.
             use_zero_based: If True, output 0-based coordinates. If False, 1-based coordinates.
 
         Returns:
-            DataFrame with columns: "column" (str) and "datatype" (str)
+            DataFrame with columns:
+            - column_name: Name of the column/field
+            - data_type: Arrow data type (e.g., "Utf8", "Int32")
+            - nullable: Whether the field can be null
+            - category: "core" for fixed columns, "tag" for optional SAM tags
+            - sam_type: SAM type code (e.g., "Z", "i") for tags, null for core columns
+            - description: Human-readable description of the field
 
         Example:
-            >>> import polars_bio as pb
-            >>> schema = pb.describe_bam("file.bam", tag_fields=["NM", "AS"])
-            >>> print(schema)
-            shape: (13, 2)
-            ┌──────────────────┬──────────┐
-            │ column           ┆ datatype │
-            │ ---              ┆ ---      │
-            │ str              ┆ str      │
-            ╞══════════════════╪══════════╡
-            │ name             ┆ String   │
-            │ chrom            ┆ String   │
-            │ ...              ┆ ...      │
-            │ NM               ┆ Int32    │
-            │ AS               ┆ Int32    │
-            └──────────────────┴──────────┘
+            ```python
+            import polars_bio as pb
+
+            # Auto-discover all tags present in the file
+            schema = pb.describe_bam("file.bam", sample_size=100)
+            print(schema)
+            # Output:
+            # shape: (15, 6)
+            # ┌─────────────┬───────────┬──────────┬──────────┬──────────┬──────────────────────┐
+            # │ column_name ┆ data_type ┆ nullable ┆ category ┆ sam_type ┆ description          │
+            # │ ---         ┆ ---       ┆ ---      ┆ ---      ┆ ---      ┆ ---                  │
+            # │ str         ┆ str       ┆ bool     ┆ str      ┆ str      ┆ str                  │
+            # ╞═════════════╪═══════════╪══════════╪══════════╪══════════╪══════════════════════╡
+            # │ name        ┆ Utf8      ┆ true     ┆ core     ┆ null     ┆ Query name           │
+            # │ chrom       ┆ Utf8      ┆ true     ┆ core     ┆ null     ┆ Reference name       │
+            # │ ...         ┆ ...       ┆ ...      ┆ ...      ┆ ...      ┆ ...                  │
+            # │ NM          ┆ Int32     ┆ true     ┆ tag      ┆ i        ┆ Edit distance        │
+            # │ AS          ┆ Int32     ┆ true     ┆ tag      ┆ i        ┆ Alignment score      │
+            # └─────────────┴───────────┴──────────┴──────────┴──────────┴──────────────────────┘
+            ```
         """
-        # Read just the first row to get schema
-        lf = IOOperations.scan_bam(
-            path,
-            tag_fields,
-            thread_num,
-            chunk_size,
-            concurrent_fetches,
-            allow_anonymous,
-            enable_request_payer,
-            max_retries,
-            timeout,
-            False,  # projection_pushdown
-            use_zero_based,
+        # Build object storage options
+        object_storage_options = PyObjectStorageOptions(
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
         )
 
-        # Get schema from the lazy frame
-        df_sample = lf.limit(1).collect()
+        # Resolve zero_based setting
+        zero_based = _resolve_zero_based(use_zero_based)
 
-        # Create schema DataFrame
-        schema_data = {
-            "column": list(df_sample.columns),
-            "datatype": [str(dtype) for dtype in df_sample.dtypes],
-        }
+        # Call Rust function with tag auto-discovery (tag_fields=None)
+        df = py_describe_bam(
+            ctx,  # PyBioSessionContext
+            path,
+            thread_num,
+            object_storage_options,
+            zero_based,
+            None,  # tag_fields=None enables auto-discovery
+            sample_size,
+        )
 
-        return pl.DataFrame(schema_data)
+        # Convert DataFusion DataFrame to Polars DataFrame
+        return pl.from_arrow(df.to_arrow_table())
 
     @staticmethod
     def describe_cram(
         path: str,
         reference_path: str = None,
-        tag_fields: Union[list[str], None] = None,
+        sample_size: int = 100,
+        thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
         enable_request_payer: bool = False,
         max_retries: int = 5,
         timeout: int = 300,
+        compression_type: str = "auto",
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
-        Get schema information for a CRAM file by reading the first row.
+        Get schema information for a CRAM file with automatic tag discovery.
 
-        Returns a DataFrame with column names and their data types.
+        Samples the first N records to discover all available tags and their types.
+        Returns detailed schema information including column names, data types,
+        nullability, category (core/tag), SAM type, and descriptions.
 
         Parameters:
             path: The path to the CRAM file.
             reference_path: Optional path to external FASTA reference file.
-            tag_fields: List of CRAM tag names to include in schema (currently not supported).
+            sample_size: Number of records to sample for tag discovery (default: 100).
+            thread_num: The number of threads to use for reading.
             chunk_size: The size in MB of a chunk when reading from object storage.
             concurrent_fetches: The number of concurrent fetches when reading from object storage.
             allow_anonymous: Whether to allow anonymous access to object storage.
             enable_request_payer: Whether to enable request payer for object storage.
             max_retries: The maximum number of retries for reading the file.
             timeout: The timeout in seconds for reading the file.
+            compression_type: The compression type of the file. If "auto" (default), compression is detected automatically.
             use_zero_based: If True, output 0-based coordinates. If False, 1-based coordinates.
 
         Returns:
-            DataFrame with columns: "column" (str) and "datatype" (str)
+            DataFrame with columns:
+            - column_name: Name of the column/field
+            - data_type: Arrow data type (e.g., "Utf8", "Int32")
+            - nullable: Whether the field can be null
+            - category: "core" for fixed columns, "tag" for optional SAM tags
+            - sam_type: SAM type code (e.g., "Z", "i") for tags, null for core columns
+            - description: Human-readable description of the field
 
         Example:
-            >>> import polars_bio as pb
-            >>> schema = pb.describe_cram("file.cram")
-            >>> print(schema)
-            shape: (11, 2)
-            ┌──────────────────┬──────────┐
-            │ column           ┆ datatype │
-            │ ---              ┆ ---      │
-            │ str              ┆ str      │
-            ╞══════════════════╪══════════╡
-            │ name             ┆ String   │
-            │ chrom            ┆ String   │
-            │ ...              ┆ ...      │
-            └──────────────────┴──────────┘
+            ```python
+            import polars_bio as pb
+
+            # Auto-discover all tags present in the file
+            schema = pb.describe_cram("file.cram", sample_size=100)
+            print(schema)
+
+            # Filter to see only tag columns
+            tags = schema.filter(schema["category"] == "tag")
+            print(tags["column_name"])
+            ```
         """
-        # Read just the first row to get schema
-        lf = IOOperations.scan_cram(
-            path,
-            reference_path,
-            tag_fields,
-            chunk_size,
-            concurrent_fetches,
-            allow_anonymous,
-            enable_request_payer,
-            max_retries,
-            timeout,
-            False,  # projection_pushdown
-            use_zero_based,
+        # Build object storage options
+        object_storage_options = PyObjectStorageOptions(
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
         )
 
-        # Get schema from the lazy frame
-        df_sample = lf.limit(1).collect()
+        # Resolve zero_based setting
+        zero_based = _resolve_zero_based(use_zero_based)
 
-        # Create schema DataFrame
-        schema_data = {
-            "column": list(df_sample.columns),
-            "datatype": [str(dtype) for dtype in df_sample.dtypes],
-        }
+        # Call Rust function with tag auto-discovery (tag_fields=None)
+        df = py_describe_cram(
+            ctx,
+            path,
+            reference_path,
+            thread_num,
+            object_storage_options,
+            zero_based,
+            None,  # tag_fields=None enables auto-discovery
+            sample_size,
+        )
 
-        return pl.DataFrame(schema_data)
+        # Convert DataFusion DataFrame to Polars DataFrame
+        return pl.from_arrow(df.to_arrow_table())
 
     @staticmethod
     def read_fastq(

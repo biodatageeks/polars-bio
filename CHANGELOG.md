@@ -17,14 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `read_bam()` and `scan_bam()` functions
     - `register_bam()` SQL function
   - CRAM functions (`read_cram`, `scan_cram`, `register_cram`) accept `tag_fields` parameter but currently ignore it with a warning (CRAM tag support coming in future release)
-- Schema inspection functions
-  - `describe_bam()` - Get schema information (column names and types) from BAM files
+- Schema inspection with automatic tag discovery
+  - `describe_bam()` - Get comprehensive schema information from BAM files with automatic tag discovery
+    - Samples records (default: 100) to discover all present optional tags
+    - Returns detailed metadata: column names, data types, nullability, category (core/tag), SAM type, and descriptions
+    - Fast operation - only samples N records instead of reading entire file
+    - Perfect for exploring unfamiliar BAM files
   - `describe_cram()` - Get schema information from CRAM files
-  - Support for including tag fields in schema inspection
-  - Only reads first row for fast schema retrieval
 
 ### Changed
-- Updated datafusion-bio-formats dependency to rev 610c0c9257d2ba1d193a5d5592682cb30722a05a
+- Updated datafusion-bio-formats dependency to rev `d7ac1a8331c5a12a858145421acdcebe64a6c7d8`
+  - Integrated upstream `describe()` method with tag auto-discovery
+  - Enhanced schema inspection capabilities
 
 ## [0.20.1] - 2024-01-28
 
