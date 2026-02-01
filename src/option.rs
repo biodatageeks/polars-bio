@@ -575,6 +575,8 @@ impl FastaReadOptions {
 pub enum OutputFormat {
     Vcf,
     Fastq,
+    Bam,
+    Cram,
 }
 
 impl fmt::Display for OutputFormat {
@@ -582,6 +584,8 @@ impl fmt::Display for OutputFormat {
         match self {
             OutputFormat::Vcf => write!(f, "VCF"),
             OutputFormat::Fastq => write!(f, "FASTQ"),
+            OutputFormat::Bam => write!(f, "BAM"),
+            OutputFormat::Cram => write!(f, "CRAM"),
         }
     }
 }
@@ -646,6 +650,68 @@ impl FastqWriteOptions {
     }
 }
 
+/// Options for writing BAM files
+#[pyclass(name = "BamWriteOptions")]
+#[derive(Clone, Debug)]
+pub struct BamWriteOptions {
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+    #[pyo3(get, set)]
+    pub tag_fields: Option<Vec<String>>,
+    #[pyo3(get, set)]
+    pub header_metadata: Option<String>,
+}
+
+#[pymethods]
+impl BamWriteOptions {
+    #[new]
+    #[pyo3(signature = (zero_based=true, tag_fields=None, header_metadata=None))]
+    pub fn new(
+        zero_based: bool,
+        tag_fields: Option<Vec<String>>,
+        header_metadata: Option<String>,
+    ) -> Self {
+        BamWriteOptions {
+            zero_based,
+            tag_fields,
+            header_metadata,
+        }
+    }
+}
+
+/// Options for writing CRAM files
+#[pyclass(name = "CramWriteOptions")]
+#[derive(Clone, Debug)]
+pub struct CramWriteOptions {
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+    #[pyo3(get, set)]
+    pub reference_path: String,
+    #[pyo3(get, set)]
+    pub tag_fields: Option<Vec<String>>,
+    #[pyo3(get, set)]
+    pub header_metadata: Option<String>,
+}
+
+#[pymethods]
+impl CramWriteOptions {
+    #[new]
+    #[pyo3(signature = (reference_path, zero_based=true, tag_fields=None, header_metadata=None))]
+    pub fn new(
+        reference_path: String,
+        zero_based: bool,
+        tag_fields: Option<Vec<String>>,
+        header_metadata: Option<String>,
+    ) -> Self {
+        CramWriteOptions {
+            zero_based,
+            reference_path,
+            tag_fields,
+            header_metadata,
+        }
+    }
+}
+
 /// Container for write options for different formats
 #[pyclass(name = "WriteOptions")]
 #[derive(Clone, Debug)]
@@ -654,19 +720,27 @@ pub struct WriteOptions {
     pub vcf_write_options: Option<VcfWriteOptions>,
     #[pyo3(get, set)]
     pub fastq_write_options: Option<FastqWriteOptions>,
+    #[pyo3(get, set)]
+    pub bam_write_options: Option<BamWriteOptions>,
+    #[pyo3(get, set)]
+    pub cram_write_options: Option<CramWriteOptions>,
 }
 
 #[pymethods]
 impl WriteOptions {
     #[new]
-    #[pyo3(signature = (vcf_write_options=None, fastq_write_options=None))]
+    #[pyo3(signature = (vcf_write_options=None, fastq_write_options=None, bam_write_options=None, cram_write_options=None))]
     pub fn new(
         vcf_write_options: Option<VcfWriteOptions>,
         fastq_write_options: Option<FastqWriteOptions>,
+        bam_write_options: Option<BamWriteOptions>,
+        cram_write_options: Option<CramWriteOptions>,
     ) -> Self {
         WriteOptions {
             vcf_write_options,
             fastq_write_options,
+            bam_write_options,
+            cram_write_options,
         }
     }
 }

@@ -26,10 +26,11 @@ use tokio::runtime::Runtime;
 use crate::context::PyBioSessionContext;
 use crate::operation::do_range_operation;
 use crate::option::{
-    pyobject_storage_options_to_object_storage_options, BamReadOptions, BedReadOptions, BioTable,
-    CramReadOptions, FastaReadOptions, FastqReadOptions, FastqWriteOptions, FilterOp,
-    GffReadOptions, InputFormat, OutputFormat, PyObjectStorageOptions, RangeOp, RangeOptions,
-    ReadOptions, VcfReadOptions, VcfWriteOptions, WriteOptions,
+    pyobject_storage_options_to_object_storage_options, BamReadOptions, BamWriteOptions,
+    BedReadOptions, BioTable, CramReadOptions, CramWriteOptions, FastaReadOptions,
+    FastqReadOptions, FastqWriteOptions, FilterOp, GffReadOptions, InputFormat, OutputFormat,
+    PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions, VcfWriteOptions,
+    WriteOptions,
 };
 use crate::scan::{
     maybe_register_table, register_frame, register_frame_from_arrow_stream,
@@ -514,8 +515,10 @@ fn py_write_table(
                 .await
                 .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
-            // Convert Utf8View columns to LargeUtf8 for bio format compatibility
-            // DataFusion-bio-formats doesn't support Utf8View yet
+            // Convert string columns for bio format compatibility
+            // - BAM/CRAM formats expect Utf8 (not LargeUtf8)
+            // - VCF/FASTQ formats expect LargeUtf8
+            // - Utf8View is not supported by any format yet
             use datafusion::arrow::datatypes::DataType;
             use datafusion::logical_expr::{Cast, Expr};
             use datafusion::prelude::*;
@@ -523,22 +526,31 @@ fn py_write_table(
             let schema = df.schema().inner();
             let mut select_exprs = Vec::new();
 
+            // Determine target string type based on output format
+            let target_string_type = match output_format {
+                OutputFormat::Bam | OutputFormat::Cram => DataType::Utf8,
+                OutputFormat::Vcf | OutputFormat::Fastq => DataType::LargeUtf8,
+            };
+
             for field in schema.fields().iter() {
                 // Use qualified column name with proper quoting for special characters
                 // Format: table."column" to handle uppercase/special chars
                 let qualified_name = format!("{}.\"{}\"", temp_table_name, field.name());
 
-                if matches!(field.data_type(), DataType::Utf8View) {
-                    // Cast Utf8View to LargeUtf8 and remove table prefix
-                    let expr = Expr::Cast(Cast::new(
-                        Box::new(col(qualified_name)),
-                        DataType::LargeUtf8,
-                    ))
-                    .alias(field.name());
-                    select_exprs.push(expr);
-                } else {
-                    // Keep as-is but remove table prefix
-                    select_exprs.push(col(qualified_name).alias(field.name()));
+                match field.data_type() {
+                    DataType::Utf8View | DataType::LargeUtf8 | DataType::Utf8 => {
+                        // Cast all string types to the target type for this format
+                        let expr = Expr::Cast(Cast::new(
+                            Box::new(col(qualified_name)),
+                            target_string_type.clone(),
+                        ))
+                        .alias(field.name());
+                        select_exprs.push(expr);
+                    },
+                    _ => {
+                        // Keep as-is but remove table prefix
+                        select_exprs.push(col(qualified_name).alias(field.name()));
+                    },
                 }
             }
 
@@ -590,7 +602,9 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<FastqReadOptions>()?;
     m.add_class::<FastqWriteOptions>()?;
     m.add_class::<BamReadOptions>()?;
+    m.add_class::<BamWriteOptions>()?;
     m.add_class::<CramReadOptions>()?;
+    m.add_class::<CramWriteOptions>()?;
     m.add_class::<BedReadOptions>()?;
     m.add_class::<FastaReadOptions>()?;
     m.add_class::<PyObjectStorageOptions>()?;

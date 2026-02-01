@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 import polars as pl
 
@@ -294,6 +294,42 @@ class PolarsRangesOperations:
         """
         pb.sink_fastq(self._ldf, path)
 
+    def sink_bam(self, path: str, reference_path: Optional[str] = None) -> None:
+        """
+        Streaming write LazyFrame to BAM/CRAM/SAM format.
+
+        Parameters:
+            path: Output file path
+            reference_path: Path to reference FASTA (required for .cram files)
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+
+            lf = pb.scan_bam("input.bam").filter(pl.col("mapping_quality") > 20)
+            lf.pb.sink_bam("filtered.bam")
+            ```
+        """
+        pb.sink_bam(self._ldf, path, reference_path)
+
+    def sink_cram(self, path: str, reference_path: str) -> None:
+        """
+        Streaming write LazyFrame to CRAM format.
+
+        Parameters:
+            path: Output file path
+            reference_path: Path to reference FASTA
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+
+            lf = pb.scan_bam("input.bam").filter(pl.col("mapping_quality") > 20)
+            lf.pb.sink_cram("filtered.cram", reference_path="ref.fasta")
+            ```
+        """
+        pb.sink_cram(self._ldf, path, reference_path)
+
 
 @pl.api.register_dataframe_namespace("pb")
 class PolarsDataFrameOperations:
@@ -346,3 +382,47 @@ class PolarsDataFrameOperations:
             ```
         """
         return pb.write_fastq(self._df, path)
+
+    def write_bam(self, path: str, reference_path: Optional[str] = None) -> int:
+        """
+        Write DataFrame to BAM/CRAM/SAM format.
+
+        Compression is auto-detected from file extension.
+
+        Parameters:
+            path: Output file path
+            reference_path: Path to reference FASTA (required for .cram files)
+
+        Returns:
+            The number of rows written.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+
+            df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
+            df.pb.write_bam("output.bam")
+            ```
+        """
+        return pb.write_bam(self._df, path, reference_path)
+
+    def write_cram(self, path: str, reference_path: str) -> int:
+        """
+        Write DataFrame to CRAM format.
+
+        Parameters:
+            path: Output file path
+            reference_path: Path to reference FASTA
+
+        Returns:
+            The number of rows written.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+
+            df = pb.read_bam("input.bam")
+            df.pb.write_cram("output.cram", reference_path="ref.fasta")
+            ```
+        """
+        return pb.write_cram(self._df, path, reference_path)

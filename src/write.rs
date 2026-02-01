@@ -13,9 +13,11 @@ use datafusion::common::DataFusionError;
 use datafusion::dataframe::DataFrame;
 use datafusion::execution::context::SessionContext;
 use datafusion::logical_expr::dml::InsertOp;
+use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_core::metadata::{
     VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
 };
+use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
 use futures::StreamExt;
@@ -224,6 +226,8 @@ pub(crate) async fn write_table(
     match format {
         OutputFormat::Vcf => write_vcf_streaming(ctx, df, path, write_options).await,
         OutputFormat::Fastq => write_fastq_streaming(ctx, df, path, write_options).await,
+        OutputFormat::Bam => write_bam_streaming(ctx, df, path, write_options).await,
+        OutputFormat::Cram => write_cram_streaming(ctx, df, path, write_options).await,
     }
 }
 
@@ -587,6 +591,162 @@ fn parse_format_column_name(name: &str) -> Option<(String, String)> {
     }
 
     None
+}
+
+/// Stream write a DataFrame to BAM format.
+async fn write_bam_streaming(
+    ctx: &SessionContext,
+    df: DataFrame,
+    path: &str,
+    write_options: Option<WriteOptions>,
+) -> Result<u64, DataFusionError> {
+    let (zero_based, tag_fields, header_metadata) = if let Some(opts) = &write_options {
+        if let Some(bam_opts) = &opts.bam_write_options {
+            (
+                bam_opts.zero_based,
+                bam_opts.tag_fields.clone(),
+                bam_opts.header_metadata.clone(),
+            )
+        } else {
+            (true, None, None)
+        }
+    } else {
+        (true, None, None)
+    };
+
+    execute_bam_streaming_write(ctx, df, path, zero_based, tag_fields, header_metadata).await
+}
+
+/// Execute BAM streaming write with metadata support.
+async fn execute_bam_streaming_write(
+    ctx: &SessionContext,
+    df: DataFrame,
+    path: &str,
+    zero_based: bool,
+    tag_fields: Option<Vec<String>>,
+    header_metadata: Option<String>,
+) -> Result<u64, DataFusionError> {
+    let schema = df.schema().inner().clone();
+
+    // Auto-detect tag fields if not specified
+    let tags = tag_fields.unwrap_or_else(|| extract_tag_fields_from_schema(&schema));
+
+    info!(
+        "BAM write: zero_based={}, tags={:?}, header_metadata={:?}",
+        zero_based,
+        tags,
+        header_metadata.as_ref().map(|_| "present")
+    );
+
+    // Create BAM table provider for write
+    let provider =
+        BamTableProvider::new_for_write(path.to_string(), schema.clone(), Some(tags), zero_based);
+
+    // Execute streaming write
+    execute_streaming_write(ctx, df, Arc::new(provider)).await
+}
+
+/// Stream write a DataFrame to CRAM format.
+async fn write_cram_streaming(
+    ctx: &SessionContext,
+    df: DataFrame,
+    path: &str,
+    write_options: Option<WriteOptions>,
+) -> Result<u64, DataFusionError> {
+    let (zero_based, reference_path, tag_fields, header_metadata) =
+        if let Some(opts) = &write_options {
+            if let Some(cram_opts) = &opts.cram_write_options {
+                (
+                    cram_opts.zero_based,
+                    cram_opts.reference_path.clone(),
+                    cram_opts.tag_fields.clone(),
+                    cram_opts.header_metadata.clone(),
+                )
+            } else {
+                return Err(DataFusionError::Internal(
+                    "CRAM write requires CramWriteOptions with reference_path".to_string(),
+                ));
+            }
+        } else {
+            return Err(DataFusionError::Internal(
+                "CRAM write requires CramWriteOptions with reference_path".to_string(),
+            ));
+        };
+
+    execute_cram_streaming_write(
+        ctx,
+        df,
+        path,
+        zero_based,
+        reference_path,
+        tag_fields,
+        header_metadata,
+    )
+    .await
+}
+
+/// Execute CRAM streaming write with metadata support.
+async fn execute_cram_streaming_write(
+    ctx: &SessionContext,
+    df: DataFrame,
+    path: &str,
+    zero_based: bool,
+    reference_path: String,
+    tag_fields: Option<Vec<String>>,
+    header_metadata: Option<String>,
+) -> Result<u64, DataFusionError> {
+    let schema = df.schema().inner().clone();
+    let tags = tag_fields.unwrap_or_else(|| extract_tag_fields_from_schema(&schema));
+
+    info!(
+        "CRAM write: zero_based={}, reference={}, tags={:?}, header_metadata={:?}",
+        zero_based,
+        reference_path,
+        tags,
+        header_metadata.as_ref().map(|_| "present")
+    );
+
+    // Create CRAM table provider for write
+    let provider = CramTableProvider::new_for_write(
+        path.to_string(),
+        schema.clone(),
+        Some(reference_path),
+        Some(tags),
+        zero_based,
+    );
+
+    execute_streaming_write(ctx, df, Arc::new(provider)).await
+}
+
+/// Extract tag field names from schema (columns beyond 11 core BAM columns)
+fn extract_tag_fields_from_schema(schema: &SchemaRef) -> Vec<String> {
+    let core_columns: std::collections::HashSet<&str> = [
+        "name",
+        "chrom",
+        "start",
+        "end",
+        "flags",
+        "cigar",
+        "mapping_quality",
+        "mate_chrom",
+        "mate_start",
+        "sequence",
+        "quality_scores",
+    ]
+    .into_iter()
+    .collect();
+
+    schema
+        .fields()
+        .iter()
+        .filter_map(|field| {
+            if !core_columns.contains(field.name().as_str()) {
+                Some(field.name().clone())
+            } else {
+                None
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
