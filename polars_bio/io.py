@@ -7,8 +7,10 @@ from tqdm.auto import tqdm
 
 from polars_bio.polars_bio import (
     BamReadOptions,
+    BamWriteOptions,
     BedReadOptions,
     CramReadOptions,
+    CramWriteOptions,
     FastaReadOptions,
     FastqReadOptions,
     FastqWriteOptions,
@@ -1463,6 +1465,93 @@ class IOOperations:
         """
         _write_file(lf, path, OutputFormat.Fastq)
 
+    @staticmethod
+    def write_bam(
+        df: Union[pl.DataFrame, pl.LazyFrame],
+        path: str,
+        reference_path: Optional[str] = None,
+    ) -> int:
+        """
+        Write a DataFrame to BAM/CRAM/SAM format.
+
+        Compression is auto-detected from file extension:
+        - .sam → Uncompressed SAM (plain text)
+        - .bam → BGZF-compressed BAM
+        - .cram → CRAM format (requires reference_path)
+
+        Parameters:
+            df: DataFrame or LazyFrame with 11 core BAM columns + optional tag columns
+            path: Output file path
+            reference_path: Path to reference FASTA (required for .cram files)
+
+        Returns:
+            Number of rows written
+
+        !!! Example "Write BAM/CRAM files"
+            ```python
+            import polars_bio as pb
+            df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
+            pb.write_bam(df, "output.bam")
+            pb.write_bam(df, "output.cram", reference_path="ref.fasta")
+            ```
+        """
+        if path.endswith(".cram"):
+            if reference_path is None:
+                raise ValueError(
+                    "reference_path is required for CRAM format (.cram extension)"
+                )
+            return _write_bam_file(df, path, OutputFormat.Cram, reference_path)
+        else:
+            return _write_bam_file(df, path, OutputFormat.Bam, reference_path)
+
+    @staticmethod
+    def sink_bam(
+        lf: pl.LazyFrame,
+        path: str,
+        reference_path: Optional[str] = None,
+    ) -> None:
+        """
+        Streaming write a LazyFrame to BAM/CRAM/SAM format.
+
+        Parameters:
+            lf: LazyFrame to write
+            path: Output file path
+            reference_path: Path to reference FASTA (required for .cram files)
+
+        !!! Example "Streaming write BAM"
+            ```python
+            import polars_bio as pb
+            lf = pb.scan_bam("input.bam").filter(pl.col("mapping_quality") > 20)
+            pb.sink_bam(lf, "filtered.bam")
+            ```
+        """
+        if path.endswith(".cram") and reference_path is None:
+            raise ValueError("reference_path is required for CRAM format")
+        _write_bam_file(
+            lf,
+            path,
+            OutputFormat.Cram if path.endswith(".cram") else OutputFormat.Bam,
+            reference_path,
+        )
+
+    @staticmethod
+    def write_cram(
+        df: Union[pl.DataFrame, pl.LazyFrame],
+        path: str,
+        reference_path: str,
+    ) -> int:
+        """Write DataFrame to CRAM format (convenience wrapper)."""
+        return _write_bam_file(df, path, OutputFormat.Cram, reference_path)
+
+    @staticmethod
+    def sink_cram(
+        lf: pl.LazyFrame,
+        path: str,
+        reference_path: str,
+    ) -> None:
+        """Streaming write LazyFrame to CRAM format (convenience wrapper)."""
+        _write_bam_file(lf, path, OutputFormat.Cram, reference_path)
+
 
 def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
     if t is None:
@@ -1560,6 +1649,67 @@ def _write_file(
         return py_write_table(ctx, stream, path, output_format, write_options)
     else:
         # Already a DataFrame
+        arrow_table = df.to_arrow()
+        reader = arrow_table.to_reader()
+        return py_write_table(ctx, reader, path, output_format, write_options)
+
+
+def _write_bam_file(
+    df: Union[pl.DataFrame, pl.LazyFrame],
+    path: str,
+    output_format: OutputFormat,
+    reference_path: Optional[str] = None,
+) -> int:
+    """Internal helper for BAM/CRAM write with streaming."""
+    import json
+
+    from ._metadata import get_coordinate_system, get_metadata
+
+    # Extract metadata
+    source_meta = None
+    bam_header = None
+    zero_based = None
+
+    try:
+        source_meta = get_metadata(df)
+        if source_meta:
+            bam_header = source_meta.get("header")
+    except (KeyError, AttributeError, TypeError):
+        pass
+
+    try:
+        zero_based = get_coordinate_system(df)
+    except (KeyError, AttributeError, TypeError):
+        pass
+
+    if zero_based is None:
+        zero_based = _resolve_zero_based(None)
+
+    # Build write options
+    if output_format == OutputFormat.Cram:
+        if reference_path is None:
+            raise ValueError("reference_path is required for CRAM write")
+        cram_opts = CramWriteOptions(
+            reference_path=reference_path,
+            zero_based=zero_based,
+            tag_fields=None,
+            header_metadata=json.dumps(bam_header) if bam_header else None,
+        )
+        write_options = WriteOptions(cram_write_options=cram_opts)
+    else:
+        bam_opts = BamWriteOptions(
+            zero_based=zero_based,
+            tag_fields=None,
+            header_metadata=json.dumps(bam_header) if bam_header else None,
+        )
+        write_options = WriteOptions(bam_write_options=bam_opts)
+
+    # Stream write
+    if isinstance(df, pl.LazyFrame):
+        batches_iter = df.collect_batches(lazy=True, engine="streaming")
+        stream = batches_iter._inner
+        return py_write_table(ctx, stream, path, output_format, write_options)
+    else:
         arrow_table = df.to_arrow()
         reader = arrow_table.to_reader()
         return py_write_table(ctx, reader, path, output_format, write_options)

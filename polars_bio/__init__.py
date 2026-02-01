@@ -79,6 +79,10 @@ write_vcf = data_input.write_vcf
 sink_vcf = data_input.sink_vcf
 write_fastq = data_input.write_fastq
 sink_fastq = data_input.sink_fastq
+write_bam = data_input.write_bam
+sink_bam = data_input.sink_bam
+write_cram = data_input.write_cram
+sink_cram = data_input.sink_cram
 
 overlap = range_operations.overlap
 nearest = range_operations.nearest
@@ -139,6 +143,10 @@ __all__ = [
     "sink_vcf",
     "write_fastq",
     "sink_fastq",
+    "write_bam",
+    "sink_bam",
+    "write_cram",
+    "sink_cram",
     "register_gff",
     "register_vcf",
     "register_fastq",
