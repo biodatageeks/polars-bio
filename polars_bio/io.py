@@ -1525,7 +1525,34 @@ class IOOperations:
         path: str,
         reference_path: str,
     ) -> int:
-        """Write DataFrame to CRAM format (convenience wrapper)."""
+        """
+        Write a DataFrame to CRAM format.
+
+        CRAM is a reference-based compression format that stores differences
+        from a reference genome, achieving 30-60% better compression than BAM.
+        A reference FASTA file is required for both writing and reading CRAM files.
+
+        Parameters:
+            df: DataFrame or LazyFrame with 11 core BAM columns + optional tag columns
+            path: Output CRAM file path
+            reference_path: Path to reference FASTA file (required)
+
+        Returns:
+            Number of rows written
+
+        !!! Example "Write CRAM files"
+            ```python
+            import polars_bio as pb
+
+            df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
+
+            # Write to CRAM (requires reference)
+            pb.write_cram(df, "output.cram", reference_path="reference.fasta")
+
+            # Read back (also requires reference)
+            df2 = pb.read_cram("output.cram", reference_path="reference.fasta")
+            ```
+        """
         return _write_bam_file(df, path, OutputFormat.Cram, reference_path)
 
     @staticmethod
@@ -1534,7 +1561,33 @@ class IOOperations:
         path: str,
         reference_path: str,
     ) -> None:
-        """Streaming write LazyFrame to CRAM format (convenience wrapper)."""
+        """
+        Streaming write a LazyFrame to CRAM format.
+
+        CRAM is a reference-based compression format that achieves better
+        compression than BAM by storing only differences from a reference genome.
+        A reference FASTA file is required for both writing and reading.
+
+        This method executes the LazyFrame immediately and writes the results
+        in a streaming fashion without materializing all data in memory.
+
+        Parameters:
+            lf: LazyFrame to write
+            path: Output CRAM file path
+            reference_path: Path to reference FASTA file (required)
+
+        !!! Example "Streaming write CRAM"
+            ```python
+            import polars_bio as pb
+            import polars as pl
+
+            # Lazy read, filter, and sink to CRAM
+            lf = pb.scan_bam("large_input.bam")
+            lf = lf.filter(pl.col("mapping_quality") > 30)
+
+            pb.sink_cram(lf, "filtered.cram", reference_path="reference.fasta")
+            ```
+        """
         _write_bam_file(lf, path, OutputFormat.Cram, reference_path)
 
 

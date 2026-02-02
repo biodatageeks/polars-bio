@@ -317,16 +317,20 @@ class PolarsRangesOperations:
         """
         Streaming write LazyFrame to CRAM format.
 
+        CRAM is a reference-based compression format requiring a reference FASTA.
+        This method streams data without materializing all rows in memory.
+
         Parameters:
-            path: Output file path
-            reference_path: Path to reference FASTA
+            path: Output CRAM file path
+            reference_path: Path to reference FASTA file (required)
 
         !!! Example
             ```python
             import polars_bio as pb
+            import polars as pl
 
             lf = pb.scan_bam("input.bam").filter(pl.col("mapping_quality") > 20)
-            lf.pb.sink_cram("filtered.cram", reference_path="ref.fasta")
+            lf.pb.sink_cram("filtered.cram", reference_path="reference.fasta")
             ```
         """
         pb.sink_cram(self._ldf, path, reference_path)
@@ -411,9 +415,13 @@ class PolarsDataFrameOperations:
         """
         Write DataFrame to CRAM format.
 
+        CRAM is a reference-based compression format that stores differences
+        from a reference genome, achieving better compression than BAM.
+        A reference FASTA file is required for both writing and reading.
+
         Parameters:
-            path: Output file path
-            reference_path: Path to reference FASTA
+            path: Output CRAM file path
+            reference_path: Path to reference FASTA file (required)
 
         Returns:
             The number of rows written.
@@ -422,8 +430,8 @@ class PolarsDataFrameOperations:
             ```python
             import polars_bio as pb
 
-            df = pb.read_bam("input.bam")
-            df.pb.write_cram("output.cram", reference_path="ref.fasta")
+            df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
+            df.pb.write_cram("output.cram", reference_path="reference.fasta")
             ```
         """
         return pb.write_cram(self._df, path, reference_path)
