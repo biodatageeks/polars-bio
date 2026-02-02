@@ -738,14 +738,12 @@ async fn write_cram_streaming(
                     cram_opts.header_metadata.clone(),
                 )
             } else {
-                return Err(DataFusionError::Internal(
-                    "CRAM write requires CramWriteOptions with reference_path".to_string(),
-                ));
+                // Default: no reference (reference-free CRAM)
+                (true, None, None, None)
             }
         } else {
-            return Err(DataFusionError::Internal(
-                "CRAM write requires CramWriteOptions with reference_path".to_string(),
-            ));
+            // Default: no reference (reference-free CRAM)
+            (true, None, None, None)
         };
 
     execute_cram_streaming_write(
@@ -766,7 +764,7 @@ async fn execute_cram_streaming_write(
     df: DataFrame,
     path: &str,
     zero_based: bool,
-    reference_path: String,
+    reference_path: Option<String>,
     tag_fields: Option<Vec<String>>,
     header_metadata: Option<String>,
 ) -> Result<u64, DataFusionError> {
@@ -774,7 +772,7 @@ async fn execute_cram_streaming_write(
     let tags = tag_fields.unwrap_or_else(|| extract_tag_fields_from_schema(&schema));
 
     info!(
-        "CRAM write: zero_based={}, reference={}, tags={:?}, header_metadata={:?}",
+        "CRAM write: zero_based={}, reference={:?}, tags={:?}, header_metadata={:?}",
         zero_based,
         reference_path,
         tags,
@@ -788,7 +786,7 @@ async fn execute_cram_streaming_write(
     let provider = CramTableProvider::new_for_write(
         path.to_string(),
         schema_with_metadata.clone(),
-        Some(reference_path),
+        reference_path,
         Some(tags),
         zero_based,
     );

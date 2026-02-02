@@ -1523,19 +1523,20 @@ class IOOperations:
     def write_cram(
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
-        reference_path: str,
+        reference_path: Optional[str] = None,
     ) -> int:
         """
         Write a DataFrame to CRAM format.
 
-        CRAM is a reference-based compression format that stores differences
-        from a reference genome, achieving 30-60% better compression than BAM.
-        A reference FASTA file is required for both writing and reading CRAM files.
+        CRAM supports two modes:
+        - **Reference-based** (recommended): Stores differences from reference,
+          achieving 30-60% better compression than BAM
+        - **Reference-free**: Stores full sequences like BAM (rarely used)
 
         Parameters:
             df: DataFrame or LazyFrame with 11 core BAM columns + optional tag columns
             path: Output CRAM file path
-            reference_path: Path to reference FASTA file (required)
+            reference_path: Path to reference FASTA file (optional but recommended)
 
         Returns:
             Number of rows written
@@ -1546,11 +1547,11 @@ class IOOperations:
 
             df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
 
-            # Write to CRAM (requires reference)
+            # Reference-based CRAM (recommended - best compression)
             pb.write_cram(df, "output.cram", reference_path="reference.fasta")
 
-            # Read back (also requires reference)
-            df2 = pb.read_cram("output.cram", reference_path="reference.fasta")
+            # Reference-free CRAM (not recommended - use BAM instead)
+            pb.write_cram(df, "output.cram")  # No compression benefit
             ```
         """
         return _write_bam_file(df, path, OutputFormat.Cram, reference_path)
@@ -1559,33 +1560,35 @@ class IOOperations:
     def sink_cram(
         lf: pl.LazyFrame,
         path: str,
-        reference_path: str,
+        reference_path: Optional[str] = None,
     ) -> None:
         """
         Streaming write a LazyFrame to CRAM format.
 
-        CRAM is a reference-based compression format that achieves better
-        compression than BAM by storing only differences from a reference genome.
-        A reference FASTA file is required for both writing and reading.
+        CRAM supports two modes:
+        - **Reference-based** (recommended): Best compression, stores differences
+        - **Reference-free**: Similar to BAM, rarely used
 
-        This method executes the LazyFrame immediately and writes the results
-        in a streaming fashion without materializing all data in memory.
+        This method streams data without materializing all rows in memory.
 
         Parameters:
             lf: LazyFrame to write
             path: Output CRAM file path
-            reference_path: Path to reference FASTA file (required)
+            reference_path: Path to reference FASTA file (optional but recommended)
 
         !!! Example "Streaming write CRAM"
             ```python
             import polars_bio as pb
             import polars as pl
 
-            # Lazy read, filter, and sink to CRAM
             lf = pb.scan_bam("large_input.bam")
             lf = lf.filter(pl.col("mapping_quality") > 30)
 
+            # Reference-based (recommended)
             pb.sink_cram(lf, "filtered.cram", reference_path="reference.fasta")
+
+            # Reference-free (not recommended)
+            pb.sink_cram(lf, "filtered.cram")  # Use BAM instead
             ```
         """
         _write_bam_file(lf, path, OutputFormat.Cram, reference_path)
@@ -1725,8 +1728,7 @@ def _write_bam_file(
 
     # Build write options
     if output_format == OutputFormat.Cram:
-        if reference_path is None:
-            raise ValueError("reference_path is required for CRAM write")
+        # reference_path is optional - None means reference-free CRAM
         cram_opts = CramWriteOptions(
             reference_path=reference_path,
             zero_based=zero_based,
