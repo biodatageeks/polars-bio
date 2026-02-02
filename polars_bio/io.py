@@ -1469,54 +1469,46 @@ class IOOperations:
     def write_bam(
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
-        reference_path: Optional[str] = None,
     ) -> int:
         """
-        Write a DataFrame to BAM/CRAM/SAM format.
+        Write a DataFrame to BAM/SAM format.
 
         Compression is auto-detected from file extension:
         - .sam → Uncompressed SAM (plain text)
         - .bam → BGZF-compressed BAM
-        - .cram → CRAM format (requires reference_path)
+
+        For CRAM format, use `write_cram()` instead.
 
         Parameters:
             df: DataFrame or LazyFrame with 11 core BAM columns + optional tag columns
-            path: Output file path
-            reference_path: Path to reference FASTA (required for .cram files)
+            path: Output file path (.bam or .sam)
 
         Returns:
             Number of rows written
 
-        !!! Example "Write BAM/CRAM files"
+        !!! Example "Write BAM files"
             ```python
             import polars_bio as pb
             df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
             pb.write_bam(df, "output.bam")
-            pb.write_bam(df, "output.cram", reference_path="ref.fasta")
+            pb.write_bam(df, "output.sam")
             ```
         """
-        if path.endswith(".cram"):
-            if reference_path is None:
-                raise ValueError(
-                    "reference_path is required for CRAM format (.cram extension)"
-                )
-            return _write_bam_file(df, path, OutputFormat.Cram, reference_path)
-        else:
-            return _write_bam_file(df, path, OutputFormat.Bam, reference_path)
+        return _write_bam_file(df, path, OutputFormat.Bam, None)
 
     @staticmethod
     def sink_bam(
         lf: pl.LazyFrame,
         path: str,
-        reference_path: Optional[str] = None,
     ) -> None:
         """
-        Streaming write a LazyFrame to BAM/CRAM/SAM format.
+        Streaming write a LazyFrame to BAM/SAM format.
+
+        For CRAM format, use `sink_cram()` instead.
 
         Parameters:
             lf: LazyFrame to write
-            path: Output file path
-            reference_path: Path to reference FASTA (required for .cram files)
+            path: Output file path (.bam or .sam)
 
         !!! Example "Streaming write BAM"
             ```python
@@ -1525,14 +1517,7 @@ class IOOperations:
             pb.sink_bam(lf, "filtered.bam")
             ```
         """
-        if path.endswith(".cram") and reference_path is None:
-            raise ValueError("reference_path is required for CRAM format")
-        _write_bam_file(
-            lf,
-            path,
-            OutputFormat.Cram if path.endswith(".cram") else OutputFormat.Bam,
-            reference_path,
-        )
+        _write_bam_file(lf, path, OutputFormat.Bam, None)
 
     @staticmethod
     def write_cram(

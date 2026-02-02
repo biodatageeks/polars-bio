@@ -1196,7 +1196,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bam"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9c3c93af2ad4a753e9580aa046dfa432dde1e037#9c3c93af2ad4a753e9580aa046dfa432dde1e037"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1221,7 +1221,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bed"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9c3c93af2ad4a753e9580aa046dfa432dde1e037#9c3c93af2ad4a753e9580aa046dfa432dde1e037"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1245,7 +1245,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-core"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9c3c93af2ad4a753e9580aa046dfa432dde1e037#9c3c93af2ad4a753e9580aa046dfa432dde1e037"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
 dependencies = [
  "async-compression",
  "bytes",
@@ -1267,7 +1267,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-cram"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9c3c93af2ad4a753e9580aa046dfa432dde1e037#9c3c93af2ad4a753e9580aa046dfa432dde1e037"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1293,7 +1293,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fasta"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9c3c93af2ad4a753e9580aa046dfa432dde1e037#9c3c93af2ad4a753e9580aa046dfa432dde1e037"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1315,7 +1315,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fastq"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9c3c93af2ad4a753e9580aa046dfa432dde1e037#9c3c93af2ad4a753e9580aa046dfa432dde1e037"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1340,7 +1340,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-gff"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9c3c93af2ad4a753e9580aa046dfa432dde1e037#9c3c93af2ad4a753e9580aa046dfa432dde1e037"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1365,7 +1365,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-vcf"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=9c3c93af2ad4a753e9580aa046dfa432dde1e037#9c3c93af2ad4a753e9580aa046dfa432dde1e037"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -6318,9 +6318,9 @@ checksum = "40990edd51aae2c2b6907af74ffb635029d5788228222c4bb811e9351c0caad3"
 
 [[package]]
 name = "zmij"
-version = "1.0.18"
+version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1966f8ac2c1f76987d69a74d0e0f929241c10e78136434e3be70ff7f58f64214"
+checksum = "3ff05f8caa9038894637571ae6b9e29466c1f4f829d26c9b28f869a29cbe3445"
 
 [[package]]
 name = "zstd"

@@ -4,15 +4,19 @@
 //! from datafusion-bio-formats TableProviders for efficient, memory-conscious writes.
 
 use std::collections::HashMap;
+use std::pin::Pin;
 use std::sync::Arc;
+use std::task::Poll;
 
 use datafusion::arrow::array::Array;
 use datafusion::arrow::datatypes::{DataType, Schema, SchemaRef};
+use datafusion::arrow::record_batch::RecordBatch;
 use datafusion::catalog::TableProvider;
 use datafusion::common::DataFusionError;
 use datafusion::dataframe::DataFrame;
 use datafusion::execution::context::SessionContext;
 use datafusion::logical_expr::dml::InsertOp;
+use datafusion::physical_plan::{RecordBatchStream, SendableRecordBatchStream};
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_core::metadata::{
     VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
@@ -20,7 +24,7 @@ use datafusion_bio_format_core::metadata::{
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
-use futures::StreamExt;
+use futures::{Stream, StreamExt};
 use log::info;
 
 use crate::option::{OutputFormat, WriteOptions};
@@ -337,7 +341,7 @@ async fn execute_vcf_streaming_write(
 use datafusion::physical_expr::EquivalenceProperties;
 use datafusion::physical_plan::{
     execution_plan::{Boundedness, EmissionType},
-    DisplayAs, DisplayFormatType, ExecutionPlan, PlanProperties, SendableRecordBatchStream,
+    DisplayAs, DisplayFormatType, ExecutionPlan, PlanProperties,
 };
 use std::any::Any;
 
@@ -402,7 +406,48 @@ impl ExecutionPlan for SchemaOverrideExec {
         partition: usize,
         context: Arc<datafusion::execution::TaskContext>,
     ) -> datafusion::common::Result<SendableRecordBatchStream> {
-        self.input.execute(partition, context)
+        let input_stream = self.input.execute(partition, context)?;
+        Ok(Box::pin(SchemaOverrideStream {
+            input: input_stream,
+            schema: self.schema.clone(),
+        }))
+    }
+}
+
+/// Stream adapter that overrides the schema of record batches
+struct SchemaOverrideStream {
+    input: SendableRecordBatchStream,
+    schema: SchemaRef,
+}
+
+impl Stream for SchemaOverrideStream {
+    type Item = datafusion::common::Result<RecordBatch>;
+
+    fn poll_next(
+        mut self: Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        match Pin::new(&mut self.input).poll_next(cx) {
+            Poll::Ready(Some(Ok(batch))) => {
+                // Create a new RecordBatch with the overridden schema
+                // This preserves the data but uses our schema with metadata
+                match RecordBatch::try_new(self.schema.clone(), batch.columns().to_vec()) {
+                    Ok(new_batch) => Poll::Ready(Some(Ok(new_batch))),
+                    Err(e) => {
+                        Poll::Ready(Some(Err(DataFusionError::ArrowError(Box::new(e), None))))
+                    },
+                }
+            },
+            Poll::Ready(Some(Err(e))) => Poll::Ready(Some(Err(e))),
+            Poll::Ready(None) => Poll::Ready(None),
+            Poll::Pending => Poll::Pending,
+        }
+    }
+}
+
+impl RecordBatchStream for SchemaOverrideStream {
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
     }
 }
 
@@ -638,12 +683,42 @@ async fn execute_bam_streaming_write(
         header_metadata.as_ref().map(|_| "present")
     );
 
-    // Create BAM table provider for write
-    let provider =
-        BamTableProvider::new_for_write(path.to_string(), schema.clone(), Some(tags), zero_based);
+    // Add BAM tag metadata to schema (required for serialization)
+    let schema_with_metadata = add_bam_tag_metadata(schema, &tags);
 
-    // Execute streaming write
-    execute_streaming_write(ctx, df, Arc::new(provider)).await
+    // Create BAM table provider for write
+    let provider = BamTableProvider::new_for_write(
+        path.to_string(),
+        schema_with_metadata.clone(),
+        Some(tags),
+        zero_based,
+    );
+
+    // Create the logical plan for the source data
+    let logical_plan = df.logical_plan().clone();
+
+    // Create a physical plan for reading the source data
+    let state = ctx.state();
+    let input_plan = state.create_physical_plan(&logical_plan).await?;
+
+    // Wrap the input plan with a schema override to include BAM tag metadata
+    // This ensures the BAM writer sees the correct field metadata for tag serialization
+    let wrapped_input = Arc::new(SchemaOverrideExec::new(input_plan, schema_with_metadata));
+
+    // Get the write execution plan via insert_into
+    let write_plan = Arc::new(provider)
+        .insert_into(&state, wrapped_input, InsertOp::Overwrite)
+        .await?;
+
+    // Execute the write plan - this streams batches through the writer
+    let task_ctx = ctx.task_ctx();
+    let stream = write_plan.execute(0, task_ctx)?;
+
+    // Consume the stream to execute the write
+    let total_rows = consume_write_stream(stream).await?;
+
+    info!("Successfully wrote {} rows to output", total_rows);
+    Ok(total_rows)
 }
 
 /// Stream write a DataFrame to CRAM format.
@@ -706,16 +781,42 @@ async fn execute_cram_streaming_write(
         header_metadata.as_ref().map(|_| "present")
     );
 
+    // Add BAM tag metadata to schema (required for serialization)
+    let schema_with_metadata = add_bam_tag_metadata(schema, &tags);
+
     // Create CRAM table provider for write
     let provider = CramTableProvider::new_for_write(
         path.to_string(),
-        schema.clone(),
+        schema_with_metadata.clone(),
         Some(reference_path),
         Some(tags),
         zero_based,
     );
 
-    execute_streaming_write(ctx, df, Arc::new(provider)).await
+    // Create the logical plan for the source data
+    let logical_plan = df.logical_plan().clone();
+
+    // Create a physical plan for reading the source data
+    let state = ctx.state();
+    let input_plan = state.create_physical_plan(&logical_plan).await?;
+
+    // Wrap the input plan with a schema override to include BAM tag metadata
+    let wrapped_input = Arc::new(SchemaOverrideExec::new(input_plan, schema_with_metadata));
+
+    // Get the write execution plan via insert_into
+    let write_plan = Arc::new(provider)
+        .insert_into(&state, wrapped_input, InsertOp::Overwrite)
+        .await?;
+
+    // Execute the write plan
+    let task_ctx = ctx.task_ctx();
+    let stream = write_plan.execute(0, task_ctx)?;
+
+    // Consume the stream to execute the write
+    let total_rows = consume_write_stream(stream).await?;
+
+    info!("Successfully wrote {} rows to output", total_rows);
+    Ok(total_rows)
 }
 
 /// Extract tag field names from schema (columns beyond 11 core BAM columns)
@@ -747,6 +848,42 @@ fn extract_tag_fields_from_schema(schema: &SchemaRef) -> Vec<String> {
             }
         })
         .collect()
+}
+
+/// Add BAM tag type metadata to schema fields
+/// This infers the SAM type from Arrow data type and adds it to field metadata
+fn add_bam_tag_metadata(schema: SchemaRef, tag_fields: &[String]) -> SchemaRef {
+    use datafusion_bio_format_core::{BAM_TAG_TAG_KEY, BAM_TAG_TYPE_KEY};
+    use std::collections::HashMap;
+
+    let mut new_fields = Vec::new();
+    let tag_set: std::collections::HashSet<&str> = tag_fields.iter().map(|s| s.as_str()).collect();
+
+    for field in schema.fields().iter() {
+        if tag_set.contains(field.name().as_str()) {
+            // This is a tag field - add metadata
+            let sam_type = match field.data_type() {
+                DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => 'i',
+                DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => 'i',
+                DataType::Float32 | DataType::Float64 => 'f',
+                DataType::Utf8 | DataType::LargeUtf8 => 'Z',
+                _ => 'Z', // Default to string
+            };
+
+            let mut field_metadata = HashMap::new();
+            field_metadata.insert(BAM_TAG_TYPE_KEY.to_string(), sam_type.to_string());
+            field_metadata.insert(BAM_TAG_TAG_KEY.to_string(), field.name().clone());
+
+            new_fields.push(field.as_ref().clone().with_metadata(field_metadata));
+        } else {
+            new_fields.push(field.as_ref().clone());
+        }
+    }
+
+    Arc::new(Schema::new_with_metadata(
+        new_fields,
+        schema.metadata().clone(),
+    ))
 }
 
 #[cfg(test)]

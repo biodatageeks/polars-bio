@@ -294,13 +294,14 @@ class PolarsRangesOperations:
         """
         pb.sink_fastq(self._ldf, path)
 
-    def sink_bam(self, path: str, reference_path: Optional[str] = None) -> None:
+    def sink_bam(self, path: str) -> None:
         """
-        Streaming write LazyFrame to BAM/CRAM/SAM format.
+        Streaming write LazyFrame to BAM/SAM format.
+
+        For CRAM format, use `sink_cram()` instead.
 
         Parameters:
-            path: Output file path
-            reference_path: Path to reference FASTA (required for .cram files)
+            path: Output file path (.bam or .sam)
 
         !!! Example
             ```python
@@ -310,7 +311,7 @@ class PolarsRangesOperations:
             lf.pb.sink_bam("filtered.bam")
             ```
         """
-        pb.sink_bam(self._ldf, path, reference_path)
+        pb.sink_bam(self._ldf, path)
 
     def sink_cram(self, path: str, reference_path: str) -> None:
         """
@@ -383,15 +384,15 @@ class PolarsDataFrameOperations:
         """
         return pb.write_fastq(self._df, path)
 
-    def write_bam(self, path: str, reference_path: Optional[str] = None) -> int:
+    def write_bam(self, path: str) -> int:
         """
-        Write DataFrame to BAM/CRAM/SAM format.
+        Write DataFrame to BAM/SAM format.
 
         Compression is auto-detected from file extension.
+        For CRAM format, use `write_cram()` instead.
 
         Parameters:
-            path: Output file path
-            reference_path: Path to reference FASTA (required for .cram files)
+            path: Output file path (.bam or .sam)
 
         Returns:
             The number of rows written.
@@ -404,7 +405,7 @@ class PolarsDataFrameOperations:
             df.pb.write_bam("output.bam")
             ```
         """
-        return pb.write_bam(self._df, path, reference_path)
+        return pb.write_bam(self._df, path)
 
     def write_cram(self, path: str, reference_path: str) -> int:
         """
