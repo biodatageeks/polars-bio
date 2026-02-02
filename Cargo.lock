@@ -1196,7 +1196,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bam"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=269f3a79c28ce9a767edb10e0a5cd769f23dbe3a#269f3a79c28ce9a767edb10e0a5cd769f23dbe3a"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1221,7 +1221,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bed"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=269f3a79c28ce9a767edb10e0a5cd769f23dbe3a#269f3a79c28ce9a767edb10e0a5cd769f23dbe3a"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1245,7 +1245,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-core"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=269f3a79c28ce9a767edb10e0a5cd769f23dbe3a#269f3a79c28ce9a767edb10e0a5cd769f23dbe3a"
 dependencies = [
  "async-compression",
  "bytes",
@@ -1267,7 +1267,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-cram"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=269f3a79c28ce9a767edb10e0a5cd769f23dbe3a#269f3a79c28ce9a767edb10e0a5cd769f23dbe3a"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1293,7 +1293,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fasta"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=269f3a79c28ce9a767edb10e0a5cd769f23dbe3a#269f3a79c28ce9a767edb10e0a5cd769f23dbe3a"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1315,7 +1315,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fastq"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=269f3a79c28ce9a767edb10e0a5cd769f23dbe3a#269f3a79c28ce9a767edb10e0a5cd769f23dbe3a"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1340,7 +1340,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-gff"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=269f3a79c28ce9a767edb10e0a5cd769f23dbe3a#269f3a79c28ce9a767edb10e0a5cd769f23dbe3a"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1365,7 +1365,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-vcf"
 version = "0.1.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c#5fa5155a9f5e3b2d21e866346fafaeb82c5bc47c"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=269f3a79c28ce9a767edb10e0a5cd769f23dbe3a#269f3a79c28ce9a767edb10e0a5cd769f23dbe3a"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -2237,7 +2237,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -4795,7 +4795,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -5360,7 +5360,7 @@ dependencies = [
  "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -5953,7 +5953,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
