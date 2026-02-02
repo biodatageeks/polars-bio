@@ -862,12 +862,23 @@ fn add_bam_tag_metadata(schema: SchemaRef, tag_fields: &[String]) -> SchemaRef {
     for field in schema.fields().iter() {
         if tag_set.contains(field.name().as_str()) {
             // This is a tag field - add metadata
-            let sam_type = match field.data_type() {
-                DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => 'i',
-                DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => 'i',
-                DataType::Float32 | DataType::Float64 => 'f',
-                DataType::Utf8 | DataType::LargeUtf8 => 'Z',
-                _ => 'Z', // Default to string
+            // First check if the field already has BAM_TAG_TYPE_KEY metadata (preserve existing)
+            let sam_type = if let Some(existing_type) = field.metadata().get(BAM_TAG_TYPE_KEY) {
+                // Preserve existing tag type metadata (e.g., from read_bam)
+                existing_type.chars().next().unwrap_or('Z')
+            } else {
+                // Infer SAM type from Arrow data type
+                match field.data_type() {
+                    DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => 'i',
+                    DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => 'i',
+                    DataType::Float32 | DataType::Float64 => 'f',
+                    DataType::Utf8 | DataType::LargeUtf8 => 'Z',
+                    // Handle array/list types for BAM 'B' tags (integer/byte arrays)
+                    DataType::List(_) | DataType::LargeList(_) | DataType::FixedSizeList(_, _) => {
+                        'B'
+                    },
+                    _ => 'Z', // Default to string for unknown types
+                }
             };
 
             let mut field_metadata = HashMap::new();
