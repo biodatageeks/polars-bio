@@ -673,6 +673,13 @@ class IOOperations:
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
 
+        !!! warning "Known Limitation: MD and NM Tags"
+            Due to a limitation in the underlying noodles-cram library, **MD (mismatch descriptor) and NM (edit distance) tags are not accessible** from CRAM files, even when stored in the file. These tags can be seen with samtools but are not exposed through the noodles-cram record.data() interface.
+
+            Other optional tags (RG, MQ, AM, OQ, etc.) work correctly. This issue is tracked at: https://github.com/biodatageeks/datafusion-bio-formats/issues/54
+
+            **Workaround**: Use BAM format if MD/NM tags are required for your analysis.
+
         !!! example "Using External Reference"
             ```python
             import polars_bio as pb
@@ -780,6 +787,13 @@ class IOOperations:
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
+
+        !!! warning "Known Limitation: MD and NM Tags"
+            Due to a limitation in the underlying noodles-cram library, **MD (mismatch descriptor) and NM (edit distance) tags are not accessible** from CRAM files, even when stored in the file. These tags can be seen with samtools but are not exposed through the noodles-cram record.data() interface.
+
+            Other optional tags (RG, MQ, AM, OQ, etc.) work correctly. This issue is tracked at: https://github.com/biodatageeks/datafusion-bio-formats/issues/54
+
+            **Workaround**: Use BAM format if MD/NM tags are required for your analysis.
 
         !!! example "Using External Reference"
             ```python
@@ -1007,6 +1021,9 @@ class IOOperations:
             - category: "core" for fixed columns, "tag" for optional SAM tags
             - sam_type: SAM type code (e.g., "Z", "i") for tags, null for core columns
             - description: Human-readable description of the field
+
+        !!! warning "Known Limitation: MD and NM Tags"
+            Due to a limitation in the underlying noodles-cram library, **MD (mismatch descriptor) and NM (edit distance) tags are not discoverable** from CRAM files, even when stored. Automatic tag discovery will not include MD/NM tags. Other optional tags (RG, MQ, AM, OQ, etc.) are discovered correctly. See: https://github.com/biodatageeks/datafusion-bio-formats/issues/54
 
         Example:
             ```python
@@ -1541,6 +1558,9 @@ class IOOperations:
         Returns:
             Number of rows written
 
+        !!! warning "Known Limitation: MD and NM Tags"
+            Due to a limitation in the underlying noodles-cram library, **MD and NM tags cannot be read back from CRAM files** after writing, even though they are written to the file. If you need MD/NM tags for downstream analysis, use BAM format instead. Other optional tags (RG, MQ, AM, OQ, AS, etc.) work correctly. See: https://github.com/biodatageeks/datafusion-bio-formats/issues/54
+
         !!! Example "Write CRAM files"
             ```python
             import polars_bio as pb
@@ -1575,6 +1595,9 @@ class IOOperations:
             lf: LazyFrame to write
             path: Output CRAM file path
             reference_path: Path to reference FASTA file (optional but recommended)
+
+        !!! warning "Known Limitation: MD and NM Tags"
+            Due to a limitation in the underlying noodles-cram library, **MD and NM tags cannot be read back from CRAM files** after writing, even though they are written to the file. If you need MD/NM tags for downstream analysis, use BAM format instead. Other optional tags (RG, MQ, AM, OQ, AS, etc.) work correctly. See: https://github.com/biodatageeks/datafusion-bio-formats/issues/54
 
         !!! Example "Streaming write CRAM"
             ```python
