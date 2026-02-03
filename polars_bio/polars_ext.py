@@ -294,13 +294,14 @@ class PolarsRangesOperations:
         """
         pb.sink_fastq(self._ldf, path)
 
-    def sink_bam(self, path: str, reference_path: Optional[str] = None) -> None:
+    def sink_bam(self, path: str) -> None:
         """
-        Streaming write LazyFrame to BAM/CRAM/SAM format.
+        Streaming write LazyFrame to BAM/SAM format.
+
+        For CRAM format, use `sink_cram()` instead.
 
         Parameters:
-            path: Output file path
-            reference_path: Path to reference FASTA (required for .cram files)
+            path: Output file path (.bam or .sam)
 
         !!! Example
             ```python
@@ -310,22 +311,31 @@ class PolarsRangesOperations:
             lf.pb.sink_bam("filtered.bam")
             ```
         """
-        pb.sink_bam(self._ldf, path, reference_path)
+        pb.sink_bam(self._ldf, path)
 
-    def sink_cram(self, path: str, reference_path: str) -> None:
+    def sink_cram(self, path: str, reference_path: Optional[str] = None) -> None:
         """
         Streaming write LazyFrame to CRAM format.
 
+        CRAM can use a reference for better compression (recommended)
+        or work reference-free like BAM (not recommended).
+
         Parameters:
-            path: Output file path
-            reference_path: Path to reference FASTA
+            path: Output CRAM file path
+            reference_path: Path to reference FASTA file (optional but recommended)
 
         !!! Example
             ```python
             import polars_bio as pb
+            import polars as pl
 
             lf = pb.scan_bam("input.bam").filter(pl.col("mapping_quality") > 20)
-            lf.pb.sink_cram("filtered.cram", reference_path="ref.fasta")
+
+            # With reference (recommended - best compression)
+            lf.pb.sink_cram("filtered.cram", reference_path="reference.fasta")
+
+            # Without reference (not recommended - use sink_bam instead)
+            lf.pb.sink_cram("filtered.cram")
             ```
         """
         pb.sink_cram(self._ldf, path, reference_path)
@@ -383,15 +393,15 @@ class PolarsDataFrameOperations:
         """
         return pb.write_fastq(self._df, path)
 
-    def write_bam(self, path: str, reference_path: Optional[str] = None) -> int:
+    def write_bam(self, path: str) -> int:
         """
-        Write DataFrame to BAM/CRAM/SAM format.
+        Write DataFrame to BAM/SAM format.
 
         Compression is auto-detected from file extension.
+        For CRAM format, use `write_cram()` instead.
 
         Parameters:
-            path: Output file path
-            reference_path: Path to reference FASTA (required for .cram files)
+            path: Output file path (.bam or .sam)
 
         Returns:
             The number of rows written.
@@ -404,15 +414,18 @@ class PolarsDataFrameOperations:
             df.pb.write_bam("output.bam")
             ```
         """
-        return pb.write_bam(self._df, path, reference_path)
+        return pb.write_bam(self._df, path)
 
-    def write_cram(self, path: str, reference_path: str) -> int:
+    def write_cram(self, path: str, reference_path: Optional[str] = None) -> int:
         """
         Write DataFrame to CRAM format.
 
+        CRAM supports reference-based (recommended for compression)
+        and reference-free modes (rarely used).
+
         Parameters:
-            path: Output file path
-            reference_path: Path to reference FASTA
+            path: Output CRAM file path
+            reference_path: Path to reference FASTA file (optional but recommended)
 
         Returns:
             The number of rows written.
@@ -421,8 +434,13 @@ class PolarsDataFrameOperations:
             ```python
             import polars_bio as pb
 
-            df = pb.read_bam("input.bam")
-            df.pb.write_cram("output.cram", reference_path="ref.fasta")
+            df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
+
+            # With reference (recommended - 30-60% better compression)
+            df.pb.write_cram("output.cram", reference_path="reference.fasta")
+
+            # Without reference (not recommended - no compression benefit)
+            df.pb.write_cram("output.cram")
             ```
         """
         return pb.write_cram(self._df, path, reference_path)

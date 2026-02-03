@@ -673,6 +673,13 @@ class IOOperations:
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
 
+        !!! warning "Known Limitation: MD and NM Tags"
+            Due to a limitation in the underlying noodles-cram library, **MD (mismatch descriptor) and NM (edit distance) tags are not accessible** from CRAM files, even when stored in the file. These tags can be seen with samtools but are not exposed through the noodles-cram record.data() interface.
+
+            Other optional tags (RG, MQ, AM, OQ, etc.) work correctly. This issue is tracked at: https://github.com/biodatageeks/datafusion-bio-formats/issues/54
+
+            **Workaround**: Use BAM format if MD/NM tags are required for your analysis.
+
         !!! example "Using External Reference"
             ```python
             import polars_bio as pb
@@ -780,6 +787,13 @@ class IOOperations:
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
+
+        !!! warning "Known Limitation: MD and NM Tags"
+            Due to a limitation in the underlying noodles-cram library, **MD (mismatch descriptor) and NM (edit distance) tags are not accessible** from CRAM files, even when stored in the file. These tags can be seen with samtools but are not exposed through the noodles-cram record.data() interface.
+
+            Other optional tags (RG, MQ, AM, OQ, etc.) work correctly. This issue is tracked at: https://github.com/biodatageeks/datafusion-bio-formats/issues/54
+
+            **Workaround**: Use BAM format if MD/NM tags are required for your analysis.
 
         !!! example "Using External Reference"
             ```python
@@ -1007,6 +1021,9 @@ class IOOperations:
             - category: "core" for fixed columns, "tag" for optional SAM tags
             - sam_type: SAM type code (e.g., "Z", "i") for tags, null for core columns
             - description: Human-readable description of the field
+
+        !!! warning "Known Limitation: MD and NM Tags"
+            Due to a limitation in the underlying noodles-cram library, **MD (mismatch descriptor) and NM (edit distance) tags are not discoverable** from CRAM files, even when stored. Automatic tag discovery will not include MD/NM tags. Other optional tags (RG, MQ, AM, OQ, etc.) are discovered correctly. See: https://github.com/biodatageeks/datafusion-bio-formats/issues/54
 
         Example:
             ```python
@@ -1469,54 +1486,46 @@ class IOOperations:
     def write_bam(
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
-        reference_path: Optional[str] = None,
     ) -> int:
         """
-        Write a DataFrame to BAM/CRAM/SAM format.
+        Write a DataFrame to BAM/SAM format.
 
         Compression is auto-detected from file extension:
         - .sam → Uncompressed SAM (plain text)
         - .bam → BGZF-compressed BAM
-        - .cram → CRAM format (requires reference_path)
+
+        For CRAM format, use `write_cram()` instead.
 
         Parameters:
             df: DataFrame or LazyFrame with 11 core BAM columns + optional tag columns
-            path: Output file path
-            reference_path: Path to reference FASTA (required for .cram files)
+            path: Output file path (.bam or .sam)
 
         Returns:
             Number of rows written
 
-        !!! Example "Write BAM/CRAM files"
+        !!! Example "Write BAM files"
             ```python
             import polars_bio as pb
             df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
             pb.write_bam(df, "output.bam")
-            pb.write_bam(df, "output.cram", reference_path="ref.fasta")
+            pb.write_bam(df, "output.sam")
             ```
         """
-        if path.endswith(".cram"):
-            if reference_path is None:
-                raise ValueError(
-                    "reference_path is required for CRAM format (.cram extension)"
-                )
-            return _write_bam_file(df, path, OutputFormat.Cram, reference_path)
-        else:
-            return _write_bam_file(df, path, OutputFormat.Bam, reference_path)
+        return _write_bam_file(df, path, OutputFormat.Bam, None)
 
     @staticmethod
     def sink_bam(
         lf: pl.LazyFrame,
         path: str,
-        reference_path: Optional[str] = None,
     ) -> None:
         """
-        Streaming write a LazyFrame to BAM/CRAM/SAM format.
+        Streaming write a LazyFrame to BAM/SAM format.
+
+        For CRAM format, use `sink_cram()` instead.
 
         Parameters:
             lf: LazyFrame to write
-            path: Output file path
-            reference_path: Path to reference FASTA (required for .cram files)
+            path: Output file path (.bam or .sam)
 
         !!! Example "Streaming write BAM"
             ```python
@@ -1525,31 +1534,86 @@ class IOOperations:
             pb.sink_bam(lf, "filtered.bam")
             ```
         """
-        if path.endswith(".cram") and reference_path is None:
-            raise ValueError("reference_path is required for CRAM format")
-        _write_bam_file(
-            lf,
-            path,
-            OutputFormat.Cram if path.endswith(".cram") else OutputFormat.Bam,
-            reference_path,
-        )
+        _write_bam_file(lf, path, OutputFormat.Bam, None)
 
     @staticmethod
     def write_cram(
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
-        reference_path: str,
+        reference_path: Optional[str] = None,
     ) -> int:
-        """Write DataFrame to CRAM format (convenience wrapper)."""
+        """
+        Write a DataFrame to CRAM format.
+
+        CRAM supports two modes:
+        - **Reference-based** (recommended): Stores differences from reference,
+          achieving 30-60% better compression than BAM
+        - **Reference-free**: Stores full sequences like BAM (rarely used)
+
+        Parameters:
+            df: DataFrame or LazyFrame with 11 core BAM columns + optional tag columns
+            path: Output CRAM file path
+            reference_path: Path to reference FASTA file (optional but recommended)
+
+        Returns:
+            Number of rows written
+
+        !!! warning "Known Limitation: MD and NM Tags"
+            Due to a limitation in the underlying noodles-cram library, **MD and NM tags cannot be read back from CRAM files** after writing, even though they are written to the file. If you need MD/NM tags for downstream analysis, use BAM format instead. Other optional tags (RG, MQ, AM, OQ, AS, etc.) work correctly. See: https://github.com/biodatageeks/datafusion-bio-formats/issues/54
+
+        !!! Example "Write CRAM files"
+            ```python
+            import polars_bio as pb
+
+            df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
+
+            # Reference-based CRAM (recommended - best compression)
+            pb.write_cram(df, "output.cram", reference_path="reference.fasta")
+
+            # Reference-free CRAM (not recommended - use BAM instead)
+            pb.write_cram(df, "output.cram")  # No compression benefit
+            ```
+        """
         return _write_bam_file(df, path, OutputFormat.Cram, reference_path)
 
     @staticmethod
     def sink_cram(
         lf: pl.LazyFrame,
         path: str,
-        reference_path: str,
+        reference_path: Optional[str] = None,
     ) -> None:
-        """Streaming write LazyFrame to CRAM format (convenience wrapper)."""
+        """
+        Streaming write a LazyFrame to CRAM format.
+
+        CRAM supports two modes:
+        - **Reference-based** (recommended): Best compression, stores differences
+        - **Reference-free**: Similar to BAM, rarely used
+
+        This method streams data without materializing all rows in memory.
+
+        Parameters:
+            lf: LazyFrame to write
+            path: Output CRAM file path
+            reference_path: Path to reference FASTA file (optional but recommended)
+
+        !!! warning "Known Limitation: MD and NM Tags"
+            Due to a limitation in the underlying noodles-cram library, **MD and NM tags cannot be read back from CRAM files** after writing, even though they are written to the file. If you need MD/NM tags for downstream analysis, use BAM format instead. Other optional tags (RG, MQ, AM, OQ, AS, etc.) work correctly. See: https://github.com/biodatageeks/datafusion-bio-formats/issues/54
+
+        !!! Example "Streaming write CRAM"
+            ```python
+            import polars_bio as pb
+            import polars as pl
+
+            lf = pb.scan_bam("large_input.bam")
+            lf = lf.filter(pl.col("mapping_quality") > 30)
+
+            # Reference-based (recommended)
+            pb.sink_cram(lf, "filtered.cram", reference_path="reference.fasta")
+
+            # Reference-free (not recommended)
+            pb.sink_cram(lf, "filtered.cram")  # Use BAM instead
+            ```
+        """
         _write_bam_file(lf, path, OutputFormat.Cram, reference_path)
 
 
@@ -1687,8 +1751,7 @@ def _write_bam_file(
 
     # Build write options
     if output_format == OutputFormat.Cram:
-        if reference_path is None:
-            raise ValueError("reference_path is required for CRAM write")
+        # reference_path is optional - None means reference-free CRAM
         cram_opts = CramWriteOptions(
             reference_path=reference_path,
             zero_based=zero_based,

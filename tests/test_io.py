@@ -225,8 +225,8 @@ class TestIOCRAM:
         assert "chrom" in df.columns
         assert "sequence" in df.columns
 
-        # Verify reads are from chr20
-        assert all(df["chrom"] == "chr20")
+        # Verify reads are from chr20 (contig name preserved as-is from header)
+        assert all(df["chrom"] == "20")
 
         # Verify first read details (1-based coordinates by default)
         assert df["name"][0] == "SRR622461.74266137"

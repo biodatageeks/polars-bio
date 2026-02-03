@@ -686,7 +686,7 @@ pub struct CramWriteOptions {
     #[pyo3(get, set)]
     pub zero_based: bool,
     #[pyo3(get, set)]
-    pub reference_path: String,
+    pub reference_path: Option<String>,
     #[pyo3(get, set)]
     pub tag_fields: Option<Vec<String>>,
     #[pyo3(get, set)]
@@ -696,9 +696,9 @@ pub struct CramWriteOptions {
 #[pymethods]
 impl CramWriteOptions {
     #[new]
-    #[pyo3(signature = (reference_path, zero_based=true, tag_fields=None, header_metadata=None))]
+    #[pyo3(signature = (reference_path=None, zero_based=true, tag_fields=None, header_metadata=None))]
     pub fn new(
-        reference_path: String,
+        reference_path: Option<String>,
         zero_based: bool,
         tag_fields: Option<Vec<String>>,
         header_metadata: Option<String>,
