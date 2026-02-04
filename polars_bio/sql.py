@@ -458,6 +458,39 @@ class SQL:
         py_register_table(ctx, path, name, InputFormat.Bam, read_options)
 
     @staticmethod
+    def register_sam(
+        path: str,
+        name: Union[str, None] = None,
+        tag_fields: Union[list[str], None] = None,
+    ) -> None:
+        """
+        Register a SAM file as a Datafusion table.
+
+        SAM (Sequence Alignment/Map) is the plain-text counterpart of BAM.
+        This function reuses the BAM table provider, which auto-detects
+        the format from the file extension.
+
+        Parameters:
+            path: The path to the SAM file.
+            name: The name of the table. If *None*, the name will be generated automatically from the path.
+            tag_fields: List of SAM tag names to include as columns (e.g., ["NM", "MD", "AS"]).
+                If None, no optional tags are parsed (default).
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.register_sam("test.sam", "my_sam")
+            pb.sql("SELECT chrom, flags FROM my_sam").limit(5).collect()
+            ```
+        """
+        bam_read_options = BamReadOptions(
+            thread_num=1,
+            tag_fields=tag_fields,
+        )
+        read_options = ReadOptions(bam_read_options=bam_read_options)
+        py_register_table(ctx, path, name, InputFormat.Sam, read_options)
+
+    @staticmethod
     def register_cram(
         path: str,
         name: Union[str, None] = None,

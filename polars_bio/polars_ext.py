@@ -313,6 +313,23 @@ class PolarsRangesOperations:
         """
         pb.sink_bam(self._ldf, path)
 
+    def sink_sam(self, path: str) -> None:
+        """
+        Streaming write LazyFrame to SAM format (plain text).
+
+        Parameters:
+            path: Output file path (.sam)
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+
+            lf = pb.scan_bam("input.bam").filter(pl.col("mapping_quality") > 20)
+            lf.pb.sink_sam("filtered.sam")
+            ```
+        """
+        pb.sink_sam(self._ldf, path)
+
     def sink_cram(self, path: str, reference_path: Optional[str] = None) -> None:
         """
         Streaming write LazyFrame to CRAM format.
@@ -415,6 +432,26 @@ class PolarsDataFrameOperations:
             ```
         """
         return pb.write_bam(self._df, path)
+
+    def write_sam(self, path: str) -> int:
+        """
+        Write DataFrame to SAM format (plain text).
+
+        Parameters:
+            path: Output file path (.sam)
+
+        Returns:
+            The number of rows written.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+
+            df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
+            df.pb.write_sam("output.sam")
+            ```
+        """
+        return pb.write_sam(self._df, path)
 
     def write_cram(self, path: str, reference_path: Optional[str] = None) -> int:
         """

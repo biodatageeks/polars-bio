@@ -48,6 +48,7 @@ register_gff = data_processing.register_gff
 register_vcf = data_processing.register_vcf
 register_fastq = data_processing.register_fastq
 register_bam = data_processing.register_bam
+register_sam = data_processing.register_sam
 register_cram = data_processing.register_cram
 register_bed = data_processing.register_bed
 register_view = data_processing.register_view
@@ -56,9 +57,11 @@ sql = data_processing.sql
 
 describe_vcf = data_input.describe_vcf
 describe_bam = data_input.describe_bam
+describe_sam = data_input.describe_sam
 describe_cram = data_input.describe_cram
 from_polars = data_input.from_polars
 read_bam = data_input.read_bam
+read_sam = data_input.read_sam
 read_cram = data_input.read_cram
 read_fastq = data_input.read_fastq
 read_gff = data_input.read_gff
@@ -68,6 +71,7 @@ read_fastq = data_input.read_fastq
 read_bed = data_input.read_bed
 read_fasta = data_input.read_fasta
 scan_bam = data_input.scan_bam
+scan_sam = data_input.scan_sam
 scan_cram = data_input.scan_cram
 scan_bed = data_input.scan_bed
 scan_fasta = data_input.scan_fasta
@@ -81,6 +85,8 @@ write_fastq = data_input.write_fastq
 sink_fastq = data_input.sink_fastq
 write_bam = data_input.write_bam
 sink_bam = data_input.sink_bam
+write_sam = data_input.write_sam
+sink_sam = data_input.sink_sam
 write_cram = data_input.write_cram
 sink_cram = data_input.sink_cram
 
@@ -121,9 +127,11 @@ __all__ = [
     # I/O functions
     "describe_vcf",
     "describe_bam",
+    "describe_sam",
     "describe_cram",
     "from_polars",
     "read_bam",
+    "read_sam",
     "read_cram",
     "read_bed",
     "read_fasta",
@@ -132,6 +140,7 @@ __all__ = [
     "read_table",
     "read_vcf",
     "scan_bam",
+    "scan_sam",
     "scan_cram",
     "scan_bed",
     "scan_fasta",
@@ -145,12 +154,15 @@ __all__ = [
     "sink_fastq",
     "write_bam",
     "sink_bam",
+    "write_sam",
+    "sink_sam",
     "write_cram",
     "sink_cram",
     "register_gff",
     "register_vcf",
     "register_fastq",
     "register_bam",
+    "register_sam",
     "register_cram",
     "register_bed",
     "register_view",

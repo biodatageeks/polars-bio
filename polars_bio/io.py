@@ -1537,6 +1537,164 @@ class IOOperations:
         _write_bam_file(lf, path, OutputFormat.Bam, None)
 
     @staticmethod
+    def read_sam(
+        path: str,
+        tag_fields: Union[list[str], None] = None,
+        projection_pushdown: bool = False,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Read a SAM file into a DataFrame.
+
+        SAM (Sequence Alignment/Map) is the plain-text counterpart of BAM.
+        This function reuses the BAM reader, which auto-detects the format
+        from the file extension.
+
+        Parameters:
+            path: The path to the SAM file.
+            tag_fields: List of SAM tag names to include as columns (e.g., ["NM", "MD", "AS"]).
+                If None, no optional tags are parsed (default).
+            projection_pushdown: Enable column projection pushdown to optimize query performance.
+            use_zero_based: If True, output 0-based half-open coordinates.
+                If False, output 1-based closed coordinates.
+                If None (default), uses the global configuration.
+
+        !!! note
+            By default, coordinates are output in **1-based closed** format.
+        """
+        lf = IOOperations.scan_sam(
+            path,
+            tag_fields,
+            projection_pushdown,
+            use_zero_based,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_sam(
+        path: str,
+        tag_fields: Union[list[str], None] = None,
+        projection_pushdown: bool = False,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read a SAM file into a LazyFrame.
+
+        SAM (Sequence Alignment/Map) is the plain-text counterpart of BAM.
+        This function reuses the BAM reader, which auto-detects the format
+        from the file extension.
+
+        Parameters:
+            path: The path to the SAM file.
+            tag_fields: List of SAM tag names to include as columns (e.g., ["NM", "MD", "AS"]).
+                If None, no optional tags are parsed (default).
+            projection_pushdown: Enable column projection pushdown to optimize query performance.
+            use_zero_based: If True, output 0-based half-open coordinates.
+                If False, output 1-based closed coordinates.
+                If None (default), uses the global configuration.
+
+        !!! note
+            By default, coordinates are output in **1-based closed** format.
+        """
+        zero_based = _resolve_zero_based(use_zero_based)
+        bam_read_options = BamReadOptions(
+            thread_num=1,
+            zero_based=zero_based,
+            tag_fields=tag_fields,
+        )
+        read_options = ReadOptions(bam_read_options=bam_read_options)
+        return _read_file(
+            path,
+            InputFormat.Sam,
+            read_options,
+            projection_pushdown,
+            zero_based=zero_based,
+        )
+
+    @staticmethod
+    def describe_sam(
+        path: str,
+        sample_size: int = 100,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Get schema information for a SAM file with automatic tag discovery.
+
+        Samples the first N records to discover all available tags and their types.
+        Reuses the BAM describe logic, which auto-detects SAM from the file extension.
+
+        Parameters:
+            path: The path to the SAM file.
+            sample_size: Number of records to sample for tag discovery (default: 100).
+            use_zero_based: If True, output 0-based coordinates. If False, 1-based coordinates.
+
+        Returns:
+            DataFrame with columns: column_name, data_type, nullable, category, sam_type, description
+        """
+        zero_based = _resolve_zero_based(use_zero_based)
+
+        df = py_describe_bam(
+            ctx,
+            path,
+            1,
+            None,
+            zero_based,
+            None,
+            sample_size,
+        )
+
+        return pl.from_arrow(df.to_arrow_table())
+
+    @staticmethod
+    def write_sam(
+        df: Union[pl.DataFrame, pl.LazyFrame],
+        path: str,
+    ) -> int:
+        """
+        Write a DataFrame to SAM format (plain text).
+
+        Parameters:
+            df: DataFrame or LazyFrame with 11 core BAM/SAM columns + optional tag columns
+            path: Output file path (.sam)
+
+        Returns:
+            Number of rows written
+
+        !!! Example "Write SAM files"
+            ```python
+            import polars_bio as pb
+            df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
+            pb.write_sam(df, "output.sam")
+            ```
+        """
+        return _write_bam_file(df, path, OutputFormat.Sam, None)
+
+    @staticmethod
+    def sink_sam(
+        lf: pl.LazyFrame,
+        path: str,
+    ) -> None:
+        """
+        Streaming write a LazyFrame to SAM format (plain text).
+
+        Parameters:
+            lf: LazyFrame to write
+            path: Output file path (.sam)
+
+        !!! Example "Streaming write SAM"
+            ```python
+            import polars_bio as pb
+            lf = pb.scan_bam("input.bam").filter(pl.col("mapping_quality") > 20)
+            pb.sink_sam(lf, "filtered.sam")
+            ```
+        """
+        _write_bam_file(lf, path, OutputFormat.Sam, None)
+
+    @staticmethod
     def write_cram(
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
@@ -2322,6 +2480,8 @@ def _format_to_string(input_format: InputFormat) -> str:
     format_str = str(input_format)
     if "Vcf" in format_str:
         return "vcf"
+    elif "Sam" in format_str:
+        return "sam"
     elif "Bam" in format_str:
         return "bam"
     elif "Cram" in format_str:

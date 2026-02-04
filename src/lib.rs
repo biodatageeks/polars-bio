@@ -528,7 +528,7 @@ fn py_write_table(
 
             // Determine target string type based on output format
             let target_string_type = match output_format {
-                OutputFormat::Bam | OutputFormat::Cram => DataType::Utf8,
+                OutputFormat::Bam | OutputFormat::Sam | OutputFormat::Cram => DataType::Utf8,
                 OutputFormat::Vcf | OutputFormat::Fastq => DataType::LargeUtf8,
             };
 

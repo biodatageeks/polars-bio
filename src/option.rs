@@ -89,6 +89,7 @@ pub enum InputFormat {
     Parquet,
     Csv,
     Bam,
+    Sam,
     IndexedBam,
     Cram,
     Vcf,
@@ -114,6 +115,7 @@ impl fmt::Display for InputFormat {
             InputFormat::Parquet => "Parquet",
             InputFormat::Csv => "CSV",
             InputFormat::Bam => "BAM",
+            InputFormat::Sam => "SAM",
             InputFormat::Vcf => "VCF",
             InputFormat::Fastq => "FASTQ",
             InputFormat::Fasta => "FASTA",
@@ -576,6 +578,7 @@ pub enum OutputFormat {
     Vcf,
     Fastq,
     Bam,
+    Sam,
     Cram,
 }
 
@@ -585,6 +588,7 @@ impl fmt::Display for OutputFormat {
             OutputFormat::Vcf => write!(f, "VCF"),
             OutputFormat::Fastq => write!(f, "FASTQ"),
             OutputFormat::Bam => write!(f, "BAM"),
+            OutputFormat::Sam => write!(f, "SAM"),
             OutputFormat::Cram => write!(f, "CRAM"),
         }
     }

@@ -170,6 +170,117 @@ class TestIOBAM:
         assert md_row["data_type"][0] == "Utf8"
 
 
+class TestIOSAM:
+    df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam")
+
+    def test_count(self):
+        assert len(self.df) == 2333
+
+    def test_fields(self):
+        assert self.df["name"][2] == "20FUKAAXX100202:1:22:19822:80281"
+        assert self.df["flags"][3] == 1123
+        assert self.df["cigar"][4] == "101M"
+        assert (
+            self.df["sequence"][4]
+            == "TAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACCCTAACC"
+        )
+        assert (
+            self.df["quality_scores"][4]
+            == "CCDACCDCDABBDCDABBDCDABBDCDABBDCD?BBCCDABBCCDABBACDA?BDCAABBDBDA.=?><;CBB2@:;??:D>?5BAC??=DC;=5=?8:76"
+        )
+
+    def test_register(self):
+        pb.register_sam(f"{DATA_DIR}/io/sam/test.sam", "test_sam")
+        count = pb.sql("select count(*) as cnt from test_sam").collect()
+        assert count["cnt"][0] == 2333
+
+        projection = pb.sql("select name, flags from test_sam").collect()
+        assert projection["name"][2] == "20FUKAAXX100202:1:22:19822:80281"
+        assert projection["flags"][3] == 1123
+
+    def test_sam_no_tags_default(self):
+        """Test backward compatibility - no tags by default"""
+        df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam")
+        assert len(df.columns) == 11
+        assert "NM" not in df.columns
+
+    def test_sam_single_tag(self):
+        """Test reading a single SAM tag"""
+        df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam", tag_fields=["NM"])
+        assert "NM" in df.columns
+        assert len(df.columns) == 12
+
+    def test_sam_scan(self):
+        """Test lazy scanning"""
+        lf = pb.scan_sam(f"{DATA_DIR}/io/sam/test.sam", tag_fields=["NM", "AS"])
+        df = lf.select(["name", "chrom", "NM", "AS"]).collect()
+        assert "NM" in df.columns
+        assert "AS" in df.columns
+        assert len(df.columns) == 4
+
+    def test_describe_sam(self):
+        """Test schema discovery with tags"""
+        schema = pb.describe_sam(f"{DATA_DIR}/io/sam/test.sam", sample_size=100)
+        assert "column_name" in schema.columns
+        assert "data_type" in schema.columns
+        assert "category" in schema.columns
+        assert len(schema) > 11
+
+        columns = schema["column_name"].to_list()
+        assert "name" in columns
+        assert "chrom" in columns
+
+        tags = schema.filter(schema["category"] == "tag")
+        tag_names = tags["column_name"].to_list()
+        assert "NM" in tag_names
+        assert "MD" in tag_names
+
+
+class TestSAMWrite:
+    def test_write_sam_roundtrip(self, tmp_path):
+        """Read BAM, write as SAM, read back and compare"""
+        df_bam = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        out_path = str(tmp_path / "roundtrip.sam")
+        rows_written = pb.write_sam(df_bam, out_path)
+        assert rows_written == 2333
+
+        df_sam = pb.read_sam(out_path)
+        assert len(df_sam) == 2333
+        assert df_sam.columns == df_bam.columns
+
+    def test_write_sam_with_tags(self, tmp_path):
+        """Round-trip with tag fields"""
+        df_bam = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam", tag_fields=["NM", "AS"])
+        out_path = str(tmp_path / "tags.sam")
+        rows_written = pb.write_sam(df_bam, out_path)
+        assert rows_written == 2333
+
+        df_sam = pb.read_sam(out_path, tag_fields=["NM", "AS"])
+        assert "NM" in df_sam.columns
+        assert "AS" in df_sam.columns
+        assert len(df_sam) == 2333
+
+    def test_sink_sam(self, tmp_path):
+        """Streaming write via sink"""
+        lf = pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam")
+        out_path = str(tmp_path / "sink.sam")
+        pb.sink_sam(lf, out_path)
+
+        df_sam = pb.read_sam(out_path)
+        assert len(df_sam) == 2333
+
+    def test_bam_to_sam_conversion(self, tmp_path):
+        """Read BAM then write SAM, verify content"""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        out_path = str(tmp_path / "converted.sam")
+        pb.write_sam(df, out_path)
+
+        df_sam = pb.read_sam(out_path)
+        assert len(df_sam) == 2333
+        assert df_sam["name"][2] == "20FUKAAXX100202:1:22:19822:80281"
+        assert df_sam["flags"][3] == 1123
+
+
 class TestIOCRAM:
     # Test with embedded reference (default)
     df = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram")

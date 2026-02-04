@@ -230,7 +230,9 @@ pub(crate) async fn write_table(
     match format {
         OutputFormat::Vcf => write_vcf_streaming(ctx, df, path, write_options).await,
         OutputFormat::Fastq => write_fastq_streaming(ctx, df, path, write_options).await,
-        OutputFormat::Bam => write_bam_streaming(ctx, df, path, write_options).await,
+        OutputFormat::Bam | OutputFormat::Sam => {
+            write_bam_streaming(ctx, df, path, write_options).await
+        },
         OutputFormat::Cram => write_cram_streaming(ctx, df, path, write_options).await,
     }
 }

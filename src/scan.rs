@@ -256,6 +256,8 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         InputFormat::Gff
     } else if path.ends_with(".cram") {
         InputFormat::Cram
+    } else if path.ends_with(".sam") {
+        InputFormat::Sam
     } else {
         panic!("Unsupported format")
     }
@@ -417,7 +419,7 @@ pub(crate) async fn register_table(
                     .expect("Failed to register GFF table");
             }
         },
-        InputFormat::Bam => {
+        InputFormat::Bam | InputFormat::Sam => {
             let bam_read_options = match &read_options {
                 Some(options) => match options.clone().bam_read_options {
                     Some(bam_read_options) => bam_read_options,
@@ -426,8 +428,8 @@ pub(crate) async fn register_table(
                 _ => BamReadOptions::default(),
             };
             info!(
-                "Registering BAM table {} with options: {:?}",
-                table_name, bam_read_options
+                "Registering {} table {} with options: {:?}",
+                format, table_name, bam_read_options
             );
             let table_provider = BamTableProvider::new(
                 path.to_string(),
@@ -438,7 +440,7 @@ pub(crate) async fn register_table(
             )
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
-                .expect("Failed to register BAM table");
+                .expect("Failed to register BAM/SAM table");
         },
         InputFormat::Bed => {
             let bed_read_options = match &read_options {
