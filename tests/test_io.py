@@ -281,6 +281,97 @@ class TestSAMWrite:
         assert df_sam["flags"][3] == 1123
 
 
+class TestHeaderPreservation:
+    """Tests that BAM/SAM/CRAM round-trips preserve full header metadata."""
+
+    def _count_header_lines(self, path, prefix):
+        """Count lines starting with prefix in a SAM file."""
+        import subprocess
+
+        result = subprocess.run(
+            ["grep", "-c", f"^{prefix}", path], capture_output=True, text=True
+        )
+        return int(result.stdout.strip())
+
+    def _get_header_metadata(self, df):
+        """Extract header metadata from a DataFrame."""
+        from polars_bio._metadata import get_metadata
+
+        meta = get_metadata(df)
+        return meta.get("header", {})
+
+    def test_bam_read_has_header_metadata(self):
+        """BAM read should populate header metadata with @SQ, @RG, @PG info."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        header = self._get_header_metadata(df)
+        assert "reference_sequences" in header
+        assert "read_groups" in header
+        assert "program_info" in header
+        assert "file_format_version" in header
+        assert "sort_order" in header
+
+        import json
+
+        ref_seqs = json.loads(header["reference_sequences"])
+        assert len(ref_seqs) == 45
+        assert ref_seqs[0]["name"] == "chrM"
+        assert ref_seqs[0]["length"] == 16571
+
+        read_groups = json.loads(header["read_groups"])
+        assert len(read_groups) == 16
+        assert read_groups[0]["sample"] == "NA12878"
+
+    def test_sam_read_has_header_metadata(self):
+        """SAM read should populate header metadata."""
+        df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam")
+        header = self._get_header_metadata(df)
+        assert "reference_sequences" in header
+        assert "read_groups" in header
+
+        import json
+
+        ref_seqs = json.loads(header["reference_sequences"])
+        assert len(ref_seqs) == 45
+
+    def test_bam_to_sam_header_roundtrip(self, tmp_path):
+        """BAM -> SAM write should preserve full header."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        out_path = str(tmp_path / "header_test.sam")
+        pb.write_sam(df, out_path)
+
+        assert self._count_header_lines(out_path, "@SQ") == 45
+        assert self._count_header_lines(out_path, "@RG") == 16
+        assert self._count_header_lines(out_path, "@PG") > 0
+        assert self._count_header_lines(out_path, "@HD") == 1
+
+    def test_sink_sam_header_roundtrip(self, tmp_path):
+        """sink_sam (streaming write) should preserve full header."""
+        lf = pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam")
+        out_path = str(tmp_path / "sink_header.sam")
+        pb.sink_sam(lf, out_path)
+
+        assert self._count_header_lines(out_path, "@SQ") == 45
+        assert self._count_header_lines(out_path, "@RG") == 16
+        assert self._count_header_lines(out_path, "@PG") > 0
+
+    def test_sam_to_sam_header_roundtrip(self, tmp_path):
+        """SAM -> SAM round-trip should preserve header."""
+        df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam")
+        out_path = str(tmp_path / "sam_roundtrip.sam")
+        pb.write_sam(df, out_path)
+
+        assert self._count_header_lines(out_path, "@SQ") == 45
+        assert self._count_header_lines(out_path, "@RG") == 16
+
+        # Read back and verify metadata still present
+        df_back = pb.read_sam(out_path)
+        header = self._get_header_metadata(df_back)
+        import json
+
+        ref_seqs = json.loads(header["reference_sequences"])
+        assert len(ref_seqs) == 45
+
+
 class TestIOCRAM:
     # Test with embedded reference (default)
     df = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram")

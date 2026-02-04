@@ -438,6 +438,7 @@ pub(crate) async fn register_table(
                 bam_read_options.zero_based,
                 bam_read_options.tag_fields.clone(),
             )
+            .await
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register BAM/SAM table");
@@ -507,6 +508,7 @@ pub(crate) async fn register_table(
                 cram_read_options.zero_based,
                 cram_read_options.tag_fields.clone(),
             )
+            .await
             .expect("Failed to create CRAM table provider. Check that the file exists and requested tags are valid.");
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register CRAM table");
@@ -580,6 +582,7 @@ pub fn py_describe_bam(
                     zero_based,
                     tag_fields,
                 )
+                .await
                 .map_err(|e| format!("Failed to create BAM table provider: {}", e))?;
 
                 // Call describe - returns a DataFrame
@@ -650,6 +653,7 @@ pub fn py_describe_cram(
                     zero_based,
                     tag_fields,
                 )
+                .await
                 .map_err(|e| format!("Failed to create CRAM table provider: {}", e))?;
 
                 let describe_df = table_provider
