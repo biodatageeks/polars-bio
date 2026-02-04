@@ -2523,9 +2523,13 @@ def _read_file(
     # Extract format-specific metadata from the comprehensive extraction
     format_specific = full_metadata.get("format_specific", {})
 
-    if format_str in format_specific:
+    # SAM uses the same schema metadata keys as BAM (bio.bam.*),
+    # so look up "bam" in format_specific when reading SAM files.
+    metadata_key = "bam" if format_str == "sam" else format_str
+
+    if metadata_key in format_specific:
         # Use the parsed format-specific metadata
-        if format_str == "vcf":
+        if metadata_key == "vcf":
             vcf_meta = format_specific["vcf"]
             header_metadata = {
                 "info_fields": vcf_meta.get("info_fields"),
@@ -2536,9 +2540,9 @@ def _read_file(
                 "filters": vcf_meta.get("filters"),
                 "alt_definitions": vcf_meta.get("alt_definitions"),
             }
-        elif format_str in ["fastq", "bam", "gff", "fasta", "bed", "cram"]:
-            # For other formats, include their specific metadata
-            header_metadata = format_specific.get(format_str, {})
+        elif metadata_key in ["fastq", "bam", "gff", "fasta", "bed", "cram"]:
+            # For other formats (including SAM via "bam" key), include their specific metadata
+            header_metadata = format_specific.get(metadata_key, {})
 
     # Note: We don't store _full_metadata to avoid duplication
     # All relevant metadata is already parsed into user-friendly fields
