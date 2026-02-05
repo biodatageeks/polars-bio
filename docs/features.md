@@ -533,6 +533,153 @@ For bioinformatic format there are always three methods available: `read_*` (eag
 | [GFF3](api.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 
 
+## File Output
+
+polars-bio supports writing DataFrames back to bioinformatic file formats. Two methods are available for each supported format:
+
+- `write_*` - Eager write that collects the DataFrame and writes it to disk, returns row count
+- `sink_*` - Streaming write for LazyFrames that processes data in batches without full materialization
+
+### Output Format Support
+
+| Format | write_* | sink_* | Compression | Notes |
+|--------|---------|--------|-------------|-------|
+| [VCF](api.md#polars_bio.data_output.write_vcf) | :white_check_mark: | :white_check_mark: | `.vcf.gz`, `.vcf.bgz` | Auto-detected from extension |
+| [BAM](api.md#polars_bio.data_output.write_bam) | :white_check_mark: | :white_check_mark: | BGZF (built-in) | Binary alignment format |
+| [SAM](api.md#polars_bio.data_output.write_sam) | :white_check_mark: | :white_check_mark: | None | Plain text alignment format |
+| [CRAM](api.md#polars_bio.data_output.write_cram) | :white_check_mark: | :white_check_mark: | Built-in | Requires reference FASTA |
+
+### Basic Usage
+
+```python
+import polars_bio as pb
+
+# Read, transform, and write back
+df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
+filtered = df.filter(pl.col("mapping_quality") > 20)
+pb.write_bam(filtered, "output.bam")
+
+# Streaming write with LazyFrame
+lf = pb.scan_vcf("variants.vcf")
+pb.sink_vcf(lf.filter(pl.col("qual") > 30), "filtered.vcf.bgz")
+```
+
+### Sorted Output with `sort_on_write`
+
+BAM, SAM, and CRAM write functions support the `sort_on_write` parameter to produce coordinate-sorted output:
+
+```python
+import polars_bio as pb
+
+# Write coordinate-sorted BAM
+df = pb.read_bam("unsorted.bam")
+pb.write_bam(df, "sorted.bam", sort_on_write=True)
+
+# Streaming sorted write
+lf = pb.scan_sam("input.sam")
+pb.sink_bam(lf, "sorted.bam", sort_on_write=True)
+```
+
+When `sort_on_write=True`:
+
+- Records are sorted by `(chrom ASC, start ASC)` during write
+- Output header contains `@HD ... SO:coordinate`
+
+When `sort_on_write=False` (default):
+
+- Records are written in input order
+- Output header contains `@HD ... SO:unsorted`
+
+### CRAM Output
+
+CRAM format requires a reference FASTA file for writing:
+
+```python
+import polars_bio as pb
+
+# CRAM write requires reference_path
+df = pb.read_cram("input.cram", reference_path="reference.fa")
+pb.write_cram(df, "output.cram", reference_path="reference.fa")
+
+# Streaming CRAM write
+lf = pb.scan_cram("input.cram", reference_path="reference.fa")
+pb.sink_cram(lf, "output.cram", reference_path="reference.fa", sort_on_write=True)
+```
+
+!!! warning
+    The `reference_path` parameter is **required** for `write_cram()` and `sink_cram()`. Attempting to write CRAM without a reference will raise an error.
+
+### VCF Compression
+
+VCF output compression is auto-detected from the file extension:
+
+| Extension | Compression |
+|-----------|-------------|
+| `.vcf` | None (plain text) |
+| `.vcf.gz` | GZIP |
+| `.vcf.bgz` | BGZF (block gzip) |
+
+```python
+import polars_bio as pb
+
+df = pb.read_vcf("variants.vcf")
+
+# Plain text VCF
+pb.write_vcf(df, "output.vcf")
+
+# GZIP compressed
+pb.write_vcf(df, "output.vcf.gz")
+
+# BGZF compressed (recommended for indexing)
+pb.write_vcf(df, "output.vcf.bgz")
+```
+
+### Header Preservation
+
+When reading and writing alignment files (BAM/SAM/CRAM), polars-bio preserves header metadata including:
+
+- `@SQ` (sequence dictionary)
+- `@RG` (read groups)
+- `@PG` (program records)
+
+This enables lossless roundtrip workflows:
+
+```python
+import polars_bio as pb
+
+# Read with full header preservation
+df = pb.read_bam("input.bam")
+
+# Filter records
+filtered = df.filter(pl.col("mapping_quality") > 20)
+
+# Write back - header metadata is preserved
+pb.write_bam(filtered, "filtered.bam")
+```
+
+### Polars Extension Methods
+
+Write functions are also available as Polars namespace extensions:
+
+```python
+import polars_bio as pb
+
+# DataFrame extensions
+df = pb.read_bam("input.bam")
+df.pb.write_bam("output.bam", sort_on_write=True)
+df.pb.write_sam("output.sam")
+df.pb.write_cram("output.cram", reference_path="ref.fa")
+df.pb.write_vcf("output.vcf.bgz")
+
+# LazyFrame extensions
+lf = pb.scan_bam("input.bam")
+lf.pb.sink_bam("output.bam", sort_on_write=True)
+lf.pb.sink_sam("output.sam")
+lf.pb.sink_cram("output.cram", reference_path="ref.fa")
+lf.pb.sink_vcf("output.vcf.bgz")
+```
+
+
 ## SQL-powered data processing
 polars-bio provides a SQL-like API for bioinformatic data querying or manipulation.
 Check [SQL reference](https://datafusion.apache.org/user-guide/sql/index.html) for more details.

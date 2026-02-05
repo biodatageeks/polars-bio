@@ -230,7 +230,9 @@ pub(crate) async fn write_table(
     match format {
         OutputFormat::Vcf => write_vcf_streaming(ctx, df, path, write_options).await,
         OutputFormat::Fastq => write_fastq_streaming(ctx, df, path, write_options).await,
-        OutputFormat::Bam => write_bam_streaming(ctx, df, path, write_options).await,
+        OutputFormat::Bam | OutputFormat::Sam => {
+            write_bam_streaming(ctx, df, path, write_options).await
+        },
         OutputFormat::Cram => write_cram_streaming(ctx, df, path, write_options).await,
     }
 }
@@ -645,21 +647,32 @@ async fn write_bam_streaming(
     path: &str,
     write_options: Option<WriteOptions>,
 ) -> Result<u64, DataFusionError> {
-    let (zero_based, tag_fields, header_metadata) = if let Some(opts) = &write_options {
-        if let Some(bam_opts) = &opts.bam_write_options {
-            (
-                bam_opts.zero_based,
-                bam_opts.tag_fields.clone(),
-                bam_opts.header_metadata.clone(),
-            )
+    let (zero_based, tag_fields, header_metadata, sort_on_write) =
+        if let Some(opts) = &write_options {
+            if let Some(bam_opts) = &opts.bam_write_options {
+                (
+                    bam_opts.zero_based,
+                    bam_opts.tag_fields.clone(),
+                    bam_opts.header_metadata.clone(),
+                    bam_opts.sort_on_write,
+                )
+            } else {
+                (true, None, None, false)
+            }
         } else {
-            (true, None, None)
-        }
-    } else {
-        (true, None, None)
-    };
+            (true, None, None, false)
+        };
 
-    execute_bam_streaming_write(ctx, df, path, zero_based, tag_fields, header_metadata).await
+    execute_bam_streaming_write(
+        ctx,
+        df,
+        path,
+        zero_based,
+        tag_fields,
+        header_metadata,
+        sort_on_write,
+    )
+    .await
 }
 
 /// Execute BAM streaming write with metadata support.
@@ -670,6 +683,7 @@ async fn execute_bam_streaming_write(
     zero_based: bool,
     tag_fields: Option<Vec<String>>,
     header_metadata: Option<String>,
+    sort_on_write: bool,
 ) -> Result<u64, DataFusionError> {
     let schema = df.schema().inner().clone();
 
@@ -686,12 +700,16 @@ async fn execute_bam_streaming_write(
     // Add BAM tag metadata to schema (required for serialization)
     let schema_with_metadata = add_bam_tag_metadata(schema, &tags);
 
+    // Merge header metadata (reference sequences, read groups, programs, etc.) into schema
+    let schema_with_metadata = merge_header_metadata(schema_with_metadata, &header_metadata);
+
     // Create BAM table provider for write
     let provider = BamTableProvider::new_for_write(
         path.to_string(),
         schema_with_metadata.clone(),
         Some(tags),
         zero_based,
+        sort_on_write,
     );
 
     // Create the logical plan for the source data
@@ -702,7 +720,7 @@ async fn execute_bam_streaming_write(
     let input_plan = state.create_physical_plan(&logical_plan).await?;
 
     // Wrap the input plan with a schema override to include BAM tag metadata
-    // This ensures the BAM writer sees the correct field metadata for tag serialization
+    // and header metadata for full header reconstruction
     let wrapped_input = Arc::new(SchemaOverrideExec::new(input_plan, schema_with_metadata));
 
     // Get the write execution plan via insert_into
@@ -728,7 +746,7 @@ async fn write_cram_streaming(
     path: &str,
     write_options: Option<WriteOptions>,
 ) -> Result<u64, DataFusionError> {
-    let (zero_based, reference_path, tag_fields, header_metadata) =
+    let (zero_based, reference_path, tag_fields, header_metadata, sort_on_write) =
         if let Some(opts) = &write_options {
             if let Some(cram_opts) = &opts.cram_write_options {
                 (
@@ -736,14 +754,15 @@ async fn write_cram_streaming(
                     cram_opts.reference_path.clone(),
                     cram_opts.tag_fields.clone(),
                     cram_opts.header_metadata.clone(),
+                    cram_opts.sort_on_write,
                 )
             } else {
                 // Default: no reference (reference-free CRAM)
-                (true, None, None, None)
+                (true, None, None, None, false)
             }
         } else {
             // Default: no reference (reference-free CRAM)
-            (true, None, None, None)
+            (true, None, None, None, false)
         };
 
     execute_cram_streaming_write(
@@ -754,6 +773,7 @@ async fn write_cram_streaming(
         reference_path,
         tag_fields,
         header_metadata,
+        sort_on_write,
     )
     .await
 }
@@ -767,6 +787,7 @@ async fn execute_cram_streaming_write(
     reference_path: Option<String>,
     tag_fields: Option<Vec<String>>,
     header_metadata: Option<String>,
+    sort_on_write: bool,
 ) -> Result<u64, DataFusionError> {
     let schema = df.schema().inner().clone();
     let tags = tag_fields.unwrap_or_else(|| extract_tag_fields_from_schema(&schema));
@@ -782,6 +803,9 @@ async fn execute_cram_streaming_write(
     // Add BAM tag metadata to schema (required for serialization)
     let schema_with_metadata = add_bam_tag_metadata(schema, &tags);
 
+    // Merge header metadata (reference sequences, read groups, programs, etc.) into schema
+    let schema_with_metadata = merge_header_metadata(schema_with_metadata, &header_metadata);
+
     // Create CRAM table provider for write
     let provider = CramTableProvider::new_for_write(
         path.to_string(),
@@ -789,6 +813,7 @@ async fn execute_cram_streaming_write(
         reference_path,
         Some(tags),
         zero_based,
+        sort_on_write,
     );
 
     // Create the logical plan for the source data
@@ -799,6 +824,7 @@ async fn execute_cram_streaming_write(
     let input_plan = state.create_physical_plan(&logical_plan).await?;
 
     // Wrap the input plan with a schema override to include BAM tag metadata
+    // and header metadata for full header reconstruction
     let wrapped_input = Arc::new(SchemaOverrideExec::new(input_plan, schema_with_metadata));
 
     // Get the write execution plan via insert_into
@@ -850,6 +876,58 @@ fn extract_tag_fields_from_schema(schema: &SchemaRef) -> Vec<String> {
 
 /// Add BAM tag type metadata to schema fields
 /// This infers the SAM type from Arrow data type and adds it to field metadata
+/// Merges header metadata from the JSON string into the Arrow schema metadata.
+///
+/// The header_metadata JSON has keys like "reference_sequences", "read_groups", etc.
+/// These need to be mapped to `bio.bam.*` keys in the schema metadata so that
+/// `build_bam_header()` can reconstruct the full SAM header during write.
+fn merge_header_metadata(schema: SchemaRef, header_metadata: &Option<String>) -> SchemaRef {
+    let header_json = match header_metadata {
+        Some(json) if !json.is_empty() && json != "null" => json,
+        _ => return schema,
+    };
+
+    let parsed: serde_json::Value = match serde_json::from_str(header_json) {
+        Ok(v) => v,
+        Err(_) => return schema,
+    };
+
+    let obj = match parsed.as_object() {
+        Some(o) => o,
+        None => return schema,
+    };
+
+    // Map Python metadata keys to bio.bam.* schema metadata keys
+    let key_mapping = [
+        ("file_format_version", "bio.bam.file_format_version"),
+        ("sort_order", "bio.bam.sort_order"),
+        ("reference_sequences", "bio.bam.reference_sequences"),
+        ("read_groups", "bio.bam.read_groups"),
+        ("program_info", "bio.bam.program_info"),
+        ("comments", "bio.bam.comments"),
+    ];
+
+    let mut metadata = schema.metadata().clone();
+    for (py_key, schema_key) in &key_mapping {
+        if let Some(value) = obj.get(*py_key) {
+            // Values from Python are already JSON strings (double-serialized),
+            // so extract the inner string directly
+            let val_str = match value {
+                serde_json::Value::String(s) => s.clone(),
+                _ => value.to_string(),
+            };
+            if !val_str.is_empty() && val_str != "null" {
+                metadata.insert(schema_key.to_string(), val_str);
+            }
+        }
+    }
+
+    Arc::new(Schema::new_with_metadata(
+        schema.fields().to_vec(),
+        metadata,
+    ))
+}
+
 fn add_bam_tag_metadata(schema: SchemaRef, tag_fields: &[String]) -> SchemaRef {
     use datafusion_bio_format_core::{BAM_TAG_TAG_KEY, BAM_TAG_TYPE_KEY};
     use std::collections::HashMap;

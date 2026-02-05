@@ -1486,6 +1486,7 @@ class IOOperations:
     def write_bam(
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
+        sort_on_write: bool = False,
     ) -> int:
         """
         Write a DataFrame to BAM/SAM format.
@@ -1499,6 +1500,8 @@ class IOOperations:
         Parameters:
             df: DataFrame or LazyFrame with 11 core BAM columns + optional tag columns
             path: Output file path (.bam or .sam)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         Returns:
             Number of rows written
@@ -1511,12 +1514,15 @@ class IOOperations:
             pb.write_bam(df, "output.sam")
             ```
         """
-        return _write_bam_file(df, path, OutputFormat.Bam, None)
+        return _write_bam_file(
+            df, path, OutputFormat.Bam, None, sort_on_write=sort_on_write
+        )
 
     @staticmethod
     def sink_bam(
         lf: pl.LazyFrame,
         path: str,
+        sort_on_write: bool = False,
     ) -> None:
         """
         Streaming write a LazyFrame to BAM/SAM format.
@@ -1526,6 +1532,8 @@ class IOOperations:
         Parameters:
             lf: LazyFrame to write
             path: Output file path (.bam or .sam)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         !!! Example "Streaming write BAM"
             ```python
@@ -1534,26 +1542,194 @@ class IOOperations:
             pb.sink_bam(lf, "filtered.bam")
             ```
         """
-        _write_bam_file(lf, path, OutputFormat.Bam, None)
+        _write_bam_file(lf, path, OutputFormat.Bam, None, sort_on_write=sort_on_write)
+
+    @staticmethod
+    def read_sam(
+        path: str,
+        tag_fields: Union[list[str], None] = None,
+        projection_pushdown: bool = False,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Read a SAM file into a DataFrame.
+
+        SAM (Sequence Alignment/Map) is the plain-text counterpart of BAM.
+        This function reuses the BAM reader, which auto-detects the format
+        from the file extension.
+
+        Parameters:
+            path: The path to the SAM file.
+            tag_fields: List of SAM tag names to include as columns (e.g., ["NM", "MD", "AS"]).
+                If None, no optional tags are parsed (default).
+            projection_pushdown: Enable column projection pushdown to optimize query performance.
+            use_zero_based: If True, output 0-based half-open coordinates.
+                If False, output 1-based closed coordinates.
+                If None (default), uses the global configuration.
+
+        !!! note
+            By default, coordinates are output in **1-based closed** format.
+        """
+        lf = IOOperations.scan_sam(
+            path,
+            tag_fields,
+            projection_pushdown,
+            use_zero_based,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_sam(
+        path: str,
+        tag_fields: Union[list[str], None] = None,
+        projection_pushdown: bool = False,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read a SAM file into a LazyFrame.
+
+        SAM (Sequence Alignment/Map) is the plain-text counterpart of BAM.
+        This function reuses the BAM reader, which auto-detects the format
+        from the file extension.
+
+        Parameters:
+            path: The path to the SAM file.
+            tag_fields: List of SAM tag names to include as columns (e.g., ["NM", "MD", "AS"]).
+                If None, no optional tags are parsed (default).
+            projection_pushdown: Enable column projection pushdown to optimize query performance.
+            use_zero_based: If True, output 0-based half-open coordinates.
+                If False, output 1-based closed coordinates.
+                If None (default), uses the global configuration.
+
+        !!! note
+            By default, coordinates are output in **1-based closed** format.
+        """
+        zero_based = _resolve_zero_based(use_zero_based)
+        bam_read_options = BamReadOptions(
+            thread_num=1,
+            zero_based=zero_based,
+            tag_fields=tag_fields,
+        )
+        read_options = ReadOptions(bam_read_options=bam_read_options)
+        return _read_file(
+            path,
+            InputFormat.Sam,
+            read_options,
+            projection_pushdown,
+            zero_based=zero_based,
+        )
+
+    @staticmethod
+    def describe_sam(
+        path: str,
+        sample_size: int = 100,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Get schema information for a SAM file with automatic tag discovery.
+
+        Samples the first N records to discover all available tags and their types.
+        Reuses the BAM describe logic, which auto-detects SAM from the file extension.
+
+        Parameters:
+            path: The path to the SAM file.
+            sample_size: Number of records to sample for tag discovery (default: 100).
+            use_zero_based: If True, output 0-based coordinates. If False, 1-based coordinates.
+
+        Returns:
+            DataFrame with columns: column_name, data_type, nullable, category, sam_type, description
+        """
+        zero_based = _resolve_zero_based(use_zero_based)
+
+        df = py_describe_bam(
+            ctx,
+            path,
+            1,
+            None,
+            zero_based,
+            None,
+            sample_size,
+        )
+
+        return pl.from_arrow(df.to_arrow_table())
+
+    @staticmethod
+    def write_sam(
+        df: Union[pl.DataFrame, pl.LazyFrame],
+        path: str,
+        sort_on_write: bool = False,
+    ) -> int:
+        """
+        Write a DataFrame to SAM format (plain text).
+
+        Parameters:
+            df: DataFrame or LazyFrame with 11 core BAM/SAM columns + optional tag columns
+            path: Output file path (.sam)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
+
+        Returns:
+            Number of rows written
+
+        !!! Example "Write SAM files"
+            ```python
+            import polars_bio as pb
+            df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
+            pb.write_sam(df, "output.sam")
+            ```
+        """
+        return _write_bam_file(
+            df, path, OutputFormat.Sam, None, sort_on_write=sort_on_write
+        )
+
+    @staticmethod
+    def sink_sam(
+        lf: pl.LazyFrame,
+        path: str,
+        sort_on_write: bool = False,
+    ) -> None:
+        """
+        Streaming write a LazyFrame to SAM format (plain text).
+
+        Parameters:
+            lf: LazyFrame to write
+            path: Output file path (.sam)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
+
+        !!! Example "Streaming write SAM"
+            ```python
+            import polars_bio as pb
+            lf = pb.scan_bam("input.bam").filter(pl.col("mapping_quality") > 20)
+            pb.sink_sam(lf, "filtered.sam")
+            ```
+        """
+        _write_bam_file(lf, path, OutputFormat.Sam, None, sort_on_write=sort_on_write)
 
     @staticmethod
     def write_cram(
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
-        reference_path: Optional[str] = None,
+        reference_path: str,
+        sort_on_write: bool = False,
     ) -> int:
         """
         Write a DataFrame to CRAM format.
 
-        CRAM supports two modes:
-        - **Reference-based** (recommended): Stores differences from reference,
-          achieving 30-60% better compression than BAM
-        - **Reference-free**: Stores full sequences like BAM (rarely used)
+        CRAM uses reference-based compression, storing only differences from the
+        reference sequence. This achieves 30-60% better compression than BAM.
 
         Parameters:
             df: DataFrame or LazyFrame with 11 core BAM columns + optional tag columns
             path: Output CRAM file path
-            reference_path: Path to reference FASTA file (optional but recommended)
+            reference_path: Path to reference FASTA file (required). The reference must
+                contain all sequences referenced by the alignment data.
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         Returns:
             Number of rows written
@@ -1567,34 +1743,38 @@ class IOOperations:
 
             df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
 
-            # Reference-based CRAM (recommended - best compression)
+            # Write CRAM with reference (required)
             pb.write_cram(df, "output.cram", reference_path="reference.fasta")
 
-            # Reference-free CRAM (not recommended - use BAM instead)
-            pb.write_cram(df, "output.cram")  # No compression benefit
+            # For sorted output
+            pb.write_cram(df, "output.cram", reference_path="reference.fasta", sort_on_write=True)
             ```
         """
-        return _write_bam_file(df, path, OutputFormat.Cram, reference_path)
+        return _write_bam_file(
+            df, path, OutputFormat.Cram, reference_path, sort_on_write=sort_on_write
+        )
 
     @staticmethod
     def sink_cram(
         lf: pl.LazyFrame,
         path: str,
-        reference_path: Optional[str] = None,
+        reference_path: str,
+        sort_on_write: bool = False,
     ) -> None:
         """
         Streaming write a LazyFrame to CRAM format.
 
-        CRAM supports two modes:
-        - **Reference-based** (recommended): Best compression, stores differences
-        - **Reference-free**: Similar to BAM, rarely used
-
-        This method streams data without materializing all rows in memory.
+        CRAM uses reference-based compression, storing only differences from the
+        reference sequence. This method streams data without materializing all
+        rows in memory.
 
         Parameters:
             lf: LazyFrame to write
             path: Output CRAM file path
-            reference_path: Path to reference FASTA file (optional but recommended)
+            reference_path: Path to reference FASTA file (required). The reference must
+                contain all sequences referenced by the alignment data.
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         !!! warning "Known Limitation: MD and NM Tags"
             Due to a limitation in the underlying noodles-cram library, **MD and NM tags cannot be read back from CRAM files** after writing, even though they are written to the file. If you need MD/NM tags for downstream analysis, use BAM format instead. Other optional tags (RG, MQ, AM, OQ, AS, etc.) work correctly. See: https://github.com/biodatageeks/datafusion-bio-formats/issues/54
@@ -1607,14 +1787,16 @@ class IOOperations:
             lf = pb.scan_bam("large_input.bam")
             lf = lf.filter(pl.col("mapping_quality") > 30)
 
-            # Reference-based (recommended)
+            # Write CRAM with reference (required)
             pb.sink_cram(lf, "filtered.cram", reference_path="reference.fasta")
 
-            # Reference-free (not recommended)
-            pb.sink_cram(lf, "filtered.cram")  # Use BAM instead
+            # For sorted output
+            pb.sink_cram(lf, "filtered.cram", reference_path="reference.fasta", sort_on_write=True)
             ```
         """
-        _write_bam_file(lf, path, OutputFormat.Cram, reference_path)
+        _write_bam_file(
+            lf, path, OutputFormat.Cram, reference_path, sort_on_write=sort_on_write
+        )
 
 
 def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
@@ -1723,6 +1905,7 @@ def _write_bam_file(
     path: str,
     output_format: OutputFormat,
     reference_path: Optional[str] = None,
+    sort_on_write: bool = False,
 ) -> int:
     """Internal helper for BAM/CRAM write with streaming."""
     import json
@@ -1757,6 +1940,7 @@ def _write_bam_file(
             zero_based=zero_based,
             tag_fields=None,
             header_metadata=json.dumps(bam_header) if bam_header else None,
+            sort_on_write=sort_on_write,
         )
         write_options = WriteOptions(cram_write_options=cram_opts)
     else:
@@ -1764,6 +1948,7 @@ def _write_bam_file(
             zero_based=zero_based,
             tag_fields=None,
             header_metadata=json.dumps(bam_header) if bam_header else None,
+            sort_on_write=sort_on_write,
         )
         write_options = WriteOptions(bam_write_options=bam_opts)
 
@@ -2322,6 +2507,8 @@ def _format_to_string(input_format: InputFormat) -> str:
     format_str = str(input_format)
     if "Vcf" in format_str:
         return "vcf"
+    elif "Sam" in format_str:
+        return "sam"
     elif "Bam" in format_str:
         return "bam"
     elif "Cram" in format_str:
@@ -2363,9 +2550,13 @@ def _read_file(
     # Extract format-specific metadata from the comprehensive extraction
     format_specific = full_metadata.get("format_specific", {})
 
-    if format_str in format_specific:
+    # SAM and CRAM use the same schema metadata keys as BAM (bio.bam.*),
+    # so look up "bam" in format_specific when reading SAM or CRAM files.
+    metadata_key = "bam" if format_str in ("sam", "cram") else format_str
+
+    if metadata_key in format_specific:
         # Use the parsed format-specific metadata
-        if format_str == "vcf":
+        if metadata_key == "vcf":
             vcf_meta = format_specific["vcf"]
             header_metadata = {
                 "info_fields": vcf_meta.get("info_fields"),
@@ -2376,9 +2567,9 @@ def _read_file(
                 "filters": vcf_meta.get("filters"),
                 "alt_definitions": vcf_meta.get("alt_definitions"),
             }
-        elif format_str in ["fastq", "bam", "gff", "fasta", "bed", "cram"]:
-            # For other formats, include their specific metadata
-            header_metadata = format_specific.get(format_str, {})
+        elif metadata_key in ["fastq", "bam", "gff", "fasta", "bed", "cram"]:
+            # For other formats (including SAM via "bam" key), include their specific metadata
+            header_metadata = format_specific.get(metadata_key, {})
 
     # Note: We don't store _full_metadata to avoid duplication
     # All relevant metadata is already parsed into user-friendly fields

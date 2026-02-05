@@ -89,6 +89,7 @@ pub enum InputFormat {
     Parquet,
     Csv,
     Bam,
+    Sam,
     IndexedBam,
     Cram,
     Vcf,
@@ -114,6 +115,7 @@ impl fmt::Display for InputFormat {
             InputFormat::Parquet => "Parquet",
             InputFormat::Csv => "CSV",
             InputFormat::Bam => "BAM",
+            InputFormat::Sam => "SAM",
             InputFormat::Vcf => "VCF",
             InputFormat::Fastq => "FASTQ",
             InputFormat::Fasta => "FASTA",
@@ -576,6 +578,7 @@ pub enum OutputFormat {
     Vcf,
     Fastq,
     Bam,
+    Sam,
     Cram,
 }
 
@@ -585,6 +588,7 @@ impl fmt::Display for OutputFormat {
             OutputFormat::Vcf => write!(f, "VCF"),
             OutputFormat::Fastq => write!(f, "FASTQ"),
             OutputFormat::Bam => write!(f, "BAM"),
+            OutputFormat::Sam => write!(f, "SAM"),
             OutputFormat::Cram => write!(f, "CRAM"),
         }
     }
@@ -660,21 +664,25 @@ pub struct BamWriteOptions {
     pub tag_fields: Option<Vec<String>>,
     #[pyo3(get, set)]
     pub header_metadata: Option<String>,
+    #[pyo3(get, set)]
+    pub sort_on_write: bool,
 }
 
 #[pymethods]
 impl BamWriteOptions {
     #[new]
-    #[pyo3(signature = (zero_based=true, tag_fields=None, header_metadata=None))]
+    #[pyo3(signature = (zero_based=true, tag_fields=None, header_metadata=None, sort_on_write=false))]
     pub fn new(
         zero_based: bool,
         tag_fields: Option<Vec<String>>,
         header_metadata: Option<String>,
+        sort_on_write: bool,
     ) -> Self {
         BamWriteOptions {
             zero_based,
             tag_fields,
             header_metadata,
+            sort_on_write,
         }
     }
 }
@@ -691,23 +699,27 @@ pub struct CramWriteOptions {
     pub tag_fields: Option<Vec<String>>,
     #[pyo3(get, set)]
     pub header_metadata: Option<String>,
+    #[pyo3(get, set)]
+    pub sort_on_write: bool,
 }
 
 #[pymethods]
 impl CramWriteOptions {
     #[new]
-    #[pyo3(signature = (reference_path=None, zero_based=true, tag_fields=None, header_metadata=None))]
+    #[pyo3(signature = (reference_path=None, zero_based=true, tag_fields=None, header_metadata=None, sort_on_write=false))]
     pub fn new(
         reference_path: Option<String>,
         zero_based: bool,
         tag_fields: Option<Vec<String>>,
         header_metadata: Option<String>,
+        sort_on_write: bool,
     ) -> Self {
         CramWriteOptions {
             zero_based,
             reference_path,
             tag_fields,
             header_metadata,
+            sort_on_write,
         }
     }
 }
