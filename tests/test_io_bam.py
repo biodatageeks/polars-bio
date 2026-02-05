@@ -186,41 +186,100 @@ class TestIOSAM:
         assert "MD" in tag_names
 
 
-class TestSAMWrite:
-    def test_write_sam_roundtrip(self, tmp_path):
-        """Read BAM, write as SAM, read back and compare"""
-        df_bam = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
-        out_path = str(tmp_path / "roundtrip.sam")
-        rows_written = pb.write_sam(df_bam, out_path)
+class TestBAMWrite:
+    """Tests for BAM write functionality."""
+
+    def test_write_bam_roundtrip(self, tmp_path):
+        """BAM -> BAM roundtrip: read, write, read back."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        out_path = str(tmp_path / "roundtrip.bam")
+        rows_written = pb.write_bam(df, out_path)
         assert rows_written == 2333
 
-        df_sam = pb.read_sam(out_path)
-        assert len(df_sam) == 2333
-        assert df_sam.columns == df_bam.columns
+        df_back = pb.read_bam(out_path)
+        assert len(df_back) == 2333
+        assert df_back["name"][2] == df["name"][2]
+        assert df_back["flags"][3] == df["flags"][3]
 
-    def test_write_sam_with_tags(self, tmp_path):
-        """Round-trip with tag fields"""
-        df_bam = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam", tag_fields=["NM", "AS"])
-        out_path = str(tmp_path / "tags.sam")
-        rows_written = pb.write_sam(df_bam, out_path)
-        assert rows_written == 2333
-
-        df_sam = pb.read_sam(out_path, tag_fields=["NM", "AS"])
-        assert "NM" in df_sam.columns
-        assert "AS" in df_sam.columns
-        assert len(df_sam) == 2333
-
-    def test_sink_sam(self, tmp_path):
-        """Streaming write via sink"""
+    def test_sink_bam_roundtrip(self, tmp_path):
+        """Streaming BAM write roundtrip: scan, sink, read back."""
         lf = pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam")
+        out_path = str(tmp_path / "sink.bam")
+        pb.sink_bam(lf, out_path)
+
+        df_back = pb.read_bam(out_path)
+        assert len(df_back) == 2333
+
+    def test_write_bam_with_tags(self, tmp_path):
+        """BAM roundtrip with tag fields."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam", tag_fields=["NM", "AS"])
+        out_path = str(tmp_path / "tags.bam")
+        pb.write_bam(df, out_path)
+
+        df_back = pb.read_bam(out_path, tag_fields=["NM", "AS"])
+        assert "NM" in df_back.columns
+        assert "AS" in df_back.columns
+        assert len(df_back) == 2333
+
+    def test_sink_bam_with_tags(self, tmp_path):
+        """Streaming BAM write with tag fields."""
+        lf = pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam", tag_fields=["NM", "AS"])
+        out_path = str(tmp_path / "sink_tags.bam")
+        pb.sink_bam(lf, out_path)
+
+        df_back = pb.read_bam(out_path, tag_fields=["NM", "AS"])
+        assert "NM" in df_back.columns
+        assert "AS" in df_back.columns
+        assert len(df_back) == 2333
+
+
+class TestSAMWrite:
+    """Tests for SAM write functionality."""
+
+    def test_write_sam_roundtrip(self, tmp_path):
+        """SAM -> SAM roundtrip: read, write, read back."""
+        df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam")
+        out_path = str(tmp_path / "roundtrip.sam")
+        rows_written = pb.write_sam(df, out_path)
+        assert rows_written == 2333
+
+        df_back = pb.read_sam(out_path)
+        assert len(df_back) == 2333
+        assert df_back["name"][2] == df["name"][2]
+
+    def test_sink_sam_roundtrip(self, tmp_path):
+        """Streaming SAM write roundtrip: scan, sink, read back."""
+        lf = pb.scan_sam(f"{DATA_DIR}/io/sam/test.sam")
         out_path = str(tmp_path / "sink.sam")
         pb.sink_sam(lf, out_path)
 
-        df_sam = pb.read_sam(out_path)
-        assert len(df_sam) == 2333
+        df_back = pb.read_sam(out_path)
+        assert len(df_back) == 2333
+
+    def test_write_sam_with_tags(self, tmp_path):
+        """SAM roundtrip with tag fields."""
+        df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam", tag_fields=["NM", "AS"])
+        out_path = str(tmp_path / "tags.sam")
+        pb.write_sam(df, out_path)
+
+        df_back = pb.read_sam(out_path, tag_fields=["NM", "AS"])
+        assert "NM" in df_back.columns
+        assert "AS" in df_back.columns
+        assert len(df_back) == 2333
+
+    def test_sink_sam_with_tags(self, tmp_path):
+        """Streaming SAM write with tag fields."""
+        lf = pb.scan_sam(f"{DATA_DIR}/io/sam/test.sam", tag_fields=["NM", "AS"])
+        out_path = str(tmp_path / "sink_tags.sam")
+        pb.sink_sam(lf, out_path)
+
+        df_back = pb.read_sam(out_path, tag_fields=["NM", "AS"])
+        assert "NM" in df_back.columns
+        assert "AS" in df_back.columns
+        assert len(df_back) == 2333
 
     def test_bam_to_sam_conversion(self, tmp_path):
-        """Read BAM then write SAM, verify content"""
+        """Read BAM then write SAM, verify content."""
         df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
         out_path = str(tmp_path / "converted.sam")
         pb.write_sam(df, out_path)
@@ -391,7 +450,7 @@ class TestSortOnWrite:
         assert header_dict["HD"]["SO"] == "coordinate"
 
     def test_sink_bam_sort_on_write(self, tmp_path):
-        """Streaming write with sort_on_write=True."""
+        """Streaming BAM write with sort_on_write=True."""
         lf = pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam")
 
         out_path = str(tmp_path / "sink_sorted.bam")
@@ -400,6 +459,22 @@ class TestSortOnWrite:
         df_back = pb.read_bam(out_path)
         assert len(df_back) == 2333
         assert self._is_coordinate_sorted(df_back)
+
+    def test_sink_sam_sort_on_write(self, tmp_path):
+        """Streaming SAM write with sort_on_write=True."""
+        lf = pb.scan_sam(f"{DATA_DIR}/io/sam/test.sam")
+
+        out_path = str(tmp_path / "sink_sorted.sam")
+        pb.sink_sam(lf, out_path, sort_on_write=True)
+
+        df_back = pb.read_sam(out_path)
+        assert len(df_back) == 2333
+        assert self._is_coordinate_sorted(df_back)
+
+        # Verify header has SO:coordinate using pysam
+        with pysam.AlignmentFile(out_path, "r") as f:
+            header_dict = f.header.to_dict()
+        assert header_dict["HD"]["SO"] == "coordinate"
 
     def test_sort_preserves_header(self, tmp_path):
         """Sorted write preserves full header (@SQ, @RG, @PG)."""

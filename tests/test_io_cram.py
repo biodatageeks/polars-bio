@@ -226,6 +226,39 @@ class TestCRAMWrite:
             header_dict = f.header.to_dict()
         assert header_dict["HD"]["SO"] == "coordinate"
 
+    def test_write_cram_with_tags(self, tmp_path):
+        """CRAM roundtrip with tag fields."""
+        df = pb.scan_cram(
+            self.CRAM_WITH_REF, reference_path=self.REFERENCE, tag_fields=["RG", "MQ"]
+        ).collect()
+        assert "RG" in df.columns
+        out_path = str(tmp_path / "tags.cram")
+
+        pb.write_cram(df, out_path, reference_path=self.REFERENCE)
+
+        df_back = pb.read_cram(
+            out_path, reference_path=self.REFERENCE, tag_fields=["RG", "MQ"]
+        )
+        assert "RG" in df_back.columns
+        assert "MQ" in df_back.columns
+        assert len(df_back) == len(df)
+
+    def test_sink_cram_with_tags(self, tmp_path):
+        """Streaming CRAM write with tag fields."""
+        lf = pb.scan_cram(
+            self.CRAM_WITH_REF, reference_path=self.REFERENCE, tag_fields=["RG", "MQ"]
+        )
+        out_path = str(tmp_path / "sink_tags.cram")
+
+        pb.sink_cram(lf, out_path, reference_path=self.REFERENCE)
+
+        df_back = pb.read_cram(
+            out_path, reference_path=self.REFERENCE, tag_fields=["RG", "MQ"]
+        )
+        assert "RG" in df_back.columns
+        assert "MQ" in df_back.columns
+        assert len(df_back) == 100
+
     def test_cram_to_sam_roundtrip(self, tmp_path):
         """Read CRAM, write as SAM, read back and compare."""
         df_cram = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram")
