@@ -142,10 +142,72 @@ class TestIOCRAM:
 class TestCRAMWrite:
     """Tests for CRAM write functionality.
 
-    Note: CRAM write roundtrip (CRAM -> CRAM) is not yet supported upstream.
+    Note: CRAM write produces valid files (samtools can read them), but the
+    noodles reader cannot read them back due to a compression codec issue.
     These tests verify CRAM -> SAM and CRAM -> BAM conversions instead.
     See: https://github.com/biodatageeks/datafusion-bio-formats/issues/59
     """
+
+    # Reference file for CRAM write tests
+    REFERENCE = f"{DATA_DIR}/io/cram/external_ref/chr20.fa"
+    CRAM_WITH_REF = f"{DATA_DIR}/io/cram/external_ref/test_chr20.cram"
+
+    def test_write_cram_produces_valid_file(self, tmp_path):
+        """Write CRAM with reference produces a valid file (samtools-readable)."""
+        df = pb.scan_cram(self.CRAM_WITH_REF, reference_path=self.REFERENCE).collect()
+        out_path = str(tmp_path / "output.cram")
+
+        rows = pb.write_cram(df, out_path, reference_path=self.REFERENCE)
+        assert rows == len(df)
+
+        # Verify file is valid using samtools
+        import subprocess
+
+        result = subprocess.run(
+            ["samtools", "view", "-c", "-T", self.REFERENCE, out_path],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert int(result.stdout.strip()) == len(df)
+
+    def test_sink_cram_produces_valid_file(self, tmp_path):
+        """Streaming write CRAM with reference produces a valid file."""
+        lf = pb.scan_cram(self.CRAM_WITH_REF, reference_path=self.REFERENCE)
+        out_path = str(tmp_path / "sink_output.cram")
+
+        pb.sink_cram(lf, out_path, reference_path=self.REFERENCE)
+
+        # Verify file is valid using samtools
+        import subprocess
+
+        result = subprocess.run(
+            ["samtools", "view", "-c", "-T", self.REFERENCE, out_path],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert int(result.stdout.strip()) == 100  # test_chr20.cram has 100 records
+
+    def test_write_cram_sort_on_write(self, tmp_path):
+        """Write CRAM with sort_on_write sets SO:coordinate in header."""
+        df = pb.scan_cram(self.CRAM_WITH_REF, reference_path=self.REFERENCE).collect()
+        df_shuffled = df.reverse()
+        out_path = str(tmp_path / "sorted.cram")
+
+        pb.write_cram(
+            df_shuffled, out_path, reference_path=self.REFERENCE, sort_on_write=True
+        )
+
+        # Verify header has SO:coordinate
+        import subprocess
+
+        result = subprocess.run(
+            ["samtools", "view", "-H", "-T", self.REFERENCE, out_path],
+            capture_output=True,
+            text=True,
+        )
+        assert "SO:coordinate" in result.stdout
 
     def test_cram_to_sam_roundtrip(self, tmp_path):
         """Read CRAM, write as SAM, read back and compare."""

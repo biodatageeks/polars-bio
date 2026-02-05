@@ -1714,21 +1714,20 @@ class IOOperations:
     def write_cram(
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
-        reference_path: Optional[str] = None,
+        reference_path: str,
         sort_on_write: bool = False,
     ) -> int:
         """
         Write a DataFrame to CRAM format.
 
-        CRAM supports two modes:
-        - **Reference-based** (recommended): Stores differences from reference,
-          achieving 30-60% better compression than BAM
-        - **Reference-free**: Stores full sequences like BAM (rarely used)
+        CRAM uses reference-based compression, storing only differences from the
+        reference sequence. This achieves 30-60% better compression than BAM.
 
         Parameters:
             df: DataFrame or LazyFrame with 11 core BAM columns + optional tag columns
             path: Output CRAM file path
-            reference_path: Path to reference FASTA file (optional but recommended)
+            reference_path: Path to reference FASTA file (required). The reference must
+                contain all sequences referenced by the alignment data.
             sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
                 If False (default), set header SO:unsorted.
 
@@ -1744,11 +1743,11 @@ class IOOperations:
 
             df = pb.read_bam("input.bam", tag_fields=["NM", "AS"])
 
-            # Reference-based CRAM (recommended - best compression)
+            # Write CRAM with reference (required)
             pb.write_cram(df, "output.cram", reference_path="reference.fasta")
 
-            # Reference-free CRAM (not recommended - use BAM instead)
-            pb.write_cram(df, "output.cram")  # No compression benefit
+            # For sorted output
+            pb.write_cram(df, "output.cram", reference_path="reference.fasta", sort_on_write=True)
             ```
         """
         return _write_bam_file(
@@ -1759,22 +1758,21 @@ class IOOperations:
     def sink_cram(
         lf: pl.LazyFrame,
         path: str,
-        reference_path: Optional[str] = None,
+        reference_path: str,
         sort_on_write: bool = False,
     ) -> None:
         """
         Streaming write a LazyFrame to CRAM format.
 
-        CRAM supports two modes:
-        - **Reference-based** (recommended): Best compression, stores differences
-        - **Reference-free**: Similar to BAM, rarely used
-
-        This method streams data without materializing all rows in memory.
+        CRAM uses reference-based compression, storing only differences from the
+        reference sequence. This method streams data without materializing all
+        rows in memory.
 
         Parameters:
             lf: LazyFrame to write
             path: Output CRAM file path
-            reference_path: Path to reference FASTA file (optional but recommended)
+            reference_path: Path to reference FASTA file (required). The reference must
+                contain all sequences referenced by the alignment data.
             sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
                 If False (default), set header SO:unsorted.
 
@@ -1789,11 +1787,11 @@ class IOOperations:
             lf = pb.scan_bam("large_input.bam")
             lf = lf.filter(pl.col("mapping_quality") > 30)
 
-            # Reference-based (recommended)
+            # Write CRAM with reference (required)
             pb.sink_cram(lf, "filtered.cram", reference_path="reference.fasta")
 
-            # Reference-free (not recommended)
-            pb.sink_cram(lf, "filtered.cram")  # Use BAM instead
+            # For sorted output
+            pb.sink_cram(lf, "filtered.cram", reference_path="reference.fasta", sort_on_write=True)
             ```
         """
         _write_bam_file(
