@@ -2552,9 +2552,9 @@ def _read_file(
     # Extract format-specific metadata from the comprehensive extraction
     format_specific = full_metadata.get("format_specific", {})
 
-    # SAM uses the same schema metadata keys as BAM (bio.bam.*),
-    # so look up "bam" in format_specific when reading SAM files.
-    metadata_key = "bam" if format_str == "sam" else format_str
+    # SAM and CRAM use the same schema metadata keys as BAM (bio.bam.*),
+    # so look up "bam" in format_specific when reading SAM or CRAM files.
+    metadata_key = "bam" if format_str in ("sam", "cram") else format_str
 
     if metadata_key in format_specific:
         # Use the parsed format-specific metadata
