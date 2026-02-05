@@ -4,6 +4,8 @@ import polars_bio as pb
 
 
 class TestIOVCF:
+    """Tests for VCF read functionality."""
+
     df_bgz = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf.bgz")
     df_gz = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf.gz")
     df_none = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf")
@@ -76,3 +78,63 @@ class TestIOVCF:
             assert len(info_result) == 1
             assert list(info_result.columns) == ["chrom", "start", csq_col]
             assert info_result[csq_col][0] is not None  # CSQ field should have data
+
+
+class TestVCFWrite:
+    """Tests for VCF write functionality."""
+
+    def test_write_vcf_roundtrip(self, tmp_path):
+        """VCF -> VCF roundtrip: read, write, read back."""
+        df = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf")
+        out_path = str(tmp_path / "roundtrip.vcf")
+
+        rows_written = pb.write_vcf(df, out_path)
+        assert rows_written == 2
+
+        df_back = pb.read_vcf(out_path)
+        assert len(df_back) == 2
+        assert df_back["chrom"][0] == df["chrom"][0]
+        assert df_back["start"][0] == df["start"][0]
+        assert df_back["ref"][0] == df["ref"][0]
+
+    def test_sink_vcf_roundtrip(self, tmp_path):
+        """Streaming VCF write roundtrip: scan, sink, read back."""
+        lf = pb.scan_vcf(f"{DATA_DIR}/io/vcf/vep.vcf")
+        out_path = str(tmp_path / "sink.vcf")
+
+        pb.sink_vcf(lf, out_path)
+
+        df_back = pb.read_vcf(out_path)
+        assert len(df_back) == 2
+
+    def test_write_vcf_bgz(self, tmp_path):
+        """Write VCF with BGZF compression."""
+        df = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf")
+        out_path = str(tmp_path / "output.vcf.bgz")
+
+        rows_written = pb.write_vcf(df, out_path)
+        assert rows_written == 2
+
+        df_back = pb.read_vcf(out_path)
+        assert len(df_back) == 2
+
+    def test_write_vcf_gz(self, tmp_path):
+        """Write VCF with GZIP compression."""
+        df = pb.read_vcf(f"{DATA_DIR}/io/vcf/vep.vcf")
+        out_path = str(tmp_path / "output.vcf.gz")
+
+        rows_written = pb.write_vcf(df, out_path)
+        assert rows_written == 2
+
+        df_back = pb.read_vcf(out_path)
+        assert len(df_back) == 2
+
+    def test_sink_vcf_bgz(self, tmp_path):
+        """Streaming write VCF with BGZF compression."""
+        lf = pb.scan_vcf(f"{DATA_DIR}/io/vcf/vep.vcf")
+        out_path = str(tmp_path / "sink.vcf.bgz")
+
+        pb.sink_vcf(lf, out_path)
+
+        df_back = pb.read_vcf(out_path)
+        assert len(df_back) == 2
