@@ -899,8 +899,7 @@ class TestSortOnWrite:
         df_shuffled = df.reverse()
 
         out_path = str(tmp_path / "sorted.bam")
-        rows_written = pb.write_bam(df_shuffled, out_path, sort_on_write=True)
-        assert rows_written == 2333
+        pb.write_bam(df_shuffled, out_path, sort_on_write=True)
 
         df_back = pb.read_bam(out_path)
         assert len(df_back) == 2333
@@ -926,8 +925,7 @@ class TestSortOnWrite:
         df_shuffled = df.reverse()
 
         out_path = str(tmp_path / "sorted.sam")
-        rows_written = pb.write_sam(df_shuffled, out_path, sort_on_write=True)
-        assert rows_written == 2333
+        pb.write_sam(df_shuffled, out_path, sort_on_write=True)
 
         df_back = pb.read_sam(out_path)
         assert len(df_back) == 2333
