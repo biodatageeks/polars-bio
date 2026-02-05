@@ -140,20 +140,40 @@ class TestIOCRAM:
 
 
 class TestCRAMWrite:
-    """Tests for CRAM write functionality.
-
-    Note: CRAM write produces valid files (samtools can read them), but the
-    noodles reader cannot read them back due to a compression codec issue.
-    These tests verify CRAM -> SAM and CRAM -> BAM conversions instead.
-    See: https://github.com/biodatageeks/datafusion-bio-formats/issues/59
-    """
+    """Tests for CRAM write functionality."""
 
     # Reference file for CRAM write tests
     REFERENCE = f"{DATA_DIR}/io/cram/external_ref/chr20.fa"
     CRAM_WITH_REF = f"{DATA_DIR}/io/cram/external_ref/test_chr20.cram"
 
-    def test_write_cram_produces_valid_file(self, tmp_path):
-        """Write CRAM with reference produces a valid file (pysam-readable)."""
+    def test_cram_roundtrip(self, tmp_path):
+        """CRAM -> CRAM roundtrip: read, write, read back."""
+        df = pb.scan_cram(self.CRAM_WITH_REF, reference_path=self.REFERENCE).collect()
+        out_path = str(tmp_path / "roundtrip.cram")
+
+        rows = pb.write_cram(df, out_path, reference_path=self.REFERENCE)
+        assert rows == len(df)
+
+        # Read back with polars-bio
+        df_back = pb.read_cram(out_path, reference_path=self.REFERENCE)
+        assert len(df_back) == len(df)
+        assert df_back["name"][0] == df["name"][0]
+        assert df_back["chrom"][0] == df["chrom"][0]
+        assert df_back["start"][0] == df["start"][0]
+
+    def test_sink_cram_roundtrip(self, tmp_path):
+        """Streaming CRAM write roundtrip: scan, sink, read back."""
+        lf = pb.scan_cram(self.CRAM_WITH_REF, reference_path=self.REFERENCE)
+        out_path = str(tmp_path / "sink_roundtrip.cram")
+
+        pb.sink_cram(lf, out_path, reference_path=self.REFERENCE)
+
+        # Read back with polars-bio
+        df_back = pb.read_cram(out_path, reference_path=self.REFERENCE)
+        assert len(df_back) == 100
+
+    def test_write_cram_pysam_readable(self, tmp_path):
+        """Write CRAM produces a file readable by pysam."""
         df = pb.scan_cram(self.CRAM_WITH_REF, reference_path=self.REFERENCE).collect()
         out_path = str(tmp_path / "output.cram")
 
@@ -167,22 +187,8 @@ class TestCRAMWrite:
             count = sum(1 for _ in f)
         assert count == len(df)
 
-    def test_sink_cram_produces_valid_file(self, tmp_path):
-        """Streaming write CRAM with reference produces a valid file."""
-        lf = pb.scan_cram(self.CRAM_WITH_REF, reference_path=self.REFERENCE)
-        out_path = str(tmp_path / "sink_output.cram")
-
-        pb.sink_cram(lf, out_path, reference_path=self.REFERENCE)
-
-        # Verify file is valid using pysam
-        with pysam.AlignmentFile(
-            out_path, "rc", reference_filename=self.REFERENCE
-        ) as f:
-            count = sum(1 for _ in f)
-        assert count == 100  # test_chr20.cram has 100 records
-
-    def test_write_cram_sort_on_write(self, tmp_path):
-        """Write CRAM with sort_on_write sets SO:coordinate in header."""
+    def test_cram_sort_on_write_roundtrip(self, tmp_path):
+        """Write CRAM with sort_on_write, verify sorted on read back."""
         df = pb.scan_cram(self.CRAM_WITH_REF, reference_path=self.REFERENCE).collect()
         df_shuffled = df.reverse()
         out_path = str(tmp_path / "sorted.cram")
@@ -190,6 +196,28 @@ class TestCRAMWrite:
         pb.write_cram(
             df_shuffled, out_path, reference_path=self.REFERENCE, sort_on_write=True
         )
+
+        # Read back and verify sorted
+        df_back = pb.read_cram(out_path, reference_path=self.REFERENCE)
+        assert len(df_back) == len(df)
+
+        # Check coordinate sorted
+        chroms = df_back["chrom"].to_list()
+        starts = df_back["start"].to_list()
+        for i in range(1, len(chroms)):
+            if chroms[i] == chroms[i - 1]:
+                assert starts[i] >= starts[i - 1], "Not coordinate sorted"
+
+        # Verify header has SO:coordinate
+        header = get_metadata(df_back).get("header", {})
+        assert header.get("sort_order") == "coordinate"
+
+    def test_cram_sort_on_write_pysam_header(self, tmp_path):
+        """Write CRAM with sort_on_write, verify pysam sees SO:coordinate."""
+        df = pb.scan_cram(self.CRAM_WITH_REF, reference_path=self.REFERENCE).collect()
+        out_path = str(tmp_path / "sorted_pysam.cram")
+
+        pb.write_cram(df, out_path, reference_path=self.REFERENCE, sort_on_write=True)
 
         # Verify header has SO:coordinate using pysam
         with pysam.AlignmentFile(
