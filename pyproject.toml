@@ -25,6 +25,7 @@ dependencies = [
 [project.optional-dependencies]
 pandas = ["pandas"]
 viz = ["bioframe", "matplotlib"]
+test = ["pysam"]
 
 [tool.maturin]
 module-name = "polars_bio"

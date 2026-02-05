@@ -1,5 +1,6 @@
-import subprocess
+import json
 
+import pysam
 import pytest
 from _expected import DATA_DIR
 
@@ -233,12 +234,16 @@ class TestSAMWrite:
 class TestHeaderPreservation:
     """Tests that BAM/SAM/CRAM round-trips preserve full header metadata."""
 
-    def _count_header_lines(self, path, prefix):
-        """Count lines starting with prefix in a SAM file."""
-        result = subprocess.run(
-            ["grep", "-c", f"^{prefix}", path], capture_output=True, text=True
-        )
-        return int(result.stdout.strip())
+    def _get_sam_header_counts(self, path):
+        """Get header section counts from a SAM file using pysam."""
+        with pysam.AlignmentFile(path, "r") as f:
+            header_dict = f.header.to_dict()
+        return {
+            "SQ": len(header_dict.get("SQ", [])),
+            "RG": len(header_dict.get("RG", [])),
+            "PG": len(header_dict.get("PG", [])),
+            "HD": 1 if "HD" in header_dict else 0,
+        }
 
     def _get_header_metadata(self, df):
         """Extract header metadata from a DataFrame."""
@@ -257,8 +262,6 @@ class TestHeaderPreservation:
         assert "file_format_version" in header
         assert "sort_order" in header
 
-        import json
-
         ref_seqs = json.loads(header["reference_sequences"])
         assert len(ref_seqs) == 45
         assert ref_seqs[0]["name"] == "chrM"
@@ -275,8 +278,6 @@ class TestHeaderPreservation:
         assert "reference_sequences" in header
         assert "read_groups" in header
 
-        import json
-
         ref_seqs = json.loads(header["reference_sequences"])
         assert len(ref_seqs) == 45
 
@@ -286,10 +287,11 @@ class TestHeaderPreservation:
         out_path = str(tmp_path / "header_test.sam")
         pb.write_sam(df, out_path)
 
-        assert self._count_header_lines(out_path, "@SQ") == 45
-        assert self._count_header_lines(out_path, "@RG") == 16
-        assert self._count_header_lines(out_path, "@PG") > 0
-        assert self._count_header_lines(out_path, "@HD") == 1
+        counts = self._get_sam_header_counts(out_path)
+        assert counts["SQ"] == 45
+        assert counts["RG"] == 16
+        assert counts["PG"] > 0
+        assert counts["HD"] == 1
 
     def test_sink_sam_header_roundtrip(self, tmp_path):
         """sink_sam (streaming write) should preserve full header."""
@@ -297,9 +299,10 @@ class TestHeaderPreservation:
         out_path = str(tmp_path / "sink_header.sam")
         pb.sink_sam(lf, out_path)
 
-        assert self._count_header_lines(out_path, "@SQ") == 45
-        assert self._count_header_lines(out_path, "@RG") == 16
-        assert self._count_header_lines(out_path, "@PG") > 0
+        counts = self._get_sam_header_counts(out_path)
+        assert counts["SQ"] == 45
+        assert counts["RG"] == 16
+        assert counts["PG"] > 0
 
     def test_sam_to_sam_header_roundtrip(self, tmp_path):
         """SAM -> SAM round-trip should preserve header."""
@@ -307,13 +310,13 @@ class TestHeaderPreservation:
         out_path = str(tmp_path / "sam_roundtrip.sam")
         pb.write_sam(df, out_path)
 
-        assert self._count_header_lines(out_path, "@SQ") == 45
-        assert self._count_header_lines(out_path, "@RG") == 16
+        counts = self._get_sam_header_counts(out_path)
+        assert counts["SQ"] == 45
+        assert counts["RG"] == 16
 
         # Read back and verify metadata still present
         df_back = pb.read_sam(out_path)
         header = self._get_header_metadata(df_back)
-        import json
 
         ref_seqs = json.loads(header["reference_sequences"])
         assert len(ref_seqs) == 45
@@ -333,12 +336,15 @@ class TestSortOnWrite:
                 return False
         return True
 
-    def _count_header_lines(self, path, prefix):
-        """Count lines starting with prefix in a SAM file."""
-        result = subprocess.run(
-            ["grep", "-c", f"^{prefix}", path], capture_output=True, text=True
-        )
-        return int(result.stdout.strip())
+    def _get_sam_header_counts(self, path):
+        """Get header section counts from a SAM file using pysam."""
+        with pysam.AlignmentFile(path, "r") as f:
+            header_dict = f.header.to_dict()
+        return {
+            "SQ": len(header_dict.get("SQ", [])),
+            "RG": len(header_dict.get("RG", [])),
+            "PG": len(header_dict.get("PG", [])),
+        }
 
     def test_bam_sort_on_write(self, tmp_path):
         """Write BAM with sort_on_write=True, verify coordinate order."""
@@ -379,10 +385,10 @@ class TestSortOnWrite:
         assert len(df_back) == 2333
         assert self._is_coordinate_sorted(df_back)
 
-        # Verify @HD SO:coordinate in the SAM text
-        with open(out_path) as f:
-            first_line = f.readline()
-        assert "SO:coordinate" in first_line
+        # Verify header has SO:coordinate using pysam
+        with pysam.AlignmentFile(out_path, "r") as f:
+            header_dict = f.header.to_dict()
+        assert header_dict["HD"]["SO"] == "coordinate"
 
     def test_sink_bam_sort_on_write(self, tmp_path):
         """Streaming write with sort_on_write=True."""
@@ -402,6 +408,7 @@ class TestSortOnWrite:
         out_path = str(tmp_path / "sorted_header.sam")
         pb.write_sam(df, out_path, sort_on_write=True)
 
-        assert self._count_header_lines(out_path, "@SQ") == 45
-        assert self._count_header_lines(out_path, "@RG") == 16
-        assert self._count_header_lines(out_path, "@PG") > 0
+        counts = self._get_sam_header_counts(out_path)
+        assert counts["SQ"] == 45
+        assert counts["RG"] == 16
+        assert counts["PG"] > 0

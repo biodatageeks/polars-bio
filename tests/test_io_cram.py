@@ -1,6 +1,6 @@
 import json
-import subprocess
 
+import pysam
 from _expected import DATA_DIR
 
 import polars_bio as pb
@@ -153,23 +153,19 @@ class TestCRAMWrite:
     CRAM_WITH_REF = f"{DATA_DIR}/io/cram/external_ref/test_chr20.cram"
 
     def test_write_cram_produces_valid_file(self, tmp_path):
-        """Write CRAM with reference produces a valid file (samtools-readable)."""
+        """Write CRAM with reference produces a valid file (pysam-readable)."""
         df = pb.scan_cram(self.CRAM_WITH_REF, reference_path=self.REFERENCE).collect()
         out_path = str(tmp_path / "output.cram")
 
         rows = pb.write_cram(df, out_path, reference_path=self.REFERENCE)
         assert rows == len(df)
 
-        # Verify file is valid using samtools
-        import subprocess
-
-        result = subprocess.run(
-            ["samtools", "view", "-c", "-T", self.REFERENCE, out_path],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0
-        assert int(result.stdout.strip()) == len(df)
+        # Verify file is valid using pysam
+        with pysam.AlignmentFile(
+            out_path, "rc", reference_filename=self.REFERENCE
+        ) as f:
+            count = sum(1 for _ in f)
+        assert count == len(df)
 
     def test_sink_cram_produces_valid_file(self, tmp_path):
         """Streaming write CRAM with reference produces a valid file."""
@@ -178,16 +174,12 @@ class TestCRAMWrite:
 
         pb.sink_cram(lf, out_path, reference_path=self.REFERENCE)
 
-        # Verify file is valid using samtools
-        import subprocess
-
-        result = subprocess.run(
-            ["samtools", "view", "-c", "-T", self.REFERENCE, out_path],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0
-        assert int(result.stdout.strip()) == 100  # test_chr20.cram has 100 records
+        # Verify file is valid using pysam
+        with pysam.AlignmentFile(
+            out_path, "rc", reference_filename=self.REFERENCE
+        ) as f:
+            count = sum(1 for _ in f)
+        assert count == 100  # test_chr20.cram has 100 records
 
     def test_write_cram_sort_on_write(self, tmp_path):
         """Write CRAM with sort_on_write sets SO:coordinate in header."""
@@ -199,15 +191,12 @@ class TestCRAMWrite:
             df_shuffled, out_path, reference_path=self.REFERENCE, sort_on_write=True
         )
 
-        # Verify header has SO:coordinate
-        import subprocess
-
-        result = subprocess.run(
-            ["samtools", "view", "-H", "-T", self.REFERENCE, out_path],
-            capture_output=True,
-            text=True,
-        )
-        assert "SO:coordinate" in result.stdout
+        # Verify header has SO:coordinate using pysam
+        with pysam.AlignmentFile(
+            out_path, "rc", reference_filename=self.REFERENCE
+        ) as f:
+            header_dict = f.header.to_dict()
+        assert header_dict["HD"]["SO"] == "coordinate"
 
     def test_cram_to_sam_roundtrip(self, tmp_path):
         """Read CRAM, write as SAM, read back and compare."""
@@ -284,11 +273,16 @@ class TestCRAMHeaderPreservation:
         meta = get_metadata(df)
         return meta.get("header", {})
 
-    def _count_header_lines(self, path, prefix):
-        result = subprocess.run(
-            ["grep", "-c", f"^{prefix}", path], capture_output=True, text=True
-        )
-        return int(result.stdout.strip())
+    def _get_sam_header_counts(self, path):
+        """Get header section counts from a SAM file using pysam."""
+        with pysam.AlignmentFile(path, "r") as f:
+            header_dict = f.header.to_dict()
+        return {
+            "SQ": len(header_dict.get("SQ", [])),
+            "RG": len(header_dict.get("RG", [])),
+            "PG": len(header_dict.get("PG", [])),
+            "HD": 1 if "HD" in header_dict else 0,
+        }
 
     def test_cram_read_has_header_metadata(self):
         """CRAM read should populate header metadata with @SQ, @RG, @PG info."""
@@ -315,10 +309,11 @@ class TestCRAMHeaderPreservation:
         out_path = str(tmp_path / "header_test.sam")
         pb.write_sam(df, out_path)
 
-        assert self._count_header_lines(out_path, "@SQ") == 45
-        assert self._count_header_lines(out_path, "@RG") == 16
-        assert self._count_header_lines(out_path, "@PG") > 0
-        assert self._count_header_lines(out_path, "@HD") == 1
+        counts = self._get_sam_header_counts(out_path)
+        assert counts["SQ"] == 45
+        assert counts["RG"] == 16
+        assert counts["PG"] > 0
+        assert counts["HD"] == 1
 
     def test_cram_to_bam_preserves_header(self, tmp_path):
         """CRAM -> BAM write should preserve header metadata."""
@@ -341,9 +336,10 @@ class TestCRAMHeaderPreservation:
         out_path = str(tmp_path / "sink_header.sam")
         pb.sink_sam(lf, out_path)
 
-        assert self._count_header_lines(out_path, "@SQ") == 45
-        assert self._count_header_lines(out_path, "@RG") == 16
-        assert self._count_header_lines(out_path, "@PG") > 0
+        counts = self._get_sam_header_counts(out_path)
+        assert counts["SQ"] == 45
+        assert counts["RG"] == 16
+        assert counts["PG"] > 0
 
 
 class TestCRAMSortOnWrite:
@@ -363,11 +359,15 @@ class TestCRAMSortOnWrite:
                 return False
         return True
 
-    def _count_header_lines(self, path, prefix):
-        result = subprocess.run(
-            ["grep", "-c", f"^{prefix}", path], capture_output=True, text=True
-        )
-        return int(result.stdout.strip())
+    def _get_sam_header_counts(self, path):
+        """Get header section counts from a SAM file using pysam."""
+        with pysam.AlignmentFile(path, "r") as f:
+            header_dict = f.header.to_dict()
+        return {
+            "SQ": len(header_dict.get("SQ", [])),
+            "RG": len(header_dict.get("RG", [])),
+            "PG": len(header_dict.get("PG", [])),
+        }
 
     def test_cram_to_bam_sort_on_write(self, tmp_path):
         """Read CRAM, shuffle, write BAM with sort_on_write=True."""
@@ -396,9 +396,10 @@ class TestCRAMSortOnWrite:
         assert len(df_back) == 2333
         assert self._is_coordinate_sorted(df_back)
 
-        with open(out_path) as f:
-            first_line = f.readline()
-        assert "SO:coordinate" in first_line
+        # Verify header has SO:coordinate using pysam
+        with pysam.AlignmentFile(out_path, "r") as f:
+            header_dict = f.header.to_dict()
+        assert header_dict["HD"]["SO"] == "coordinate"
 
     def test_sink_bam_from_cram_sort_on_write(self, tmp_path):
         """Streaming: scan CRAM, sink BAM with sort_on_write=True."""
@@ -418,6 +419,7 @@ class TestCRAMSortOnWrite:
         out_path = str(tmp_path / "sorted_header.sam")
         pb.write_sam(df, out_path, sort_on_write=True)
 
-        assert self._count_header_lines(out_path, "@SQ") == 45
-        assert self._count_header_lines(out_path, "@RG") == 16
-        assert self._count_header_lines(out_path, "@PG") > 0
+        counts = self._get_sam_header_counts(out_path)
+        assert counts["SQ"] == 45
+        assert counts["RG"] == 16
+        assert counts["PG"] > 0
