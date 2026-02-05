@@ -341,7 +341,6 @@ async fn execute_vcf_streaming_write(
 /// through DataFrame operations like cast(). This wrapper allows us to inject the VCF
 /// metadata that the bio-formats library expects for proper header generation.
 use datafusion::physical_expr::EquivalenceProperties;
-use datafusion::physical_plan::coalesce_partitions::CoalescePartitionsExec;
 use datafusion::physical_plan::{
     execution_plan::{Boundedness, EmissionType},
     DisplayAs, DisplayFormatType, ExecutionPlan, PlanProperties,
@@ -724,17 +723,9 @@ async fn execute_bam_streaming_write(
     // and header metadata for full header reconstruction
     let wrapped_input = Arc::new(SchemaOverrideExec::new(input_plan, schema_with_metadata));
 
-    // When sorting, coalesce all partitions into one so the SortExec
-    // sees all rows (the optimizer may repartition the input).
-    let final_input: Arc<dyn ExecutionPlan> = if sort_on_write {
-        Arc::new(CoalescePartitionsExec::new(wrapped_input))
-    } else {
-        wrapped_input
-    };
-
     // Get the write execution plan via insert_into
     let write_plan = Arc::new(provider)
-        .insert_into(&state, final_input, InsertOp::Overwrite)
+        .insert_into(&state, wrapped_input, InsertOp::Overwrite)
         .await?;
 
     // Execute the write plan - this streams batches through the writer
@@ -836,17 +827,9 @@ async fn execute_cram_streaming_write(
     // and header metadata for full header reconstruction
     let wrapped_input = Arc::new(SchemaOverrideExec::new(input_plan, schema_with_metadata));
 
-    // When sorting, coalesce all partitions into one so the SortExec
-    // sees all rows (the optimizer may repartition the input).
-    let final_input: Arc<dyn ExecutionPlan> = if sort_on_write {
-        Arc::new(CoalescePartitionsExec::new(wrapped_input))
-    } else {
-        wrapped_input
-    };
-
     // Get the write execution plan via insert_into
     let write_plan = Arc::new(provider)
-        .insert_into(&state, final_input, InsertOp::Overwrite)
+        .insert_into(&state, wrapped_input, InsertOp::Overwrite)
         .await?;
 
     // Execute the write plan
