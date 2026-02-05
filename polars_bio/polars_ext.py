@@ -294,7 +294,7 @@ class PolarsRangesOperations:
         """
         pb.sink_fastq(self._ldf, path)
 
-    def sink_bam(self, path: str) -> None:
+    def sink_bam(self, path: str, sort_on_write: bool = False) -> None:
         """
         Streaming write LazyFrame to BAM/SAM format.
 
@@ -302,6 +302,8 @@ class PolarsRangesOperations:
 
         Parameters:
             path: Output file path (.bam or .sam)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         !!! Example
             ```python
@@ -311,14 +313,16 @@ class PolarsRangesOperations:
             lf.pb.sink_bam("filtered.bam")
             ```
         """
-        pb.sink_bam(self._ldf, path)
+        pb.sink_bam(self._ldf, path, sort_on_write=sort_on_write)
 
-    def sink_sam(self, path: str) -> None:
+    def sink_sam(self, path: str, sort_on_write: bool = False) -> None:
         """
         Streaming write LazyFrame to SAM format (plain text).
 
         Parameters:
             path: Output file path (.sam)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         !!! Example
             ```python
@@ -328,9 +332,14 @@ class PolarsRangesOperations:
             lf.pb.sink_sam("filtered.sam")
             ```
         """
-        pb.sink_sam(self._ldf, path)
+        pb.sink_sam(self._ldf, path, sort_on_write=sort_on_write)
 
-    def sink_cram(self, path: str, reference_path: Optional[str] = None) -> None:
+    def sink_cram(
+        self,
+        path: str,
+        reference_path: Optional[str] = None,
+        sort_on_write: bool = False,
+    ) -> None:
         """
         Streaming write LazyFrame to CRAM format.
 
@@ -340,6 +349,8 @@ class PolarsRangesOperations:
         Parameters:
             path: Output CRAM file path
             reference_path: Path to reference FASTA file (optional but recommended)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         !!! Example
             ```python
@@ -355,7 +366,7 @@ class PolarsRangesOperations:
             lf.pb.sink_cram("filtered.cram")
             ```
         """
-        pb.sink_cram(self._ldf, path, reference_path)
+        pb.sink_cram(self._ldf, path, reference_path, sort_on_write=sort_on_write)
 
 
 @pl.api.register_dataframe_namespace("pb")
@@ -410,7 +421,7 @@ class PolarsDataFrameOperations:
         """
         return pb.write_fastq(self._df, path)
 
-    def write_bam(self, path: str) -> int:
+    def write_bam(self, path: str, sort_on_write: bool = False) -> int:
         """
         Write DataFrame to BAM/SAM format.
 
@@ -419,6 +430,8 @@ class PolarsDataFrameOperations:
 
         Parameters:
             path: Output file path (.bam or .sam)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         Returns:
             The number of rows written.
@@ -431,14 +444,16 @@ class PolarsDataFrameOperations:
             df.pb.write_bam("output.bam")
             ```
         """
-        return pb.write_bam(self._df, path)
+        return pb.write_bam(self._df, path, sort_on_write=sort_on_write)
 
-    def write_sam(self, path: str) -> int:
+    def write_sam(self, path: str, sort_on_write: bool = False) -> int:
         """
         Write DataFrame to SAM format (plain text).
 
         Parameters:
             path: Output file path (.sam)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         Returns:
             The number of rows written.
@@ -451,9 +466,14 @@ class PolarsDataFrameOperations:
             df.pb.write_sam("output.sam")
             ```
         """
-        return pb.write_sam(self._df, path)
+        return pb.write_sam(self._df, path, sort_on_write=sort_on_write)
 
-    def write_cram(self, path: str, reference_path: Optional[str] = None) -> int:
+    def write_cram(
+        self,
+        path: str,
+        reference_path: Optional[str] = None,
+        sort_on_write: bool = False,
+    ) -> int:
         """
         Write DataFrame to CRAM format.
 
@@ -463,6 +483,8 @@ class PolarsDataFrameOperations:
         Parameters:
             path: Output CRAM file path
             reference_path: Path to reference FASTA file (optional but recommended)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         Returns:
             The number of rows written.
@@ -480,4 +502,6 @@ class PolarsDataFrameOperations:
             df.pb.write_cram("output.cram")
             ```
         """
-        return pb.write_cram(self._df, path, reference_path)
+        return pb.write_cram(
+            self._df, path, reference_path, sort_on_write=sort_on_write
+        )

@@ -867,3 +867,95 @@ class TestBED:
         assert projection["start"][1] == 66700000
         assert projection["end"][2] == 63934964
         assert projection["name"][4] == "FRA16E"
+
+
+class TestSortOnWrite:
+    """Tests for sort_on_write parameter in BAM/SAM/CRAM write functions."""
+
+    def _is_coordinate_sorted(self, df):
+        """Check if a DataFrame is sorted by (chrom, start)."""
+        chroms = df["chrom"].to_list()
+        starts = df["start"].to_list()
+        for i in range(1, len(chroms)):
+            if chroms[i] < chroms[i - 1]:
+                return False
+            if chroms[i] == chroms[i - 1] and starts[i] < starts[i - 1]:
+                return False
+        return True
+
+    def _count_header_lines(self, path, prefix):
+        """Count lines starting with prefix in a SAM file."""
+        import subprocess
+
+        result = subprocess.run(
+            ["grep", "-c", f"^{prefix}", path], capture_output=True, text=True
+        )
+        return int(result.stdout.strip())
+
+    def test_bam_sort_on_write(self, tmp_path):
+        """Write BAM with sort_on_write=True, verify coordinate order."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        # Shuffle rows by reversing
+        df_shuffled = df.reverse()
+
+        out_path = str(tmp_path / "sorted.bam")
+        rows_written = pb.write_bam(df_shuffled, out_path, sort_on_write=True)
+        assert rows_written == 2333
+
+        df_back = pb.read_bam(out_path)
+        assert len(df_back) == 2333
+        assert self._is_coordinate_sorted(df_back)
+
+    def test_bam_sort_on_write_false(self, tmp_path):
+        """Write BAM with sort_on_write=False (default), verify unsorted header."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+
+        out_path = str(tmp_path / "unsorted.bam")
+        pb.write_bam(df, out_path, sort_on_write=False)
+
+        df_back = pb.read_bam(out_path)
+        from polars_bio._metadata import get_metadata
+
+        meta = get_metadata(df_back)
+        header = meta.get("header", {})
+        assert header.get("sort_order") == "unsorted"
+
+    def test_sam_sort_on_write(self, tmp_path):
+        """Write SAM with sort_on_write=True, verify coordinate order and header."""
+        df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam")
+        df_shuffled = df.reverse()
+
+        out_path = str(tmp_path / "sorted.sam")
+        rows_written = pb.write_sam(df_shuffled, out_path, sort_on_write=True)
+        assert rows_written == 2333
+
+        df_back = pb.read_sam(out_path)
+        assert len(df_back) == 2333
+        assert self._is_coordinate_sorted(df_back)
+
+        # Verify @HD SO:coordinate in the SAM text
+        with open(out_path) as f:
+            first_line = f.readline()
+        assert "SO:coordinate" in first_line
+
+    def test_sink_bam_sort_on_write(self, tmp_path):
+        """Streaming write with sort_on_write=True."""
+        lf = pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam")
+
+        out_path = str(tmp_path / "sink_sorted.bam")
+        pb.sink_bam(lf, out_path, sort_on_write=True)
+
+        df_back = pb.read_bam(out_path)
+        assert len(df_back) == 2333
+        assert self._is_coordinate_sorted(df_back)
+
+    def test_sort_preserves_header(self, tmp_path):
+        """Sorted write preserves full header (@SQ, @RG, @PG)."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+
+        out_path = str(tmp_path / "sorted_header.sam")
+        pb.write_sam(df, out_path, sort_on_write=True)
+
+        assert self._count_header_lines(out_path, "@SQ") == 45
+        assert self._count_header_lines(out_path, "@RG") == 16
+        assert self._count_header_lines(out_path, "@PG") > 0

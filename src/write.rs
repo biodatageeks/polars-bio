@@ -647,21 +647,32 @@ async fn write_bam_streaming(
     path: &str,
     write_options: Option<WriteOptions>,
 ) -> Result<u64, DataFusionError> {
-    let (zero_based, tag_fields, header_metadata) = if let Some(opts) = &write_options {
-        if let Some(bam_opts) = &opts.bam_write_options {
-            (
-                bam_opts.zero_based,
-                bam_opts.tag_fields.clone(),
-                bam_opts.header_metadata.clone(),
-            )
+    let (zero_based, tag_fields, header_metadata, sort_on_write) =
+        if let Some(opts) = &write_options {
+            if let Some(bam_opts) = &opts.bam_write_options {
+                (
+                    bam_opts.zero_based,
+                    bam_opts.tag_fields.clone(),
+                    bam_opts.header_metadata.clone(),
+                    bam_opts.sort_on_write,
+                )
+            } else {
+                (true, None, None, false)
+            }
         } else {
-            (true, None, None)
-        }
-    } else {
-        (true, None, None)
-    };
+            (true, None, None, false)
+        };
 
-    execute_bam_streaming_write(ctx, df, path, zero_based, tag_fields, header_metadata).await
+    execute_bam_streaming_write(
+        ctx,
+        df,
+        path,
+        zero_based,
+        tag_fields,
+        header_metadata,
+        sort_on_write,
+    )
+    .await
 }
 
 /// Execute BAM streaming write with metadata support.
@@ -672,6 +683,7 @@ async fn execute_bam_streaming_write(
     zero_based: bool,
     tag_fields: Option<Vec<String>>,
     header_metadata: Option<String>,
+    sort_on_write: bool,
 ) -> Result<u64, DataFusionError> {
     let schema = df.schema().inner().clone();
 
@@ -697,6 +709,7 @@ async fn execute_bam_streaming_write(
         schema_with_metadata.clone(),
         Some(tags),
         zero_based,
+        sort_on_write,
     );
 
     // Create the logical plan for the source data
@@ -733,7 +746,7 @@ async fn write_cram_streaming(
     path: &str,
     write_options: Option<WriteOptions>,
 ) -> Result<u64, DataFusionError> {
-    let (zero_based, reference_path, tag_fields, header_metadata) =
+    let (zero_based, reference_path, tag_fields, header_metadata, sort_on_write) =
         if let Some(opts) = &write_options {
             if let Some(cram_opts) = &opts.cram_write_options {
                 (
@@ -741,14 +754,15 @@ async fn write_cram_streaming(
                     cram_opts.reference_path.clone(),
                     cram_opts.tag_fields.clone(),
                     cram_opts.header_metadata.clone(),
+                    cram_opts.sort_on_write,
                 )
             } else {
                 // Default: no reference (reference-free CRAM)
-                (true, None, None, None)
+                (true, None, None, None, false)
             }
         } else {
             // Default: no reference (reference-free CRAM)
-            (true, None, None, None)
+            (true, None, None, None, false)
         };
 
     execute_cram_streaming_write(
@@ -759,6 +773,7 @@ async fn write_cram_streaming(
         reference_path,
         tag_fields,
         header_metadata,
+        sort_on_write,
     )
     .await
 }
@@ -772,6 +787,7 @@ async fn execute_cram_streaming_write(
     reference_path: Option<String>,
     tag_fields: Option<Vec<String>>,
     header_metadata: Option<String>,
+    sort_on_write: bool,
 ) -> Result<u64, DataFusionError> {
     let schema = df.schema().inner().clone();
     let tags = tag_fields.unwrap_or_else(|| extract_tag_fields_from_schema(&schema));
@@ -797,6 +813,7 @@ async fn execute_cram_streaming_write(
         reference_path,
         Some(tags),
         zero_based,
+        sort_on_write,
     );
 
     // Create the logical plan for the source data

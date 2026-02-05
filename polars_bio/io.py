@@ -1486,6 +1486,7 @@ class IOOperations:
     def write_bam(
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
+        sort_on_write: bool = False,
     ) -> int:
         """
         Write a DataFrame to BAM/SAM format.
@@ -1499,6 +1500,8 @@ class IOOperations:
         Parameters:
             df: DataFrame or LazyFrame with 11 core BAM columns + optional tag columns
             path: Output file path (.bam or .sam)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         Returns:
             Number of rows written
@@ -1511,12 +1514,15 @@ class IOOperations:
             pb.write_bam(df, "output.sam")
             ```
         """
-        return _write_bam_file(df, path, OutputFormat.Bam, None)
+        return _write_bam_file(
+            df, path, OutputFormat.Bam, None, sort_on_write=sort_on_write
+        )
 
     @staticmethod
     def sink_bam(
         lf: pl.LazyFrame,
         path: str,
+        sort_on_write: bool = False,
     ) -> None:
         """
         Streaming write a LazyFrame to BAM/SAM format.
@@ -1526,6 +1532,8 @@ class IOOperations:
         Parameters:
             lf: LazyFrame to write
             path: Output file path (.bam or .sam)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         !!! Example "Streaming write BAM"
             ```python
@@ -1534,7 +1542,7 @@ class IOOperations:
             pb.sink_bam(lf, "filtered.bam")
             ```
         """
-        _write_bam_file(lf, path, OutputFormat.Bam, None)
+        _write_bam_file(lf, path, OutputFormat.Bam, None, sort_on_write=sort_on_write)
 
     @staticmethod
     def read_sam(
@@ -1653,6 +1661,7 @@ class IOOperations:
     def write_sam(
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
+        sort_on_write: bool = False,
     ) -> int:
         """
         Write a DataFrame to SAM format (plain text).
@@ -1660,6 +1669,8 @@ class IOOperations:
         Parameters:
             df: DataFrame or LazyFrame with 11 core BAM/SAM columns + optional tag columns
             path: Output file path (.sam)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         Returns:
             Number of rows written
@@ -1671,12 +1682,15 @@ class IOOperations:
             pb.write_sam(df, "output.sam")
             ```
         """
-        return _write_bam_file(df, path, OutputFormat.Sam, None)
+        return _write_bam_file(
+            df, path, OutputFormat.Sam, None, sort_on_write=sort_on_write
+        )
 
     @staticmethod
     def sink_sam(
         lf: pl.LazyFrame,
         path: str,
+        sort_on_write: bool = False,
     ) -> None:
         """
         Streaming write a LazyFrame to SAM format (plain text).
@@ -1684,6 +1698,8 @@ class IOOperations:
         Parameters:
             lf: LazyFrame to write
             path: Output file path (.sam)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         !!! Example "Streaming write SAM"
             ```python
@@ -1692,13 +1708,14 @@ class IOOperations:
             pb.sink_sam(lf, "filtered.sam")
             ```
         """
-        _write_bam_file(lf, path, OutputFormat.Sam, None)
+        _write_bam_file(lf, path, OutputFormat.Sam, None, sort_on_write=sort_on_write)
 
     @staticmethod
     def write_cram(
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
         reference_path: Optional[str] = None,
+        sort_on_write: bool = False,
     ) -> int:
         """
         Write a DataFrame to CRAM format.
@@ -1712,6 +1729,8 @@ class IOOperations:
             df: DataFrame or LazyFrame with 11 core BAM columns + optional tag columns
             path: Output CRAM file path
             reference_path: Path to reference FASTA file (optional but recommended)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         Returns:
             Number of rows written
@@ -1732,13 +1751,16 @@ class IOOperations:
             pb.write_cram(df, "output.cram")  # No compression benefit
             ```
         """
-        return _write_bam_file(df, path, OutputFormat.Cram, reference_path)
+        return _write_bam_file(
+            df, path, OutputFormat.Cram, reference_path, sort_on_write=sort_on_write
+        )
 
     @staticmethod
     def sink_cram(
         lf: pl.LazyFrame,
         path: str,
         reference_path: Optional[str] = None,
+        sort_on_write: bool = False,
     ) -> None:
         """
         Streaming write a LazyFrame to CRAM format.
@@ -1753,6 +1775,8 @@ class IOOperations:
             lf: LazyFrame to write
             path: Output CRAM file path
             reference_path: Path to reference FASTA file (optional but recommended)
+            sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
+                If False (default), set header SO:unsorted.
 
         !!! warning "Known Limitation: MD and NM Tags"
             Due to a limitation in the underlying noodles-cram library, **MD and NM tags cannot be read back from CRAM files** after writing, even though they are written to the file. If you need MD/NM tags for downstream analysis, use BAM format instead. Other optional tags (RG, MQ, AM, OQ, AS, etc.) work correctly. See: https://github.com/biodatageeks/datafusion-bio-formats/issues/54
@@ -1772,7 +1796,9 @@ class IOOperations:
             pb.sink_cram(lf, "filtered.cram")  # Use BAM instead
             ```
         """
-        _write_bam_file(lf, path, OutputFormat.Cram, reference_path)
+        _write_bam_file(
+            lf, path, OutputFormat.Cram, reference_path, sort_on_write=sort_on_write
+        )
 
 
 def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
@@ -1881,6 +1907,7 @@ def _write_bam_file(
     path: str,
     output_format: OutputFormat,
     reference_path: Optional[str] = None,
+    sort_on_write: bool = False,
 ) -> int:
     """Internal helper for BAM/CRAM write with streaming."""
     import json
@@ -1915,6 +1942,7 @@ def _write_bam_file(
             zero_based=zero_based,
             tag_fields=None,
             header_metadata=json.dumps(bam_header) if bam_header else None,
+            sort_on_write=sort_on_write,
         )
         write_options = WriteOptions(cram_write_options=cram_opts)
     else:
@@ -1922,6 +1950,7 @@ def _write_bam_file(
             zero_based=zero_based,
             tag_fields=None,
             header_metadata=json.dumps(bam_header) if bam_header else None,
+            sort_on_write=sort_on_write,
         )
         write_options = WriteOptions(bam_write_options=bam_opts)
 
