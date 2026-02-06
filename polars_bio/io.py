@@ -216,6 +216,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
+        predicate_pushdown: bool = False,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
@@ -234,6 +235,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            predicate_pushdown: Enable predicate pushdown to optimize query performance by filtering data at the DataFusion level using index files (TBI/CSI). When True, Polars filter expressions (e.g., `pl.col("chrom") == "chr1"`) are converted to SQL WHERE clauses and pushed down to DataFusion, which can use index files for efficient region-based filtering.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -280,6 +282,7 @@ class IOOperations:
             timeout,
             compression_type,
             projection_pushdown,
+            predicate_pushdown,
             use_zero_based,
         )
         # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
@@ -304,6 +307,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
+        predicate_pushdown: bool = False,
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
@@ -322,6 +326,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            predicate_pushdown: Enable predicate pushdown to optimize query performance by filtering data at the DataFusion level using index files (TBI/CSI). When True, Polars filter expressions (e.g., `pl.col("chrom") == "chr1"`) are converted to SQL WHERE clauses and pushed down to DataFusion, which can use index files for efficient region-based filtering.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -394,6 +399,7 @@ class IOOperations:
             InputFormat.Vcf,
             read_options,
             projection_pushdown,
+            predicate_pushdown,
             zero_based=zero_based,
         )
 
@@ -539,6 +545,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
+        predicate_pushdown: bool = False,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
@@ -555,6 +562,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            predicate_pushdown: Enable predicate pushdown to optimize query performance by filtering data at the DataFusion level using index files (BAI/CSI). When True, Polars filter expressions (e.g., `pl.col("chrom") == "chr1"`) are converted to SQL WHERE clauses and pushed down to DataFusion, which can use index files for efficient region-based filtering.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -571,6 +579,7 @@ class IOOperations:
             max_retries,
             timeout,
             projection_pushdown,
+            predicate_pushdown,
             use_zero_based,
         )
         # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
@@ -593,6 +602,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
+        predicate_pushdown: bool = False,
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
@@ -609,6 +619,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            predicate_pushdown: Enable predicate pushdown to optimize query performance by filtering data at the DataFusion level using index files (BAI/CSI). When True, Polars filter expressions (e.g., `pl.col("chrom") == "chr1"`) are converted to SQL WHERE clauses and pushed down to DataFusion, which can use index files for efficient region-based filtering.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -637,6 +648,7 @@ class IOOperations:
             InputFormat.Bam,
             read_options,
             projection_pushdown,
+            predicate_pushdown,
             zero_based=zero_based,
         )
 
@@ -652,6 +664,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
+        predicate_pushdown: bool = False,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
@@ -668,6 +681,7 @@ class IOOperations:
             max_retries: The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
+            predicate_pushdown: Enable predicate pushdown to optimize query performance by filtering data at the DataFusion level using index files (CRAI). When True, Polars filter expressions (e.g., `pl.col("chrom") == "chr1"`) are converted to SQL WHERE clauses and pushed down to DataFusion, which can use index files for efficient region-based filtering.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -745,6 +759,7 @@ class IOOperations:
             max_retries,
             timeout,
             projection_pushdown,
+            predicate_pushdown,
             use_zero_based,
         )
         # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
@@ -767,6 +782,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
+        predicate_pushdown: bool = False,
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
@@ -783,6 +799,7 @@ class IOOperations:
             max_retries: The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
+            predicate_pushdown: Enable predicate pushdown to optimize query performance by filtering data at the DataFusion level using index files (CRAI). When True, Polars filter expressions (e.g., `pl.col("chrom") == "chr1"`) are converted to SQL WHERE clauses and pushed down to DataFusion, which can use index files for efficient region-based filtering.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -880,6 +897,7 @@ class IOOperations:
             InputFormat.Cram,
             read_options,
             projection_pushdown,
+            predicate_pushdown,
             zero_based=zero_based,
         )
 
@@ -2296,12 +2314,20 @@ def _lazy_scan(
             return
 
         # Default path (non-GFF): stream from table or DataFrame
+        where_clause = ""
         if df_for_stream is not None:
             # SQL path: use the DataFrame directly
             query_df = df_for_stream
         else:
-            # Scan path: build SQL query for the registered table
+            # Scan path: build SQL query, optionally with predicate pushdown
             sql = f"SELECT * FROM {table_name}"
+            if predicate_pushdown and predicate is not None:
+                try:
+                    where_clause = _build_sql_where_from_predicate_safe(predicate)
+                except Exception:
+                    where_clause = ""
+            if where_clause:
+                sql += f" WHERE {where_clause}"
             if n_rows and n_rows > 0:
                 sql += f" LIMIT {int(n_rows)}"
             query_df = py_read_sql(_ctx, sql)
@@ -2312,7 +2338,7 @@ def _lazy_scan(
         for r in df_stream:
             py_df = r.to_pyarrow()
             out = pl.DataFrame(py_df)
-            if predicate is not None:
+            if predicate is not None and (not predicate_pushdown or not where_clause):
                 out = out.filter(predicate)
             if with_columns is not None:
                 out = out.select(with_columns)

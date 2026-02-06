@@ -90,10 +90,8 @@ pub enum InputFormat {
     Csv,
     Bam,
     Sam,
-    IndexedBam,
     Cram,
     Vcf,
-    IndexedVcf,
     Fastq,
     Fasta,
     Bed,
@@ -122,8 +120,6 @@ impl fmt::Display for InputFormat {
             InputFormat::Bed => "BED",
             InputFormat::Gff => "GFF",
             InputFormat::Gtf => "GTF",
-            InputFormat::IndexedBam => "INDEXED_BAM",
-            InputFormat::IndexedVcf => "INDEXED_VCF",
             InputFormat::Cram => "CRAM",
         };
         write!(f, "{}", text)

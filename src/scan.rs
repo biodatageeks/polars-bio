@@ -513,9 +513,6 @@ pub(crate) async fn register_table(
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register CRAM table");
         },
-        InputFormat::IndexedVcf | InputFormat::IndexedBam => {
-            todo!("Indexed formats are not supported")
-        },
         InputFormat::Gtf => {
             todo!("Gtf format is not supported")
         },
