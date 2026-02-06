@@ -238,7 +238,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
-            predicate_pushdown: Enable predicate pushdown to optimize query performance by filtering data at the DataFusion level using index files (TBI/CSI). When True, Polars filter expressions (e.g., `pl.col("chrom") == "chr1"`) are converted to SQL WHERE clauses and pushed down to DataFusion, which can use index files for efficient region-based filtering.
+            predicate_pushdown: Enable predicate pushdown using index files (TBI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.vcf.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -329,7 +329,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
-            predicate_pushdown: Enable predicate pushdown to optimize query performance by filtering data at the DataFusion level using index files (TBI/CSI). When True, Polars filter expressions (e.g., `pl.col("chrom") == "chr1"`) are converted to SQL WHERE clauses and pushed down to DataFusion, which can use index files for efficient region-based filtering.
+            predicate_pushdown: Enable predicate pushdown using index files (TBI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.vcf.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -438,7 +438,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
-            predicate_pushdown: Enable predicate pushdown optimization to push filter conditions down to the DataFusion table provider level, reducing data processing and I/O.
+            predicate_pushdown: Enable predicate pushdown using index files (TBI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.gff.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             parallel: Whether to use the parallel reader for BGZF-compressed local files (uses BGZF chunk-level parallelism similar to FASTQ).
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
@@ -501,7 +501,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
-            predicate_pushdown: Enable predicate pushdown optimization to push filter conditions down to the DataFusion table provider level, reducing data processing and I/O.
+            predicate_pushdown: Enable predicate pushdown using index files (TBI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.gff.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             parallel: Whether to use the parallel reader for BGZF-compressed local files (use BGZF chunk-level parallelism similar to FASTQ).
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
@@ -565,7 +565,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
-            predicate_pushdown: Enable predicate pushdown to optimize query performance by filtering data at the DataFusion level using index files (BAI/CSI). When True, Polars filter expressions (e.g., `pl.col("chrom") == "chr1"`) are converted to SQL WHERE clauses and pushed down to DataFusion, which can use index files for efficient region-based filtering.
+            predicate_pushdown: Enable predicate pushdown using index files (BAI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.bam.bai`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -622,7 +622,7 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
-            predicate_pushdown: Enable predicate pushdown to optimize query performance by filtering data at the DataFusion level using index files (BAI/CSI). When True, Polars filter expressions (e.g., `pl.col("chrom") == "chr1"`) are converted to SQL WHERE clauses and pushed down to DataFusion, which can use index files for efficient region-based filtering.
+            predicate_pushdown: Enable predicate pushdown using index files (BAI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.bam.bai`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -684,7 +684,7 @@ class IOOperations:
             max_retries: The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
-            predicate_pushdown: Enable predicate pushdown to optimize query performance by filtering data at the DataFusion level using index files (CRAI). When True, Polars filter expressions (e.g., `pl.col("chrom") == "chr1"`) are converted to SQL WHERE clauses and pushed down to DataFusion, which can use index files for efficient region-based filtering.
+            predicate_pushdown: Enable predicate pushdown using index files (CRAI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.cram.crai`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -802,7 +802,7 @@ class IOOperations:
             max_retries: The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
-            predicate_pushdown: Enable predicate pushdown to optimize query performance by filtering data at the DataFusion level using index files (CRAI). When True, Polars filter expressions (e.g., `pl.col("chrom") == "chr1"`) are converted to SQL WHERE clauses and pushed down to DataFusion, which can use index files for efficient region-based filtering.
+            predicate_pushdown: Enable predicate pushdown using index files (CRAI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.cram.crai`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -2184,7 +2184,11 @@ def _lazy_scan(
 
         from .context import ctx as _ctx
 
-        # If this is a GFF scan, perform pushdown by building a single SELECT ... WHERE ...
+        # GFF requires special handling because its "attributes" column contains semi-structured
+        # key=value pairs (e.g., "ID=gene1;Name=foo;biotype=protein_coding") that can be parsed
+        # into individual columns. Unlike BAM/VCF/CRAM which have fixed schemas, GFF's attribute
+        # columns must be configured at table registration time. If projection pushdown requests
+        # specific attribute columns, we must re-register the table with those attr_fields.
         if input_format == InputFormat.Gff and file_path is not None:
             from polars_bio.polars_bio import GffReadOptions, PyObjectStorageOptions
             from polars_bio.polars_bio import ReadOptions as _ReadOptions
