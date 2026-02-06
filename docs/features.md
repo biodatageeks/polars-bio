@@ -525,12 +525,106 @@ For bioinformatic format there are always three methods available: `read_*` (eag
 | Format                                           | Single-threaded    | Parallel           | Limit pushdown     | Predicate pushdown | Projection pushdown |
 |--------------------------------------------------|--------------------|--------------------|--------------------|--------------------|---------------------|
 | [BED](api.md#polars_bio.data_input.read_bed)     | :white_check_mark: | ❌                  | :white_check_mark: | ❌                  | ❌                   |
-| [VCF](api.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :construction: | :white_check_mark: | :construction: | :construction: |
-| [BAM](api.md#polars_bio.data_input.read_bam)     | :white_check_mark: | ❌  | :white_check_mark: |  ❌  |  ❌  |
-| [CRAM](api.md#polars_bio.data_input.read_cram)   | :white_check_mark: | ❌  | :white_check_mark: |  ❌  |  ❌  |
+| [VCF](api.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :construction: |
+| [BAM](api.md#polars_bio.data_input.read_bam)     | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |  ❌  |
+| [CRAM](api.md#polars_bio.data_input.read_cram)   | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |  ❌  |
 | [FASTQ](api.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: | :white_check_mark: |  ❌  |  ❌   |
 | [FASTA](api.md#polars_bio.data_input.read_fasta) | :white_check_mark: |  ❌  | :white_check_mark: |  ❌  |  ❌   |
 | [GFF3](api.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
+
+
+### Indexed reads & predicate pushdown
+
+When an index file is present alongside the data file (BAI/CSI for BAM, CRAI for CRAM, TBI/CSI for VCF and GFF), polars-bio can push genomic region filters down to the DataFusion execution layer. This enables **index-based random access** — only the relevant genomic regions are read from disk, dramatically improving performance for selective queries on large files.
+
+Index files are auto-discovered by convention (e.g., `file.bam.bai`, `file.vcf.gz.tbi`). No extra configuration is needed beyond setting `predicate_pushdown=True`.
+
+#### Supported index types
+
+| Format | Index types |
+|--------|------------|
+| BAM    | `.bai`, `.csi` |
+| CRAM   | `.crai` |
+| VCF    | `.tbi`, `.csi` |
+| GFF3   | `.tbi`, `.csi` |
+
+#### Usage with the scan/read API
+
+Use `predicate_pushdown=True` so that `.filter()` expressions are converted to SQL WHERE clauses and pushed into DataFusion:
+
+```python
+import polars as pl
+import polars_bio as pb
+
+# Single chromosome filter — only chr1 data is read from disk
+df = (
+    pb.scan_bam("alignments.bam", predicate_pushdown=True)
+    .filter(pl.col("chrom") == "chr1")
+    .collect()
+)
+
+# Multi-chromosome filter
+df = (
+    pb.scan_vcf("variants.vcf.gz", predicate_pushdown=True)
+    .filter(pl.col("chrom").is_in(["chr21", "chr22"]))
+    .collect()
+)
+
+# Region query — combines chromosome and coordinate filters
+df = (
+    pb.scan_bam("alignments.bam", predicate_pushdown=True)
+    .filter(
+        (pl.col("chrom") == "chr1")
+        & (pl.col("start") >= 10000)
+        & (pl.col("end") <= 50000)
+    )
+    .collect()
+)
+
+# CRAM with predicate pushdown
+df = (
+    pb.scan_cram("alignments.cram", predicate_pushdown=True)
+    .filter(pl.col("chrom") == "chr1")
+    .collect()
+)
+```
+
+!!! tip
+    Predicate pushdown works with any filter expression that `_build_sql_where_from_predicate_safe` can convert, including: equality (`==`), comparisons (`>=`, `<=`, `>`, `<`), `is_in()`, and combinations with `&` (AND).
+
+#### Usage with the SQL API
+
+The SQL path works automatically — DataFusion parses the WHERE clause and uses the index without any extra flags:
+
+```python
+import polars_bio as pb
+
+pb.register_bam("alignments.bam", "reads")
+
+# Single chromosome
+result = pb.sql("SELECT * FROM reads WHERE chrom = 'chr1'").collect()
+
+# Region query
+result = pb.sql(
+    "SELECT * FROM reads WHERE chrom = 'chr1' AND start >= 10000 AND \"end\" <= 50000"
+).collect()
+
+# Combined genomic and record filters
+result = pb.sql(
+    "SELECT * FROM reads WHERE chrom = 'chr1' AND mapping_quality >= 30"
+).collect()
+```
+
+#### Automatic parallel partitioning
+
+When an index file is present, DataFusion can also **partition reads by chromosome** automatically, enabling parallel execution across genomic regions. This is controlled by the global `target_partitions` setting:
+
+```python
+import polars_bio as pb
+
+pb.set_option("datafusion.execution.target_partitions", "8")
+df = pb.read_bam("large_file.bam")  # partitioned across chromosomes
+```
 
 
 ## File Output
