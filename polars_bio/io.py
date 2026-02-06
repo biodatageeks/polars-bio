@@ -1,6 +1,9 @@
+import logging
 from typing import Dict, Iterator, Optional, Union
 
 import polars as pl
+
+logger = logging.getLogger(__name__)
 from datafusion import DataFrame
 from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
@@ -2282,7 +2285,11 @@ def _lazy_scan(
             if predicate_pushdown and predicate is not None:
                 try:
                     where_clause = _build_sql_where_from_predicate_safe(predicate)
-                except Exception:
+                except Exception as e:
+                    logger.debug(
+                        f"Predicate pushdown failed, falling back to client-side "
+                        f"filtering: {e}"
+                    )
                     where_clause = ""
 
             sql = f"SELECT {select_clause} FROM {table_name_use}"
@@ -2299,10 +2306,10 @@ def _lazy_scan(
             for r in df_stream:
                 py_df = r.to_pyarrow()
                 out = pl.DataFrame(py_df)
-                # Apply local filter if we didn't push it down
-                if predicate is not None and (
-                    not predicate_pushdown or not where_clause
-                ):
+                # Always apply local filter as safety net - SQL WHERE clause may only
+                # partially translate the predicate (e.g., unsupported operators like
+                # .str.contains(), OR logic, etc. are silently dropped)
+                if predicate is not None:
                     out = out.filter(predicate)
                 # Apply local projection if we didn't push it down
                 if with_columns is not None and (
@@ -2324,7 +2331,11 @@ def _lazy_scan(
             if predicate_pushdown and predicate is not None:
                 try:
                     where_clause = _build_sql_where_from_predicate_safe(predicate)
-                except Exception:
+                except Exception as e:
+                    logger.debug(
+                        f"Predicate pushdown failed, falling back to client-side "
+                        f"filtering: {e}"
+                    )
                     where_clause = ""
             if where_clause:
                 sql += f" WHERE {where_clause}"
@@ -2338,7 +2349,10 @@ def _lazy_scan(
         for r in df_stream:
             py_df = r.to_pyarrow()
             out = pl.DataFrame(py_df)
-            if predicate is not None and (not predicate_pushdown or not where_clause):
+            # Always apply local filter as safety net - SQL WHERE clause may only
+            # partially translate the predicate (e.g., unsupported operators like
+            # .str.contains(), OR logic, etc. are silently dropped)
+            if predicate is not None:
                 out = out.filter(predicate)
             if with_columns is not None:
                 out = out.select(with_columns)
