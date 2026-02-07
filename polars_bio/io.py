@@ -210,7 +210,6 @@ class IOOperations:
         path: str,
         info_fields: Union[list[str], None] = None,
         format_fields: Union[list[str], None] = None,
-        thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -229,7 +228,6 @@ class IOOperations:
             path: The path to the VCF file.
             info_fields: List of INFO field names to include. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit fields for better performance.
             format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields will be automatically detected from the VCF header. Column naming depends on the number of samples: for **single-sample** VCFs, columns are named directly by the FORMAT field (e.g., `GT`, `DP`); for **multi-sample** VCFs, columns are named `{sample_name}_{format_field}` (e.g., `NA12878_GT`, `NA12879_DP`). The GT field is always converted to string with `/` (unphased) or `|` (phased) separator.
-            thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -276,7 +274,6 @@ class IOOperations:
             path,
             info_fields,
             format_fields,
-            thread_num,
             chunk_size,
             concurrent_fetches,
             allow_anonymous,
@@ -301,7 +298,6 @@ class IOOperations:
         path: str,
         info_fields: Union[list[str], None] = None,
         format_fields: Union[list[str], None] = None,
-        thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -320,7 +316,6 @@ class IOOperations:
             path: The path to the VCF file.
             info_fields: List of INFO field names to include. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit fields for better performance.
             format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields will be automatically detected from the VCF header. Column naming depends on the number of samples: for **single-sample** VCFs, columns are named directly by the FORMAT field (e.g., `GT`, `DP`); for **multi-sample** VCFs, columns are named `{sample_name}_{format_field}` (e.g., `NA12878_GT`, `NA12879_DP`). The GT field is always converted to string with `/` (unphased) or `|` (phased) separator.
-            thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -392,7 +387,7 @@ class IOOperations:
         vcf_read_options = VcfReadOptions(
             info_fields=initial_info_fields,
             format_fields=format_fields,
-            thread_num=thread_num,
+            thread_num=1,
             object_storage_options=object_storage_options,
             zero_based=zero_based,
         )
@@ -540,7 +535,6 @@ class IOOperations:
     def read_bam(
         path: str,
         tag_fields: Union[list[str], None] = None,
-        thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -557,7 +551,6 @@ class IOOperations:
         Parameters:
             path: The path to the BAM file.
             tag_fields: List of BAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
-            thread_num: The number of threads to use for reading the BAM file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large-scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large-scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -574,7 +567,6 @@ class IOOperations:
         lf = IOOperations.scan_bam(
             path,
             tag_fields,
-            thread_num,
             chunk_size,
             concurrent_fetches,
             allow_anonymous,
@@ -597,7 +589,6 @@ class IOOperations:
     def scan_bam(
         path: str,
         tag_fields: Union[list[str], None] = None,
-        thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -614,7 +605,6 @@ class IOOperations:
         Parameters:
             path: The path to the BAM file.
             tag_fields: List of BAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
-            thread_num: The number of threads to use for reading the BAM file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -640,7 +630,7 @@ class IOOperations:
 
         zero_based = _resolve_zero_based(use_zero_based)
         bam_read_options = BamReadOptions(
-            thread_num=thread_num,
+            thread_num=1,
             object_storage_options=object_storage_options,
             zero_based=zero_based,
             tag_fields=tag_fields,
