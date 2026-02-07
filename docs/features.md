@@ -522,31 +522,31 @@ This table compares the API of the libraries. The table is not exhaustive and on
 ## File formats support
 For bioinformatic format there are always three methods available: `read_*` (eager), `scan_*` (lazy) and `register_*` that can be used to either read file into Polars DataFrame/LazyFrame or register it as a DataFusion table for further processing using SQL or builtin interval methods. In either case, local and or cloud storage files can be used as an input. Please refer to [cloud storage](#cloud-storage) section for more details.
 
-| Format                                           | Single-threaded    | Parallel           | Limit pushdown     | Predicate pushdown | Projection pushdown |
+| Format                                           | Single-threaded    | Parallel (indexed) | Limit pushdown     | Predicate pushdown | Projection pushdown |
 |--------------------------------------------------|--------------------|--------------------|--------------------|--------------------|---------------------|
 | [BED](api.md#polars_bio.data_input.read_bed)     | :white_check_mark: | ❌                  | :white_check_mark: | ❌                  | ❌                   |
-| [VCF](api.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :construction: |
-| [BAM](api.md#polars_bio.data_input.read_bam)     | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |  ❌  |
-| [CRAM](api.md#polars_bio.data_input.read_cram)   | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |  ❌  |
-| [FASTQ](api.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: | :white_check_mark: |  ❌  |  ❌   |
+| [VCF](api.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :construction: |
+| [BAM](api.md#polars_bio.data_input.read_bam)     | :white_check_mark: | :white_check_mark: (BAI/CSI) | :white_check_mark: | :white_check_mark: |  ❌  |
+| [CRAM](api.md#polars_bio.data_input.read_cram)   | :white_check_mark: | :white_check_mark: (CRAI) | :white_check_mark: | :white_check_mark: |  ❌  |
+| [FASTQ](api.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: (BGZF) | :white_check_mark: |  ❌  |  ❌   |
 | [FASTA](api.md#polars_bio.data_input.read_fasta) | :white_check_mark: |  ❌  | :white_check_mark: |  ❌  |  ❌   |
-| [GFF3](api.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
+| [GFF3](api.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 
 
 ### Indexed reads & predicate pushdown
 
 When an index file is present alongside the data file (BAI/CSI for BAM, CRAI for CRAM, TBI/CSI for VCF and GFF), polars-bio can push genomic region filters down to the DataFusion execution layer. This enables **index-based random access** — only the relevant genomic regions are read from disk, dramatically improving performance for selective queries on large files.
 
-Index files are auto-discovered by convention (e.g., `file.bam.bai`, `file.vcf.gz.tbi`). No extra configuration is needed beyond setting `predicate_pushdown=True`.
+Index files are **auto-discovered** by convention. No extra configuration is needed beyond setting `predicate_pushdown=True`.
 
-#### Supported index types
+#### Supported index formats
 
-| Format | Index types |
-|--------|------------|
-| BAM    | `.bai`, `.csi` |
-| CRAM   | `.crai` |
-| VCF    | `.tbi`, `.csi` |
-| GFF3   | `.tbi`, `.csi` |
+| Data Format | Index Formats | Naming Convention |
+|-------------|---------------|-------------------|
+| BAM | BAI, CSI | `sample.bam.bai` or `sample.bai`, `sample.bam.csi` |
+| CRAM | CRAI | `sample.cram.crai` |
+| VCF (bgzf) | TBI, CSI | `sample.vcf.gz.tbi`, `sample.vcf.gz.csi` |
+| GFF (bgzf) | TBI, CSI | `sample.gff.gz.tbi`, `sample.gff.gz.csi` |
 
 #### Usage with the scan/read API
 
@@ -624,6 +624,68 @@ import polars_bio as pb
 
 pb.set_option("datafusion.execution.target_partitions", "8")
 df = pb.read_bam("large_file.bam")  # partitioned across chromosomes
+```
+
+**Partitioning behavior:**
+
+| Index Available? | SQL Filters | Partitions |
+|-----------------|-------------|------------|
+| Yes | `chrom = 'chr1' AND start >= 1000` | 1 (single region) |
+| Yes | `chrom IN ('chr1', 'chr2')` | min(2, target_partitions) |
+| Yes | No genomic filters (full scan) | min(N chroms, target_partitions) |
+| No | Any | 1 (sequential full scan) |
+
+When an index exists, regions are distributed across `target_partitions` using a greedy bin-packing algorithm that estimates data volume from the index. This ensures balanced work distribution even when chromosomes have vastly different sizes.
+
+#### Record-level filter pushdown
+
+Beyond index-based region queries, all formats support **record-level predicate evaluation**. Filters on columns like `mapping_quality`, `flag`, `score`, or `strand` are evaluated as each record is read, filtering early before Arrow RecordBatch construction.
+
+This works **with or without** an index file:
+
+```python
+import polars as pl
+import polars_bio as pb
+
+# No index needed — filters applied per-record during scan
+df = (
+    pb.scan_bam("alignments.bam", predicate_pushdown=True)
+    .filter((pl.col("mapping_quality") >= 30) & (pl.col("flag") & 4 == 0))
+    .collect()
+)
+
+# Combine genomic region (uses index) with record filter (applied per-record)
+df = (
+    pb.scan_bam("alignments.bam", predicate_pushdown=True)
+    .filter(
+        (pl.col("chrom") == "chr1")
+        & (pl.col("start") >= 1000000)
+        & (pl.col("mapping_quality") >= 30)
+    )
+    .collect()
+)
+```
+
+#### Index file generation
+
+Create index files using standard bioinformatics tools:
+
+```bash
+# BAM: sort and index
+samtools sort input.bam -o sorted.bam
+samtools index sorted.bam                # creates sorted.bam.bai
+
+# CRAM: sort and index
+samtools sort input.cram -o sorted.cram --reference ref.fa
+samtools index sorted.cram               # creates sorted.cram.crai
+
+# VCF: sort, compress, and index
+bcftools sort input.vcf -Oz -o sorted.vcf.gz
+bcftools index -t sorted.vcf.gz          # creates sorted.vcf.gz.tbi
+
+# GFF: sort, compress, and index
+(grep "^#" input.gff; grep -v "^#" input.gff | sort -k1,1 -k4,4n) | bgzip > sorted.gff.gz
+tabix -p gff sorted.gff.gz               # creates sorted.gff.gz.tbi
 ```
 
 
