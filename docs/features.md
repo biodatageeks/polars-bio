@@ -617,25 +617,27 @@ result = pb.sql(
 
 #### Automatic parallel partitioning
 
-When an index file is present, DataFusion can also **partition reads by chromosome** automatically, enabling parallel execution across genomic regions. This is controlled by the global `target_partitions` setting:
+When an index file is present, DataFusion distributes genomic regions across balanced partitions using index-derived size estimates, enabling parallel
+execution. Formats with known contig lengths (BAM, CRAM) can split large regions into sub-regions for full parallelism even on single-chromosome queries. This is controlled by the global `target_partitions` setting:
 
 ```python
 import polars_bio as pb
 
 pb.set_option("datafusion.execution.target_partitions", "8")
-df = pb.read_bam("large_file.bam")  # partitioned across chromosomes
+df = pb.read_bam("large_file.bam")  # 8 partitions will be used for parallel execution
 ```
 
 **Partitioning behavior:**
 
 | Index Available? | SQL Filters | Partitions |
 |-----------------|-------------|------------|
-| Yes | `chrom = 'chr1' AND start >= 1000` | 1 (single region) |
-| Yes | `chrom IN ('chr1', 'chr2')` | min(2, target_partitions) |
-| Yes | No genomic filters (full scan) | min(N chroms, target_partitions) |
+| Yes | `chrom = 'chr1' AND start >= 1000` | up to target_partitions (region split into sub-regions) |
+| Yes | `chrom IN ('chr1', 'chr2')` | up to target_partitions (both regions split to fill bins) |
+| Yes | `mapping_quality >= 30` (no genomic filter) | up to target_partitions (all chroms balanced + split) |
+| Yes | None (full scan) | up to target_partitions (all chroms balanced + split) |
 | No | Any | 1 (sequential full scan) |
 
-When an index exists, regions are distributed across `target_partitions` using a greedy bin-packing algorithm that estimates data volume from the index. This ensures balanced work distribution even when chromosomes have vastly different sizes.
+
 
 #### Record-level filter pushdown
 
