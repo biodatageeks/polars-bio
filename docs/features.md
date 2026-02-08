@@ -537,7 +537,7 @@ For bioinformatic format there are always three methods available: `read_*` (eag
 
 When an index file is present alongside the data file (BAI/CSI for BAM, CRAI for CRAM, TBI/CSI for VCF and GFF), polars-bio can push genomic region filters down to the DataFusion execution layer. This enables **index-based random access** — only the relevant genomic regions are read from disk, dramatically improving performance for selective queries on large files.
 
-Index files are **auto-discovered** by convention. No extra configuration is needed beyond setting `predicate_pushdown=True`.
+Index files are **auto-discovered** by convention. Predicate pushdown is **enabled by default** for BAM, CRAM, VCF, and GFF formats — no extra configuration is needed.
 
 #### Supported index formats
 
@@ -550,7 +550,7 @@ Index files are **auto-discovered** by convention. No extra configuration is nee
 
 #### Usage with the scan/read API
 
-Use `predicate_pushdown=True` so that `.filter()` expressions are converted to SQL WHERE clauses and pushed into DataFusion:
+Simply use `.filter()` — predicate pushdown is enabled by default for BAM, CRAM, VCF, and GFF:
 
 ```python
 import polars as pl
@@ -558,21 +558,21 @@ import polars_bio as pb
 
 # Single chromosome filter — only chr1 data is read from disk
 df = (
-    pb.scan_bam("alignments.bam", predicate_pushdown=True)
+    pb.scan_bam("alignments.bam")
     .filter(pl.col("chrom") == "chr1")
     .collect()
 )
 
 # Multi-chromosome filter
 df = (
-    pb.scan_vcf("variants.vcf.gz", predicate_pushdown=True)
+    pb.scan_vcf("variants.vcf.gz")
     .filter(pl.col("chrom").is_in(["chr21", "chr22"]))
     .collect()
 )
 
 # Region query — combines chromosome and coordinate filters
 df = (
-    pb.scan_bam("alignments.bam", predicate_pushdown=True)
+    pb.scan_bam("alignments.bam")
     .filter(
         (pl.col("chrom") == "chr1")
         & (pl.col("start") >= 10000)
@@ -583,14 +583,14 @@ df = (
 
 # CRAM with predicate pushdown
 df = (
-    pb.scan_cram("alignments.cram", predicate_pushdown=True)
+    pb.scan_cram("alignments.cram")
     .filter(pl.col("chrom") == "chr1")
     .collect()
 )
 ```
 
 !!! tip
-    Predicate pushdown works with any filter expression that `_build_sql_where_from_predicate_safe` can convert, including: equality (`==`), comparisons (`>=`, `<=`, `>`, `<`), `is_in()`, and combinations with `&` (AND).
+    Predicate pushdown supports: equality (`==`), comparisons (`>=`, `<=`, `>`, `<`), `is_in()`, `is_null()`, `is_not_null()`, and combinations with `&` (AND). Complex predicates like `.str.contains()` or OR logic are automatically filtered client-side. To disable pushdown, pass `predicate_pushdown=False`.
 
 #### Usage with the SQL API
 
@@ -651,14 +651,14 @@ import polars_bio as pb
 
 # No index needed — filters applied per-record during scan
 df = (
-    pb.scan_bam("alignments.bam", predicate_pushdown=True)
+    pb.scan_bam("alignments.bam")
     .filter((pl.col("mapping_quality") >= 30) & (pl.col("flag") & 4 == 0))
     .collect()
 )
 
 # Combine genomic region (uses index) with record filter (applied per-record)
 df = (
-    pb.scan_bam("alignments.bam", predicate_pushdown=True)
+    pb.scan_bam("alignments.bam")
     .filter(
         (pl.col("chrom") == "chr1")
         & (pl.col("start") >= 1000000)
@@ -844,7 +844,7 @@ Check [SQL reference](https://datafusion.apache.org/user-guide/sql/index.html) f
 
 ```python
 import polars_bio as pb
-pb.register_vcf("gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz", "gnomad_sv", thread_num=1, info_fields=["SVTYPE", "SVLEN"])
+pb.register_vcf("gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.sv.sites.vcf.gz", "gnomad_sv", info_fields=["SVTYPE", "SVLEN"])
 pb.sql("SELECT * FROM gnomad_sv WHERE SVTYPE = 'DEL' AND SVLEN > 1000").limit(3).collect()
 ```
 
@@ -1145,7 +1145,7 @@ Parallellism can be controlled using the `datafusion.execution.target_partitions
 
 ## Compression
 *polars-bio* supports **GZIP** ( default file extension `*.gz`) and **Block GZIP** (BGZIP, default file extension `*.bgz`) when reading files from local and cloud storages.
-For BGZIP it is possible to parallelize decoding of compressed blocks to substantially speedup reading VCF, FASTQ or GFF files by increasing `thread_num` parameter. Please take a look at the following [GitHub discussion](https://github.com/biodatageeks/polars-bio/issues/132).
+For BGZIP-compressed FASTQ files, it is possible to parallelize decoding of compressed blocks using the `parallel=True` parameter. Please take a look at the following [GitHub discussion](https://github.com/biodatageeks/polars-bio/issues/132).
 
 
 ## DataFrames support

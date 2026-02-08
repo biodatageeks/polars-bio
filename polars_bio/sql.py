@@ -30,7 +30,6 @@ class SQL:
         path: str,
         name: Union[str, None] = None,
         info_fields: Union[list[str], None] = None,
-        thread_num: Union[int, None] = None,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
@@ -46,7 +45,6 @@ class SQL:
             path: The path to the VCF file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             info_fields: List of INFO field names to register. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit registration to specific fields for better performance.
-            thread_num: The number of threads to use for reading the VCF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -101,7 +99,6 @@ class SQL:
 
         vcf_read_options = VcfReadOptions(
             info_fields=all_info_fields,
-            thread_num=thread_num,
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
@@ -111,7 +108,6 @@ class SQL:
     def register_gff(
         path: str,
         name: Union[str, None] = None,
-        thread_num: int = 1,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
@@ -119,7 +115,6 @@ class SQL:
         timeout: int = 300,
         enable_request_payer: bool = False,
         compression_type: str = "auto",
-        parallel: bool = False,
     ) -> None:
         """
         Register a GFF file as a Datafusion table.
@@ -127,7 +122,6 @@ class SQL:
         Parameters:
             path: The path to the GFF file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
-            thread_num: The number of threads to use for reading the GFF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -135,7 +129,6 @@ class SQL:
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compression is supported ('bgz' and 'gz').
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
-            parallel: Whether to use the parallel reader for BGZF-compressed local files. Default is False.
         !!! note
             GFF reader uses **1-based** coordinate system for the `start` and `end` columns.
 
@@ -180,9 +173,7 @@ class SQL:
 
         gff_read_options = GffReadOptions(
             attr_fields=None,
-            thread_num=thread_num,
             object_storage_options=object_storage_options,
-            parallel=parallel,
         )
         read_options = ReadOptions(gff_read_options=gff_read_options)
         py_register_table(ctx, path, name, InputFormat.Gff, read_options)
@@ -387,7 +378,6 @@ class SQL:
         path: str,
         name: Union[str, None] = None,
         tag_fields: Union[list[str], None] = None,
-        thread_num: int = 1,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
@@ -402,7 +392,6 @@ class SQL:
             path: The path to the BAM file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             tag_fields: List of BAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
-            thread_num: The number of threads to use for reading the BAM file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -450,7 +439,6 @@ class SQL:
         )
 
         bam_read_options = BamReadOptions(
-            thread_num=thread_num,
             object_storage_options=object_storage_options,
             tag_fields=tag_fields,
         )
@@ -484,7 +472,6 @@ class SQL:
             ```
         """
         bam_read_options = BamReadOptions(
-            thread_num=1,
             tag_fields=tag_fields,
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)

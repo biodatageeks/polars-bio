@@ -560,33 +560,33 @@ class TestPredicatePushdownRegressionTests:
         assert lf_selected._predicate_pushdown is True
         assert type(lf_selected).__name__ == "GffLazyFrameWrapper"
 
-    def test_parallel_and_single_execution_consistency(self, test_file):
-        """Test that results are consistent between parallel and single execution."""
+    def test_predicate_and_projection_consistency(self, test_file):
+        """Test that predicate + projection pushdown produces consistent results."""
         predicate = (
             (pl.col("chrom") == "chrY")
             & (pl.col("start") < 500000)
             & (pl.col("end") > 510000)
         )
 
-        # Test with parallel=True
-        result_parallel = (
+        # With pushdown enabled
+        result_pushdown = (
             pb.scan_gff(test_file, predicate_pushdown=True, projection_pushdown=True)
             .select(["chrom", "start", "end", "type"])
             .filter(predicate)
             .collect()
         )
 
-        # Test with parallel=False
-        result_single = (
-            pb.scan_gff(test_file, predicate_pushdown=True, projection_pushdown=True)
+        # Without pushdown (client-side filtering)
+        result_no_pushdown = (
+            pb.scan_gff(test_file, predicate_pushdown=False, projection_pushdown=False)
             .select(["chrom", "start", "end", "type"])
             .filter(predicate)
             .collect()
         )
 
         # Results should be identical
-        assert len(result_parallel) == len(result_single)
-        assert len(result_parallel) == 2  # Known expected count
+        assert len(result_pushdown) == len(result_no_pushdown)
+        assert len(result_pushdown) == 2  # Known expected count
 
     def test_large_result_set_performance(self, test_file):
         """Test performance on all chrY entries."""

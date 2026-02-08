@@ -19,7 +19,6 @@ use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::bgzf_parallel_reader::BgzfFastqTableProvider as BgzfParallelFastqTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
-use datafusion_bio_format_gff::bgzf_parallel_reader::BgzfGffTableProvider as BgzfParallelGffTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
 use futures::Stream;
@@ -356,7 +355,6 @@ pub(crate) async fn register_table(
                 path.to_string(),
                 vcf_read_options.info_fields,
                 vcf_read_options.format_fields,
-                vcf_read_options.thread_num,
                 vcf_read_options.object_storage_options.clone(),
                 vcf_read_options.zero_based,
             )
@@ -376,48 +374,15 @@ pub(crate) async fn register_table(
                 "Registering GFF table {} with options: {:?}",
                 table_name, gff_read_options
             );
-            if gff_read_options.parallel {
-                if path.ends_with(".bgz") {
-                    // Explicit BGZF extension: use the parallel reader
-                    let table_provider = BgzfParallelGffTableProvider::try_new(
-                        path,
-                        gff_read_options.attr_fields.clone(),
-                        gff_read_options.zero_based,
-                    )
-                    .unwrap();
-                    ctx.register_table(table_name, Arc::new(table_provider))
-                        .expect("Failed to register parallel GFF table");
-                    return table_name.to_string();
-                } else if path.ends_with(".gz") {
-                    // Heuristically try BGZF even with .gz; fall back if not BGZF
-                    match BgzfParallelGffTableProvider::try_new(
-                        path,
-                        gff_read_options.attr_fields.clone(),
-                        gff_read_options.zero_based,
-                    ) {
-                        Ok(table_provider) => {
-                            ctx.register_table(table_name, Arc::new(table_provider))
-                                .expect("Failed to register parallel GFF table");
-                            return table_name.to_string();
-                        },
-                        Err(_) => {
-                            // Not BGZF or unsupported; fall through to standard provider
-                        },
-                    }
-                }
-            }
-            {
-                let table_provider = GffTableProvider::new(
-                    path.to_string(),
-                    gff_read_options.attr_fields,
-                    gff_read_options.thread_num,
-                    gff_read_options.object_storage_options.clone(),
-                    gff_read_options.zero_based,
-                )
-                .unwrap();
-                ctx.register_table(table_name, Arc::new(table_provider))
-                    .expect("Failed to register GFF table");
-            }
+            let table_provider = GffTableProvider::new(
+                path.to_string(),
+                gff_read_options.attr_fields,
+                gff_read_options.object_storage_options.clone(),
+                gff_read_options.zero_based,
+            )
+            .unwrap();
+            ctx.register_table(table_name, Arc::new(table_provider))
+                .expect("Failed to register GFF table");
         },
         InputFormat::Bam | InputFormat::Sam => {
             let bam_read_options = match &read_options {
@@ -433,7 +398,6 @@ pub(crate) async fn register_table(
             );
             let table_provider = BamTableProvider::new(
                 path.to_string(),
-                bam_read_options.thread_num,
                 bam_read_options.object_storage_options.clone(),
                 bam_read_options.zero_based,
                 bam_read_options.tag_fields.clone(),
@@ -548,12 +512,11 @@ pub(crate) fn maybe_register_table(
     .to_string()
 }
 #[pyo3::pyfunction]
-#[pyo3(signature = (py_ctx, path, thread_num=None, object_storage_options=None, zero_based=true, tag_fields=None, sample_size=None))]
+#[pyo3(signature = (py_ctx, path, object_storage_options=None, zero_based=true, tag_fields=None, sample_size=None))]
 pub fn py_describe_bam(
     py: pyo3::Python<'_>,
     py_ctx: &crate::context::PyBioSessionContext,
     path: String,
-    thread_num: Option<usize>,
     object_storage_options: Option<crate::option::PyObjectStorageOptions>,
     zero_based: bool,
     tag_fields: Option<Vec<String>>,
@@ -574,7 +537,6 @@ pub fn py_describe_bam(
                 // Create table provider
                 let table_provider = BamTableProvider::new(
                     path.clone(),
-                    thread_num,
                     object_storage_opts,
                     zero_based,
                     tag_fields,
@@ -618,14 +580,13 @@ pub fn py_describe_bam(
 }
 
 #[pyo3::pyfunction]
-#[pyo3(signature = (py_ctx, path, reference_path=None, thread_num=None, object_storage_options=None, zero_based=true, tag_fields=None, sample_size=None))]
+#[pyo3(signature = (py_ctx, path, reference_path=None, object_storage_options=None, zero_based=true, tag_fields=None, sample_size=None))]
 #[allow(unused_variables)]
 pub fn py_describe_cram(
     py: pyo3::Python<'_>,
     py_ctx: &crate::context::PyBioSessionContext,
     path: String,
     reference_path: Option<String>,
-    thread_num: Option<usize>,
     object_storage_options: Option<crate::option::PyObjectStorageOptions>,
     zero_based: bool,
     tag_fields: Option<Vec<String>>,

@@ -38,6 +38,25 @@ from polars_bio.polars_bio import (
 
 from ._metadata import get_vcf_metadata, set_coordinate_system, set_vcf_metadata
 from .context import _resolve_zero_based, ctx
+from .predicate_translator import (
+    BAM_STRING_COLUMNS,
+    BAM_UINT32_COLUMNS,
+    GFF_FLOAT32_COLUMNS,
+    GFF_STRING_COLUMNS,
+    GFF_UINT32_COLUMNS,
+    VCF_STRING_COLUMNS,
+    VCF_UINT32_COLUMNS,
+)
+
+# Mapping from format name to (string_cols, uint32_cols, float32_cols) for predicate validation.
+# Uses string keys because PyO3 InputFormat is not hashable.
+_FORMAT_COLUMN_TYPES = {
+    "Bam": (BAM_STRING_COLUMNS, BAM_UINT32_COLUMNS, None),
+    "Sam": (BAM_STRING_COLUMNS, BAM_UINT32_COLUMNS, None),
+    "Cram": (BAM_STRING_COLUMNS, BAM_UINT32_COLUMNS, None),
+    "Vcf": (VCF_STRING_COLUMNS, VCF_UINT32_COLUMNS, None),
+    "Gff": (GFF_STRING_COLUMNS, GFF_UINT32_COLUMNS, GFF_FLOAT32_COLUMNS),
+}
 
 SCHEMAS = {
     "bed3": ["chrom", "start", "end"],
@@ -218,7 +237,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
-        predicate_pushdown: bool = False,
+        predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
@@ -306,7 +325,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
-        predicate_pushdown: bool = False,
+        predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
@@ -387,7 +406,6 @@ class IOOperations:
         vcf_read_options = VcfReadOptions(
             info_fields=initial_info_fields,
             format_fields=format_fields,
-            thread_num=1,
             object_storage_options=object_storage_options,
             zero_based=zero_based,
         )
@@ -405,7 +423,6 @@ class IOOperations:
     def read_gff(
         path: str,
         attr_fields: Union[list[str], None] = None,
-        thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -414,8 +431,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
-        predicate_pushdown: bool = False,
-        parallel: bool = False,
+        predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
@@ -424,7 +440,6 @@ class IOOperations:
         Parameters:
             path: The path to the GFF file.
             attr_fields: List of attribute field names to extract as separate columns. If *None*, attributes will be kept as a nested structure. Use this to extract specific attributes like 'ID', 'gene_name', 'gene_type', etc. as direct columns for easier access.
-            thread_num: The number of threads to use for reading the GFF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -434,7 +449,6 @@ class IOOperations:
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
             predicate_pushdown: Enable predicate pushdown using index files (TBI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.gff.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
-            parallel: Whether to use the parallel reader for BGZF-compressed local files (uses BGZF chunk-level parallelism similar to FASTQ).
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -443,7 +457,6 @@ class IOOperations:
         lf = IOOperations.scan_gff(
             path,
             attr_fields,
-            thread_num,
             chunk_size,
             concurrent_fetches,
             allow_anonymous,
@@ -453,7 +466,6 @@ class IOOperations:
             compression_type,
             projection_pushdown,
             predicate_pushdown,
-            parallel,
             use_zero_based,
         )
         # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
@@ -468,7 +480,6 @@ class IOOperations:
     def scan_gff(
         path: str,
         attr_fields: Union[list[str], None] = None,
-        thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -477,8 +488,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = False,
-        predicate_pushdown: bool = False,
-        parallel: bool = False,
+        predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
@@ -487,7 +497,6 @@ class IOOperations:
         Parameters:
             path: The path to the GFF file.
             attr_fields: List of attribute field names to extract as separate columns. If *None*, attributes will be kept as a nested structure. Use this to extract specific attributes like 'ID', 'gene_name', 'gene_type', etc. as direct columns for easier access.
-            thread_num: The number of threads to use for reading the GFF file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large-scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -497,7 +506,6 @@ class IOOperations:
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
             predicate_pushdown: Enable predicate pushdown using index files (TBI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.gff.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
-            parallel: Whether to use the parallel reader for BGZF-compressed local files (use BGZF chunk-level parallelism similar to FASTQ).
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
@@ -516,9 +524,7 @@ class IOOperations:
         zero_based = _resolve_zero_based(use_zero_based)
         gff_read_options = GffReadOptions(
             attr_fields=attr_fields,
-            thread_num=thread_num,
             object_storage_options=object_storage_options,
-            parallel=parallel,
             zero_based=zero_based,
         )
         read_options = ReadOptions(gff_read_options=gff_read_options)
@@ -542,7 +548,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
-        predicate_pushdown: bool = False,
+        predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
@@ -596,7 +602,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
-        predicate_pushdown: bool = False,
+        predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
@@ -630,7 +636,6 @@ class IOOperations:
 
         zero_based = _resolve_zero_based(use_zero_based)
         bam_read_options = BamReadOptions(
-            thread_num=1,
             object_storage_options=object_storage_options,
             zero_based=zero_based,
             tag_fields=tag_fields,
@@ -657,7 +662,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
-        predicate_pushdown: bool = False,
+        predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
@@ -775,7 +780,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         projection_pushdown: bool = False,
-        predicate_pushdown: bool = False,
+        predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
@@ -898,7 +903,6 @@ class IOOperations:
     def describe_bam(
         path: str,
         sample_size: int = 100,
-        thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -919,7 +923,6 @@ class IOOperations:
             path: The path to the BAM file.
             sample_size: Number of records to sample for tag discovery (default: 100).
                 Use higher values for more comprehensive tag discovery.
-            thread_num: The number of threads to use for reading.
             chunk_size: The size in MB of a chunk when reading from object storage.
             concurrent_fetches: The number of concurrent fetches when reading from object storage.
             allow_anonymous: Whether to allow anonymous access to object storage.
@@ -978,7 +981,6 @@ class IOOperations:
         df = py_describe_bam(
             ctx,  # PyBioSessionContext
             path,
-            thread_num,
             object_storage_options,
             zero_based,
             None,  # tag_fields=None enables auto-discovery
@@ -993,7 +995,6 @@ class IOOperations:
         path: str,
         reference_path: str = None,
         sample_size: int = 100,
-        thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -1014,7 +1015,6 @@ class IOOperations:
             path: The path to the CRAM file.
             reference_path: Optional path to external FASTA reference file.
             sample_size: Number of records to sample for tag discovery (default: 100).
-            thread_num: The number of threads to use for reading.
             chunk_size: The size in MB of a chunk when reading from object storage.
             concurrent_fetches: The number of concurrent fetches when reading from object storage.
             allow_anonymous: Whether to allow anonymous access to object storage.
@@ -1068,7 +1068,6 @@ class IOOperations:
             ctx,
             path,
             reference_path,
-            thread_num,
             object_storage_options,
             zero_based,
             None,  # tag_fields=None enables auto-discovery
@@ -1621,7 +1620,6 @@ class IOOperations:
         """
         zero_based = _resolve_zero_based(use_zero_based)
         bam_read_options = BamReadOptions(
-            thread_num=1,
             zero_based=zero_based,
             tag_fields=tag_fields,
         )
@@ -1659,7 +1657,6 @@ class IOOperations:
         df = py_describe_bam(
             ctx,
             path,
-            1,
             None,
             zero_based,
             None,
@@ -2169,33 +2166,28 @@ def _lazy_scan(
         n_rows: Union[int, None],
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
-        # Import here to ensure availability in all code paths
         from polars_bio.polars_bio import py_read_sql
 
         from .context import ctx as _ctx
 
-        # GFF requires special handling because its "attributes" column contains semi-structured
-        # key=value pairs (e.g., "ID=gene1;Name=foo;biotype=protein_coding") that can be parsed
-        # into individual columns. Unlike BAM/VCF/CRAM which have fixed schemas, GFF's attribute
-        # columns must be configured at table registration time. If projection pushdown requests
-        # specific attribute columns, we must re-register the table with those attr_fields.
+        # === GFF-only pre-step ===
+        # GFF's "attributes" column contains semi-structured key=value pairs that
+        # can be parsed into individual columns. Unlike BAM/VCF/CRAM which have
+        # fixed schemas, GFF attribute columns must be configured at table
+        # registration time. If projection requests specific attribute columns we
+        # must re-register the table with those attr_fields.
+        table_to_query = table_name
         if input_format == InputFormat.Gff and file_path is not None:
             from polars_bio.polars_bio import GffReadOptions, PyObjectStorageOptions
             from polars_bio.polars_bio import ReadOptions as _ReadOptions
-            from polars_bio.polars_bio import (
-                py_read_table,
-                py_register_table,
-                py_register_view,
-            )
+            from polars_bio.polars_bio import py_register_table
 
-            # Extract columns requested by Polars optimizer
             requested_cols = (
                 _extract_column_names_from_expr(with_columns)
                 if with_columns is not None
                 else []
             )
 
-            # Compute attribute fields to request based on selected columns
             STATIC = {
                 "chrom",
                 "start",
@@ -2209,27 +2201,18 @@ def _lazy_scan(
             }
             attr_fields = [c for c in requested_cols if c not in STATIC]
 
-            # Derive thread/parallel/zero_based from read_options when available
-            thread_num = 1
-            parallel = False
-            zero_based = False  # Default to 1-based (matches Python default)
+            # Derive zero_based from read_options
+            zero_based = False
             if read_options is not None:
                 try:
                     gopt = getattr(read_options, "gff_read_options", None)
                     if gopt is not None:
-                        tn = getattr(gopt, "thread_num", None)
-                        if tn is not None:
-                            thread_num = tn
-                        par = getattr(gopt, "parallel", None)
-                        if par is not None:
-                            parallel = par
                         zb = getattr(gopt, "zero_based", None)
                         if zb is not None:
                             zero_based = zb
                 except Exception:
                     pass
 
-            # Build fresh read options (object storage options are not readable from Rust class; use safe defaults)
             obj = PyObjectStorageOptions(
                 allow_anonymous=True,
                 enable_request_payer=False,
@@ -2239,10 +2222,6 @@ def _lazy_scan(
                 timeout=300,
                 compression_type="auto",
             )
-            # Determine attribute parsing behavior:
-            # - if user selected raw "attributes" column: keep provider defaults (None)
-            # - if user selected specific attribute columns: pass that list
-            # - otherwise: disable attribute parsing with empty list for performance
             if "attributes" in requested_cols:
                 _attr = None
             elif attr_fields:
@@ -2252,103 +2231,85 @@ def _lazy_scan(
 
             gff_opts = GffReadOptions(
                 attr_fields=_attr,
-                thread_num=thread_num,
                 object_storage_options=obj,
-                parallel=parallel,
                 zero_based=zero_based,
             )
             ropts = _ReadOptions(gff_read_options=gff_opts)
 
-            # Determine which table to query: reuse original unless we must change attr_fields
-            table_name_use = table_name
             if projection_pushdown and requested_cols:
-                # Only re-register when projection is active (we know column needs)
                 table_obj = py_register_table(
                     _ctx, file_path, None, InputFormat.Gff, ropts
                 )
-                table_name_use = table_obj.name
+                table_to_query = table_obj.name
 
-            # Build SELECT clause respecting projection flag
-            if projection_pushdown and requested_cols:
-                select_clause = ", ".join([f'"{c}"' for c in requested_cols])
-            else:
-                select_clause = "*"
+        # === Unified path for ALL formats ===
 
-            # Build WHERE clause respecting predicate flag
-            where_clause = ""
-            if predicate_pushdown and predicate is not None:
-                try:
-                    where_clause = _build_sql_where_from_predicate_safe(predicate)
-                except Exception as e:
-                    logger.debug(
-                        f"Predicate pushdown failed, falling back to client-side "
-                        f"filtering: {e}"
-                    )
-                    where_clause = ""
-
-            sql = f"SELECT {select_clause} FROM {table_name_use}"
-            if where_clause:
-                sql += f" WHERE {where_clause}"
-            if n_rows and n_rows > 0:
-                sql += f" LIMIT {int(n_rows)}"
-
-            query_df = py_read_sql(_ctx, sql)
-
-            # Stream results, applying any non-pushed operations locally
-            df_stream = query_df.execute_stream()
-            progress_bar = tqdm(unit="rows")
-            for r in df_stream:
-                py_df = r.to_pyarrow()
-                out = pl.DataFrame(py_df)
-                # Always apply local filter as safety net - SQL WHERE clause may only
-                # partially translate the predicate (e.g., unsupported operators like
-                # .str.contains(), OR logic, etc. are silently dropped)
-                if predicate is not None:
-                    out = out.filter(predicate)
-                # Apply local projection if we didn't push it down
-                if with_columns is not None and (
-                    not projection_pushdown or not requested_cols
-                ):
-                    out = out.select(with_columns)
-                progress_bar.update(len(out))
-                yield out
-            return
-
-        # Default path (non-GFF): stream from table or DataFrame
-        where_clause = ""
+        # 1. Get base DataFusion DataFrame
         if df_for_stream is not None:
-            # SQL path: use the DataFrame directly
             query_df = df_for_stream
         else:
-            # Scan path: build SQL query, optionally with predicate pushdown
-            sql = f"SELECT * FROM {table_name}"
-            if predicate_pushdown and predicate is not None:
-                try:
-                    where_clause = _build_sql_where_from_predicate_safe(predicate)
-                except Exception as e:
-                    logger.debug(
-                        f"Predicate pushdown failed, falling back to client-side "
-                        f"filtering: {e}"
-                    )
-                    where_clause = ""
-            if where_clause:
-                sql += f" WHERE {where_clause}"
-            if n_rows and n_rows > 0:
-                sql += f" LIMIT {int(n_rows)}"
-            query_df = py_read_sql(_ctx, sql)
+            query_df = py_read_sql(_ctx, f"SELECT * FROM {table_to_query}")
 
+        # 2. Predicate pushdown via DataFusion Expr API
+        #    Flow: Polars Expr → DataFusion Expr (validates types) → SQL string
+        #    → query_df.parse_sql_expr() → query_df.filter()
+        #    parse_sql_expr() creates a binding-compatible Expr from the same
+        #    PyO3 compilation unit, avoiding the type mismatch between the
+        #    polars_bio Rust extension and the pip datafusion package.
+        datafusion_predicate_applied = False
+        if predicate_pushdown and predicate is not None:
+            try:
+                from .predicate_translator import (
+                    datafusion_expr_to_sql,
+                    translate_predicate,
+                )
+
+                _fmt_key = str(input_format).rsplit(".", 1)[-1]
+                string_cols, uint32_cols, float32_cols = _FORMAT_COLUMN_TYPES.get(
+                    _fmt_key, (None, None, None)
+                )
+                df_expr = translate_predicate(
+                    predicate, string_cols, uint32_cols, float32_cols
+                )
+                sql_predicate = datafusion_expr_to_sql(df_expr)
+                native_expr = query_df.parse_sql_expr(sql_predicate)
+                query_df = query_df.filter(native_expr)
+                datafusion_predicate_applied = True
+            except Exception as e:
+                logger.warning(
+                    f"DataFusion predicate pushdown failed, will filter "
+                    f"client-side (this may cause a full scan): {e}"
+                )
+
+        # 3. Projection pushdown via DataFusion select
+        datafusion_projection_applied = False
+        if projection_pushdown and with_columns is not None:
+            requested_cols = _extract_column_names_from_expr(with_columns)
+            if requested_cols:
+                try:
+                    select_exprs = [
+                        query_df.parse_sql_expr(f'"{c}"') for c in requested_cols
+                    ]
+                    query_df = query_df.select(*select_exprs)
+                    datafusion_projection_applied = True
+                except Exception as e:
+                    logger.debug(f"DataFusion projection pushdown failed: {e}")
+
+        # 4. Limit
+        if n_rows and n_rows > 0:
+            query_df = query_df.limit(int(n_rows))
+
+        # 5. Stream with safety net
         df_stream = query_df.execute_stream()
         progress_bar = tqdm(unit="rows")
         remaining = int(n_rows) if n_rows is not None else None
         for r in df_stream:
-            py_df = r.to_pyarrow()
-            out = pl.DataFrame(py_df)
-            # Always apply local filter as safety net - SQL WHERE clause may only
-            # partially translate the predicate (e.g., unsupported operators like
-            # .str.contains(), OR logic, etc. are silently dropped)
-            if predicate is not None:
+            out = pl.DataFrame(r.to_pyarrow())
+            # Apply client-side predicate only when DataFusion pushdown failed
+            if predicate is not None and not datafusion_predicate_applied:
                 out = out.filter(predicate)
-            if with_columns is not None:
+            # Apply client-side projection only when DataFusion pushdown failed
+            if with_columns is not None and not datafusion_projection_applied:
                 out = out.select(with_columns)
 
             if remaining is not None:
@@ -2710,19 +2671,11 @@ class GffLazyFrameWrapper:
 
             from .context import ctx
 
-            # Pull thread_num/parallel/zero_based from original read options
-            thread_num = 1
-            parallel = False
+            # Pull zero_based from original read options
             zero_based = False  # Default to 1-based (matches Python default)
             try:
                 gopt = getattr(self._read_options, "gff_read_options", None)
                 if gopt is not None:
-                    tn = getattr(gopt, "thread_num", None)
-                    if tn is not None:
-                        thread_num = tn
-                    par = getattr(gopt, "parallel", None)
-                    if par is not None:
-                        parallel = par
                     zb = getattr(gopt, "zero_based", None)
                     if zb is not None:
                         zero_based = zb
@@ -2747,9 +2700,7 @@ class GffLazyFrameWrapper:
 
             gff_opts = GffReadOptions(
                 attr_fields=_attr,
-                thread_num=thread_num,
                 object_storage_options=obj,
-                parallel=parallel,
                 zero_based=zero_based,
             )
             ropts = _ReadOptions(gff_read_options=gff_opts)

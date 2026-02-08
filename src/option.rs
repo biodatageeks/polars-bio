@@ -271,8 +271,6 @@ pub struct VcfReadOptions {
     pub info_fields: Option<Vec<String>>,
     #[pyo3(get, set)]
     pub format_fields: Option<Vec<String>>,
-    #[pyo3(get, set)]
-    pub thread_num: Option<usize>,
     pub object_storage_options: Option<ObjectStorageOptions>,
     /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
     #[pyo3(get, set)]
@@ -282,18 +280,16 @@ pub struct VcfReadOptions {
 #[pymethods]
 impl VcfReadOptions {
     #[new]
-    #[pyo3(signature = (info_fields=None, format_fields=None, thread_num=None, object_storage_options=None, zero_based=true))]
+    #[pyo3(signature = (info_fields=None, format_fields=None, object_storage_options=None, zero_based=true))]
     pub fn new(
         info_fields: Option<Vec<String>>,
         format_fields: Option<Vec<String>>,
-        thread_num: Option<usize>,
         object_storage_options: Option<PyObjectStorageOptions>,
         zero_based: bool,
     ) -> Self {
         VcfReadOptions {
             info_fields,
             format_fields,
-            thread_num,
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
@@ -305,7 +301,6 @@ impl VcfReadOptions {
         VcfReadOptions {
             info_fields: None,
             format_fields: None,
-            thread_num: Some(1),
             object_storage_options: Some(ObjectStorageOptions {
                 chunk_size: Some(1024 * 1024), // 1MB
                 concurrent_fetches: Some(4),
@@ -325,11 +320,7 @@ impl VcfReadOptions {
 pub struct GffReadOptions {
     #[pyo3(get, set)]
     pub attr_fields: Option<Vec<String>>,
-    #[pyo3(get, set)]
-    pub thread_num: Option<usize>,
     pub object_storage_options: Option<ObjectStorageOptions>,
-    #[pyo3(get, set)]
-    pub parallel: bool,
     /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
     #[pyo3(get, set)]
     pub zero_based: bool,
@@ -338,21 +329,17 @@ pub struct GffReadOptions {
 #[pymethods]
 impl GffReadOptions {
     #[new]
-    #[pyo3(signature = (attr_fields=None, thread_num=None, object_storage_options=None, parallel=false, zero_based=true))]
+    #[pyo3(signature = (attr_fields=None, object_storage_options=None, zero_based=true))]
     pub fn new(
         attr_fields: Option<Vec<String>>,
-        thread_num: Option<usize>,
         object_storage_options: Option<PyObjectStorageOptions>,
-        parallel: bool,
         zero_based: bool,
     ) -> Self {
         GffReadOptions {
             attr_fields,
-            thread_num,
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
-            parallel,
             zero_based,
         }
     }
@@ -360,7 +347,6 @@ impl GffReadOptions {
     pub fn default() -> Self {
         GffReadOptions {
             attr_fields: None,
-            thread_num: Some(1),
             object_storage_options: Some(ObjectStorageOptions {
                 chunk_size: Some(1024 * 1024), // 1MB
                 concurrent_fetches: Some(4),
@@ -370,7 +356,6 @@ impl GffReadOptions {
                 timeout: Some(300), // 300 seconds
                 compression_type: Some(CompressionType::AUTO),
             }),
-            parallel: false,
             zero_based: true,
         }
     }
@@ -379,8 +364,6 @@ impl GffReadOptions {
 #[pyclass(name = "BamReadOptions")]
 #[derive(Clone, Debug)]
 pub struct BamReadOptions {
-    #[pyo3(get, set)]
-    pub thread_num: Option<usize>,
     pub object_storage_options: Option<ObjectStorageOptions>,
     /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
     #[pyo3(get, set)]
@@ -393,15 +376,13 @@ pub struct BamReadOptions {
 #[pymethods]
 impl BamReadOptions {
     #[new]
-    #[pyo3(signature = (thread_num=None, object_storage_options=None, zero_based=true, tag_fields=None))]
+    #[pyo3(signature = (object_storage_options=None, zero_based=true, tag_fields=None))]
     pub fn new(
-        thread_num: Option<usize>,
         object_storage_options: Option<PyObjectStorageOptions>,
         zero_based: bool,
         tag_fields: Option<Vec<String>>,
     ) -> Self {
         BamReadOptions {
-            thread_num,
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
@@ -412,7 +393,6 @@ impl BamReadOptions {
     #[staticmethod]
     pub fn default() -> Self {
         BamReadOptions {
-            thread_num: Some(1),
             object_storage_options: Some(ObjectStorageOptions {
                 chunk_size: Some(1024 * 1024), // 1MB
                 concurrent_fetches: Some(4),

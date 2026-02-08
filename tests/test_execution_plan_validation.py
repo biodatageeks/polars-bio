@@ -54,7 +54,6 @@ def test_datafusion_direct_projection_pushdown():
 
     vcf_read_options = VcfReadOptions(
         info_fields=None,
-        thread_num=1,
         object_storage_options=object_storage_options,
     )
     read_options = ReadOptions(vcf_read_options=vcf_read_options)

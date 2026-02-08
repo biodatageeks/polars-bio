@@ -385,8 +385,7 @@ fn py_describe_vcf(
 
         let df = rt
             .block_on(async {
-                let mut reader =
-                    VcfReader::new(path, None, Some(desc_object_storage_options)).await;
+                let mut reader = VcfReader::new(path, Some(desc_object_storage_options)).await;
                 let rb = reader
                     .describe()
                     .await

@@ -4,20 +4,20 @@ import polars_bio as pb
 from tests._expected import DATA_DIR
 
 
-def test_gff_lazy_vs_eager_projection_pushdown_parallel():
+def test_gff_lazy_vs_eager_projection_pushdown():
     path = f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3.bgz"
 
-    # Lazy with projection pushdown and parallel read
-    lf = pb.scan_gff(
-        path, attr_fields=["ID"], projection_pushdown=True, parallel=True
-    ).select(["chrom", "start", "end", "type", "source", "ID"])
+    # Lazy with projection pushdown
+    lf = pb.scan_gff(path, attr_fields=["ID"], projection_pushdown=True).select(
+        ["chrom", "start", "end", "type", "source", "ID"]
+    )
 
     # Intentionally keep a second reference (no-op, mirrors the request)
     lf2 = lf
     out_lazy = lf2.collect()
 
-    # Eager read (parallel), then select the same columns
-    df_eager_full = pb.read_gff(path, attr_fields=["ID"], parallel=True)
+    # Eager read, then select the same columns
+    df_eager_full = pb.read_gff(path, attr_fields=["ID"])
     out_eager = df_eager_full.select(["chrom", "start", "end", "type", "source", "ID"])
 
     # Sort for stable comparison (avoid incidental ordering differences)
