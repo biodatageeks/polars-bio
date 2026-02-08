@@ -1,35 +1,55 @@
 """
-Polars to DataFusion predicate translator for GFF table provider.
+Polars to DataFusion predicate translator for bio-format table providers.
 
 This module converts Polars expressions to DataFusion expressions for predicate pushdown optimization.
 Uses the DataFusion Python DataFrame API instead of SQL string construction for better type safety.
 
-Supports the following operators based on GFF table provider capabilities:
-
-| Column                      | Data Type | Supported Operators          | Example                         |
-|-----------------------------|-----------|------------------------------|---------------------------------|
-| chrom, source, type, strand | String    | =, !=, IN, NOT IN            | chrom = 'chr1'                  |
-| start, end                  | UInt32    | =, !=, <, <=, >, >=, BETWEEN | start > 1000                    |
-| score                       | Float32   | =, !=, <, <=, >, >=, BETWEEN | score BETWEEN 50.0 AND 100.0   |
-| Attribute fields            | String    | =, !=, IN, NOT IN            | "ID" = 'gene1'                  |
-| Complex                     | -         | AND combinations             | chrom = 'chr1' AND start > 1000 |
+Supports BAM/SAM/CRAM, VCF, and GFF formats. Each format defines its own known column types;
+unknown columns (BAM tags, VCF INFO/FORMAT fields, GFF attribute fields) are handled permissively,
+allowing all operators and letting DataFusion type-check at execution time.
 """
 
 import re
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Set, Union
 
 import polars as pl
 from datafusion import col
 from datafusion import functions as F
 from datafusion import lit
 
-# GFF schema column types for validation
+# ---------------------------------------------------------------------------
+# Per-format column type definitions
+# ---------------------------------------------------------------------------
+
+# GFF
 GFF_STRING_COLUMNS = {"chrom", "source", "type", "strand"}
 GFF_UINT32_COLUMNS = {"start", "end", "phase"}
 GFF_FLOAT32_COLUMNS = {"score"}
 GFF_STATIC_COLUMNS = (
     GFF_STRING_COLUMNS | GFF_UINT32_COLUMNS | GFF_FLOAT32_COLUMNS | {"attributes"}
 )
+
+# BAM / SAM / CRAM
+BAM_STRING_COLUMNS = {
+    "name",
+    "chrom",
+    "cigar",
+    "mate_chrom",
+    "sequence",
+    "quality_scores",
+}
+BAM_UINT32_COLUMNS = {"start", "end", "flags", "mapping_quality", "mate_start"}
+
+# VCF
+VCF_STRING_COLUMNS = {"chrom", "ref", "alt"}
+VCF_UINT32_COLUMNS = {"start"}
+
+# ---------------------------------------------------------------------------
+# Module-level context for the current translation (set by translate_predicate)
+# ---------------------------------------------------------------------------
+_ACTIVE_STRING_COLS: Optional[Set[str]] = None
+_ACTIVE_UINT32_COLS: Optional[Set[str]] = None
+_ACTIVE_FLOAT32_COLS: Optional[Set[str]] = None
 
 
 class PredicateTranslationError(Exception):
@@ -38,9 +58,53 @@ class PredicateTranslationError(Exception):
     pass
 
 
+def translate_predicate(
+    predicate: pl.Expr,
+    string_cols: Optional[Set[str]] = None,
+    uint32_cols: Optional[Set[str]] = None,
+    float32_cols: Optional[Set[str]] = None,
+):
+    """
+    Convert a Polars predicate to a DataFusion expression, with format-aware validation.
+
+    When *no* column sets are provided the translator is **permissive**: every
+    operator is accepted for every column and DataFusion's type system will
+    catch mismatches at execution time.
+
+    Args:
+        predicate: Polars expression representing filter conditions.
+        string_cols: Column names known to be strings (equality/IN only).
+        uint32_cols: Column names known to be UInt32 (all comparison ops).
+        float32_cols: Column names known to be Float32 (all comparison ops).
+
+    Returns:
+        DataFusion ``Expr`` suitable for ``DataFrame.filter()``.
+
+    Raises:
+        PredicateTranslationError: If the predicate cannot be translated.
+    """
+    global _ACTIVE_STRING_COLS, _ACTIVE_UINT32_COLS, _ACTIVE_FLOAT32_COLS
+    _ACTIVE_STRING_COLS = string_cols
+    _ACTIVE_UINT32_COLS = uint32_cols
+    _ACTIVE_FLOAT32_COLS = float32_cols
+    try:
+        return _translate_polars_expr(predicate)
+    except Exception as e:
+        raise PredicateTranslationError(
+            f"Cannot translate predicate to DataFusion: {e}"
+        ) from e
+    finally:
+        _ACTIVE_STRING_COLS = None
+        _ACTIVE_UINT32_COLS = None
+        _ACTIVE_FLOAT32_COLS = None
+
+
 def translate_polars_predicate_to_datafusion(predicate: pl.Expr):
     """
-    Convert Polars predicate expressions to DataFusion expressions.
+    Convert Polars predicate expressions to DataFusion expressions (GFF defaults).
+
+    Thin wrapper around :func:`translate_predicate` that uses GFF column types
+    for backward compatibility.
 
     Args:
         predicate: Polars expression representing filter conditions
@@ -50,58 +114,64 @@ def translate_polars_predicate_to_datafusion(predicate: pl.Expr):
 
     Raises:
         PredicateTranslationError: If predicate cannot be translated
-
-    Examples:
-        ```python
-        df_expr = translate_polars_predicate_to_datafusion(pl.col("chrom") == "chr1")
-        datafusion_df.filter(df_expr)
-
-        df_expr = translate_polars_predicate_to_datafusion(
-            (pl.col("chrom") == "chr1") & (pl.col("start") > 100000)
-        )
-        datafusion_df.filter(df_expr)
-        ```
     """
-    try:
-        return _translate_polars_expr(predicate)
-    except Exception as e:
-        raise PredicateTranslationError(
-            f"Cannot translate predicate to DataFusion: {e}"
-        ) from e
+    return translate_predicate(
+        predicate,
+        string_cols=GFF_STRING_COLUMNS,
+        uint32_cols=GFF_UINT32_COLUMNS,
+        float32_cols=GFF_FLOAT32_COLUMNS,
+    )
+
+
+def _strip_polars_wrapping(s: str) -> str:
+    """Strip outermost ``[…]`` wrapper that Polars adds around expression reprs.
+
+    Examples::
+
+        [(col("chrom")) == ("chr1")]  →  (col("chrom")) == ("chr1")
+        [(…) & (…)]                   →  (…) & (…)
+
+    Only strips when the outermost ``[`` and ``]`` are a matching pair that
+    wraps the entire string (i.e. nothing follows the closing ``]``).
+    """
+    s = s.strip()
+    if s.startswith("[") and s.endswith("]"):
+        s = s[1:-1]
+    return s
 
 
 def _translate_polars_expr(expr: pl.Expr):
     """Recursively translate Polars expression to DataFusion expression."""
 
-    expr_str = str(expr)
+    expr_str = _strip_polars_wrapping(str(expr))
 
-    # Handle binary operations (col op literal)
-    if _is_binary_expr(expr_str):
-        return _translate_binary_expr(expr_str)
+    # NOTE: check order matters!  AND / BETWEEN must come before binary,
+    # because compound expressions like (col == "x") & (col > 1) also
+    # match the binary detector (it sees "==" in the string).
 
-    # Handle logical AND operations
+    # Handle logical AND operations (must be before binary!)
     if _is_and_expr(expr_str):
         return _translate_and_expr(expr_str)
+
+    # Handle NOT IN operations (negated IN) — before plain IN
+    if _is_not_in_expr(expr_str):
+        return _translate_not_in_expr(expr_str)
 
     # Handle IN operations
     if _is_in_expr(expr_str):
         return _translate_in_expr(expr_str)
 
-    # Handle NOT IN operations (negated IN)
-    if _is_not_in_expr(expr_str):
-        return _translate_not_in_expr(expr_str)
-
-    # Handle BETWEEN operations (range checks)
-    if _is_between_expr(expr_str):
-        return _translate_between_expr(expr_str)
-
-    # Handle IS NOT NULL
+    # Handle IS NOT NULL — before IS NULL
     if _is_not_null_expr(expr_str):
         return _translate_not_null_expr(expr_str)
 
     # Handle IS NULL
     if _is_null_expr(expr_str):
         return _translate_null_expr(expr_str)
+
+    # Handle binary operations (col op literal) — simple, single comparison
+    if _is_binary_expr(expr_str):
+        return _translate_binary_expr(expr_str)
 
     raise PredicateTranslationError(f"Unsupported expression type: {expr_str}")
 
@@ -150,20 +220,21 @@ def _is_and_expr(expr_str: str) -> bool:
 
 
 def _translate_and_expr(expr_str: str):
-    """Translate AND expressions."""
+    """Translate AND expressions (supports 2+ conjuncts via left-fold)."""
 
-    # Handle & operator by finding the main & split point
     if " & " in expr_str:
         parts = _split_on_main_operator(expr_str, " & ")
-        if len(parts) == 2:
-            left_part = parts[0].strip().strip("()")
-            right_part = parts[1].strip().strip("()")
-
-            # Recursively translate both parts
-            left_expr = _translate_polars_expr(_create_mock_expr(left_part))
-            right_expr = _translate_polars_expr(_create_mock_expr(right_part))
-
-            return left_expr & right_expr
+        if len(parts) >= 2:
+            # Left-fold: ((a & b) & c) & d …
+            result = _translate_polars_expr(
+                _create_mock_expr(_strip_polars_wrapping(parts[0].strip().strip("()")))
+            )
+            for part in parts[1:]:
+                right_expr = _translate_polars_expr(
+                    _create_mock_expr(_strip_polars_wrapping(part.strip().strip("()")))
+                )
+                result = result & right_expr
+            return result
 
     raise PredicateTranslationError(f"Cannot parse AND expression: {expr_str}")
 
@@ -177,10 +248,11 @@ def _translate_in_expr(expr_str: str):
     """Translate IN expressions like col.is_in([val1, val2])."""
 
     # Parse col("column").is_in([values]) pattern
+    # Polars repr uses double brackets: is_in([["v1", "v2"]]) — strip inner []
     match = re.search(r"(.+?)\.is_in\(\[(.+?)\]\)", expr_str)
     if match:
         col_part = match.group(1).strip()
-        values_part = match.group(2).strip()
+        values_part = match.group(2).strip().strip("[]")
 
         column = _extract_column_name(col_part)
         values = _parse_list_values(values_part)
@@ -315,8 +387,27 @@ def _extract_column_name(col_expr: str) -> str:
 
 
 def _extract_literal_value(literal_expr: str) -> Any:
-    """Extract literal value from expression."""
+    """Extract literal value from expression.
+
+    Handles Polars repr formats such as::
+
+        ("chr1")        → chr1
+        (dyn int: 1000) → 1000
+        (dyn float: 1.5)→ 1.5
+        "chr1"          → chr1
+        1000            → 1000
+    """
     literal_expr = literal_expr.strip()
+
+    # Unwrap Polars-style parenthesised literal: ("value") or (dyn int: 123)
+    if literal_expr.startswith("(") and literal_expr.endswith(")"):
+        literal_expr = literal_expr[1:-1].strip()
+
+    # Strip Polars "dyn int:" / "dyn float:" type prefixes
+    for prefix in ("dyn int: ", "dyn float: "):
+        if literal_expr.startswith(prefix):
+            literal_expr = literal_expr[len(prefix) :]
+            break
 
     # Handle string literals
     if (literal_expr.startswith('"') and literal_expr.endswith('"')) or (
@@ -343,12 +434,26 @@ def _extract_literal_value(literal_expr: str) -> Any:
 
 
 def _validate_column_operator(column: str, operator: str) -> None:
-    """Validate that column supports the given operator."""
+    """Validate that column supports the given operator.
+
+    Uses the module-level context (_ACTIVE_*_COLS) set by translate_predicate().
+    When no context is set (all None), validation is **permissive** — all
+    operators are allowed and DataFusion will type-check at execution.
+    """
+    string_cols = _ACTIVE_STRING_COLS
+    uint32_cols = _ACTIVE_UINT32_COLS
+    float32_cols = _ACTIVE_FLOAT32_COLS
+
+    # Permissive mode: no column type info available — allow everything
+    if string_cols is None and uint32_cols is None and float32_cols is None:
+        return
+
+    known_cols = (
+        (string_cols or set()) | (uint32_cols or set()) | (float32_cols or set())
+    )
 
     # String columns: =, !=, IN, NOT IN
-    if (
-        column in GFF_STRING_COLUMNS or column not in GFF_STATIC_COLUMNS
-    ):  # Attribute fields
+    if column in (string_cols or set()):
         if operator not in ["==", "!=", "IN", "NOT IN"]:
             raise PredicateTranslationError(
                 f"Column '{column}' (String) does not support operator '{operator}'. "
@@ -356,12 +461,16 @@ def _validate_column_operator(column: str, operator: str) -> None:
             )
 
     # Numeric columns: =, !=, <, <=, >, >=, BETWEEN
-    elif column in GFF_UINT32_COLUMNS or column in GFF_FLOAT32_COLUMNS:
+    elif column in (uint32_cols or set()) or column in (float32_cols or set()):
         if operator not in ["==", "!=", "<", "<=", ">", ">=", "BETWEEN"]:
             raise PredicateTranslationError(
                 f"Column '{column}' (Numeric) does not support operator '{operator}'. "
                 f"Supported: ==, !=, <, <=, >, >=, BETWEEN"
             )
+
+    # Unknown column (BAM tags, VCF INFO/FORMAT, GFF attributes): permissive
+    elif column not in known_cols:
+        pass  # Allow all operators; DataFusion will type-check at execution
 
 
 def _parse_list_values(values_str: str) -> List[Any]:
@@ -374,23 +483,30 @@ def _parse_list_values(values_str: str) -> List[Any]:
 
 
 def _split_on_main_operator(expr_str: str, operator: str) -> List[str]:
-    """Split expression on main operator, respecting parentheses."""
+    """Split expression on main operator, respecting parentheses.
+
+    Parentheses ``(`` / ``)`` are tracked for depth but **preserved** in the
+    output parts so that downstream parsers receive the original text.
+    """
     parts = []
     current = ""
     paren_depth = 0
     i = 0
 
     while i < len(expr_str):
-        if expr_str[i] == "(":
+        ch = expr_str[i]
+        if ch == "(":
             paren_depth += 1
-        elif expr_str[i] == ")":
+            current += ch
+        elif ch == ")":
             paren_depth -= 1
+            current += ch
         elif paren_depth == 0 and expr_str[i : i + len(operator)] == operator:
             parts.append(current)
             current = ""
             i += len(operator) - 1
         else:
-            current += expr_str[i]
+            current += ch
         i += 1
 
     parts.append(current)
@@ -447,15 +563,20 @@ def is_predicate_pushdown_supported(predicate: pl.Expr) -> bool:
 def get_supported_predicates_info() -> str:
     """Return information about supported predicate types."""
     return """
-Supported GFF Predicate Pushdown Operations:
+Supported Predicate Pushdown Operations (all formats):
 
-| Column                      | Data Type | Supported Operators          | Example                         |
-|-----------------------------|-----------|------------------------------|---------------------------------|
-| chrom, source, type, strand | String    | =, !=, IN, NOT IN            | chrom = 'chr1'                  |
-| start, end                  | UInt32    | =, !=, <, <=, >, >=, BETWEEN | start > 1000                    |
-| score                       | Float32   | =, !=, <, <=, >, >=, BETWEEN | score BETWEEN 50.0 AND 100.0   |
-| Attribute fields            | String    | =, !=, IN, NOT IN            | "ID" = 'gene1'                  |
-| Complex                     | -         | AND combinations             | chrom = 'chr1' AND start > 1000 |
+| Format    | Column                                        | Data Type | Supported Operators          |
+|-----------|-----------------------------------------------|-----------|------------------------------|
+| GFF       | chrom, source, type, strand                   | String    | =, !=, IN, NOT IN           |
+| GFF       | start, end, phase                             | UInt32    | =, !=, <, <=, >, >=, BETWEEN|
+| GFF       | score                                         | Float32   | =, !=, <, <=, >, >=, BETWEEN|
+| GFF       | Attribute fields                              | String    | =, !=, IN, NOT IN           |
+| BAM/CRAM  | name, chrom, cigar, mate_chrom, ...           | String    | =, !=, IN, NOT IN           |
+| BAM/CRAM  | start, end, flags, mapping_quality, ...       | UInt32    | =, !=, <, <=, >, >=, BETWEEN|
+| VCF       | chrom, ref, alt                               | String    | =, !=, IN, NOT IN           |
+| VCF       | start                                         | UInt32    | =, !=, <, <=, >, >=, BETWEEN|
+| All       | Unknown/dynamic columns                       | Any       | All (DataFusion type-checks) |
+| All       | Complex                                       | -         | AND combinations             |
 
 Examples:
 - pl.col("chrom") == "chr1"
@@ -464,3 +585,62 @@ Examples:
 - (pl.col("chrom") == "chr1") & (pl.col("start") > 1000)
 - (pl.col("start") >= 1000) & (pl.col("start") <= 2000)  # BETWEEN
 """
+
+
+def datafusion_expr_to_sql(expr) -> str:
+    """Convert a DataFusion Expr to a SQL WHERE clause string.
+
+    The DataFusion Python ``Expr`` has a predictable ``str()`` format::
+
+        Expr(chrom = Utf8View("1") AND start > Int64(10000))
+
+    This function extracts the inner text and converts DataFusion type
+    wrappers to SQL literals.
+
+    Args:
+        expr: DataFusion ``Expr`` object (from :func:`translate_predicate`).
+
+    Returns:
+        SQL WHERE clause string (without the ``WHERE`` keyword).
+
+    Raises:
+        PredicateTranslationError: If the expression cannot be converted.
+    """
+    s = str(expr)
+
+    # Unwrap Expr(…)
+    if s.startswith("Expr(") and s.endswith(")"):
+        s = s[5:-1]
+
+    # Utf8View("value") → 'value'   (quote single-quotes inside)
+    s = re.sub(
+        r'Utf8View\("([^"]*)"\)',
+        lambda m: "'" + m.group(1).replace("'", "''") + "'",
+        s,
+    )
+
+    # Int64(N) → N
+    s = re.sub(r"Int64\((-?\d+)\)", r"\1", s)
+
+    # Float64(N) → N
+    s = re.sub(r"Float64\((-?[\d.]+(?:e[+-]?\d+)?)\)", r"\1", s)
+
+    # UInt32(N) → N
+    s = re.sub(r"UInt32\((\d+)\)", r"\1", s)
+
+    # Boolean(true/false) → TRUE/FALSE
+    s = re.sub(r"Boolean\(true\)", "TRUE", s)
+    s = re.sub(r"Boolean\(false\)", "FALSE", s)
+
+    # IN ([val, val, …]) → IN (val, val, …)  — remove square brackets
+    s = re.sub(r"IN \(\[", "IN (", s)
+    s = re.sub(r"\]\)", ")", s)
+
+    # Quote bare column names: word tokens before operators
+    # This is already handled because DataFusion Expr uses bare names
+    # and SQL engines accept unquoted identifiers for simple names.
+
+    if not s.strip():
+        raise PredicateTranslationError("Empty expression after conversion")
+
+    return s

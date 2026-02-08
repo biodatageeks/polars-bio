@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Indexed reads with predicate pushdown for BAM, CRAM, VCF, and GFF
+  - Index files (BAI/CSI, CRAI, TBI) are auto-discovered by the upstream DataFusion providers
+  - New `predicate_pushdown` parameter on `scan_bam`/`read_bam`, `scan_vcf`/`read_vcf`, `scan_cram`/`read_cram`
+  - Polars filter expressions (e.g., `pl.col("chrom") == "chr1"`) are converted to SQL WHERE clauses and pushed down to DataFusion for index-based random access
+  - SQL path (`register_*` + `pb.sql("SELECT ... WHERE ...")`) works automatically after dependency bump
+  - Automatic parallel partitioning by chromosome when index files are present
 - BAM optional tag support via `tag_fields` parameter
   - Support for ~40 common SAM tags (NM, AS, MD, XS, RG, CB, UB, etc.)
   - Zero-overhead design: tags only parsed when requested
@@ -26,9 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `describe_cram()` - Get schema information from CRAM files
 
 ### Changed
-- Updated datafusion-bio-formats dependency to rev `d7ac1a8331c5a12a858145421acdcebe64a6c7d8`
+- Updated datafusion-bio-formats dependency to rev `738cf994ffe404c1e1e520d184e9d73a2c5f40b5`
+  - Integrated upstream PR #61: indexed & parallel reads for BAM/CRAM/VCF/GFF
   - Integrated upstream `describe()` method with tag auto-discovery
   - Enhanced schema inspection capabilities
+
+### Removed
+- Removed dead `IndexedBam` and `IndexedVcf` enum variants (indexed reads are now handled automatically by upstream providers)
 
 ## [0.20.1] - 2024-01-28
 

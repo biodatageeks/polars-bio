@@ -17,7 +17,6 @@ def _register_gff_table_serial():
 
     gff_opts = GffReadOptions(
         attr_fields=None,
-        thread_num=1,
         object_storage_options=PyObjectStorageOptions(
             allow_anonymous=True,
             enable_request_payer=False,
@@ -27,8 +26,6 @@ def _register_gff_table_serial():
             timeout=60,
             compression_type="auto",
         ),
-        # Use non-parallel path to avoid BGZF .gzi index requirements in tests
-        parallel=False,
     )
     read_options = ReadOptions(gff_read_options=gff_opts)
     table = py_register_table(ctx, data_path, None, InputFormat.Gff, read_options)
