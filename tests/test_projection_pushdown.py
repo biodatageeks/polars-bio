@@ -47,12 +47,12 @@ def get_datafusion_projection_info(
 class TestProjectionPushdown:
     """Test cases for projection pushdown optimization."""
 
-    def test_projection_pushdown_flag_defaults_false(self):
-        """Test that projection_pushdown defaults to False in I/O methods."""
+    def test_projection_pushdown_flag_defaults_true(self):
+        """Test that projection_pushdown defaults to True in I/O methods."""
         # Test with a simple VCF file
         vcf_path = f"{DATA_DIR}/io/vcf/vep.vcf.bgz"
 
-        # Default should be False
+        # Default should be True (projection pushdown enabled)
         lazy_frame = pb.scan_vcf(vcf_path)
         assert lazy_frame is not None
 
@@ -60,7 +60,7 @@ class TestProjectionPushdown:
         lazy_frame_false = pb.scan_vcf(vcf_path, projection_pushdown=False)
         assert lazy_frame_false is not None
 
-        # Should be able to set to True without errors
+        # Explicitly set to True
         lazy_frame_true = pb.scan_vcf(vcf_path, projection_pushdown=True)
         assert lazy_frame_true is not None
 

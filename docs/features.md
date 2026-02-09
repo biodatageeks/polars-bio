@@ -683,14 +683,14 @@ df = (
 
 BAM, CRAM, and VCF formats support **parsing-level projection pushdown**. When you select a subset of columns, unprojected fields are skipped entirely during record parsing — no string formatting, sequence decoding, map lookups, or memory allocation for those fields. This can significantly reduce I/O and CPU time, especially for wide schemas like BAM (11+ columns) where you only need a few fields.
 
-Projection pushdown is enabled via `projection_pushdown=True` on `scan_*`/`read_*` calls:
+Projection pushdown is **enabled by default** (`projection_pushdown=True`) on all `scan_*`/`read_*` calls and range operations. To disable it, pass `projection_pushdown=False`.
 
 ```python
 import polars_bio as pb
 
-# Only name and chrom are parsed from each BAM record
+# Only name and chrom are parsed from each BAM record (projection pushdown is on by default)
 df = (
-    pb.scan_bam("alignments.bam", projection_pushdown=True)
+    pb.scan_bam("alignments.bam")
     .select(["name", "chrom"])
     .collect()
 )

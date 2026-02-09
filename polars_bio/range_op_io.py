@@ -35,7 +35,7 @@ def range_lazy_scan(
     ctx: BioSessionContext,
     read_options1: Union[ReadOptions, None] = None,
     read_options2: Union[ReadOptions, None] = None,
-    projection_pushdown: bool = False,
+    projection_pushdown: bool = True,
 ) -> pl.LazyFrame:
     range_function = None
     use_file_paths = isinstance(df_1, str) and isinstance(df_2, str)

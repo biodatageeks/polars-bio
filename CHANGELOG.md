@@ -38,8 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced schema inspection capabilities
   - Integrated upstream PR #64: parsing-level projection pushdown for BAM, CRAM, and VCF
     - Unprojected fields are skipped entirely during record parsing (no string formatting, sequence decoding, map lookups, or memory allocation)
-    - Activates automatically when `.select()` or SQL column projection is used with `projection_pushdown=True`
+    - Activates automatically when `.select()` or SQL column projection is used
     - `COUNT(*)` queries use an empty projection path — no dummy fields are parsed
+- Changed `projection_pushdown` default from `False` to `True` for all I/O methods and range operations
+  - Applies to: `scan_*`/`read_*`, `overlap()`, `nearest()`, `count_overlaps()`, `coverage()`, `merge()`
+  - To opt out, pass `projection_pushdown=False`
 
 ### Removed
 - Removed dead `IndexedBam` and `IndexedVcf` enum variants (indexed reads are now handled automatically by upstream providers)

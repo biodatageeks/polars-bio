@@ -112,7 +112,7 @@ class IntervalOperations:
         output_type: str = "polars.LazyFrame",
         read_options1: Union[ReadOptions, None] = None,
         read_options2: Union[ReadOptions, None] = None,
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Find pairs of overlapping genomic intervals.
@@ -228,7 +228,7 @@ class IntervalOperations:
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
         output_type: str = "polars.LazyFrame",
         read_options: Union[ReadOptions, None] = None,
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Find pairs of closest genomic intervals.
@@ -303,7 +303,7 @@ class IntervalOperations:
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
         output_type: str = "polars.LazyFrame",
         read_options: Union[ReadOptions, None] = None,
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Calculate intervals coverage.
@@ -378,7 +378,7 @@ class IntervalOperations:
         on_cols: Union[list[str], None] = None,
         output_type: str = "polars.LazyFrame",
         naive_query: bool = True,
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Count pairs of overlapping genomic intervals.
@@ -557,7 +557,7 @@ class IntervalOperations:
         cols: Union[list[str], None] = ["chrom", "start", "end"],
         on_cols: Union[list[str], None] = None,
         output_type: str = "polars.LazyFrame",
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Merge overlapping intervals. It is assumed that start < end.
