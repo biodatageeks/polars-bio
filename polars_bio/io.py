@@ -113,7 +113,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
     ) -> pl.DataFrame:
         """
 
@@ -172,7 +172,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
     ) -> pl.LazyFrame:
         """
 
@@ -236,7 +236,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
@@ -330,7 +330,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
@@ -442,7 +442,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
@@ -499,7 +499,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
@@ -559,7 +559,7 @@ class IOOperations:
         enable_request_payer: bool = False,
         max_retries: int = 5,
         timeout: int = 300,
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
@@ -619,7 +619,7 @@ class IOOperations:
         enable_request_payer: bool = False,
         max_retries: int = 5,
         timeout: int = 300,
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
@@ -685,7 +685,7 @@ class IOOperations:
         enable_request_payer: bool = False,
         max_retries: int = 5,
         timeout: int = 300,
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
@@ -809,7 +809,7 @@ class IOOperations:
         enable_request_payer: bool = False,
         max_retries: int = 5,
         timeout: int = 300,
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
@@ -1123,7 +1123,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
     ) -> pl.DataFrame:
         """
         Read a FASTQ file into a DataFrame.
@@ -1166,7 +1166,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
     ) -> pl.LazyFrame:
         """
         Lazily read a FASTQ file into a LazyFrame.
@@ -1214,7 +1214,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
@@ -1272,7 +1272,7 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
@@ -1599,7 +1599,7 @@ class IOOperations:
     def read_sam(
         path: str,
         tag_fields: Union[list[str], None] = None,
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
@@ -1637,7 +1637,7 @@ class IOOperations:
     def scan_sam(
         path: str,
         tag_fields: Union[list[str], None] = None,
-        projection_pushdown: bool = False,
+        projection_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
@@ -2158,7 +2158,7 @@ def _build_sql_where_from_predicate_safe(predicate):
 
 def _lazy_scan(
     schema_or_df,  # Either: PyArrow schema (from py_get_table_schema) or DataFusion DataFrame (from py_read_sql for SQL path)
-    projection_pushdown: bool = False,
+    projection_pushdown: bool = True,
     predicate_pushdown: bool = False,
     table_name: str = None,
     input_format: InputFormat = None,
@@ -2565,7 +2565,7 @@ def _read_file(
     path: str,
     input_format: InputFormat,
     read_options: ReadOptions,
-    projection_pushdown: bool = False,
+    projection_pushdown: bool = True,
     predicate_pushdown: bool = False,
     zero_based: bool = True,
 ) -> pl.LazyFrame:

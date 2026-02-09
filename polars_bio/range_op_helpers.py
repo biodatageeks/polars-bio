@@ -98,7 +98,7 @@ def range_operation(
     ctx: BioSessionContext,
     read_options1: Union[ReadOptions, None] = None,
     read_options2: Union[ReadOptions, None] = None,
-    projection_pushdown: bool = False,
+    projection_pushdown: bool = True,
 ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame"]:
     ctx.sync_options()
 

@@ -14,7 +14,7 @@ def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
 
 def _lazy_scan(
     df: Union[pl.DataFrame, pl.LazyFrame],
-    projection_pushdown: bool = False,
+    projection_pushdown: bool = True,
     predicate_pushdown: bool = False,
     table_name: str = None,
     input_format=None,

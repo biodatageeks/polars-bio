@@ -32,10 +32,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `describe_cram()` - Get schema information from CRAM files
 
 ### Changed
-- Updated datafusion-bio-formats dependency to rev `738cf994ffe404c1e1e520d184e9d73a2c5f40b5`
+- Updated datafusion-bio-formats dependency to rev `84605fcd03bf570db141400bbf5a78ae7e7f0d35`
   - Integrated upstream PR #61: indexed & parallel reads for BAM/CRAM/VCF/GFF
   - Integrated upstream `describe()` method with tag auto-discovery
   - Enhanced schema inspection capabilities
+  - Integrated upstream PR #64: parsing-level projection pushdown for BAM, CRAM, and VCF
+    - Unprojected fields are skipped entirely during record parsing (no string formatting, sequence decoding, map lookups, or memory allocation)
+    - Activates automatically when `.select()` or SQL column projection is used
+    - `COUNT(*)` queries use an empty projection path — no dummy fields are parsed
+- Changed `projection_pushdown` default from `False` to `True` for all I/O methods and range operations
+  - Applies to: `scan_*`/`read_*`, `overlap()`, `nearest()`, `count_overlaps()`, `coverage()`, `merge()`
+  - To opt out, pass `projection_pushdown=False`
 
 ### Removed
 - Removed dead `IndexedBam` and `IndexedVcf` enum variants (indexed reads are now handled automatically by upstream providers)
