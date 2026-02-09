@@ -5,23 +5,20 @@ import polars_bio as pb
 
 def test_read_fastq_parallel():
     """
-    Compare the results of reading a FASTQ file with parallel=False and parallel=True
-    for different numbers of target partitions.
+    Compare the results of reading a FASTQ file with 1 partition vs multiple partitions.
+    Parallel reads are now automatic when target_partitions > 1 and a GZI index is present.
     """
     file_path = "tests/data/io/fastq/sample_parallel.fastq.bgz"
 
-    # 1. Get the baseline correct DataFrame by reading without parallelism.
-    # Use a fresh context to ensure no leftover settings interfere.
+    # 1. Get the baseline DataFrame by reading with a single partition.
     pb.set_option("datafusion.execution.target_partitions", "1")
-    expected_df = pb.read_fastq(file_path, parallel=False).to_pandas()
+    expected_df = pb.read_fastq(file_path).to_pandas()
 
-    # 2. Test parallel reading with different partition counts.
+    # 2. Test with different partition counts (parallel reads kick in automatically).
     for i in [1, 2, 3, 4]:
-        # Use a fresh context for each run to ensure the setting is applied correctly.
         pb.set_option("datafusion.execution.target_partitions", str(i))
 
-        # Read with parallelism enabled
-        result_df = pb.read_fastq(file_path, parallel=True).to_pandas()
+        result_df = pb.read_fastq(file_path).to_pandas()
 
         # 3. Compare the results.
         # We sort by name to ensure the order is consistent, as parallel execution

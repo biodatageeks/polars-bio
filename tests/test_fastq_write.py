@@ -117,7 +117,7 @@ class TestFastqRoundTrip:
         assert df1["name"].to_list() == df2["name"].to_list()
 
     def test_compressed_roundtrip(self, tmp_path):
-        """Test round-trip with compression."""
+        """Test round-trip with gzip compression."""
         input_path = f"{DATA_DIR}/io/fastq/example.fastq"
         output_path = tmp_path / "roundtrip.fastq.gz"
 
@@ -126,6 +126,20 @@ class TestFastqRoundTrip:
         df2 = pb.read_fastq(str(output_path))
 
         assert df1.shape == df2.shape
+        assert df1["sequence"].to_list() == df2["sequence"].to_list()
+        assert df1["quality_scores"].to_list() == df2["quality_scores"].to_list()
+
+    def test_bgz_compressed_roundtrip(self, tmp_path):
+        """Test round-trip with BGZF compression."""
+        input_path = f"{DATA_DIR}/io/fastq/example.fastq"
+        output_path = tmp_path / "roundtrip.fastq.bgz"
+
+        df1 = pb.read_fastq(input_path)
+        pb.write_fastq(df1, str(output_path))
+        df2 = pb.read_fastq(str(output_path))
+
+        assert df1.shape == df2.shape
+        assert df1["name"].to_list() == df2["name"].to_list()
         assert df1["sequence"].to_list() == df2["sequence"].to_list()
         assert df1["quality_scores"].to_list() == df2["quality_scores"].to_list()
 

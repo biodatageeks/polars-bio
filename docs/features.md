@@ -528,7 +528,7 @@ For bioinformatic format there are always three methods available: `read_*` (eag
 | [VCF](api.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :construction: |
 | [BAM](api.md#polars_bio.data_input.read_bam)     | :white_check_mark: | :white_check_mark: (BAI/CSI) | :white_check_mark: | :white_check_mark: |  ❌  |
 | [CRAM](api.md#polars_bio.data_input.read_cram)   | :white_check_mark: | :white_check_mark: (CRAI) | :white_check_mark: | :white_check_mark: |  ❌  |
-| [FASTQ](api.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: (BGZF) | :white_check_mark: |  ❌  |  ❌   |
+| [FASTQ](api.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: (GZI) | :white_check_mark: |  ❌  |  ❌   |
 | [FASTA](api.md#polars_bio.data_input.read_fasta) | :white_check_mark: |  ❌  | :white_check_mark: |  ❌  |  ❌   |
 | [GFF3](api.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 
@@ -547,6 +547,7 @@ Index files are **auto-discovered** by convention. Predicate pushdown is **enabl
 | CRAM | CRAI | `sample.cram.crai` |
 | VCF (bgzf) | TBI, CSI | `sample.vcf.gz.tbi`, `sample.vcf.gz.csi` |
 | GFF (bgzf) | TBI, CSI | `sample.gff.gz.tbi`, `sample.gff.gz.csi` |
+| FASTQ (bgzf) | GZI | `sample.fastq.bgz.gzi` |
 
 #### Usage with the scan/read API
 
@@ -1145,7 +1146,7 @@ Parallellism can be controlled using the `datafusion.execution.target_partitions
 
 ## Compression
 *polars-bio* supports **GZIP** ( default file extension `*.gz`) and **Block GZIP** (BGZIP, default file extension `*.bgz`) when reading files from local and cloud storages.
-For BGZIP-compressed FASTQ files, it is possible to parallelize decoding of compressed blocks using the `parallel=True` parameter. Please take a look at the following [GitHub discussion](https://github.com/biodatageeks/polars-bio/issues/132).
+For BGZIP-compressed FASTQ files, parallel decoding of compressed blocks is **automatic** — the optimal read strategy (BGZF parallel, byte-range parallel for uncompressed, or sequential fallback) is detected based on the file type and index availability. When `target_partitions > 1` and a **GZI index** (`.gzi`) is present alongside the BGZF file, parallel reads are used automatically. A GZI index can be created with `bgzip -r reads.fastq.bgz`. Please take a look at the following [GitHub discussion](https://github.com/biodatageeks/polars-bio/issues/132).
 
 
 ## DataFrames support

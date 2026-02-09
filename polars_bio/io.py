@@ -1087,7 +1087,6 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        parallel: bool = False,
         projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
@@ -1102,7 +1101,6 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
-            parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
         """
         return IOOperations.scan_fastq(
@@ -1114,7 +1112,6 @@ class IOOperations:
             max_retries,
             timeout,
             compression_type,
-            parallel,
             projection_pushdown,
         ).collect()
 
@@ -1128,7 +1125,6 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        parallel: bool = False,
         projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
@@ -1143,7 +1139,6 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
-            parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
         """
         object_storage_options = PyObjectStorageOptions(
@@ -1157,7 +1152,7 @@ class IOOperations:
         )
 
         fastq_read_options = FastqReadOptions(
-            object_storage_options=object_storage_options, parallel=parallel
+            object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(fastq_read_options=fastq_read_options)
         return _read_file(path, InputFormat.Fastq, read_options, projection_pushdown)
