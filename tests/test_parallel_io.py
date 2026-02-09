@@ -27,3 +27,15 @@ def test_read_fastq_parallel():
         result_sorted = result_df.sort_values("name").reset_index(drop=True)
 
         assert_frame_equal(result_sorted, expected_sorted, check_like=True)
+
+
+def test_read_fastq_gzip_sequential():
+    """
+    Verify that regular GZIP files (not BGZF) are read correctly with multiple
+    partitions. GZIP cannot be parallelized — only BGZF with a .gzi index supports
+    parallel reads.
+    """
+    file_path = "tests/data/io/fastq/example.fastq.gz"
+    pb.set_option("datafusion.execution.target_partitions", "4")
+    df = pb.read_fastq(file_path)
+    assert len(df) == 200

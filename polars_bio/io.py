@@ -1092,6 +1092,10 @@ class IOOperations:
         """
         Read a FASTQ file into a DataFrame.
 
+        Parallel reads are automatic for BGZF-compressed files when ``target_partitions > 1``
+        and a ``.gzi`` index is present alongside the file. Use
+        ``pb.set_option("datafusion.execution.target_partitions", "N")`` to control parallelism.
+
         Parameters:
             path: The path to the FASTQ file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
@@ -1129,6 +1133,10 @@ class IOOperations:
     ) -> pl.LazyFrame:
         """
         Lazily read a FASTQ file into a LazyFrame.
+
+        Parallel reads are automatic for BGZF-compressed files when ``target_partitions > 1``
+        and a ``.gzi`` index is present alongside the file. Use
+        ``pb.set_option("datafusion.execution.target_partitions", "N")`` to control parallelism.
 
         Parameters:
             path: The path to the FASTQ file.
