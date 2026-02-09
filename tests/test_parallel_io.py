@@ -29,6 +29,17 @@ def test_read_fastq_parallel():
         assert_frame_equal(result_sorted, expected_sorted, check_like=True)
 
 
+def test_read_fastq_bgzf_without_gzi():
+    """
+    Verify that a BGZF file without a .gzi index falls back to sequential reads
+    and still returns correct results when target_partitions > 1.
+    """
+    file_path = "tests/data/io/fastq/sample_no_index.fastq.bgz"
+    pb.set_option("datafusion.execution.target_partitions", "4")
+    df = pb.read_fastq(file_path)
+    assert len(df) == 2000
+
+
 def test_read_fastq_gzip_sequential():
     """
     Verify that regular GZIP files (not BGZF) are read correctly with multiple
