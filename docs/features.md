@@ -619,16 +619,17 @@ result = pb.sql(
 #### Automatic parallel partitioning
 
 When an index file is present, DataFusion distributes genomic regions across balanced partitions using index-derived size estimates, enabling parallel
-execution. Formats with known contig lengths (BAM, CRAM) can split large regions into sub-regions for full parallelism even on single-chromosome queries. This is controlled by the global `target_partitions` setting:
+execution. Formats with known contig lengths (BAM, CRAM) can split large regions into sub-regions for full parallelism even on single-chromosome queries. For FASTQ files, a **GZI index** alongside a BGZF-compressed file enables parallel decoding of compressed blocks. This is controlled by the global `target_partitions` setting:
 
 ```python
 import polars_bio as pb
 
 pb.set_option("datafusion.execution.target_partitions", "8")
 df = pb.read_bam("large_file.bam")  # 8 partitions will be used for parallel execution
+df = pb.read_fastq("reads.fastq.bgz")  # parallel BGZF decoding when .gzi index is present
 ```
 
-**Partitioning behavior:**
+**Partitioning behavior (BAM, CRAM, VCF, GFF):**
 
 | Index Available? | SQL Filters | Partitions |
 |-----------------|-------------|------------|
@@ -637,6 +638,15 @@ df = pb.read_bam("large_file.bam")  # 8 partitions will be used for parallel exe
 | Yes | `mapping_quality >= 30` (no genomic filter) | up to target_partitions (all chroms balanced + split) |
 | Yes | None (full scan) | up to target_partitions (all chroms balanced + split) |
 | No | Any | 1 (sequential full scan) |
+
+**Partitioning behavior (FASTQ):**
+
+| File type | GZI Index? | Partitions |
+|-----------|-----------|------------|
+| BGZF (`.fastq.bgz`) | Yes (`.fastq.bgz.gzi`) | up to target_partitions (parallel block decoding) |
+| BGZF (`.fastq.bgz`) | No | 1 (sequential read) |
+| GZIP (`.fastq.gz`) | N/A | 1 (sequential — GZIP cannot be parallelized) |
+| Uncompressed (`.fastq`) | N/A | up to target_partitions (byte-range parallel) |
 
 
 
@@ -671,25 +681,30 @@ df = (
 
 #### Index file generation
 
-Create index files using standard bioinformatics tools:
+!!! tip "Creating index files"
+    Create index files using standard bioinformatics tools:
 
-```bash
-# BAM: sort and index
-samtools sort input.bam -o sorted.bam
-samtools index sorted.bam                # creates sorted.bam.bai
+    ```bash
+    # BAM: sort and index
+    samtools sort input.bam -o sorted.bam
+    samtools index sorted.bam                # creates sorted.bam.bai
 
-# CRAM: sort and index
-samtools sort input.cram -o sorted.cram --reference ref.fa
-samtools index sorted.cram               # creates sorted.cram.crai
+    # CRAM: sort and index
+    samtools sort input.cram -o sorted.cram --reference ref.fa
+    samtools index sorted.cram               # creates sorted.cram.crai
 
-# VCF: sort, compress, and index
-bcftools sort input.vcf -Oz -o sorted.vcf.gz
-bcftools index -t sorted.vcf.gz          # creates sorted.vcf.gz.tbi
+    # VCF: sort, compress, and index
+    bcftools sort input.vcf -Oz -o sorted.vcf.gz
+    bcftools index -t sorted.vcf.gz          # creates sorted.vcf.gz.tbi
 
-# GFF: sort, compress, and index
-(grep "^#" input.gff; grep -v "^#" input.gff | sort -k1,1 -k4,4n) | bgzip > sorted.gff.gz
-tabix -p gff sorted.gff.gz               # creates sorted.gff.gz.tbi
-```
+    # GFF: sort, compress, and index
+    (grep "^#" input.gff; grep -v "^#" input.gff | sort -k1,1 -k4,4n) | bgzip > sorted.gff.gz
+    tabix -p gff sorted.gff.gz               # creates sorted.gff.gz.tbi
+
+    # FASTQ: BGZF compress and create GZI index for parallel reads
+    bgzip reads.fastq                         # creates reads.fastq.bgz
+    bgzip -r reads.fastq.bgz                 # creates reads.fastq.bgz.gzi
+    ```
 
 
 ## File Output
@@ -707,6 +722,7 @@ polars-bio supports writing DataFrames back to bioinformatic file formats. Two m
 | [BAM](api.md#polars_bio.data_output.write_bam) | :white_check_mark: | :white_check_mark: | BGZF (built-in) | Binary alignment format |
 | [SAM](api.md#polars_bio.data_output.write_sam) | :white_check_mark: | :white_check_mark: | None | Plain text alignment format |
 | [CRAM](api.md#polars_bio.data_output.write_cram) | :white_check_mark: | :white_check_mark: | Built-in | Requires reference FASTA |
+| [FASTQ](api.md#polars_bio.data_output.write_fastq) | :white_check_mark: | :white_check_mark: | `.fastq.gz`, `.fastq.bgz` | Auto-detected from extension |
 
 ### Basic Usage
 
@@ -768,29 +784,34 @@ pb.sink_cram(lf, "output.cram", reference_path="reference.fa", sort_on_write=Tru
 !!! warning
     The `reference_path` parameter is **required** for `write_cram()` and `sink_cram()`. Attempting to write CRAM without a reference will raise an error.
 
-### VCF Compression
+### Output Compression
 
-VCF output compression is auto-detected from the file extension:
+Output compression is auto-detected from the file extension for VCF and FASTQ formats:
 
 | Extension | Compression |
 |-----------|-------------|
-| `.vcf` | None (plain text) |
-| `.vcf.gz` | GZIP |
-| `.vcf.bgz` | BGZF (block gzip) |
+| `.vcf` / `.fastq` | None (plain text) |
+| `.vcf.gz` / `.fastq.gz` | GZIP |
+| `.vcf.bgz` / `.fastq.bgz` | BGZF (block gzip) |
 
 ```python
 import polars_bio as pb
 
+# VCF
 df = pb.read_vcf("variants.vcf")
+pb.write_vcf(df, "output.vcf")        # plain text
+pb.write_vcf(df, "output.vcf.gz")     # GZIP
+pb.write_vcf(df, "output.vcf.bgz")    # BGZF (recommended for indexing)
 
-# Plain text VCF
-pb.write_vcf(df, "output.vcf")
+# FASTQ
+df = pb.read_fastq("reads.fastq")
+pb.write_fastq(df, "output.fastq")       # plain text
+pb.write_fastq(df, "output.fastq.gz")    # GZIP
+pb.write_fastq(df, "output.fastq.bgz")   # BGZF (recommended for parallel reads with GZI index)
 
-# GZIP compressed
-pb.write_vcf(df, "output.vcf.gz")
-
-# BGZF compressed (recommended for indexing)
-pb.write_vcf(df, "output.vcf.bgz")
+# Streaming write
+lf = pb.scan_fastq("large_reads.fastq.gz")
+pb.sink_fastq(lf.limit(1000), "sample.fastq")
 ```
 
 ### Header Preservation
@@ -829,6 +850,7 @@ df.pb.write_bam("output.bam", sort_on_write=True)
 df.pb.write_sam("output.sam")
 df.pb.write_cram("output.cram", reference_path="ref.fa")
 df.pb.write_vcf("output.vcf.bgz")
+df.pb.write_fastq("output.fastq.gz")
 
 # LazyFrame extensions
 lf = pb.scan_bam("input.bam")
@@ -836,6 +858,7 @@ lf.pb.sink_bam("output.bam", sort_on_write=True)
 lf.pb.sink_sam("output.sam")
 lf.pb.sink_cram("output.cram", reference_path="ref.fa")
 lf.pb.sink_vcf("output.vcf.bgz")
+lf.pb.sink_fastq("output.fastq.bgz")
 ```
 
 
@@ -1145,8 +1168,8 @@ Parallellism can be controlled using the `datafusion.execution.target_partitions
    ```
 
 ## Compression
-*polars-bio* supports **GZIP** ( default file extension `*.gz`) and **Block GZIP** (BGZIP, default file extension `*.bgz`) when reading files from local and cloud storages.
-For BGZIP-compressed FASTQ files, parallel decoding of compressed blocks is **automatic** — the optimal read strategy (BGZF parallel, byte-range parallel for uncompressed, or sequential fallback) is detected based on the file type and index availability. When `target_partitions > 1` and a **GZI index** (`.gzi`) is present alongside the BGZF file, parallel reads are used automatically. A GZI index can be created with `bgzip -r reads.fastq.bgz`. Please take a look at the following [GitHub discussion](https://github.com/biodatageeks/polars-bio/issues/132).
+*polars-bio* supports **GZIP** (default file extension `*.gz`) and **Block GZIP** (BGZIP, default file extension `*.bgz`) when reading files from local and cloud storages.
+For BGZIP-compressed FASTQ files, parallel decoding of compressed blocks is **automatic** — see [Automatic parallel partitioning](#automatic-parallel-partitioning) and [Index file generation](#index-file-generation) for details. Please take a look at the following [GitHub discussion](https://github.com/biodatageeks/polars-bio/issues/132).
 
 
 ## DataFrames support
