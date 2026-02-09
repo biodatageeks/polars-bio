@@ -13,20 +13,20 @@ from polars_bio.polars_bio import RangeOp
 from tests._expected import DATA_DIR
 
 
-def extract_projected_columns_from_plan(plan_str: str) -> List[int]:
-    """Extract projected column indices from DataFusion execution plan.
+def extract_projected_columns_from_plan(plan_str: str) -> List[str]:
+    """Extract projected column names from DataFusion physical execution plan.
 
-    Returns list of column indices that are projected in the plan.
-    Empty list if no projection found or if all columns are projected.
+    Returns list of column names that are projected in the plan.
+    Empty list if no projection found.
+
+    Matches the DisplayAs format from datafusion-bio-formats PR #64, e.g.:
+        VcfExec: projection=[chrom, start]
     """
-    # Look for projection pattern in the optimized logical plan
-    match = re.search(r"projection: Some\(\[(.*?)\]", plan_str)
+    match = re.search(r"(?:Vcf|Bam|Cram)Exec: projection=\[(.*?)\]", plan_str)
     if match:
-        indices_str = match.group(1).strip()
-        if indices_str:
-            # Split by comma and convert to integers
-            indices = [int(idx.strip()) for idx in indices_str.split(",")]
-            return indices
+        cols_str = match.group(1).strip()
+        if cols_str:
+            return [col.strip() for col in cols_str.split(",")]
     return []
 
 
@@ -332,14 +332,10 @@ class TestProjectionPushdown:
                 f"Returned {len(result_cols)} columns, same as total {len(all_columns)}"
             )
 
-    @pytest.mark.skip(
-        reason="DataFusion execution plan introspection requires Tokio runtime - complex to fix, non-critical test"
-    )
     def test_datafusion_execution_plan_projection_validation(self):
         """Test that projection pushdown actually occurs at the DataFusion execution plan level."""
         vcf_path = f"{DATA_DIR}/io/vcf/vep.vcf.bgz"
 
-        # Create DataFusion DataFrames directly to inspect execution plans
         from polars_bio.context import ctx
         from polars_bio.polars_bio import (
             InputFormat,
@@ -350,7 +346,6 @@ class TestProjectionPushdown:
             py_register_table,
         )
 
-        # Setup DataFusion table
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=True,
             enable_request_payer=False,
@@ -372,32 +367,18 @@ class TestProjectionPushdown:
         # Test 1: Full DataFrame (all columns)
         df_full = py_read_table(ctx, table.name)
         full_schema_columns = df_full.schema().names
-        full_plan = str(df_full.optimized_logical_plan())
+        full_plan = str(df_full.execution_plan())
         full_projected = extract_projected_columns_from_plan(full_plan)
-
-        print(f"\nFull DataFrame:")
-        print(f"  Schema columns: {len(full_schema_columns)} - {full_schema_columns}")
-        print(f"  Projected columns: {full_projected}")
 
         # Test 2: Projected DataFrame (selected columns)
         df_projected = df_full.select_columns("chrom", "start")
-        proj_schema_columns = df_projected.schema().names
-        proj_plan = str(df_projected.optimized_logical_plan())
+        proj_plan = str(df_projected.execution_plan())
         proj_projected = extract_projected_columns_from_plan(proj_plan)
-
-        print(f"\nProjected DataFrame:")
-        print(f"  Schema columns: {len(proj_schema_columns)} - {proj_schema_columns}")
-        print(f"  Projected columns: {proj_projected}")
 
         # Validate projection pushdown occurred at DataFusion level
         assert (
             len(full_schema_columns) == 8
         ), f"Expected 8 full columns, got {len(full_schema_columns)}"
-        assert (
-            len(proj_schema_columns) == 2
-        ), f"Expected 2 projected columns, got {len(proj_schema_columns)}"
-
-        # Most importantly: check that DataFusion execution plan shows different projections
         assert (
             len(full_projected) == 8
         ), f"DataFusion should project all 8 columns for full query, but projected {full_projected}"
@@ -405,11 +386,9 @@ class TestProjectionPushdown:
             len(proj_projected) == 2
         ), f"DataFusion should project only 2 columns for projected query, but projected {proj_projected}"
         assert proj_projected == [
-            0,
-            1,
-        ], f"Expected projection [0, 1] (chrom, start), got {proj_projected}"
-
-        print("\nDataFusion execution plan shows proper column projection pushdown!")
+            "chrom",
+            "start",
+        ], f"Expected projection ['chrom', 'start'], got {proj_projected}"
 
         # Verify the projections are different (this is the key test!)
         assert full_projected != proj_projected, (
@@ -460,3 +439,164 @@ class TestProjectionPushdown:
         # The real test is in performance - projection pushdown should be faster
         # But we can't easily test that in unit tests without timing, which is unreliable
         # The important validation is that we get the same correct results
+
+    def test_bam_projection_correctness(self):
+        """Test that BAM projection pushdown returns correct data for selected columns."""
+        bam_path = f"{DATA_DIR}/io/bam/test.bam"
+
+        result_full = pb.scan_bam(bam_path, projection_pushdown=True).collect()
+        result_projected = (
+            pb.scan_bam(bam_path, projection_pushdown=True)
+            .select(["name", "chrom"])
+            .collect()
+        )
+
+        assert result_projected.columns == ["name", "chrom"]
+        assert len(result_projected) == len(result_full)
+        assert result_projected["name"].equals(result_full["name"])
+        assert result_projected["chrom"].equals(result_full["chrom"])
+
+    def test_cram_projection_correctness(self):
+        """Test that CRAM projection pushdown returns correct data for selected columns."""
+        cram_path = f"{DATA_DIR}/io/cram/test.cram"
+
+        result_full = pb.scan_cram(cram_path, projection_pushdown=True).collect()
+        result_projected = (
+            pb.scan_cram(cram_path, projection_pushdown=True)
+            .select(["name", "chrom"])
+            .collect()
+        )
+
+        assert result_projected.columns == ["name", "chrom"]
+        assert len(result_projected) == len(result_full)
+        assert result_projected["name"].equals(result_full["name"])
+        assert result_projected["chrom"].equals(result_full["chrom"])
+
+    def test_count_star_bam(self):
+        """Test COUNT(*) on BAM — empty projection path works correctly (PR #64 fix)."""
+        from polars_bio.context import ctx
+        from polars_bio.polars_bio import (
+            BamReadOptions,
+            InputFormat,
+            ReadOptions,
+            py_read_sql,
+            py_register_table,
+        )
+
+        bam_path = f"{DATA_DIR}/io/bam/test.bam"
+        read_options = ReadOptions(bam_read_options=BamReadOptions())
+        table = py_register_table(ctx, bam_path, None, InputFormat.Bam, read_options)
+        result = py_read_sql(ctx, f"SELECT COUNT(*) FROM {table.name}")
+        count = result.to_pydict()["count(*)"][0]
+        assert count == 2333, f"BAM COUNT(*) expected 2333, got {count}"
+
+    def test_count_star_cram(self):
+        """Test COUNT(*) on CRAM — empty projection path works correctly (PR #64 fix)."""
+        from polars_bio.context import ctx
+        from polars_bio.polars_bio import (
+            CramReadOptions,
+            InputFormat,
+            ReadOptions,
+            py_read_sql,
+            py_register_table,
+        )
+
+        cram_path = f"{DATA_DIR}/io/cram/test.cram"
+        read_options = ReadOptions(cram_read_options=CramReadOptions())
+        table = py_register_table(ctx, cram_path, None, InputFormat.Cram, read_options)
+        result = py_read_sql(ctx, f"SELECT COUNT(*) FROM {table.name}")
+        count = result.to_pydict()["count(*)"][0]
+        assert count == 2333, f"CRAM COUNT(*) expected 2333, got {count}"
+
+    def test_count_star_vcf(self):
+        """Test COUNT(*) on VCF — empty projection path works correctly (PR #64 fix)."""
+        from polars_bio.context import ctx
+        from polars_bio.polars_bio import (
+            InputFormat,
+            ReadOptions,
+            VcfReadOptions,
+            py_read_sql,
+            py_register_table,
+        )
+
+        vcf_path = f"{DATA_DIR}/io/vcf/vep.vcf.bgz"
+        read_options = ReadOptions(vcf_read_options=VcfReadOptions())
+        table = py_register_table(ctx, vcf_path, None, InputFormat.Vcf, read_options)
+        result = py_read_sql(ctx, f"SELECT COUNT(*) FROM {table.name}")
+        count = result.to_pydict()["count(*)"][0]
+        assert count == 2, f"VCF COUNT(*) expected 2, got {count}"
+
+    def test_explain_plan_bam_projection(self):
+        """Test that BAM physical plan shows parsing-level projection pushdown."""
+        from polars_bio.context import ctx
+        from polars_bio.polars_bio import (
+            BamReadOptions,
+            InputFormat,
+            ReadOptions,
+            py_read_table,
+            py_register_table,
+        )
+
+        bam_path = f"{DATA_DIR}/io/bam/test.bam"
+        read_options = ReadOptions(bam_read_options=BamReadOptions())
+        table = py_register_table(ctx, bam_path, None, InputFormat.Bam, read_options)
+
+        df = py_read_table(ctx, table.name)
+        df_proj = df.select_columns("name", "chrom")
+        plan = str(df_proj.execution_plan())
+
+        projected = extract_projected_columns_from_plan(plan)
+        assert projected == [
+            "name",
+            "chrom",
+        ], f"BamExec should show projection=[name, chrom], got {projected}"
+
+    def test_explain_plan_cram_projection(self):
+        """Test that CRAM physical plan shows parsing-level projection pushdown."""
+        from polars_bio.context import ctx
+        from polars_bio.polars_bio import (
+            CramReadOptions,
+            InputFormat,
+            ReadOptions,
+            py_read_table,
+            py_register_table,
+        )
+
+        cram_path = f"{DATA_DIR}/io/cram/test.cram"
+        read_options = ReadOptions(cram_read_options=CramReadOptions())
+        table = py_register_table(ctx, cram_path, None, InputFormat.Cram, read_options)
+
+        df = py_read_table(ctx, table.name)
+        df_proj = df.select_columns("name", "chrom")
+        plan = str(df_proj.execution_plan())
+
+        projected = extract_projected_columns_from_plan(plan)
+        assert projected == [
+            "name",
+            "chrom",
+        ], f"CramExec should show projection=[name, chrom], got {projected}"
+
+    def test_explain_plan_vcf_projection(self):
+        """Test that VCF physical plan shows parsing-level projection pushdown."""
+        from polars_bio.context import ctx
+        from polars_bio.polars_bio import (
+            InputFormat,
+            ReadOptions,
+            VcfReadOptions,
+            py_read_table,
+            py_register_table,
+        )
+
+        vcf_path = f"{DATA_DIR}/io/vcf/vep.vcf.bgz"
+        read_options = ReadOptions(vcf_read_options=VcfReadOptions())
+        table = py_register_table(ctx, vcf_path, None, InputFormat.Vcf, read_options)
+
+        df = py_read_table(ctx, table.name)
+        df_proj = df.select_columns("chrom", "start")
+        plan = str(df_proj.execution_plan())
+
+        projected = extract_projected_columns_from_plan(plan)
+        assert projected == [
+            "chrom",
+            "start",
+        ], f"VcfExec should show projection=[chrom, start], got {projected}"

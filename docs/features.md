@@ -525,9 +525,9 @@ For bioinformatic format there are always three methods available: `read_*` (eag
 | Format                                           | Single-threaded    | Parallel (indexed) | Limit pushdown     | Predicate pushdown | Projection pushdown |
 |--------------------------------------------------|--------------------|--------------------|--------------------|--------------------|---------------------|
 | [BED](api.md#polars_bio.data_input.read_bed)     | :white_check_mark: | ❌                  | :white_check_mark: | ❌                  | ❌                   |
-| [VCF](api.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :construction: |
-| [BAM](api.md#polars_bio.data_input.read_bam)     | :white_check_mark: | :white_check_mark: (BAI/CSI) | :white_check_mark: | :white_check_mark: |  ❌  |
-| [CRAM](api.md#polars_bio.data_input.read_cram)   | :white_check_mark: | :white_check_mark: (CRAI) | :white_check_mark: | :white_check_mark: |  ❌  |
+| [VCF](api.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [BAM](api.md#polars_bio.data_input.read_bam)     | :white_check_mark: | :white_check_mark: (BAI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [CRAM](api.md#polars_bio.data_input.read_cram)   | :white_check_mark: | :white_check_mark: (CRAI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | [FASTQ](api.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: (GZI) | :white_check_mark: |  ❌  |  ❌   |
 | [FASTA](api.md#polars_bio.data_input.read_fasta) | :white_check_mark: |  ❌  | :white_check_mark: |  ❌  |  ❌   |
 | [GFF3](api.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
@@ -678,6 +678,47 @@ df = (
     .collect()
 )
 ```
+
+#### Projection pushdown
+
+BAM, CRAM, and VCF formats support **parsing-level projection pushdown**. When you select a subset of columns, unprojected fields are skipped entirely during record parsing — no string formatting, sequence decoding, map lookups, or memory allocation for those fields. This can significantly reduce I/O and CPU time, especially for wide schemas like BAM (11+ columns) where you only need a few fields.
+
+Projection pushdown is enabled via `projection_pushdown=True` on `scan_*`/`read_*` calls:
+
+```python
+import polars_bio as pb
+
+# Only name and chrom are parsed from each BAM record
+df = (
+    pb.scan_bam("alignments.bam", projection_pushdown=True)
+    .select(["name", "chrom"])
+    .collect()
+)
+
+# Works with SQL too — only referenced columns are parsed
+pb.register_vcf("variants.vcf.gz", "variants")
+result = pb.sql("SELECT chrom, start FROM variants").collect()
+```
+
+You can verify pushdown is active by inspecting the physical execution plan:
+
+```python
+from polars_bio.context import ctx
+from polars_bio.polars_bio import (
+    InputFormat, ReadOptions, BamReadOptions,
+    py_register_table, py_read_table,
+)
+
+read_options = ReadOptions(bam_read_options=BamReadOptions())
+table = py_register_table(ctx, "alignments.bam", None, InputFormat.Bam, read_options)
+df = py_read_table(ctx, table.name).select_columns("name", "chrom")
+print(df.execution_plan())
+# CooperativeExec
+#   BamExec: projection=[name, chrom]    <-- only 2 of 11 columns parsed
+```
+
+!!! tip
+    `COUNT(*)` queries also benefit — when no columns are needed, the empty projection path avoids parsing any fields while still counting records correctly.
 
 #### Index file generation
 
