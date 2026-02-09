@@ -248,25 +248,25 @@ testing = ["pandas", "pytest", "pytest-cov", "scipy", "setuptools"]
 
 [[package]]
 name = "bioframe"
-version = "0.7.2"
+version = "0.8.0"
 description = "Operations and utilities for Genomic Interval Dataframes."
 optional = false
-python-versions = "*"
+python-versions = ">=3.8"
 groups = ["main", "dev"]
 files = [
-    {file = "bioframe-0.7.2-py2.py3-none-any.whl", hash = "sha256:ee5aa0ee00cdd997aa304d7527b42563d6a0af5fd7eedf22da2224e6848dc3c8"},
-    {file = "bioframe-0.7.2.tar.gz", hash = "sha256:23fa150948fb1f9409a8d608c94f222fd2e144c8f1ac965879517d5e87d2c598"},
+    {file = "bioframe-0.8.0-py3-none-any.whl", hash = "sha256:5db243f74cd2deafbf3b664e0cfd6e9d5e736e01143747aa52d99409c8315574"},
+    {file = "bioframe-0.8.0.tar.gz", hash = "sha256:ea87d7c3f26235bf35396d41bbdcddd21fe7434f7406f8182a67aad241b96fa2"},
 ]
 
 [package.dependencies]
 matplotlib = "*"
-numpy = ">=1.10,<2"
+numpy = ">=1.10,<3"
 pandas = ">=1.3"
 pyyaml = "*"
 requests = "*"
 
 [package.extras]
-dev = ["biopython", "pybbi", "pysam", "pytest", "ruff"]
+dev = ["biopython", "pre-commit", "pybbi", "pysam", "pytest", "ruff"]
 docs = ["autodocsumm", "jinja2", "myst-nb", "sphinx", "sphinx-autobuild", "sphinx-rtd-theme"]
 test = ["pytest"]
 
@@ -756,6 +756,26 @@ files = [
 
 [package.extras]
 test = ["pytest"]
+
+[[package]]
+name = "compressed-lists"
+version = "0.4.4"
+description = "Memory-efficient container for list-like objects"
+optional = false
+python-versions = ">=3.9"
+groups = ["dev"]
+files = [
+    {file = "compressed_lists-0.4.4-py3-none-any.whl", hash = "sha256:91f63a19ced64b954c7023b28e29f1c7577e04d3b71247af2ae2e7b578ca043e"},
+    {file = "compressed_lists-0.4.4.tar.gz", hash = "sha256:f4e55978d9b7247ccfc6c98ef37cee757083325a9a6cdc5c8e98e0e23481fe06"},
+]
+
+[package.dependencies]
+biocframe = ">=0.7.2"
+biocutils = ">=0.3.3"
+numpy = "*"
+
+[package.extras]
+testing = ["pytest", "pytest-cov", "setuptools"]
 
 [[package]]
 name = "contourpy"
@@ -1321,20 +1341,21 @@ files = [
 
 [[package]]
 name = "genomicranges"
-version = "0.5.2"
+version = "0.8.4"
 description = "Container class to represent and operate over genomic regions and annotations."
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "GenomicRanges-0.5.2-py3-none-any.whl", hash = "sha256:d89cd90f060205b111258bdec1a3bd58d664539f0022c988dd785f4639cf3ee3"},
-    {file = "genomicranges-0.5.2.tar.gz", hash = "sha256:8d3293447ace5e9bbe6bf18a8df1950359c9a4dd06471e72bec73c4607bfccb1"},
+    {file = "genomicranges-0.8.4-py3-none-any.whl", hash = "sha256:4136c237ac01a653c9ed48797f3c1d70c9b84ac33fe409d4bff9226fe5ddbf64"},
+    {file = "genomicranges-0.8.4.tar.gz", hash = "sha256:0143ef28ff4dc801a93becc9ec9fc63a4327e98ef30419245662b9067b244578"},
 ]
 
 [package.dependencies]
-biocframe = ">=0.5.11"
-biocutils = ">=0.1.3"
-iranges = {version = ">=0.2.12,<0.4.0", extras = ["optional"]}
+biocframe = ">=0.7.1"
+biocutils = ">=0.3.3"
+compressed_lists = ">=0.4.3"
+iranges = ">=0.7.2"
 numpy = "*"
 
 [package.extras]
@@ -1737,27 +1758,36 @@ test = ["ipykernel", "jsonschema", "pytest (>=3.6.0)", "pytest-cov", "pytz"]
 
 [[package]]
 name = "iranges"
-version = "0.3.0"
+version = "0.7.2"
 description = "Python implementation of the [**IRanges**](https://bioconductor.org/packages/IRanges) Bioconductor package."
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "IRanges-0.3.0-py3-none-any.whl", hash = "sha256:ab2c0cfc84e40defc391b9cd2cdcfa3ef916f67d0dca06d9e9bc326d300b2de5"},
-    {file = "iranges-0.3.0.tar.gz", hash = "sha256:096399c9f4d3edc4f0660937d11b0be9d2c5a941d8e56cbd502aa90e4746ae18"},
+    {file = "iranges-0.7.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:03d948397cf31bb9ddc12c584c066da5d6bd6f15d1c0968f930d13e7604c421d"},
+    {file = "iranges-0.7.2-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:74db3544dfb8da87dc7d5b3946b7b336ed3ee2a934eecc7f5fe7eeacbe285e7e"},
+    {file = "iranges-0.7.2-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:e6637b93e407f2dfc6b303114aa09e2c27b3b27ff5e6d394de1f51c2f8e82a92"},
+    {file = "iranges-0.7.2-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:e39cd2f6dca739ea6e742812b8fc82686b142fa3c56ef34af68d338a748c551f"},
+    {file = "iranges-0.7.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ff293fec866882bb4f8afc335b4cbd63d36a9f0d6d33eb8c297d6d25d2bfc774"},
+    {file = "iranges-0.7.2-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:3b7ab52c1325b752cbba8ae16448bd5bcb6718236766dadc9af4c626379795d7"},
+    {file = "iranges-0.7.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:44d56bd857ec324cd9f7cbf2e86e7ea28724394aa84b953196658f148cc4f3ba"},
+    {file = "iranges-0.7.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c967e54f78415d1ce53412b15fed02290f74ee7b4b9f2bc82bf9de98fe6983ee"},
+    {file = "iranges-0.7.2-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:4f4469987ad9d4c278eba97ec0505487a9542a989bea08ee3383716fb278e5a4"},
+    {file = "iranges-0.7.2-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:5885698d3ed6d1ac08668a4a145c114d194b7fe5d40cf75a46357b277ba20a23"},
+    {file = "iranges-0.7.2-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:72582524b3dacfc946efed6d09878a27478957b9dda37ad2bf52d82d042d0b59"},
+    {file = "iranges-0.7.2-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:4ed30ec4e066961b2fed57e54067dc376ce254c638f92b65292e28b0d1599e67"},
+    {file = "iranges-0.7.2.tar.gz", hash = "sha256:25c2f6049698fd4aafa8ae31a738f53f3c33b5bd5a1c32e108c1ac6583debbe3"},
 ]
 
 [package.dependencies]
-biocframe = ">=0.5.11"
-biocutils = ">=0.1.4"
-ncls = "0.0.68"
+biocframe = ">=0.7.2"
+biocutils = ">=0.3.3"
+compressed_lists = ">=0.4.3"
 numpy = "*"
-pandas = {version = "*", optional = true, markers = "extra == \"optional\""}
-polars = {version = "*", optional = true, markers = "extra == \"optional\""}
 
 [package.extras]
-optional = ["numpy", "pandas", "polars"]
-testing = ["biocframe", "biocutils", "ncls (==0.0.68)", "numpy", "pandas", "polars", "pytest", "pytest-cov", "setuptools"]
+optional = ["pandas", "polars"]
+testing = ["pandas", "polars", "pytest", "pytest-cov", "setuptools"]
 
 [[package]]
 name = "isoduration"
@@ -4028,7 +4058,7 @@ version = "1.37.1"
 description = "Blazingly fast DataFrame library"
 optional = false
 python-versions = ">=3.10"
-groups = ["main", "dev"]
+groups = ["main"]
 files = [
     {file = "polars-1.37.1-py3-none-any.whl", hash = "sha256:377fed8939a2f1223c1563cfabdc7b4a3d6ff846efa1f2ddeb8644fafd9b1aff"},
     {file = "polars-1.37.1.tar.gz", hash = "sha256:0309e2a4633e712513401964b4d95452f124ceabf7aec6db50affb9ced4a274e"},
@@ -4089,7 +4119,7 @@ version = "1.37.1"
 description = "Blazingly fast DataFrame library"
 optional = false
 python-versions = ">=3.10"
-groups = ["main", "dev"]
+groups = ["main"]
 files = [
     {file = "polars_runtime_32-1.37.1-cp310-abi3-macosx_10_12_x86_64.whl", hash = "sha256:0b8d4d73ea9977d3731927740e59d814647c5198bdbe359bcf6a8bfce2e79771"},
     {file = "polars_runtime_32-1.37.1-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:c682bf83f5f352e5e02f5c16c652c48ca40442f07b236f30662b22217320ce76"},
@@ -4282,17 +4312,18 @@ test = ["cffi", "hypothesis", "pandas", "pytest", "pytz"]
 
 [[package]]
 name = "pybedtools"
-version = "0.10.0"
+version = "0.12.0"
 description = "Wrapper around BEDTools for bioinformatics work"
 optional = false
 python-versions = "*"
 groups = ["dev"]
 files = [
-    {file = "pybedtools-0.10.0.tar.gz", hash = "sha256:1a6fbaad23b013becc741d7d5922a2df03e391bc44ff92772ffb7dd456711161"},
+    {file = "pybedtools-0.12.0.tar.gz", hash = "sha256:8786ec9f6579c81363c00b437344438df79cf128860e5cae2466926181547249"},
 ]
 
 [package.dependencies]
 numpy = "*"
+pandas = "*"
 pysam = "*"
 
 [[package]]
@@ -4478,7 +4509,7 @@ version = "0.23.3"
 description = "Package for reading, manipulating, and writing genomic data"
 optional = false
 python-versions = ">=3.8"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "pysam-0.23.3-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:a0b99d875f293fad0bd9c9c923e8910c03af62d291ebb7d20e69ceaf39e383d4"},
     {file = "pysam-0.23.3-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:725a32970cf4ce322f4ab2a52b755163297027a0349f0d151537fe16bdf525e5"},
@@ -4518,6 +4549,7 @@ files = [
     {file = "pysam-0.23.3-cp39-cp39-musllinux_1_2_x86_64.whl", hash = "sha256:7ddbf573f0d3c650a03f2dcb4cdce50d536d380dbbc692f434b1cfa0cd7da4d2"},
     {file = "pysam-0.23.3.tar.gz", hash = "sha256:9ebcb1f004b296fd139b103ec6fd7e415e80f89f194eb7d0d972ac6d11bbaf24"},
 ]
+markers = {main = "extra == \"test\""}
 
 [[package]]
 name = "pytest"
@@ -5752,9 +5784,10 @@ test = ["pytest"]
 
 [extras]
 pandas = ["pandas"]
+test = ["pysam"]
 viz = ["bioframe", "matplotlib"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.14"
-content-hash = "388a502dc662fd09d77354d5a3a76af99b033ddc4dcb1fbf1116bf45e6eb39b1"
+content-hash = "efd837ad9d587bb4cf622dcac561cf02f9026b34fc2152fc1c3722c1bc9b1ec2"
