@@ -1,6 +1,6 @@
 [package]
 name = "polars_bio"
-version = "0.20.1"
+version = "0.21.0"
 edition = "2021"
 
 [lib]
@@ -25,14 +25,14 @@ log = "0.4.22"
 tracing = { version = "0.1.41", features = ["log"] }
 futures-util = "0.3.31"
 
-datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "84605fcd03bf570db141400bbf5a78ae7e7f0d35" }
-datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "84605fcd03bf570db141400bbf5a78ae7e7f0d35" }
-datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "84605fcd03bf570db141400bbf5a78ae7e7f0d35" }
-datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "84605fcd03bf570db141400bbf5a78ae7e7f0d35" }
-datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "84605fcd03bf570db141400bbf5a78ae7e7f0d35" }
-datafusion-bio-format-cram = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "84605fcd03bf570db141400bbf5a78ae7e7f0d35" }
-datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "84605fcd03bf570db141400bbf5a78ae7e7f0d35" }
-datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "84605fcd03bf570db141400bbf5a78ae7e7f0d35" }
+datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "621c8119b1b37f8ab498c0ce04d35731dc6da5cd" }
+datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "621c8119b1b37f8ab498c0ce04d35731dc6da5cd" }
+datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "621c8119b1b37f8ab498c0ce04d35731dc6da5cd" }
+datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "621c8119b1b37f8ab498c0ce04d35731dc6da5cd" }
+datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "621c8119b1b37f8ab498c0ce04d35731dc6da5cd" }
+datafusion-bio-format-cram = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "621c8119b1b37f8ab498c0ce04d35731dc6da5cd" }
+datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "621c8119b1b37f8ab498c0ce04d35731dc6da5cd" }
+datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "621c8119b1b37f8ab498c0ce04d35731dc6da5cd" }
 
 
 async-trait = "0.1.86"
