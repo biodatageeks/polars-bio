@@ -695,6 +695,9 @@ df = (
     .collect()
 )
 
+# Works the same for CRAM and VCF
+df = pb.scan_cram("alignments.cram").select(["name", "chrom"]).collect()
+
 # Works with SQL too — only referenced columns are parsed
 pb.register_vcf("variants.vcf.gz", "variants")
 result = pb.sql("SELECT chrom, start FROM variants").collect()
