@@ -462,7 +462,7 @@ async fn write_fastq_streaming(
 ) -> Result<u64, DataFusionError> {
     // Create FASTQ table provider - it doesn't need special write constructor
     // since the schema is fixed (name, description, sequence, quality_scores)
-    let provider = FastqTableProvider::new(path.to_string(), None, None)?;
+    let provider = FastqTableProvider::new(path.to_string(), None)?;
 
     // Execute streaming write via insert_into
     execute_streaming_write(ctx, df, Arc::new(provider)).await

@@ -53,13 +53,13 @@ class TestParallelFastq:
     def test_read_parallel_fastq(self, partitions):
         pb.set_option("datafusion.execution.target_partitions", str(partitions))
         df = pb.read_fastq(
-            f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz", parallel=True
+            f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz",
         )
         assert len(df) == 2000
 
     def test_read_parallel_fastq_with_limit(self):
         lf = pb.scan_fastq(
-            f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz", parallel=True
+            f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz",
         ).limit(10)
         print(lf.explain())
         df = lf.collect()

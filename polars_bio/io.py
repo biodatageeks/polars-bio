@@ -243,6 +243,12 @@ class IOOperations:
         """
         Read a VCF file into a DataFrame.
 
+        !!! hint "Parallelism & Indexed Reads"
+            Indexed parallel reads and predicate pushdown are automatic when a TBI/CSI index
+            is present. See [File formats support](/polars-bio/features/#file-formats-support),
+            [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
+            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
+
         Parameters:
             path: The path to the VCF file.
             info_fields: List of INFO field names to include. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit fields for better performance.
@@ -330,6 +336,12 @@ class IOOperations:
     ) -> pl.LazyFrame:
         """
         Lazily read a VCF file into a LazyFrame.
+
+        !!! hint "Parallelism & Indexed Reads"
+            Indexed parallel reads and predicate pushdown are automatic when a TBI/CSI index
+            is present. See [File formats support](/polars-bio/features/#file-formats-support),
+            [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
+            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
 
         Parameters:
             path: The path to the VCF file.
@@ -554,6 +566,12 @@ class IOOperations:
         """
         Read a BAM file into a DataFrame.
 
+        !!! hint "Parallelism & Indexed Reads"
+            Indexed parallel reads and predicate pushdown are automatic when a BAI/CSI index
+            is present. See [File formats support](/polars-bio/features/#file-formats-support),
+            [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
+            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
+
         Parameters:
             path: The path to the BAM file.
             tag_fields: List of BAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
@@ -607,6 +625,12 @@ class IOOperations:
     ) -> pl.LazyFrame:
         """
         Lazily read a BAM file into a LazyFrame.
+
+        !!! hint "Parallelism & Indexed Reads"
+            Indexed parallel reads and predicate pushdown are automatic when a BAI/CSI index
+            is present. See [File formats support](/polars-bio/features/#file-formats-support),
+            [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
+            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
 
         Parameters:
             path: The path to the BAM file.
@@ -667,6 +691,12 @@ class IOOperations:
     ) -> pl.DataFrame:
         """
         Read a CRAM file into a DataFrame.
+
+        !!! hint "Parallelism & Indexed Reads"
+            Indexed parallel reads and predicate pushdown are automatic when a CRAI index
+            is present. See [File formats support](/polars-bio/features/#file-formats-support),
+            [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
+            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
 
         Parameters:
             path: The path to the CRAM file (local or cloud storage: S3, GCS, Azure Blob).
@@ -785,6 +815,12 @@ class IOOperations:
     ) -> pl.LazyFrame:
         """
         Lazily read a CRAM file into a LazyFrame.
+
+        !!! hint "Parallelism & Indexed Reads"
+            Indexed parallel reads and predicate pushdown are automatic when a CRAI index
+            is present. See [File formats support](/polars-bio/features/#file-formats-support),
+            [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
+            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
 
         Parameters:
             path: The path to the CRAM file (local or cloud storage: S3, GCS, Azure Blob).
@@ -1087,11 +1123,15 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        parallel: bool = False,
         projection_pushdown: bool = False,
     ) -> pl.DataFrame:
         """
         Read a FASTQ file into a DataFrame.
+
+        !!! hint "Parallelism & Compression"
+            See [File formats support](/polars-bio/features/#file-formats-support),
+            [Compression](/polars-bio/features/#compression),
+            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details on parallel reads and supported compression types.
 
         Parameters:
             path: The path to the FASTQ file.
@@ -1102,7 +1142,6 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
-            parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
         """
         return IOOperations.scan_fastq(
@@ -1114,7 +1153,6 @@ class IOOperations:
             max_retries,
             timeout,
             compression_type,
-            parallel,
             projection_pushdown,
         ).collect()
 
@@ -1128,11 +1166,15 @@ class IOOperations:
         max_retries: int = 5,
         timeout: int = 300,
         compression_type: str = "auto",
-        parallel: bool = False,
         projection_pushdown: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a FASTQ file into a LazyFrame.
+
+        !!! hint "Parallelism & Compression"
+            See [File formats support](/polars-bio/features/#file-formats-support),
+            [Compression](/polars-bio/features/#compression),
+            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details on parallel reads and supported compression types.
 
         Parameters:
             path: The path to the FASTQ file.
@@ -1143,7 +1185,6 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
-            parallel: Whether to use the parallel reader for BGZF compressed files stored **locally**. GZI index is **required**.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
         """
         object_storage_options = PyObjectStorageOptions(
@@ -1157,7 +1198,7 @@ class IOOperations:
         )
 
         fastq_read_options = FastqReadOptions(
-            object_storage_options=object_storage_options, parallel=parallel
+            object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(fastq_read_options=fastq_read_options)
         return _read_file(path, InputFormat.Fastq, read_options, projection_pushdown)
