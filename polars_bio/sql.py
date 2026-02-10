@@ -9,6 +9,7 @@ from polars_bio.polars_bio import (
     FastqReadOptions,
     GffReadOptions,
     InputFormat,
+    PairsReadOptions,
     PyObjectStorageOptions,
     ReadOptions,
     VcfReadOptions,
@@ -537,6 +538,62 @@ class SQL:
         )
         read_options = ReadOptions(cram_read_options=cram_read_options)
         py_register_table(ctx, path, name, InputFormat.Cram, read_options)
+
+    @staticmethod
+    def register_pairs(
+        path: str,
+        name: Union[str, None] = None,
+        chunk_size: int = 64,
+        concurrent_fetches: int = 8,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+    ) -> None:
+        """
+        Register a Pairs (Hi-C) file as a Datafusion table.
+
+        The Pairs format (4DN project) stores chromatin contact data with columns:
+        readID, chr1, pos1, chr2, pos2, strand1, strand2.
+
+        Parameters:
+            path: The path to the Pairs file (.pairs, .pairs.gz, .pairs.bgz).
+            name: The name of the table. If *None*, the name will be generated automatically from the path.
+            chunk_size: The size in MB of a chunk when reading from an object store.
+            concurrent_fetches: The number of concurrent fetches when reading from an object store.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            compression_type: The compression type. If not specified, it will be detected automatically.
+
+        !!! note
+            Pairs format uses **1-based** coordinate system for pos1 and pos2.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.register_pairs("contacts.pairs.gz", "hic_contacts")
+            pb.sql("SELECT * FROM hic_contacts WHERE chr1 = 'chr1'").collect()
+            ```
+        """
+
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        pairs_read_options = PairsReadOptions(
+            object_storage_options=object_storage_options,
+        )
+        read_options = ReadOptions(pairs_read_options=pairs_read_options)
+        py_register_table(ctx, path, name, InputFormat.Pairs, read_options)
 
     @staticmethod
     def sql(query: str) -> pl.LazyFrame:

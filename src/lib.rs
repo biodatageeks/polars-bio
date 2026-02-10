@@ -29,8 +29,8 @@ use crate::option::{
     pyobject_storage_options_to_object_storage_options, BamReadOptions, BamWriteOptions,
     BedReadOptions, BioTable, CramReadOptions, CramWriteOptions, FastaReadOptions,
     FastqReadOptions, FastqWriteOptions, FilterOp, GffReadOptions, InputFormat, OutputFormat,
-    PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions, VcfWriteOptions,
-    WriteOptions,
+    PairsReadOptions, PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
+    VcfWriteOptions, WriteOptions,
 };
 use crate::scan::{
     maybe_register_table, register_frame, register_frame_from_arrow_stream,
@@ -606,6 +606,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<CramWriteOptions>()?;
     m.add_class::<BedReadOptions>()?;
     m.add_class::<FastaReadOptions>()?;
+    m.add_class::<PairsReadOptions>()?;
     m.add_class::<PyObjectStorageOptions>()?;
     Ok(())
 }

@@ -44,6 +44,11 @@ BAM_UINT32_COLUMNS = {"start", "end", "flags", "mapping_quality", "mate_start"}
 VCF_STRING_COLUMNS = {"chrom", "ref", "alt"}
 VCF_UINT32_COLUMNS = {"start"}
 
+# Pairs (Hi-C)
+PAIRS_STRING_COLUMNS = {"readID", "chr1", "chr2", "strand1", "strand2"}
+PAIRS_UINT32_COLUMNS = {"pos1", "pos2"}
+PAIRS_FLOAT32_COLUMNS: set = set()
+
 # ---------------------------------------------------------------------------
 # Module-level context for the current translation (set by translate_predicate)
 # ---------------------------------------------------------------------------
