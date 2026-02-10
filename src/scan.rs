@@ -29,7 +29,7 @@ use tracing::debug;
 use crate::context::PyBioSessionContext;
 use crate::option::{
     BamReadOptions, BedReadOptions, CramReadOptions, FastaReadOptions, FastqReadOptions,
-    GffReadOptions, InputFormat, ReadOptions, VcfReadOptions,
+    GffReadOptions, InputFormat, PairsReadOptions, ReadOptions, VcfReadOptions,
 };
 
 /// A PartitionStream that yields pre-collected RecordBatches.
@@ -443,11 +443,23 @@ pub(crate) async fn register_table(
                 .expect("Failed to register CRAM table");
         },
         InputFormat::Pairs => {
-            info!("Registering PAIRS table {}", table_name);
-            // Pairs files are local-only; pass None for object_storage_options
-            // to avoid type mismatch between core crate versions.
-            // coordinate_system_zero_based=false because Pairs format is 1-based.
-            let table_provider = PairsTableProvider::new(path.to_string(), None, false).unwrap();
+            let pairs_read_options = match &read_options {
+                Some(options) => match options.clone().pairs_read_options {
+                    Some(pairs_read_options) => pairs_read_options,
+                    _ => PairsReadOptions::default(),
+                },
+                _ => PairsReadOptions::default(),
+            };
+            info!(
+                "Registering PAIRS table {} with options: {:?}",
+                table_name, pairs_read_options
+            );
+            let table_provider = PairsTableProvider::new(
+                path.to_string(),
+                pairs_read_options.object_storage_options.clone(),
+                pairs_read_options.zero_based,
+            )
+            .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register PAIRS table");
         },

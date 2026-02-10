@@ -549,17 +549,21 @@ impl FastaReadOptions {
 #[derive(Clone, Debug)]
 pub struct PairsReadOptions {
     pub object_storage_options: Option<ObjectStorageOptions>,
+    /// If true, output 0-based half-open coordinates; if false (default), 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
 }
 
 #[pymethods]
 impl PairsReadOptions {
     #[new]
-    #[pyo3(signature = (object_storage_options=None))]
-    pub fn new(object_storage_options: Option<PyObjectStorageOptions>) -> Self {
+    #[pyo3(signature = (object_storage_options=None, zero_based=false))]
+    pub fn new(object_storage_options: Option<PyObjectStorageOptions>, zero_based: bool) -> Self {
         PairsReadOptions {
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
+            zero_based,
         }
     }
     #[staticmethod]
@@ -574,6 +578,7 @@ impl PairsReadOptions {
                 timeout: Some(300), // 300 seconds
                 compression_type: Some(CompressionType::AUTO),
             }),
+            zero_based: false,
         }
     }
 }

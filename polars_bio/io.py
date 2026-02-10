@@ -1219,12 +1219,19 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
         Read a Pairs (Hi-C) file into a DataFrame.
 
         The Pairs format (4DN project) stores chromatin contact data with columns:
         readID, chr1, pos1, chr2, pos2, strand1, strand2.
+
+        !!! hint "Parallelism & Indexed Reads"
+            Indexed parallel reads and predicate pushdown are automatic when a TBI index
+            is present. See [File formats support](/polars-bio/features/#file-formats-support)
+            and [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown) for details.
 
         Parameters:
             path: The path to the Pairs file (.pairs, .pairs.gz, .pairs.bgz).
@@ -1236,11 +1243,13 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type. If not specified, it will be detected automatically.
             projection_pushdown: Enable column projection pushdown to optimize query performance.
+            predicate_pushdown: Enable predicate pushdown using index files (TBI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.pairs.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates are filtered client-side. Correctness is always guaranteed.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
-            Pairs format uses **1-based** coordinate system for pos1 and pos2.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
-        return IOOperations.scan_pairs(
+        lf = IOOperations.scan_pairs(
             path,
             chunk_size,
             concurrent_fetches,
@@ -1250,7 +1259,14 @@ class IOOperations:
             timeout,
             compression_type,
             projection_pushdown,
-        ).collect()
+            predicate_pushdown,
+            use_zero_based,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
 
     @staticmethod
     def scan_pairs(
@@ -1263,12 +1279,19 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a Pairs (Hi-C) file into a LazyFrame.
 
         The Pairs format (4DN project) stores chromatin contact data with columns:
         readID, chr1, pos1, chr2, pos2, strand1, strand2.
+
+        !!! hint "Parallelism & Indexed Reads"
+            Indexed parallel reads and predicate pushdown are automatic when a TBI index
+            is present. See [File formats support](/polars-bio/features/#file-formats-support)
+            and [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown) for details.
 
         Parameters:
             path: The path to the Pairs file (.pairs, .pairs.gz, .pairs.bgz).
@@ -1280,9 +1303,11 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type. If not specified, it will be detected automatically.
             projection_pushdown: Enable column projection pushdown to optimize query performance.
+            predicate_pushdown: Enable predicate pushdown using index files (TBI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.pairs.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates are filtered client-side. Correctness is always guaranteed.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
-            Pairs format uses **1-based** coordinate system for pos1 and pos2.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -1294,11 +1319,20 @@ class IOOperations:
             compression_type=compression_type,
         )
 
+        zero_based = _resolve_zero_based(use_zero_based)
         pairs_read_options = PairsReadOptions(
             object_storage_options=object_storage_options,
+            zero_based=zero_based,
         )
         read_options = ReadOptions(pairs_read_options=pairs_read_options)
-        return _read_file(path, InputFormat.Pairs, read_options, projection_pushdown)
+        return _read_file(
+            path,
+            InputFormat.Pairs,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
+        )
 
     @staticmethod
     def read_bed(
