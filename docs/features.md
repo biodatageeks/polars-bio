@@ -531,13 +531,14 @@ For bioinformatic format there are always three methods available: `read_*` (eag
 | [FASTQ](api.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: (GZI) | :white_check_mark: |  ❌  |  ❌   |
 | [FASTA](api.md#polars_bio.data_input.read_fasta) | :white_check_mark: |  ❌  | :white_check_mark: |  ❌  |  ❌   |
 | [GFF3](api.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
+| [Pairs](api.md#polars_bio.data_input.read_pairs) | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 
 
 ### Indexed reads & predicate pushdown
 
-When an index file is present alongside the data file (BAI/CSI for BAM, CRAI for CRAM, TBI/CSI for VCF and GFF), polars-bio can push genomic region filters down to the DataFusion execution layer. This enables **index-based random access** — only the relevant genomic regions are read from disk, dramatically improving performance for selective queries on large files.
+When an index file is present alongside the data file (BAI/CSI for BAM, CRAI for CRAM, TBI/CSI for VCF, GFF, and Pairs), polars-bio can push genomic region filters down to the DataFusion execution layer. This enables **index-based random access** — only the relevant genomic regions are read from disk, dramatically improving performance for selective queries on large files.
 
-Index files are **auto-discovered** by convention. Predicate pushdown is **enabled by default** for BAM, CRAM, VCF, and GFF formats — no extra configuration is needed.
+Index files are **auto-discovered** by convention. Predicate pushdown is **enabled by default** for BAM, CRAM, VCF, GFF, and Pairs formats — no extra configuration is needed.
 
 #### Supported index formats
 
@@ -547,11 +548,12 @@ Index files are **auto-discovered** by convention. Predicate pushdown is **enabl
 | CRAM | CRAI | `sample.cram.crai` |
 | VCF (bgzf) | TBI, CSI | `sample.vcf.gz.tbi`, `sample.vcf.gz.csi` |
 | GFF (bgzf) | TBI, CSI | `sample.gff.gz.tbi`, `sample.gff.gz.csi` |
+| Pairs (bgzf) | TBI, CSI | `contacts.pairs.gz.tbi`, `contacts.pairs.gz.csi` |
 | FASTQ (bgzf) | GZI | `sample.fastq.bgz.gzi` |
 
 #### Usage with the scan/read API
 
-Simply use `.filter()` — predicate pushdown is enabled by default for BAM, CRAM, VCF, and GFF:
+Simply use `.filter()` — predicate pushdown is enabled by default for BAM, CRAM, VCF, GFF, and Pairs:
 
 ```python
 import polars as pl
@@ -681,7 +683,7 @@ df = (
 
 #### Projection pushdown
 
-BAM, CRAM, and VCF formats support **parsing-level projection pushdown**. When you select a subset of columns, unprojected fields are skipped entirely during record parsing — no string formatting, sequence decoding, map lookups, or memory allocation for those fields. This can significantly reduce I/O and CPU time, especially for wide schemas like BAM (11+ columns) where you only need a few fields.
+BAM, CRAM, VCF, and Pairs formats support **parsing-level projection pushdown**. When you select a subset of columns, unprojected fields are skipped entirely during record parsing — no string formatting, sequence decoding, map lookups, or memory allocation for those fields. This can significantly reduce I/O and CPU time, especially for wide schemas like BAM (11+ columns) where you only need a few fields.
 
 Projection pushdown is **enabled by default** (`projection_pushdown=True`) on all `scan_*`/`read_*` calls and range operations. To disable it, pass `projection_pushdown=False`.
 
@@ -744,6 +746,10 @@ print(df.execution_plan())
     # GFF: sort, compress, and index
     (grep "^#" input.gff; grep -v "^#" input.gff | sort -k1,1 -k4,4n) | bgzip > sorted.gff.gz
     tabix -p gff sorted.gff.gz               # creates sorted.gff.gz.tbi
+
+    # Pairs: sort, compress, and index (col 2=chr1, col 3=pos1)
+    sort -k2,2 -k3,3n contacts.pairs | bgzip > contacts.pairs.gz
+    tabix -s 2 -b 3 -e 3 contacts.pairs.gz   # creates contacts.pairs.gz.tbi
 
     # FASTQ: BGZF compress and create GZI index for parallel reads
     bgzip reads.fastq                         # creates reads.fastq.bgz
