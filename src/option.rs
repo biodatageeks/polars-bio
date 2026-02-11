@@ -97,6 +97,7 @@ pub enum InputFormat {
     Bed,
     Gff,
     Gtf,
+    Pairs,
 }
 
 #[pyclass(eq, get_all)]
@@ -121,6 +122,7 @@ impl fmt::Display for InputFormat {
             InputFormat::Gff => "GFF",
             InputFormat::Gtf => "GTF",
             InputFormat::Cram => "CRAM",
+            InputFormat::Pairs => "PAIRS",
         };
         write!(f, "{}", text)
     }
@@ -142,12 +144,14 @@ pub struct ReadOptions {
     pub bed_read_options: Option<BedReadOptions>,
     #[pyo3(get, set)]
     pub fasta_read_options: Option<FastaReadOptions>,
+    #[pyo3(get, set)]
+    pub pairs_read_options: Option<PairsReadOptions>,
 }
 
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None))]
+    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None))]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
         gff_read_options: Option<GffReadOptions>,
@@ -156,6 +160,7 @@ impl ReadOptions {
         cram_read_options: Option<CramReadOptions>,
         bed_read_options: Option<BedReadOptions>,
         fasta_read_options: Option<FastaReadOptions>,
+        pairs_read_options: Option<PairsReadOptions>,
     ) -> Self {
         ReadOptions {
             vcf_read_options,
@@ -165,6 +170,7 @@ impl ReadOptions {
             cram_read_options,
             bed_read_options,
             fasta_read_options,
+            pairs_read_options,
         }
     }
 }
@@ -535,6 +541,44 @@ impl FastaReadOptions {
                 compression_type: Some(CompressionType::AUTO),
             }),
             parallel: true,
+        }
+    }
+}
+
+#[pyclass(name = "PairsReadOptions")]
+#[derive(Clone, Debug)]
+pub struct PairsReadOptions {
+    pub object_storage_options: Option<ObjectStorageOptions>,
+    /// If true, output 0-based half-open coordinates; if false (default), 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+}
+
+#[pymethods]
+impl PairsReadOptions {
+    #[new]
+    #[pyo3(signature = (object_storage_options=None, zero_based=false))]
+    pub fn new(object_storage_options: Option<PyObjectStorageOptions>, zero_based: bool) -> Self {
+        PairsReadOptions {
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
+            zero_based,
+        }
+    }
+    #[staticmethod]
+    pub fn default() -> Self {
+        PairsReadOptions {
+            object_storage_options: Some(ObjectStorageOptions {
+                chunk_size: Some(1024 * 1024), // 1MB
+                concurrent_fetches: Some(4),
+                allow_anonymous: false,
+                enable_request_payer: false,
+                max_retries: Some(5),
+                timeout: Some(300), // 300 seconds
+                compression_type: Some(CompressionType::AUTO),
+            }),
+            zero_based: false,
         }
     }
 }

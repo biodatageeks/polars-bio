@@ -51,6 +51,7 @@ register_bam = data_processing.register_bam
 register_sam = data_processing.register_sam
 register_cram = data_processing.register_cram
 register_bed = data_processing.register_bed
+register_pairs = data_processing.register_pairs
 register_view = data_processing.register_view
 
 sql = data_processing.sql
@@ -70,6 +71,7 @@ read_vcf = data_input.read_vcf
 read_fastq = data_input.read_fastq
 read_bed = data_input.read_bed
 read_fasta = data_input.read_fasta
+read_pairs = data_input.read_pairs
 scan_bam = data_input.scan_bam
 scan_sam = data_input.scan_sam
 scan_cram = data_input.scan_cram
@@ -77,6 +79,7 @@ scan_bed = data_input.scan_bed
 scan_fasta = data_input.scan_fasta
 scan_fastq = data_input.scan_fastq
 scan_gff = data_input.scan_gff
+scan_pairs = data_input.scan_pairs
 scan_table = data_input.scan_table
 scan_vcf = data_input.scan_vcf
 write_vcf = data_input.write_vcf
@@ -136,6 +139,7 @@ __all__ = [
     "read_bed",
     "read_fasta",
     "read_fastq",
+    "read_pairs",
     "read_gff",
     "read_table",
     "read_vcf",
@@ -146,6 +150,7 @@ __all__ = [
     "scan_fasta",
     "scan_fastq",
     "scan_gff",
+    "scan_pairs",
     "scan_table",
     "scan_vcf",
     "write_vcf",
@@ -165,6 +170,7 @@ __all__ = [
     "register_sam",
     "register_cram",
     "register_bed",
+    "register_pairs",
     "register_view",
     "sql",
     "overlap",

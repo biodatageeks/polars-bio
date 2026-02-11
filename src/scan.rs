@@ -19,6 +19,7 @@ use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
+use datafusion_bio_format_pairs::table_provider::PairsTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
 use futures::Stream;
 use log::info;
@@ -28,7 +29,7 @@ use tracing::debug;
 use crate::context::PyBioSessionContext;
 use crate::option::{
     BamReadOptions, BedReadOptions, CramReadOptions, FastaReadOptions, FastqReadOptions,
-    GffReadOptions, InputFormat, ReadOptions, VcfReadOptions,
+    GffReadOptions, InputFormat, PairsReadOptions, ReadOptions, VcfReadOptions,
 };
 
 /// A PartitionStream that yields pre-collected RecordBatches.
@@ -256,6 +257,11 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         InputFormat::Cram
     } else if path.ends_with(".sam") {
         InputFormat::Sam
+    } else if path.ends_with(".pairs")
+        || path.ends_with(".pairs.gz")
+        || path.ends_with(".pairs.bgz")
+    {
+        InputFormat::Pairs
     } else {
         panic!("Unsupported format")
     }
@@ -435,6 +441,27 @@ pub(crate) async fn register_table(
             .expect("Failed to create CRAM table provider. Check that the file exists and requested tags are valid.");
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register CRAM table");
+        },
+        InputFormat::Pairs => {
+            let pairs_read_options = match &read_options {
+                Some(options) => match options.clone().pairs_read_options {
+                    Some(pairs_read_options) => pairs_read_options,
+                    _ => PairsReadOptions::default(),
+                },
+                _ => PairsReadOptions::default(),
+            };
+            info!(
+                "Registering PAIRS table {} with options: {:?}",
+                table_name, pairs_read_options
+            );
+            let table_provider = PairsTableProvider::new(
+                path.to_string(),
+                pairs_read_options.object_storage_options.clone(),
+                pairs_read_options.zero_based,
+            )
+            .unwrap();
+            ctx.register_table(table_name, Arc::new(table_provider))
+                .expect("Failed to register PAIRS table");
         },
         InputFormat::Gtf => {
             todo!("Gtf format is not supported")
