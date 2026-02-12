@@ -843,7 +843,7 @@ async fn execute_cram_streaming_write(
     Ok(total_rows)
 }
 
-/// Extract tag field names from schema (columns beyond 11 core BAM columns)
+/// Extract tag field names from schema (columns beyond 12 core BAM columns)
 fn extract_tag_fields_from_schema(schema: &SchemaRef) -> Vec<String> {
     let core_columns: std::collections::HashSet<&str> = [
         "name",
@@ -857,6 +857,7 @@ fn extract_tag_fields_from_schema(schema: &SchemaRef) -> Vec<String> {
         "mate_start",
         "sequence",
         "quality_scores",
+        "template_length",
     ]
     .into_iter()
     .collect();
