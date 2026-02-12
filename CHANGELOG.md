@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2025-02-12
+
+### Added
+- Pairs (Hi-C) format scan/read support (#290)
+  - `read_pairs()`, `scan_pairs()`, `register_pairs()` for reading Hi-C `.pairs` / `.pairs.gz` / `.pairs.bgz` files
+  - Tabix-indexed querying with predicate pushdown on chr1/pos1, residual filters on chr2/pos2
+  - Projection pushdown support
+- New `template_length` (TLEN) column for BAM/SAM/CRAM (#294)
+  - Non-nullable `Int32` column — schema grows from 11 to 12 core columns
+- Non-nullable `mapping_quality` (MAPQ) for BAM/SAM/CRAM (#294)
+  - Now `UInt32` — value 255 is preserved instead of becoming null
+- Non-nullable `name` (QNAME) for BAM/SAM/CRAM (#294)
+  - `*` is preserved as a string value instead of becoming null
+
+### Changed
+- Bumped datafusion-bio-formats to 0.3.0 (#292)
+
 ## [0.21.0] - 2025-02-09
 
 ### Added
