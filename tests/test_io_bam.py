@@ -577,6 +577,45 @@ class TestTemplateLength:
 class TestMapQ255:
     """Tests for MAPQ 255 handling -- mapping_quality is now non-nullable UInt32."""
 
+    # Small BAM with 3 reads: MAPQ=255, MAPQ=0, MAPQ=60
+    MAPQ_BAM = f"{DATA_DIR}/io/bam/mapq255.bam"
+
+    def test_mapq_255_read_as_value(self):
+        """MAPQ=255 is read as integer 255, not null."""
+        df = pb.read_bam(self.MAPQ_BAM)
+        row = df.filter(pl.col("name") == "read_mapq255")
+        assert len(row) == 1
+        assert row["mapping_quality"][0] == 255
+        assert row["mapping_quality"].dtype == pl.UInt32
+
+    def test_mapq_255_all_values(self):
+        """All MAPQ values (0, 60, 255) are read correctly from a known BAM."""
+        df = pb.read_bam(self.MAPQ_BAM)
+        assert len(df) == 3
+        assert df["mapping_quality"].null_count() == 0
+        mapq_by_name = dict(zip(df["name"].to_list(), df["mapping_quality"].to_list()))
+        assert mapq_by_name["read_mapq255"] == 255
+        assert mapq_by_name["read_mapq0"] == 0
+        assert mapq_by_name["read_mapq60"] == 60
+
+    def test_mapq_255_roundtrip(self, tmp_path):
+        """BAM roundtrip preserves MAPQ=255 as 255 (not null or 0)."""
+        df = pb.read_bam(self.MAPQ_BAM)
+        out_path = str(tmp_path / "mapq255_rt.bam")
+        pb.write_bam(df, out_path)
+
+        df_back = pb.read_bam(out_path)
+        row = df_back.filter(pl.col("name") == "read_mapq255")
+        assert row["mapping_quality"][0] == 255
+
+    def test_mapq_255_template_length(self):
+        """template_length values (positive, negative, zero) read correctly."""
+        df = pb.read_bam(self.MAPQ_BAM)
+        tlen_by_name = dict(zip(df["name"].to_list(), df["template_length"].to_list()))
+        assert tlen_by_name["read_mapq255"] == 0
+        assert tlen_by_name["read_mapq0"] == 150
+        assert tlen_by_name["read_mapq60"] == -150
+
     def test_mapq_not_null_bam(self):
         """mapping_quality in BAM has null_count==0 and dtype UInt32."""
         df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
