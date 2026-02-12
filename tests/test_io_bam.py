@@ -627,6 +627,31 @@ class TestMapQ255:
         pushdown_count = len(lf.filter(pl.col("mapping_quality") == 255).collect())
         assert pushdown_count == client_count
 
+    def test_mapq_in_filter(self):
+        """IN filter on numeric mapping_quality pushes down correctly."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        client_count = len(df.filter(pl.col("mapping_quality").is_in([0, 29, 255])))
+
+        lf = pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam")
+        pushdown_count = len(
+            lf.filter(pl.col("mapping_quality").is_in([0, 29, 255])).collect()
+        )
+        assert pushdown_count == client_count
+        assert pushdown_count > 0
+
+    def test_template_length_in_filter(self):
+        """IN filter on numeric template_length pushes down correctly."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        # Pick a few actual values from the data
+        sample_values = df["template_length"].unique().head(3).to_list()
+        client_count = len(df.filter(pl.col("template_length").is_in(sample_values)))
+
+        lf = pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam")
+        pushdown_count = len(
+            lf.filter(pl.col("template_length").is_in(sample_values)).collect()
+        )
+        assert pushdown_count == client_count
+
 
 class TestQNameStar:
     """Tests for QNAME '*' handling -- name column is now non-nullable."""

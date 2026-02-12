@@ -466,12 +466,22 @@ def _validate_column_operator(column: str, operator: str) -> None:
                 f"Supported: ==, !=, IN, NOT IN"
             )
 
-    # Numeric columns: =, !=, <, <=, >, >=, BETWEEN
+    # Numeric columns: =, !=, <, <=, >, >=, BETWEEN, IN, NOT IN
     elif column in (uint32_cols or set()) or column in (float32_cols or set()):
-        if operator not in ["==", "!=", "<", "<=", ">", ">=", "BETWEEN"]:
+        if operator not in [
+            "==",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "BETWEEN",
+            "IN",
+            "NOT IN",
+        ]:
             raise PredicateTranslationError(
                 f"Column '{column}' (Numeric) does not support operator '{operator}'. "
-                f"Supported: ==, !=, <, <=, >, >=, BETWEEN"
+                f"Supported: ==, !=, <, <=, >, >=, BETWEEN, IN, NOT IN"
             )
 
     # Unknown column (BAM tags, VCF INFO/FORMAT, GFF attributes): permissive
@@ -574,13 +584,13 @@ Supported Predicate Pushdown Operations (all formats):
 | Format    | Column                                        | Data Type | Supported Operators          |
 |-----------|-----------------------------------------------|-----------|------------------------------|
 | GFF       | chrom, source, type, strand                   | String    | =, !=, IN, NOT IN           |
-| GFF       | start, end, phase                             | UInt32    | =, !=, <, <=, >, >=, BETWEEN|
-| GFF       | score                                         | Float32   | =, !=, <, <=, >, >=, BETWEEN|
+| GFF       | start, end, phase                             | UInt32    | =, !=, <, <=, >, >=, BETWEEN, IN, NOT IN|
+| GFF       | score                                         | Float32   | =, !=, <, <=, >, >=, BETWEEN, IN, NOT IN|
 | GFF       | Attribute fields                              | String    | =, !=, IN, NOT IN           |
 | BAM/CRAM  | name, chrom, cigar, mate_chrom, ...           | String    | =, !=, IN, NOT IN           |
-| BAM/CRAM  | start, end, flags, mapping_quality, ...       | UInt32    | =, !=, <, <=, >, >=, BETWEEN|
+| BAM/CRAM  | start, end, flags, mapping_quality, ...       | UInt32    | =, !=, <, <=, >, >=, BETWEEN, IN, NOT IN|
 | VCF       | chrom, ref, alt                               | String    | =, !=, IN, NOT IN           |
-| VCF       | start                                         | UInt32    | =, !=, <, <=, >, >=, BETWEEN|
+| VCF       | start                                         | UInt32    | =, !=, <, <=, >, >=, BETWEEN, IN, NOT IN|
 | All       | Unknown/dynamic columns                       | Any       | All (DataFusion type-checks) |
 | All       | Complex                                       | -         | AND combinations             |
 
