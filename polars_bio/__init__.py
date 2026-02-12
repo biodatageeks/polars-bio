@@ -98,6 +98,7 @@ nearest = range_operations.nearest
 count_overlaps = range_operations.count_overlaps
 coverage = range_operations.coverage
 merge = range_operations.merge
+complement = range_operations.complement
 
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 
@@ -178,5 +179,6 @@ __all__ = [
     "count_overlaps",
     "coverage",
     "merge",
+    "complement",
     "visualize_intervals",
 ]

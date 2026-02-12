@@ -3,6 +3,7 @@ from __future__ import annotations
 import datafusion
 import polars as pl
 import pyarrow as pa
+import pyarrow.dataset as ds
 from datafusion import col, literal
 from typing_extensions import TYPE_CHECKING, Union
 
@@ -31,7 +32,7 @@ except ImportError:
     pd = None
 
 
-__all__ = ["overlap", "nearest", "count_overlaps", "merge"]
+__all__ = ["overlap", "nearest", "count_overlaps", "merge", "complement"]
 
 
 if TYPE_CHECKING:
@@ -704,6 +705,284 @@ class IntervalOperations:
                 + [n_intervals]
             )
         )
+
+        output = convert_result(result, output_type)
+
+        # Propagate coordinate system metadata to result
+        if output_type in ("polars.DataFrame", "polars.LazyFrame", "pandas.DataFrame"):
+            set_coordinate_system(output, zero_based)
+
+        return output
+
+    @staticmethod
+    def complement(
+        df: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+        view_df: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame", None] = None,
+        cols: Union[list[str], None] = ["chrom", "start", "end"],
+        view_cols: Union[list[str], None] = ["chrom", "start", "end"],
+        output_type: str = "polars.LazyFrame",
+        projection_pushdown: bool = True,
+    ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
+        """
+        Find genomic regions not covered by any intervals.
+
+        Returns regions in view_df that are not covered by any interval in df.
+        This is the inverse operation of the input intervals within the specified
+        genomic view (chromosome boundaries).
+
+        The coordinate system (0-based or 1-based) is automatically detected from
+        DataFrame metadata set at I/O time.
+
+        Parameters:
+            df: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED and Parquet are supported.
+            view_df: ViewFrame defining chromosome boundaries. If None, inferred from df by taking min/max positions per chromosome.
+            cols: The names of columns containing the chromosome, start and end of the genomic intervals in df.
+            view_cols: The names of columns containing the chromosome, start and end in view_df.
+            output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+
+        Returns:
+            **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the complement intervals (gaps).
+
+        Raises:
+            MissingCoordinateSystemError: If input lacks coordinate system metadata
+                and `datafusion.bio.coordinate_system_check` is "true" (default).
+
+        Example:
+            ```python
+            import polars_bio as pb
+            import polars as pl
+
+            # Intervals
+            df = pl.DataFrame({
+                "chrom": ["chr1", "chr1", "chr1"],
+                "start": [100, 300, 500],
+                "end": [200, 400, 600]
+            })
+            df = df.lazy().config_meta.set(coordinate_system_zero_based=False)
+
+            # View (chromosome lengths)
+            view = pl.DataFrame({
+                "chrom": ["chr1"],
+                "start": [1],
+                "end": [1000]
+            })
+            view = view.lazy().config_meta.set(coordinate_system_zero_based=False)
+
+            # Find gaps
+            result = pb.complement(df, view_df=view)
+            # Returns: chr1 1-100, chr1 200-300, chr1 400-500, chr1 600-1000
+            ```
+
+        Note:
+            Overlapping intervals in df are automatically merged before computing the complement.
+        """
+        suffixes = ("_1", "_2")
+        _validate_overlap_input(cols, cols, None, suffixes, output_type)
+
+        # Get zero_based from DataFrame metadata
+        zero_based = validate_coordinate_system_single(df, ctx)
+
+        my_ctx = get_py_ctx()
+        cols = DEFAULT_INTERVAL_COLUMNS if cols is None else cols
+        view_cols = DEFAULT_INTERVAL_COLUMNS if view_cols is None else view_cols
+        contig = cols[0]
+        start = cols[1]
+        end = cols[2]
+
+        view_contig = view_cols[0]
+        view_start = view_cols[1]
+        view_end = view_cols[2]
+
+        # Convert input to datafusion
+        df_input = read_df_to_datafusion(my_ctx, df)
+
+
+        # Handle empty DataFrame specially to ensure correct output schema
+        if isinstance(df, pl.LazyFrame):
+            is_empty = df.collect().height == 0
+        elif isinstance(df, pl.DataFrame):
+            is_empty = df.height == 0
+        elif pd and isinstance(df, pd.DataFrame):
+            is_empty = len(df) == 0
+        else:
+            is_empty = False
+            
+        if is_empty:
+            # If input is empty, return gaps from view_df (or empty result if no view)
+            if view_df is None:
+                # No view and no intervals - return empty result with correct schema
+                empty_result = df_input.limit(0).select(
+                    col(contig).alias(contig), col(start).alias(start), col(end).alias(end)
+                )
+                output = convert_result(empty_result, output_type)
+                if output_type in ("polars.DataFrame", "polars.LazyFrame", "pandas.DataFrame"):
+                    set_coordinate_system(output, zero_based)
+                return output
+            else:
+                # Return entire view as gaps with correct column names from cols (not view_cols)
+                # Validate coordinate system for view_df
+                view_zero_based = validate_coordinate_system_single(view_df, ctx)
+                if view_zero_based != zero_based:
+                    from .exceptions import CoordinateSystemMismatchError
+
+                    raise CoordinateSystemMismatchError(
+                        f"Coordinate system mismatch: df uses {'0-based' if zero_based else '1-based'} "
+                        f"but view_df uses {'0-based' if view_zero_based else '1-based'} coordinates"
+                    )
+                view_df_datafusion = read_df_to_datafusion(my_ctx, view_df)
+                # Select and rename columns to match cols (not view_cols)
+                result_df = view_df_datafusion.select(
+                    col(view_contig).alias(contig),
+                    col(view_start).alias(start),
+                    col(view_end).alias(end)
+                )
+                output = convert_result(result_df, output_type)
+                if output_type in ("polars.DataFrame", "polars.LazyFrame", "pandas.DataFrame"):
+                    set_coordinate_system(output, zero_based)
+                return output
+
+        # If view_df is None, infer it from df
+        if view_df is None:
+            logger.info("No view_df provided, inferring from df")
+            view_df = df_input.aggregate(
+                [col(contig)],
+                [
+                    datafusion.functions.min(col(start)).alias(view_start),
+                    datafusion.functions.max(col(end)).alias(view_end),
+                ],
+            )
+        else:
+            # Validate coordinate system for view_df
+            view_zero_based = validate_coordinate_system_single(view_df, ctx)
+            if view_zero_based != zero_based:
+                from .exceptions import CoordinateSystemMismatchError
+
+                raise CoordinateSystemMismatchError(
+                    f"Coordinate system mismatch: df uses {'0-based' if zero_based else '1-based'} "
+                    f"but view_df uses {'0-based' if view_zero_based else '1-based'} coordinates"
+                )
+            view_df = read_df_to_datafusion(my_ctx, view_df)
+
+        # Merge overlapping intervals in df
+        merged = IntervalOperations.merge(
+            df,
+            min_dist=0,
+            cols=cols,
+            on_cols=None,
+            output_type="datafusion.DataFrame",
+            projection_pushdown=projection_pushdown,
+        )
+
+        # Register merged as a table
+        my_ctx.deregister_table("__complement_merged")
+        merged_table = merged.to_arrow_table()
+        my_ctx.register_table("__complement_merged", ds.dataset(merged_table))
+
+        # Register view as a table
+        my_ctx.deregister_table("__complement_view")
+        view_table = view_df.to_arrow_table()
+        my_ctx.register_table("__complement_view", ds.dataset(view_table))
+
+        # Build SQL query to find gaps
+        # 1. Find gaps between consecutive intervals
+        # 2. Add region before first interval (if view_start < first interval start)
+        # 3. Add region after last interval (if last interval end < view_end)
+
+        curr_cols = set(df_input.schema().names)
+        prev_end_col = prevent_column_collision("prev_end", curr_cols)
+        next_start_col = prevent_column_collision("next_start", curr_cols)
+        view_start_col = prevent_column_collision("view_start", curr_cols)
+        view_end_col = prevent_column_collision("view_end", curr_cols)
+        first_start_col = prevent_column_collision("first_start", curr_cols)
+        last_end_col = prevent_column_collision("last_end", curr_cols)
+
+        # For 1-based closed coordinates, we need to adjust gap boundaries:
+        # - Gap after [a, b] starts at b+1 (not b)
+        # - Gap before [a, b] ends at a-1 (not a)
+        # For 0-based half-open coordinates, no adjustment is needed:
+        # - Gap after [a, b) starts at b
+        # - Gap before [a, b) ends at a
+        adjustment = 0 if zero_based else 1
+
+        query = f"""
+        WITH merged_with_lag AS (
+            SELECT 
+                "{contig}",
+                "{start}",
+                "{end}",
+                LAG("{end}") OVER (PARTITION BY "{contig}" ORDER BY "{start}") as "{prev_end_col}"
+            FROM __complement_merged
+        ),
+        gaps_between AS (
+            SELECT 
+                "{contig}",
+                "{prev_end_col}" + {adjustment} as "{start}",
+                "{start}" - {adjustment} as "{end}"
+            FROM merged_with_lag
+            WHERE "{prev_end_col}" IS NOT NULL
+                AND "{prev_end_col}" + {adjustment} < "{start}" - {adjustment}
+        ),
+        chrom_bounds AS (
+            SELECT
+                v."{view_contig}" as "{contig}",
+                v."{view_start}" as "{view_start_col}",
+                v."{view_end}" as "{view_end_col}",
+                MIN(m."{start}") as "{first_start_col}",
+                MAX(m."{end}") as "{last_end_col}"
+            FROM __complement_view v
+            LEFT JOIN __complement_merged m ON v."{view_contig}" = m."{contig}"
+            GROUP BY v."{view_contig}", v."{view_start}", v."{view_end}"
+        ),
+        chromosomes_without_intervals AS (
+            SELECT
+                "{contig}",
+                "{view_start_col}" as "{start}",
+                "{view_end_col}" as "{end}"
+            FROM chrom_bounds
+            WHERE "{first_start_col}" IS NULL
+        ),
+        start_gaps AS (
+            SELECT
+                "{contig}",
+                "{view_start_col}" as "{start}",
+                "{first_start_col}" - {adjustment} as "{end}"
+            FROM chrom_bounds
+            WHERE "{first_start_col}" IS NOT NULL
+                AND "{view_start_col}" < "{first_start_col}" - {adjustment}
+        ),
+        end_gaps AS (
+            SELECT
+                "{contig}",
+                "{last_end_col}" + {adjustment} as "{start}",
+                "{view_end_col}" as "{end}"
+            FROM chrom_bounds
+            WHERE "{last_end_col}" IS NOT NULL
+                AND "{last_end_col}" + {adjustment} < "{view_end_col}"
+        ),
+        all_gaps AS (
+            SELECT * FROM start_gaps
+            UNION ALL
+            SELECT * FROM gaps_between
+            UNION ALL
+            SELECT * FROM end_gaps
+            UNION ALL
+            SELECT * FROM chromosomes_without_intervals
+        )
+        SELECT 
+            "{contig}",
+            "{start}",
+            "{end}"
+        FROM all_gaps
+        ORDER BY "{contig}", "{start}"
+        """
+
+
+        result = my_ctx.sql(query)
+
+        # Clean up temporary tables
+        my_ctx.deregister_table("__complement_merged")
+        my_ctx.deregister_table("__complement_view")
 
         output = convert_result(result, output_type)
 

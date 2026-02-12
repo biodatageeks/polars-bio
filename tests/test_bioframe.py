@@ -223,3 +223,67 @@ class TestBioframe:
         )
         result = result.sort_values(by=list(result.columns)).reset_index(drop=True)
         pd.testing.assert_frame_equal(result, expected)
+
+    def test_complement_count(self):
+        # Create test data with known gaps
+        test_df = pd.DataFrame(
+            {
+                "contig": ["chr1", "chr1", "chr1"],
+                "pos_start": [100, 300, 500],
+                "pos_end": [200, 400, 600],
+            }
+        )
+        test_df.attrs["coordinate_system_zero_based"] = True
+
+        # View frame with chromosome boundaries
+        view_df = pd.DataFrame({"contig": ["chr1"], "pos_start": [0], "pos_end": [1000]})
+        view_df.attrs["coordinate_system_zero_based"] = True
+
+        result = pb.complement(
+            test_df,
+            view_df=view_df,
+            cols=("contig", "pos_start", "pos_end"),
+            view_cols=("contig", "pos_start", "pos_end"),
+            output_type="pandas.DataFrame",
+        )
+        result_bio = bf.complement(
+            test_df,
+            view_df=view_df,
+            cols=("contig", "pos_start", "pos_end"),
+            cols_view=("contig", "pos_start", "pos_end"),
+        )
+        assert len(result) == len(result_bio)
+
+    def test_complement_schema_rows(self):
+        # Create test data with known gaps
+        test_df = pd.DataFrame(
+            {
+                "contig": ["chr1", "chr1", "chr1"],
+                "pos_start": [100, 300, 500],
+                "pos_end": [200, 400, 600],
+            }
+        )
+        test_df.attrs["coordinate_system_zero_based"] = True
+
+        # View frame with chromosome boundaries
+        view_df = pd.DataFrame({"contig": ["chr1"], "pos_start": [0], "pos_end": [1000]})
+        view_df.attrs["coordinate_system_zero_based"] = True
+
+        result = pb.complement(
+            test_df,
+            view_df=view_df,
+            cols=("contig", "pos_start", "pos_end"),
+            view_cols=("contig", "pos_start", "pos_end"),
+            output_type="pandas.DataFrame",
+        )
+        result_bio = bf.complement(
+            test_df,
+            view_df=view_df,
+            cols=("contig", "pos_start", "pos_end"),
+            cols_view=("contig", "pos_start", "pos_end"),
+        )
+        expected = result_bio.sort_values(by=list(result.columns)).reset_index(
+            drop=True
+        )
+        result = result.sort_values(by=list(result.columns)).reset_index(drop=True)
+        pd.testing.assert_frame_equal(result, expected)

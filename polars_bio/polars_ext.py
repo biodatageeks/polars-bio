@@ -105,6 +105,27 @@ class PolarsRangesOperations:
             cols=cols,
         )
 
+    def complement(
+        self,
+        view_df: Union[pl.LazyFrame, None] = None,
+        cols=["chrom", "start", "end"],
+        view_cols=["chrom", "start", "end"],
+    ) -> pl.LazyFrame:
+        """
+        !!! note
+            Alias for [complement](api.md#polars_bio.complement)
+
+        Note:
+            Coordinate system is determined from DataFrame metadata.
+            Set metadata using: `df.config_meta.set(coordinate_system_zero_based=True)`
+        """
+        return pb.complement(
+            self._ldf,
+            view_df=view_df,
+            cols=cols,
+            view_cols=view_cols,
+        )
+
     def sort(
         self, cols: Union[tuple[str], None] = ["chrom", "start", "end"]
     ) -> pl.LazyFrame:

@@ -83,7 +83,7 @@ def df_to_lazyframe(df: datafusion.DataFrame) -> pl.LazyFrame:
 
 def convert_result(
     df: datafusion.DataFrame, output_type: str
-) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame"]:
+) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
     if output_type == "polars.DataFrame":
         return df.to_polars()
     elif output_type == "pandas.DataFrame":
@@ -94,4 +94,6 @@ def convert_result(
         return df.to_pandas()
     elif output_type == "polars.LazyFrame":
         return df_to_lazyframe(df)
+    elif output_type == "datafusion.DataFrame":
+        return df
     raise ValueError("Invalid `output_type` argument")

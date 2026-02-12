@@ -7,7 +7,7 @@
 | [count_overlaps](api.md#polars_bio.count_overlaps) | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | cluster                                            | :white_check_mark: |                    | :white_check_mark: | :white_check_mark: |                    |                    |
 | [merge](api.md#polars_bio.merge)                   | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
-| complement                                         | :white_check_mark: | :construction:     |                    | :white_check_mark: | :white_check_mark: |                    |
+| [complement](api.md#polars_bio.complement)         | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: | :white_check_mark: |                    |
 | [coverage](api.md#polars_bio.coverage)             | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 | [expand](api.md#polars_bio.LazyFrame.expand)       | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
 | [sort](api.md#polars_bio.LazyFrame.sort_bedframe)  | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
@@ -25,6 +25,84 @@
     ```
 
     This enables streaming output generation that caps the output batch size, trading some performance for significantly lower memory usage.
+
+### complement
+
+The `complement()` operation finds genomic regions that are **not** covered by any intervals in the input DataFrame. It returns the "gaps" or "negative space" within specified chromosome boundaries.
+
+```python
+import polars_bio as pb
+import polars as pl
+
+# Define intervals
+df = pl.DataFrame({
+    "chrom": ["chr1", "chr1", "chr1"],
+    "start": [100, 300, 500],
+    "end": [200, 400, 600]
+})
+df = df.lazy().config_meta.set(coordinate_system_zero_based=False)
+
+# Define chromosome boundaries (view)
+view = pl.DataFrame({
+    "chrom": ["chr1"],
+    "start": [1],
+    "end": [1000]
+})
+view = view.lazy().config_meta.set(coordinate_system_zero_based=False)
+
+# Find gaps (complement)
+result = pb.complement(df, view_df=view).collect()
+print(result)
+```
+
+Output:
+```
+shape: (4, 3)
+┌───────┬───────┬──────┐
+│ chrom ┆ start ┆ end  │
+│ ---   ┆ ---   ┆ ---  │
+│ str   ┆ i64   ┆ i64  │
+╞═══════╪═══════╪══════╡
+│ chr1  ┆ 1     ┆ 99   │
+│ chr1  ┆ 201   ┆ 299  │
+│ chr1  ┆ 401   ┆ 499  │
+│ chr1  ┆ 601   ┆ 1000 │
+└───────┴───────┴──────┘
+```
+
+**Key features:**
+
+- **Automatic merging**: Overlapping intervals in the input are automatically merged before computing the complement
+- **ViewFrame inference**: If `view_df` is not provided, chromosome boundaries are inferred from the input data
+- **Coordinate system aware**: Respects coordinate system metadata (0-based or 1-based)
+- **Multiple chromosomes**: Handles multiple chromosomes independently
+
+**Use cases:**
+
+- Finding uncovered regions in genomic data
+- Identifying gaps in read coverage
+- Computing regions excluded from analysis
+- Quality control for interval data
+
+```python
+# Auto-infer chromosome boundaries from data
+result = pb.complement(df, view_df=None).collect()
+
+# Multiple chromosomes
+df_multi = pl.DataFrame({
+    "chrom": ["chr1", "chr1", "chr2", "chr2"],
+    "start": [100, 300, 50, 200],
+    "end": [200, 400, 150, 300]
+}).lazy().config_meta.set(coordinate_system_zero_based=False)
+
+view_multi = pl.DataFrame({
+    "chrom": ["chr1", "chr2"],
+    "start": [1, 1],
+    "end": [500, 400]
+}).lazy().config_meta.set(coordinate_system_zero_based=False)
+
+gaps = pb.complement(df_multi, view_df=view_multi).collect()
+```
 
 ## Coordinate systems support
 
