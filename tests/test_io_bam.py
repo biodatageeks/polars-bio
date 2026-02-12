@@ -1,5 +1,6 @@
 import json
 
+import polars as pl
 import pysam
 import pytest
 from _expected import DATA_DIR
@@ -38,7 +39,7 @@ class TestIOBAM:
     def test_bam_no_tags_default(self):
         """Test backward compatibility - no tags by default"""
         df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
-        assert len(df.columns) == 11  # Original columns only
+        assert len(df.columns) == 12  # Original columns only
         assert "NM" not in df.columns
         assert "AS" not in df.columns
         assert "MD" not in df.columns
@@ -47,7 +48,7 @@ class TestIOBAM:
         """Test reading a single BAM tag"""
         df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam", tag_fields=["NM"])
         assert "NM" in df.columns
-        assert len(df.columns) == 12  # 11 original + 1 tag
+        assert len(df.columns) == 13  # 12 original + 1 tag
 
     def test_bam_multiple_tags(self):
         """Test reading multiple BAM tags"""
@@ -55,7 +56,7 @@ class TestIOBAM:
         assert "NM" in df.columns
         assert "AS" in df.columns
         assert "MD" in df.columns
-        assert len(df.columns) == 14  # 11 original + 3 tags
+        assert len(df.columns) == 15  # 12 original + 3 tags
 
     def test_bam_scan_with_tags(self):
         """Test lazy scan with tags and filtering"""
@@ -81,7 +82,7 @@ class TestIOBAM:
         assert "column_name" in schema.columns
         assert "data_type" in schema.columns
         assert "category" in schema.columns
-        assert len(schema) == 11  # 11 core columns
+        assert len(schema) == 12  # 12 core columns
         columns = schema["column_name"].to_list()
         assert "name" in columns
         assert "chrom" in columns
@@ -98,7 +99,7 @@ class TestIOBAM:
         assert "description" in schema.columns
 
         # Should have core + discovered tag columns
-        assert len(schema) > 11
+        assert len(schema) > 12
 
         columns = schema["column_name"].to_list()
         # Check core columns present
@@ -151,14 +152,14 @@ class TestIOSAM:
     def test_sam_no_tags_default(self):
         """Test backward compatibility - no tags by default"""
         df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam")
-        assert len(df.columns) == 11
+        assert len(df.columns) == 12
         assert "NM" not in df.columns
 
     def test_sam_single_tag(self):
         """Test reading a single SAM tag"""
         df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam", tag_fields=["NM"])
         assert "NM" in df.columns
-        assert len(df.columns) == 12
+        assert len(df.columns) == 13
 
     def test_sam_scan(self):
         """Test lazy scanning"""
@@ -174,7 +175,7 @@ class TestIOSAM:
         assert "column_name" in schema.columns
         assert "data_type" in schema.columns
         assert "category" in schema.columns
-        assert len(schema) > 11
+        assert len(schema) > 12
 
         columns = schema["column_name"].to_list()
         assert "name" in columns
@@ -487,3 +488,173 @@ class TestSortOnWrite:
         assert counts["SQ"] == 45
         assert counts["RG"] == 16
         assert counts["PG"] > 0
+
+
+class TestTemplateLength:
+    """Tests for the new template_length (TLEN) column in BAM/SAM."""
+
+    def test_template_length_in_bam_schema(self):
+        """template_length column exists in BAM, dtype Int32, non-nullable."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        assert "template_length" in df.columns
+        assert df["template_length"].dtype == pl.Int32
+        assert df["template_length"].null_count() == 0
+
+    def test_template_length_in_sam_schema(self):
+        """template_length column exists in SAM, dtype Int32, non-nullable."""
+        df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam")
+        assert "template_length" in df.columns
+        assert df["template_length"].dtype == pl.Int32
+        assert df["template_length"].null_count() == 0
+
+    def test_template_length_bam_write_roundtrip(self, tmp_path):
+        """BAM -> BAM roundtrip preserves template_length values."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        out_path = str(tmp_path / "tlen.bam")
+        pb.write_bam(df, out_path)
+
+        df_back = pb.read_bam(out_path)
+        assert df_back["template_length"].to_list() == df["template_length"].to_list()
+
+    def test_template_length_sam_write_roundtrip(self, tmp_path):
+        """SAM -> SAM roundtrip preserves template_length values."""
+        df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam")
+        out_path = str(tmp_path / "tlen.sam")
+        pb.write_sam(df, out_path)
+
+        df_back = pb.read_sam(out_path)
+        assert df_back["template_length"].to_list() == df["template_length"].to_list()
+
+    def test_template_length_sink_bam_roundtrip(self, tmp_path):
+        """Streaming BAM write preserves template_length values."""
+        lf = pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam")
+        df_orig = lf.collect()
+        out_path = str(tmp_path / "sink_tlen.bam")
+        pb.sink_bam(pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam"), out_path)
+
+        df_back = pb.read_bam(out_path)
+        assert (
+            df_back["template_length"].to_list() == df_orig["template_length"].to_list()
+        )
+
+    def test_template_length_in_describe_bam(self):
+        """describe_bam output includes template_length with Int32 dtype."""
+        schema = pb.describe_bam(f"{DATA_DIR}/io/bam/test.bam", sample_size=0)
+        columns = schema["column_name"].to_list()
+        assert "template_length" in columns
+
+        tlen_row = schema.filter(schema["column_name"] == "template_length")
+        assert len(tlen_row) == 1
+        assert tlen_row["data_type"][0] == "Int32"
+
+    def test_template_length_in_describe_sam(self):
+        """describe_sam output includes template_length with Int32 dtype."""
+        schema = pb.describe_sam(f"{DATA_DIR}/io/sam/test.sam", sample_size=0)
+        columns = schema["column_name"].to_list()
+        assert "template_length" in columns
+
+        tlen_row = schema.filter(schema["column_name"] == "template_length")
+        assert len(tlen_row) == 1
+        assert tlen_row["data_type"][0] == "Int32"
+
+    def test_template_length_scan_projection(self):
+        """Projection pushdown works for template_length column."""
+        lf = pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam")
+        df = lf.select(["name", "template_length"]).collect()
+        assert df.columns == ["name", "template_length"]
+        assert len(df) == 2333
+        assert df["template_length"].dtype == pl.Int32
+
+    def test_template_length_sql_query(self):
+        """SQL SELECT template_length works."""
+        pb.register_bam(f"{DATA_DIR}/io/bam/test.bam", "test_tlen")
+        result = pb.sql("SELECT template_length FROM test_tlen LIMIT 5").collect()
+        assert "template_length" in result.columns
+        assert len(result) == 5
+        assert result["template_length"].dtype == pl.Int32
+
+
+class TestMapQ255:
+    """Tests for MAPQ 255 handling -- mapping_quality is now non-nullable UInt32."""
+
+    def test_mapq_not_null_bam(self):
+        """mapping_quality in BAM has null_count==0 and dtype UInt32."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        assert df["mapping_quality"].null_count() == 0
+        assert df["mapping_quality"].dtype == pl.UInt32
+
+    def test_mapq_not_null_sam(self):
+        """mapping_quality in SAM has null_count==0 and dtype UInt32."""
+        df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam")
+        assert df["mapping_quality"].null_count() == 0
+        assert df["mapping_quality"].dtype == pl.UInt32
+
+    def test_mapq_bam_write_roundtrip(self, tmp_path):
+        """BAM -> BAM roundtrip preserves mapping_quality values (including 255)."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        out_path = str(tmp_path / "mapq.bam")
+        pb.write_bam(df, out_path)
+
+        df_back = pb.read_bam(out_path)
+        assert df_back["mapping_quality"].to_list() == df["mapping_quality"].to_list()
+
+    def test_mapq_sam_write_roundtrip(self, tmp_path):
+        """SAM -> SAM roundtrip preserves mapping_quality values."""
+        df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam")
+        out_path = str(tmp_path / "mapq.sam")
+        pb.write_sam(df, out_path)
+
+        df_back = pb.read_sam(out_path)
+        assert df_back["mapping_quality"].to_list() == df["mapping_quality"].to_list()
+
+    def test_mapq_bam_to_sam_roundtrip(self, tmp_path):
+        """BAM -> SAM cross-format preserves mapping_quality values."""
+        df_bam = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        out_path = str(tmp_path / "cross.sam")
+        pb.write_sam(df_bam, out_path)
+
+        df_sam = pb.read_sam(out_path)
+        assert (
+            df_sam["mapping_quality"].to_list() == df_bam["mapping_quality"].to_list()
+        )
+
+    def test_mapq_filter_255(self):
+        """Filtering by mapping_quality == 255 works and matches client-side count."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        client_count = len(df.filter(pl.col("mapping_quality") == 255))
+
+        lf = pb.scan_bam(f"{DATA_DIR}/io/bam/test.bam")
+        pushdown_count = len(lf.filter(pl.col("mapping_quality") == 255).collect())
+        assert pushdown_count == client_count
+
+
+class TestQNameStar:
+    """Tests for QNAME '*' handling -- name column is now non-nullable."""
+
+    def test_qname_not_null_bam(self):
+        """name column in BAM has null_count==0."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        assert df["name"].null_count() == 0
+
+    def test_qname_not_null_sam(self):
+        """name column in SAM has null_count==0."""
+        df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam")
+        assert df["name"].null_count() == 0
+
+    def test_qname_bam_roundtrip(self, tmp_path):
+        """BAM -> BAM roundtrip preserves name values."""
+        df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
+        out_path = str(tmp_path / "qname.bam")
+        pb.write_bam(df, out_path)
+
+        df_back = pb.read_bam(out_path)
+        assert df_back["name"].to_list() == df["name"].to_list()
+
+    def test_qname_sam_roundtrip(self, tmp_path):
+        """SAM -> SAM roundtrip preserves name values."""
+        df = pb.read_sam(f"{DATA_DIR}/io/sam/test.sam")
+        out_path = str(tmp_path / "qname.sam")
+        pb.write_sam(df, out_path)
+
+        df_back = pb.read_sam(out_path)
+        assert df_back["name"].to_list() == df["name"].to_list()

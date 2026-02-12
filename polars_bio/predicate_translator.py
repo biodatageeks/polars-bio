@@ -39,6 +39,7 @@ BAM_STRING_COLUMNS = {
     "quality_scores",
 }
 BAM_UINT32_COLUMNS = {"start", "end", "flags", "mapping_quality", "mate_start"}
+BAM_INT32_COLUMNS = {"template_length"}
 
 # VCF
 VCF_STRING_COLUMNS = {"chrom", "ref", "alt"}
