@@ -114,34 +114,79 @@ class TestOnColsCoverage:
     """Test on_cols parameter with coverage operation."""
 
     def test_coverage_with_on_cols(self, df1_with_strand, df2_with_strand):
-        """Test coverage with on_cols=['strand']."""
-        result = pb.coverage(
-            df1_with_strand,
-            df2_with_strand,
-            on_cols=["strand"],
-            output_type="pandas.DataFrame",
-        )
-        # Should calculate coverage only for matching strands
-        assert len(result) == len(df1_with_strand), \
-            "Coverage should return one row per input interval"
-        assert "coverage" in result.columns, "Should have coverage column"
+        """Test coverage with on_cols=['strand'] raises error."""
+        # Coverage operation does not support on_cols filtering
+        with pytest.raises(Exception) as exc_info:
+            pb.coverage(
+                df1_with_strand,
+                df2_with_strand,
+                on_cols=["strand"],
+                output_type="pandas.DataFrame",
+            )
+        # Check that error message mentions on_cols and coverage
+        error_msg = str(exc_info.value)
+        assert "on_cols" in error_msg.lower(), "Error should mention on_cols"
+        assert "coverage" in error_msg.lower(), "Error should mention coverage operation"
 
 
 class TestOnColsCountOverlaps:
     """Test on_cols parameter with count_overlaps operation."""
 
-    def test_count_overlaps_with_on_cols(self, df1_with_strand, df2_with_strand):
-        """Test count_overlaps with on_cols=['strand']."""
+    def test_count_overlaps_with_on_cols_naive(self, df1_with_strand, df2_with_strand):
+        """Test count_overlaps with on_cols=['strand'] raises error with naive_query=True."""
+        # Naive count_overlaps does not support on_cols filtering
+        with pytest.raises(Exception) as exc_info:
+            pb.count_overlaps(
+                df1_with_strand,
+                df2_with_strand,
+                on_cols=["strand"],
+                naive_query=True,  # Explicit naive mode
+                output_type="pandas.DataFrame",
+            )
+        # Check that error message mentions on_cols and count_overlaps
+        error_msg = str(exc_info.value)
+        assert "on_cols" in error_msg.lower(), "Error should mention on_cols"
+        assert "count_overlaps" in error_msg.lower(), "Error should mention count_overlaps operation"
+        
+    def test_count_overlaps_with_on_cols_default(self, df1_with_strand, df2_with_strand):
+        """Test count_overlaps with on_cols=['strand'] raises error by default (naive_query=True)."""
+        # Default naive_query=True, so should also raise error
+        with pytest.raises(Exception) as exc_info:
+            pb.count_overlaps(
+                df1_with_strand,
+                df2_with_strand,
+                on_cols=["strand"],
+                output_type="pandas.DataFrame",
+            )
+        # Check that error message mentions on_cols
+        error_msg = str(exc_info.value)
+        assert "on_cols" in error_msg.lower(), "Error should mention on_cols"
+    
+    def test_count_overlaps_with_on_cols_non_naive(self, df1_with_strand, df2_with_strand):
+        """Test count_overlaps with on_cols=['strand'] works with naive_query=False."""
+        # Non-naive path should support on_cols filtering
         result = pb.count_overlaps(
             df1_with_strand,
             df2_with_strand,
             on_cols=["strand"],
+            naive_query=False,  # Use SQL-based path which supports on_cols
             output_type="pandas.DataFrame",
         )
         # Should count only overlaps with matching strands
         assert len(result) == len(df1_with_strand), \
             "count_overlaps should return one row per input interval"
         assert "count" in result.columns, "Should have count column"
+        
+        # Verify the counts are different from non-filtered version
+        result_no_filter = pb.count_overlaps(
+            df1_with_strand,
+            df2_with_strand,
+            naive_query=False,
+            output_type="pandas.DataFrame",
+        )
+        # At least some counts should differ when filtering by strand
+        assert not (result["count"] == result_no_filter["count"]).all(), \
+            "Filtered counts should differ from unfiltered counts"
 
 
 class TestOnColsValidation:

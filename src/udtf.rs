@@ -462,12 +462,25 @@ async fn get_stream(
     context: Arc<TaskContext>,
     on_cols: Option<Vec<String>>,
 ) -> Result<SendableRecordBatchStream> {
-    // Note: on_cols filtering is not currently implemented for naive operations.
-    // The COITree-based approach would require rebuilding the tree structure
-    // per (contig, on_cols_values) combination, which is complex and may not
-    // provide performance benefits. Users requiring on_cols filtering should
-    // use the non-naive path which uses DataFusion SQL with full on_cols support.
-    let _ = on_cols; // Acknowledge parameter to avoid unused warning
+    // Validate that on_cols is not provided for naive operations
+    // Check if on_cols is Some and non-empty (Python may pass empty list as Some(vec![]))
+    if let Some(cols) = &on_cols {
+        if !cols.is_empty() {
+            let op_name = if coverage { "coverage" } else { "count_overlaps" };
+            let suggestion = if coverage {
+                "The coverage operation does not support on_cols filtering. \
+                 Consider filtering the input DataFrames before calling coverage."
+            } else {
+                "Set naive_query=False to use the SQL-based path which supports on_cols."
+            };
+            return Err(datafusion::common::DataFusionError::Plan(
+                format!(
+                    "on_cols parameter {:?} is not supported in naive {} operation. {}",
+                    cols, op_name, suggestion
+                )
+            ));
+        }
+    }
 
     let right_table = session.table(right_table);
     let table_stream = right_table.await?;
