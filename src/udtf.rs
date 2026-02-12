@@ -35,6 +35,7 @@ pub struct CountOverlapsProvider {
     filter_op: FilterOp,
     coverage: bool,
     schema: SchemaRef,
+    on_cols: Option<Vec<String>>,
 }
 
 impl CountOverlapsProvider {
@@ -47,6 +48,7 @@ impl CountOverlapsProvider {
         columns_2: Vec<String>,
         filter_op: FilterOp,
         coverage: bool,
+        on_cols: Option<Vec<String>>,
     ) -> Self {
         Self {
             session,
@@ -74,6 +76,7 @@ impl CountOverlapsProvider {
             ),
             filter_op,
             coverage,
+            on_cols,
         }
     }
 }
@@ -138,6 +141,7 @@ impl TableProvider for CountOverlapsProvider {
                 EmissionType::Final,
                 Boundedness::Bounded,
             ),
+            on_cols: self.on_cols.clone(),
         }))
     }
 }
@@ -152,6 +156,7 @@ struct CountOverlapsExec {
     filter_op: FilterOp,
     coverage: bool,
     cache: PlanProperties,
+    on_cols: Option<Vec<String>>,
 }
 
 impl Debug for CountOverlapsExec {
@@ -209,6 +214,7 @@ impl ExecutionPlan for CountOverlapsExec {
             self.cache.partitioning.partition_count(),
             partition,
             context,
+            self.on_cols.clone(),
         );
         let stream = futures::stream::once(fut).try_flatten();
         let schema = self.schema.clone();
@@ -454,7 +460,15 @@ async fn get_stream(
     target_partitions: usize,
     partition: usize,
     context: Arc<TaskContext>,
+    on_cols: Option<Vec<String>>,
 ) -> Result<SendableRecordBatchStream> {
+    // Note: on_cols filtering is not currently implemented for naive operations.
+    // The COITree-based approach would require rebuilding the tree structure
+    // per (contig, on_cols_values) combination, which is complex and may not
+    // provide performance benefits. Users requiring on_cols filtering should
+    // use the non-naive path which uses DataFusion SQL with full on_cols support.
+    let _ = on_cols; // Acknowledge parameter to avoid unused warning
+
     let right_table = session.table(right_table);
     let table_stream = right_table.await?;
     let plan = table_stream.create_physical_plan().await?;
