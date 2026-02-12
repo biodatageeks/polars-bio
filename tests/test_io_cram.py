@@ -1,5 +1,6 @@
 import json
 
+import polars as pl
 import pysam
 from _expected import DATA_DIR
 
@@ -73,7 +74,7 @@ class TestIOCRAM:
     def test_cram_no_tags_default(self):
         """Test backward compatibility - no tags by default"""
         df = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram")
-        assert len(df.columns) == 11  # Original columns only
+        assert len(df.columns) == 12  # Original columns only
         assert "NM" not in df.columns
         assert "AS" not in df.columns
 
@@ -81,7 +82,7 @@ class TestIOCRAM:
         """Test that CRAM tag_fields parameter includes the tag"""
         df = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram", tag_fields=["NM"])
         assert "NM" in df.columns
-        assert len(df.columns) == 12  # 11 + 1 tag
+        assert len(df.columns) == 13  # 12 + 1 tag
 
     def test_cram_multiple_tags(self):
         """Test that multiple CRAM tags are included"""
@@ -91,7 +92,7 @@ class TestIOCRAM:
         assert "NM" in df.columns
         assert "AS" in df.columns
         assert "MD" in df.columns
-        assert len(df.columns) == 14  # 11 + 3 tags
+        assert len(df.columns) == 15  # 12 + 3 tags
 
     def test_cram_scan_with_tags(self):
         """Test that lazy scan with CRAM tags includes the tags"""
@@ -120,7 +121,7 @@ class TestIOCRAM:
         assert "column_name" in schema.columns
         assert "data_type" in schema.columns
         assert "category" in schema.columns
-        assert len(schema) == 11  # Core columns only
+        assert len(schema) == 12  # Core columns only
         assert all(schema["category"] == "core")
 
     def test_describe_cram_with_tags(self):
@@ -129,7 +130,7 @@ class TestIOCRAM:
         assert "column_name" in schema.columns
         assert "category" in schema.columns
         assert "sam_type" in schema.columns
-        assert len(schema) > 11  # Core + tags
+        assert len(schema) > 12  # Core + tags
 
         tags = schema.filter(schema["category"] == "tag")
         tag_names = tags["column_name"].to_list()
@@ -484,3 +485,90 @@ class TestCRAMSortOnWrite:
         assert counts["SQ"] == 45
         assert counts["RG"] == 16
         assert counts["PG"] > 0
+
+
+class TestCRAMPR66Changes:
+    """Tests for PR #66 changes: template_length, MAPQ 255, QNAME '*' in CRAM."""
+
+    REFERENCE = f"{DATA_DIR}/io/cram/external_ref/chr20.fa"
+    CRAM_WITH_REF = f"{DATA_DIR}/io/cram/external_ref/test_chr20.cram"
+
+    def test_template_length_in_cram(self):
+        """template_length column exists in CRAM, dtype Int32, non-nullable."""
+        df = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram")
+        assert "template_length" in df.columns
+        assert df["template_length"].dtype == pl.Int32
+        assert df["template_length"].null_count() == 0
+
+    def test_template_length_cram_write_roundtrip(self, tmp_path):
+        """CRAM -> CRAM roundtrip preserves template_length values."""
+        df = pb.scan_cram(self.CRAM_WITH_REF, reference_path=self.REFERENCE).collect()
+        out_path = str(tmp_path / "tlen.cram")
+        pb.write_cram(df, out_path, reference_path=self.REFERENCE)
+
+        df_back = pb.read_cram(out_path, reference_path=self.REFERENCE)
+        assert "template_length" in df_back.columns
+        assert df_back["template_length"].dtype == pl.Int32
+        assert df_back["template_length"].null_count() == 0
+        assert len(df_back) == len(df)
+
+    def test_template_length_in_describe_cram(self):
+        """describe_cram output includes template_length with Int32 dtype."""
+        schema = pb.describe_cram(f"{DATA_DIR}/io/cram/test.cram", sample_size=0)
+        columns = schema["column_name"].to_list()
+        assert "template_length" in columns
+
+        tlen_row = schema.filter(schema["column_name"] == "template_length")
+        assert len(tlen_row) == 1
+        assert tlen_row["data_type"][0] == "Int32"
+
+    def test_mapq_not_null_cram(self):
+        """mapping_quality in CRAM has null_count==0 and dtype UInt32."""
+        df = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram")
+        assert df["mapping_quality"].null_count() == 0
+        assert df["mapping_quality"].dtype == pl.UInt32
+
+    def test_mapq_cram_write_roundtrip(self, tmp_path):
+        """CRAM -> CRAM roundtrip preserves mapping_quality values."""
+        df = pb.scan_cram(self.CRAM_WITH_REF, reference_path=self.REFERENCE).collect()
+        out_path = str(tmp_path / "mapq.cram")
+        pb.write_cram(df, out_path, reference_path=self.REFERENCE)
+
+        df_back = pb.read_cram(out_path, reference_path=self.REFERENCE)
+        assert df_back["mapping_quality"].to_list() == df["mapping_quality"].to_list()
+
+    def test_qname_not_null_cram(self):
+        """name column in CRAM has null_count==0."""
+        df = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram")
+        assert df["name"].null_count() == 0
+
+    def test_qname_cram_write_roundtrip(self, tmp_path):
+        """CRAM -> CRAM roundtrip preserves name values."""
+        df = pb.scan_cram(self.CRAM_WITH_REF, reference_path=self.REFERENCE).collect()
+        out_path = str(tmp_path / "qname.cram")
+        pb.write_cram(df, out_path, reference_path=self.REFERENCE)
+
+        df_back = pb.read_cram(out_path, reference_path=self.REFERENCE)
+        assert df_back["name"].to_list() == df["name"].to_list()
+
+    def test_cram_to_bam_template_length(self, tmp_path):
+        """CRAM -> BAM preserves template_length values."""
+        df_cram = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram")
+        out_path = str(tmp_path / "from_cram.bam")
+        pb.write_bam(df_cram, out_path)
+
+        df_bam = pb.read_bam(out_path)
+        assert (
+            df_bam["template_length"].to_list() == df_cram["template_length"].to_list()
+        )
+
+    def test_cram_to_sam_template_length(self, tmp_path):
+        """CRAM -> SAM preserves template_length values."""
+        df_cram = pb.read_cram(f"{DATA_DIR}/io/cram/test.cram")
+        out_path = str(tmp_path / "from_cram.sam")
+        pb.write_sam(df_cram, out_path)
+
+        df_sam = pb.read_sam(out_path)
+        assert (
+            df_sam["template_length"].to_list() == df_cram["template_length"].to_list()
+        )

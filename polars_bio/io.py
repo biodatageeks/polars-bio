@@ -40,6 +40,7 @@ from polars_bio.polars_bio import (
 from ._metadata import get_vcf_metadata, set_coordinate_system, set_vcf_metadata
 from .context import _resolve_zero_based, ctx
 from .predicate_translator import (
+    BAM_INT32_COLUMNS,
     BAM_STRING_COLUMNS,
     BAM_UINT32_COLUMNS,
     GFF_FLOAT32_COLUMNS,
@@ -55,9 +56,9 @@ from .predicate_translator import (
 # Mapping from format name to (string_cols, uint32_cols, float32_cols) for predicate validation.
 # Uses string keys because PyO3 InputFormat is not hashable.
 _FORMAT_COLUMN_TYPES = {
-    "Bam": (BAM_STRING_COLUMNS, BAM_UINT32_COLUMNS, None),
-    "Sam": (BAM_STRING_COLUMNS, BAM_UINT32_COLUMNS, None),
-    "Cram": (BAM_STRING_COLUMNS, BAM_UINT32_COLUMNS, None),
+    "Bam": (BAM_STRING_COLUMNS, BAM_UINT32_COLUMNS | BAM_INT32_COLUMNS, None),
+    "Sam": (BAM_STRING_COLUMNS, BAM_UINT32_COLUMNS | BAM_INT32_COLUMNS, None),
+    "Cram": (BAM_STRING_COLUMNS, BAM_UINT32_COLUMNS | BAM_INT32_COLUMNS, None),
     "Vcf": (VCF_STRING_COLUMNS, VCF_UINT32_COLUMNS, None),
     "Gff": (GFF_STRING_COLUMNS, GFF_UINT32_COLUMNS, GFF_FLOAT32_COLUMNS),
     "Pairs": (PAIRS_STRING_COLUMNS, PAIRS_UINT32_COLUMNS, PAIRS_FLOAT32_COLUMNS),
