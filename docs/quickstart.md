@@ -21,9 +21,9 @@ RUSTFLAGS="-Ctarget-cpu=native" maturin build --release -m Cargo.toml
 ```
 and you should see the following output:
 ```shell
-Compiling polars_bio v0.10.3 (/Users/mwiewior/research/git/polars-bio)
+Compiling polars_bio v0.22.0 (/Users/mwiewior/research/git/polars-bio)
 Finished `release` profile [optimized] target(s) in 1m 25s
-📦 Built wheel for abi3 Python ≥ 3.8 to /Users/mwiewior/research/git/polars-bio/target/wheels/polars_bio-0.10.3-cp38-abi3-macosx_11_0_arm64.whl
+📦 Built wheel for abi3 Python ≥ 3.8 to /Users/mwiewior/research/git/polars-bio/target/wheels/polars_bio-0.22.0-cp38-abi3-macosx_11_0_arm64.whl
 ```
 and finally install the package with pip:
 ```bash
@@ -32,7 +32,7 @@ pip install /Users/mwiewior/research/git/polars-bio/target/wheels/polars_bio-0.1
 !!! tip
     Required dependencies:
 
-    * Python>=3.9<3.14 (3.12 is recommended),
+    * Python>=3.9<3.15 (3.12 or 3.13 are recommended, 3.14 is experimental),
     * [poetry](https://python-poetry.org/)
     * cmake,
     * Rust compiler
