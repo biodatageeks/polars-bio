@@ -31,7 +31,7 @@ permissions:
 
 # Make sure CI fails on all warnings, including Clippy lints
 env:
-  POETRY_VERSION: 1.8.4
+  POETRY_VERSION: 2.1.4
   TARGET_CPU: skylake
 
 jobs:
@@ -57,17 +57,7 @@ jobs:
       - run: make venv
 #      - run: make pre-commit
       - run: make install
-      - name: Run tests
-        run: |
-          if [ "${{ matrix.python-version }}" = "3.14" ]; then
-            # Skip test_bioframe.py and test_native.py on Python 3.14 (bioframe/pandas not yet compatible)
-            .venv/bin/python -m pytest tests/ --ignore=tests/test_overlap_algorithms.py --ignore=tests/test_streaming.py --ignore=tests/test_bioframe.py --ignore=tests/test_native.py && \
-            .venv/bin/python -m pytest tests/test_overlap_algorithms.py && \
-            .venv/bin/python -m pytest tests/test_warnings.py && \
-            .venv/bin/python -m pytest tests/test_streaming.py
-          else
-            make test
-          fi
+      - run: make test
 
   linux:
     runs-on: ubuntu-latest
