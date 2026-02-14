@@ -32,7 +32,7 @@ pip install /Users/mwiewior/research/git/polars-bio/target/wheels/polars_bio-0.1
 !!! tip
     Required dependencies:
 
-    * Python>=3.9<3.15 (3.12 or 3.13 are recommended, 3.14 is experimental),
+    * Python>=3.10<3.15 (3.12 or 3.13 are recommended, 3.14 is **experimental**),
     * [poetry](https://python-poetry.org/)
     * cmake,
     * Rust compiler
