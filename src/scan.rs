@@ -387,7 +387,6 @@ pub(crate) async fn register_table(
             let table_provider = BedTableProvider::new(
                 path.to_string(),
                 BEDFields::BED4,
-                bed_read_options.thread_num,
                 bed_read_options.object_storage_options.clone(),
                 bed_read_options.zero_based,
             )
@@ -411,7 +410,6 @@ pub(crate) async fn register_table(
 
             let table_provider = FastaTableProvider::new(
                 path.to_string(),
-                None,
                 fasta_read_options.object_storage_options.clone(),
             )
             .unwrap();

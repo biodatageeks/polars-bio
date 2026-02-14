@@ -256,7 +256,6 @@ class SQL:
     def register_bed(
         path: str,
         name: Union[str, None] = None,
-        thread_num: int = 1,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
@@ -271,7 +270,6 @@ class SQL:
         Parameters:
             path: The path to the BED file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
-            thread_num: The number of threads to use for reading the BED file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -333,7 +331,6 @@ class SQL:
         )
 
         bed_read_options = BedReadOptions(
-            thread_num=thread_num,
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(bed_read_options=bed_read_options)

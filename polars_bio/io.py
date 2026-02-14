@@ -1338,7 +1338,6 @@ class IOOperations:
     @staticmethod
     def read_bed(
         path: str,
-        thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -1354,7 +1353,6 @@ class IOOperations:
 
         Parameters:
             path: The path to the BED file.
-            thread_num: The number of threads to use for reading the BED file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -1374,7 +1372,6 @@ class IOOperations:
         """
         lf = IOOperations.scan_bed(
             path,
-            thread_num,
             chunk_size,
             concurrent_fetches,
             allow_anonymous,
@@ -1396,7 +1393,6 @@ class IOOperations:
     @staticmethod
     def scan_bed(
         path: str,
-        thread_num: int = 1,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -1412,7 +1408,6 @@ class IOOperations:
 
         Parameters:
             path: The path to the BED file.
-            thread_num: The number of threads to use for reading the BED file. Used **only** for parallel decompression of BGZF blocks. Works only for **local** files.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -1442,7 +1437,6 @@ class IOOperations:
 
         zero_based = _resolve_zero_based(use_zero_based)
         bed_read_options = BedReadOptions(
-            thread_num=thread_num,
             object_storage_options=object_storage_options,
             zero_based=zero_based,
         )
