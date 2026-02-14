@@ -8,7 +8,7 @@ import polars_bio as pb
 class TestIOVCFAZBLOB:
     vcf_big = "http://127.0.0.1:10000/devstoreaccount1/polarsbio/vep.vcf.bgz"
     vcf_infos_mixed_cases = (
-        pb.scan_vcf(vcf_big, thread_num=1, allow_anonymous=False).limit(1).collect()
+        pb.scan_vcf(vcf_big, allow_anonymous=False).limit(1).collect()
     )
 
     def test_count(self):
@@ -22,9 +22,7 @@ class TestIOVCFS3:
 
     def test_count_priv(self):
         vcf_infos_mixed_cases = (
-            pb.scan_vcf(self.vcf_priv, thread_num=1, allow_anonymous=False)
-            .limit(1)
-            .collect()
+            pb.scan_vcf(self.vcf_priv, allow_anonymous=False).limit(1).collect()
         )
         assert len(vcf_infos_mixed_cases) == 1
 
@@ -33,9 +31,7 @@ class TestIOVCFS3:
         os.unsetenv("AWS_ACCESS_KEY_ID")
         os.unsetenv("AWS_SECRET_ACCESS_KEY")
         vcf_infos_mixed_cases = (
-            pb.scan_vcf(
-                self.vcf_pub, thread_num=1, allow_anonymous=False, max_retries=0
-            )
+            pb.scan_vcf(self.vcf_pub, allow_anonymous=False, max_retries=0)
             .limit(1)
             .collect()
         )
@@ -45,9 +41,7 @@ class TestIOVCFS3:
         os.unsetenv("AWS_ACCESS_KEY_ID")
         os.unsetenv("AWS_SECRET_ACCESS_KEY")
         vcf_infos_mixed_cases = (
-            pb.scan_vcf(self.vcf_pub, thread_num=1, allow_anonymous=True)
-            .limit(1)
-            .collect()
+            pb.scan_vcf(self.vcf_pub, allow_anonymous=True).limit(1).collect()
         )
         assert len(vcf_infos_mixed_cases) == 1
 
@@ -58,9 +52,7 @@ class TestIOVCFS3:
         os.unsetenv("AWS_REGION")
         os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
         vcf_infos_mixed_cases = (
-            pb.scan_vcf(self.vcf_aws_pub, thread_num=1, allow_anonymous=True)
-            .limit(1)
-            .collect()
+            pb.scan_vcf(self.vcf_aws_pub, allow_anonymous=True).limit(1).collect()
         )
         assert len(vcf_infos_mixed_cases) == 1
 
@@ -68,9 +60,7 @@ class TestIOVCFS3:
 class TestIOVCFGCS:
     vcf_big = "gs://gcp-public-data--gnomad/release/2.1.1/liftover_grch38/vcf/genomes/gnomad.genomes.r2.1.1.sites.liftover_grch38.vcf.bgz"
     vcf_infos_mixed_cases = (
-        pb.scan_vcf(
-            vcf_big, info_fields=["AF", "vep"], thread_num=1, allow_anonymous=True
-        )
+        pb.scan_vcf(vcf_big, info_fields=["AF", "vep"], allow_anonymous=True)
         .limit(1)
         .collect()
     )
@@ -86,7 +76,6 @@ class TestIOVCFGCS:
 #             vcf_big,
 #             "gnomad_big",
 #             info_fields=["AF", "vep"],
-#             thread_num=1,
 #             allow_anonymous=True,
 #         )
 #         pb.register_view(
@@ -97,7 +86,6 @@ class TestIOVCFGCS:
 #         pb.register_vcf(
 #             vcf_sv,
 #             "gnomad_sv",
-#             thread_num=1,
 #             info_fields=["SVTYPE", "SVLEN"],
 #             allow_anonymous=True,
 #             compression_type="bgz",  # override compression type - gz indicates that the file is gzipped, but it is actually bgzipped

@@ -465,8 +465,6 @@ impl CramReadOptions {
 #[pyclass(name = "BedReadOptions")]
 #[derive(Clone, Debug)]
 pub struct BedReadOptions {
-    #[pyo3(get, set)]
-    pub thread_num: Option<usize>,
     pub object_storage_options: Option<ObjectStorageOptions>,
     /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
     #[pyo3(get, set)]
@@ -476,14 +474,9 @@ pub struct BedReadOptions {
 #[pymethods]
 impl BedReadOptions {
     #[new]
-    #[pyo3(signature = (thread_num=None, object_storage_options=None, zero_based=true))]
-    pub fn new(
-        thread_num: Option<usize>,
-        object_storage_options: Option<PyObjectStorageOptions>,
-        zero_based: bool,
-    ) -> Self {
+    #[pyo3(signature = (object_storage_options=None, zero_based=true))]
+    pub fn new(object_storage_options: Option<PyObjectStorageOptions>, zero_based: bool) -> Self {
         BedReadOptions {
-            thread_num,
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
@@ -493,7 +486,6 @@ impl BedReadOptions {
     #[staticmethod]
     pub fn default() -> Self {
         BedReadOptions {
-            thread_num: Some(1),
             object_storage_options: Some(ObjectStorageOptions {
                 chunk_size: Some(1024 * 1024), // 1MB
                 concurrent_fetches: Some(4),

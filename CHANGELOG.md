@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Bumped datafusion-bio-formats to 0.5.0 (#300)
+  - VCF parsing optimization: eliminate per-record clones, enable `libdeflater` for faster gzip decompression (upstream PR #67, #68)
+  - FASTQ sequential/remote parsing optimization: eliminate per-record allocations (upstream PR #69)
+
+### Removed
+- **BREAKING**: Removed `thread_num` parameter from `read_bed()`, `scan_bed()`, and `register_bed()`. Threading is now handled automatically by the upstream library. Simply remove the parameter from your calls.
+
 ## [0.22.0] - 2025-02-12
 
 ### Added
