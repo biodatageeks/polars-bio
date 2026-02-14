@@ -31,7 +31,7 @@ permissions:
 
 # Make sure CI fails on all warnings, including Clippy lints
 env:
-  POETRY_VERSION: 1.8.4
+  POETRY_VERSION: 2.1.4
   TARGET_CPU: skylake
 
 jobs:
@@ -40,7 +40,7 @@ jobs:
     strategy:
       matrix:
         target: [x86_64]
-        python-version: [ "3.10", "3.11", "3.12", "3.13" ]
+        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14" ]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -52,6 +52,8 @@ jobs:
       - name: Set up Rust
         run: rustup show
       - uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Install system dependencies for pysam build
+        run: sudo apt-get update && sudo apt-get install -y libbz2-dev liblzma-dev libcurl4-openssl-dev zlib1g-dev libdeflate-dev
       - run: make venv
 #      - run: make pre-commit
       - run: make install
