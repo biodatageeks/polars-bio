@@ -1,0 +1,72 @@
+{% set name = "polars-bio" %}
+{% set version = "0.21.0" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/polars_bio-{{ version }}.tar.gz
+  sha256: 868509e3bdc87723bab02f7d78109eb3a450e5d5623bf36a674395346f8f0e49
+
+build:
+  number: 0
+  script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
+  skip: true  # [py<310]
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ compiler('rust') }}
+    - cargo-bundle-licenses
+    - cross-python_{{ target_platform }}  # [build_platform != target_platform]
+  host:
+    - python
+    - pip
+    - maturin >=1.0,<2.0
+    - polars >=1.37.0
+  run:
+    - python
+    - polars >=1.37.1
+    - pyarrow >=21.0.0,<23
+    - datafusion >=50.0.0,<51
+    - tqdm >=4.67.0,<5
+    - typing-extensions >=4.14.0,<5
+    - polars-config-meta >=0.3.0,<1
+
+test:
+  imports:
+    - polars_bio
+  commands:
+    - python -c "import polars_bio; print(polars_bio.__version__)"
+    - python -c "import polars; import polars_bio; df = polars.DataFrame({'chr': ['chr1'], 'start': [100], 'end': [200]}); print('Basic DataFrame test passed')"
+
+about:
+  home: https://github.com/biodatageeks/polars-bio
+  license: Apache-2.0
+  license_family: Apache
+  license_file: LICENSE
+  summary: 'Blazing fast genomic operations on large Python dataframes'
+  description: |
+    polars-bio is a Python library for genomics built on top of polars,
+    Apache Arrow and Apache DataFusion. It provides a DataFrame API for
+    genomics data and is designed to be blazing fast, memory efficient
+    and easy to use.
+
+    Key Features:
+    - Optimized for performance and memory efficiency
+    - Popular genomics operations with DataFrame API
+    - SQL-powered bioinformatic data querying
+    - Native parallel engine powered by Apache DataFusion
+    - Out-of-core/streaming processing
+    - Support for federated and streamed reading from cloud storages
+    - Zero-copy data exchange with Apache Arrow
+    - Bioinformatics file formats support
+    - Pre-built wheels for Linux, Windows, and macOS
+  doc_url: https://biodatageeks.org/polars-bio/
+  dev_url: https://github.com/biodatageeks/polars-bio
+
+extra:
+  recipe-maintainers:
+    - mwiewior
