@@ -35,6 +35,7 @@ pub struct CountOverlapsProvider {
     filter_op: FilterOp,
     coverage: bool,
     schema: SchemaRef,
+    on_cols: Option<Vec<String>>,
 }
 
 impl CountOverlapsProvider {
@@ -47,6 +48,7 @@ impl CountOverlapsProvider {
         columns_2: Vec<String>,
         filter_op: FilterOp,
         coverage: bool,
+        on_cols: Option<Vec<String>>,
     ) -> Self {
         Self {
             session,
@@ -74,6 +76,7 @@ impl CountOverlapsProvider {
             ),
             filter_op,
             coverage,
+            on_cols,
         }
     }
 }
@@ -138,6 +141,7 @@ impl TableProvider for CountOverlapsProvider {
                 EmissionType::Final,
                 Boundedness::Bounded,
             ),
+            on_cols: self.on_cols.clone(),
         }))
     }
 }
@@ -152,6 +156,7 @@ struct CountOverlapsExec {
     filter_op: FilterOp,
     coverage: bool,
     cache: PlanProperties,
+    on_cols: Option<Vec<String>>,
 }
 
 impl Debug for CountOverlapsExec {
@@ -209,6 +214,7 @@ impl ExecutionPlan for CountOverlapsExec {
             self.cache.partitioning.partition_count(),
             partition,
             context,
+            self.on_cols.clone(),
         );
         let stream = futures::stream::once(fut).try_flatten();
         let schema = self.schema.clone();
@@ -454,7 +460,28 @@ async fn get_stream(
     target_partitions: usize,
     partition: usize,
     context: Arc<TaskContext>,
+    on_cols: Option<Vec<String>>,
 ) -> Result<SendableRecordBatchStream> {
+    // Validate that on_cols is not provided for naive operations
+    // Check if on_cols is Some and non-empty (Python may pass empty list as Some(vec![]))
+    if let Some(cols) = &on_cols {
+        if !cols.is_empty() {
+            let op_name = if coverage { "coverage" } else { "count_overlaps" };
+            let suggestion = if coverage {
+                "The coverage operation does not support on_cols filtering. \
+                 Consider filtering the input DataFrames before calling coverage."
+            } else {
+                "Set naive_query=False to use the SQL-based path which supports on_cols."
+            };
+            return Err(datafusion::common::DataFusionError::Plan(
+                format!(
+                    "on_cols parameter {:?} is not supported in naive {} operation. {}",
+                    cols, op_name, suggestion
+                )
+            ));
+        }
+    }
+
     let right_table = session.table(right_table);
     let table_stream = right_table.await?;
     let plan = table_stream.create_physical_plan().await?;

@@ -31,6 +31,16 @@ pub(crate) fn nearest_query(query_params: QueryParams) -> String {
         "".to_string()
     };
 
+    // Generate additional WHERE conditions for on_cols
+    let on_cols_conditions = if let Some(ref cols) = query_params.on_cols {
+        cols.iter()
+            .map(|col| format!("\n            AND a.`{}`=b.`{}`", col, col))
+            .collect::<Vec<_>>()
+            .join("")
+    } else {
+        String::new()
+    };
+
     let query = format!(
         r#"
         SELECT
@@ -55,7 +65,7 @@ pub(crate) fn nearest_query(query_params: QueryParams) -> String {
        FROM {} AS b, {} AS a
         WHERE  a.`{}` = b.`{}`
             AND cast(b.`{}` AS INT) >{} cast(a.`{}` AS INT )
-            AND cast(b.`{}` AS INT) <{} cast(a.`{}` AS INT)
+            AND cast(b.`{}` AS INT) <{} cast(a.`{}` AS INT){}
         "#,
         a_contig,
         a_contig,
@@ -95,6 +105,7 @@ pub(crate) fn nearest_query(query_params: QueryParams) -> String {
         b_start,
         query_params.sign,
         a_end,
+        on_cols_conditions,
     );
     query
 }
@@ -202,6 +213,16 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
         )
     };
 
+    // Generate additional WHERE conditions for on_cols
+    let on_cols_conditions = if let Some(ref cols) = query_params.on_cols {
+        cols.iter()
+            .map(|col| format!("\n            AND\n                a.`{}`=b.`{}`", col, col))
+            .collect::<Vec<_>>()
+            .join("")
+    } else {
+        String::new()
+    };
+
     let query = format!(
         r#"
             SELECT
@@ -213,7 +234,7 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
             AND
                 cast(a.`{}` AS INT) >{} cast(b.`{}` AS INT)
             AND
-                cast(a.`{}` AS INT) <{} cast(b.`{}` AS INT)
+                cast(a.`{}` AS INT) <{} cast(b.`{}` AS INT){}
         "#,
         select_clause,
         query_params.right_table,
@@ -225,7 +246,8 @@ pub(crate) fn overlap_query(query_params: QueryParams) -> String {
         query_params.columns_2[1], // pos_start
         query_params.columns_1[1],
         query_params.sign,
-        query_params.columns_2[2] // pos_end
+        query_params.columns_2[2], // pos_end
+        on_cols_conditions
     );
     query
 }

@@ -23,6 +23,7 @@ pub(crate) struct QueryParams {
     pub left_table: String,
     pub right_table: String,
     pub projection_columns: Option<Vec<String>>,
+    pub on_cols: Option<Vec<String>>,
 }
 pub(crate) fn do_range_operation(
     ctx: &SessionContext,
@@ -149,6 +150,7 @@ async fn do_count_overlaps_coverage_naive(
         columns_2,
         range_opts.filter_op.unwrap(),
         coverage,
+        range_opts.on_cols,
     );
     let table_name = "count_overlaps_coverage".to_string();
     ctx.deregister_table(table_name.clone()).unwrap();
@@ -229,6 +231,7 @@ pub(crate) async fn prepare_query(
         left_table,
         right_table,
         projection_columns: None, // For now, no projection pushdown in SQL generation
+        on_cols: range_opts.on_cols,
     };
 
     query(query_params)
