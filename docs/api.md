@@ -3,6 +3,7 @@ polars-bio API is grouped into the following categories:
 - **[File I/O](#polars_bio.data_input)**: Reading files in various biological formats from **local** and **[cloud](/polars-bio/features/#cloud-storage)** storage.
 - **[Data Processing](#polars_bio.data_processing)**: Exposing end user to the rich **SQL** programming interface powered by [Apache Datafusion](https://datafusion.apache.org/user-guide/sql/index.html) for operations, such as sorting, filtering and other transformations on input bioinformatic datasets registered as tables. You can easily query and process file formats such as *VCF*, *GFF*, *BAM*, *FASTQ*, *Pairs* using SQL syntax.
 - **[Interval Operations](#polars_bio.range_operations)**: Functions for performing common interval operations, such as *overlap*, *nearest*, *coverage*.
+- **[Pileup Operations](#polars_bio.pileup_operations)**: Per-base read depth computation from BAM/SAM/CRAM files using CIGAR operations, similar to mosdepth/samtools depth.
 
 There are 2 ways of using polars-bio API:
 

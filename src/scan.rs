@@ -366,6 +366,7 @@ pub(crate) async fn register_table(
                 bam_read_options.object_storage_options.clone(),
                 bam_read_options.zero_based,
                 bam_read_options.tag_fields.clone(),
+                false,
             )
             .await
             .unwrap();
@@ -434,6 +435,7 @@ pub(crate) async fn register_table(
                 cram_read_options.object_storage_options.clone(),
                 cram_read_options.zero_based,
                 cram_read_options.tag_fields.clone(),
+                false,
             )
             .await
             .expect("Failed to create CRAM table provider. Check that the file exists and requested tags are valid.");
@@ -524,6 +526,7 @@ pub fn py_describe_bam(
                     object_storage_opts,
                     zero_based,
                     tag_fields,
+                    false,
                 )
                 .await
                 .map_err(|e| format!("Failed to create BAM table provider: {}", e))?;
@@ -594,6 +597,7 @@ pub fn py_describe_cram(
                     object_storage_opts,
                     zero_based,
                     tag_fields,
+                    false,
                 )
                 .await
                 .map_err(|e| format!("Failed to create CRAM table provider: {}", e))?;

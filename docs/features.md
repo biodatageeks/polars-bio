@@ -17,6 +17,27 @@
 !!! Limitations
     For now *polars-bio* uses `int32` positions encoding for interval operations ([issue](https://github.com/dcjones/coitrees/issues/18)) meaning that it does not support operation on chromosomes longer than **2Gb**. `int64` support is planned for future releases ([issue](https://github.com/biodatageeks/polars-bio/issues/169)).
 
+## Pileup operations
+
+Per-base read depth computation from alignment files using CIGAR operations. Produces mosdepth-compatible coverage blocks.
+
+| Feature | mosdepth | samtools depth | polars-bio |
+|---------|----------|----------------|------------|
+| [depth](api.md#polars_bio.depth) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+
+```python
+import polars_bio as pb
+
+# Compute per-base depth from a BAM file
+df = pb.depth("alignments.bam").collect()
+
+# With MAPQ filter (equivalent to samtools depth -q 20)
+df = pb.depth("alignments.bam", min_mapping_quality=20).collect()
+
+# Via SQL
+df = pb.sql("SELECT * FROM depth('alignments.bam')").collect()
+```
+
 !!! tip "Memory Optimization"
     For `overlap()` operations that produce very large result sets, use the `low_memory=True` parameter to reduce peak memory consumption:
 

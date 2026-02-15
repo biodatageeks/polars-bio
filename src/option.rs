@@ -576,6 +576,47 @@ impl PairsReadOptions {
 }
 
 // ============================================================================
+// Pileup Options
+// ============================================================================
+
+#[pyclass(name = "PileupOptions")]
+#[derive(Clone, Debug)]
+pub struct PileupOptions {
+    #[pyo3(get, set)]
+    pub filter_flag: u32,
+    #[pyo3(get, set)]
+    pub min_mapping_quality: u32,
+    #[pyo3(get, set)]
+    pub binary_cigar: bool,
+    #[pyo3(get, set)]
+    pub dense_mode: String,
+    /// If true, output 0-based half-open coordinates; if false (default), 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+}
+
+#[pymethods]
+impl PileupOptions {
+    #[new]
+    #[pyo3(signature = (filter_flag=1796, min_mapping_quality=0, binary_cigar=true, dense_mode="auto".to_string(), zero_based=false))]
+    pub fn new(
+        filter_flag: u32,
+        min_mapping_quality: u32,
+        binary_cigar: bool,
+        dense_mode: String,
+        zero_based: bool,
+    ) -> Self {
+        PileupOptions {
+            filter_flag,
+            min_mapping_quality,
+            binary_cigar,
+            dense_mode,
+            zero_based,
+        }
+    }
+}
+
+// ============================================================================
 // Write Options
 // ============================================================================
 
