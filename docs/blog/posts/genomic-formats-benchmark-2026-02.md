@@ -67,7 +67,7 @@ The full benchmark code is available in the [bioformats-benchmark](https://githu
 
 ![FASTQ comparison](figures/genomic-formats-benchmark-2026-02/fastq_comparison.png)
 
-At single-thread, polars-bio matches biobear's speed (4.6s vs 4.4s) while using **17x less memory** (214 MB vs 3.7 GB).
+At single-thread, polars-bio matches biobear's speed (4.8s vs 4.4s) while using **17x less memory** (204 MB vs 3.7 GB).
 
 With 8 threads, polars-bio reads 10.8M FASTQ records in **0.6 seconds** — that's **20x faster than pysam** and **7x faster than biobear**, while staying under 300 MB of memory.
 
@@ -91,7 +91,7 @@ At 8 threads: **6.3 seconds** — **52x faster than pysam**. Memory remains unde
 
 ![VCF without INFO](figures/genomic-formats-benchmark-2026-02/vcf_without_info.png)
 
-For the 86.8M-row VCF, polars-bio at 1 thread (36.9s) is competitive with oxbow (35.2s) and faster than biobear (43.0s). pysam takes 111s.
+For the 86.8M-row VCF, polars-bio at 1 thread (33.6s) is competitive with oxbow (35.2s) and faster than biobear (43.0s). pysam takes 111s.
 
 At 8 threads, polars-bio finishes in **6.2 seconds** — **18x faster than pysam** — with only 255 MB of memory vs pysam's 19.8 GB.
 
@@ -105,7 +105,7 @@ This is the most challenging test: parsing the full INFO field across 86.8M VCF 
 - **biobear**: skipped (fails on this dataset)
 - **oxbow**: 104.8s (lazy) / 110.6s (stream), with the lazy mode consuming 29.6 GB
 
-polars-bio completed the task at every thread count — 1 thread: **73s**, 8 threads: **11.2 seconds** — while staying under 300 MB of memory. This is a test where polars-bio is the only library that delivers both correctness and practical performance.
+polars-bio completed the task at every thread count — 1 thread: **69s**, 8 threads: **11.2 seconds** — while staying under 300 MB of memory. This is a test where polars-bio is the only library that delivers both correctness and practical performance.
 
 ## Thread Scaling
 
