@@ -16,6 +16,7 @@ nav:
       - 🚀 Performance: performance.md
       - ❓ FAQ: faq.md
       - 🔬 Auxiliary materials : supplement.md
+      - 🛠️ Developers guide: developers.md
       - 📡 Contact: contact.md
 
 
@@ -26,6 +27,7 @@ nav:
   - Performance: performance.md
   - FAQ: faq.md
   - 🔬 Supplementary material: supplement.md
+  - 🛠️ Developers guide: developers.md
   - Contact: contact.md
   - 📖 Blog:
       - blog/index.md

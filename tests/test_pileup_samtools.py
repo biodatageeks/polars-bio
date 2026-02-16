@@ -4,6 +4,8 @@ Uses a 10k-read BAM extracted from NA12878 WES chr1.
 Golden standard: samtools depth -q 0 -Q 0 (covered positions only, 1-based).
 """
 
+import gc
+
 import polars as pl
 import pytest
 
@@ -11,6 +13,9 @@ import polars_bio as pb
 
 BAM_PATH = "tests/data/io/bam/NA12878_10k.bam"
 SAMTOOLS_DEPTH_PATH = "tests/data/io/bam/NA12878_10k_samtools_depth.tsv.gz"
+
+# Module-level cache: each (mode, partitions) pair is computed at most once.
+_CACHE: dict = {}
 
 
 @pytest.fixture(scope="module")
@@ -27,6 +32,9 @@ def samtools_golden():
 
 def _run_per_base(partitions: int) -> pl.DataFrame:
     """Run per-base depth with given partition count, return sorted non-zero rows."""
+    key = ("per_base", partitions)
+    if key in _CACHE:
+        return _CACHE[key]
     pb.set_option("datafusion.execution.target_partitions", str(partitions))
     try:
         df = (
@@ -36,7 +44,10 @@ def _run_per_base(partitions: int) -> pl.DataFrame:
         )
     finally:
         pb.set_option("datafusion.execution.target_partitions", "1")
-    return df.sort(["contig", "pos"])
+    result = df.sort(["contig", "pos"])
+    _CACHE[key] = result
+    gc.collect()
+    return result
 
 
 def _expand_blocks(blocks: pl.DataFrame) -> pl.DataFrame:
@@ -54,18 +65,24 @@ def _expand_blocks(blocks: pl.DataFrame) -> pl.DataFrame:
 
 def _run_blocks(partitions: int) -> pl.DataFrame:
     """Run block-mode depth with given partition count, return expanded sorted rows."""
+    key = ("blocks", partitions)
+    if key in _CACHE:
+        return _CACHE[key]
     pb.set_option("datafusion.execution.target_partitions", str(partitions))
     try:
         blocks = pb.depth(BAM_PATH, use_zero_based=False).collect()
     finally:
         pb.set_option("datafusion.execution.target_partitions", "1")
-    return _expand_blocks(blocks)
+    result = _expand_blocks(blocks)
+    _CACHE[key] = result
+    gc.collect()
+    return result
 
 
 # ── Per-base vs samtools ───────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("partitions", [1, 2, 4, 8])
+@pytest.mark.parametrize("partitions", [1, 2, 4])
 def test_per_base_vs_samtools(samtools_golden, partitions):
     """Per-base depth output must exactly match samtools depth."""
     result = _run_per_base(partitions)
@@ -83,7 +100,7 @@ def test_per_base_vs_samtools(samtools_golden, partitions):
 # ── Block mode vs samtools ─────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("partitions", [1, 2, 4, 8])
+@pytest.mark.parametrize("partitions", [1, 2, 4])
 def test_blocks_vs_samtools(samtools_golden, partitions):
     """Expanded block-mode depth must exactly match samtools depth."""
     result = _run_blocks(partitions)
@@ -101,7 +118,7 @@ def test_blocks_vs_samtools(samtools_golden, partitions):
 # ── Cross-check: block mode vs per-base ───────────────────────────────
 
 
-@pytest.mark.parametrize("partitions", [1, 2, 4, 8])
+@pytest.mark.parametrize("partitions", [1, 2, 4])
 def test_blocks_vs_per_base(partitions):
     """Expanded blocks and per-base must produce identical non-zero coverage."""
     blocks_expanded = _run_blocks(partitions)

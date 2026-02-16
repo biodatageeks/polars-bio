@@ -675,76 +675,11 @@ df = pb.read_fastq("reads.fastq.bgz")  # parallel BGZF decoding when .gzi index 
 
 #### Record-level filter pushdown
 
-Beyond index-based region queries, all formats support **record-level predicate evaluation**. Filters on columns like `mapping_quality`, `flag`, `score`, or `strand` are evaluated as each record is read, filtering early before Arrow RecordBatch construction.
-
-This works **with or without** an index file:
-
-```python
-import polars as pl
-import polars_bio as pb
-
-# No index needed — filters applied per-record during scan
-df = (
-    pb.scan_bam("alignments.bam")
-    .filter((pl.col("mapping_quality") >= 30) & (pl.col("flag") & 4 == 0))
-    .collect()
-)
-
-# Combine genomic region (uses index) with record filter (applied per-record)
-df = (
-    pb.scan_bam("alignments.bam")
-    .filter(
-        (pl.col("chrom") == "chr1")
-        & (pl.col("start") >= 1000000)
-        & (pl.col("mapping_quality") >= 30)
-    )
-    .collect()
-)
-```
+All formats support record-level predicate evaluation — filters on columns like `mapping_quality`, `flag`, or `strand` are evaluated per-record during scan, with or without an index file. See the [Developers Guide](developers.md#predicate-pushdown) for the translation pipeline internals and [examples](developers.md#predicate-projection-pushdown-examples).
 
 #### Projection pushdown
 
-BAM, CRAM, VCF, and Pairs formats support **parsing-level projection pushdown**. When you select a subset of columns, unprojected fields are skipped entirely during record parsing — no string formatting, sequence decoding, map lookups, or memory allocation for those fields. This can significantly reduce I/O and CPU time, especially for wide schemas like BAM (11+ columns) where you only need a few fields.
-
-Projection pushdown is **enabled by default** (`projection_pushdown=True`) on all `scan_*`/`read_*` calls and range operations. To disable it, pass `projection_pushdown=False`.
-
-```python
-import polars_bio as pb
-
-# Only name and chrom are parsed from each BAM record (projection pushdown is on by default)
-df = (
-    pb.scan_bam("alignments.bam")
-    .select(["name", "chrom"])
-    .collect()
-)
-
-# Works the same for CRAM and VCF
-df = pb.scan_cram("alignments.cram").select(["name", "chrom"]).collect()
-
-# Works with SQL too — only referenced columns are parsed
-pb.register_vcf("variants.vcf.gz", "variants")
-result = pb.sql("SELECT chrom, start FROM variants").collect()
-```
-
-You can verify pushdown is active by inspecting the physical execution plan:
-
-```python
-from polars_bio.context import ctx
-from polars_bio.polars_bio import (
-    InputFormat, ReadOptions, BamReadOptions,
-    py_register_table, py_read_table,
-)
-
-read_options = ReadOptions(bam_read_options=BamReadOptions())
-table = py_register_table(ctx, "alignments.bam", None, InputFormat.Bam, read_options)
-df = py_read_table(ctx, table.name).select_columns("name", "chrom")
-print(df.execution_plan())
-# CooperativeExec
-#   BamExec: projection=[name, chrom]    <-- only 2 of 11 columns parsed
-```
-
-!!! tip
-    `COUNT(*)` queries also benefit — when no columns are needed, the empty projection path avoids parsing any fields while still counting records correctly.
+BAM, CRAM, VCF, and Pairs formats support parsing-level projection pushdown — unprojected fields are skipped entirely during record parsing. Enabled by default (`projection_pushdown=True`). See the [Developers Guide](developers.md#projection-pushdown) for internals and [execution plan inspection](developers.md#inspecting-the-execution-plan).
 
 #### Index file generation
 
@@ -1253,101 +1188,6 @@ For BGZIP-compressed FASTQ files, parallel decoding of compressed blocks is **au
 
 ## Polars Integration
 
-polars-bio leverages deep integration with Polars through the [Arrow C Data Interface](https://arrow.apache.org/docs/format/CDataInterface.html), enabling high-performance zero-copy data exchange between Polars LazyFrames and the Rust-based genomic range operations engine.
+polars-bio leverages deep integration with Polars through the [Arrow C Data Interface](https://arrow.apache.org/docs/format/CDataInterface.html), enabling high-performance zero-copy data exchange between Polars LazyFrames and the Rust-based genomic range operations engine. Requires **Polars >= 1.37.0**.
 
-### Architecture
-
-```mermaid
-flowchart LR
-    subgraph Python["Python Layer"]
-        LF["Polars LazyFrame"]
-        DF["Polars DataFrame"]
-    end
-
-    subgraph FFI["Arrow C Data Interface"]
-        stream["Arrow C Stream<br/>(__arrow_c_stream__)"]
-    end
-
-    subgraph Rust["Rust Layer (polars-bio)"]
-        reader["ArrowArrayStreamReader"]
-        datafusion["DataFusion Engine"]
-        range_ops["Range Operations<br/>(overlap, nearest, etc.)"]
-    end
-
-    LF --> |"ArrowStreamExportable"| stream
-    DF --> |"to_arrow()"| stream
-    stream --> |"Zero-copy FFI"| reader
-    reader --> datafusion
-    datafusion --> range_ops
-```
-
-### How It Works
-
-When you pass a Polars LazyFrame to range operations like `overlap()` or `nearest()`:
-
-1. **Stream Export**: The LazyFrame exports itself as an Arrow C Stream via `collect_batches(lazy=True)._inner.__arrow_c_stream__()` (Polars >= 1.37.0)
-2. **Zero-Copy Transfer**: The stream pointer is passed directly to Rust - no data copying or Python object conversion
-3. **GIL-Free Execution**: Once the stream is exported, all data processing happens in Rust without holding Python's GIL
-4. **Streaming Execution**: Data flows through DataFusion's streaming engine, processing batches on-demand
-
-### Performance Benefits
-
-| Aspect | Previous Approach | Arrow C Stream |
-|--------|------------------|----------------|
-| GIL acquisition | Per batch | Once at export |
-| Data conversion | Polars → PyArrow → Arrow | Direct FFI |
-| Memory overhead | Python iterator objects | None |
-| Batch processing | Python `__next__()` calls | Native Rust iteration |
-
-### Requirements
-
-- **Polars >= 1.37.0** (required for `ArrowStreamExportable`)
-
-### Batch Size Configuration
-
-polars-bio automatically synchronizes the batch size between Polars streaming and DataFusion execution. When you set `datafusion.execution.batch_size`, Polars' `collect_batches()` will use the same chunk size:
-
-```python
-import polars_bio as pb
-
-# Set batch size for both Polars and DataFusion
-pb.set_option("datafusion.execution.batch_size", "8192")
-
-# Now LazyFrame streaming uses 8192-row batches
-# This ensures consistent memory usage and processing patterns
-```
-
-| Setting | Effect |
-|---------|--------|
-| `datafusion.execution.batch_size` | Controls batch size for both Polars streaming export and DataFusion processing |
-| Default | 8192 rows (synchronized between Polars and DataFusion) |
-| `"65536"` | Larger batches for high-throughput scenarios |
-
-!!! tip
-    Matching batch sizes between Polars and DataFusion improves cache locality and reduces memory fragmentation when processing large datasets.
-
-### Example
-
-```python
-import polars as pl
-import polars_bio as pb
-
-# Create a LazyFrame from a large file
-lf1 = pl.scan_parquet("variants.parquet")
-lf2 = pl.scan_parquet("regions.parquet")
-
-# Set coordinate system metadata
-lf1 = lf1.config_meta.set(coordinate_system_zero_based=True)
-lf2 = lf2.config_meta.set(coordinate_system_zero_based=True)
-
-# Range operation uses Arrow C Stream for efficient data transfer
-result = pb.overlap(
-    lf1, lf2,
-    cols1=["chrom", "start", "end"],
-    cols2=["chrom", "start", "end"],
-    output_type="polars.LazyFrame"
-)
-
-# Execute with Polars streaming engine
-result.collect(engine="streaming")
-```
+See the [Developers Guide](developers.md#polars-integration) for architecture diagrams, performance details, and batch size configuration.

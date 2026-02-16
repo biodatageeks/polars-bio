@@ -14,7 +14,7 @@ crate-type= ["cdylib"]
 datafusion-python = "50.1.0"
 pyo3 = { version = "0.25.1", features = ["extension-module", "abi3"] }
 pyo3-log = "0.12.4"
-sequila-core = { git = "https://github.com/biodatageeks/sequila-native.git", rev = "32a09303624bcb7e03c2e0150e24a97325be430f" }
+datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "d921f835fdce2490009919616488a7d0c3348662" }
 
 datafusion = { version = "50.3.0"}
 arrow = "56.1.0"
@@ -35,11 +35,9 @@ datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-
 datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a3366b18204e31495eca3f76bf623c5e4d1bb979" }
 datafusion-bio-format-pairs = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a3366b18204e31495eca3f76bf623c5e4d1bb979" }
 
-datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "334d4f219503cdb21e2490ce006c2c1849b9a885", default-features = false }
+datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "d921f835fdce2490009919616488a7d0c3348662", default-features = false }
 
 async-trait = "0.1.86"
 futures = "0.3.31"
-coitrees = "0.4.0"
-fnv = "1.0.7"
 rand = "0.8.5"
 serde_json = "1.0"

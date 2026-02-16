@@ -170,6 +170,27 @@ class PileupOperations:
                     except Exception as e:
                         logger.debug("Projection pushdown failed: %s", e)
 
+            # Predicate pushdown (reuses pattern from _overlap_source in io.py)
+            predicate_pushed_down = False
+            if predicate is not None:
+                try:
+                    from .predicate_translator import (
+                        datafusion_expr_to_sql,
+                        translate_predicate,
+                    )
+
+                    df_expr = translate_predicate(
+                        predicate,
+                        string_cols={"contig"},
+                        uint32_cols={"pos", "pos_start", "pos_end", "coverage"},
+                    )
+                    sql_predicate = datafusion_expr_to_sql(df_expr)
+                    native_expr = query_df.parse_sql_expr(sql_predicate)
+                    query_df = query_df.filter(native_expr)
+                    predicate_pushed_down = True
+                except Exception as e:
+                    logger.debug("Pileup predicate pushdown failed: %s", e)
+
             # Limit pushdown
             if n_rows and n_rows > 0:
                 query_df = query_df.limit(int(n_rows))
@@ -182,8 +203,8 @@ class PileupOperations:
             for batch in df_stream:
                 out = pl.DataFrame(batch.to_pyarrow())
 
-                # Client-side predicate filtering
-                if predicate is not None:
+                # Client-side predicate filtering (fallback)
+                if predicate is not None and not predicate_pushed_down:
                     out = out.filter(predicate)
 
                 # Client-side projection fallback
@@ -202,6 +223,12 @@ class PileupOperations:
 
                 if remaining is not None and remaining <= 0:
                     return
+
+            # Clean up registered table to free memory
+            try:
+                _ctx.deregister_table(table_name)
+            except Exception:
+                pass
 
         # 4. Create lazy frame
         lf = register_io_source(_pileup_source, schema=polars_schema)

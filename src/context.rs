@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use datafusion::config::ConfigOptions;
 use datafusion::prelude::{SessionConfig, SessionContext};
+use datafusion_bio_function_ranges::{register_ranges_functions, BioConfig, BioSessionExt};
 use datafusion_python::dataframe::PyDataFrame;
 use log::debug;
 use pyo3::{pyclass, pymethods, PyResult, Python};
-use sequila_core::session_context::{SeQuiLaSessionExt, SequilaConfig};
 use tokio::runtime::Runtime;
 
 #[pyclass(name = "BioSessionContext")]
@@ -53,6 +53,18 @@ impl PyBioSessionContext {
         }
     }
 
+    /// Removes a previously registered table by name.
+    #[pyo3(signature = (name))]
+    pub fn deregister_table(&self, name: &str) -> PyResult<()> {
+        self.ctx.deregister_table(name).map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "Failed to deregister table '{}': {}",
+                name, e
+            ))
+        })?;
+        Ok(())
+    }
+
     /// Returns a DataFrame for a registered table by name.
     #[pyo3(signature = (name))]
     pub fn table(&self, name: &str, py: Python) -> PyResult<PyDataFrame> {
@@ -96,14 +108,17 @@ fn create_context() -> SessionContext {
         options.set(o.0, o.1).expect("TODO: panic message");
     }
 
-    let mut sequila_config = SequilaConfig::default();
-    sequila_config.prefer_interval_join = true;
+    let mut bio_config = BioConfig::default();
+    bio_config.prefer_interval_join = true;
 
     let config = SessionConfig::from(options)
-        .with_option_extension(sequila_config)
+        .with_option_extension(bio_config)
         .with_information_schema(true);
 
-    let ctx = SessionContext::new_with_sequila(config);
+    let ctx = SessionContext::new_with_bio(config);
+
+    // Register coverage() and count_overlaps() SQL UDTFs
+    register_ranges_functions(&ctx);
 
     // Register depth UDTF for SQL: SELECT * FROM depth('file.bam')
     ctx.register_udtf(

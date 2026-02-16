@@ -4,7 +4,6 @@ mod option;
 mod pileup;
 mod query;
 mod scan;
-mod udtf;
 mod utils;
 mod write;
 
