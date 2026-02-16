@@ -602,6 +602,7 @@ pub struct PileupOptions {
 #[pymethods]
 impl PileupOptions {
     #[new]
+    // Default filter_flag 1796 = unmapped(4) + secondary(256) + qcfail(512) + duplicate(1024)
     #[pyo3(signature = (filter_flag=1796, min_mapping_quality=0, binary_cigar=true, dense_mode="auto".to_string(), zero_based=false, per_base=false))]
     pub fn new(
         filter_flag: u32,

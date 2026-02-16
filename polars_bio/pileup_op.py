@@ -7,6 +7,7 @@ from tqdm.auto import tqdm
 
 from ._metadata import set_coordinate_system
 from .context import _resolve_zero_based, ctx
+from .logging import logger
 
 try:
     import pandas as pd
@@ -166,8 +167,8 @@ class PileupOperations:
                         ]
                         query_df = query_df.select(*select_exprs)
                         projection_applied = True
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Projection pushdown failed: %s", e)
 
             # Limit pushdown
             if n_rows and n_rows > 0:
