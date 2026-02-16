@@ -9,6 +9,7 @@ SAM_PATH = "tests/data/io/sam/test.sam"
 CRAM_PATH = "tests/data/io/cram/test.cram"
 
 EXPECTED_COLUMNS = {"contig", "pos_start", "pos_end", "coverage"}
+EXPECTED_PER_BASE_COLUMNS = {"contig", "pos", "coverage"}
 
 
 def test_depth_bam():
@@ -114,3 +115,19 @@ def test_depth_limit():
     """Limit pushdown works."""
     result = pb.depth(BAM_PATH).limit(5).collect()
     assert result.height <= 5
+
+
+def test_depth_per_base():
+    """Per-base mode emits one row per genomic position."""
+    result = pb.depth(BAM_PATH, per_base=True)
+    assert isinstance(result, pl.LazyFrame)
+    df = result.collect()
+    assert set(df.columns) == EXPECTED_PER_BASE_COLUMNS
+    assert df.height > 0
+
+
+def test_depth_per_base_more_rows_than_blocks():
+    """Per-base output should have >= as many rows as block output."""
+    blocks = pb.depth(BAM_PATH).collect()
+    per_base = pb.depth(BAM_PATH, per_base=True).collect()
+    assert per_base.height >= blocks.height

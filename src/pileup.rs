@@ -33,6 +33,7 @@ pub fn pileup_options_to_config(opts: Option<PileupOptions>) -> PileupConfig {
                 dense_mode,
                 binary_cigar: opts.binary_cigar,
                 zero_based: opts.zero_based,
+                per_base: opts.per_base,
             }
         },
         None => PileupConfig::default(),
@@ -67,7 +68,11 @@ impl TableProvider for DepthTableProvider {
     }
 
     fn schema(&self) -> arrow_schema::SchemaRef {
-        datafusion_bio_function_pileup::schema::coverage_output_schema(self.config.zero_based)
+        if self.config.per_base {
+            datafusion_bio_function_pileup::schema::per_base_output_schema(self.config.zero_based)
+        } else {
+            datafusion_bio_function_pileup::schema::coverage_output_schema(self.config.zero_based)
+        }
     }
 
     fn table_type(&self) -> TableType {

@@ -593,18 +593,23 @@ pub struct PileupOptions {
     /// If true, output 0-based half-open coordinates; if false (default), 1-based closed
     #[pyo3(get, set)]
     pub zero_based: bool,
+    /// If true, emit one row per genomic position (like samtools depth -a)
+    /// instead of RLE coverage blocks. Default: false.
+    #[pyo3(get, set)]
+    pub per_base: bool,
 }
 
 #[pymethods]
 impl PileupOptions {
     #[new]
-    #[pyo3(signature = (filter_flag=1796, min_mapping_quality=0, binary_cigar=true, dense_mode="auto".to_string(), zero_based=false))]
+    #[pyo3(signature = (filter_flag=1796, min_mapping_quality=0, binary_cigar=true, dense_mode="auto".to_string(), zero_based=false, per_base=false))]
     pub fn new(
         filter_flag: u32,
         min_mapping_quality: u32,
         binary_cigar: bool,
         dense_mode: String,
         zero_based: bool,
+        per_base: bool,
     ) -> Self {
         PileupOptions {
             filter_flag,
@@ -612,6 +617,7 @@ impl PileupOptions {
             binary_cigar,
             dense_mode,
             zero_based,
+            per_base,
         }
     }
 }

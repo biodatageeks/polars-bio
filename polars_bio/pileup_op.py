@@ -54,6 +54,7 @@ class PileupOperations:
         binary_cigar: bool = True,
         dense_mode: str = "auto",
         use_zero_based: Optional[bool] = None,
+        per_base: bool = False,
         output_type: str = "polars.LazyFrame",
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame"]:
         """Compute per-base read depth (pileup) from a BAM/SAM/CRAM file.
@@ -82,19 +83,30 @@ class PileupOperations:
                   which defaults to 1-based.
                 - ``True`` -- 0-based half-open coordinates.
                 - ``False`` -- 1-based closed coordinates.
+            per_base: If True, emit one row per genomic position (like
+                ``samtools depth -a``) instead of RLE coverage blocks.
+                Requires dense mode (BAM header with contig lengths).
+                Default False.
             output_type: One of ``"polars.LazyFrame"``,
                 ``"polars.DataFrame"``, or ``"pandas.DataFrame"``.
 
         Returns:
-            DataFrame with columns: ``contig`` (Utf8), ``pos_start`` (Int32),
-            ``pos_end`` (Int32), ``coverage`` (Int16).
+            DataFrame with columns depending on ``per_base``:
+
+            - Block mode (default): ``contig`` (Utf8), ``pos_start`` (Int32),
+              ``pos_end`` (Int32), ``coverage`` (Int16).
+            - Per-base mode: ``contig`` (Utf8), ``pos`` (Int32),
+              ``coverage`` (Int16).
 
         Example:
             ```python
             import polars_bio as pb
 
-            # Basic depth computation
+            # Basic depth computation (RLE blocks)
             df = pb.depth("alignments.bam").collect()
+
+            # Per-base output (one row per position)
+            df = pb.depth("alignments.bam", per_base=True).collect()
 
             # With MAPQ filter
             df = pb.depth("alignments.bam", min_mapping_quality=20).collect()
@@ -117,6 +129,7 @@ class PileupOperations:
             binary_cigar=binary_cigar,
             dense_mode=dense_mode,
             zero_based=zero_based,
+            per_base=per_base,
         )
 
         # 1. Register table (no execution)
