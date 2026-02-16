@@ -2,14 +2,15 @@ use std::sync::Arc;
 
 use datafusion::common::TableReference;
 use datafusion::prelude::SessionContext;
+use datafusion_bio_function_ranges::{
+    Algorithm, BioConfig, CountOverlapsProvider, FilterOp as RangesFilterOp,
+};
 use log::{debug, info};
-use sequila_core::session_context::{Algorithm, SequilaConfig};
 use tokio::runtime::Runtime;
 
 use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions};
 use crate::query::{nearest_query, overlap_query};
-use crate::udtf::CountOverlapsProvider;
 use crate::utils::default_cols_to_string;
 use crate::DEFAULT_COLUMN_NAMES;
 
@@ -37,12 +38,12 @@ pub(crate) fn do_range_operation(
             panic!("CoitreesNearest is an internal algorithm for nearest operation. Can't be set explicitly.");
         },
         Some(alg) => {
-            set_option_internal(ctx, "sequila.interval_join_algorithm", alg);
+            set_option_internal(ctx, "bio.interval_join_algorithm", alg);
         },
         _ => {
             set_option_internal(
                 ctx,
-                "sequila.interval_join_algorithm",
+                "bio.interval_join_algorithm",
                 &Algorithm::Coitrees.to_string(),
             );
         },
@@ -50,7 +51,7 @@ pub(crate) fn do_range_operation(
     // Optional low-memory toggle for interval join
     if let Some(low_mem) = range_options.overlap_low_memory {
         let v = if low_mem { "true" } else { "false" };
-        set_option_internal(ctx, "sequila.interval_join_low_memory", v);
+        set_option_internal(ctx, "bio.interval_join_low_memory", v);
         info!("IntervalJoin low_memory requested: {}", v);
     }
     info!(
@@ -60,7 +61,7 @@ pub(crate) fn do_range_operation(
             .config()
             .options()
             .extensions
-            .get::<SequilaConfig>()
+            .get::<BioConfig>()
             .unwrap()
             .interval_join_algorithm,
         ctx.state().config().options().execution.target_partitions
@@ -68,7 +69,7 @@ pub(crate) fn do_range_operation(
     match range_options.range_op {
         RangeOp::Overlap => rt.block_on(do_overlap(ctx, range_options, left_table, right_table)),
         RangeOp::Nearest => {
-            set_option_internal(ctx, "sequila.interval_join_algorithm", "coitreesnearest");
+            set_option_internal(ctx, "bio.interval_join_algorithm", "coitreesnearest");
             rt.block_on(do_nearest(ctx, range_options, left_table, right_table))
         },
         RangeOp::CountOverlapsNaive => rt.block_on(do_count_overlaps_coverage_naive(
@@ -140,6 +141,11 @@ async fn do_count_overlaps_coverage_naive(
         .schema()
         .as_arrow()
         .clone();
+    // Convert polars-bio FilterOp to upstream FilterOp
+    let upstream_filter_op = match range_opts.filter_op.unwrap() {
+        FilterOp::Weak => RangesFilterOp::Weak,
+        FilterOp::Strict => RangesFilterOp::Strict,
+    };
     let count_overlaps_provider = CountOverlapsProvider::new(
         Arc::new(session),
         left_table,
@@ -147,7 +153,7 @@ async fn do_count_overlaps_coverage_naive(
         right_schema,
         columns_1,
         columns_2,
-        range_opts.filter_op.unwrap(),
+        upstream_filter_op,
         coverage,
     );
     let table_name = "count_overlaps_coverage".to_string();

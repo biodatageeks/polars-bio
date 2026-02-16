@@ -46,7 +46,7 @@ class Context:
         # Default to lenient coordinate system check (warn if metadata is missing, use global config)
         self.ctx.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, "false")
 
-        self.ctx.set_option("sequila.interval_join_algorithm", "coitrees")
+        self.ctx.set_option("bio.interval_join_algorithm", "coitrees")
         self.config = datafusion.context.SessionConfig(datafusion_conf)
 
     def set_option(self, key, value):
@@ -55,7 +55,7 @@ class Context:
             value = "true" if value else "false"
         self.ctx.set_option(key, value)
         # Only mirror standard DataFusion options to the Python SessionConfig.
-        # Extension namespaces (e.g., `sequila.*`, `datafusion.bio.*`) are handled
+        # Extension namespaces (e.g., `bio.*`, `datafusion.bio.*`) are handled
         # by the Rust context and are not recognized by Python bindings, which would panic.
         if (
             isinstance(key, str)
