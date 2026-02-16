@@ -53,6 +53,18 @@ impl PyBioSessionContext {
         }
     }
 
+    /// Removes a previously registered table by name.
+    #[pyo3(signature = (name))]
+    pub fn deregister_table(&self, name: &str) -> PyResult<()> {
+        self.ctx.deregister_table(name).map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "Failed to deregister table '{}': {}",
+                name, e
+            ))
+        })?;
+        Ok(())
+    }
+
     /// Returns a DataFrame for a registered table by name.
     #[pyo3(signature = (name))]
     pub fn table(&self, name: &str, py: Python) -> PyResult<PyDataFrame> {
