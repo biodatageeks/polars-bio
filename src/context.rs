@@ -103,5 +103,13 @@ fn create_context() -> SessionContext {
         .with_option_extension(sequila_config)
         .with_information_schema(true);
 
-    SessionContext::new_with_sequila(config)
+    let ctx = SessionContext::new_with_sequila(config);
+
+    // Register depth UDTF for SQL: SELECT * FROM depth('file.bam')
+    ctx.register_udtf(
+        "depth",
+        std::sync::Arc::new(crate::pileup::DepthFunction::default()),
+    );
+
+    ctx
 }

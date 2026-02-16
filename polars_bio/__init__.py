@@ -21,6 +21,7 @@ from .context import ctx, get_option, set_option
 from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemError
 from .io import IOOperations as data_input
 from .logging import set_loglevel
+from .pileup_op import PileupOperations as pileup_operations
 from .range_op import FilterOp
 from .range_op import IntervalOperations as range_operations
 from .sql import SQL as data_processing
@@ -93,6 +94,8 @@ sink_sam = data_input.sink_sam
 write_cram = data_input.write_cram
 sink_cram = data_input.sink_cram
 
+depth = pileup_operations.depth
+
 overlap = range_operations.overlap
 nearest = range_operations.nearest
 count_overlaps = range_operations.count_overlaps
@@ -107,6 +110,7 @@ __all__ = [
     "FilterOp",
     "InputFormat",
     "data_processing",
+    "pileup_operations",
     "range_operations",
     # "LazyFrame",
     "data_input",
@@ -173,6 +177,7 @@ __all__ = [
     "register_pairs",
     "register_view",
     "sql",
+    "depth",
     "overlap",
     "nearest",
     "count_overlaps",

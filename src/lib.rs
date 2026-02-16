@@ -1,6 +1,7 @@
 mod context;
 mod operation;
 mod option;
+mod pileup;
 mod query;
 mod scan;
 mod udtf;
@@ -29,8 +30,8 @@ use crate::option::{
     pyobject_storage_options_to_object_storage_options, BamReadOptions, BamWriteOptions,
     BedReadOptions, BioTable, CramReadOptions, CramWriteOptions, FastaReadOptions,
     FastqReadOptions, FastqWriteOptions, FilterOp, GffReadOptions, InputFormat, OutputFormat,
-    PairsReadOptions, PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
-    VcfWriteOptions, WriteOptions,
+    PairsReadOptions, PileupOptions, PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions,
+    VcfReadOptions, VcfWriteOptions, WriteOptions,
 };
 use crate::scan::{
     maybe_register_table, register_frame, register_frame_from_arrow_stream,
@@ -570,6 +571,75 @@ fn py_write_table(
     })
 }
 
+/// Register a pileup depth table without executing any query.
+///
+/// Creates a BAM/CRAM provider wrapped in a DepthTableProvider and registers
+/// it in the DataFusion context. Returns the table name so the Python side
+/// can query it lazily via `register_io_source`.
+#[pyfunction]
+#[pyo3(signature = (py_ctx, path, pileup_options=None))]
+fn py_register_pileup_table(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    path: String,
+    pileup_options: Option<PileupOptions>,
+) -> PyResult<String> {
+    py.allow_threads(|| {
+        let rt = Runtime::new()?;
+        let ctx = &py_ctx.ctx;
+        let config = pileup::pileup_options_to_config(pileup_options);
+        let binary_cigar = config.binary_cigar;
+        let zero_based = config.zero_based;
+
+        let table_name = rt
+            .block_on(async {
+                let path_lower = path.to_lowercase();
+                let provider: Arc<dyn datafusion::datasource::TableProvider> =
+                    if path_lower.ends_with(".cram") {
+                        let p = datafusion_bio_format_cram::table_provider::CramTableProvider::new(
+                            path.clone(),
+                            None,
+                            None,
+                            zero_based,
+                            None,
+                            binary_cigar,
+                        )
+                        .await
+                        .map_err(|e| format!("Failed to create CRAM provider: {}", e))?;
+                        Arc::new(p)
+                    } else {
+                        // BAM or SAM
+                        let p = datafusion_bio_format_bam::table_provider::BamTableProvider::new(
+                            path.clone(),
+                            None,
+                            zero_based,
+                            None,
+                            binary_cigar,
+                        )
+                        .await
+                        .map_err(|e| format!("Failed to create BAM provider: {}", e))?;
+                        Arc::new(p)
+                    };
+
+                let depth_provider = pileup::DepthTableProvider::new(provider, config);
+                let table_name = format!("_pileup_{}", rand::random::<u32>());
+                ctx.register_table(&table_name, Arc::new(depth_provider))
+                    .map_err(|e| format!("Failed to register depth table: {}", e))?;
+                // No execution — just register and return the name
+                Ok::<String, String>(table_name)
+            })
+            .map_err(|e| {
+                PyRuntimeError::new_err(format!("Pileup table registration failed: {}", e))
+            })?;
+
+        info!(
+            "Registered pileup depth table '{}' for path: {}",
+            table_name, path
+        );
+        Ok(table_name)
+    })
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -587,6 +657,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_write_from_sql, m)?)?;
     m.add_function(wrap_pyfunction!(scan::py_describe_bam, m)?)?;
     m.add_function(wrap_pyfunction!(scan::py_describe_cram, m)?)?;
+    m.add_function(wrap_pyfunction!(py_register_pileup_table, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;
@@ -607,6 +678,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<BedReadOptions>()?;
     m.add_class::<FastaReadOptions>()?;
     m.add_class::<PairsReadOptions>()?;
+    m.add_class::<PileupOptions>()?;
     m.add_class::<PyObjectStorageOptions>()?;
     Ok(())
 }
