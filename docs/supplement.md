@@ -65,10 +65,8 @@ This algorithm allows you to process your results without requiring **all** your
 In the current implementation, the **probe** side can be processed in parallel using multiple threads on partitioned (implicitly or explicilty partitioned inputs - see [partitioning strategies](/polars-bio/performance/#parallel-execution-and-scalability)). The **build** side is predominantly single-threaded (with the notable exception of BGZF compressed or partitioned Parquet/CSV input data files reading, which can be parallelized).
 
 ### Implementation
-`polars-bio` uses the following [Apache DataFusion](https://datafusion.apache.org/) extension points:
 
- * [DefaultPhysicalPlanner](https://docs.rs/datafusion/43.0.0/datafusion/physical_planner/struct.DefaultPhysicalPlanner.html) and [PhysicalOptimizerRule](https://docs.rs/datafusion/43.0.0/datafusion/physical_optimizer/trait.PhysicalOptimizerRule.html) for detecting and rewriting **generic** interval join operations (i.e. *overlap* and *nearest*) with optimizied execution strategies. This is implemented as a part of our another project [datafusion-bio-functions](https://github.com/biodatageeks/datafusion-bio-functions) that exposes optimized interval join operations for Apache DataFusion with both SQL and DataFrame APIs.
- * [TableProvider](https://docs.rs/datafusion/43.0.0/datafusion/catalog/trait.TableProvider.html) and [User-Defined Table Function](https://datafusion.apache.org/library-user-guide/functions/adding-udfs.html#adding-a-user-defined-table-function) mechanism for implementing **specialized** operations, such as *coverage* and *count-overlaps*.
+For details on the DataFusion extension points used by polars-bio (PhysicalOptimizerRule, TableProvider, UDTF), see the [Developers Guide](developers.md#datafusion-extension-points).
 
 
 ## Comparison with existing tools
