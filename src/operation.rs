@@ -4,30 +4,22 @@ use std::sync::Arc;
 use datafusion::common::TableReference;
 use datafusion::prelude::SessionContext;
 use datafusion_bio_function_ranges::{
-    Algorithm, BioConfig, CountOverlapsProvider, FilterOp as RangesFilterOp, NearestProvider,
+    Algorithm, BioConfig, CountOverlapsProvider, FilterOp as RangesFilterOp, MergeProvider,
+    NearestProvider, OverlapProvider,
 };
 use log::{debug, info};
 use tokio::runtime::Runtime;
 
 static NEAREST_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
+static OVERLAP_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
+static MERGE_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
+static COUNT_OVERLAPS_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions};
-use crate::query::overlap_query;
 use crate::utils::default_cols_to_string;
 use crate::DEFAULT_COLUMN_NAMES;
 
-pub(crate) struct QueryParams {
-    pub sign: String,
-    pub suffixes: (String, String),
-    pub columns_1: Vec<String>,
-    pub columns_2: Vec<String>,
-    pub other_columns_1: Vec<String>,
-    pub other_columns_2: Vec<String>,
-    pub left_table: String,
-    pub right_table: String,
-    pub projection_columns: Option<Vec<String>>,
-}
 pub(crate) fn do_range_operation(
     ctx: &SessionContext,
     rt: &Runtime,
@@ -35,37 +27,45 @@ pub(crate) fn do_range_operation(
     left_table: String,
     right_table: String,
 ) -> datafusion::dataframe::DataFrame {
-    // defaults
-    match &range_options.overlap_alg {
-        Some(alg) => {
-            set_option_internal(ctx, "bio.interval_join_algorithm", alg);
-        },
-        _ => {
-            set_option_internal(
-                ctx,
-                "bio.interval_join_algorithm",
-                &Algorithm::Coitrees.to_string(),
-            );
-        },
+    // Configure interval join algorithm for operations that use it
+    if !matches!(range_options.range_op, RangeOp::Merge) {
+        match &range_options.overlap_alg {
+            Some(alg) => {
+                set_option_internal(ctx, "bio.interval_join_algorithm", alg);
+            },
+            _ => {
+                set_option_internal(
+                    ctx,
+                    "bio.interval_join_algorithm",
+                    &Algorithm::Coitrees.to_string(),
+                );
+            },
+        }
+        // Optional low-memory toggle for interval join
+        if let Some(low_mem) = range_options.overlap_low_memory {
+            let v = if low_mem { "true" } else { "false" };
+            set_option_internal(ctx, "bio.interval_join_low_memory", v);
+            info!("IntervalJoin low_memory requested: {}", v);
+        }
+        info!(
+            "Running {} operation with algorithm {} and {} thread(s)...",
+            range_options.range_op,
+            ctx.state()
+                .config()
+                .options()
+                .extensions
+                .get::<BioConfig>()
+                .unwrap()
+                .interval_join_algorithm,
+            ctx.state().config().options().execution.target_partitions
+        );
+    } else {
+        info!(
+            "Running {} operation with {} thread(s)...",
+            range_options.range_op,
+            ctx.state().config().options().execution.target_partitions
+        );
     }
-    // Optional low-memory toggle for interval join
-    if let Some(low_mem) = range_options.overlap_low_memory {
-        let v = if low_mem { "true" } else { "false" };
-        set_option_internal(ctx, "bio.interval_join_low_memory", v);
-        info!("IntervalJoin low_memory requested: {}", v);
-    }
-    info!(
-        "Running {} operation with algorithm {} and {} thread(s)...",
-        range_options.range_op,
-        ctx.state()
-            .config()
-            .options()
-            .extensions
-            .get::<BioConfig>()
-            .unwrap()
-            .interval_join_algorithm,
-        ctx.state().config().options().execution.target_partitions
-    );
     match range_options.range_op {
         RangeOp::Overlap => rt.block_on(do_overlap(ctx, range_options, left_table, right_table)),
         RangeOp::Nearest => rt.block_on(do_nearest(ctx, range_options, left_table, right_table)),
@@ -83,8 +83,8 @@ pub(crate) fn do_range_operation(
             right_table,
             true,
         )),
-
-        _ => panic!("Unsupported operation"),
+        RangeOp::Merge => rt.block_on(do_merge(ctx, range_options, left_table)),
+        _ => panic!("Unsupported operation: {}", range_options.range_op),
     }
 }
 
@@ -196,14 +196,79 @@ async fn do_overlap(
     left_table: String,
     right_table: String,
 ) -> datafusion::dataframe::DataFrame {
-    let query = prepare_query(overlap_query, range_opts, ctx, left_table, right_table)
+    let columns_1 = range_opts
+        .columns_1
+        .clone()
+        .unwrap_or_else(|| default_cols_to_string(&DEFAULT_COLUMN_NAMES));
+    let columns_2 = range_opts
+        .columns_2
+        .clone()
+        .unwrap_or_else(|| default_cols_to_string(&DEFAULT_COLUMN_NAMES));
+    let suffixes = range_opts
+        .suffixes
+        .clone()
+        .unwrap_or_else(|| ("_1".to_string(), "_2".to_string()));
+    let upstream_filter_op = match range_opts.filter_op.unwrap() {
+        FilterOp::Weak => RangesFilterOp::Weak,
+        FilterOp::Strict => RangesFilterOp::Strict,
+    };
+
+    let session = ctx.clone();
+    let left_table_ref = TableReference::from(left_table.clone());
+    let left_schema = ctx
+        .table(left_table_ref)
         .await
-        .to_string();
-    debug!("Query: {}", query);
-    debug!(
-        "{}",
-        ctx.state().config().options().execution.target_partitions
+        .unwrap()
+        .schema()
+        .as_arrow()
+        .clone();
+    let right_table_ref = TableReference::from(right_table.clone());
+    let right_schema = ctx
+        .table(right_table_ref)
+        .await
+        .unwrap()
+        .schema()
+        .as_arrow()
+        .clone();
+
+    let overlap_provider = OverlapProvider::new(
+        Arc::new(session),
+        left_table,
+        right_table,
+        left_schema.clone(),
+        right_schema.clone(),
+        columns_1,
+        columns_2,
+        upstream_filter_op,
     );
+
+    let table_name = format!(
+        "overlap_result_{}",
+        OVERLAP_TABLE_COUNTER.fetch_add(1, Ordering::Relaxed)
+    );
+    ctx.register_table(table_name.as_str(), Arc::new(overlap_provider))
+        .unwrap();
+
+    // Build SELECT clause to rename left_* → *{suffix_1}, right_* → *{suffix_2}
+    let mut select_parts = Vec::new();
+    for field in left_schema.fields() {
+        select_parts.push(format!(
+            "`left_{}` AS `{}{}`",
+            field.name(),
+            field.name(),
+            suffixes.0
+        ));
+    }
+    for field in right_schema.fields() {
+        select_parts.push(format!(
+            "`right_{}` AS `{}{}`",
+            field.name(),
+            field.name(),
+            suffixes.1
+        ));
+    }
+    let query = format!("SELECT {} FROM {}", select_parts.join(", "), table_name);
+    debug!("Query: {}", query);
     ctx.sql(&query).await.unwrap()
 }
 
@@ -242,86 +307,43 @@ async fn do_count_overlaps_coverage_naive(
         upstream_filter_op,
         coverage,
     );
-    let table_name = "count_overlaps_coverage".to_string();
-    ctx.deregister_table(table_name.clone()).unwrap();
-    ctx.register_table(table_name.clone(), Arc::new(count_overlaps_provider))
+    let table_name = format!(
+        "count_overlaps_coverage_{}",
+        COUNT_OVERLAPS_TABLE_COUNTER.fetch_add(1, Ordering::Relaxed)
+    );
+    ctx.register_table(table_name.as_str(), Arc::new(count_overlaps_provider))
         .unwrap();
     let query = format!("SELECT * FROM {}", table_name);
     debug!("Query: {}", query);
     ctx.sql(&query).await.unwrap()
 }
 
-async fn get_non_join_columns(
-    table_name: String,
-    join_columns: Vec<String>,
+async fn do_merge(
     ctx: &SessionContext,
-) -> Vec<String> {
-    let table_ref = TableReference::from(table_name);
-    let table = ctx.table(table_ref).await.unwrap();
-    table
-        .schema()
-        .fields()
-        .iter()
-        .map(|f| f.name().to_string())
-        .filter(|f| !join_columns.contains(f))
-        .collect::<Vec<String>>()
-}
-
-pub(crate) fn format_non_join_tables(
-    columns: Vec<String>,
-    table_alias: String,
-    suffix: String,
-) -> String {
-    if columns.is_empty() {
-        return "".to_string();
-    }
-    columns
-        .iter()
-        .map(|c| format!("{}.`{}` as `{}{}`", table_alias, c, c, suffix))
-        .collect::<Vec<String>>()
-        .join(", ")
-}
-
-pub(crate) async fn prepare_query(
-    query: fn(QueryParams) -> String,
     range_opts: RangeOptions,
-    ctx: &SessionContext,
-    left_table: String,
-    right_table: String,
-) -> String {
-    let sign = match range_opts.filter_op.unwrap() {
-        FilterOp::Weak => "=".to_string(),
-        _ => "".to_string(),
+    table: String,
+) -> datafusion::dataframe::DataFrame {
+    let columns = range_opts.columns_1.unwrap();
+    let min_dist = range_opts.min_dist.unwrap_or(0);
+    let upstream_filter_op = match range_opts.filter_op.unwrap() {
+        FilterOp::Weak => RangesFilterOp::Weak,
+        FilterOp::Strict => RangesFilterOp::Strict,
     };
-    let suffixes = match range_opts.suffixes {
-        Some((s1, s2)) => (s1, s2),
-        _ => ("_1".to_string(), "_2".to_string()),
-    };
-    let columns_1 = match range_opts.columns_1 {
-        Some(cols) => cols,
-        _ => default_cols_to_string(&DEFAULT_COLUMN_NAMES),
-    };
-    let columns_2 = match range_opts.columns_2 {
-        Some(cols) => cols,
-        _ => default_cols_to_string(&DEFAULT_COLUMN_NAMES),
-    };
-
-    let left_table_columns =
-        get_non_join_columns(left_table.to_string(), columns_1.clone(), ctx).await;
-    let right_table_columns =
-        get_non_join_columns(right_table.to_string(), columns_2.clone(), ctx).await;
-
-    let query_params = QueryParams {
-        sign,
-        suffixes,
-        columns_1,
-        columns_2,
-        other_columns_1: left_table_columns,
-        other_columns_2: right_table_columns,
-        left_table,
-        right_table,
-        projection_columns: None, // For now, no projection pushdown in SQL generation
-    };
-
-    query(query_params)
+    let session = ctx.clone();
+    let merge_provider = MergeProvider::new(
+        Arc::new(session),
+        table,
+        (columns[0].clone(), columns[1].clone(), columns[2].clone()),
+        min_dist,
+        upstream_filter_op,
+    );
+    let table_name = format!(
+        "merge_result_{}",
+        MERGE_TABLE_COUNTER.fetch_add(1, Ordering::Relaxed)
+    );
+    ctx.register_table(table_name.as_str(), Arc::new(merge_provider))
+        .unwrap();
+    let query = format!("SELECT * FROM {}", table_name);
+    debug!("Query: {}", query);
+    ctx.sql(&query).await.unwrap()
 }

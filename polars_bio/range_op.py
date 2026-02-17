@@ -2,18 +2,12 @@ from __future__ import annotations
 
 import datafusion
 import polars as pl
-import pyarrow as pa
 from datafusion import col, literal
-from typing_extensions import TYPE_CHECKING, Union
+from typing_extensions import Union
 
 from polars_bio.polars_bio import ReadOptions
 
-from ._metadata import (
-    get_coordinate_system,
-    set_coordinate_system,
-    validate_coordinate_system_single,
-    validate_coordinate_systems,
-)
+from ._metadata import validate_coordinate_system_single, validate_coordinate_systems
 from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import ctx
 from .interval_op_helpers import (
@@ -22,7 +16,6 @@ from .interval_op_helpers import (
     prevent_column_collision,
     read_df_to_datafusion,
 )
-from .logging import logger
 from .range_op_helpers import _validate_overlap_input, range_operation
 
 try:
@@ -34,8 +27,6 @@ except ImportError:
 __all__ = ["overlap", "nearest", "count_overlaps", "merge"]
 
 
-if TYPE_CHECKING:
-    pass
 from polars_bio.polars_bio import FilterOp, RangeOp, RangeOptions
 
 
@@ -562,7 +553,7 @@ class IntervalOperations:
     @staticmethod
     def merge(
         df: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
-        min_dist: float = 0,
+        min_dist: int = 0,
         cols: Union[list[str], None] = ["chrom", "start", "end"],
         on_cols: Union[list[str], None] = None,
         output_type: str = "polars.LazyFrame",
@@ -576,7 +567,7 @@ class IntervalOperations:
 
         Parameters:
             df: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED  and Parquet are supported.
-            min_dist: Minimum distance between intervals to merge. Default is 0.
+            min_dist: Minimum distance (integer) between intervals to merge. Default is 0.
             cols: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
             on_cols: List of additional column names for clustering. default is None.
@@ -598,126 +589,23 @@ class IntervalOperations:
         suffixes = ("_1", "_2")
         _validate_overlap_input(cols, cols, on_cols, suffixes, output_type)
 
-        # Get zero_based from DataFrame metadata
-        zero_based = validate_coordinate_system_single(df, ctx)
+        # Get filter_op from DataFrame metadata
+        filter_op = _get_filter_op_from_metadata_single(df)
 
-        my_ctx = get_py_ctx()
         cols = DEFAULT_INTERVAL_COLUMNS if cols is None else cols
-        contig = cols[0]
-        start = cols[1]
-        end = cols[2]
-
-        on_cols = [] if on_cols is None else on_cols
-        on_cols = [contig] + on_cols
-
-        df = read_df_to_datafusion(my_ctx, df)
-        df_schema = df.schema()
-        start_type = df_schema.field(start).type
-        end_type = df_schema.field(end).type
-
-        curr_cols = set(df_schema.names)
-        start_end = prevent_column_collision("start_end", curr_cols)
-        is_start_end = prevent_column_collision("is_start_or_end", curr_cols)
-        current_intervals = prevent_column_collision("current_intervals", curr_cols)
-        n_intervals = prevent_column_collision("n_intervals", curr_cols)
-
-        end_positions = df.select(
-            *(
-                [
-                    (col(end) + min_dist).alias(start_end),
-                    literal(-1).alias(is_start_end),
-                ]
-                + on_cols
-            )
-        )
-        start_positions = df.select(
-            *([col(start).alias(start_end), literal(1).alias(is_start_end)] + on_cols)
-        )
-        all_positions = start_positions.union(end_positions)
-        start_end_type = all_positions.schema().field(start_end).type
-        all_positions = all_positions.select(
-            *([col(start_end).cast(start_end_type), col(is_start_end)] + on_cols)
+        range_options = RangeOptions(
+            range_op=RangeOp.Merge,
+            filter_op=filter_op,
+            columns_1=cols,
+            columns_2=cols,
+            min_dist=min_dist,
         )
 
-        sorting = [
-            col(start_end).sort(),
-            col(is_start_end).sort(ascending=zero_based),
-        ]
-        all_positions = all_positions.sort(*sorting)
-
-        on_cols_expr = [col(c) for c in on_cols]
-
-        win = datafusion.expr.Window(
-            partition_by=on_cols_expr,
-            order_by=sorting,
+        return range_operation(
+            df,
+            df,
+            range_options,
+            output_type,
+            ctx,
+            projection_pushdown=projection_pushdown,
         )
-        all_positions = all_positions.select(
-            *(
-                [
-                    start_end,
-                    is_start_end,
-                    datafusion.functions.sum(col(is_start_end))
-                    .over(win)
-                    .alias(current_intervals),
-                ]
-                + on_cols
-                + [
-                    datafusion.functions.row_number(
-                        partition_by=on_cols_expr, order_by=sorting
-                    ).alias(n_intervals)
-                ]
-            )
-        )
-        all_positions = all_positions.filter(
-            ((col(current_intervals) == 0) & (col(is_start_end) == -1))
-            | ((col(current_intervals) == 1) & (col(is_start_end) == 1))
-        )
-        all_positions = all_positions.select(
-            *(
-                [start_end, is_start_end]
-                + on_cols
-                + [
-                    (
-                        (
-                            col(n_intervals)
-                            - datafusion.functions.lag(
-                                col(n_intervals), partition_by=on_cols_expr
-                            )
-                            + 1
-                        )
-                        / 2
-                    )
-                    .cast(pa.int64())
-                    .alias(n_intervals)
-                ]
-            )
-        )
-        result = all_positions.select(
-            *(
-                [
-                    (col(start_end) - min_dist).alias(end),
-                    is_start_end,
-                    datafusion.functions.lag(
-                        col(start_end), partition_by=on_cols_expr
-                    ).alias(start),
-                ]
-                + on_cols
-                + [n_intervals]
-            )
-        )
-        result = result.filter(col(is_start_end) == -1)
-        result = result.select(
-            *(
-                [contig, col(start).cast(start_type), col(end).cast(end_type)]
-                + on_cols[1:]
-                + [n_intervals]
-            )
-        )
-
-        output = convert_result(result, output_type)
-
-        # Propagate coordinate system metadata to result
-        if output_type in ("polars.DataFrame", "polars.LazyFrame", "pandas.DataFrame"):
-            set_coordinate_system(output, zero_based)
-
-        return output

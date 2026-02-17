@@ -94,7 +94,7 @@ class PolarsRangesOperations:
 
     def merge(
         self,
-        min_dist: float = 0,
+        min_dist: int = 0,
         cols: Union[list[str], None] = None,
     ) -> pl.LazyFrame:
         """

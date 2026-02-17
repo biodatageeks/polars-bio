@@ -28,13 +28,15 @@ pub struct RangeOptions {
     pub include_overlaps: Option<bool>,
     #[pyo3(get, set)]
     pub compute_distance: Option<bool>,
+    #[pyo3(get, set)]
+    pub min_dist: Option<i64>,
 }
 
 #[pymethods]
 impl RangeOptions {
     #[allow(clippy::too_many_arguments)]
     #[new]
-    #[pyo3(signature = (range_op, filter_op=None, suffixes=None, columns_1=None, columns_2=None, on_cols=None, overlap_alg=None, overlap_low_memory=None, nearest_k=None, include_overlaps=None, compute_distance=None))]
+    #[pyo3(signature = (range_op, filter_op=None, suffixes=None, columns_1=None, columns_2=None, on_cols=None, overlap_alg=None, overlap_low_memory=None, nearest_k=None, include_overlaps=None, compute_distance=None, min_dist=None))]
     pub fn new(
         range_op: RangeOp,
         filter_op: Option<FilterOp>,
@@ -47,6 +49,7 @@ impl RangeOptions {
         nearest_k: Option<usize>,
         include_overlaps: Option<bool>,
         compute_distance: Option<bool>,
+        min_dist: Option<i64>,
     ) -> Self {
         RangeOptions {
             range_op,
@@ -60,6 +63,7 @@ impl RangeOptions {
             nearest_k,
             include_overlaps,
             compute_distance,
+            min_dist,
         }
     }
 }
@@ -80,6 +84,7 @@ pub enum RangeOp {
     Nearest = 3,
     Coverage = 4,
     CountOverlapsNaive = 6,
+    Merge = 7,
 }
 
 impl fmt::Display for RangeOp {
@@ -91,6 +96,7 @@ impl fmt::Display for RangeOp {
             RangeOp::Cluster => write!(f, "Cluster"),
             RangeOp::Coverage => write!(f, "Coverage"),
             RangeOp::CountOverlapsNaive => write!(f, "Count overlaps naive"),
+            RangeOp::Merge => write!(f, "Merge"),
         }
     }
 }

@@ -103,8 +103,8 @@ class TestBioframe:
     result_bio_merge = bf.merge(
         BIO_PD_DF1, cols=("contig", "pos_start", "pos_end"), min_dist=None
     ).astype(
-        {"pos_start": "int32", "pos_end": "int32"}
-    )  # bioframe changes input types
+        {"pos_start": "int64", "pos_end": "int64"}
+    )  # MergeProvider outputs Int64
 
     def test_overlap_count(self):
         assert len(self.result_overlap) == len(self.result_bio_overlap)
