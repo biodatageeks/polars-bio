@@ -152,8 +152,10 @@ def range_operation(
             merged_schema = _generate_overlap_schema(
                 df_schema1_base, df_schema2_base, range_options
             )
-            # Nearest adds an extra computed column
-            if range_options.range_op == RangeOp.Nearest:
+            # Nearest adds an extra computed column when distance is enabled
+            if range_options.range_op == RangeOp.Nearest and (
+                range_options.compute_distance is None or range_options.compute_distance
+            ):
                 merged_schema = pl.Schema({**merged_schema, **{"distance": pl.Int64}})
         # Derive coordinate system from filter_op for metadata propagation
         zero_based = _get_zero_based_from_filter_op(range_options.filter_op)
@@ -227,7 +229,10 @@ def range_operation(
                 merged_schema = _generate_overlap_schema(
                     df1_base_schema, df2_base_schema, range_options
                 )
-                if range_options.range_op == RangeOp.Nearest:
+                if range_options.range_op == RangeOp.Nearest and (
+                    range_options.compute_distance is None
+                    or range_options.compute_distance
+                ):
                     merged_schema = pl.Schema(
                         {**merged_schema, **{"distance": pl.Int64}}
                     )

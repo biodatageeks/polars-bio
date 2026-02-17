@@ -86,6 +86,57 @@ class TestNearestPolars:
         assert self.expected.equals(result)
 
 
+class TestNearestK2Polars:
+    """Test nearest with k=2 using Polars DataFrames."""
+
+    result_frame = pb.nearest(
+        PL_NEAREST_DF1,
+        PL_NEAREST_DF2,
+        output_type="polars.DataFrame",
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
+        k=2,
+    )
+    result_lazy = pb.nearest(
+        PL_NEAREST_DF1,
+        PL_NEAREST_DF2,
+        output_type="polars.LazyFrame",
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
+        k=2,
+    ).collect()
+
+    def test_nearest_k2_more_rows(self):
+        """k=2 should return at least as many rows as k=1."""
+        assert len(self.result_frame) >= len(PL_DF_NEAREST)
+        assert len(self.result_lazy) >= len(PL_DF_NEAREST)
+
+    def test_nearest_k2_at_most_k_per_query(self):
+        """Each query interval should have at most k=2 neighbors."""
+        grouped = self.result_frame.group_by(
+            ["contig_1", "pos_start_1", "pos_end_1"]
+        ).len()
+        assert grouped["len"].max() <= 2
+        grouped_lazy = self.result_lazy.group_by(
+            ["contig_1", "pos_start_1", "pos_end_1"]
+        ).len()
+        assert grouped_lazy["len"].max() <= 2
+
+    def test_nearest_k2_columns(self):
+        """Should have standard suffixed columns plus distance."""
+        expected_cols = {
+            "contig_1",
+            "pos_start_1",
+            "pos_end_1",
+            "contig_2",
+            "pos_start_2",
+            "pos_end_2",
+            "distance",
+        }
+        assert set(self.result_frame.columns) == expected_cols
+        assert set(self.result_lazy.columns) == expected_cols
+
+
 class TestCountOverlapsPolars:
     result_frame = pb.count_overlaps(
         PL_COUNT_OVERLAPS_DF1,
