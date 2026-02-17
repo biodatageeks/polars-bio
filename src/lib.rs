@@ -2,7 +2,6 @@ mod context;
 mod operation;
 mod option;
 mod pileup;
-mod query;
 mod scan;
 mod utils;
 mod write;

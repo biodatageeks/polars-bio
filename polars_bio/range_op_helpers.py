@@ -74,6 +74,21 @@ def _generate_overlap_schema(
     return pl.Schema(merged_schema_dict)
 
 
+def _generate_merge_schema(columns: list[str]) -> pl.Schema:
+    """Generate schema for merge operations.
+
+    MergeProvider outputs: (contig: Utf8, start: Int64, end: Int64, n_intervals: Int64).
+    """
+    return pl.Schema(
+        {
+            columns[0]: pl.Utf8,
+            columns[1]: pl.Int64,
+            columns[2]: pl.Int64,
+            "n_intervals": pl.Int64,
+        }
+    )
+
+
 def _lazyframe_to_dataframe(
     df: Union[pl.LazyFrame, "GffLazyFrameWrapper"],
 ) -> pl.DataFrame:
@@ -143,6 +158,8 @@ def range_operation(
                     **{"coverage": pl.Int64},
                 }
             )
+        elif range_options.range_op == RangeOp.Merge:
+            merged_schema = _generate_merge_schema(range_options.columns_1)
         else:
             # Get the base schemas without suffixes first
             df_schema1_base = _get_schema(df1, ctx, None, read_options1)
@@ -225,6 +242,8 @@ def range_operation(
                 merged_schema = pl.Schema({**df2_base_schema, **{"count": pl.Int64}})
             elif range_options.range_op == RangeOp.Coverage:
                 merged_schema = pl.Schema({**df2_base_schema, **{"coverage": pl.Int64}})
+            elif range_options.range_op == RangeOp.Merge:
+                merged_schema = _generate_merge_schema(range_options.columns_1)
             else:
                 merged_schema = _generate_overlap_schema(
                     df1_base_schema, df2_base_schema, range_options
