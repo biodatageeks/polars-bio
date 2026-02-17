@@ -89,6 +89,52 @@ def _generate_merge_schema(columns: list[str]) -> pl.Schema:
     )
 
 
+def _generate_cluster_schema(columns: list[str]) -> pl.Schema:
+    """Generate schema for cluster operations.
+
+    ClusterProvider outputs: (contig: Utf8, start: Int64, end: Int64,
+                              cluster: Int64, cluster_start: Int64, cluster_end: Int64).
+    """
+    return pl.Schema(
+        {
+            columns[0]: pl.Utf8,
+            columns[1]: pl.Int64,
+            columns[2]: pl.Int64,
+            "cluster": pl.Int64,
+            "cluster_start": pl.Int64,
+            "cluster_end": pl.Int64,
+        }
+    )
+
+
+def _generate_complement_schema(columns: list[str]) -> pl.Schema:
+    """Generate schema for complement operations.
+
+    ComplementProvider outputs: (contig: Utf8, start: Int64, end: Int64).
+    """
+    return pl.Schema(
+        {
+            columns[0]: pl.Utf8,
+            columns[1]: pl.Int64,
+            columns[2]: pl.Int64,
+        }
+    )
+
+
+def _generate_subtract_schema(columns: list[str]) -> pl.Schema:
+    """Generate schema for subtract operations.
+
+    SubtractProvider outputs: (contig: Utf8, start: Int64, end: Int64).
+    """
+    return pl.Schema(
+        {
+            columns[0]: pl.Utf8,
+            columns[1]: pl.Int64,
+            columns[2]: pl.Int64,
+        }
+    )
+
+
 def _lazyframe_to_dataframe(
     df: Union[pl.LazyFrame, "GffLazyFrameWrapper"],
 ) -> pl.DataFrame:
@@ -160,6 +206,12 @@ def range_operation(
             )
         elif range_options.range_op == RangeOp.Merge:
             merged_schema = _generate_merge_schema(range_options.columns_1)
+        elif range_options.range_op == RangeOp.Cluster:
+            merged_schema = _generate_cluster_schema(range_options.columns_1)
+        elif range_options.range_op == RangeOp.Complement:
+            merged_schema = _generate_complement_schema(range_options.columns_1)
+        elif range_options.range_op == RangeOp.Subtract:
+            merged_schema = _generate_subtract_schema(range_options.columns_1)
         else:
             # Get the base schemas without suffixes first
             df_schema1_base = _get_schema(df1, ctx, None, read_options1)
@@ -244,6 +296,12 @@ def range_operation(
                 merged_schema = pl.Schema({**df2_base_schema, **{"coverage": pl.Int64}})
             elif range_options.range_op == RangeOp.Merge:
                 merged_schema = _generate_merge_schema(range_options.columns_1)
+            elif range_options.range_op == RangeOp.Cluster:
+                merged_schema = _generate_cluster_schema(range_options.columns_1)
+            elif range_options.range_op == RangeOp.Complement:
+                merged_schema = _generate_complement_schema(range_options.columns_1)
+            elif range_options.range_op == RangeOp.Subtract:
+                merged_schema = _generate_subtract_schema(range_options.columns_1)
             else:
                 merged_schema = _generate_overlap_schema(
                     df1_base_schema, df2_base_schema, range_options
