@@ -2,9 +2,8 @@ use std::sync::Arc;
 
 use datafusion::common::TableReference;
 use datafusion::prelude::SessionContext;
-use datafusion_bio_function_ranges::nearest::NearestProvider;
 use datafusion_bio_function_ranges::{
-    Algorithm, BioConfig, CountOverlapsProvider, FilterOp as RangesFilterOp,
+    Algorithm, BioConfig, CountOverlapsProvider, FilterOp as RangesFilterOp, NearestProvider,
 };
 use log::{debug, info};
 use tokio::runtime::Runtime;
@@ -146,6 +145,7 @@ async fn do_nearest(
         upstream_filter_op,
         include_overlaps,
         k,
+        compute_distance,
     );
 
     let table_name = "nearest_result";
@@ -154,8 +154,8 @@ async fn do_nearest(
         .unwrap();
 
     // Build SELECT with column renaming.
-    // Provider output: left_* (df2), right_* (df1).
-    // User expects: df1 columns (suffix_1) first, df2 columns (suffix_2) second.
+    // Provider output: left_* (df2), right_* (df1), [distance].
+    // User expects: df1 columns (suffix_1) first, df2 columns (suffix_2) second, [distance].
     let mut select_parts = Vec::new();
 
     // df1 columns first (provider's right_*)
@@ -178,21 +178,9 @@ async fn do_nearest(
         ));
     }
 
-    // Optional distance computation
+    // Distance column is computed natively by NearestProvider when enabled
     if compute_distance {
-        let start_1 = &columns_1[1];
-        let end_1 = &columns_1[2];
-        let start_2 = &columns_2[1];
-        let end_2 = &columns_2[2];
-        select_parts.push(format!(
-            r#"CASE
-                WHEN "left_{}" IS NULL THEN NULL
-                WHEN "left_{}" < "right_{}" THEN CAST("right_{}" - "left_{}" AS BIGINT)
-                WHEN "right_{}" < "left_{}" THEN CAST("left_{}" - "right_{}" AS BIGINT)
-                ELSE CAST(0 AS BIGINT)
-            END AS distance"#,
-            start_2, end_2, start_1, start_1, end_2, end_1, start_2, start_2, end_1,
-        ));
+        select_parts.push("\"distance\"".to_string());
     }
 
     let query = format!("SELECT {} FROM {}", select_parts.join(", "), table_name);
