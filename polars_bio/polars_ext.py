@@ -42,6 +42,9 @@ class PolarsRangesOperations:
         suffixes: tuple[str, str] = ("_1", "_2"),
         cols1=["chrom", "start", "end"],
         cols2=["chrom", "start", "end"],
+        k: int = 1,
+        overlap: bool = True,
+        distance: bool = True,
     ) -> pl.LazyFrame:
         """
         !!! note
@@ -57,6 +60,9 @@ class PolarsRangesOperations:
             suffixes=suffixes,
             cols1=cols1,
             cols2=cols2,
+            k=k,
+            overlap=overlap,
+            distance=distance,
         )
 
     def count_overlaps(

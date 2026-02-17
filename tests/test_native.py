@@ -75,6 +75,105 @@ class TestNearestNative:
         pd.testing.assert_frame_equal(result, expected)
 
 
+class TestNearestK2Native:
+    """Test nearest with k=2 (multiple nearest neighbors per query interval)."""
+
+    _df1 = _load_csv_with_metadata(DF_NEAREST_PATH1, zero_based=False)
+    _df2 = _load_csv_with_metadata(DF_NEAREST_PATH2, zero_based=False)
+    result = pb.nearest(
+        _df1,
+        _df2,
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
+        k=2,
+        output_type="pandas.DataFrame",
+    )
+
+    def test_nearest_k2_more_rows(self):
+        """k=2 should return at least as many rows as k=1."""
+        assert len(self.result) >= len(PD_DF_NEAREST)
+
+    def test_nearest_k2_has_distance(self):
+        """Distance column should still be present."""
+        assert "distance" in self.result.columns
+
+    def test_nearest_k2_columns(self):
+        """Should have standard suffixed columns plus distance."""
+        expected_cols = {
+            "contig_1",
+            "pos_start_1",
+            "pos_end_1",
+            "contig_2",
+            "pos_start_2",
+            "pos_end_2",
+            "distance",
+        }
+        assert set(self.result.columns) == expected_cols
+
+
+class TestNearestNoOverlapNative:
+    """Test nearest with overlap=False (exclude overlapping intervals)."""
+
+    _df1 = _load_csv_with_metadata(DF_NEAREST_PATH1, zero_based=False)
+    _df2 = _load_csv_with_metadata(DF_NEAREST_PATH2, zero_based=False)
+    result = pb.nearest(
+        _df1,
+        _df2,
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
+        overlap=False,
+        output_type="pandas.DataFrame",
+    )
+
+    def test_nearest_no_overlap_all_positive_distance(self):
+        """With overlap=False, all distances should be > 0."""
+        # Filter out rows where no match was found (NaN distance)
+        valid = self.result.dropna(subset=["distance"])
+        assert len(valid) > 0, "Should have at least some results"
+        assert all(
+            d > 0 for d in valid["distance"]
+        ), f"All distances should be > 0, got: {valid['distance'].tolist()}"
+
+    def test_nearest_no_overlap_has_results(self):
+        """Should still return results for intervals that have non-overlapping neighbors."""
+        assert len(self.result) > 0
+
+
+class TestNearestNoDistanceNative:
+    """Test nearest with distance=False (omit distance column)."""
+
+    _df1 = _load_csv_with_metadata(DF_NEAREST_PATH1, zero_based=False)
+    _df2 = _load_csv_with_metadata(DF_NEAREST_PATH2, zero_based=False)
+    result = pb.nearest(
+        _df1,
+        _df2,
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
+        distance=False,
+        output_type="pandas.DataFrame",
+    )
+
+    def test_nearest_no_distance_column(self):
+        """Distance column should not be present."""
+        assert "distance" not in self.result.columns
+
+    def test_nearest_no_distance_count(self):
+        """Row count should be same as default nearest (k=1, overlap=True)."""
+        assert len(self.result) == len(PD_DF_NEAREST)
+
+    def test_nearest_no_distance_columns(self):
+        """Should only have suffixed interval columns, no distance."""
+        expected_cols = {
+            "contig_1",
+            "pos_start_1",
+            "pos_end_1",
+            "contig_2",
+            "pos_start_2",
+            "pos_end_2",
+        }
+        assert set(self.result.columns) == expected_cols
+
+
 class TestCountOverlapsNative:
     _df1 = _load_csv_with_metadata(DF_COUNT_OVERLAPS_PATH1, zero_based=False)
     _df2 = _load_csv_with_metadata(DF_COUNT_OVERLAPS_PATH2, zero_based=False)

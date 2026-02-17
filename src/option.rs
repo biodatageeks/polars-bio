@@ -22,13 +22,19 @@ pub struct RangeOptions {
     pub overlap_alg: Option<String>,
     #[pyo3(get, set)]
     pub overlap_low_memory: Option<bool>,
+    #[pyo3(get, set)]
+    pub nearest_k: Option<usize>,
+    #[pyo3(get, set)]
+    pub include_overlaps: Option<bool>,
+    #[pyo3(get, set)]
+    pub compute_distance: Option<bool>,
 }
 
 #[pymethods]
 impl RangeOptions {
     #[allow(clippy::too_many_arguments)]
     #[new]
-    #[pyo3(signature = (range_op, filter_op=None, suffixes=None, columns_1=None, columns_2=None, on_cols=None, overlap_alg=None, overlap_low_memory=None))]
+    #[pyo3(signature = (range_op, filter_op=None, suffixes=None, columns_1=None, columns_2=None, on_cols=None, overlap_alg=None, overlap_low_memory=None, nearest_k=None, include_overlaps=None, compute_distance=None))]
     pub fn new(
         range_op: RangeOp,
         filter_op: Option<FilterOp>,
@@ -38,6 +44,9 @@ impl RangeOptions {
         on_cols: Option<Vec<String>>,
         overlap_alg: Option<String>,
         overlap_low_memory: Option<bool>,
+        nearest_k: Option<usize>,
+        include_overlaps: Option<bool>,
+        compute_distance: Option<bool>,
     ) -> Self {
         RangeOptions {
             range_op,
@@ -48,6 +57,9 @@ impl RangeOptions {
             on_cols,
             overlap_alg,
             overlap_low_memory,
+            nearest_k,
+            include_overlaps,
+            compute_distance,
         }
     }
 }

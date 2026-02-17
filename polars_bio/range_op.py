@@ -226,6 +226,9 @@ class IntervalOperations:
         on_cols: Union[list[str], None] = None,
         cols1: Union[list[str], None] = ["chrom", "start", "end"],
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
+        k: int = 1,
+        overlap: bool = True,
+        distance: bool = True,
         output_type: str = "polars.LazyFrame",
         read_options: Union[ReadOptions, None] = None,
         projection_pushdown: bool = True,
@@ -247,6 +250,9 @@ class IntervalOperations:
                 genomic intervals, provided separately for each set.
             suffixes: Suffixes for the columns of the two overlapped sets.
             on_cols: List of additional column names to join on. default is None.
+            k: Number of nearest neighbors to return per query interval. Default is 1.
+            overlap: If True (default), include overlapping intervals in results. If False, only return non-overlapping nearest neighbors.
+            distance: If True (default), include a `distance` column in the output. If False, omit it.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             read_options: Additional options for reading the input files.
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
@@ -282,6 +288,9 @@ class IntervalOperations:
             suffixes=suffixes,
             columns_1=cols1,
             columns_2=cols2,
+            nearest_k=k,
+            include_overlaps=overlap,
+            compute_distance=distance,
         )
         return range_operation(
             df1,
