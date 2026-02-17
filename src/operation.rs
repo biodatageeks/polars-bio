@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use datafusion::common::TableReference;
@@ -7,6 +8,8 @@ use datafusion_bio_function_ranges::{
 };
 use log::{debug, info};
 use tokio::runtime::Runtime;
+
+static NEAREST_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions};
@@ -34,9 +37,6 @@ pub(crate) fn do_range_operation(
 ) -> datafusion::dataframe::DataFrame {
     // defaults
     match &range_options.overlap_alg {
-        Some(alg) if alg == "coitreesnearest" => {
-            panic!("CoitreesNearest is an internal algorithm for nearest operation. Can't be set explicitly.");
-        },
         Some(alg) => {
             set_option_internal(ctx, "bio.interval_join_algorithm", alg);
         },
@@ -148,9 +148,11 @@ async fn do_nearest(
         compute_distance,
     );
 
-    let table_name = "nearest_result";
-    ctx.deregister_table(table_name).unwrap();
-    ctx.register_table(table_name, Arc::new(nearest_provider))
+    let table_name = format!(
+        "nearest_result_{}",
+        NEAREST_TABLE_COUNTER.fetch_add(1, Ordering::Relaxed)
+    );
+    ctx.register_table(table_name.as_str(), Arc::new(nearest_provider))
         .unwrap();
 
     // Build SELECT with column renaming.

@@ -93,6 +93,11 @@ class TestNearestK2Native:
         """k=2 should return at least as many rows as k=1."""
         assert len(self.result) >= len(PD_DF_NEAREST)
 
+    def test_nearest_k2_at_most_k_per_query(self):
+        """Each query interval should have at most k=2 neighbors."""
+        grouped = self.result.groupby(["contig_1", "pos_start_1", "pos_end_1"]).size()
+        assert grouped.max() <= 2
+
     def test_nearest_k2_has_distance(self):
         """Distance column should still be present."""
         assert "distance" in self.result.columns

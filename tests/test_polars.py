@@ -111,6 +111,17 @@ class TestNearestK2Polars:
         assert len(self.result_frame) >= len(PL_DF_NEAREST)
         assert len(self.result_lazy) >= len(PL_DF_NEAREST)
 
+    def test_nearest_k2_at_most_k_per_query(self):
+        """Each query interval should have at most k=2 neighbors."""
+        grouped = self.result_frame.group_by(
+            ["contig_1", "pos_start_1", "pos_end_1"]
+        ).len()
+        assert grouped["len"].max() <= 2
+        grouped_lazy = self.result_lazy.group_by(
+            ["contig_1", "pos_start_1", "pos_end_1"]
+        ).len()
+        assert grouped_lazy["len"].max() <= 2
+
     def test_nearest_k2_columns(self):
         """Should have standard suffixed columns plus distance."""
         expected_cols = {
