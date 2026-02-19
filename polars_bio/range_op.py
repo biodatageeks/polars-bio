@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import itertools
+
 import datafusion
 import polars as pl
 from datafusion import col, literal
@@ -16,6 +18,7 @@ from .interval_op_helpers import (
     prevent_column_collision,
     read_df_to_datafusion,
 )
+from .logging import logger
 from .range_op_helpers import _validate_overlap_input, range_operation
 
 try:
@@ -23,6 +26,7 @@ try:
 except ImportError:
     pd = None
 
+_VIEW_TABLE_COUNTER = itertools.count()
 
 __all__ = [
     "overlap",
@@ -728,6 +732,12 @@ class IntervalOperations:
         view_table_name = None
         if view_df is not None:
             view_table_name = _register_view_table(view_df, view_cols[0])
+        else:
+            logger.warning(
+                "No view_df provided — complement will span [0, i64::MAX) per contig. "
+                "Pass a view_df with contig boundaries (e.g., chromosome sizes) "
+                "for meaningful results."
+            )
 
         range_options = RangeOptions(
             range_op=RangeOp.Complement,
@@ -823,7 +833,7 @@ def _register_view_table(
 
     from polars_bio.polars_bio import py_from_polars
 
-    table_name = f"_view_{id(view_df)}_{hash(contig_col) & 0xFFFFFFFF:08x}"
+    table_name = f"_view_{next(_VIEW_TABLE_COUNTER)}"
 
     if isinstance(view_df, pl.LazyFrame):
         view_df = view_df.collect()
