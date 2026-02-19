@@ -259,6 +259,67 @@ class PolarsRangesOperations:
             self._ldf, other_df, cols1=cols1, cols2=cols2, suffixes=suffixes
         )
 
+    def cluster(
+        self,
+        min_dist: int = 0,
+        cols: Union[list[str], None] = ["chrom", "start", "end"],
+    ) -> pl.LazyFrame:
+        """
+        !!! note
+            Alias for [cluster](api.md#polars_bio.cluster)
+
+        Note:
+            Coordinate system is determined from DataFrame metadata.
+            Set metadata using: `df.config_meta.set(coordinate_system_zero_based=True)`
+        """
+        return pb.cluster(
+            self._ldf,
+            min_dist=min_dist,
+            cols=cols,
+        )
+
+    def complement(
+        self,
+        view_df: Optional[pl.LazyFrame] = None,
+        cols: Union[list[str], None] = ["chrom", "start", "end"],
+        view_cols: Union[list[str], None] = None,
+    ) -> pl.LazyFrame:
+        """
+        !!! note
+            Alias for [complement](api.md#polars_bio.complement)
+
+        Note:
+            Coordinate system is determined from DataFrame metadata.
+            Set metadata using: `df.config_meta.set(coordinate_system_zero_based=True)`
+        """
+        return pb.complement(
+            self._ldf,
+            view_df=view_df,
+            cols=cols,
+            view_cols=view_cols,
+        )
+
+    def subtract(
+        self,
+        other_df: pl.LazyFrame,
+        cols1: Union[list[str], None] = ["chrom", "start", "end"],
+        cols2: Union[list[str], None] = ["chrom", "start", "end"],
+    ) -> pl.LazyFrame:
+        """
+        !!! note
+            Alias for [subtract](api.md#polars_bio.subtract)
+
+        Note:
+            Coordinate system is determined from DataFrame metadata.
+            Set metadata using: `df.config_meta.set(coordinate_system_zero_based=True)`
+        """
+        return pb.subtract(
+            self._ldf,
+            other_df,
+            cols1=cols1,
+            cols2=cols2,
+        )
+
     def sink_vcf(self, path: str) -> None:
         """
         Streaming write LazyFrame to VCF format.
