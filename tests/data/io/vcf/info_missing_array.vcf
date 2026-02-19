@@ -1,0 +1,9 @@
+##fileformat=VCFv4.3
+##INFO=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for ref and alt alleles">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency">
+##INFO=<ID=ALLELE_ID,Number=.,Type=String,Description="Allele identifiers">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	rs1	A	T	60	PASS	AD=.,15;AF=0.5;ALLELE_ID=.,alt1
+chr1	200	rs2	G	C,T	80	PASS	AD=10,.,5;AF=.,0.3;ALLELE_ID=ref2,.,alt2
+chr1	300	rs3	C	T,A	70	PASS	AD=5,.,10;AF=0.3,.;ALLELE_ID=ref3,alt3a,.
+chr1	400	rs4	T	G	90	PASS	AD=20,30;AF=0.6;ALLELE_ID=ref4,alt4
