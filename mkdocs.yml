@@ -13,9 +13,8 @@ nav:
       - 🔨Features: features.md
       - 📚Tutorial: notebooks/tutorial.ipynb
       - ⚙️ API reference: api.md
-      - 🚀 Performance: performance.md
       - ❓ FAQ: faq.md
-      - 🔬 Auxiliary materials : supplement.md
+      - 🚀 Performance: supplement.md
       - 🛠️ Developers guide: developers.md
       - 📡 Contact: contact.md
 
@@ -24,9 +23,8 @@ nav:
   - Features: features.md
   - Tutorial: notebooks/tutorial.ipynb
   - API reference: api.md
-  - Performance: performance.md
   - FAQ: faq.md
-  - 🔬 Supplementary material: supplement.md
+  - 🚀 Performance: supplement.md
   - 🛠️ Developers guide: developers.md
   - Contact: contact.md
   - 📖 Blog:

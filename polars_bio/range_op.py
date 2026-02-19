@@ -131,7 +131,7 @@ class IntervalOperations:
             suffixes: Suffixes for the columns of the two overlapped sets.
             on_cols: List of additional column names to join on. default is None.
             algorithm: The algorithm to use for the overlap operation. Available options: Coitrees, IntervalTree, ArrayIntervalTree, Lapper, SuperIntervals
-            low_memory: If True, use low memory method for output generation. This may be slower but uses less memory.
+            low_memory: If True, use low memory method for output generation. This caps the output batch size, trading some performance for significantly lower peak memory consumption. Recommended for operations that produce very large result sets.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             read_options1: Additional options for reading the input files.
             read_options2: Additional options for reading the input files.

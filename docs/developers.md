@@ -585,6 +585,93 @@ Different file formats have conventional coordinate systems. polars-bio uses the
     BED format conventionally uses 0-based coordinates. If your pipeline mixes BED files with VCF/BAM data, be sure to read BED files with `use_zero_based=True` or set the global default accordingly — otherwise, range operations will produce incorrect results.
 
 
+## Range Operation Algorithm
+
+`polars-bio` implements a set of interval operations on genomic ranges, including *binary* operations (*overlap*, *nearest*, *count-overlaps*, *coverage*, *subtract*) and *unary* operations (*merge*, *cluster*, *complement*). The binary operations share a very similar algorithmic structure, which is presented in the diagram below. The unary operations (*merge*, *cluster*, *complement*) take a single set of intervals and produce transformed output — merged intervals, cluster assignments, or gap intervals respectively.
+
+
+``` mermaid
+flowchart TB
+    %% Define header node
+    H["Interval operation"]
+
+    %% Define DataFrame nodes
+    I0["left DataFrame"]
+    I1["right DataFrame"]
+
+    style I0 stroke-dasharray: 5 5, stroke-width: 1
+
+    %% Draw edges with labels
+    H -->|probe /streaming/ side| I0
+    H -->|build /search structure/ side| I1
+
+    %% Record batches under left DataFrame within a dotted box
+    I0 --> LeftGroup
+    subgraph LeftGroup["Record Batches"]
+        direction TB
+        LB0["Batch 1"]
+        LB1["Batch 2"]
+        LB2["Batch 3"]
+    end
+    style LeftGroup stroke-dasharray: 5 5, stroke-width: 1
+
+    %% Record batches under right DataFrame within a dotted box
+    I1 --> RightGroup
+    subgraph RightGroup["Record Batches"]
+        direction TB
+        RB0["Batch 1"]
+        RB1["Batch 2"]
+        RB2["Batch 3"]
+    end
+
+```
+
+The basic concept is that each operation consists of two sides: the **probe** side and the **build** side. The **probe** side is the one that is streamed, while the **build** side is the one that is implemented as a search data structure (for generic *overlap* operation the search structure can be changed using [algorithm](/polars-bio/api/#polars_bio.range_operations.overlap) parameter, for other operations is always [Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees) as according to the [benchmark](https://github.com/dcjones/coitrees?tab=readme-ov-file#benchmarks) COITrees outperforms other data structures). In the case of *nearest* operation there is an additional sorted list of intervals used for searching for closest intervals in the case of non-existing overlaps.
+
+!!! note
+    Available search structure implementations for overlap operation:
+
+    * [COITrees](https://github.com/dcjones/coitrees)
+    * [IITree](https://github.com/rust-bio/rust-bio/blob/master/src/data_structures/interval_tree/array_backed_interval_tree.rs)
+    * [AVL-tree](https://github.com/rust-bio/rust-bio/blob/master/src/data_structures/interval_tree/avl_interval_tree.rs)
+    * [rust-lapper](https://github.com/sstadick/rust-lapper)
+    * [superintervals](https://github.com/kcleal/superintervals/) - available since `polars-bio` version `0.12.0`
+Once the **build** side data structure is ready, then records from the **probe** side are processed against the search structure organized as record batches. Each record batch can be processed independently. Search structure nodes contains identifiers of the rows from the **build** side that are then used to construct a new record that is returned as a result of the operation.
+
+### Out-of-core (streaming) processing
+This algorithm allows you to process your results without requiring **all** your data to be in memory at the same time. In particular, the **probe** side can be streamed from a file stored locally or on a cloud object storage, while the **build** side needs to be fully materialized in memory. In real applications, the **probe** side is usually a large file with genomic intervals, while the **build** side is a smaller file with annotations or other genomic features. This allows you to process large genomic datasets without running out of memory.
+
+!!! note
+    1. In this sense, the **order** of the sides is important, as the **probe** side is streamed and processed in batches, while the **build** side is fully materialized in memory.
+    2. The **smaller** the *build* side and **larger** the number of overlaps are, the **higher** is the gain of memory efficiency. For instance, when we compare the real `8-7` (`10^7 vs. 1.2*10^6`) and synthetic (`10^7 vs. 10^7`) datasets, we can see that we benefit more from using streaming mode in the **former** benchmark.
+
+### Parallelization
+In the current implementation, the **probe** side can be processed in parallel using multiple threads on partitioned (implicitly or explicitly partitioned inputs — see [parallel engine](features.md#parallel-engine)). The **build** side is predominantly single-threaded (with the notable exception of BGZF compressed or partitioned Parquet/CSV input data files reading, which can be parallelized).
+
+
+## Comparison with Existing Tools
+
+The table below compares `polars-bio` with other popular Python libraries for genomic ranges operations.
+
+| Feature/Library                 | polars-bio | Bioframe        | PyRanges0       | PyRanges1  | pybedtools | GenomicRanges |
+|---------------------------------|-----------|-----------------|-----------------|------------|------------|---------------|
+| out-of-core processing          | ✅         | ❌               | ❌               | ❌          | ❌          | ❌             |
+| parallel processing             | ✅         | ❌               | ✅<sup>1</sup>   | ❌          | ❌          | ❌             |
+| vectorized execution engine     | ✅         | ❌               | ❌               | ❌          | ❌          | ❌             |
+| cloud object storage support    | ✅         | ✅/❌<sup>2</sup> | ❌               | ❌          | ❌          | ✅             |
+| Pandas/Polars DataFrame support | ✅/✅       | ✅/❌             | ✅/❌<sup>3</sup> | ✅/❌<sup>4</sup> | ❌/❌       | ✅/✅           |
+
+
+!!! note
+    <sup>1</sup> PyRanges0 supports parallel processing with [Ray](https://github.com/ray-project/ray), but it does not bring any performance benefits over single-threaded [execution](https://github.com/pyranges/pyranges/issues/363) and it is not recommended.
+
+    <sup>2</sup> Some input functions, such as `read_table` support cloud object storage
+
+    <sup>3</sup> Only export/import with data copying is [supported](https://pyranges.readthedocs.io/en/latest/tutorial.html#pandas-vs-pyranges)
+
+    <sup>4</sup> RangeFrame class extends Pandas DataFrame
+
+
 ## DataFusion Extension Points
 
 polars-bio uses the following [Apache DataFusion](https://datafusion.apache.org/) extension points:
