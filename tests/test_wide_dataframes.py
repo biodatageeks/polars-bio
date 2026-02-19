@@ -9,9 +9,9 @@ Expected behavior per operation:
 - count_overlaps: Extra columns from df1 preserved + count appended
 - coverage:       Extra columns from df1 preserved + coverage appended
 - merge:          Only contig/start/end/n_intervals (extra columns dropped - by design)
-- cluster:        contig/start/end + cluster columns (extra columns dropped - by design)
+- cluster:        Extra columns preserved + cluster/cluster_start/cluster_end appended
 - complement:     Only contig/start/end (extra columns dropped - by design)
-- subtract:       Only contig/start/end (extra columns dropped - by design)
+- subtract:       Extra columns from df1 preserved (start/end updated to fragments)
 """
 
 import pandas as pd
@@ -399,7 +399,7 @@ class TestMergeWide:
 
 
 class TestClusterWide:
-    """Cluster outputs core cols + cluster/cluster_start/cluster_end."""
+    """Cluster preserves extra columns + appends cluster/cluster_start/cluster_end."""
 
     def test_cluster_pandas_runs(self):
         result = pb.cluster(
@@ -419,11 +419,34 @@ class TestClusterWide:
             "contig",
             "pos_start",
             "pos_end",
+            "name",
+            "gc_content",
             "cluster",
             "cluster_start",
             "cluster_end",
         ]
         assert list(result.columns) == expected_cols
+
+    def test_cluster_extra_columns_present(self):
+        """Extra columns from input should be preserved."""
+        result = pb.cluster(
+            WIDE_SINGLE,
+            cols=COLS,
+            output_type="pandas.DataFrame",
+        )
+        assert "name" in result.columns
+        assert "gc_content" in result.columns
+
+    def test_cluster_extra_column_values(self):
+        """Extra column values should come from the input."""
+        result = pb.cluster(
+            WIDE_SINGLE,
+            cols=COLS,
+            output_type="pandas.DataFrame",
+        )
+        assert set(result["name"].unique()).issubset(set(WIDE_SINGLE["name"]))
+        for gc in result["gc_content"]:
+            assert gc in WIDE_SINGLE["gc_content"].values
 
     def test_cluster_row_count_matches_input(self):
         """Cluster should return one row per input row."""
@@ -434,7 +457,7 @@ class TestClusterWide:
         )
         assert len(result) == len(WIDE_SINGLE)
 
-    def test_cluster_wide_vs_narrow_same_intervals(self):
+    def test_cluster_wide_vs_narrow_same_core_columns(self):
         """Core cluster results should be identical regardless of extra columns."""
         narrow = WIDE_SINGLE[["contig", "pos_start", "pos_end"]].copy()
         narrow.attrs["coordinate_system_zero_based"] = True
@@ -450,9 +473,12 @@ class TestClusterWide:
             output_type="pandas.DataFrame",
         )
         sort_cols = ["contig", "pos_start", "pos_end"]
-        result_wide = result_wide.sort_values(sort_cols).reset_index(drop=True)
-        result_narrow = result_narrow.sort_values(sort_cols).reset_index(drop=True)
-        pd.testing.assert_frame_equal(result_wide, result_narrow)
+        core_cols = sort_cols + ["cluster", "cluster_start", "cluster_end"]
+        wide_core = result_wide[core_cols].sort_values(sort_cols).reset_index(drop=True)
+        narrow_core = (
+            result_narrow[core_cols].sort_values(sort_cols).reset_index(drop=True)
+        )
+        pd.testing.assert_frame_equal(wide_core, narrow_core)
 
     def test_cluster_polars_lazyframe(self):
         result = pb.cluster(
@@ -464,6 +490,8 @@ class TestClusterWide:
             "contig",
             "pos_start",
             "pos_end",
+            "name",
+            "gc_content",
             "cluster",
             "cluster_start",
             "cluster_end",
@@ -581,7 +609,7 @@ class TestComplementWide:
 
 
 class TestSubtractWide:
-    """Subtract produces core columns from df1 fragments."""
+    """Subtract preserves extra columns from df1 (start/end updated to fragments)."""
 
     def test_subtract_pandas_runs(self):
         result = pb.subtract(
@@ -601,10 +629,36 @@ class TestSubtractWide:
             cols2=COLS,
             output_type="pandas.DataFrame",
         )
-        assert list(result.columns) == ["contig", "pos_start", "pos_end"]
+        expected_cols = ["contig", "pos_start", "pos_end", "gene_id", "score", "strand"]
+        assert list(result.columns) == expected_cols
 
-    def test_subtract_wide_vs_narrow_same_result(self):
-        """Subtract should produce identical interval fragments regardless of extra columns."""
+    def test_subtract_extra_columns_present(self):
+        """Extra columns from df1 should be preserved."""
+        result = pb.subtract(
+            WIDE_DF1,
+            WIDE_DF2,
+            cols1=COLS,
+            cols2=COLS,
+            output_type="pandas.DataFrame",
+        )
+        assert "gene_id" in result.columns
+        assert "score" in result.columns
+        assert "strand" in result.columns
+
+    def test_subtract_extra_column_values(self):
+        """Extra column values should come from df1."""
+        result = pb.subtract(
+            WIDE_DF1,
+            WIDE_DF2,
+            cols1=COLS,
+            cols2=COLS,
+            output_type="pandas.DataFrame",
+        )
+        assert set(result["gene_id"].unique()).issubset(set(WIDE_DF1["gene_id"]))
+        assert set(result["score"].unique()).issubset(set(WIDE_DF1["score"]))
+
+    def test_subtract_wide_vs_narrow_same_core_columns(self):
+        """Core interval fragments should be identical regardless of extra columns."""
         narrow_df1 = WIDE_DF1[["contig", "pos_start", "pos_end"]].copy()
         narrow_df1.attrs["coordinate_system_zero_based"] = True
         narrow_df2 = WIDE_DF2[["contig", "pos_start", "pos_end"]].copy()
@@ -625,9 +679,11 @@ class TestSubtractWide:
             output_type="pandas.DataFrame",
         )
         sort_cols = ["contig", "pos_start", "pos_end"]
-        result_wide = result_wide.sort_values(sort_cols).reset_index(drop=True)
-        result_narrow = result_narrow.sort_values(sort_cols).reset_index(drop=True)
-        pd.testing.assert_frame_equal(result_wide, result_narrow)
+        wide_core = result_wide[sort_cols].sort_values(sort_cols).reset_index(drop=True)
+        narrow_core = (
+            result_narrow[sort_cols].sort_values(sort_cols).reset_index(drop=True)
+        )
+        pd.testing.assert_frame_equal(wide_core, narrow_core)
 
     def test_subtract_polars_lazyframe(self):
         result = pb.subtract(
@@ -637,7 +693,8 @@ class TestSubtractWide:
             cols2=COLS,
             output_type="polars.LazyFrame",
         ).collect()
-        assert result.columns == ["contig", "pos_start", "pos_end"]
+        expected_cols = ["contig", "pos_start", "pos_end", "gene_id", "score", "strand"]
+        assert result.columns == expected_cols
         assert len(result) > 0
 
     def test_subtract_removes_overlapping_portions(self):
@@ -688,6 +745,8 @@ class TestMixedInputTypesWide:
             "contig",
             "pos_start",
             "pos_end",
+            "name",
+            "gc_content",
             "cluster",
             "cluster_start",
             "cluster_end",
@@ -711,7 +770,8 @@ class TestMixedInputTypesWide:
             cols2=COLS,
             output_type="polars.DataFrame",
         )
-        assert result.columns == ["contig", "pos_start", "pos_end"]
+        expected_cols = ["contig", "pos_start", "pos_end", "gene_id", "score", "strand"]
+        assert result.columns == expected_cols
         assert len(result) > 0
 
 
@@ -772,9 +832,11 @@ class TestManyExtraColumns:
     def test_cluster_20_extra_columns(self):
         df = self._make_wide_df(20)
         result = pb.cluster(df, cols=COLS, output_type="pandas.DataFrame")
-        # Cluster only outputs core + cluster columns
         assert len(result) == 3
         assert "cluster" in result.columns
+        # All 20 extra columns should be preserved
+        for i in range(20):
+            assert f"extra_{i}" in result.columns
 
     def test_merge_20_extra_columns(self):
         df = self._make_wide_df(20)
@@ -791,7 +853,9 @@ class TestManyExtraColumns:
             cols2=COLS,
             output_type="pandas.DataFrame",
         )
-        assert list(result.columns) == ["contig", "pos_start", "pos_end"]
+        # All 20 extra columns from df1 should be preserved
+        for i in range(20):
+            assert f"extra_{i}" in result.columns
 
 
 # ===========================================================================

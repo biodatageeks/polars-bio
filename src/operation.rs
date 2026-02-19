@@ -368,12 +368,24 @@ async fn do_cluster(
         FilterOp::Strict => RangesFilterOp::Strict,
     };
     let session = ctx.clone();
+
+    // Get input schema so the provider can preserve extra columns
+    let table_ref = TableReference::from(table.clone());
+    let input_schema = ctx
+        .table(table_ref)
+        .await
+        .unwrap()
+        .schema()
+        .as_arrow()
+        .clone();
+
     let cluster_provider = ClusterProvider::new(
         Arc::new(session),
         table,
         (columns[0].clone(), columns[1].clone(), columns[2].clone()),
         min_dist,
         upstream_filter_op,
+        input_schema,
     );
     let table_name = format!(
         "cluster_result_{}",
@@ -435,6 +447,17 @@ async fn do_subtract(
         FilterOp::Strict => RangesFilterOp::Strict,
     };
     let session = ctx.clone();
+
+    // Get left input schema so the provider can preserve extra columns
+    let left_table_ref = TableReference::from(left_table.clone());
+    let left_schema = ctx
+        .table(left_table_ref)
+        .await
+        .unwrap()
+        .schema()
+        .as_arrow()
+        .clone();
+
     let subtract_provider = SubtractProvider::new(
         Arc::new(session),
         left_table,
@@ -450,6 +473,7 @@ async fn do_subtract(
             columns_2[2].clone(),
         ),
         upstream_filter_op,
+        left_schema,
     );
     let table_name = format!(
         "subtract_result_{}",

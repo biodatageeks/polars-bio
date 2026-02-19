@@ -89,12 +89,25 @@ def _generate_merge_schema(columns: list[str]) -> pl.Schema:
     )
 
 
-def _generate_cluster_schema(columns: list[str]) -> pl.Schema:
+def _generate_cluster_schema(
+    columns: list[str], input_schema: pl.Schema | None = None
+) -> pl.Schema:
     """Generate schema for cluster operations.
 
-    ClusterProvider outputs: (contig: Utf8, start: Int64, end: Int64,
-                              cluster: Int64, cluster_start: Int64, cluster_end: Int64).
+    ClusterProvider outputs all input columns + cluster/cluster_start/cluster_end.
+    When input has only 3 columns (core interval triplet), output is the classic
+    (contig, start, end, cluster, cluster_start, cluster_end).
+    When input has extra columns, they are preserved.
     """
+    if input_schema is not None and len(input_schema) > 3:
+        return pl.Schema(
+            {
+                **input_schema,
+                "cluster": pl.Int64,
+                "cluster_start": pl.Int64,
+                "cluster_end": pl.Int64,
+            }
+        )
     return pl.Schema(
         {
             columns[0]: pl.Utf8,
@@ -121,11 +134,17 @@ def _generate_complement_schema(columns: list[str]) -> pl.Schema:
     )
 
 
-def _generate_subtract_schema(columns: list[str]) -> pl.Schema:
+def _generate_subtract_schema(
+    columns: list[str], input_schema: pl.Schema | None = None
+) -> pl.Schema:
     """Generate schema for subtract operations.
 
-    SubtractProvider outputs: (contig: Utf8, start: Int64, end: Int64).
+    SubtractProvider outputs all left input columns.
+    When input has only 3 columns (core interval triplet), output is (contig, start, end).
+    When input has extra columns, they are preserved.
     """
+    if input_schema is not None and len(input_schema) > 3:
+        return input_schema
     return pl.Schema(
         {
             columns[0]: pl.Utf8,
@@ -207,11 +226,17 @@ def range_operation(
         elif range_options.range_op == RangeOp.Merge:
             merged_schema = _generate_merge_schema(range_options.columns_1)
         elif range_options.range_op == RangeOp.Cluster:
-            merged_schema = _generate_cluster_schema(range_options.columns_1)
+            df1_schema = _get_schema(df1, ctx, None, read_options1)
+            merged_schema = _generate_cluster_schema(
+                range_options.columns_1, df1_schema
+            )
         elif range_options.range_op == RangeOp.Complement:
             merged_schema = _generate_complement_schema(range_options.columns_1)
         elif range_options.range_op == RangeOp.Subtract:
-            merged_schema = _generate_subtract_schema(range_options.columns_1)
+            df1_schema = _get_schema(df1, ctx, None, read_options1)
+            merged_schema = _generate_subtract_schema(
+                range_options.columns_1, df1_schema
+            )
         else:
             # Get the base schemas without suffixes first
             df_schema1_base = _get_schema(df1, ctx, None, read_options1)
@@ -297,11 +322,15 @@ def range_operation(
             elif range_options.range_op == RangeOp.Merge:
                 merged_schema = _generate_merge_schema(range_options.columns_1)
             elif range_options.range_op == RangeOp.Cluster:
-                merged_schema = _generate_cluster_schema(range_options.columns_1)
+                merged_schema = _generate_cluster_schema(
+                    range_options.columns_1, df1_base_schema
+                )
             elif range_options.range_op == RangeOp.Complement:
                 merged_schema = _generate_complement_schema(range_options.columns_1)
             elif range_options.range_op == RangeOp.Subtract:
-                merged_schema = _generate_subtract_schema(range_options.columns_1)
+                merged_schema = _generate_subtract_schema(
+                    range_options.columns_1, df1_base_schema
+                )
             else:
                 merged_schema = _generate_overlap_schema(
                     df1_base_schema, df2_base_schema, range_options
