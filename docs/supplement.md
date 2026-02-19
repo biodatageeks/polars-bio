@@ -3,7 +3,7 @@
 This document provides additional information about the algorithms, benchmarking setup, data, and results that were presented in the manuscript.
 
 ## Algorithm description
-`polars-bio` implements a set of *binary* interval operations on genomic ranges, such as *overlap*, *nearest*, *count-overlaps*, and *coverage*. All these operations share the very similar algorithmic structure, which is presented in the diagram below.
+`polars-bio` implements a set of interval operations on genomic ranges, including *binary* operations (*overlap*, *nearest*, *count-overlaps*, *coverage*, *subtract*) and *unary* operations (*merge*, *cluster*, *complement*). The binary operations share a very similar algorithmic structure, which is presented in the diagram below. The unary operations (*merge*, *cluster*, *complement*) take a single set of intervals and produce transformed output — merged intervals, cluster assignments, or gap intervals respectively.
 
 
 ``` mermaid
