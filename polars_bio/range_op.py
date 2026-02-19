@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import itertools
+
 import datafusion
 import polars as pl
 from datafusion import col, literal
@@ -16,6 +18,7 @@ from .interval_op_helpers import (
     prevent_column_collision,
     read_df_to_datafusion,
 )
+from .logging import logger
 from .range_op_helpers import _validate_overlap_input, range_operation
 
 try:
@@ -23,8 +26,17 @@ try:
 except ImportError:
     pd = None
 
+_VIEW_TABLE_COUNTER = itertools.count()
 
-__all__ = ["overlap", "nearest", "count_overlaps", "merge"]
+__all__ = [
+    "overlap",
+    "nearest",
+    "count_overlaps",
+    "merge",
+    "cluster",
+    "complement",
+    "subtract",
+]
 
 
 from polars_bio.polars_bio import FilterOp, RangeOp, RangeOptions
@@ -123,7 +135,7 @@ class IntervalOperations:
             suffixes: Suffixes for the columns of the two overlapped sets.
             on_cols: List of additional column names to join on. default is None.
             algorithm: The algorithm to use for the overlap operation. Available options: Coitrees, IntervalTree, ArrayIntervalTree, Lapper, SuperIntervals
-            low_memory: If True, use low memory method for output generation. This may be slower but uses less memory.
+            low_memory: If True, use low memory method for output generation. This caps the output batch size, trading some performance for significantly lower peak memory consumption. Recommended for operations that produce very large result sets.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             read_options1: Additional options for reading the input files.
             read_options2: Additional options for reading the input files.
@@ -609,3 +621,238 @@ class IntervalOperations:
             ctx,
             projection_pushdown=projection_pushdown,
         )
+
+    @staticmethod
+    def cluster(
+        df: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+        min_dist: int = 0,
+        cols: Union[list[str], None] = ["chrom", "start", "end"],
+        output_type: str = "polars.LazyFrame",
+        projection_pushdown: bool = True,
+    ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
+        """
+        Assign cluster IDs to overlapping or nearby genomic intervals.
+
+        Groups intervals that overlap or are within ``min_dist`` of each other
+        into clusters. Each row is annotated with a cluster ID and the
+        cluster's merged start/end boundaries.
+
+        Bioframe inspired API.
+
+        The coordinate system (0-based or 1-based) is automatically detected from
+        DataFrame metadata set at I/O time.
+
+        Parameters:
+            df: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED and Parquet are supported.
+            min_dist: Minimum distance (integer) between intervals to cluster. Default is 0.
+            cols: The names of columns containing the chromosome, start and end of the
+                genomic intervals.
+            output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
+            projection_pushdown: Enable column projection pushdown.
+
+        Returns:
+            **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame with original
+            interval columns plus ``cluster``, ``cluster_start``, ``cluster_end``.
+
+        Raises:
+            MissingCoordinateSystemError: If input lacks coordinate system metadata
+                and ``datafusion.bio.coordinate_system_check`` is "true" (default).
+        """
+        suffixes = ("_1", "_2")
+        _validate_overlap_input(cols, cols, None, suffixes, output_type)
+
+        filter_op = _get_filter_op_from_metadata_single(df)
+
+        cols = DEFAULT_INTERVAL_COLUMNS if cols is None else cols
+        range_options = RangeOptions(
+            range_op=RangeOp.Cluster,
+            filter_op=filter_op,
+            columns_1=cols,
+            columns_2=cols,
+            min_dist=min_dist,
+        )
+
+        return range_operation(
+            df,
+            df,
+            range_options,
+            output_type,
+            ctx,
+            projection_pushdown=projection_pushdown,
+        )
+
+    @staticmethod
+    def complement(
+        df: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+        view_df: Union[pl.DataFrame, pl.LazyFrame, "pd.DataFrame", None] = None,
+        cols: Union[list[str], None] = ["chrom", "start", "end"],
+        view_cols: Union[list[str], None] = None,
+        output_type: str = "polars.LazyFrame",
+        projection_pushdown: bool = True,
+    ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
+        """
+        Compute the complement of genomic intervals — the gaps between them.
+
+        Returns intervals that represent the genomic regions **not** covered
+        by the input intervals. If ``view_df`` is provided, gaps are computed
+        within the boundaries of the view (e.g., chromosome sizes); otherwise
+        each contig spans ``[0, i64::MAX)``.
+
+        Bioframe inspired API.
+
+        The coordinate system (0-based or 1-based) is automatically detected from
+        DataFrame metadata set at I/O time.
+
+        Parameters:
+            df: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED and Parquet are supported.
+            view_df: Optional DataFrame defining contig boundaries (e.g., chromosome sizes). Each row should have contig, start, end columns.
+            cols: The names of columns containing the chromosome, start and end of the
+                genomic intervals.
+            view_cols: Column names for the view table. Defaults to ``cols`` when not specified.
+            output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
+            projection_pushdown: Enable column projection pushdown.
+
+        Returns:
+            **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of complement
+            intervals (contig, start, end).
+
+        Raises:
+            MissingCoordinateSystemError: If input lacks coordinate system metadata
+                and ``datafusion.bio.coordinate_system_check`` is "true" (default).
+        """
+        suffixes = ("_1", "_2")
+        _validate_overlap_input(cols, cols, None, suffixes, output_type)
+
+        filter_op = _get_filter_op_from_metadata_single(df)
+
+        cols = DEFAULT_INTERVAL_COLUMNS if cols is None else cols
+        view_cols = cols if view_cols is None else view_cols
+
+        # Register view table in DataFusion if provided
+        view_table_name = None
+        if view_df is not None:
+            view_table_name = _register_view_table(view_df, view_cols[0])
+        else:
+            logger.warning(
+                "No view_df provided — complement will span [0, i64::MAX) per contig. "
+                "Pass a view_df with contig boundaries (e.g., chromosome sizes) "
+                "for meaningful results."
+            )
+
+        range_options = RangeOptions(
+            range_op=RangeOp.Complement,
+            filter_op=filter_op,
+            columns_1=cols,
+            columns_2=cols,
+            view_table=view_table_name,
+            view_columns=view_cols,
+        )
+
+        return range_operation(
+            df,
+            df,
+            range_options,
+            output_type,
+            ctx,
+            projection_pushdown=projection_pushdown,
+        )
+
+    @staticmethod
+    def subtract(
+        df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+        df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+        cols1: Union[list[str], None] = ["chrom", "start", "end"],
+        cols2: Union[list[str], None] = ["chrom", "start", "end"],
+        output_type: str = "polars.LazyFrame",
+        projection_pushdown: bool = True,
+    ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
+        """
+        Subtract the second set of intervals from the first.
+
+        For each interval in ``df1``, removes any portion that overlaps with
+        intervals in ``df2``. The result contains the remaining fragments.
+
+        Bioframe inspired API.
+
+        The coordinate system (0-based or 1-based) is automatically detected from
+        DataFrame metadata set at I/O time. Both inputs must have the same coordinate
+        system.
+
+        Parameters:
+            df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED and Parquet are supported.
+            df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame. CSV with a header, BED and Parquet are supported.
+            cols1: The names of columns containing the chromosome, start and end of the
+                genomic intervals for the first set.
+            cols2: The names of columns containing the chromosome, start and end of the
+                genomic intervals for the second set.
+            output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
+            projection_pushdown: Enable column projection pushdown.
+
+        Returns:
+            **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the
+            remaining interval fragments (contig, start, end).
+
+        Raises:
+            MissingCoordinateSystemError: If either input lacks coordinate system metadata
+                and ``datafusion.bio.coordinate_system_check`` is "true" (default).
+            CoordinateSystemMismatchError: If inputs have different coordinate systems.
+        """
+        suffixes = ("_1", "_2")
+        _validate_overlap_input(cols1, cols2, None, suffixes, output_type)
+
+        filter_op = _get_filter_op_from_metadata(df1, df2)
+
+        cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
+        cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
+        range_options = RangeOptions(
+            range_op=RangeOp.Subtract,
+            filter_op=filter_op,
+            columns_1=cols1,
+            columns_2=cols2,
+        )
+
+        return range_operation(
+            df1,
+            df2,
+            range_options,
+            output_type,
+            ctx,
+            projection_pushdown=projection_pushdown,
+        )
+
+
+def _register_view_table(
+    view_df: Union[pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+    contig_col: str,
+) -> str:
+    """Register a DataFrame into DataFusion context for use as a view table.
+
+    Returns the generated table name.
+    """
+    import pyarrow as pa
+
+    from polars_bio.polars_bio import py_from_polars
+
+    table_name = f"_view_{next(_VIEW_TABLE_COUNTER)}"
+
+    if isinstance(view_df, pl.LazyFrame):
+        view_df = view_df.collect()
+
+    if isinstance(view_df, pl.DataFrame):
+        arrow_tbl = view_df.to_arrow()
+    elif pd is not None and isinstance(view_df, pd.DataFrame):
+        arrow_tbl = pa.Table.from_pandas(view_df)
+        # Convert string column to LargeString for DataFusion compatibility
+        idx = arrow_tbl.schema.get_field_index(contig_col)
+        if arrow_tbl.schema.field(idx).type == pa.string():
+            arrow_tbl = arrow_tbl.set_column(
+                idx,
+                arrow_tbl.schema.field(idx).name,
+                pa.compute.cast(arrow_tbl.column(idx), pa.large_string()),
+            )
+    else:
+        raise ValueError("view_df must be a Polars or Pandas DataFrame")
+
+    reader = arrow_tbl.to_reader()
+    py_from_polars(ctx, table_name, reader)
+    return table_name

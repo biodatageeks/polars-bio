@@ -14,7 +14,7 @@ crate-type= ["cdylib"]
 datafusion-python = "50.1.0"
 pyo3 = { version = "0.25.1", features = ["extension-module", "abi3"] }
 pyo3-log = "0.12.4"
-datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "6893418f6f0cc0bb31146c58f3f60a0b96d29f76" }
+
 
 datafusion = { version = "50.3.0"}
 arrow = "56.1.0"
@@ -35,7 +35,8 @@ datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-
 datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "4ba1ca3e108a5edc5d31d03bacbe04f2ddf0b64d" }
 datafusion-bio-format-pairs = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "4ba1ca3e108a5edc5d31d03bacbe04f2ddf0b64d" }
 
-datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "fddc89a6e12f84d8a51899ceb7ef2f56bfc866e1", default-features = false }
+datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "9ef64a1f16bedf4096ae37a0b332ce15f3a18255" }
+datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "9ef64a1f16bedf4096ae37a0b332ce15f3a18255", default-features = false }
 
 async-trait = "0.1.86"
 futures = "0.3.31"

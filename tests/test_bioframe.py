@@ -223,3 +223,109 @@ class TestBioframe:
         )
         result = result.sort_values(by=list(result.columns)).reset_index(drop=True)
         pd.testing.assert_frame_equal(result, expected)
+
+    # ------------------------------------------------------------------ cluster
+    result_cluster = pb.cluster(
+        BIO_PD_DF1,
+        cols=("contig", "pos_start", "pos_end"),
+        output_type="pandas.DataFrame",
+    )
+    result_cluster_lf = pb.cluster(
+        BIO_PD_DF1,
+        cols=("contig", "pos_start", "pos_end"),
+        output_type="polars.LazyFrame",
+    )
+    result_bio_cluster = bf.cluster(
+        BIO_PD_DF1, cols=("contig", "pos_start", "pos_end"), min_dist=None
+    )
+
+    def test_cluster_count(self):
+        assert len(self.result_cluster) == len(self.result_bio_cluster)
+        assert len(self.result_cluster_lf.collect()) == len(self.result_bio_cluster)
+
+    def test_cluster_schema_rows(self):
+        # Compare cluster boundaries: cluster_start and cluster_end should match
+        # bioframe's cluster_start and cluster_end
+        result = self.result_cluster.sort_values(
+            by=["contig", "pos_start", "pos_end"]
+        ).reset_index(drop=True)
+        expected = (
+            self.result_bio_cluster.sort_values(by=["contig", "pos_start", "pos_end"])
+            .reset_index(drop=True)
+            .astype(
+                {
+                    "pos_start": "int64",
+                    "pos_end": "int64",
+                    "cluster": "int64",
+                    "cluster_start": "int64",
+                    "cluster_end": "int64",
+                }
+            )
+        )
+        pd.testing.assert_frame_equal(result, expected)
+
+    # --------------------------------------------------------------- complement
+    # Build a view_df with contig boundaries (min start, max end per contig)
+    _view_df = (
+        BIO_PD_DF1.groupby("contig")
+        .agg({"pos_start": "min", "pos_end": "max"})
+        .reset_index()
+        .rename(columns={"contig": "chrom", "pos_start": "start", "pos_end": "end"})
+    )
+    _view_df["name"] = _view_df["chrom"]  # bioframe needs a unique 'name' column
+    _view_df.attrs["coordinate_system_zero_based"] = True
+
+    result_complement = pb.complement(
+        BIO_PD_DF1,
+        view_df=_view_df,
+        cols=("contig", "pos_start", "pos_end"),
+        view_cols=("chrom", "start", "end"),
+        output_type="pandas.DataFrame",
+    )
+    result_bio_complement = bf.complement(
+        BIO_PD_DF1,
+        view_df=_view_df,
+        cols=("contig", "pos_start", "pos_end"),
+        cols_view=("chrom", "start", "end"),
+    )[["contig", "pos_start", "pos_end"]].astype(
+        {"pos_start": "int64", "pos_end": "int64"}
+    )
+
+    def test_complement_count(self):
+        assert len(self.result_complement) == len(self.result_bio_complement)
+
+    def test_complement_schema_rows(self):
+        expected = self.result_bio_complement.sort_values(
+            by=["contig", "pos_start", "pos_end"]
+        ).reset_index(drop=True)
+        result = self.result_complement.sort_values(
+            by=["contig", "pos_start", "pos_end"]
+        ).reset_index(drop=True)
+        pd.testing.assert_frame_equal(result, expected)
+
+    # ---------------------------------------------------------------- subtract
+    result_subtract = pb.subtract(
+        BIO_PD_DF1,
+        BIO_PD_DF2,
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
+        output_type="pandas.DataFrame",
+    )
+    result_bio_subtract = bf.subtract(
+        BIO_PD_DF1,
+        BIO_PD_DF2,
+        cols1=("contig", "pos_start", "pos_end"),
+        cols2=("contig", "pos_start", "pos_end"),
+    ).astype({"pos_start": "int64", "pos_end": "int64"})
+
+    def test_subtract_count(self):
+        assert len(self.result_subtract) == len(self.result_bio_subtract)
+
+    def test_subtract_schema_rows(self):
+        expected = self.result_bio_subtract.sort_values(
+            by=["contig", "pos_start", "pos_end"]
+        ).reset_index(drop=True)
+        result = self.result_subtract.sort_values(
+            by=["contig", "pos_start", "pos_end"]
+        ).reset_index(drop=True)
+        pd.testing.assert_frame_equal(result, expected)

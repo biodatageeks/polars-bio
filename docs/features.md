@@ -1,17 +1,30 @@
 ## Genomic ranges operations
 
-| Features                                           | Bioframe           | polars-bio         | PyRanges           | Pybedtools         | PyGenomics         | GenomicRanges      |
-|----------------------------------------------------|--------------------|--------------------|--------------------|--------------------|--------------------|--------------------|
-| [overlap](api.md#polars_bio.overlap)               | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| [nearest](api.md#polars_bio.nearest)               | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
-| [count_overlaps](api.md#polars_bio.count_overlaps) | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| cluster                                            | :white_check_mark: |                    | :white_check_mark: | :white_check_mark: |                    |                    |
-| [merge](api.md#polars_bio.merge)                   | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
-| complement                                         | :white_check_mark: | :construction:     |                    | :white_check_mark: | :white_check_mark: |                    |
-| [coverage](api.md#polars_bio.coverage)             | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
-| [expand](api.md#polars_bio.LazyFrame.expand)       | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
-| [sort](api.md#polars_bio.LazyFrame.sort_bedframe)  | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
-| [read_table](api.md#polars_bio.read_table)         | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |                    | :white_check_mark: |
+| operation | Bioframe | polars-bio | PyRanges0 | PyRanges1 | Pybedtools | GenomicRanges |
+|-----------|----------|------------|-----------|-----------|------------|---------------|
+| overlap | [overlap](https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.overlap) | [overlap](api.md#polars_bio.overlap) | [join](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.join)<sup>1</sup> | [join_overlaps](https://pyranges1.readthedocs.io/en/latest/how_to_overlap.html#the-most-versatile-join-overlaps) | [intersect](https://bedtools.readthedocs.io/en/latest/content/tools/intersect.html)<sup>2</sup> | [find_overlaps](https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.find_overlaps)<sup>3</sup> |
+| nearest | [closest](https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.closest) | [nearest](api.md#polars_bio.nearest) | [nearest](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.nearest) | [nearest_ranges](https://pyranges1.readthedocs.io/en/latest/how_to_overlap.html#find-the-closest-interval-nearest-ranges) | [closest](https://daler.github.io/pybedtools/autodocs/pybedtools.bedtool.BedTool.closest.html)<sup>4</sup> | [nearest](https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.nearest)<sup>5</sup> |
+| count_overlaps | [count_overlaps](https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.count_overlaps) | [count_overlaps](api.md#polars_bio.count_overlaps) | [count_overlaps](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.count_overlaps) | [count_overlaps](https://pyranges1.readthedocs.io/en/latest/how_to_overlap.html) | [intersect](https://bedtools.readthedocs.io/en/latest/content/tools/intersect.html)<sup>6</sup> | [count_overlaps](https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.count_overlaps) |
+| cluster | [cluster](https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.cluster) | [cluster](api.md#polars_bio.cluster) | [cluster](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.cluster) | [cluster_overlaps](https://pyranges1.readthedocs.io/en/latest/how_to_overlap.html#grouping-overlapping-intervals-cluster-overlaps) | [cluster](https://bedtools.readthedocs.io/en/latest/content/tools/cluster.html) | |
+| merge | [merge](https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.merge) | [merge](api.md#polars_bio.merge) | [merge](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.merge) | [merge_overlaps](https://pyranges1.readthedocs.io/en/latest/how_to_overlap.html) | [merge](https://bedtools.readthedocs.io/en/latest/content/tools/merge.html) | [reduce](https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.reduce)<sup>7</sup> |
+| complement | [complement](https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.complement) | [complement](api.md#polars_bio.complement) | | [complement_ranges](https://pyranges1.readthedocs.io/en/latest/how_to_genomic_ops.html#interval-complement) | [complement](https://bedtools.readthedocs.io/en/latest/content/tools/complement.html) | [gaps](https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.gaps)<sup>8</sup> |
+| subtract | [subtract](https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.subtract) | [subtract](api.md#polars_bio.subtract) | [subtract](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.subtract) | [subtract_overlaps](https://pyranges1.readthedocs.io/en/latest/how_to_overlap.html#interval-manipulation-operations-intersect-overlaps-subtract-overlaps) | [subtract](https://bedtools.readthedocs.io/en/latest/content/tools/subtract.html) | [subtract](https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.subtract) |
+| coverage | [coverage](https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.coverage) | [coverage](api.md#polars_bio.coverage) | [coverage](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.coverage) | | [coverage](https://bedtools.readthedocs.io/en/latest/content/tools/coverage.html) | [coverage](https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.coverage) |
+| expand | [expand](https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.expand) | [expand](api.md#polars_bio.LazyFrame.expand) | [extend](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.extend) | [extend_ranges](https://pyranges1.readthedocs.io/en/latest/pyranges_objects.html) | [slop](https://bedtools.readthedocs.io/en/latest/content/tools/slop.html) | [resize](https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.resize) |
+| sort | [sort_bedframe](https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.sort_bedframe) | [sort](api.md#polars_bio.LazyFrame.sort_bedframe) | [sort](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.sort) | [sort_ranges](https://pyranges1.readthedocs.io/en/latest/pyranges_objects.html) | [sort](https://bedtools.readthedocs.io/en/latest/content/tools/sort.html) | [sort](https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.sort) |
+| read_table | [read_table](https://bioframe.readthedocs.io/en/latest/api-fileops.html#bioframe.io.fileops.read_table) | [read_table](api.md#polars_bio.read_table) | [read_bed](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/readers/index.html#pyranges.readers.read_bed) | [read_bed](https://pyranges1.readthedocs.io/en/latest/pyranges_module.html#pyranges.read_bed) | [BedTool](https://daler.github.io/pybedtools/topical-create-a-bedtool.html#creating-a-bedtool) | [read_bed](https://biocpy.github.io/GenomicRanges/tutorial.html#from-bioinformatic-file-formats) |
+
+!!! note
+    1. There is an [overlap](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.overlap) method in PyRanges, but its output is only limited to indices of intervals from the other Dataframe that overlap.
+    In Bioframe's [benchmark](https://bioframe.readthedocs.io/en/latest/guide-performance.html#vs-pyranges-and-optionally-pybedtools) also **join** method instead of overlap was used.
+    2. **wa** and **wb** options used to obtain a comparable output.
+    3. Output contains only a list with the same length as query, containing hits to overlapping indices. Data transformation is required to obtain the same output as in other libraries.
+      Since the performance was far worse than in more efficient libraries anyway, additional data transformation was not included in the benchmark.
+    4. **s=first** was used to obtain a comparable output.
+    5. **select="arbitrary"** was used to obtain a comparable output.
+    6. **-c** flag used with `intersect` to count overlaps per feature.
+    7. GenomicRanges exposes merge as [reduce()](https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.reduce).
+    8. GenomicRanges exposes complement as [gaps()](https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.gaps).
 
 
 !!! Limitations
@@ -37,15 +50,6 @@ df = pb.depth("alignments.bam", min_mapping_quality=20).collect()
 # Via SQL
 df = pb.sql("SELECT * FROM depth('alignments.bam')").collect()
 ```
-
-!!! tip "Memory Optimization"
-    For `overlap()` operations that produce very large result sets, use the `low_memory=True` parameter to reduce peak memory consumption:
-
-    ```python
-    result = pb.overlap(df1, df2, low_memory=True)
-    ```
-
-    This enables streaming output generation that caps the output batch size, trading some performance for significantly lower memory usage.
 
 ## Coordinate systems support
 
@@ -78,6 +82,9 @@ flowchart TB
         count["count_overlaps()"]
         coverage["coverage()"]
         merge["merge()"]
+        cluster["cluster()"]
+        complement["complement()"]
+        subtract["subtract()"]
     end
 
     subgraph Validation["Metadata Validation"]
@@ -97,6 +104,9 @@ flowchart TB
     polars_meta --> count
     polars_meta --> coverage
     polars_meta --> merge
+    polars_meta --> cluster
+    polars_meta --> complement
+    polars_meta --> subtract
     pandas_meta --> overlap
 
     overlap --> validate
@@ -104,6 +114,9 @@ flowchart TB
     count --> validate
     coverage --> validate
     merge --> validate
+    cluster --> validate
+    complement --> validate
+    subtract --> validate
 
     validate --> |"metadata missing"| check
     validate --> |"metadata mismatch"| error2
@@ -519,25 +532,6 @@ result = pb.sql(f"SELECT COUNT(*) FROM {table_name}")
 | [`print_metadata_summary(df)`](api.md#polars_bio.print_metadata_summary) | Print human-readable metadata summary |
 | [`set_source_metadata(df, format, path, header)`](api.md#polars_bio.set_source_metadata) | Set metadata on a DataFrame |
 
-
-## API comparison between libraries
-There is no standard API for genomic ranges operations in Python.
-This table compares the API of the libraries. The table is not exhaustive and only shows the most common operations used in benchmarking.
-
-| operation  | Bioframe                                                                                                | polars-bio                                 | PyRanges0                                                                                                           | PyRanges1                                                                                                     | Pybedtools                                                                                                                                    | GenomicRanges                                                                                                                                      |
-|------------|---------------------------------------------------------------------------------------------------------|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| overlap    | [overlap](https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.overlap)          | [overlap](api.md#polars_bio.overlap)       | [join](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.join)<sup>1</sup>    | [join_ranges](https://pyranges1.readthedocs.io/en/latest/pyranges_objects.html#pyranges.PyRanges.join_ranges) | [intersect](https://bedtools.readthedocs.io/en/latest/content/tools/intersect.html?highlight=intersect#usage-and-option-summary)<sup>2</sup>  | [find_overlaps](https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.find_overlaps)<sup>3</sup> |
-| nearest    | [closest](https://bioframe.readthedocs.io/en/latest/api-intervalops.html#bioframe.ops.closest)          | [nearest](api.md#polars_bio.nearest)       | [nearest](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.nearest)          | [nearest](https://pyranges1.readthedocs.io/en/latest/pyranges_objects.html#pyranges.PyRanges.nearest)         | [closest](https://daler.github.io/pybedtools/autodocs/pybedtools.bedtool.BedTool.closest.html#pybedtools.bedtool.BedTool.closest)<sup>4</sup> | [nearest](https://biocpy.github.io/GenomicRanges/api/genomicranges.html#genomicranges.GenomicRanges.GenomicRanges.nearest)<sup>5</sup>             |
-| read_table | [read_table](https://bioframe.readthedocs.io/en/latest/api-fileops.html#bioframe.io.fileops.read_table) | [read_table](api.md#polars_bio.read_table) | [read_bed](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/readers/index.html#pyranges.readers.read_bed) | [read_bed](https://pyranges1.readthedocs.io/en/latest/pyranges_module.html#pyranges.read_bed)                 | [BedTool](https://daler.github.io/pybedtools/topical-create-a-bedtool.html#creating-a-bedtool)                                                | [read_bed](https://biocpy.github.io/GenomicRanges/tutorial.html#from-bioinformatic-file-formats)                                                   |
-
-!!! note
-    1. There is an [overlap](https://pyranges.readthedocs.io/en/latest/autoapi/pyranges/index.html#pyranges.PyRanges.overlap) method in PyRanges, but its output is only limited to indices of intervals from the other Dataframe that overlap.
-    In Bioframe's [benchmark](https://bioframe.readthedocs.io/en/latest/guide-performance.html#vs-pyranges-and-optionally-pybedtools) also **join** method instead of overlap was used.
-    2. **wa** and **wb** options used to obtain a comparable output.
-    3. Output contains only a list with the same length as query, containing hits to overlapping indices. Data transformation is required to obtain the same output as in other libraries.
-      Since the performance was far worse than in more efficient libraries anyway, additional data transformation was not included in the benchmark.
-    4. **s=first** was used to obtain a comparable output.
-    5. **select="arbitrary"** was used to obtain a comparable output.
 
 
 ## File formats support
@@ -1179,12 +1173,12 @@ For BGZIP-compressed FASTQ files, parallel decoding of compressed blocks is **au
 
 
 ## DataFrames support
-| I/O              | Bioframe           | polars-bio             | PyRanges           | Pybedtools | PyGenomics | GenomicRanges          |
-|------------------|--------------------|------------------------|--------------------|------------|------------|------------------------|
-| Pandas DataFrame | :white_check_mark: | :white_check_mark:     | :white_check_mark: |            |            | :white_check_mark:     |
-| Polars DataFrame |                    | :white_check_mark:     |                    |            |            | :white_check_mark:     |
-| Polars LazyFrame |                    | :white_check_mark:     |                    |            |            |                        |
-| Native readers   |                    | :white_check_mark:     |                    |            |            |                        |
+| I/O              | Bioframe           | polars-bio             | PyRanges           | Pybedtools | GenomicRanges          |
+|------------------|--------------------|------------------------|--------------------|------------|------------------------|
+| Pandas DataFrame | :white_check_mark: | :white_check_mark:     | :white_check_mark: |            | :white_check_mark:     |
+| Polars DataFrame |                    | :white_check_mark:     |                    |            | :white_check_mark:     |
+| Polars LazyFrame |                    | :white_check_mark:     |                    |            |                        |
+| Native readers   |                    | :white_check_mark:     |                    |            |                        |
 
 ## Polars Integration
 

@@ -4,8 +4,8 @@ use std::sync::Arc;
 use datafusion::common::TableReference;
 use datafusion::prelude::SessionContext;
 use datafusion_bio_function_ranges::{
-    Algorithm, BioConfig, CountOverlapsProvider, FilterOp as RangesFilterOp, MergeProvider,
-    NearestProvider, OverlapProvider,
+    Algorithm, BioConfig, ClusterProvider, ComplementProvider, CountOverlapsProvider,
+    FilterOp as RangesFilterOp, MergeProvider, NearestProvider, OverlapProvider, SubtractProvider,
 };
 use log::{debug, info};
 use tokio::runtime::Runtime;
@@ -14,6 +14,9 @@ static NEAREST_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
 static OVERLAP_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
 static MERGE_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
 static COUNT_OVERLAPS_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
+static CLUSTER_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
+static COMPLEMENT_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
+static SUBTRACT_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 use crate::context::set_option_internal;
 use crate::option::{FilterOp, RangeOp, RangeOptions};
@@ -28,7 +31,10 @@ pub(crate) fn do_range_operation(
     right_table: String,
 ) -> datafusion::dataframe::DataFrame {
     // Configure interval join algorithm for operations that use it
-    if !matches!(range_options.range_op, RangeOp::Merge) {
+    if !matches!(
+        range_options.range_op,
+        RangeOp::Merge | RangeOp::Cluster | RangeOp::Complement | RangeOp::Subtract
+    ) {
         match &range_options.overlap_alg {
             Some(alg) => {
                 set_option_internal(ctx, "bio.interval_join_algorithm", alg);
@@ -84,7 +90,9 @@ pub(crate) fn do_range_operation(
             true,
         )),
         RangeOp::Merge => rt.block_on(do_merge(ctx, range_options, left_table)),
-        _ => panic!("Unsupported operation: {}", range_options.range_op),
+        RangeOp::Cluster => rt.block_on(do_cluster(ctx, range_options, left_table)),
+        RangeOp::Complement => rt.block_on(do_complement(ctx, range_options, left_table)),
+        RangeOp::Subtract => rt.block_on(do_subtract(ctx, range_options, left_table, right_table)),
     }
 }
 
@@ -342,6 +350,136 @@ async fn do_merge(
         MERGE_TABLE_COUNTER.fetch_add(1, Ordering::Relaxed)
     );
     ctx.register_table(table_name.as_str(), Arc::new(merge_provider))
+        .unwrap();
+    let query = format!("SELECT * FROM {}", table_name);
+    debug!("Query: {}", query);
+    ctx.sql(&query).await.unwrap()
+}
+
+async fn do_cluster(
+    ctx: &SessionContext,
+    range_opts: RangeOptions,
+    table: String,
+) -> datafusion::dataframe::DataFrame {
+    let columns = range_opts.columns_1.unwrap();
+    let min_dist = range_opts.min_dist.unwrap_or(0);
+    let upstream_filter_op = match range_opts.filter_op.unwrap() {
+        FilterOp::Weak => RangesFilterOp::Weak,
+        FilterOp::Strict => RangesFilterOp::Strict,
+    };
+    let session = ctx.clone();
+
+    // Get input schema so the provider can preserve extra columns
+    let table_ref = TableReference::from(table.clone());
+    let input_schema = ctx
+        .table(table_ref)
+        .await
+        .unwrap()
+        .schema()
+        .as_arrow()
+        .clone();
+
+    let cluster_provider = ClusterProvider::new(
+        Arc::new(session),
+        table,
+        (columns[0].clone(), columns[1].clone(), columns[2].clone()),
+        min_dist,
+        upstream_filter_op,
+        input_schema,
+    );
+    let table_name = format!(
+        "cluster_result_{}",
+        CLUSTER_TABLE_COUNTER.fetch_add(1, Ordering::Relaxed)
+    );
+    ctx.register_table(table_name.as_str(), Arc::new(cluster_provider))
+        .unwrap();
+    let query = format!("SELECT * FROM {}", table_name);
+    debug!("Query: {}", query);
+    ctx.sql(&query).await.unwrap()
+}
+
+async fn do_complement(
+    ctx: &SessionContext,
+    range_opts: RangeOptions,
+    table: String,
+) -> datafusion::dataframe::DataFrame {
+    let columns = range_opts.columns_1.unwrap();
+    let upstream_filter_op = match range_opts.filter_op.unwrap() {
+        FilterOp::Weak => RangesFilterOp::Weak,
+        FilterOp::Strict => RangesFilterOp::Strict,
+    };
+    let view_table = range_opts.view_table;
+    let view_columns = range_opts.view_columns.unwrap_or_else(|| columns.clone());
+    let session = ctx.clone();
+    let complement_provider = ComplementProvider::new(
+        Arc::new(session),
+        table,
+        view_table,
+        (columns[0].clone(), columns[1].clone(), columns[2].clone()),
+        (
+            view_columns[0].clone(),
+            view_columns[1].clone(),
+            view_columns[2].clone(),
+        ),
+        upstream_filter_op,
+    );
+    let table_name = format!(
+        "complement_result_{}",
+        COMPLEMENT_TABLE_COUNTER.fetch_add(1, Ordering::Relaxed)
+    );
+    ctx.register_table(table_name.as_str(), Arc::new(complement_provider))
+        .unwrap();
+    let query = format!("SELECT * FROM {}", table_name);
+    debug!("Query: {}", query);
+    ctx.sql(&query).await.unwrap()
+}
+
+async fn do_subtract(
+    ctx: &SessionContext,
+    range_opts: RangeOptions,
+    left_table: String,
+    right_table: String,
+) -> datafusion::dataframe::DataFrame {
+    let columns_1 = range_opts.columns_1.unwrap();
+    let columns_2 = range_opts.columns_2.unwrap();
+    let upstream_filter_op = match range_opts.filter_op.unwrap() {
+        FilterOp::Weak => RangesFilterOp::Weak,
+        FilterOp::Strict => RangesFilterOp::Strict,
+    };
+    let session = ctx.clone();
+
+    // Get left input schema so the provider can preserve extra columns
+    let left_table_ref = TableReference::from(left_table.clone());
+    let left_schema = ctx
+        .table(left_table_ref)
+        .await
+        .unwrap()
+        .schema()
+        .as_arrow()
+        .clone();
+
+    let subtract_provider = SubtractProvider::new(
+        Arc::new(session),
+        left_table,
+        right_table,
+        (
+            columns_1[0].clone(),
+            columns_1[1].clone(),
+            columns_1[2].clone(),
+        ),
+        (
+            columns_2[0].clone(),
+            columns_2[1].clone(),
+            columns_2[2].clone(),
+        ),
+        upstream_filter_op,
+        left_schema,
+    );
+    let table_name = format!(
+        "subtract_result_{}",
+        SUBTRACT_TABLE_COUNTER.fetch_add(1, Ordering::Relaxed)
+    );
+    ctx.register_table(table_name.as_str(), Arc::new(subtract_provider))
         .unwrap();
     let query = format!("SELECT * FROM {}", table_name);
     debug!("Query: {}", query);
