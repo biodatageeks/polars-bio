@@ -87,6 +87,7 @@ mkdocs-exporter = "^6.2.0"
 mkdocs-glightbox = "^0.5.1"
 cairosvg = "^2.8.2"
 bioframe = "^0.8.0"
+weasyprint = ">=68.0"
 
 
 ## only for benchmarking
@@ -95,3 +96,4 @@ GenomicRanges = "^0.8.4"
 #pyranges1 = { git = "https://github.com/mwiewior/pyranges1.git", rev = "949d7c15c1c2e217f4404415f79b386f326b6f8d"}
 pybedtools = "^0.12.0"
 pygenomics =  { git = "https://gitlab.com/gtamazian/pygenomics.git", rev = "0.1.1"}
+
