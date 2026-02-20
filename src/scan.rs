@@ -16,6 +16,9 @@ use datafusion::prelude::{CsvReadOptions, ParquetReadOptions, SessionContext};
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
+use datafusion_bio_format_ensembl_cache::{
+    EnsemblCacheOptions, EnsemblCacheTableProvider, EnsemblEntityKind as VepCacheProviderEntity,
+};
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
@@ -326,6 +329,45 @@ pub(crate) async fn register_table(
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register VCF table");
+        },
+        InputFormat::VepCache => {
+            let vep_cache_read_options = match &read_options {
+                Some(options) => match options.clone().vep_cache_read_options {
+                    Some(vep_cache_read_options) => vep_cache_read_options,
+                    None => {
+                        panic!(
+                            "Missing VEP cache read options. Please provide VepCacheReadOptions with an entity."
+                        )
+                    },
+                },
+                None => {
+                    panic!(
+                        "Missing VEP cache read options. Please provide VepCacheReadOptions with an entity."
+                    )
+                },
+            };
+
+            let entity = match vep_cache_read_options.entity {
+                crate::option::VepCacheEntity::Variation => VepCacheProviderEntity::Variation,
+                crate::option::VepCacheEntity::Transcript => VepCacheProviderEntity::Transcript,
+                crate::option::VepCacheEntity::RegulatoryFeature => {
+                    VepCacheProviderEntity::RegulatoryFeature
+                },
+                crate::option::VepCacheEntity::MotifFeature => VepCacheProviderEntity::MotifFeature,
+            };
+
+            info!(
+                "Registering VEP cache table {} with entity: {:?}",
+                table_name, entity
+            );
+
+            let mut options = EnsemblCacheOptions::new(path.to_string());
+            options.coordinate_system_zero_based = vep_cache_read_options.zero_based;
+            let table_provider = EnsemblCacheTableProvider::for_entity(entity, options)
+                .expect("Failed to create VEP cache table provider");
+
+            ctx.register_table(table_name, table_provider)
+                .expect("Failed to register VEP cache table");
         },
         InputFormat::Gff => {
             let gff_read_options = match &read_options {

@@ -1,0 +1,7 @@
+species homo_sapiens
+assembly GRCh38
+cache_version 112
+serialiser_type storable
+var_type region
+cache_region_size 1000000
+variation_cols chr,start,end,variation_name,allele_string,failed,somatic,strand,minor_allele,minor_allele_freq,clin_sig,phenotype_or_disease,clinical_impact,pubmed,var_synonyms,AFR,AF

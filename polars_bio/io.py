@@ -25,6 +25,8 @@ from polars_bio.polars_bio import (
     ReadOptions,
     VcfReadOptions,
     VcfWriteOptions,
+    VepCacheEntity,
+    VepCacheReadOptions,
     WriteOptions,
     py_describe_bam,
     py_describe_cram,
@@ -431,6 +433,123 @@ class IOOperations:
         return _read_file(
             path,
             InputFormat.Vcf,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
+        )
+
+    @staticmethod
+    def read_vep_cache(
+        path: str,
+        entity: str,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Read an Ensembl VEP cache directory into a DataFrame.
+
+        Parameters:
+            path: Path to the VEP cache root directory.
+            entity: Cache entity to read. Supported values:
+                "variation", "transcript", "regulatory_feature", "motif_feature".
+            chunk_size: Object store chunk size in MB.
+            concurrent_fetches: Number of concurrent fetches for object storage.
+            allow_anonymous: Whether to allow anonymous object storage access.
+            enable_request_payer: Whether to enable AWS request payer mode.
+            max_retries: Maximum number of object storage retries.
+            timeout: Object storage timeout in seconds.
+            compression_type: Compression type override for cache files.
+            projection_pushdown: Enable projection pushdown.
+            predicate_pushdown: Enable predicate pushdown.
+            use_zero_based: If True, output 0-based half-open coordinates.
+                If False, output 1-based closed coordinates.
+                If None (default), uses global coordinate-system config.
+        """
+        lf = IOOperations.scan_vep_cache(
+            path,
+            entity,
+            chunk_size,
+            concurrent_fetches,
+            allow_anonymous,
+            enable_request_payer,
+            max_retries,
+            timeout,
+            compression_type,
+            projection_pushdown,
+            predicate_pushdown,
+            use_zero_based,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_vep_cache(
+        path: str,
+        entity: str,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.LazyFrame:
+        """
+        Lazily scan an Ensembl VEP cache directory.
+
+        Parameters:
+            path: Path to the VEP cache root directory.
+            entity: Cache entity to read. Supported values:
+                "variation", "transcript", "regulatory_feature", "motif_feature".
+            chunk_size: Object store chunk size in MB.
+            concurrent_fetches: Number of concurrent fetches for object storage.
+            allow_anonymous: Whether to allow anonymous object storage access.
+            enable_request_payer: Whether to enable AWS request payer mode.
+            max_retries: Maximum number of object storage retries.
+            timeout: Object storage timeout in seconds.
+            compression_type: Compression type override for cache files.
+            projection_pushdown: Enable projection pushdown.
+            predicate_pushdown: Enable predicate pushdown.
+            use_zero_based: If True, output 0-based half-open coordinates.
+                If False, output 1-based closed coordinates.
+                If None (default), uses global coordinate-system config.
+        """
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        parsed_entity = _parse_vep_cache_entity(entity)
+        zero_based = _resolve_zero_based(use_zero_based)
+        vep_cache_read_options = VepCacheReadOptions(
+            entity=parsed_entity,
+            object_storage_options=object_storage_options,
+            zero_based=zero_based,
+        )
+        read_options = ReadOptions(vep_cache_read_options=vep_cache_read_options)
+        return _read_file(
+            path,
+            InputFormat.VepCache,
             read_options,
             projection_pushdown,
             predicate_pushdown,
@@ -2167,10 +2286,11 @@ def _apply_combined_pushdown_via_sql(
     # This keeps us in pure SQL mode for maximum performance
 
     # Construct optimized SQL query
+    quoted_table = _quote_sql_identifier(table_name)
     if where_clause:
-        sql = f"SELECT {select_clause} FROM {table_name} WHERE {where_clause}"
+        sql = f"SELECT {select_clause} FROM {quoted_table} WHERE {where_clause}"
     else:
-        sql = f"SELECT {select_clause} FROM {table_name}"
+        sql = f"SELECT {select_clause} FROM {quoted_table}"
 
     # Execute with DataFusion - this leverages the proven 4x+ optimization
     return py_read_sql(ctx, sql)
@@ -2280,6 +2400,12 @@ def _build_sql_where_from_predicate_safe(predicate):
         return where
 
     return ""
+
+
+def _quote_sql_identifier(identifier: str) -> str:
+    """Quote a SQL identifier for DataFusion SQL strings."""
+    escaped = identifier.replace('"', '""')
+    return f'"{escaped}"'
 
 
 def _lazy_scan(
@@ -2415,7 +2541,9 @@ def _lazy_scan(
         if df_for_stream is not None:
             query_df = df_for_stream
         else:
-            query_df = py_read_sql(_ctx, f"SELECT * FROM {table_to_query}")
+            query_df = py_read_sql(
+                _ctx, f"SELECT * FROM {_quote_sql_identifier(table_to_query)}"
+            )
 
         # 2. Predicate pushdown via DataFusion Expr API
         #    Flow: Polars Expr → DataFusion Expr (validates types) → SQL string
@@ -2669,6 +2797,8 @@ def _format_to_string(input_format: InputFormat) -> str:
     format_str = str(input_format)
     if "Vcf" in format_str:
         return "vcf"
+    elif "VepCache" in format_str:
+        return "vep_cache"
     elif "Sam" in format_str:
         return "sam"
     elif "Bam" in format_str:
@@ -2687,6 +2817,30 @@ def _format_to_string(input_format: InputFormat) -> str:
         return "pairs"
     else:
         return "unknown"
+
+
+def _parse_vep_cache_entity(entity: str) -> VepCacheEntity:
+    """Parse a VEP cache entity string to Rust enum value."""
+    if not isinstance(entity, str) or not entity.strip():
+        raise ValueError(
+            "entity must be a non-empty string: one of "
+            "'variation', 'transcript', 'regulatory_feature', 'motif_feature'"
+        )
+
+    normalized = entity.strip().lower()
+    entity_map = {
+        "variation": VepCacheEntity.Variation,
+        "transcript": VepCacheEntity.Transcript,
+        "regulatory_feature": VepCacheEntity.RegulatoryFeature,
+        "motif_feature": VepCacheEntity.MotifFeature,
+    }
+    parsed = entity_map.get(normalized)
+    if parsed is None:
+        raise ValueError(
+            f"Unsupported entity '{entity}'. Expected one of "
+            "'variation', 'transcript', 'regulatory_feature', 'motif_feature'."
+        )
+    return parsed
 
 
 def _read_file(
@@ -2894,7 +3048,9 @@ class GffLazyFrameWrapper:
 
             select_clause = ", ".join([f'"{c}"' for c in columns])
             view_name = f"{table.name}_proj"
-            sql_query = f"SELECT {select_clause} FROM {table.name}"
+            sql_query = (
+                f"SELECT {select_clause} FROM {_quote_sql_identifier(table.name)}"
+            )
 
             if where_clause:
                 sql_query += f" WHERE {where_clause}"

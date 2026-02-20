@@ -47,6 +47,7 @@ if "POLARS_FORCE_NEW_STREAMING" not in os.environ:
 
 register_gff = data_processing.register_gff
 register_vcf = data_processing.register_vcf
+register_vep_cache = data_processing.register_vep_cache
 register_fastq = data_processing.register_fastq
 register_bam = data_processing.register_bam
 register_sam = data_processing.register_sam
@@ -69,6 +70,7 @@ read_fastq = data_input.read_fastq
 read_gff = data_input.read_gff
 read_table = data_input.read_table
 read_vcf = data_input.read_vcf
+read_vep_cache = data_input.read_vep_cache
 read_fastq = data_input.read_fastq
 read_bed = data_input.read_bed
 read_fasta = data_input.read_fasta
@@ -83,6 +85,7 @@ scan_gff = data_input.scan_gff
 scan_pairs = data_input.scan_pairs
 scan_table = data_input.scan_table
 scan_vcf = data_input.scan_vcf
+scan_vep_cache = data_input.scan_vep_cache
 write_vcf = data_input.write_vcf
 sink_vcf = data_input.sink_vcf
 write_fastq = data_input.write_fastq
@@ -150,6 +153,7 @@ __all__ = [
     "read_gff",
     "read_table",
     "read_vcf",
+    "read_vep_cache",
     "scan_bam",
     "scan_sam",
     "scan_cram",
@@ -160,6 +164,7 @@ __all__ = [
     "scan_pairs",
     "scan_table",
     "scan_vcf",
+    "scan_vep_cache",
     "write_vcf",
     "sink_vcf",
     "write_fastq",
@@ -172,6 +177,7 @@ __all__ = [
     "sink_cram",
     "register_gff",
     "register_vcf",
+    "register_vep_cache",
     "register_fastq",
     "register_bam",
     "register_sam",

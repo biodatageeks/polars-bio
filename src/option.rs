@@ -120,6 +120,7 @@ pub enum InputFormat {
     Sam,
     Cram,
     Vcf,
+    VepCache,
     Fastq,
     Fasta,
     Bed,
@@ -144,6 +145,7 @@ impl fmt::Display for InputFormat {
             InputFormat::Bam => "BAM",
             InputFormat::Sam => "SAM",
             InputFormat::Vcf => "VCF",
+            InputFormat::VepCache => "VEP_CACHE",
             InputFormat::Fastq => "FASTQ",
             InputFormat::Fasta => "FASTA",
             InputFormat::Bed => "BED",
@@ -160,6 +162,8 @@ impl fmt::Display for InputFormat {
 pub struct ReadOptions {
     #[pyo3(get, set)]
     pub vcf_read_options: Option<VcfReadOptions>,
+    #[pyo3(get, set)]
+    pub vep_cache_read_options: Option<VepCacheReadOptions>,
     #[pyo3(get, set)]
     pub gff_read_options: Option<GffReadOptions>,
     #[pyo3(get, set)]
@@ -179,9 +183,10 @@ pub struct ReadOptions {
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None))]
+    #[pyo3(signature = (vcf_read_options=None, vep_cache_read_options=None, gff_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None))]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
+        vep_cache_read_options: Option<VepCacheReadOptions>,
         gff_read_options: Option<GffReadOptions>,
         fastq_read_options: Option<FastqReadOptions>,
         bam_read_options: Option<BamReadOptions>,
@@ -192,6 +197,7 @@ impl ReadOptions {
     ) -> Self {
         ReadOptions {
             vcf_read_options,
+            vep_cache_read_options,
             gff_read_options,
             fastq_read_options,
             bam_read_options,
@@ -259,6 +265,57 @@ pub fn pyobject_storage_options_to_object_storage_options(
         timeout: opts.timeout,
         compression_type: Some(CompressionType::from_string(opts.compression_type)),
     })
+}
+
+#[pyclass(eq, eq_int)]
+#[derive(Clone, PartialEq, Debug)]
+pub enum VepCacheEntity {
+    Variation = 0,
+    Transcript = 1,
+    RegulatoryFeature = 2,
+    MotifFeature = 3,
+}
+
+impl fmt::Display for VepCacheEntity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = match self {
+            VepCacheEntity::Variation => "variation",
+            VepCacheEntity::Transcript => "transcript",
+            VepCacheEntity::RegulatoryFeature => "regulatory_feature",
+            VepCacheEntity::MotifFeature => "motif_feature",
+        };
+        write!(f, "{}", text)
+    }
+}
+
+#[pyclass(name = "VepCacheReadOptions")]
+#[derive(Clone, Debug)]
+pub struct VepCacheReadOptions {
+    #[pyo3(get, set)]
+    pub entity: VepCacheEntity,
+    pub object_storage_options: Option<ObjectStorageOptions>,
+    /// If true, output 0-based half-open coordinates; if false (default), 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+}
+
+#[pymethods]
+impl VepCacheReadOptions {
+    #[new]
+    #[pyo3(signature = (entity, object_storage_options=None, zero_based=false))]
+    pub fn new(
+        entity: VepCacheEntity,
+        object_storage_options: Option<PyObjectStorageOptions>,
+        zero_based: bool,
+    ) -> Self {
+        VepCacheReadOptions {
+            entity,
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
+            zero_based,
+        }
+    }
 }
 
 #[pyclass(name = "FastqReadOptions")]
