@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use datafusion::config::ConfigOptions;
 use datafusion::prelude::{SessionConfig, SessionContext};
 use datafusion_bio_function_ranges::{register_ranges_functions, BioConfig, BioSessionExt};
+use datafusion_bio_function_vep::register_vep_functions;
 use datafusion_python::dataframe::PyDataFrame;
 use log::debug;
 use pyo3::{pyclass, pymethods, PyResult, Python};
@@ -122,6 +123,9 @@ fn create_context() -> SessionContext {
         "depth",
         std::sync::Arc::new(crate::pileup::DepthFunction::default()),
     );
+
+    // Register VEP functions: lookup_variants() UDTF, match_allele() and vep_allele() UDFs
+    register_vep_functions(&ctx);
 
     ctx
 }

@@ -25,6 +25,7 @@ from .pileup_op import PileupOperations as pileup_operations
 from .range_op import FilterOp
 from .range_op import IntervalOperations as range_operations
 from .sql import SQL as data_processing
+from .vep_op import VepOperations as vep_operations
 
 try:
     from .range_utils import Utils
@@ -98,6 +99,8 @@ sink_cram = data_input.sink_cram
 
 depth = pileup_operations.depth
 
+vep_annotate = vep_operations.vep_annotate
+
 overlap = range_operations.overlap
 nearest = range_operations.nearest
 count_overlaps = range_operations.count_overlaps
@@ -116,6 +119,8 @@ __all__ = [
     "InputFormat",
     "data_processing",
     "pileup_operations",
+    "vep_operations",
+    "vep_annotate",
     "range_operations",
     # "LazyFrame",
     "data_input",
