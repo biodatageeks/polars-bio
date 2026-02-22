@@ -99,10 +99,7 @@ pub fn set_option_internal(ctx: &SessionContext, key: &str, value: &str) {
 
 fn create_context() -> SessionContext {
     let mut options = ConfigOptions::new();
-    let tuning_options = vec![
-        ("datafusion.optimizer.repartition_joins", "false"),
-        ("datafusion.execution.coalesce_batches", "false"),
-    ];
+    let tuning_options = vec![("datafusion.optimizer.repartition_joins", "false")];
 
     for o in tuning_options {
         options.set(o.0, o.1).expect("TODO: panic message");

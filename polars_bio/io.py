@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Iterator, Optional, Union
 
 import polars as pl
+import pyarrow as pa
 
 logger = logging.getLogger(__name__)
 from datafusion import DataFrame
@@ -2594,30 +2595,56 @@ def _lazy_scan(
         if n_rows and n_rows > 0:
             query_df = query_df.limit(int(n_rows))
 
-        # 5. Stream with safety net
+        # 5. Stream with safety net — batch accumulation for reduced Python overhead
         df_stream = query_df.execute_stream()
-        progress_bar = tqdm(unit="rows")
+        progress_bar = tqdm(unit="rows", mininterval=0.5)
         remaining = int(n_rows) if n_rows is not None else None
+        accumulated = []
+        _ACCUMULATE_COUNT = 16
+
         for r in df_stream:
-            out = pl.DataFrame(r.to_pyarrow())
-            # Apply client-side predicate only when DataFusion pushdown failed
+            accumulated.append(r.to_pyarrow())
+
+            if len(accumulated) >= _ACCUMULATE_COUNT:
+                table = pa.Table.from_batches(accumulated)
+                accumulated = []
+                out = pl.from_arrow(table, rechunk=False)
+                # Apply client-side predicate only when DataFusion pushdown failed
+                if predicate is not None and not datafusion_predicate_applied:
+                    out = out.filter(predicate)
+                # Apply client-side projection only when DataFusion pushdown failed
+                if with_columns is not None and not datafusion_projection_applied:
+                    out = out.select(with_columns)
+
+                if remaining is not None:
+                    if remaining <= 0:
+                        break
+                    if len(out) > remaining:
+                        out = out.head(remaining)
+                    remaining -= len(out)
+
+                progress_bar.update(len(out))
+                yield out
+                if remaining is not None and remaining <= 0:
+                    return
+
+        # Flush remaining accumulated batches
+        if accumulated:
+            table = pa.Table.from_batches(accumulated)
+            out = pl.from_arrow(table, rechunk=False)
             if predicate is not None and not datafusion_predicate_applied:
                 out = out.filter(predicate)
-            # Apply client-side projection only when DataFusion pushdown failed
             if with_columns is not None and not datafusion_projection_applied:
                 out = out.select(with_columns)
 
             if remaining is not None:
-                if remaining <= 0:
-                    break
-                if len(out) > remaining:
+                if remaining > 0 and len(out) > remaining:
                     out = out.head(remaining)
-                remaining -= len(out)
+                elif remaining is not None and remaining <= 0:
+                    return
 
             progress_bar.update(len(out))
             yield out
-            if remaining is not None and remaining <= 0:
-                return
 
     return register_io_source(_overlap_source, schema=original_schema)
 
