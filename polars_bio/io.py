@@ -444,13 +444,6 @@ class IOOperations:
     def read_vep_cache(
         path: str,
         entity: str,
-        chunk_size: int = 8,
-        concurrent_fetches: int = 1,
-        allow_anonymous: bool = True,
-        enable_request_payer: bool = False,
-        max_retries: int = 5,
-        timeout: int = 300,
-        compression_type: str = "auto",
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
@@ -462,13 +455,6 @@ class IOOperations:
             path: Path to the VEP cache root directory.
             entity: Cache entity to read. Supported values:
                 "variation", "transcript", "regulatory_feature", "motif_feature".
-            chunk_size: Object store chunk size in MB.
-            concurrent_fetches: Number of concurrent fetches for object storage.
-            allow_anonymous: Whether to allow anonymous object storage access.
-            enable_request_payer: Whether to enable AWS request payer mode.
-            max_retries: Maximum number of object storage retries.
-            timeout: Object storage timeout in seconds.
-            compression_type: Compression type override for cache files.
             projection_pushdown: Enable projection pushdown.
             predicate_pushdown: Enable predicate pushdown.
             use_zero_based: If True, output 0-based half-open coordinates.
@@ -478,13 +464,6 @@ class IOOperations:
         lf = IOOperations.scan_vep_cache(
             path,
             entity,
-            chunk_size,
-            concurrent_fetches,
-            allow_anonymous,
-            enable_request_payer,
-            max_retries,
-            timeout,
-            compression_type,
             projection_pushdown,
             predicate_pushdown,
             use_zero_based,
@@ -499,13 +478,6 @@ class IOOperations:
     def scan_vep_cache(
         path: str,
         entity: str,
-        chunk_size: int = 8,
-        concurrent_fetches: int = 1,
-        allow_anonymous: bool = True,
-        enable_request_payer: bool = False,
-        max_retries: int = 5,
-        timeout: int = 300,
-        compression_type: str = "auto",
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
@@ -517,34 +489,16 @@ class IOOperations:
             path: Path to the VEP cache root directory.
             entity: Cache entity to read. Supported values:
                 "variation", "transcript", "regulatory_feature", "motif_feature".
-            chunk_size: Object store chunk size in MB.
-            concurrent_fetches: Number of concurrent fetches for object storage.
-            allow_anonymous: Whether to allow anonymous object storage access.
-            enable_request_payer: Whether to enable AWS request payer mode.
-            max_retries: Maximum number of object storage retries.
-            timeout: Object storage timeout in seconds.
-            compression_type: Compression type override for cache files.
             projection_pushdown: Enable projection pushdown.
             predicate_pushdown: Enable predicate pushdown.
             use_zero_based: If True, output 0-based half-open coordinates.
                 If False, output 1-based closed coordinates.
                 If None (default), uses global coordinate-system config.
         """
-        object_storage_options = PyObjectStorageOptions(
-            allow_anonymous=allow_anonymous,
-            enable_request_payer=enable_request_payer,
-            chunk_size=chunk_size,
-            concurrent_fetches=concurrent_fetches,
-            max_retries=max_retries,
-            timeout=timeout,
-            compression_type=compression_type,
-        )
-
         parsed_entity = _parse_vep_cache_entity(entity)
         zero_based = _resolve_zero_based(use_zero_based)
         vep_cache_read_options = VepCacheReadOptions(
             entity=parsed_entity,
-            object_storage_options=object_storage_options,
             zero_based=zero_based,
         )
         read_options = ReadOptions(vep_cache_read_options=vep_cache_read_options)

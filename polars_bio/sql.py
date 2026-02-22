@@ -111,13 +111,6 @@ class SQL:
         path: str,
         entity: str,
         name: Union[str, None] = None,
-        chunk_size: int = 64,
-        concurrent_fetches: int = 8,
-        allow_anonymous: bool = True,
-        max_retries: int = 5,
-        timeout: int = 300,
-        enable_request_payer: bool = False,
-        compression_type: str = "auto",
         use_zero_based: Optional[bool] = None,
     ) -> None:
         """
@@ -128,32 +121,14 @@ class SQL:
             entity: Cache entity to register. Supported values:
                 "variation", "transcript", "regulatory_feature", "motif_feature".
             name: Optional table name.
-            chunk_size: Object store chunk size in MB.
-            concurrent_fetches: Number of concurrent object-store fetches.
-            allow_anonymous: Whether to allow anonymous object-store access.
-            max_retries: Maximum number of object-store retries.
-            timeout: Object-store timeout in seconds.
-            enable_request_payer: Whether to enable AWS request-payer mode.
-            compression_type: Compression type override.
             use_zero_based: If True, output 0-based half-open coordinates.
                 If False, output 1-based closed coordinates.
                 If None (default), uses global coordinate-system config.
         """
-        object_storage_options = PyObjectStorageOptions(
-            allow_anonymous=allow_anonymous,
-            enable_request_payer=enable_request_payer,
-            chunk_size=chunk_size,
-            concurrent_fetches=concurrent_fetches,
-            max_retries=max_retries,
-            timeout=timeout,
-            compression_type=compression_type,
-        )
-
         parsed_entity = _parse_vep_cache_entity(entity)
         zero_based = _resolve_zero_based(use_zero_based)
         vep_cache_read_options = VepCacheReadOptions(
             entity=parsed_entity,
-            object_storage_options=object_storage_options,
             zero_based=zero_based,
         )
         read_options = ReadOptions(vep_cache_read_options=vep_cache_read_options)

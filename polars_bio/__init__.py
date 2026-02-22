@@ -71,7 +71,6 @@ read_gff = data_input.read_gff
 read_table = data_input.read_table
 read_vcf = data_input.read_vcf
 read_vep_cache = data_input.read_vep_cache
-read_fastq = data_input.read_fastq
 read_bed = data_input.read_bed
 read_fasta = data_input.read_fasta
 read_pairs = data_input.read_pairs

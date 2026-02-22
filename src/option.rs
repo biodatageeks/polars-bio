@@ -293,7 +293,6 @@ impl fmt::Display for VepCacheEntity {
 pub struct VepCacheReadOptions {
     #[pyo3(get, set)]
     pub entity: VepCacheEntity,
-    pub object_storage_options: Option<ObjectStorageOptions>,
     /// If true, output 0-based half-open coordinates; if false (default), 1-based closed
     #[pyo3(get, set)]
     pub zero_based: bool,
@@ -302,19 +301,9 @@ pub struct VepCacheReadOptions {
 #[pymethods]
 impl VepCacheReadOptions {
     #[new]
-    #[pyo3(signature = (entity, object_storage_options=None, zero_based=false))]
-    pub fn new(
-        entity: VepCacheEntity,
-        object_storage_options: Option<PyObjectStorageOptions>,
-        zero_based: bool,
-    ) -> Self {
-        VepCacheReadOptions {
-            entity,
-            object_storage_options: pyobject_storage_options_to_object_storage_options(
-                object_storage_options,
-            ),
-            zero_based,
-        }
+    #[pyo3(signature = (entity, zero_based=false))]
+    pub fn new(entity: VepCacheEntity, zero_based: bool) -> Self {
+        VepCacheReadOptions { entity, zero_based }
     }
 }
 

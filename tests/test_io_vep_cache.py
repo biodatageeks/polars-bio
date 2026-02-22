@@ -89,6 +89,7 @@ class TestVepCacheIO:
             .limit(1)
             .collect()
         )
+        assert len(df) > 0
         assert "binding_matrix" in df.columns
         assert "overlapping_regulatory_feature" in df.columns
 
