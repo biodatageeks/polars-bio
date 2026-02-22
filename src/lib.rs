@@ -29,7 +29,7 @@ use crate::option::{
     BedReadOptions, BioTable, CramReadOptions, CramWriteOptions, FastaReadOptions,
     FastqReadOptions, FastqWriteOptions, FilterOp, GffReadOptions, InputFormat, OutputFormat,
     PairsReadOptions, PileupOptions, PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions,
-    VcfReadOptions, VcfWriteOptions, WriteOptions,
+    VcfReadOptions, VcfWriteOptions, VepCacheEntity, VepCacheReadOptions, WriteOptions,
 };
 use crate::scan::{
     maybe_register_table, register_frame, register_frame_from_arrow_stream,
@@ -291,8 +291,9 @@ fn py_read_table(
     py.allow_threads(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
+        let quoted_table_name = format!("\"{}\"", table_name.replace('\"', "\"\""));
         let df = rt
-            .block_on(ctx.sql(&format!("SELECT * FROM {}", table_name)))
+            .block_on(ctx.sql(&format!("SELECT * FROM {}", quoted_table_name)))
             .map_err(|e| {
                 PyValueError::new_err(format!("Failed to read table '{}': {}", table_name, e))
             })?;
@@ -416,10 +417,12 @@ fn py_register_view(
     py.allow_threads(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
-        rt.block_on(ctx.sql(&format!("CREATE OR REPLACE VIEW {} AS {}", name, query)))
-            .map_err(|e| {
-                PyValueError::new_err(format!("Failed to create view '{}': {}", name, e))
-            })?;
+        let quoted_name = format!("\"{}\"", name.replace('\"', "\"\""));
+        rt.block_on(ctx.sql(&format!(
+            "CREATE OR REPLACE VIEW {} AS {}",
+            quoted_name, query
+        )))
+        .map_err(|e| PyValueError::new_err(format!("Failed to create view '{}': {}", name, e)))?;
         Ok(())
     })
 }
@@ -666,6 +669,8 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<WriteOptions>()?;
     m.add_class::<GffReadOptions>()?;
     m.add_class::<VcfReadOptions>()?;
+    m.add_class::<VepCacheEntity>()?;
+    m.add_class::<VepCacheReadOptions>()?;
     m.add_class::<VcfWriteOptions>()?;
     m.add_class::<FastqReadOptions>()?;
     m.add_class::<FastqWriteOptions>()?;

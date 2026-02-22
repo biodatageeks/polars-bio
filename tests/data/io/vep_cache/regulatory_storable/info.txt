@@ -1,0 +1,6 @@
+species homo_sapiens
+assembly GRCh38
+cache_version 112
+serialiser_type storable
+var_type region
+variation_cols chr,start,end,variation_name,allele_string

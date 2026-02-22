@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Iterator, Optional, Union
 
 import polars as pl
+import pyarrow as pa
 
 logger = logging.getLogger(__name__)
 from datafusion import DataFrame
@@ -25,6 +26,8 @@ from polars_bio.polars_bio import (
     ReadOptions,
     VcfReadOptions,
     VcfWriteOptions,
+    VepCacheEntity,
+    VepCacheReadOptions,
     WriteOptions,
     py_describe_bam,
     py_describe_cram,
@@ -431,6 +434,77 @@ class IOOperations:
         return _read_file(
             path,
             InputFormat.Vcf,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
+        )
+
+    @staticmethod
+    def read_vep_cache(
+        path: str,
+        entity: str,
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Read an Ensembl VEP cache directory into a DataFrame.
+
+        Parameters:
+            path: Path to the VEP cache root directory.
+            entity: Cache entity to read. Supported values:
+                "variation", "transcript", "regulatory_feature", "motif_feature".
+            projection_pushdown: Enable projection pushdown.
+            predicate_pushdown: Enable predicate pushdown.
+            use_zero_based: If True, output 0-based half-open coordinates.
+                If False, output 1-based closed coordinates.
+                If None (default), uses global coordinate-system config.
+        """
+        lf = IOOperations.scan_vep_cache(
+            path,
+            entity,
+            projection_pushdown,
+            predicate_pushdown,
+            use_zero_based,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_vep_cache(
+        path: str,
+        entity: str,
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.LazyFrame:
+        """
+        Lazily scan an Ensembl VEP cache directory.
+
+        Parameters:
+            path: Path to the VEP cache root directory.
+            entity: Cache entity to read. Supported values:
+                "variation", "transcript", "regulatory_feature", "motif_feature".
+            projection_pushdown: Enable projection pushdown.
+            predicate_pushdown: Enable predicate pushdown.
+            use_zero_based: If True, output 0-based half-open coordinates.
+                If False, output 1-based closed coordinates.
+                If None (default), uses global coordinate-system config.
+        """
+        parsed_entity = _parse_vep_cache_entity(entity)
+        zero_based = _resolve_zero_based(use_zero_based)
+        vep_cache_read_options = VepCacheReadOptions(
+            entity=parsed_entity,
+            zero_based=zero_based,
+        )
+        read_options = ReadOptions(vep_cache_read_options=vep_cache_read_options)
+        return _read_file(
+            path,
+            InputFormat.VepCache,
             read_options,
             projection_pushdown,
             predicate_pushdown,
@@ -2167,10 +2241,11 @@ def _apply_combined_pushdown_via_sql(
     # This keeps us in pure SQL mode for maximum performance
 
     # Construct optimized SQL query
+    quoted_table = _quote_sql_identifier(table_name)
     if where_clause:
-        sql = f"SELECT {select_clause} FROM {table_name} WHERE {where_clause}"
+        sql = f"SELECT {select_clause} FROM {quoted_table} WHERE {where_clause}"
     else:
-        sql = f"SELECT {select_clause} FROM {table_name}"
+        sql = f"SELECT {select_clause} FROM {quoted_table}"
 
     # Execute with DataFusion - this leverages the proven 4x+ optimization
     return py_read_sql(ctx, sql)
@@ -2280,6 +2355,12 @@ def _build_sql_where_from_predicate_safe(predicate):
         return where
 
     return ""
+
+
+def _quote_sql_identifier(identifier: str) -> str:
+    """Quote a SQL identifier for DataFusion SQL strings."""
+    escaped = identifier.replace('"', '""')
+    return f'"{escaped}"'
 
 
 def _lazy_scan(
@@ -2415,7 +2496,9 @@ def _lazy_scan(
         if df_for_stream is not None:
             query_df = df_for_stream
         else:
-            query_df = py_read_sql(_ctx, f"SELECT * FROM {table_to_query}")
+            query_df = py_read_sql(
+                _ctx, f"SELECT * FROM {_quote_sql_identifier(table_to_query)}"
+            )
 
         # 2. Predicate pushdown via DataFusion Expr API
         #    Flow: Polars Expr → DataFusion Expr (validates types) → SQL string
@@ -2466,30 +2549,56 @@ def _lazy_scan(
         if n_rows and n_rows > 0:
             query_df = query_df.limit(int(n_rows))
 
-        # 5. Stream with safety net
+        # 5. Stream with safety net — batch accumulation for reduced Python overhead
         df_stream = query_df.execute_stream()
-        progress_bar = tqdm(unit="rows")
+        progress_bar = tqdm(unit="rows", mininterval=0.5)
         remaining = int(n_rows) if n_rows is not None else None
+        accumulated = []
+        _ACCUMULATE_COUNT = 16
+
         for r in df_stream:
-            out = pl.DataFrame(r.to_pyarrow())
-            # Apply client-side predicate only when DataFusion pushdown failed
+            accumulated.append(r.to_pyarrow())
+
+            if len(accumulated) >= _ACCUMULATE_COUNT:
+                table = pa.Table.from_batches(accumulated)
+                accumulated = []
+                out = pl.from_arrow(table, rechunk=False)
+                # Apply client-side predicate only when DataFusion pushdown failed
+                if predicate is not None and not datafusion_predicate_applied:
+                    out = out.filter(predicate)
+                # Apply client-side projection only when DataFusion pushdown failed
+                if with_columns is not None and not datafusion_projection_applied:
+                    out = out.select(with_columns)
+
+                if remaining is not None:
+                    if remaining <= 0:
+                        break
+                    if len(out) > remaining:
+                        out = out.head(remaining)
+                    remaining -= len(out)
+
+                progress_bar.update(len(out))
+                yield out
+                if remaining is not None and remaining <= 0:
+                    return
+
+        # Flush remaining accumulated batches
+        if accumulated:
+            table = pa.Table.from_batches(accumulated)
+            out = pl.from_arrow(table, rechunk=False)
             if predicate is not None and not datafusion_predicate_applied:
                 out = out.filter(predicate)
-            # Apply client-side projection only when DataFusion pushdown failed
             if with_columns is not None and not datafusion_projection_applied:
                 out = out.select(with_columns)
 
             if remaining is not None:
-                if remaining <= 0:
-                    break
-                if len(out) > remaining:
+                if remaining > 0 and len(out) > remaining:
                     out = out.head(remaining)
-                remaining -= len(out)
+                elif remaining is not None and remaining <= 0:
+                    return
 
             progress_bar.update(len(out))
             yield out
-            if remaining is not None and remaining <= 0:
-                return
 
     return register_io_source(_overlap_source, schema=original_schema)
 
@@ -2669,6 +2778,8 @@ def _format_to_string(input_format: InputFormat) -> str:
     format_str = str(input_format)
     if "Vcf" in format_str:
         return "vcf"
+    elif "VepCache" in format_str:
+        return "vep_cache"
     elif "Sam" in format_str:
         return "sam"
     elif "Bam" in format_str:
@@ -2687,6 +2798,30 @@ def _format_to_string(input_format: InputFormat) -> str:
         return "pairs"
     else:
         return "unknown"
+
+
+def _parse_vep_cache_entity(entity: str) -> VepCacheEntity:
+    """Parse a VEP cache entity string to Rust enum value."""
+    if not isinstance(entity, str) or not entity.strip():
+        raise ValueError(
+            "entity must be a non-empty string: one of "
+            "'variation', 'transcript', 'regulatory_feature', 'motif_feature'"
+        )
+
+    normalized = entity.strip().lower()
+    entity_map = {
+        "variation": VepCacheEntity.Variation,
+        "transcript": VepCacheEntity.Transcript,
+        "regulatory_feature": VepCacheEntity.RegulatoryFeature,
+        "motif_feature": VepCacheEntity.MotifFeature,
+    }
+    parsed = entity_map.get(normalized)
+    if parsed is None:
+        raise ValueError(
+            f"Unsupported entity '{entity}'. Expected one of "
+            "'variation', 'transcript', 'regulatory_feature', 'motif_feature'."
+        )
+    return parsed
 
 
 def _read_file(
@@ -2894,7 +3029,9 @@ class GffLazyFrameWrapper:
 
             select_clause = ", ".join([f'"{c}"' for c in columns])
             view_name = f"{table.name}_proj"
-            sql_query = f"SELECT {select_clause} FROM {table.name}"
+            sql_query = (
+                f"SELECT {select_clause} FROM {_quote_sql_identifier(table.name)}"
+            )
 
             if where_clause:
                 sql_query += f" WHERE {where_clause}"

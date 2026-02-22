@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 import polars as pl
 
@@ -13,6 +13,7 @@ from polars_bio.polars_bio import (
     PyObjectStorageOptions,
     ReadOptions,
     VcfReadOptions,
+    VepCacheReadOptions,
     py_describe_vcf,
     py_from_polars,
     py_read_sql,
@@ -21,8 +22,8 @@ from polars_bio.polars_bio import (
     py_register_view,
 )
 
-from .context import ctx
-from .io import _cleanse_fields, _lazy_scan
+from .context import _resolve_zero_based, ctx
+from .io import _cleanse_fields, _lazy_scan, _parse_vep_cache_entity
 
 
 class SQL:
@@ -104,6 +105,34 @@ class SQL:
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
         py_register_table(ctx, path, name, InputFormat.Vcf, read_options)
+
+    @staticmethod
+    def register_vep_cache(
+        path: str,
+        entity: str,
+        name: Union[str, None] = None,
+        use_zero_based: Optional[bool] = None,
+    ) -> None:
+        """
+        Register an Ensembl VEP cache directory as a DataFusion table.
+
+        Parameters:
+            path: Path to the VEP cache root directory.
+            entity: Cache entity to register. Supported values:
+                "variation", "transcript", "regulatory_feature", "motif_feature".
+            name: Optional table name.
+            use_zero_based: If True, output 0-based half-open coordinates.
+                If False, output 1-based closed coordinates.
+                If None (default), uses global coordinate-system config.
+        """
+        parsed_entity = _parse_vep_cache_entity(entity)
+        zero_based = _resolve_zero_based(use_zero_based)
+        vep_cache_read_options = VepCacheReadOptions(
+            entity=parsed_entity,
+            zero_based=zero_based,
+        )
+        read_options = ReadOptions(vep_cache_read_options=vep_cache_read_options)
+        py_register_table(ctx, path, name, InputFormat.VepCache, read_options)
 
     @staticmethod
     def register_gff(
