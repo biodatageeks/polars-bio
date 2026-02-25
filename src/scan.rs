@@ -24,6 +24,7 @@ use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_pairs::table_provider::PairsTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
+use datafusion_bio_function_vep_cache::KvCacheTableProvider;
 use futures::Stream;
 use log::info;
 use tokio::runtime::Runtime;
@@ -504,6 +505,16 @@ pub(crate) async fn register_table(
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register PAIRS table");
+        },
+        InputFormat::VepKvCache => {
+            info!(
+                "Registering VEP KV cache table {} from path: {}",
+                table_name, path
+            );
+            let table_provider =
+                KvCacheTableProvider::open(path).expect("Failed to open VEP KV cache");
+            ctx.register_table(table_name, Arc::new(table_provider))
+                .expect("Failed to register VEP KV cache table");
         },
         InputFormat::Gtf => {
             todo!("Gtf format is not supported")

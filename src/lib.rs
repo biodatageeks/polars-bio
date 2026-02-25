@@ -641,6 +641,55 @@ fn py_register_pileup_table(
     })
 }
 
+/// Create a VEP KV (fjall) cache from a registered source table.
+///
+/// Registers the source (native VEP cache or parquet) as a DataFusion table,
+/// then runs `CacheLoader` to convert it into a fjall KV store at `target_path`.
+///
+/// Returns the target path on success.
+#[pyfunction]
+#[pyo3(signature = (py_ctx, source_path, target_path, source_format, read_options=None))]
+fn py_create_vep_kv_cache(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    source_path: String,
+    target_path: String,
+    source_format: InputFormat,
+    read_options: Option<ReadOptions>,
+) -> PyResult<String> {
+    use datafusion_bio_function_vep_cache::CacheLoader;
+
+    py.allow_threads(|| {
+        let rt = Runtime::new()?;
+        let ctx = &py_ctx.ctx;
+        let source_table_name = format!("_vep_cache_source_{}", rand::random::<u32>());
+
+        rt.block_on(async {
+            register_table(
+                ctx,
+                &source_path,
+                &source_table_name,
+                source_format,
+                read_options,
+            )
+            .await;
+
+            let loader = CacheLoader::new(&source_table_name, &target_path);
+            let stats = loader.load(ctx).await.map_err(|e| {
+                PyRuntimeError::new_err(format!("VEP KV cache creation failed: {}", e))
+            })?;
+
+            info!(
+                "VEP KV cache created at '{}': {} variants, {} windows, {:.1}s",
+                target_path, stats.total_variants, stats.total_windows, stats.elapsed_secs
+            );
+
+            ctx.deregister_table(&source_table_name).ok();
+            Ok(target_path.clone())
+        })
+    })
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -659,6 +708,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(scan::py_describe_bam, m)?)?;
     m.add_function(wrap_pyfunction!(scan::py_describe_cram, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_pileup_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_create_vep_kv_cache, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;

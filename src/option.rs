@@ -127,6 +127,7 @@ pub enum InputFormat {
     Gff,
     Gtf,
     Pairs,
+    VepKvCache,
 }
 
 #[pyclass(eq, get_all)]
@@ -153,6 +154,7 @@ impl fmt::Display for InputFormat {
             InputFormat::Gtf => "GTF",
             InputFormat::Cram => "CRAM",
             InputFormat::Pairs => "PAIRS",
+            InputFormat::VepKvCache => "VEP_KV_CACHE",
         };
         write!(f, "{}", text)
     }
