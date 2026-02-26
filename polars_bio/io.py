@@ -2333,7 +2333,7 @@ def _lazy_scan(
         n_rows: Union[int, None],
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
-        from polars_bio.polars_bio import py_read_sql
+        from polars_bio.polars_bio import py_read_sql, py_read_table
 
         from .context import ctx as _ctx
 
@@ -2415,7 +2415,7 @@ def _lazy_scan(
         if df_for_stream is not None:
             query_df = df_for_stream
         else:
-            query_df = py_read_sql(_ctx, f"SELECT * FROM {table_to_query}")
+            query_df = py_read_table(_ctx, table_to_query)
 
         # 2. Predicate pushdown via DataFusion Expr API
         #    Flow: Polars Expr → DataFusion Expr (validates types) → SQL string

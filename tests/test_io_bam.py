@@ -66,6 +66,24 @@ class TestIOBAM:
         assert "AS" in df.columns
         assert len(df.columns) == 4
 
+    def test_bam_scan_with_numeric_prefixed_read_group(self):
+        """Regression for issue #319: filenames/read groups starting with digits must not break SQL parsing."""
+        bam_path = f"{DATA_DIR}/io/bam/10x_pbmc_tags.bam"
+
+        df = pb.scan_bam(bam_path, tag_fields=["CB", "CR"]).limit(3).collect()
+        assert len(df) == 3
+        assert "CB" in df.columns
+        assert "CR" in df.columns
+        assert df["CB"].null_count() == 0
+        assert df["CR"].null_count() == 0
+
+        # Ensure RG values with "10k_" prefix are readable.
+        rg_df = (
+            pb.scan_bam(bam_path, tag_fields=["RG"]).select(["RG"]).limit(1).collect()
+        )
+        assert len(rg_df) == 1
+        assert rg_df["RG"][0].startswith("10k_")
+
     def test_bam_sql_with_tags(self):
         """Test SQL queries with tags"""
         pb.register_bam(

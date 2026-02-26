@@ -291,11 +291,9 @@ fn py_read_table(
     py.allow_threads(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
-        let df = rt
-            .block_on(ctx.sql(&format!("SELECT * FROM {}", table_name)))
-            .map_err(|e| {
-                PyValueError::new_err(format!("Failed to read table '{}': {}", table_name, e))
-            })?;
+        let df = rt.block_on(ctx.table(&table_name)).map_err(|e| {
+            PyValueError::new_err(format!("Failed to read table '{}': {}", table_name, e))
+        })?;
         Ok(PyDataFrame::new(df))
     })
 }
