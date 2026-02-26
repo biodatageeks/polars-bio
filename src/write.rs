@@ -53,6 +53,40 @@ fn build_field_metadata_from_vcf_meta(
     field_metadata
 }
 
+/// Extract FORMAT field names from nested multisample `genotypes` schema.
+///
+/// Expected shape:
+/// list<struct<sample_id: Utf8, values: struct<GT: ..., DP: ..., ...>>>
+fn extract_format_fields_from_nested_genotypes(schema: &SchemaRef) -> Vec<String> {
+    let Some(genotypes_field) = schema.fields().iter().find(|f| f.name() == "genotypes") else {
+        return Vec::new();
+    };
+
+    let list_item = match genotypes_field.data_type() {
+        DataType::List(inner) | DataType::LargeList(inner) => inner.as_ref(),
+        _ => return Vec::new(),
+    };
+
+    let genotype_struct_fields = match list_item.data_type() {
+        DataType::Struct(fields) => fields,
+        _ => return Vec::new(),
+    };
+
+    let Some(values_field) = genotype_struct_fields.iter().find(|f| f.name() == "values") else {
+        return Vec::new();
+    };
+
+    let value_struct_fields = match values_field.data_type() {
+        DataType::Struct(fields) => fields,
+        _ => return Vec::new(),
+    };
+
+    value_struct_fields
+        .iter()
+        .map(|f| f.name().to_string())
+        .collect()
+}
+
 /// Consume a write stream and count total rows written.
 ///
 /// The WriteExec returns batches with a "count" column containing the number of rows written.
@@ -124,6 +158,7 @@ fn apply_vcf_metadata_to_schema(
     let mut new_fields = Vec::new();
     let mut info_fields = Vec::new();
     let mut format_fields = Vec::new();
+    let nested_format_fields = extract_format_fields_from_nested_genotypes(schema);
 
     // Core VCF columns that are not INFO or FORMAT
     let core_columns: std::collections::HashSet<&str> = [
@@ -194,6 +229,13 @@ fn apply_vcf_metadata_to_schema(
             // Keep field as-is (might be detected by heuristics later)
             new_fields.push(field.as_ref().clone());
         }
+    }
+
+    // Multisample nested schema (`genotypes`) has no top-level FORMAT columns, so the
+    // loop above cannot discover FORMAT ids from column names. In that case, derive the
+    // output FORMAT list from nested `genotypes.values` field names.
+    if format_fields.is_empty() && !nested_format_fields.is_empty() {
+        format_fields = nested_format_fields;
     }
 
     let new_schema = Arc::new(Schema::new_with_metadata(
@@ -596,6 +638,16 @@ fn extract_vcf_fields_from_schema(schema: &SchemaRef) -> (Vec<String>, Vec<Strin
                 // Assume it's an INFO field
                 info_fields.push(name.clone());
             }
+        }
+    }
+
+    // Fallback for nested multisample schema where FORMAT ids are carried in
+    // `genotypes.values` rather than top-level columns.
+    if format_fields.is_empty() {
+        let nested_format_fields = extract_format_fields_from_nested_genotypes(schema);
+        if !nested_format_fields.is_empty() {
+            format_fields = nested_format_fields;
+            info_fields.retain(|name| name != "genotypes");
         }
     }
 

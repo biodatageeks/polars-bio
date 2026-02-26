@@ -231,7 +231,7 @@ class TestMultisampleVcfRoundTrip:
                 assert df1[col].to_list() == df2[col].to_list(), f"Mismatch in {col}"
 
     def test_multisample_format_columns_preserved(self, tmp_path):
-        """Verify nested multi-sample FORMAT structure and sample ids survive roundtrip."""
+        """Verify nested multi-sample FORMAT values and sample ids survive roundtrip."""
         df1 = pb.read_vcf(
             self.MULTISAMPLE_VCF, info_fields=[], format_fields=self.FORMAT_FIELDS
         )
@@ -250,6 +250,17 @@ class TestMultisampleVcfRoundTrip:
             entry["sample_id"] for entry in df2["genotypes"].to_list()[0]
         ]
         assert first_sample_ids_1 == first_sample_ids_2
+
+        # Validate that first-row GT values are preserved (not converted to nulls)
+        first_values_1 = {
+            entry["sample_id"]: (entry.get("values") or {}).get("GT")
+            for entry in df1["genotypes"].to_list()[0]
+        }
+        first_values_2 = {
+            entry["sample_id"]: (entry.get("values") or {}).get("GT")
+            for entry in df2["genotypes"].to_list()[0]
+        }
+        assert first_values_1 == first_values_2
 
 
 class TestVcfSink:

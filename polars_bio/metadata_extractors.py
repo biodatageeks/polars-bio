@@ -263,10 +263,19 @@ def _extract_vcf_specific_metadata(
                 )
                 if values_field and pa.types.is_struct(values_field.type):
                     for value_field in values_field.type:
-                        format_fields[value_field.name] = {
-                            "number": "1",
-                            "type": _vcf_type_from_arrow(value_field.type),
-                            "description": "",
+                        value_meta = _decode_metadata_dict(value_field.metadata or {})
+                        format_id = value_meta.get(
+                            "bio.vcf.field.format_id", value_field.name
+                        )
+                        format_fields[format_id] = {
+                            "number": value_meta.get("bio.vcf.field.number", "1"),
+                            "type": value_meta.get(
+                                "bio.vcf.field.type",
+                                _vcf_type_from_arrow(value_field.type),
+                            ),
+                            "description": value_meta.get(
+                                "bio.vcf.field.description", ""
+                            ),
                         }
 
     # Handle single-sample VCFs where column name equals format_id
