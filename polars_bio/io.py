@@ -2340,9 +2340,11 @@ def _lazy_scan(
         n_rows: Union[int, None],
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
-        from polars_bio.polars_bio import py_read_sql, py_read_table
+        from polars_bio.polars_bio import py_read_table, py_register_table
 
         from .context import ctx as _ctx
+
+        table_refreshed = False
 
         # === GFF-only pre-step ===
         # GFF's "attributes" column contains semi-structured key=value pairs that
@@ -2354,7 +2356,6 @@ def _lazy_scan(
         if input_format == InputFormat.Gff and file_path is not None:
             from polars_bio.polars_bio import GffReadOptions, PyObjectStorageOptions
             from polars_bio.polars_bio import ReadOptions as _ReadOptions
-            from polars_bio.polars_bio import py_register_table
 
             requested_cols = (
                 _extract_column_names_from_expr(with_columns)
@@ -2412,9 +2413,10 @@ def _lazy_scan(
 
             if projection_pushdown and requested_cols:
                 table_obj = py_register_table(
-                    _ctx, file_path, None, InputFormat.Gff, ropts
+                    _ctx, file_path, table_name, InputFormat.Gff, ropts
                 )
                 table_to_query = table_obj.name
+                table_refreshed = True
 
         # === Unified path for ALL formats ===
 
@@ -2422,6 +2424,16 @@ def _lazy_scan(
         if df_for_stream is not None:
             query_df = df_for_stream
         else:
+            # Re-register file-backed sources on each execution so every collect()
+            # sees a fresh provider state for this LazyFrame.
+            if (
+                file_path is not None
+                and not table_refreshed
+                and table_to_query is not None
+            ):
+                py_register_table(
+                    _ctx, file_path, table_to_query, input_format, read_options
+                )
             query_df = py_read_table(_ctx, table_to_query)
 
         # 2. Predicate pushdown via DataFusion Expr API
