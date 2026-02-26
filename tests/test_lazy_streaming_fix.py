@@ -177,6 +177,34 @@ class TestLazyStreamingFix:
         assert len(df) > 0  # File has 2 rows
         assert list(df.columns) == ["chrom", "start", "ref", "alt"]
 
+    def test_scan_vcf_collect_after_other_scan_keeps_schema(self):
+        """Collecting another scan of the same file should not break this LazyFrame."""
+        path = "tests/data/io/vcf/vep.vcf.gz"
+        lf = pb.scan_vcf(path)
+
+        first = lf.select(["chrom", "start", "CSQ"]).collect()
+        assert len(first) > 0
+
+        # Register a conflicting schema for the same path (no INFO columns).
+        pb.scan_vcf(path, info_fields=[]).select(["chrom", "start"]).collect()
+
+        second = lf.select(["chrom", "start", "CSQ"]).collect()
+        assert len(second) == len(first)
+        assert second.columns == ["chrom", "start", "CSQ"]
+
+    def test_scan_vcf_instances_with_different_info_fields_are_isolated(self):
+        """Different scan_vcf instances should not invalidate each other."""
+        path = "tests/data/io/vcf/vep.vcf.gz"
+        lf_with_info = pb.scan_vcf(path)
+        lf_without_info = pb.scan_vcf(path, info_fields=[])
+
+        without_info = lf_without_info.select(["chrom", "start"]).collect()
+        assert len(without_info) > 0
+
+        with_info = lf_with_info.select(["chrom", "start", "CSQ"]).collect()
+        assert len(with_info) > 0
+        assert "CSQ" in with_info.columns
+
 
 class TestOtherFormatsStreaming:
     """Verify the fix works for other formats too (FASTQ, GFF, etc.)."""
