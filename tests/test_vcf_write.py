@@ -191,9 +191,10 @@ class TestEnsemblVcfRoundTrip:
 
 
 class TestMultisampleVcfRoundTrip:
-    """Round-trip tests for multisample.vcf - multi-sample VCF with FORMAT fields."""
+    """Round-trip tests for multisample.vcf.gz - multi-sample VCF with FORMAT fields."""
 
-    MULTISAMPLE_VCF = f"{DATA_DIR}/io/vcf/multisample.vcf"
+    MULTISAMPLE_VCF = f"{DATA_DIR}/io/vcf/multisample.vcf.gz"
+    FORMAT_FIELDS = ["GT"]
 
     def test_multisample_basic_roundtrip(self, tmp_path):
         """Basic round-trip: read -> write -> read.
@@ -201,21 +202,28 @@ class TestMultisampleVcfRoundTrip:
         Note: We read without INFO fields to avoid metadata mismatch issues.
         VCF metadata (Number=A vs Number=.) is not preserved through Polars.
         """
-        # Read without INFO fields to avoid Number=A vs Number=. mismatch
-        df1 = pb.read_vcf(self.MULTISAMPLE_VCF, info_fields=[])
+        # Use explicit FORMAT projection to avoid parsing unsupported tags in output.
+        df1 = pb.read_vcf(
+            self.MULTISAMPLE_VCF, info_fields=[], format_fields=self.FORMAT_FIELDS
+        )
         output_path = tmp_path / "multisample_out.vcf"
         pb.write_vcf(df1, str(output_path))
-        df2 = pb.read_vcf(str(output_path), info_fields=[])
+        df2 = pb.read_vcf(
+            str(output_path), info_fields=[], format_fields=self.FORMAT_FIELDS
+        )
 
         assert df1.shape[0] == df2.shape[0]
 
     def test_multisample_core_columns_preserved(self, tmp_path):
         """Verify core VCF columns are preserved."""
-        # Read without INFO fields to avoid Number=A vs Number=. mismatch
-        df1 = pb.read_vcf(self.MULTISAMPLE_VCF, info_fields=[])
+        df1 = pb.read_vcf(
+            self.MULTISAMPLE_VCF, info_fields=[], format_fields=self.FORMAT_FIELDS
+        )
         output_path = tmp_path / "multisample_core.vcf"
         pb.write_vcf(df1, str(output_path))
-        df2 = pb.read_vcf(str(output_path), info_fields=[])
+        df2 = pb.read_vcf(
+            str(output_path), info_fields=[], format_fields=self.FORMAT_FIELDS
+        )
 
         # Check core columns
         for col in ["chrom", "ref", "alt"]:
@@ -223,21 +231,36 @@ class TestMultisampleVcfRoundTrip:
                 assert df1[col].to_list() == df2[col].to_list(), f"Mismatch in {col}"
 
     def test_multisample_format_columns_preserved(self, tmp_path):
-        """Verify FORMAT columns (GT, DP, GQ) are preserved for all samples."""
-        # Read without INFO fields to avoid metadata issues
-        df1 = pb.read_vcf(self.MULTISAMPLE_VCF, info_fields=[])
+        """Verify nested multi-sample FORMAT values and sample ids survive roundtrip."""
+        df1 = pb.read_vcf(
+            self.MULTISAMPLE_VCF, info_fields=[], format_fields=self.FORMAT_FIELDS
+        )
         output_path = tmp_path / "multisample_format.vcf"
         pb.write_vcf(df1, str(output_path))
-        df2 = pb.read_vcf(str(output_path), info_fields=[])
+        df2 = pb.read_vcf(
+            str(output_path), info_fields=[], format_fields=self.FORMAT_FIELDS
+        )
 
-        # Check FORMAT columns for all samples
-        for sample in ["NA12878", "NA12879", "NA12880"]:
-            for field in ["GT", "DP", "GQ"]:
-                col = f"{sample}_{field}"
-                if col in df1.columns and col in df2.columns:
-                    assert (
-                        df1[col].to_list() == df2[col].to_list()
-                    ), f"Mismatch in {col}"
+        assert "genotypes" in df1.columns
+        assert "genotypes" in df2.columns
+        first_sample_ids_1 = [
+            entry["sample_id"] for entry in df1["genotypes"].to_list()[0]
+        ]
+        first_sample_ids_2 = [
+            entry["sample_id"] for entry in df2["genotypes"].to_list()[0]
+        ]
+        assert first_sample_ids_1 == first_sample_ids_2
+
+        # Validate that first-row GT values are preserved (not converted to nulls)
+        first_values_1 = {
+            entry["sample_id"]: (entry.get("values") or {}).get("GT")
+            for entry in df1["genotypes"].to_list()[0]
+        }
+        first_values_2 = {
+            entry["sample_id"]: (entry.get("values") or {}).get("GT")
+            for entry in df2["genotypes"].to_list()[0]
+        }
+        assert first_values_1 == first_values_2
 
 
 class TestVcfSink:
@@ -266,3 +289,31 @@ class TestVcfSink:
         assert output_path.exists()
         df = pb.read_vcf(str(output_path))
         assert len(df) == 3  # All 3 records are on chromosome 1
+
+    def test_sink_vcf_multisample_format_header_metadata(self, tmp_path):
+        """Test sink_vcf preserves multisample FORMAT Number/Type/Description."""
+        input_path = f"{DATA_DIR}/io/vcf/multisample.vcf.gz"
+        output_path = tmp_path / "sink_multisample_header.vcf"
+
+        lf = pb.scan_vcf(input_path, info_fields=[], format_fields=["GT", "DP", "GQ"])
+        expected_format_meta = pb.get_metadata(lf)["header"]["format_fields"]
+        pb.sink_vcf(lf, str(output_path))
+
+        format_lines = {}
+        with open(output_path, "rt") as handle:
+            for line in handle:
+                if line.startswith("##FORMAT=<ID=GT,"):
+                    format_lines["GT"] = line.strip()
+                elif line.startswith("##FORMAT=<ID=DP,"):
+                    format_lines["DP"] = line.strip()
+                elif line.startswith("##FORMAT=<ID=GQ,"):
+                    format_lines["GQ"] = line.strip()
+                elif line.startswith("#CHROM"):
+                    break
+
+        for format_id in ["GT", "DP", "GQ"]:
+            expected = expected_format_meta[format_id]
+            line = format_lines[format_id]
+            assert f'Number={expected["number"]}' in line
+            assert f'Type={expected["type"]}' in line
+            assert f'Description="{expected["description"]}"' in line

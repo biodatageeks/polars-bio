@@ -376,12 +376,10 @@ class TestProjectionPushdown:
         proj_projected = extract_projected_columns_from_plan(proj_plan)
 
         # Validate projection pushdown occurred at DataFusion level
-        assert (
-            len(full_schema_columns) == 8
-        ), f"Expected 8 full columns, got {len(full_schema_columns)}"
-        assert (
-            len(full_projected) == 8
-        ), f"DataFusion should project all 8 columns for full query, but projected {full_projected}"
+        assert len(full_projected) == len(full_schema_columns), (
+            "DataFusion should project all columns for full query, "
+            f"schema has {len(full_schema_columns)} columns, but projected {full_projected}"
+        )
         assert (
             len(proj_projected) == 2
         ), f"DataFusion should project only 2 columns for projected query, but projected {proj_projected}"

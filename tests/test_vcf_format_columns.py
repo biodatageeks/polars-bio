@@ -4,7 +4,7 @@ Tests reading per-sample genotype data (GT, DP, GQ, etc.) from VCF files.
 
 Column naming convention:
 - Single-sample VCF: columns are named directly by FORMAT field (e.g., GT, DP)
-- Multi-sample VCF: columns are named {sample_name}_{format_field} (e.g., NA12878_GT, NA12879_DP)
+- Multi-sample VCF: FORMAT values are nested in a single `genotypes` column
 """
 
 import polars as pl
@@ -95,8 +95,20 @@ def test_vcf_format_fields_auto_detected_by_default():
 
 
 # =============================================================================
-# Multi-sample VCF tests (multisample.vcf has samples NA12878, NA12879, NA12880)
+# Multi-sample VCF tests (samples: NA12878, NA12879, NA12880)
 # =============================================================================
+
+
+def _genotypes_by_sample(df: pl.DataFrame, row_idx: int = 0) -> dict:
+    """Convert one row of nested genotypes to sample->values mapping."""
+    entries = df["genotypes"].to_list()[row_idx]
+    assert isinstance(entries, list), f"Expected list entries, got: {type(entries)}"
+    result = {}
+    for entry in entries:
+        sample_id = entry.get("sample_id")
+        values = entry.get("values") or {}
+        result[sample_id] = values
+    return result
 
 
 def test_vcf_format_columns_multisample_specific_fields():
@@ -104,13 +116,8 @@ def test_vcf_format_columns_multisample_specific_fields():
     vcf_path = "tests/data/io/vcf/multisample.vcf"
     df = pb.read_vcf(vcf_path, format_fields=["GT", "DP"])
 
-    # Multi-sample VCF: columns named {sample_name}_{format_field}
-    assert "NA12878_GT" in df.columns, f"NA12878_GT not found in columns: {df.columns}"
-    assert "NA12878_DP" in df.columns, f"NA12878_DP not found in columns: {df.columns}"
-    assert "NA12879_GT" in df.columns, f"NA12879_GT not found in columns: {df.columns}"
-    assert "NA12879_DP" in df.columns, f"NA12879_DP not found in columns: {df.columns}"
-    assert "NA12880_GT" in df.columns, f"NA12880_GT not found in columns: {df.columns}"
-    assert "NA12880_DP" in df.columns, f"NA12880_DP not found in columns: {df.columns}"
+    assert "genotypes" in df.columns, f"genotypes not found in columns: {df.columns}"
+    assert "NA12878_GT" not in df.columns
 
 
 def test_vcf_format_multisample_gt_type():
@@ -118,10 +125,10 @@ def test_vcf_format_multisample_gt_type():
     vcf_path = "tests/data/io/vcf/multisample.vcf"
     df = pb.read_vcf(vcf_path, format_fields=["GT"])
 
-    # All GT columns should be string type
-    assert df.schema["NA12878_GT"] == pl.Utf8
-    assert df.schema["NA12879_GT"] == pl.Utf8
-    assert df.schema["NA12880_GT"] == pl.Utf8
+    sample_map = _genotypes_by_sample(df, 0)
+    assert sample_map["NA12878"]["GT"] == "0/1"
+    assert sample_map["NA12879"]["GT"] == "1/1"
+    assert sample_map["NA12880"]["GT"] == "0/0"
 
 
 def test_vcf_format_multisample_dp_type():
@@ -129,34 +136,32 @@ def test_vcf_format_multisample_dp_type():
     vcf_path = "tests/data/io/vcf/multisample.vcf"
     df = pb.read_vcf(vcf_path, format_fields=["DP"])
 
-    # All DP columns should be integer type
-    assert df.schema["NA12878_DP"] in [pl.Int32, pl.Int64, pl.UInt32, pl.UInt64]
-    assert df.schema["NA12879_DP"] in [pl.Int32, pl.Int64, pl.UInt32, pl.UInt64]
-    assert df.schema["NA12880_DP"] in [pl.Int32, pl.Int64, pl.UInt32, pl.UInt64]
+    sample_map = _genotypes_by_sample(df, 0)
+    assert isinstance(sample_map["NA12878"]["DP"], int)
+    assert isinstance(sample_map["NA12879"]["DP"], int)
+    assert isinstance(sample_map["NA12880"]["DP"], int)
 
 
 def test_vcf_format_multisample_gt_values():
-    """Test that GT values are correctly parsed in multi-sample VCF."""
+    """Test GT values are correctly parsed in nested multi-sample genotypes."""
     vcf_path = "tests/data/io/vcf/multisample.vcf"
     df = pb.read_vcf(vcf_path, format_fields=["GT"])
 
-    # Check specific values from our test file
-    # Row 1: NA12878=0/1, NA12879=1/1, NA12880=0/0
-    assert df["NA12878_GT"][0] == "0/1"
-    assert df["NA12879_GT"][0] == "1/1"
-    assert df["NA12880_GT"][0] == "0/0"
+    sample_map = _genotypes_by_sample(df, 0)
+    assert sample_map["NA12878"]["GT"] == "0/1"
+    assert sample_map["NA12879"]["GT"] == "1/1"
+    assert sample_map["NA12880"]["GT"] == "0/0"
 
 
 def test_vcf_format_multisample_dp_values():
-    """Test that DP values are correctly parsed in multi-sample VCF."""
+    """Test DP values are correctly parsed in nested multi-sample genotypes."""
     vcf_path = "tests/data/io/vcf/multisample.vcf"
     df = pb.read_vcf(vcf_path, format_fields=["DP"])
 
-    # Check specific values from our test file
-    # Row 1: NA12878=25, NA12879=30, NA12880=20
-    assert df["NA12878_DP"][0] == 25
-    assert df["NA12879_DP"][0] == 30
-    assert df["NA12880_DP"][0] == 20
+    sample_map = _genotypes_by_sample(df, 0)
+    assert sample_map["NA12878"]["DP"] == 25
+    assert sample_map["NA12879"]["DP"] == 30
+    assert sample_map["NA12880"]["DP"] == 20
 
 
 def test_vcf_multisample_mixed_info_and_format():
@@ -167,11 +172,8 @@ def test_vcf_multisample_mixed_info_and_format():
     # Verify INFO field
     assert "AF" in df.columns, "AF INFO field not found"
 
-    # Verify FORMAT fields (multi-sample naming)
-    assert "NA12878_GT" in df.columns
-    assert "NA12878_GQ" in df.columns
-    assert "NA12879_GT" in df.columns
-    assert "NA12880_GQ" in df.columns
+    # Verify nested FORMAT field storage
+    assert "genotypes" in df.columns
 
 
 def test_scan_vcf_multisample_format_columns():
@@ -180,6 +182,4 @@ def test_scan_vcf_multisample_format_columns():
     lf = pb.scan_vcf(vcf_path, format_fields=["GT", "DP"])
     df = lf.collect()
 
-    # Verify multi-sample column naming
-    assert "NA12878_GT" in df.columns
-    assert "NA12879_DP" in df.columns
+    assert "genotypes" in df.columns
