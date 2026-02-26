@@ -169,12 +169,57 @@ def _extract_vcf_specific_metadata(
             except (json.JSONDecodeError, TypeError):
                 vcf_meta[target_key] = []
 
-    # Extract field-level metadata (INFO/FORMAT fields)
-    # The actual metadata uses "bio.vcf.field.*" prefix
-    info_fields = {}
-    format_fields = {}
+    def _vcf_type_from_arrow(arrow_type: pa.DataType) -> str:
+        if pa.types.is_integer(arrow_type) or pa.types.is_unsigned_integer(arrow_type):
+            return "Integer"
+        if pa.types.is_floating(arrow_type):
+            return "Float"
+        if pa.types.is_boolean(arrow_type):
+            return "Flag"
+        return "String"
+
+    # Extract sample names from schema-level metadata first.
+    # This supports the multisample nested "genotypes" schema where sample names
+    # are not derivable from flattened "{sample}_{format}" column names.
     sample_names = []
     seen_samples = set()
+    samples_json = schema_meta.get("bio.vcf.samples")
+    if samples_json:
+        try:
+            parsed_samples = json.loads(samples_json)
+            if isinstance(parsed_samples, list):
+                for sample in parsed_samples:
+                    sample_str = str(sample)
+                    if sample_str and sample_str not in seen_samples:
+                        seen_samples.add(sample_str)
+                        sample_names.append(sample_str)
+        except (json.JSONDecodeError, TypeError):
+            sample_names = []
+            seen_samples = set()
+
+    # Extract FORMAT definitions from schema-level metadata when available.
+    # Newer upstream VCF providers store this as `bio.vcf.format_fields`.
+    format_fields = {}
+    schema_format_fields = schema_meta.get("bio.vcf.format_fields")
+    if schema_format_fields:
+        try:
+            parsed_format_fields = json.loads(schema_format_fields)
+            if isinstance(parsed_format_fields, dict):
+                for format_id, format_meta in parsed_format_fields.items():
+                    if isinstance(format_meta, dict):
+                        format_fields[format_id] = {
+                            "number": format_meta.get("number", "1"),
+                            "type": format_meta.get("type", "String"),
+                            "description": format_meta.get("description", ""),
+                        }
+        except (json.JSONDecodeError, TypeError):
+            format_fields = {}
+
+    # Extract field-level metadata (INFO/FORMAT fields).
+    # The actual metadata uses "bio.vcf.field.*" prefix.
+    # For backward compatibility, we still infer sample names from flattened
+    # "{sample}_{format}" columns if schema-level sample metadata is unavailable.
+    info_fields = {}
 
     for field_name, metadata in field_meta.items():
         # Check for bio.vcf.field.field_type (the actual key name)
@@ -198,12 +243,31 @@ def _extract_vcf_specific_metadata(
                     "description": metadata.get("bio.vcf.field.description", ""),
                 }
 
-            # Extract sample name from column name pattern: {sample}_{format}
+            # Legacy path: sample name from flattened "{sample}_{format}" columns.
             if field_name.endswith(f"_{format_id}"):
                 sample = field_name[: -len(format_id) - 1]
                 if sample and sample not in seen_samples:
                     seen_samples.add(sample)
                     sample_names.append(sample)
+
+    # Fallback for nested multisample schema where FORMAT definitions are carried
+    # by the `genotypes.values` struct and not exposed as field metadata.
+    if not format_fields and "genotypes" in schema.names:
+        genotypes_field = schema.field("genotypes")
+        genotypes_type = genotypes_field.type
+        if pa.types.is_list(genotypes_type) or pa.types.is_large_list(genotypes_type):
+            item_field = genotypes_type.value_field
+            if pa.types.is_struct(item_field.type):
+                values_field = next(
+                    (field for field in item_field.type if field.name == "values"), None
+                )
+                if values_field and pa.types.is_struct(values_field.type):
+                    for value_field in values_field.type:
+                        format_fields[value_field.name] = {
+                            "number": "1",
+                            "type": _vcf_type_from_arrow(value_field.type),
+                            "description": "",
+                        }
 
     # Handle single-sample VCFs where column name equals format_id
     if format_fields and not sample_names:

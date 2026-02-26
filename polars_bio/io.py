@@ -263,8 +263,8 @@ class IOOperations:
 
         Parameters:
             path: The path to the VCF file.
-            info_fields: List of INFO field names to include. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit fields for better performance.
-            format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields will be automatically detected from the VCF header. Column naming depends on the number of samples: for **single-sample** VCFs, columns are named directly by the FORMAT field (e.g., `GT`, `DP`); for **multi-sample** VCFs, columns are named `{sample_name}_{format_field}` (e.g., `NA12878_GT`, `NA12879_DP`). The GT field is always converted to string with `/` (unphased) or `|` (phased) separator.
+            info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
+            format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`list<struct<sample_id, values>>`).
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -290,7 +290,7 @@ class IOOperations:
                 format_fields=["GT", "DP", "GQ"]  # FORMAT fields
             )
 
-            # Single-sample VCF: FORMAT columns named directly (GT, DP, GQ)
+            # Single-sample VCF: FORMAT fields are top-level columns (GT, DP, GQ)
             print(df.select(["chrom", "start", "ref", "alt", "END", "GT", "DP", "GQ"]))
             # Output:
             # shape: (10, 8)
@@ -302,9 +302,9 @@ class IOOperations:
             # │ 1     ┆ 10015 ┆ A   ┆ .   ┆ null ┆ 0/0 ┆ 17  ┆ 35  │
             # └───────┴───────┴─────┴─────┴──────┴─────┴─────┴─────┘
 
-            # Multi-sample VCF: FORMAT columns named {sample}_{field}
+            # Multi-sample VCF: FORMAT data is nested in "genotypes"
             df = pb.read_vcf("multisample.vcf", format_fields=["GT", "DP"])
-            print(df.select(["chrom", "start", "NA12878_GT", "NA12878_DP", "NA12879_GT"]))
+            print(df.select(["chrom", "start", "genotypes"]))
             ```
         """
         lf = IOOperations.scan_vcf(
@@ -357,8 +357,8 @@ class IOOperations:
 
         Parameters:
             path: The path to the VCF file.
-            info_fields: List of INFO field names to include. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit fields for better performance.
-            format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields will be automatically detected from the VCF header. Column naming depends on the number of samples: for **single-sample** VCFs, columns are named directly by the FORMAT field (e.g., `GT`, `DP`); for **multi-sample** VCFs, columns are named `{sample_name}_{format_field}` (e.g., `NA12878_GT`, `NA12879_DP`). The GT field is always converted to string with `/` (unphased) or `|` (phased) separator.
+            info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
+            format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`list<struct<sample_id, values>>`).
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -389,8 +389,8 @@ class IOOperations:
                 ["chrom", "start", "ref", "alt", "GT", "DP", "GQ"]
             ).collect()
 
-            # Single-sample VCF: FORMAT columns named directly (GT, DP, GQ)
-            # Multi-sample VCF: FORMAT columns named {sample}_{field}
+            # Single-sample VCF: FORMAT fields are top-level columns (GT, DP, GQ)
+            # Multi-sample VCF: FORMAT data is nested in "genotypes"
             ```
         """
         object_storage_options = PyObjectStorageOptions(
@@ -403,28 +403,8 @@ class IOOperations:
             compression_type=compression_type,
         )
 
-        # Use provided info_fields or autodetect from VCF header
-        if info_fields is not None:
-            initial_info_fields = info_fields
-        else:
-            # Get all info fields from VCF header for proper projection pushdown
-            all_info_fields = None
-            try:
-                vcf_schema_df = IOOperations.describe_vcf(
-                    path,
-                    allow_anonymous=allow_anonymous,
-                    enable_request_payer=enable_request_payer,
-                    compression_type=compression_type,
-                )
-                # Use column name 'name' not 'id' based on the schema output
-                all_info_fields = vcf_schema_df.select("name").to_series().to_list()
-            except Exception:
-                # Fallback to None if unable to get info fields
-                all_info_fields = None
-
-            # Always start with all info fields to establish full schema
-            # The callback will re-register with only requested info fields for optimization
-            initial_info_fields = all_info_fields
+        # Upstream VCF reader projects all INFO fields by default when info_fields is None.
+        initial_info_fields = info_fields
 
         zero_based = _resolve_zero_based(use_zero_based)
         vcf_read_options = VcfReadOptions(
