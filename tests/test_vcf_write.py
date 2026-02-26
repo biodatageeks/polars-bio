@@ -289,3 +289,31 @@ class TestVcfSink:
         assert output_path.exists()
         df = pb.read_vcf(str(output_path))
         assert len(df) == 3  # All 3 records are on chromosome 1
+
+    def test_sink_vcf_multisample_format_header_metadata(self, tmp_path):
+        """Test sink_vcf preserves multisample FORMAT Number/Type/Description."""
+        input_path = f"{DATA_DIR}/io/vcf/multisample.vcf.gz"
+        output_path = tmp_path / "sink_multisample_header.vcf"
+
+        lf = pb.scan_vcf(input_path, info_fields=[], format_fields=["GT", "DP", "GQ"])
+        expected_format_meta = pb.get_metadata(lf)["header"]["format_fields"]
+        pb.sink_vcf(lf, str(output_path))
+
+        format_lines = {}
+        with open(output_path, "rt") as handle:
+            for line in handle:
+                if line.startswith("##FORMAT=<ID=GT,"):
+                    format_lines["GT"] = line.strip()
+                elif line.startswith("##FORMAT=<ID=DP,"):
+                    format_lines["DP"] = line.strip()
+                elif line.startswith("##FORMAT=<ID=GQ,"):
+                    format_lines["GQ"] = line.strip()
+                elif line.startswith("#CHROM"):
+                    break
+
+        for format_id in ["GT", "DP", "GQ"]:
+            expected = expected_format_meta[format_id]
+            line = format_lines[format_id]
+            assert f'Number={expected["number"]}' in line
+            assert f'Type={expected["type"]}' in line
+            assert f'Description="{expected["description"]}"' in line

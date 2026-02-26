@@ -502,15 +502,20 @@ fn vcf_genotypes_utf8_type(
         _ => return None,
     };
 
+    let field_with_type_preserving_meta = |source: &Arc<Field>, target_type: DataType| {
+        let mut new_field = Field::new(source.name(), target_type, source.is_nullable());
+        let source_meta = source.metadata();
+        if !source_meta.is_empty() {
+            new_field = new_field.with_metadata(source_meta.clone());
+        }
+        Arc::new(new_field)
+    };
+
     let mut new_genotype_fields: Vec<Arc<Field>> = Vec::with_capacity(genotype_fields.len());
 
     for field in genotype_fields.iter() {
         if field.name() == "sample_id" {
-            new_genotype_fields.push(Arc::new(Field::new(
-                field.name(),
-                DataType::Utf8,
-                field.is_nullable(),
-            )));
+            new_genotype_fields.push(field_with_type_preserving_meta(field, DataType::Utf8));
             continue;
         }
 
@@ -522,19 +527,11 @@ fn vcf_genotypes_utf8_type(
                         DataType::Utf8View | DataType::LargeUtf8 | DataType::Utf8 => DataType::Utf8,
                         other => other.clone(),
                     };
-                    new_value_fields.push(Arc::new(Field::new(
-                        value_field.name(),
-                        value_type,
-                        value_field.is_nullable(),
-                    )));
+                    new_value_fields.push(field_with_type_preserving_meta(value_field, value_type));
                 }
 
                 let values_type = DataType::Struct(new_value_fields.into());
-                new_genotype_fields.push(Arc::new(Field::new(
-                    field.name(),
-                    values_type,
-                    field.is_nullable(),
-                )));
+                new_genotype_fields.push(field_with_type_preserving_meta(field, values_type));
                 continue;
             }
         }
@@ -543,11 +540,7 @@ fn vcf_genotypes_utf8_type(
     }
 
     let item_type = DataType::Struct(new_genotype_fields.into());
-    let new_item_field = Arc::new(Field::new(
-        item_field.name(),
-        item_type,
-        item_field.is_nullable(),
-    ));
+    let new_item_field = field_with_type_preserving_meta(item_field, item_type);
 
     if is_large_list {
         Some(DataType::LargeList(new_item_field))

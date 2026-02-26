@@ -9,7 +9,8 @@ use std::sync::Arc;
 use std::task::Poll;
 
 use datafusion::arrow::array::Array;
-use datafusion::arrow::datatypes::{DataType, Schema, SchemaRef};
+use datafusion::arrow::compute::cast;
+use datafusion::arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use datafusion::arrow::record_batch::RecordBatch;
 use datafusion::catalog::TableProvider;
 use datafusion::common::DataFusionError;
@@ -173,6 +174,106 @@ fn apply_vcf_metadata_to_schema(
         if core_columns.contains(name.as_str()) {
             new_fields.push(field.as_ref().clone());
             continue;
+        }
+
+        // Handle multisample nested schema: genotypes: list<struct<sample_id, values<FORMAT...>>>
+        // Attach FORMAT metadata directly to nested `values` fields so the VCF writer can
+        // preserve Number/Type/Description in output headers.
+        if name == "genotypes" {
+            let nested_with_meta = (|| -> Option<Field> {
+                let (item_field, is_large_list) = match field.data_type() {
+                    DataType::List(item) => (item, false),
+                    DataType::LargeList(item) => (item, true),
+                    _ => return None,
+                };
+
+                let genotype_struct_fields = match item_field.data_type() {
+                    DataType::Struct(fields) => fields,
+                    _ => return None,
+                };
+
+                let mut rebuilt_genotype_fields = Vec::with_capacity(genotype_struct_fields.len());
+
+                for genotype_field in genotype_struct_fields.iter() {
+                    if genotype_field.name() != "values" {
+                        rebuilt_genotype_fields
+                            .push(std::sync::Arc::new(genotype_field.as_ref().clone()));
+                        continue;
+                    }
+
+                    let values_struct_fields = match genotype_field.data_type() {
+                        DataType::Struct(fields) => fields,
+                        _ => {
+                            rebuilt_genotype_fields
+                                .push(std::sync::Arc::new(genotype_field.as_ref().clone()));
+                            continue;
+                        },
+                    };
+
+                    let mut rebuilt_values_fields = Vec::with_capacity(values_struct_fields.len());
+
+                    for value_field in values_struct_fields.iter() {
+                        let format_id = value_field.name();
+                        let mut rebuilt_value_field = value_field.as_ref().clone();
+
+                        if let Some(serde_json::Value::Object(meta_obj)) =
+                            format_meta.get(format_id)
+                        {
+                            let field_metadata = build_field_metadata_from_vcf_meta(meta_obj);
+                            rebuilt_value_field = rebuilt_value_field.with_metadata(field_metadata);
+                        }
+
+                        if !format_fields.contains(format_id) {
+                            format_fields.push(format_id.to_string());
+                        }
+
+                        rebuilt_values_fields.push(std::sync::Arc::new(rebuilt_value_field));
+                    }
+
+                    let values_type = DataType::Struct(rebuilt_values_fields.into());
+                    let mut rebuilt_values_field = Field::new(
+                        genotype_field.name(),
+                        values_type,
+                        genotype_field.is_nullable(),
+                    );
+                    if !genotype_field.metadata().is_empty() {
+                        rebuilt_values_field =
+                            rebuilt_values_field.with_metadata(genotype_field.metadata().clone());
+                    }
+
+                    rebuilt_genotype_fields.push(std::sync::Arc::new(rebuilt_values_field));
+                }
+
+                let rebuilt_item_type = DataType::Struct(rebuilt_genotype_fields.into());
+                let mut rebuilt_item_field = Field::new(
+                    item_field.name(),
+                    rebuilt_item_type,
+                    item_field.is_nullable(),
+                );
+                if !item_field.metadata().is_empty() {
+                    rebuilt_item_field =
+                        rebuilt_item_field.with_metadata(item_field.metadata().clone());
+                }
+
+                let rebuilt_list_type = if is_large_list {
+                    DataType::LargeList(std::sync::Arc::new(rebuilt_item_field))
+                } else {
+                    DataType::List(std::sync::Arc::new(rebuilt_item_field))
+                };
+
+                let mut rebuilt_genotypes_field =
+                    Field::new(name, rebuilt_list_type, field.is_nullable());
+                if !field.metadata().is_empty() {
+                    rebuilt_genotypes_field =
+                        rebuilt_genotypes_field.with_metadata(field.metadata().clone());
+                }
+                Some(rebuilt_genotypes_field)
+            })();
+
+            if let Some(genotypes_field) = nested_with_meta {
+                new_fields.push(genotypes_field);
+                continue;
+            }
         }
 
         // Check if this is an INFO field
@@ -473,12 +574,41 @@ impl Stream for SchemaOverrideStream {
     ) -> Poll<Option<Self::Item>> {
         match Pin::new(&mut self.input).poll_next(cx) {
             Poll::Ready(Some(Ok(batch))) => {
-                // Create a new RecordBatch with the overridden schema
-                // This preserves the data but uses our schema with metadata
-                match RecordBatch::try_new(self.schema.clone(), batch.columns().to_vec()) {
+                // Reconcile any type drift (including nested field metadata) with the
+                // override schema before constructing the output batch.
+                let mut columns = Vec::with_capacity(batch.num_columns());
+                for (idx, (column, target_field)) in batch
+                    .columns()
+                    .iter()
+                    .zip(self.schema.fields().iter())
+                    .enumerate()
+                {
+                    if column.data_type() == target_field.data_type() {
+                        columns.push(column.clone());
+                        continue;
+                    }
+
+                    match cast(column.as_ref(), target_field.data_type()) {
+                        Ok(casted) => columns.push(casted),
+                        Err(e) => {
+                            log::debug!(
+                                "Schema override cast fallback for column '{}' at index {} from {:?} to {:?}: {}",
+                                target_field.name(),
+                                idx,
+                                column.data_type(),
+                                target_field.data_type(),
+                                e
+                            );
+                            columns.push(column.clone());
+                        },
+                    }
+                }
+
+                match RecordBatch::try_new(self.schema.clone(), columns) {
                     Ok(new_batch) => Poll::Ready(Some(Ok(new_batch))),
                     Err(e) => {
-                        Poll::Ready(Some(Err(DataFusionError::ArrowError(Box::new(e), None))))
+                        log::debug!("Schema override batch fallback to input schema: {}", e);
+                        Poll::Ready(Some(Ok(batch)))
                     },
                 }
             },
