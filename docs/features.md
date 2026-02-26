@@ -296,6 +296,41 @@ result = pb.overlap(df1, df2, ...)  # Reads from metadata
 
 polars-bio automatically attaches comprehensive metadata to DataFrames when reading genomic files. This metadata includes format information, coordinate systems, and format-specific details like VCF header fields.
 
+### VCF changes since 0.24.0
+
+Compared to `v0.24.0`, VCF handling has the following behavior changes:
+
+1. **Multisample FORMAT schema changed (breaking)**
+   Multisample VCF FORMAT data is now exposed as a nested `genotypes` column (`list<struct<sample_id, values>>`) instead of flattened columns like `NA12878_GT`.
+
+2. **Single-sample FORMAT schema unchanged**
+   Single-sample VCFs still expose FORMAT fields as top-level columns (`GT`, `DP`, `GQ`, ...).
+
+3. **`info_fields=None` now includes all INFO fields by default**
+   When `info_fields` is not provided, all header INFO fields are available in the schema.
+   Use `info_fields=[]` to exclude INFO columns.
+
+4. **FORMAT metadata fidelity improved**
+   `meta["header"]["format_fields"]` now preserves FORMAT `number`/`type`/`description` via schema-level metadata.
+
+#### Migration examples
+
+```python
+import polars_bio as pb
+
+# Before (v0.24.0 style multisample access):
+# df = pb.read_vcf("multisample.vcf", format_fields=["GT", "DP"])
+# df.select(["chrom", "start", "NA12878_GT", "NA12878_DP"])
+
+# Now (current):
+df = pb.read_vcf("multisample.vcf", format_fields=["GT", "DP"])
+df.select(["chrom", "start", "genotypes"])
+
+# INFO behavior:
+df_all_info = pb.read_vcf("variants.vcf")              # all INFO fields
+df_no_info = pb.read_vcf("variants.vcf", info_fields=[])  # no INFO fields
+```
+
 ### Metadata Structure
 
 The metadata is stored in a clean, user-friendly structure:
