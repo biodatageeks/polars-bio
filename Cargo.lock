@@ -369,7 +369,7 @@ dependencies = [
  "arrow-schema",
  "arrow-select",
  "flatbuffers",
- "lz4_flex",
+ "lz4_flex 0.11.5",
  "zstd",
 ]
 
@@ -809,6 +809,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 
 [[package]]
+name = "byteorder-lite"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
+
+[[package]]
 name = "bytes"
 version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -816,9 +822,9 @@ checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
 name = "byteview"
-version = "0.6.1"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6236364b88b9b6d0bc181ba374cf1ab55ba3ef97a1cb6f8cddad48a273767fb5"
+checksum = "1c53ba0f290bfc610084c05582d9c5d421662128fc69f4bf236707af6fd321b9"
 
 [[package]]
 name = "bzip2"
@@ -1228,7 +1234,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bam"
 version = "0.5.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045#7236045a257e21182553414eeaf3448f6ec039d2"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045a257e21182553414eeaf3448f6ec039d2#7236045a257e21182553414eeaf3448f6ec039d2"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1254,7 +1260,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bed"
 version = "0.5.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045#7236045a257e21182553414eeaf3448f6ec039d2"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045a257e21182553414eeaf3448f6ec039d2#7236045a257e21182553414eeaf3448f6ec039d2"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1278,7 +1284,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-core"
 version = "0.5.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045#7236045a257e21182553414eeaf3448f6ec039d2"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045a257e21182553414eeaf3448f6ec039d2#7236045a257e21182553414eeaf3448f6ec039d2"
 dependencies = [
  "async-compression",
  "bytes",
@@ -1300,7 +1306,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-cram"
 version = "0.5.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045#7236045a257e21182553414eeaf3448f6ec039d2"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045a257e21182553414eeaf3448f6ec039d2#7236045a257e21182553414eeaf3448f6ec039d2"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1326,7 +1332,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-ensembl-cache"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045#7236045a257e21182553414eeaf3448f6ec039d2"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045a257e21182553414eeaf3448f6ec039d2#7236045a257e21182553414eeaf3448f6ec039d2"
 dependencies = [
  "async-trait",
  "datafusion",
@@ -1341,7 +1347,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fasta"
 version = "0.5.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045#7236045a257e21182553414eeaf3448f6ec039d2"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045a257e21182553414eeaf3448f6ec039d2#7236045a257e21182553414eeaf3448f6ec039d2"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1363,7 +1369,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fastq"
 version = "0.5.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045#7236045a257e21182553414eeaf3448f6ec039d2"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045a257e21182553414eeaf3448f6ec039d2#7236045a257e21182553414eeaf3448f6ec039d2"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1388,7 +1394,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-gff"
 version = "0.5.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045#7236045a257e21182553414eeaf3448f6ec039d2"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045a257e21182553414eeaf3448f6ec039d2#7236045a257e21182553414eeaf3448f6ec039d2"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1417,7 +1423,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-pairs"
 version = "0.5.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045#7236045a257e21182553414eeaf3448f6ec039d2"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045a257e21182553414eeaf3448f6ec039d2#7236045a257e21182553414eeaf3448f6ec039d2"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1445,7 +1451,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-vcf"
 version = "0.5.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045#7236045a257e21182553414eeaf3448f6ec039d2"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=7236045a257e21182553414eeaf3448f6ec039d2#7236045a257e21182553414eeaf3448f6ec039d2"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1474,7 +1480,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-function-pileup"
 version = "0.3.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=1b6703ff68779b2fd342dd65828f3cfa8b9152e8#1b6703ff68779b2fd342dd65828f3cfa8b9152e8"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=a11f6734dcd94fcd8db2fa76d2604fca9e0c01da#a11f6734dcd94fcd8db2fa76d2604fca9e0c01da"
 dependencies = [
  "async-trait",
  "datafusion",
@@ -1488,7 +1494,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-function-ranges"
 version = "0.3.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=1b6703ff68779b2fd342dd65828f3cfa8b9152e8#1b6703ff68779b2fd342dd65828f3cfa8b9152e8"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=a11f6734dcd94fcd8db2fa76d2604fca9e0c01da#a11f6734dcd94fcd8db2fa76d2604fca9e0c01da"
 dependencies = [
  "ahash",
  "async-trait",
@@ -1506,7 +1512,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-function-vep"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=1b6703ff68779b2fd342dd65828f3cfa8b9152e8#1b6703ff68779b2fd342dd65828f3cfa8b9152e8"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=a11f6734dcd94fcd8db2fa76d2604fca9e0c01da#a11f6734dcd94fcd8db2fa76d2604fca9e0c01da"
 dependencies = [
  "async-trait",
  "datafusion",
@@ -1520,15 +1526,18 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-function-vep-cache"
 version = "0.1.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=1b6703ff68779b2fd342dd65828f3cfa8b9152e8#1b6703ff68779b2fd342dd65828f3cfa8b9152e8"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=a11f6734dcd94fcd8db2fa76d2604fca9e0c01da#a11f6734dcd94fcd8db2fa76d2604fca9e0c01da"
 dependencies = [
+ "ahash",
  "arrow-ipc",
  "async-trait",
  "datafusion",
  "fjall",
  "futures",
  "log",
+ "lz4_flex 0.12.0",
  "tokio",
+ "zstd",
 ]
 
 [[package]]
@@ -2296,12 +2305,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "double-ended-peekable"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0d05e1c0dbad51b52c38bda7adceef61b9efc2baf04acfe8726a8c4630a6f57"
-
-[[package]]
 name = "editdistancek"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2430,17 +2433,17 @@ checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
 
 [[package]]
 name = "fjall"
-version = "2.11.2"
+version = "3.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b25ad44cd4360a0448a9b5a0a6f1c7a621101cca4578706d43c9a821418aebc"
+checksum = "5a2799b4198427a08c774838e44d0b77f677208f19a1927671cd2cd36bb30d69"
 dependencies = [
- "byteorder",
+ "byteorder-lite",
  "byteview",
  "dashmap",
+ "flume",
  "log",
  "lsm-tree",
- "path-absolutize",
- "std-semaphore",
+ "lz4_flex 0.11.5",
  "tempfile",
  "xxhash-rust",
 ]
@@ -2464,6 +2467,15 @@ dependencies = [
  "crc32fast",
  "miniz_oxide",
  "zlib-rs",
+]
+
+[[package]]
+name = "flume"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e139bc46ca777eb5efaf62df0ab8cc5fd400866427e56c68b22e414e53bd3be"
+dependencies = [
+ "spin",
 ]
 
 [[package]]
@@ -2660,12 +2672,6 @@ dependencies = [
  "js-sys",
  "wasm-bindgen",
 ]
-
-[[package]]
-name = "guardian"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17e2ac29387b1aa07a1e448f7bb4f35b500787971e965b02842b900afa5c8f6f"
 
 [[package]]
 name = "h2"
@@ -3300,24 +3306,22 @@ checksum = "112b39cec0b298b6c1999fee3e31427f74f676e4cb9879ed1a121b43661a4154"
 
 [[package]]
 name = "lsm-tree"
-version = "2.10.4"
+version = "3.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "799399117a2bfb37660e08be33f470958babb98386b04185288d829df362ea15"
+checksum = "86e8d0b8e0cf2531a437788ce94d95570dbaabfe9888db20022c2d5ccec9b221"
 dependencies = [
- "byteorder",
+ "byteorder-lite",
+ "byteview",
  "crossbeam-skiplist",
- "double-ended-peekable",
  "enum_dispatch",
- "guardian",
  "interval-heap",
  "log",
- "lz4_flex",
- "path-absolutize",
+ "lz4_flex 0.11.5",
  "quick_cache",
  "rustc-hash",
  "self_cell",
+ "sfa",
  "tempfile",
- "value-log",
  "varint-rs",
  "xxhash-rust",
 ]
@@ -3327,6 +3331,15 @@ name = "lz4_flex"
 version = "0.11.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08ab2867e3eeeca90e844d1940eab391c9dc5228783db2ed999acbc0a9ed375a"
+dependencies = [
+ "twox-hash",
+]
+
+[[package]]
+name = "lz4_flex"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab6473172471198271ff72e9379150e9dfd70d8e533e0752a27e515b48dd375e"
 dependencies = [
  "twox-hash",
 ]
@@ -4246,7 +4259,7 @@ dependencies = [
  "futures",
  "half",
  "hashbrown 0.16.1",
- "lz4_flex",
+ "lz4_flex 0.11.5",
  "num",
  "num-bigint",
  "object_store",
@@ -4266,24 +4279,6 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
-
-[[package]]
-name = "path-absolutize"
-version = "3.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e4af381fe79fa195b4909485d99f73a80792331df0625188e707854f0b3383f5"
-dependencies = [
- "path-dedot",
-]
-
-[[package]]
-name = "path-dedot"
-version = "3.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07ba0ad7e047712414213ff67533e6dd477af0a4e1d14fb52343e53d30ea9397"
-dependencies = [
- "once_cell",
-]
 
 [[package]]
 name = "pbkdf2"
@@ -5319,6 +5314,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sfa"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1296838937cab56cd6c4eeeb8718ec777383700c33f060e2869867bd01d1175"
+dependencies = [
+ "byteorder-lite",
+ "log",
+ "xxhash-rust",
+]
+
+[[package]]
 name = "sha1"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5451,6 +5457,9 @@ name = "spin"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
+dependencies = [
+ "lock_api",
+]
 
 [[package]]
 name = "spki"
@@ -5516,12 +5525,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "std-semaphore"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33ae9eec00137a8eed469fb4148acd9fc6ac8c3f9b110f52cd34698c8b5bfa0e"
-
-[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5573,7 +5576,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 [[package]]
 name = "superintervals"
 version = "0.5.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=1b6703ff68779b2fd342dd65828f3cfa8b9152e8#1b6703ff68779b2fd342dd65828f3cfa8b9152e8"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=a11f6734dcd94fcd8db2fa76d2604fca9e0c01da#a11f6734dcd94fcd8db2fa76d2604fca9e0c01da"
 dependencies = [
  "aligned-vec",
  "serde",
@@ -6064,23 +6067,6 @@ name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
-
-[[package]]
-name = "value-log"
-version = "1.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62fc7c4ce161f049607ecea654dca3f2d727da5371ae85e2e4f14ce2b98ed67c"
-dependencies = [
- "byteorder",
- "byteview",
- "interval-heap",
- "log",
- "path-absolutize",
- "rustc-hash",
- "tempfile",
- "varint-rs",
- "xxhash-rust",
-]
 
 [[package]]
 name = "varint-rs"

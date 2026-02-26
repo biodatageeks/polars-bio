@@ -40,6 +40,42 @@ def _extract_column_names_from_expr(with_columns) -> List[str]:
     return []
 
 
+def _normalize_lookup_columns(columns: Optional[List[str]]) -> Optional[List[str]]:
+    """Normalize user-provided annotation columns for lookup_variants()."""
+    if columns is None:
+        return None
+
+    normalized: List[str] = []
+    seen = set()
+    for col in columns:
+        candidate = str(col).strip()
+        if not candidate:
+            continue
+        if "," in candidate:
+            raise ValueError(
+                f"Invalid column name {candidate!r}: commas are not allowed in column names."
+            )
+        if "'" in candidate:
+            raise ValueError(
+                f"Invalid column name {candidate!r}: single quotes are not allowed."
+            )
+        if candidate not in seen:
+            normalized.append(candidate)
+            seen.add(candidate)
+
+    return normalized or None
+
+
+def _default_lookup_columns(cache_schema) -> List[str]:
+    """Default cache columns used when lookup args must be fully explicit."""
+    coord_cols = {"chrom", "start", "end"}
+    return [
+        field.name
+        for field in cache_schema
+        if field.name not in coord_cols and not field.name.startswith("source_")
+    ]
+
+
 def _vep_annotate_impl(
     vcf_path: str,
     cache_path: str,
@@ -100,29 +136,26 @@ def _vep_annotate_impl(
 
     # 3. Build SQL for lookup_variants() UDTF
     _VALID_MATCH_MODES = {"exact", "exact_or_colocated_ids", "exact_or_vep_existing"}
-    if match_mode not in _VALID_MATCH_MODES:
+    normalized_match_mode = match_mode.strip().lower()
+    if normalized_match_mode not in _VALID_MATCH_MODES:
         raise ValueError(
             f"Invalid match_mode: {match_mode!r}. "
             f"Must be one of {sorted(_VALID_MATCH_MODES)}"
         )
+    normalized_columns = _normalize_lookup_columns(columns)
 
     sql_args = [f"'{vcf_table_name}'", f"'{cache_table_name}'"]
-    if columns is not None:
-        cols_str = ",".join(columns)
+    if normalized_columns is not None:
+        cols_str = ",".join(normalized_columns)
         sql_args.append(f"'{cols_str}'")
         sql_args.append("true" if prune_nulls else "false")
-        sql_args.append(f"'{match_mode}'")
-    elif prune_nulls or match_mode != "exact":
-        _COORD_COLS = {"chrom", "start", "end"}
+        sql_args.append(f"'{normalized_match_mode}'")
+    elif prune_nulls or normalized_match_mode != "exact":
         cache_schema = py_get_table_schema(ctx, cache_table_name)
-        default_cols = [
-            f.name
-            for f in cache_schema
-            if f.name not in _COORD_COLS and not f.name.startswith("source_")
-        ]
+        default_cols = _default_lookup_columns(cache_schema)
         sql_args.append(f"'{','.join(default_cols)}'")
         sql_args.append("true" if prune_nulls else "false")
-        sql_args.append(f"'{match_mode}'")
+        sql_args.append(f"'{normalized_match_mode}'")
 
     sql_text = f"SELECT * FROM lookup_variants({', '.join(sql_args)})"
     logger.debug("VEP annotate SQL: %s", sql_text)

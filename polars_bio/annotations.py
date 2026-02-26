@@ -1,6 +1,6 @@
 """Annotation operations for VEP cache lookups and cache conversion.
 
-Provides ``pb.annotations.lookup_variants()`` for annotating VCF variants
+Provides ``pb.annotations.annotate_variants()`` for annotating VCF variants
 against native Ensembl, parquet, or fjall VEP caches, and
 ``pb.annotations.create_vep_cache()`` for converting native caches to
 parquet or fjall format.

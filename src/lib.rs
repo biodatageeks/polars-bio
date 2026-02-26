@@ -680,8 +680,8 @@ fn py_create_vep_kv_cache(
             })?;
 
             info!(
-                "VEP KV cache created at '{}': {} variants, {} windows, {:.1}s",
-                target_path, stats.total_variants, stats.total_windows, stats.elapsed_secs
+                "VEP KV cache created at '{}': {} variants, {} positions, {:.1}s",
+                target_path, stats.total_variants, stats.total_positions, stats.elapsed_secs
             );
 
             ctx.deregister_table(&source_table_name).ok();
