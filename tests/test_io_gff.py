@@ -1,3 +1,6 @@
+import shutil
+from pathlib import Path
+
 from _expected import DATA_DIR
 
 import polars_bio as pb
@@ -146,3 +149,19 @@ class TestIOGFF:
         # Check that gene_id exists in attributes by looking at tag names
         tag_names = [attr["tag"] for attr in attrs_list if "tag" in attr]
         assert "gene_id" in tag_names  # Should contain gene_id attribute
+
+    def test_scan_gff_numeric_prefixed_filename_projection(self, tmp_path):
+        """Regression: numeric-leading inferred table names must work in SQL-backed projection paths."""
+        src = Path(f"{DATA_DIR}/io/gff/multi_chrom.gff3.gz")
+        dst = tmp_path / "1_multi_chrom.gff3.gz"
+        shutil.copy2(src, dst)
+
+        src_tbi = Path(f"{src}.tbi")
+        if src_tbi.exists():
+            shutil.copy2(src_tbi, Path(f"{dst}.tbi"))
+
+        result = (
+            pb.scan_gff(str(dst)).select(["chrom", "attributes"]).limit(1).collect()
+        )
+        assert len(result) == 1
+        assert result.columns == ["chrom", "attributes"]

@@ -403,6 +403,10 @@ fn py_describe_vcf(
     })
 }
 
+fn quote_sql_identifier(identifier: &str) -> String {
+    format!("\"{}\"", identifier.replace('"', "\"\""))
+}
+
 #[pyfunction]
 #[pyo3(signature = (py_ctx, name, query))]
 fn py_register_view(
@@ -414,10 +418,12 @@ fn py_register_view(
     py.allow_threads(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
-        rt.block_on(ctx.sql(&format!("CREATE OR REPLACE VIEW {} AS {}", name, query)))
-            .map_err(|e| {
-                PyValueError::new_err(format!("Failed to create view '{}': {}", name, e))
-            })?;
+        let quoted_name = quote_sql_identifier(&name);
+        rt.block_on(ctx.sql(&format!(
+            "CREATE OR REPLACE VIEW {} AS {}",
+            quoted_name, query
+        )))
+        .map_err(|e| PyValueError::new_err(format!("Failed to create view '{}': {}", name, e)))?;
         Ok(())
     })
 }
