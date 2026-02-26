@@ -108,6 +108,12 @@ SCHEMAS = {
 }
 
 
+def _quote_sql_identifier(identifier: str) -> str:
+    """Quote a SQL identifier for DataFusion SQL text."""
+    escaped = str(identifier).replace('"', '""')
+    return f'"{escaped}"'
+
+
 class IOOperations:
     @staticmethod
     def read_fasta(
@@ -2167,10 +2173,11 @@ def _apply_combined_pushdown_via_sql(
     # This keeps us in pure SQL mode for maximum performance
 
     # Construct optimized SQL query
+    quoted_table = _quote_sql_identifier(table_name)
     if where_clause:
-        sql = f"SELECT {select_clause} FROM {table_name} WHERE {where_clause}"
+        sql = f"SELECT {select_clause} FROM {quoted_table} WHERE {where_clause}"
     else:
-        sql = f"SELECT {select_clause} FROM {table_name}"
+        sql = f"SELECT {select_clause} FROM {quoted_table}"
 
     # Execute with DataFusion - this leverages the proven 4x+ optimization
     return py_read_sql(ctx, sql)
@@ -2333,7 +2340,7 @@ def _lazy_scan(
         n_rows: Union[int, None],
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
-        from polars_bio.polars_bio import py_read_sql
+        from polars_bio.polars_bio import py_read_sql, py_read_table
 
         from .context import ctx as _ctx
 
@@ -2415,7 +2422,7 @@ def _lazy_scan(
         if df_for_stream is not None:
             query_df = df_for_stream
         else:
-            query_df = py_read_sql(_ctx, f"SELECT * FROM {table_to_query}")
+            query_df = py_read_table(_ctx, table_to_query)
 
         # 2. Predicate pushdown via DataFusion Expr API
         #    Flow: Polars Expr → DataFusion Expr (validates types) → SQL string
@@ -2892,9 +2899,13 @@ class GffLazyFrameWrapper:
                 # but at least warn that filtering may not work correctly
                 pass
 
+            import uuid
+
             select_clause = ", ".join([f'"{c}"' for c in columns])
-            view_name = f"{table.name}_proj"
-            sql_query = f"SELECT {select_clause} FROM {table.name}"
+            # Keep generated view identifiers SQL-safe regardless of source table name.
+            view_name = f"_pb_gff_proj_{uuid.uuid4().hex}"
+            quoted_table = _quote_sql_identifier(table.name)
+            sql_query = f"SELECT {select_clause} FROM {quoted_table}"
 
             if where_clause:
                 sql_query += f" WHERE {where_clause}"

@@ -150,11 +150,11 @@ class PileupOperations:
             n_rows: Union[int, None],
             _batch_size: Union[int, None],
         ) -> Iterator[pl.DataFrame]:
-            from polars_bio.polars_bio import py_read_sql
+            from polars_bio.polars_bio import py_read_table
 
             from .context import ctx as _ctx
 
-            query_df = py_read_sql(_ctx, f"SELECT * FROM {table_name}")
+            query_df = py_read_table(_ctx, table_name)
 
             # Projection pushdown
             projection_applied = False
