@@ -1,4 +1,5 @@
 import datetime
+import numbers
 from typing import Optional
 
 import datafusion
@@ -50,9 +51,12 @@ class Context:
         self.config = datafusion.context.SessionConfig(datafusion_conf)
 
     def set_option(self, key, value):
-        # Convert bool to string for DataFusion context
+        # The Rust/PyO3 binding expects option values as strings.
+        # Keep bools lowercase for DataFusion semantics and stringify numerics.
         if isinstance(value, bool):
             value = "true" if value else "false"
+        elif isinstance(value, numbers.Number):
+            value = str(value)
         self.ctx.set_option(key, value)
         # Only mirror standard DataFusion options to the Python SessionConfig.
         # Extension namespaces (e.g., `bio.*`, `datafusion.bio.*`) are handled

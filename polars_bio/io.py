@@ -251,6 +251,7 @@ class IOOperations:
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
+        samples: Union[list[str], None] = None,
     ) -> pl.DataFrame:
         """
         Read a VCF file into a DataFrame.
@@ -265,6 +266,7 @@ class IOOperations:
             path: The path to the VCF file.
             info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
             format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`list<struct<sample_id, values>>`).
+            samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -308,19 +310,20 @@ class IOOperations:
             ```
         """
         lf = IOOperations.scan_vcf(
-            path,
-            info_fields,
-            format_fields,
-            chunk_size,
-            concurrent_fetches,
-            allow_anonymous,
-            enable_request_payer,
-            max_retries,
-            timeout,
-            compression_type,
-            projection_pushdown,
-            predicate_pushdown,
-            use_zero_based,
+            path=path,
+            info_fields=info_fields,
+            format_fields=format_fields,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+            use_zero_based=use_zero_based,
+            samples=samples,
         )
         # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
         zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
@@ -345,6 +348,7 @@ class IOOperations:
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
+        samples: Union[list[str], None] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a VCF file into a LazyFrame.
@@ -359,6 +363,7 @@ class IOOperations:
             path: The path to the VCF file.
             info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
             format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`list<struct<sample_id, values>>`).
+            samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -410,6 +415,7 @@ class IOOperations:
         vcf_read_options = VcfReadOptions(
             info_fields=initial_info_fields,
             format_fields=format_fields,
+            samples=samples,
             object_storage_options=object_storage_options,
             zero_based=zero_based,
         )

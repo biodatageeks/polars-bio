@@ -316,10 +316,11 @@ pub(crate) async fn register_table(
                 "Registering VCF table {} with options: {:?}",
                 table_name, vcf_read_options
             );
-            let table_provider = VcfTableProvider::new(
+            let table_provider = VcfTableProvider::new_with_samples(
                 path.to_string(),
                 vcf_read_options.info_fields,
                 vcf_read_options.format_fields,
+                vcf_read_options.samples,
                 vcf_read_options.object_storage_options.clone(),
                 vcf_read_options.zero_based,
             )
