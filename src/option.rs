@@ -312,13 +312,13 @@ pub struct VcfReadOptions {
 #[pymethods]
 impl VcfReadOptions {
     #[new]
-    #[pyo3(signature = (info_fields=None, format_fields=None, samples=None, object_storage_options=None, zero_based=true))]
+    #[pyo3(signature = (info_fields=None, format_fields=None, object_storage_options=None, zero_based=true, samples=None))]
     pub fn new(
         info_fields: Option<Vec<String>>,
         format_fields: Option<Vec<String>>,
-        samples: Option<Vec<String>>,
         object_storage_options: Option<PyObjectStorageOptions>,
         zero_based: bool,
+        samples: Option<Vec<String>>,
     ) -> Self {
         VcfReadOptions {
             info_fields,
