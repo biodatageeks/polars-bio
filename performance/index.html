@@ -1,0 +1,7407 @@
+<!DOCTYPE html>
+<html class="no-js" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<link href="https://biodatageeks.org/polars-bio/performance/" rel="canonical"/>
+<link href="../assets/logo.png" rel="icon"/>
+<meta content="mkdocs-1.6.1, mkdocs-material-9.7.1" name="generator"/>
+<title>Results summary 📈 - polars-bio</title>
+<link href="../assets/stylesheets/main.484c7ddc.min.css" rel="stylesheet"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
+<style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+<link href="../assets/_markdown_exec_pyodide.css" rel="stylesheet"/>
+<link href="../assets/_mkdocstrings.css" rel="stylesheet"/>
+<script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+<script id="__analytics">function __md_analytics(){function e(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],e("js",new Date),e("config","G-1M9PLLGBYS"),document.addEventListener("DOMContentLoaded",(function(){document.forms.search&&document.forms.search.query.addEventListener("blur",(function(){this.value&&e("event","search",{search_term:this.value})}));document$.subscribe((function(){var t=document.forms.feedback;if(void 0!==t)for(var a of t.querySelectorAll("[type=submit]"))a.addEventListener("click",(function(a){a.preventDefault();var n=document.location.pathname,d=this.getAttribute("data-md-value");e("event","feedback",{page:n,data:d}),t.firstElementChild.disabled=!0;var r=t.querySelector(".md-feedback__note [data-md-value='"+d+"']");r&&(r.hidden=!1)})),t.hidden=!1})),location$.subscribe((function(t){e("config","G-1M9PLLGBYS",{page_path:t.pathname})}))}));var t=document.createElement("script");t.async=!0,t.src="https://www.googletagmanager.com/gtag/js?id=G-1M9PLLGBYS",document.getElementById("__analytics").insertAdjacentElement("afterEnd",t)}</script>
+<script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
+<meta content="website" property="og:type"/>
+<meta content="Results summary 📈 - polars-bio" property="og:title"/>
+<meta content="https://biodatageeks.org/polars-bio/assets/images/social/performance.png" property="og:image"/>
+<meta content="image/png" property="og:image:type"/>
+<meta content="1200" property="og:image:width"/>
+<meta content="630" property="og:image:height"/>
+<meta content="https://biodatageeks.org/polars-bio/performance/" property="og:url"/>
+<meta content="summary_large_image" property="twitter:card"/>
+<meta content="Results summary 📈 - polars-bio" property="twitter:title"/>
+<meta content="https://biodatageeks.org/polars-bio/assets/images/social/performance.png" property="twitter:image"/>
+<link href="../assets/stylesheets/glightbox.min.css" rel="stylesheet"/><script src="../assets/javascripts/glightbox.min.js"></script><style id="glightbox-style">
+            html.glightbox-open { overflow: initial; height: 100%; }
+            .gslide-title { margin-top: 0px; user-select: text; }
+            .gslide-desc { color: #666; user-select: text; }
+            .gslide-image img { background: white; }
+            .gscrollbar-fixer { padding-right: 15px; }
+            .gdesc-inner { font-size: 0.75rem; }
+            body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color); }
+            body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color); }
+            body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color); }
+        </style></head>
+<body dir="ltr">
+<input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
+<input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
+<label class="md-overlay" for="__drawer"></label>
+<div data-md-component="skip">
+<a class="md-skip" href="#results-summary">
+          Skip to content
+        </a>
+</div>
+<div data-md-component="announce">
+</div>
+<div data-md-color-scheme="default" data-md-component="outdated" hidden="">
+</div>
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+<nav aria-label="Header" class="md-header__inner md-grid">
+<a aria-label="polars-bio" class="md-header__button md-logo" data-md-component="logo" href=".." title="polars-bio">
+<img alt="logo" src="../assets/logo.png"/>
+</a>
+<label class="md-header__button md-icon" for="__drawer">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+</label>
+<div class="md-header__title" data-md-component="header-title">
+<div class="md-header__ellipsis">
+<div class="md-header__topic">
+<span class="md-ellipsis">
+            polars-bio
+          </span>
+</div>
+<div class="md-header__topic" data-md-component="header-topic">
+<span class="md-ellipsis">
+            
+              Results summary 📈
+            
+          </span>
+</div>
+</div>
+</div>
+<script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+<label class="md-header__button md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+</label>
+<div class="md-search" data-md-component="search" role="dialog">
+<label class="md-search__overlay" for="__search"></label>
+<div class="md-search__inner" role="search">
+<form class="md-search__form" name="search">
+<input aria-label="Search" autocapitalize="off" autocomplete="off" autocorrect="off" class="md-search__input" data-md-component="search-query" name="query" placeholder="Search" required="" spellcheck="false" type="text"/>
+<label class="md-search__icon md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+</label>
+<nav aria-label="Search" class="md-search__options">
+<button aria-label="Clear" class="md-search__icon md-icon" tabindex="-1" title="Clear" type="reset">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+</button>
+</nav>
+</form>
+<div class="md-search__output">
+<div class="md-search__scrollwrap" data-md-scrollfix="" tabindex="0">
+<div class="md-search-result" data-md-component="search-result">
+<div class="md-search-result__meta">
+            Initializing search
+          </div>
+<ol class="md-search-result__list" role="presentation"></ol>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="md-header__source">
+<a class="md-source" data-md-component="source" href="https://github.com/biodatageeks/polars-bio" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+</div>
+<div class="md-source__repository">
+    biodatageeks/polars-bio
+  </div>
+</a>
+</div>
+</nav>
+<nav aria-label="Tabs" class="md-tabs" data-md-component="tabs">
+<div class="md-grid">
+<ul class="md-tabs__list">
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="..">
+          
+  
+  
+  Home
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../quickstart/">
+        
+  
+  
+    
+  
+  🏃🏼‍♂️ Quick start
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../features/">
+        
+  
+  
+    
+  
+  🔨Features
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../notebooks/tutorial/">
+        
+  
+  
+    
+  
+  📚Tutorial
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../api/">
+        
+  
+  
+    
+  
+  ⚙️ API reference
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../faq/">
+        
+  
+  
+    
+  
+  ❓ FAQ
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../supplement/">
+        
+  
+  
+    
+  
+  🚀 Performance
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../developers/">
+        
+  
+  
+    
+  
+  🛠️ Developers guide
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../contact/">
+        
+  
+  
+    
+  
+  📡 Contact
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../blog/">
+          
+  
+  
+  📖 Blog
+
+        </a>
+</li>
+</ul>
+</div>
+</nav>
+</header>
+<div class="md-container" data-md-component="container">
+<main class="md-main" data-md-component="main">
+<div class="md-main__inner md-grid">
+<div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Navigation" class="md-nav md-nav--primary md-nav--lifted" data-md-level="0">
+<label class="md-nav__title" for="__drawer">
+<a aria-label="polars-bio" class="md-nav__button md-logo" data-md-component="logo" href=".." title="polars-bio">
+<img alt="logo" src="../assets/logo.png"/>
+</a>
+    polars-bio
+  </label>
+<div class="md-nav__source">
+<a class="md-source" data-md-component="source" href="https://github.com/biodatageeks/polars-bio" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+</div>
+<div class="md-source__repository">
+    biodatageeks/polars-bio
+  </div>
+</a>
+</div>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_1" type="checkbox"/>
+<label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+<span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_1_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_1">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    Home
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="..">
+<span class="md-ellipsis">
+    
+  
+    polars-bio
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../quickstart/">
+<span class="md-ellipsis">
+    
+  
+    🏃🏼‍♂️ Quick start
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../features/">
+<span class="md-ellipsis">
+    
+  
+    🔨Features
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../notebooks/tutorial/">
+<span class="md-ellipsis">
+    
+  
+    📚Tutorial
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../api/">
+<span class="md-ellipsis">
+    
+  
+    ⚙️ API reference
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../faq/">
+<span class="md-ellipsis">
+    
+  
+    ❓ FAQ
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../supplement/">
+<span class="md-ellipsis">
+    
+  
+    🚀 Performance
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../developers/">
+<span class="md-ellipsis">
+    
+  
+    🛠️ Developers guide
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../contact/">
+<span class="md-ellipsis">
+    
+  
+    📡 Contact
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../quickstart/">
+<span class="md-ellipsis">
+    
+  
+    🏃🏼‍♂️ Quick start
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../features/">
+<span class="md-ellipsis">
+    
+  
+    🔨Features
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../notebooks/tutorial/">
+<span class="md-ellipsis">
+    
+  
+    📚Tutorial
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../api/">
+<span class="md-ellipsis">
+    
+  
+    ⚙️ API reference
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../faq/">
+<span class="md-ellipsis">
+    
+  
+    ❓ FAQ
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../supplement/">
+<span class="md-ellipsis">
+    
+  
+    🚀 Performance
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../developers/">
+<span class="md-ellipsis">
+    
+  
+    🛠️ Developers guide
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../contact/">
+<span class="md-ellipsis">
+    
+  
+    📡 Contact
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_10" type="checkbox"/>
+<label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+<span class="md-ellipsis">
+    
+  
+    📖 Blog
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_10_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_10">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    📖 Blog
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../blog/">
+<span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_10_2" type="checkbox"/>
+<label class="md-nav__link" for="__nav_10_2" id="__nav_10_2_label" tabindex="0">
+<span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_10_2_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_10_2">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../blog/category/benchmarks/">
+<span class="md-ellipsis">
+    
+  
+    benchmarks
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../blog/category/file-formats/">
+<span class="md-ellipsis">
+    
+  
+    file formats
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../blog/category/performance/">
+<span class="md-ellipsis">
+    
+  
+    performance
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../blog/category/releases/">
+<span class="md-ellipsis">
+    
+  
+    releases
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#current-performance">
+<span class="md-ellipsis">
+      
+        Current Performance 🔥
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#single-thread-performance">
+<span class="md-ellipsis">
+      
+        Single-thread performance 🏃‍
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#parallel-performance">
+<span class="md-ellipsis">
+      
+        Parallel performance 🏃‍🏃‍
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#benchmarks">
+<span class="md-ellipsis">
+      
+        Benchmarks 🧪
+      
+    </span>
+</a>
+<nav aria-label="Benchmarks 🧪" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#detailed-results-shortcuts">
+<span class="md-ellipsis">
+      
+        Detailed results shortcuts 👨‍🔬
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#test-datasets">
+<span class="md-ellipsis">
+      
+        Test datasets 🗃️
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#test-libraries">
+<span class="md-ellipsis">
+      
+        Test libraries 📚
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#output-compatibility">
+<span class="md-ellipsis">
+      
+        Output compatibility 🖥️
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#binary-operations">
+<span class="md-ellipsis">
+      
+        Binary operations
+      
+    </span>
+</a>
+<nav aria-label="Binary operations" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#overlap-operation">
+<span class="md-ellipsis">
+      
+        Overlap operation
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#apple-silicon-macos">
+<span class="md-ellipsis">
+      
+        Apple Silicon (macOS) 🍎
+      
+    </span>
+</a>
+<nav aria-label="Apple Silicon (macOS) 🍎" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size">
+<span class="md-ellipsis">
+      
+        S-size
+      
+    </span>
+</a>
+<nav aria-label="S-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-1-2">
+<span class="md-ellipsis">
+      
+        S-size (1-2)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-2-7">
+<span class="md-ellipsis">
+      
+        S-size (2-7)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-1-0">
+<span class="md-ellipsis">
+      
+        S-size (1-0)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size">
+<span class="md-ellipsis">
+      
+        M-size
+      
+    </span>
+</a>
+<nav aria-label="M-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size-7-0">
+<span class="md-ellipsis">
+      
+        M-size (7-0)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size-7-3">
+<span class="md-ellipsis">
+      
+        M-size (7-3)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size">
+<span class="md-ellipsis">
+      
+        L-size
+      
+    </span>
+</a>
+<nav aria-label="L-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-0-8">
+<span class="md-ellipsis">
+      
+        L-size (0-8)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-4-8">
+<span class="md-ellipsis">
+      
+        L-size (4-8)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-7-8">
+<span class="md-ellipsis">
+      
+        L-size (7-8)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#xl-size">
+<span class="md-ellipsis">
+      
+        XL-size
+      
+    </span>
+</a>
+<nav aria-label="XL-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#xl-size-3-0">
+<span class="md-ellipsis">
+      
+        XL-size (3-0)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#amd-genoa-linux">
+<span class="md-ellipsis">
+      
+        AMD Genoa (Linux) 🐧
+      
+    </span>
+</a>
+<nav aria-label="AMD Genoa (Linux) 🐧" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size_1">
+<span class="md-ellipsis">
+      
+        S-size
+      
+    </span>
+</a>
+<nav aria-label="S-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-1-2_1">
+<span class="md-ellipsis">
+      
+        S-size (1-2)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-2-7_1">
+<span class="md-ellipsis">
+      
+        S-size (2-7)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-1-0_1">
+<span class="md-ellipsis">
+      
+        S-size (1-0)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size_1">
+<span class="md-ellipsis">
+      
+        M-size
+      
+    </span>
+</a>
+<nav aria-label="M-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size-7-0_1">
+<span class="md-ellipsis">
+      
+        M-size (7-0)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size-7-3_1">
+<span class="md-ellipsis">
+      
+        M-size (7-3)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size_1">
+<span class="md-ellipsis">
+      
+        L-size
+      
+    </span>
+</a>
+<nav aria-label="L-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-0-8_1">
+<span class="md-ellipsis">
+      
+        L-size (0-8)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-4-8_1">
+<span class="md-ellipsis">
+      
+        L-size (4-8)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-7-8_1">
+<span class="md-ellipsis">
+      
+        L-size (7-8)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#intel-emerald-rapids-linux">
+<span class="md-ellipsis">
+      
+        Intel Emerald Rapids (Linux) 🐧
+      
+    </span>
+</a>
+<nav aria-label="Intel Emerald Rapids (Linux) 🐧" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size_2">
+<span class="md-ellipsis">
+      
+        S-size
+      
+    </span>
+</a>
+<nav aria-label="S-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-1-2_2">
+<span class="md-ellipsis">
+      
+        S-size (1-2)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-2-7_2">
+<span class="md-ellipsis">
+      
+        S-size (2-7)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-1-0_2">
+<span class="md-ellipsis">
+      
+        S-size (1-0)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size_2">
+<span class="md-ellipsis">
+      
+        M-size
+      
+    </span>
+</a>
+<nav aria-label="M-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size-7-0_2">
+<span class="md-ellipsis">
+      
+        M-size (7-0)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size-7-3_2">
+<span class="md-ellipsis">
+      
+        M-size (7-3)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size_2">
+<span class="md-ellipsis">
+      
+        L-size
+      
+    </span>
+</a>
+<nav aria-label="L-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-0-8_2">
+<span class="md-ellipsis">
+      
+        L-size (0-8)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-4-8_2">
+<span class="md-ellipsis">
+      
+        L-size (4-8)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-7-8_2">
+<span class="md-ellipsis">
+      
+        L-size (7-8)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#sorted-input">
+<span class="md-ellipsis">
+      
+        Sorted input
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#nearest-closest-operation">
+<span class="md-ellipsis">
+      
+        Nearest (closest) operation
+      
+    </span>
+</a>
+<nav aria-label="Nearest (closest) operation" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#apple-silicon-macos_1">
+<span class="md-ellipsis">
+      
+        Apple Silicon (macOS) 🍎
+      
+    </span>
+</a>
+<nav aria-label="Apple Silicon (macOS) 🍎" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size_3">
+<span class="md-ellipsis">
+      
+        S-size
+      
+    </span>
+</a>
+<nav aria-label="S-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-1-2_3">
+<span class="md-ellipsis">
+      
+        S-size (1-2)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-2-7_3">
+<span class="md-ellipsis">
+      
+        S-size (2-7)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-1-0_3">
+<span class="md-ellipsis">
+      
+        S-size (1-0)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size_3">
+<span class="md-ellipsis">
+      
+        M-size
+      
+    </span>
+</a>
+<nav aria-label="M-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size-7-0_3">
+<span class="md-ellipsis">
+      
+        M-size (7-0)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size-7-3_3">
+<span class="md-ellipsis">
+      
+        M-size (7-3)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size_3">
+<span class="md-ellipsis">
+      
+        L-size
+      
+    </span>
+</a>
+<nav aria-label="L-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-0-8_3">
+<span class="md-ellipsis">
+      
+        L-size (0-8)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-4-8_3">
+<span class="md-ellipsis">
+      
+        L-size (4-8)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-7-8_3">
+<span class="md-ellipsis">
+      
+        L-size (7-8)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-3-0">
+<span class="md-ellipsis">
+      
+        L-size (3-0)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#intel-emerald-rapids-linux_1">
+<span class="md-ellipsis">
+      
+        Intel Emerald Rapids (Linux) 🐧
+      
+    </span>
+</a>
+<nav aria-label="Intel Emerald Rapids (Linux) 🐧" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size_4">
+<span class="md-ellipsis">
+      
+        S-size
+      
+    </span>
+</a>
+<nav aria-label="S-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-1-2_4">
+<span class="md-ellipsis">
+      
+        S-size (1-2)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-2-7_4">
+<span class="md-ellipsis">
+      
+        S-size (2-7)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size-1-0_4">
+<span class="md-ellipsis">
+      
+        S-size (1-0)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size_4">
+<span class="md-ellipsis">
+      
+        M-size
+      
+    </span>
+</a>
+<nav aria-label="M-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size-7-0_4">
+<span class="md-ellipsis">
+      
+        M-size (7-0)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size-7-3_4">
+<span class="md-ellipsis">
+      
+        M-size (7-3)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size_4">
+<span class="md-ellipsis">
+      
+        L-size
+      
+    </span>
+</a>
+<nav aria-label="L-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-0-8_4">
+<span class="md-ellipsis">
+      
+        L-size (0-8)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-4-8_4">
+<span class="md-ellipsis">
+      
+        L-size (4-8)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-7-8_4">
+<span class="md-ellipsis">
+      
+        L-size (7-8)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size-3-0_1">
+<span class="md-ellipsis">
+      
+        L-size (3-0)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#xl-size_1">
+<span class="md-ellipsis">
+      
+        XL-size
+      
+    </span>
+</a>
+<nav aria-label="XL-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#xl-size-0-4">
+<span class="md-ellipsis">
+      
+        XL-size (0-4)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#xl-size-0-5">
+<span class="md-ellipsis">
+      
+        XL-size (0-5)
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#parallel-execution-and-scalability">
+<span class="md-ellipsis">
+      
+        Parallel execution and scalability
+      
+    </span>
+</a>
+<nav aria-label="Parallel execution and scalability" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#overlap-operation_1">
+<span class="md-ellipsis">
+      
+        Overlap operation
+      
+    </span>
+</a>
+<nav aria-label="Overlap operation" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#apple-silicon-macos_2">
+<span class="md-ellipsis">
+      
+        Apple Silicon (macOS) 🍎
+      
+    </span>
+</a>
+<nav aria-label="Apple Silicon (macOS) 🍎" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#0-8">
+<span class="md-ellipsis">
+      
+        0-8
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#7-8">
+<span class="md-ellipsis">
+      
+        7-8
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2-5">
+<span class="md-ellipsis">
+      
+        2-5
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#3-0">
+<span class="md-ellipsis">
+      
+        3-0
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#intel-emerald-rapids-linux_2">
+<span class="md-ellipsis">
+      
+        Intel Emerald Rapids (Linux) 🐧
+      
+    </span>
+</a>
+<nav aria-label="Intel Emerald Rapids (Linux) 🐧" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#0-8_1">
+<span class="md-ellipsis">
+      
+        0-8
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#7-8_1">
+<span class="md-ellipsis">
+      
+        7-8
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2-5_1">
+<span class="md-ellipsis">
+      
+        2-5
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#3-0_1">
+<span class="md-ellipsis">
+      
+        3-0
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#nearest-operation">
+<span class="md-ellipsis">
+      
+        Nearest operation
+      
+    </span>
+</a>
+<nav aria-label="Nearest operation" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#apple-silicon-macos_3">
+<span class="md-ellipsis">
+      
+        Apple Silicon (macOS) 🍎
+      
+    </span>
+</a>
+<nav aria-label="Apple Silicon (macOS) 🍎" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#7-8_2">
+<span class="md-ellipsis">
+      
+        7-8
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#0-8_2">
+<span class="md-ellipsis">
+      
+        0-8
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#0-3">
+<span class="md-ellipsis">
+      
+        0-3
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2-5_2">
+<span class="md-ellipsis">
+      
+        2-5
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#intel-emerald-rapids-linux_3">
+<span class="md-ellipsis">
+      
+        Intel Emerald Rapids (Linux) 🐧
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#7-8_3">
+<span class="md-ellipsis">
+      
+        7-8
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#0-8_3">
+<span class="md-ellipsis">
+      
+        0-8
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#0-3_1">
+<span class="md-ellipsis">
+      
+        0-3
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2-5_3">
+<span class="md-ellipsis">
+      
+        2-5
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#dataframes-comparison">
+<span class="md-ellipsis">
+      
+        DataFrames comparison
+      
+    </span>
+</a>
+<nav aria-label="DataFrames comparison" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#apple-silicon-macos_4">
+<span class="md-ellipsis">
+      
+        Apple Silicon (macOS) 🍎
+      
+    </span>
+</a>
+<nav aria-label="Apple Silicon (macOS) 🍎" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size_5">
+<span class="md-ellipsis">
+      
+        S-size
+      
+    </span>
+</a>
+<nav aria-label="S-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#1-2">
+<span class="md-ellipsis">
+      
+        1-2
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2-7">
+<span class="md-ellipsis">
+      
+        2-7
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#1-0">
+<span class="md-ellipsis">
+      
+        1-0
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size_5">
+<span class="md-ellipsis">
+      
+        M-size
+      
+    </span>
+</a>
+<nav aria-label="M-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#7-0">
+<span class="md-ellipsis">
+      
+        7-0
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#7-3">
+<span class="md-ellipsis">
+      
+        7-3
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size_5">
+<span class="md-ellipsis">
+      
+        L-size
+      
+    </span>
+</a>
+<nav aria-label="L-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#0-8_4">
+<span class="md-ellipsis">
+      
+        0-8
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#4-8">
+<span class="md-ellipsis">
+      
+        4-8
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#7-8_4">
+<span class="md-ellipsis">
+      
+        7-8
+      
+    </span>
+</a>
+<nav aria-label="7-8" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#memory-characteristic-polars_bio">
+<span class="md-ellipsis">
+      
+        Memory characteristic polars_bio
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#memory-characteristic-polars_bio_pandas_pd">
+<span class="md-ellipsis">
+      
+        Memory characteristic polars_bio_pandas_pd
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#memory-characteristic-polars_bio_polars_eager">
+<span class="md-ellipsis">
+      
+        Memory characteristic polars_bio_polars_eager
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#intel-emerald-rapids-linux_4">
+<span class="md-ellipsis">
+      
+        Intel Emerald Rapids (Linux) 🐧
+      
+    </span>
+</a>
+<nav aria-label="Intel Emerald Rapids (Linux) 🐧" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#s-size_6">
+<span class="md-ellipsis">
+      
+        S-size
+      
+    </span>
+</a>
+<nav aria-label="S-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#1-2_1">
+<span class="md-ellipsis">
+      
+        1-2
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2-7_1">
+<span class="md-ellipsis">
+      
+        2-7
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#1-0_1">
+<span class="md-ellipsis">
+      
+        1-0
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#m-size_6">
+<span class="md-ellipsis">
+      
+        M-size
+      
+    </span>
+</a>
+<nav aria-label="M-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#7-0_1">
+<span class="md-ellipsis">
+      
+        7-0
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#7-3_1">
+<span class="md-ellipsis">
+      
+        7-3
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#l-size_6">
+<span class="md-ellipsis">
+      
+        L-size
+      
+    </span>
+</a>
+<nav aria-label="L-size" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#0-8_5">
+<span class="md-ellipsis">
+      
+        0-8
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#4-8_1">
+<span class="md-ellipsis">
+      
+        4-8
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#7-8_5">
+<span class="md-ellipsis">
+      
+        7-8
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#parallel-execution">
+<span class="md-ellipsis">
+      
+        Parallel execution
+      
+    </span>
+</a>
+<nav aria-label="Parallel execution" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#apple-silicon-macos_5">
+<span class="md-ellipsis">
+      
+        Apple Silicon (macOS) 🍎
+      
+    </span>
+</a>
+<nav aria-label="Apple Silicon (macOS) 🍎" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#7-8_6">
+<span class="md-ellipsis">
+      
+        7-8
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#memory-characteristics">
+<span class="md-ellipsis">
+      
+        Memory characteristics
+      
+    </span>
+</a>
+<nav aria-label="Memory characteristics" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#apple-silicon-macos_6">
+<span class="md-ellipsis">
+      
+        Apple Silicon (macOS) 🍎
+      
+    </span>
+</a>
+<nav aria-label="Apple Silicon (macOS) 🍎" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#read-parquet-files-and-count-overlaps-7-8">
+<span class="md-ellipsis">
+      
+        Read Parquet files and count overlaps 7-8
+      
+    </span>
+</a>
+<nav aria-label="Read Parquet files and count overlaps 7-8" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#polars-bio">
+<span class="md-ellipsis">
+      
+        polars-bio
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#bioframe">
+<span class="md-ellipsis">
+      
+        bioframe
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#pyranges0">
+<span class="md-ellipsis">
+      
+        pyranges0
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#pyranges1">
+<span class="md-ellipsis">
+      
+        pyranges1
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#calculate-overlaps-and-export-to-a-csv-file-7-8">
+<span class="md-ellipsis">
+      
+        Calculate overlaps and export to a CSV file 7-8
+      
+    </span>
+</a>
+<nav aria-label="Calculate overlaps and export to a CSV file 7-8" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#polars-bio_1">
+<span class="md-ellipsis">
+      
+        polars-bio
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#polars-bio_stream">
+<span class="md-ellipsis">
+      
+        polars-bio_stream
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#bioframe_1">
+<span class="md-ellipsis">
+      
+        bioframe
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#pyranges0_1">
+<span class="md-ellipsis">
+      
+        pyranges0
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#pyranges1_1">
+<span class="md-ellipsis">
+      
+        pyranges1
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#how-to-run-the-benchmarks">
+<span class="md-ellipsis">
+      
+        How to run the benchmarks
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-content" data-md-component="content">
+<article class="md-content__inner md-typeset">
+<a class="md-content__button md-icon" href="https://github.com/biodatageeks/polars-bio/edit/master/docs/performance.md" rel="edit" title="Edit this page">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"></path></svg>
+</a>
+<h1 id="results-summary">Results summary 📈<a class="headerlink" href="#results-summary" title="Permanent link"></a></h1>
+<h2 id="current-performance">Current Performance 🔥<a class="headerlink" href="#current-performance" title="Permanent link"></a></h2>
+<p><strong>Latest Benchmark Comparison</strong>: <a href="https://biodatageeks.org/polars-bio/benchmark-comparison/">View Interactive Performance Report</a></p>
+<p>The benchmark comparison shows performance across three key operations (overlap, nearest, count_overlaps) comparing polars-bio against alternative tools (pyranges1, genomicranges, bioframe). Updated automatically on each release.</p>
+<hr/>
+<h2 id="single-thread-performance">Single-thread performance 🏃‍<a class="headerlink" href="#single-thread-performance" title="Permanent link"></a></h2>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/overlap-single.png"><img alt="overlap-single.png" src="../assets/overlap-single.png"/></a></p>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/nearest-single.png"><img alt="overlap-single.png" src="../assets/nearest-single.png"/></a></p>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/count-overlaps-single.png"><img alt="count-overlaps-single.png" src="../assets/count-overlaps-single.png"/></a></p>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/coverage-single.png"><img alt="coverage-single.png" src="../assets/coverage-single.png"/></a></p>
+<h2 id="parallel-performance">Parallel performance 🏃‍🏃‍<a class="headerlink" href="#parallel-performance" title="Permanent link"></a></h2>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/overlap-parallel.png"><img alt="overlap-parallel.png" src="../assets/overlap-parallel.png"/></a></p>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/nearest-parallel.png"><img alt="overlap-parallel.png" src="../assets/nearest-parallel.png"/></a></p>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/count-overlaps-parallel.png"><img alt="count-overlaps-parallel.png" src="../assets/count-overlaps-parallel.png"/></a></p>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/coverage-parallel.png"><img alt="coverage-parallel.png" src="../assets/coverage-parallel.png"/></a></p>
+<h2 id="benchmarks">Benchmarks 🧪<a class="headerlink" href="#benchmarks" title="Permanent link"></a></h2>
+<h3 id="detailed-results-shortcuts">Detailed results shortcuts 👨‍🔬<a class="headerlink" href="#detailed-results-shortcuts" title="Permanent link"></a></h3>
+<ul>
+<li><a href="#binary-operations">Binary operations</a></li>
+<li><a href="#parallel-execution-and-scalability">Parallel execution and scalability</a></li>
+<li><a href="#memory-characteristics">Memory characteristics</a></li>
+<li><a href="#dataframes-comparison">DataFrame formats performance</a></li>
+</ul>
+<h3 id="test-datasets">Test datasets 🗃️<a class="headerlink" href="#test-datasets" title="Permanent link"></a></h3>
+<p><a href="https://github.com/databio/AIList">AIList</a> dataset was used for benchmarking.</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Dataset#</th>
+<th style="text-align: left;">Name</th>
+<th style="text-align: left;">Size(x1000)</th>
+<th style="text-align: left;">Non-flatness</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">0</td>
+<td style="text-align: left;">chainRn4</td>
+<td style="text-align: left;">2,351</td>
+<td style="text-align: left;">6</td>
+</tr>
+<tr>
+<td style="text-align: left;">1</td>
+<td style="text-align: left;">fBrain</td>
+<td style="text-align: left;">199</td>
+<td style="text-align: left;">1</td>
+</tr>
+<tr>
+<td style="text-align: left;">2</td>
+<td style="text-align: left;">exons</td>
+<td style="text-align: left;">439</td>
+<td style="text-align: left;">2</td>
+</tr>
+<tr>
+<td style="text-align: left;">3</td>
+<td style="text-align: left;">chainOrnAna1</td>
+<td style="text-align: left;">1,957</td>
+<td style="text-align: left;">6</td>
+</tr>
+<tr>
+<td style="text-align: left;">4</td>
+<td style="text-align: left;">chainVicPac2</td>
+<td style="text-align: left;">7,684</td>
+<td style="text-align: left;">8</td>
+</tr>
+<tr>
+<td style="text-align: left;">5</td>
+<td style="text-align: left;">chainXenTro3Link</td>
+<td style="text-align: left;">50,981</td>
+<td style="text-align: left;">7</td>
+</tr>
+<tr>
+<td style="text-align: left;">6</td>
+<td style="text-align: left;">chainMonDom5Link</td>
+<td style="text-align: left;">128,187</td>
+<td style="text-align: left;">7</td>
+</tr>
+<tr>
+<td style="text-align: left;">7</td>
+<td style="text-align: left;">ex-anno</td>
+<td style="text-align: left;">1,194</td>
+<td style="text-align: left;">2</td>
+</tr>
+<tr>
+<td style="text-align: left;">8</td>
+<td style="text-align: left;">ex-rna</td>
+<td style="text-align: left;">9,945</td>
+<td style="text-align: left;">7</td>
+</tr>
+</tbody>
+</table>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Test dataset in <em>Parquet</em> format can be downloaded from:</p>
+<ul>
+<li>for <a href="https://drive.google.com/file/d/1lctmude31mSAh9fWjI60K1bDrbeDPGfm/view?usp=sharing">single-thread</a> tests</li>
+<li>for <a href="https://drive.google.com/file/d/1Sj7nTB5gCUq9nbeQOg4zzS4tKO37M5Nd/view?usp=sharing">parallel</a> tests (8 partitions per dataset)</li>
+</ul>
+</div>
+<h3 id="test-libraries">Test libraries 📚<a class="headerlink" href="#test-libraries" title="Permanent link"></a></h3>
+<ul>
+<li><a href="https://github.com/open2c/bioframe">Bioframe</a>-0.7.2</li>
+<li><a href="https://github.com/pyranges/pyranges">PyRanges0</a>-0.0.132</li>
+<li><a href="https://github.com/pyranges/pyranges_1.x">PyRanges1</a>-<a href="https://github.com/mwiewior/pyranges1/commit/e634a110e7c00d7c5458d69d5e39bec41d23a2fe">e634a11</a></li>
+<li><a href="https://github.com/daler/pybedtools">pybedtools</a>-0.10.0</li>
+<li><a href="https://gitlab.com/gtamazian/pygenomics">PyGenomics</a>-0.1.1</li>
+<li><a href="https://github.com/BiocPy/GenomicRanges">GenomicRanges</a>-0.5.0</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Some tests were not conducted for all libraries in case of poor performance of specific tools, e.g. <code>pybedtools</code>, <code>PyGenomics</code> and <code>GenomicRanges</code> for the largest outputs.</p>
+</div>
+<h3 id="output-compatibility">Output compatibility 🖥️<a class="headerlink" href="#output-compatibility" title="Permanent link"></a></h3>
+<p>See <a href="../features/#api-comparison-between-libraries">API comparison</a> for more details on parameters used in the benchmark.</p>
+<h2 id="binary-operations">Binary operations<a class="headerlink" href="#binary-operations" title="Permanent link"></a></h2>
+<h3 id="overlap-operation">Overlap operation<a class="headerlink" href="#overlap-operation" title="Permanent link"></a></h3>
+<p>Test cases were categorized based on the size 👕 of the input datasets and the expected output size into the following groups:</p>
+<ul>
+<li><strong>S-size</strong>: output &lt; 1,000,000</li>
+<li><strong>M-size</strong>: 1,000,000 &lt; output &lt; 100,000,000</li>
+<li><strong>L-size</strong>: 100,000,000 &lt; output &lt; 1,000,000,000</li>
+<li><strong>XL-size</strong>: output &gt; 1,000,000,000</li>
+</ul>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<ol>
+<li>Naming convention for the test cases is as follows <code>test-case-size (dataset-1-id, dataset-2-id)</code>, e.g.: <code>S-size (1-2)</code>, where <code>1</code> and <code>2</code> are the indices of the datasets used in the test case.</li>
+<li>In the case of all but <em>polars-bio</em> native reader the reported timings <strong>exclude</strong> the time to read the data from disk and do the required preprocessing (e.g. Python object creation) and column mappings.</li>
+</ol>
+</div>
+<h3 id="apple-silicon-macos">Apple Silicon (macOS) 🍎<a class="headerlink" href="#apple-silicon-macos" title="Permanent link"></a></h3>
+<p>Here is the configuration of the Apple Silicon machine used for benchmarking:</p>
+<ul>
+<li>cpu architecture: <code>arm64</code></li>
+<li>cpu name: <code>Apple M3 Max</code></li>
+<li>cpu cores: <code>16</code></li>
+<li>memory: <code>64 GB</code></li>
+<li>kernel: <code>Darwin Kernel Version 24.2.0: Fri Dec  6 19:02:12 PST 2024; root:xnu-11215.61.5~2/RELEASE_ARM64_T6031</code></li>
+<li>system: <code>Darwin</code></li>
+<li>os-release: <code>macOS-15.2-arm64-arm-64bit</code></li>
+<li>python: <code>3.12.4</code></li>
+<li>polars-bio: <code>0.3.0</code></li>
+</ul>
+<h4 id="s-size">S-size<a class="headerlink" href="#s-size" title="Permanent link"></a></h4>
+<h5 id="s-size-1-2">S-size (1-2)<a class="headerlink" href="#s-size-1-2" title="Permanent link"></a></h5>
+<p>Output size: 54,246</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.100738</td>
+<td>0.101541</td>
+<td>0.101119</td>
+<td>0.25x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.032156</td>
+<td>0.035501</td>
+<td>0.033394</td>
+<td><strong>0.77x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.024100</td>
+<td>0.028271</td>
+<td>0.025589</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.053770</td>
+<td>0.054647</td>
+<td>0.054121</td>
+<td>0.47x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>0.281969</td>
+<td>0.283385</td>
+<td>0.282857</td>
+<td>0.09x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>1.424975</td>
+<td>1.436369</td>
+<td>1.430531</td>
+<td>0.02x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>0.972717</td>
+<td>0.979013</td>
+<td>0.975761</td>
+<td>0.03x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="s-size-2-7">S-size (2-7)<a class="headerlink" href="#s-size-2-7" title="Permanent link"></a></h5>
+<p>Output size: 273,500</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.298039</td>
+<td>0.309271</td>
+<td>0.302905</td>
+<td>0.30x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.089324</td>
+<td>0.092200</td>
+<td>0.090332</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.096478</td>
+<td>0.103456</td>
+<td>0.101023</td>
+<td><strong>0.89x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.195621</td>
+<td>0.198025</td>
+<td>0.197146</td>
+<td>0.46x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>1.004577</td>
+<td>1.013097</td>
+<td>1.007701</td>
+<td>0.09x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>4.264575</td>
+<td>4.275965</td>
+<td>4.269055</td>
+<td>0.02x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>2.919675</td>
+<td>2.926785</td>
+<td>2.923549</td>
+<td>0.03x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="s-size-1-0">S-size (1-0)<a class="headerlink" href="#s-size-1-0" title="Permanent link"></a></h5>
+<p>Output size: 320,955</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.521093</td>
+<td>0.549674</td>
+<td>0.534084</td>
+<td>0.28x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.135411</td>
+<td>0.168570</td>
+<td>0.147222</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.271539</td>
+<td>0.282081</td>
+<td>0.276298</td>
+<td><strong>0.53x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.418972</td>
+<td>0.426373</td>
+<td>0.422060</td>
+<td>0.35x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>1.258828</td>
+<td>1.269215</td>
+<td>1.264674</td>
+<td>0.12x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>7.877381</td>
+<td>7.908531</td>
+<td>7.894108</td>
+<td>0.02x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>4.222082</td>
+<td>4.266592</td>
+<td>4.244865</td>
+<td>0.03x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="m-size">M-size<a class="headerlink" href="#m-size" title="Permanent link"></a></h4>
+<h5 id="m-size-7-0">M-size (7-0)<a class="headerlink" href="#m-size-7-0" title="Permanent link"></a></h5>
+<p>Output size: 2,761,621</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.935141</td>
+<td>0.990710</td>
+<td>0.970345</td>
+<td>0.22x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.213880</td>
+<td>0.220151</td>
+<td>0.216288</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.408637</td>
+<td>0.434262</td>
+<td>0.422380</td>
+<td><strong>0.51x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.632015</td>
+<td>0.642214</td>
+<td>0.635670</td>
+<td>0.34x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>6.415976</td>
+<td>6.467304</td>
+<td>6.444268</td>
+<td>0.03x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>9.588232</td>
+<td>9.705035</td>
+<td>9.653368</td>
+<td>0.02x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>9.017886</td>
+<td>9.058916</td>
+<td>9.033964</td>
+<td>0.02x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="m-size-7-3">M-size (7-3)<a class="headerlink" href="#m-size-7-3" title="Permanent link"></a></h5>
+<p>Output size: 4,408,383</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.954765</td>
+<td>0.969307</td>
+<td>0.959704</td>
+<td>0.21x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.198607</td>
+<td>0.208906</td>
+<td>0.203033</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.425277</td>
+<td>0.430527</td>
+<td>0.428594</td>
+<td><strong>0.47x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.696934</td>
+<td>0.710050</td>
+<td>0.702206</td>
+<td>0.29x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>9.403818</td>
+<td>9.491574</td>
+<td>9.453402</td>
+<td>0.02x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>8.638968</td>
+<td>8.662197</td>
+<td>8.647764</td>
+<td>0.02x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>10.514233</td>
+<td>10.556004</td>
+<td>10.540377</td>
+<td>0.02x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="l-size">L-size<a class="headerlink" href="#l-size" title="Permanent link"></a></h4>
+<h5 id="l-size-0-8">L-size (0-8)<a class="headerlink" href="#l-size-0-8" title="Permanent link"></a></h5>
+<p>Output size: 164,196,784</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>15.630508</td>
+<td>16.719793</td>
+<td>16.080009</td>
+<td>0.19x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>2.882900</td>
+<td>3.135100</td>
+<td>2.997755</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>9.276095</td>
+<td>10.158109</td>
+<td>9.761880</td>
+<td><strong>0.31x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>13.076820</td>
+<td>13.510234</td>
+<td>13.329948</td>
+<td>0.22x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>322.922915</td>
+<td>335.123071</td>
+<td>329.659142</td>
+<td>0.01x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>128.849536</td>
+<td>132.109689</td>
+<td>130.089096</td>
+<td>0.02x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>234.237435</td>
+<td>239.315157</td>
+<td>236.504565</td>
+<td>0.01x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="l-size-4-8">L-size (4-8)<a class="headerlink" href="#l-size-4-8" title="Permanent link"></a></h5>
+<p>Output size: 227,832,153</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>22.911206</td>
+<td>23.118100</td>
+<td>23.030572</td>
+<td>0.16x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>3.541325</td>
+<td>3.937760</td>
+<td>3.684317</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>13.035069</td>
+<td>13.510203</td>
+<td>13.225005</td>
+<td><strong>0.28x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>20.924921</td>
+<td>21.657297</td>
+<td>21.398281</td>
+<td>0.17x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>505.897157</td>
+<td>521.239276</td>
+<td>511.310686</td>
+<td>0.01x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>159.883847</td>
+<td>160.942329</td>
+<td>160.306970</td>
+<td>0.02x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>322.217280</td>
+<td>322.490391</td>
+<td>322.371662</td>
+<td>0.01x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="l-size-7-8">L-size (7-8)<a class="headerlink" href="#l-size-7-8" title="Permanent link"></a></h5>
+<p>Output size: 307,184,634</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>29.128664</td>
+<td>29.993182</td>
+<td>29.518215</td>
+<td>0.12x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>3.260438</td>
+<td>3.897260</td>
+<td>3.489278</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>16.615283</td>
+<td>16.983202</td>
+<td>16.753369</td>
+<td><strong>0.21x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>30.504657</td>
+<td>30.912445</td>
+<td>30.752887</td>
+<td>0.11x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>555.480532</td>
+<td>559.947421</td>
+<td>556.986772</td>
+<td>0.01x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>156.724420</td>
+<td>157.321514</td>
+<td>156.935424</td>
+<td>0.02x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>416.095573</td>
+<td>417.284236</td>
+<td>416.700000</td>
+<td>0.01x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="xl-size">XL-size<a class="headerlink" href="#xl-size" title="Permanent link"></a></h4>
+<h5 id="xl-size-3-0">XL-size (3-0)<a class="headerlink" href="#xl-size-3-0" title="Permanent link"></a></h5>
+<p>Output size: 1,086,692,495</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>124.244987</td>
+<td>126.569689</td>
+<td>125.435831</td>
+<td>0.12x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>12.650240</td>
+<td>15.858913</td>
+<td>14.776997</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>85.652054</td>
+<td>94.383934</td>
+<td>88.712706</td>
+<td><strong>0.17x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>92.802026</td>
+<td>94.400313</td>
+<td>93.447716</td>
+<td>0.16x</td>
+</tr>
+</tbody>
+</table>
+<h3 id="amd-genoa-linux">AMD Genoa (Linux) 🐧<a class="headerlink" href="#amd-genoa-linux" title="Permanent link"></a></h3>
+<p><a href="https://gcloud-compute.com/c3d-highmem-8.html">c3d-highmem-8</a> machine was used for benchmarking.</p>
+<ul>
+<li>cpu architecture: <code>x86_64</code></li>
+<li>cpu name: <code>AMD EPYC 9B14</code></li>
+<li>cpu cores: <code>4</code></li>
+<li>memory: <code>63 GB</code></li>
+<li>kernel: <code>#22~22.04.1-Ubuntu SMP Mon Dec  9 20:42:57 UTC 2024</code></li>
+<li>system: <code>Linux</code></li>
+<li>os-release: <code>Linux-6.8.0-1020-gcp-x86_64-with-glibc2.35</code></li>
+<li>python: <code>3.12.8</code></li>
+<li>polars-bio: <code>0.3.0</code></li>
+</ul>
+<h4 id="s-size_1">S-size<a class="headerlink" href="#s-size_1" title="Permanent link"></a></h4>
+<h5 id="s-size-1-2_1">S-size (1-2)<a class="headerlink" href="#s-size-1-2_1" title="Permanent link"></a></h5>
+<p>Output size: 54,246</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.094509</td>
+<td>0.095311</td>
+<td>0.094797</td>
+<td>0.61x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.058527</td>
+<td>0.066444</td>
+<td>0.061503</td>
+<td><strong>0.95x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.057583</td>
+<td>0.059461</td>
+<td>0.058245</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.098868</td>
+<td>0.107992</td>
+<td>0.101964</td>
+<td>0.57x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>0.382701</td>
+<td>0.384930</td>
+<td>0.383619</td>
+<td>0.15x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>2.335400</td>
+<td>2.340616</td>
+<td>2.338876</td>
+<td>0.02x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>1.648289</td>
+<td>1.663941</td>
+<td>1.657652</td>
+<td>0.04x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="s-size-2-7_1">S-size (2-7)<a class="headerlink" href="#s-size-2-7_1" title="Permanent link"></a></h5>
+<p>Output size: 273,500</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.273727</td>
+<td>0.275239</td>
+<td>0.274383</td>
+<td>0.60x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.161882</td>
+<td>0.164253</td>
+<td>0.163334</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.169721</td>
+<td>0.171931</td>
+<td>0.170678</td>
+<td><strong>0.96x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.304432</td>
+<td>0.323747</td>
+<td>0.311284</td>
+<td>0.52x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>1.477541</td>
+<td>1.478301</td>
+<td>1.477841</td>
+<td>0.11x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>6.929725</td>
+<td>6.932875</td>
+<td>6.931662</td>
+<td>0.02x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>5.096514</td>
+<td>5.105638</td>
+<td>5.100280</td>
+<td>0.03x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="s-size-1-0_1">S-size (1-0)<a class="headerlink" href="#s-size-1-0_1" title="Permanent link"></a></h5>
+<p>Output size: 320,955</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.457869</td>
+<td>0.460473</td>
+<td>0.459397</td>
+<td>0.55x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.251083</td>
+<td>0.252582</td>
+<td>0.251673</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.365083</td>
+<td>0.376212</td>
+<td>0.369148</td>
+<td><strong>0.68x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.593858</td>
+<td>0.605304</td>
+<td>0.600537</td>
+<td>0.42x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>1.834958</td>
+<td>1.858740</td>
+<td>1.844379</td>
+<td>0.14x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>12.730241</td>
+<td>12.771149</td>
+<td>12.756920</td>
+<td>0.02x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>7.090998</td>
+<td>7.121029</td>
+<td>7.107298</td>
+<td>0.04x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="m-size_1">M-size<a class="headerlink" href="#m-size_1" title="Permanent link"></a></h4>
+<h5 id="m-size-7-0_1">M-size (7-0)<a class="headerlink" href="#m-size-7-0_1" title="Permanent link"></a></h5>
+<p>Output size: 2,761,621</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.873343</td>
+<td>0.875288</td>
+<td>0.874457</td>
+<td>0.50x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.420260</td>
+<td>0.450565</td>
+<td>0.433827</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.559251</td>
+<td>0.564516</td>
+<td>0.561273</td>
+<td><strong>0.77x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>1.876350</td>
+<td>1.888463</td>
+<td>1.880867</td>
+<td>0.23x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>10.379844</td>
+<td>10.430488</td>
+<td>10.404292</td>
+<td>0.04x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>15.553783</td>
+<td>15.567857</td>
+<td>15.562953</td>
+<td>0.03x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>15.517461</td>
+<td>15.548186</td>
+<td>15.535206</td>
+<td>0.03x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="m-size-7-3_1">M-size (7-3)<a class="headerlink" href="#m-size-7-3_1" title="Permanent link"></a></h5>
+<p>Output size: 4,408,383</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>1.022998</td>
+<td>1.028002</td>
+<td>1.024980</td>
+<td>0.40x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.397203</td>
+<td>0.426743</td>
+<td>0.412704</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.590809</td>
+<td>0.602570</td>
+<td>0.594928</td>
+<td><strong>0.69x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>2.027123</td>
+<td>2.074861</td>
+<td>2.045372</td>
+<td>0.20x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>15.957823</td>
+<td>16.006681</td>
+<td>15.988963</td>
+<td>0.03x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>13.983596</td>
+<td>13.994300</td>
+<td>13.990662</td>
+<td>0.03x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>18.602139</td>
+<td>18.625446</td>
+<td>18.615777</td>
+<td>0.02x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="l-size_1">L-size<a class="headerlink" href="#l-size_1" title="Permanent link"></a></h4>
+<h5 id="l-size-0-8_1">L-size (0-8)<a class="headerlink" href="#l-size-0-8_1" title="Permanent link"></a></h5>
+<p>Output size: 164,196,784</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>21.459718</td>
+<td>21.516023</td>
+<td>21.480410</td>
+<td>0.29x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>5.713430</td>
+<td>6.952107</td>
+<td>6.129996</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>15.898455</td>
+<td>16.227408</td>
+<td>16.011707</td>
+<td><strong>0.38x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>21.721230</td>
+<td>22.272518</td>
+<td>21.917855</td>
+<td>0.28x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>575.612739</td>
+<td>578.021023</td>
+<td>577.165597</td>
+<td>0.01x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>244.510614</td>
+<td>245.508453</td>
+<td>245.063967</td>
+<td>0.03x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>440.650408</td>
+<td>440.737924</td>
+<td>440.706206</td>
+<td>0.01x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="l-size-4-8_1">L-size (4-8)<a class="headerlink" href="#l-size-4-8_1" title="Permanent link"></a></h5>
+<p>Output size: 227,832,153</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>29.460466</td>
+<td>29.864740</td>
+<td>29.633731</td>
+<td>0.34x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>9.731893</td>
+<td>10.180046</td>
+<td>9.968996</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>21.637592</td>
+<td>22.724399</td>
+<td>22.011753</td>
+<td><strong>0.45x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>37.035666</td>
+<td>37.531010</td>
+<td>37.218867</td>
+<td>0.27x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="l-size-7-8_1">L-size (7-8)<a class="headerlink" href="#l-size-7-8_1" title="Permanent link"></a></h5>
+<p>Output size: 307,184,634</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>38.547761</td>
+<td>38.593432</td>
+<td>38.573512</td>
+<td>0.18x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>6.356472</td>
+<td>8.204682</td>
+<td>6.980182</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>28.664496</td>
+<td>28.878972</td>
+<td>28.751498</td>
+<td><strong>0.24x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>80.373241</td>
+<td>80.871479</td>
+<td>80.546908</td>
+<td>0.09x</td>
+</tr>
+</tbody>
+</table>
+<h3 id="intel-emerald-rapids-linux">Intel Emerald Rapids (Linux) 🐧<a class="headerlink" href="#intel-emerald-rapids-linux" title="Permanent link"></a></h3>
+<p><a href="https://gcloud-compute.com/c4-highmem-8.html">c4-highmem-8</a> machine was used for benchmarking.</p>
+<ul>
+<li>cpu architecture: <code>x86_64</code></li>
+<li>cpu name: <code>INTEL(R) XEON(R) PLATINUM 8581C CPU @ 2.30GHz</code></li>
+<li>cpu cores: <code>22</code></li>
+<li>memory: <code>86 GB</code></li>
+<li>kernel: <code>#27~22.04.1-Ubuntu SMP Tue Jul 16 23:03:39 UTC 2024</code></li>
+<li>system: <code>Linux</code></li>
+<li>os-release: <code>Linux-6.5.0-1025-gcp-x86_64-with-glibc2.35</code></li>
+<li>python: <code>3.12.8</code></li>
+<li>polars-bio: <code>0.3.0</code></li>
+</ul>
+<h4 id="s-size_2">S-size<a class="headerlink" href="#s-size_2" title="Permanent link"></a></h4>
+<h5 id="s-size-1-2_2">S-size (1-2)<a class="headerlink" href="#s-size-1-2_2" title="Permanent link"></a></h5>
+<p>Output size: 54,246</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.080274</td>
+<td>0.083350</td>
+<td>0.082125</td>
+<td>0.67x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.051923</td>
+<td>0.060853</td>
+<td>0.055115</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.057737</td>
+<td>0.063692</td>
+<td>0.060233</td>
+<td><strong>0.92x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.092273</td>
+<td>0.104232</td>
+<td>0.096598</td>
+<td>0.57x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>0.342928</td>
+<td>0.350446</td>
+<td>0.345739</td>
+<td>0.16x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>1.933479</td>
+<td>1.980263</td>
+<td>1.958915</td>
+<td>0.03x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>1.317808</td>
+<td>1.365975</td>
+<td>1.345268</td>
+<td>0.04x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="s-size-2-7_2">S-size (2-7)<a class="headerlink" href="#s-size-2-7_2" title="Permanent link"></a></h5>
+<p>Output size: 273,500</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.242910</td>
+<td>0.250233</td>
+<td>0.246872</td>
+<td>0.59x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.142933</td>
+<td>0.151324</td>
+<td>0.146654</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.181919</td>
+<td>0.184524</td>
+<td>0.183063</td>
+<td><strong>0.80x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.303359</td>
+<td>0.305036</td>
+<td>0.304166</td>
+<td>0.48x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>1.303765</td>
+<td>1.318575</td>
+<td>1.310322</td>
+<td>0.11x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>5.744573</td>
+<td>5.917737</td>
+<td>5.816145</td>
+<td>0.03x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>4.202981</td>
+<td>4.298941</td>
+<td>4.243175</td>
+<td>0.03x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="s-size-1-0_2">S-size (1-0)<a class="headerlink" href="#s-size-1-0_2" title="Permanent link"></a></h5>
+<p>Output: 320,955</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.421461</td>
+<td>0.449266</td>
+<td>0.434152</td>
+<td>0.53x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.228252</td>
+<td>0.233000</td>
+<td>0.230004</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.383663</td>
+<td>0.401601</td>
+<td>0.391000</td>
+<td><strong>0.59x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.563753</td>
+<td>0.575554</td>
+<td>0.570290</td>
+<td>0.40x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>1.617740</td>
+<td>1.643310</td>
+<td>1.631340</td>
+<td>0.14x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>10.491757</td>
+<td>10.753130</td>
+<td>10.636810</td>
+<td>0.02x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>5.806456</td>
+<td>5.880285</td>
+<td>5.851234</td>
+<td>0.04x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="m-size_2">M-size<a class="headerlink" href="#m-size_2" title="Permanent link"></a></h4>
+<h5 id="m-size-7-0_2">M-size (7-0)<a class="headerlink" href="#m-size-7-0_2" title="Permanent link"></a></h5>
+<p>Output: 2,761,621</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.900843</td>
+<td>0.928098</td>
+<td>0.917930</td>
+<td>0.43x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.380828</td>
+<td>0.408791</td>
+<td>0.390157</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.580401</td>
+<td>0.607483</td>
+<td>0.595004</td>
+<td><strong>0.66x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>1.697365</td>
+<td>1.705109</td>
+<td>1.699965</td>
+<td>0.23x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>9.120270</td>
+<td>9.384526</td>
+<td>9.211789</td>
+<td>0.04x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>13.123205</td>
+<td>13.179993</td>
+<td>13.160740</td>
+<td>0.03x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>13.230635</td>
+<td>13.690668</td>
+<td>13.472020</td>
+<td>0.03x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="m-size-7-3_2">M-size (7-3)<a class="headerlink" href="#m-size-7-3_2" title="Permanent link"></a></h5>
+<p>Output: 4,408,383</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>1.137155</td>
+<td>1.142985</td>
+<td>1.140749</td>
+<td>0.35x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.382198</td>
+<td>0.411443</td>
+<td>0.396179</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.650236</td>
+<td>0.675971</td>
+<td>0.659619</td>
+<td><strong>0.60x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>1.818395</td>
+<td>1.841851</td>
+<td>1.826528</td>
+<td>0.22x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>14.588216</td>
+<td>14.666769</td>
+<td>14.621019</td>
+<td>0.03x</td>
+</tr>
+<tr>
+<td>pygenomics</td>
+<td>11.975859</td>
+<td>12.196851</td>
+<td>12.121281</td>
+<td>0.03x</td>
+</tr>
+<tr>
+<td>genomicranges</td>
+<td>15.640415</td>
+<td>15.839974</td>
+<td>15.736289</td>
+<td>0.03x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="l-size_2">L-size<a class="headerlink" href="#l-size_2" title="Permanent link"></a></h4>
+<h5 id="l-size-0-8_2">L-size (0-8)<a class="headerlink" href="#l-size-0-8_2" title="Permanent link"></a></h5>
+<p>Output: 164,196,784</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>28.818453</td>
+<td>28.956365</td>
+<td>28.884398</td>
+<td>0.21x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>5.904987</td>
+<td>6.562457</td>
+<td>6.145784</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>22.664353</td>
+<td>22.997717</td>
+<td>22.806512</td>
+<td><strong>0.27x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>24.446387</td>
+<td>24.804753</td>
+<td>24.613135</td>
+<td>0.25x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="l-size-4-8_2">L-size (4-8)<a class="headerlink" href="#l-size-4-8_2" title="Permanent link"></a></h5>
+<p>Output: 227,832,153</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>39.868340</td>
+<td>40.109302</td>
+<td>39.951601</td>
+<td>0.25x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>9.736690</td>
+<td>10.277895</td>
+<td>10.021107</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>31.146222</td>
+<td>31.290984</td>
+<td>31.208499</td>
+<td><strong>0.32x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>39.407547</td>
+<td>40.279563</td>
+<td>39.843926</td>
+<td>0.25x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="l-size-7-8_2">L-size (7-8)<a class="headerlink" href="#l-size-7-8_2" title="Permanent link"></a></h5>
+<p>Output: 307,184,634</p>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>51.923368</td>
+<td>52.840132</td>
+<td>52.354141</td>
+<td>0.14x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>6.604371</td>
+<td>7.975253</td>
+<td>7.151908</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>41.702499</td>
+<td>42.557826</td>
+<td>42.027393</td>
+<td><strong>0.17x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>63.524302</td>
+<td>63.774618</td>
+<td>63.679367</td>
+<td>0.11x</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sorted-input">Sorted input<a class="headerlink" href="#sorted-input" title="Permanent link"></a></h3>
+<div class="admonition todo">
+<p class="admonition-title">Todo</p>
+<ul>
+<li>Add sorted input benchmarks</li>
+</ul>
+</div>
+<h2 id="nearest-closest-operation">Nearest (closest) operation<a class="headerlink" href="#nearest-closest-operation" title="Permanent link"></a></h2>
+<h3 id="apple-silicon-macos_1">Apple Silicon (macOS) 🍎<a class="headerlink" href="#apple-silicon-macos_1" title="Permanent link"></a></h3>
+<h4 id="s-size_3">S-size<a class="headerlink" href="#s-size_3" title="Permanent link"></a></h4>
+<h5 id="s-size-1-2_3">S-size (1-2)<a class="headerlink" href="#s-size-1-2_3" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.282320</td>
+<td>0.288275</td>
+<td>0.285267</td>
+<td>0.31x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.085046</td>
+<td>0.091221</td>
+<td>0.087545</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.131831</td>
+<td>0.134894</td>
+<td>0.132961</td>
+<td><strong>0.66x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.174185</td>
+<td>0.176994</td>
+<td>0.175650</td>
+<td>0.50x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>0.639068</td>
+<td>0.648982</td>
+<td>0.644444</td>
+<td>0.14x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="s-size-2-7_3">S-size (2-7)<a class="headerlink" href="#s-size-2-7_3" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.819279</td>
+<td>0.829933</td>
+<td>0.826124</td>
+<td>0.27x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.219446</td>
+<td>0.222345</td>
+<td>0.220642</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.336059</td>
+<td>0.346129</td>
+<td>0.339557</td>
+<td><strong>0.65x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.415821</td>
+<td>0.425321</td>
+<td>0.420848</td>
+<td>0.52x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>1.477262</td>
+<td>1.490676</td>
+<td>1.483696</td>
+<td>0.15x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="s-size-1-0_3">S-size (1-0)<a class="headerlink" href="#s-size-1-0_3" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>1.130541</td>
+<td>1.140416</td>
+<td>1.134000</td>
+<td>0.18x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.196717</td>
+<td>0.208593</td>
+<td>0.204053</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.705755</td>
+<td>0.734622</td>
+<td>0.720525</td>
+<td><strong>0.28x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.764694</td>
+<td>0.848379</td>
+<td>0.803320</td>
+<td>0.25x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>1.054003</td>
+<td>1.106122</td>
+<td>1.075032</td>
+<td>0.19x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="m-size_3">M-size<a class="headerlink" href="#m-size_3" title="Permanent link"></a></h4>
+<h5 id="m-size-7-0_3">M-size (7-0)<a class="headerlink" href="#m-size-7-0_3" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>2.477785</td>
+<td>2.568602</td>
+<td>2.509461</td>
+<td>0.17x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.428317</td>
+<td>0.444993</td>
+<td>0.435540</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.776533</td>
+<td>0.816372</td>
+<td>0.795476</td>
+<td><strong>0.55x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.944443</td>
+<td>0.956939</td>
+<td>0.952353</td>
+<td>0.46x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>3.891626</td>
+<td>3.920097</td>
+<td>3.907743</td>
+<td>0.11x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="m-size-7-3_3">M-size (7-3)<a class="headerlink" href="#m-size-7-3_3" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>2.753566</td>
+<td>2.862580</td>
+<td>2.797397</td>
+<td>0.17x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.456776</td>
+<td>0.473078</td>
+<td>0.465653</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.763046</td>
+<td>0.791106</td>
+<td>0.773746</td>
+<td><strong>0.60x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.915549</td>
+<td>0.943690</td>
+<td>0.931994</td>
+<td>0.50x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>3.781775</td>
+<td>3.803629</td>
+<td>3.794066</td>
+<td>0.12x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="l-size_3">L-size<a class="headerlink" href="#l-size_3" title="Permanent link"></a></h4>
+<h5 id="l-size-0-8_3">L-size (0-8)<a class="headerlink" href="#l-size-0-8_3" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>48.211329</td>
+<td>50.000878</td>
+<td>49.136208</td>
+<td>0.03x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>1.493048</td>
+<td>1.620652</td>
+<td>1.552847</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>3.082013</td>
+<td>3.146659</td>
+<td>3.116663</td>
+<td><strong>0.50x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>3.662140</td>
+<td>3.706852</td>
+<td>3.684952</td>
+<td>0.42x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>10.561658</td>
+<td>10.661184</td>
+<td>10.603403</td>
+<td>0.15x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="l-size-4-8_3">L-size (4-8)<a class="headerlink" href="#l-size-4-8_3" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>1.778845</td>
+<td>1.806916</td>
+<td>1.793131</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>4.083200</td>
+<td>4.223863</td>
+<td>4.162773</td>
+<td><strong>0.43x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>5.263221</td>
+<td>5.281766</td>
+<td>5.274634</td>
+<td>0.34x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>25.670818</td>
+<td>25.789135</td>
+<td>25.725079</td>
+<td>0.07x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="l-size-7-8_3">L-size (7-8)<a class="headerlink" href="#l-size-7-8_3" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>1.002583</td>
+<td>1.018811</td>
+<td>1.009884</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>2.700747</td>
+<td>2.722101</td>
+<td>2.712181</td>
+<td><strong>0.37x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>2.988758</td>
+<td>3.026965</td>
+<td>3.008430</td>
+<td>0.34x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>9.403173</td>
+<td>9.474385</td>
+<td>9.441718</td>
+<td>0.11x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="l-size-3-0">L-size (3-0)<a class="headerlink" href="#l-size-3-0" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>0.917404</td>
+<td>0.924649</td>
+<td>0.921255</td>
+<td><strong>0.73x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.648998</td>
+<td>0.701870</td>
+<td>0.669507</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.945559</td>
+<td>0.962450</td>
+<td>0.956495</td>
+<td>0.70x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>18.643435</td>
+<td>18.860937</td>
+<td>18.717684</td>
+<td>0.04x</td>
+</tr>
+</tbody>
+</table>
+<h3 id="intel-emerald-rapids-linux_1">Intel Emerald Rapids (Linux) 🐧<a class="headerlink" href="#intel-emerald-rapids-linux_1" title="Permanent link"></a></h3>
+<h4 id="s-size_4">S-size<a class="headerlink" href="#s-size_4" title="Permanent link"></a></h4>
+<h5 id="s-size-1-2_4">S-size (1-2)<a class="headerlink" href="#s-size-1-2_4" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.166667</td>
+<td>0.170252</td>
+<td>0.167967</td>
+<td><strong>0.64x</strong></td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.059757</td>
+<td>0.200437</td>
+<td>0.106731</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.179466</td>
+<td>0.193530</td>
+<td>0.187714</td>
+<td>0.57x</td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.242658</td>
+<td>0.249828</td>
+<td>0.245899</td>
+<td>0.43x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>0.917019</td>
+<td>0.931643</td>
+<td>0.926433</td>
+<td>0.12x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="s-size-2-7_4">S-size (2-7)<a class="headerlink" href="#s-size-2-7_4" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.422708</td>
+<td>0.429339</td>
+<td>0.426257</td>
+<td>0.48x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.198758</td>
+<td>0.213887</td>
+<td>0.205798</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.416234</td>
+<td>0.421807</td>
+<td>0.418619</td>
+<td><strong>0.49x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.531085</td>
+<td>0.541683</td>
+<td>0.536459</td>
+<td>0.38x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>2.085108</td>
+<td>2.086168</td>
+<td>2.085780</td>
+<td>0.10x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="s-size-1-0_4">S-size (1-0)<a class="headerlink" href="#s-size-1-0_4" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>0.563159</td>
+<td>0.578794</td>
+<td>0.572864</td>
+<td><strong>0.33x</strong></td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.175278</td>
+<td>0.206305</td>
+<td>0.189767</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.683342</td>
+<td>0.692020</td>
+<td>0.687795</td>
+<td>0.28x</td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.747615</td>
+<td>0.754387</td>
+<td>0.750464</td>
+<td>0.25x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>1.177251</td>
+<td>1.192054</td>
+<td>1.185509</td>
+<td>0.16x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="m-size_4">M-size<a class="headerlink" href="#m-size_4" title="Permanent link"></a></h4>
+<h5 id="m-size-7-0_4">M-size (7-0)<a class="headerlink" href="#m-size-7-0_4" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>1.200956</td>
+<td>1.222905</td>
+<td>1.210387</td>
+<td>0.32x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.380992</td>
+<td>0.388604</td>
+<td>0.383601</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.811919</td>
+<td>0.826886</td>
+<td>0.821876</td>
+<td><strong>0.47x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>1.001142</td>
+<td>1.039321</td>
+<td>1.025727</td>
+<td>0.37x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>5.498016</td>
+<td>5.507600</td>
+<td>5.503549</td>
+<td>0.07x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="m-size-7-3_4">M-size (7-3)<a class="headerlink" href="#m-size-7-3_4" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>1.254999</td>
+<td>1.262944</td>
+<td>1.259257</td>
+<td>0.29x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>0.359952</td>
+<td>0.380151</td>
+<td>0.367453</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.772943</td>
+<td>0.777694</td>
+<td>0.775242</td>
+<td><strong>0.47x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>0.969036</td>
+<td>0.976941</td>
+<td>0.972361</td>
+<td>0.38x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>5.394985</td>
+<td>5.454826</td>
+<td>5.431693</td>
+<td>0.07x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="l-size_4">L-size<a class="headerlink" href="#l-size_4" title="Permanent link"></a></h4>
+<h5 id="l-size-0-8_4">L-size (0-8)<a class="headerlink" href="#l-size-0-8_4" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>21.325827</td>
+<td>22.295620</td>
+<td>21.664544</td>
+<td>0.10x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>2.031079</td>
+<td>2.123994</td>
+<td>2.062699</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>4.146689</td>
+<td>4.172250</td>
+<td>4.161514</td>
+<td><strong>0.50x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>4.658245</td>
+<td>5.014545</td>
+<td>4.811681</td>
+<td>0.43x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>16.245615</td>
+<td>16.445935</td>
+<td>16.373377</td>
+<td>0.13x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="l-size-4-8_4">L-size (4-8)<a class="headerlink" href="#l-size-4-8_4" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>29.156254</td>
+<td>30.051563</td>
+<td>29.682944</td>
+<td>0.10x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>3.013091</td>
+<td>3.045008</td>
+<td>3.032196</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>5.610373</td>
+<td>5.752500</td>
+<td>5.693492</td>
+<td><strong>0.53x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>7.469939</td>
+<td>7.503416</td>
+<td>7.486032</td>
+<td>0.41x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>39.047774</td>
+<td>39.824156</td>
+<td>39.436474</td>
+<td>0.08x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="l-size-7-8_4">L-size (7-8)<a class="headerlink" href="#l-size-7-8_4" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>39.984802</td>
+<td>40.155487</td>
+<td>40.065113</td>
+<td>0.05x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>1.868242</td>
+<td>1.878759</td>
+<td>1.873989</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>4.016616</td>
+<td>4.034881</td>
+<td>4.028447</td>
+<td><strong>0.47x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>4.251595</td>
+<td>4.516436</td>
+<td>4.341912</td>
+<td>0.43x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>15.481021</td>
+<td>15.533977</td>
+<td>15.501447</td>
+<td>0.12x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="l-size-3-0_1">L-size (3-0)<a class="headerlink" href="#l-size-3-0_1" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>85.826377</td>
+<td>86.023302</td>
+<td>85.933492</td>
+<td>0.01x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>1.093852</td>
+<td>1.129010</td>
+<td>1.113706</td>
+<td><strong>0.79x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>0.871503</td>
+<td>0.903123</td>
+<td>0.883908</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>1.151087</td>
+<td>1.200064</td>
+<td>1.168257</td>
+<td>0.76x</td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>28.309991</td>
+<td>28.624311</td>
+<td>28.421618</td>
+<td>0.03x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="xl-size_1">XL-size<a class="headerlink" href="#xl-size_1" title="Permanent link"></a></h4>
+<h5 id="xl-size-0-4">XL-size (0-4)<a class="headerlink" href="#xl-size-0-4" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>bioframe</td>
+<td>365.207028</td>
+<td>365.455848</td>
+<td>365.327366</td>
+<td>0.01x</td>
+</tr>
+<tr>
+<td>polars_bio</td>
+<td>3.553054</td>
+<td>3.568899</td>
+<td>3.559842</td>
+<td>0.81x</td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>2.867332</td>
+<td>2.888607</td>
+<td>2.879132</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>3.145913</td>
+<td>3.294060</td>
+<td>3.227092</td>
+<td><strong>0.89x</strong></td>
+</tr>
+<tr>
+<td>pybedtools0</td>
+<td>126.338178</td>
+<td>127.104972</td>
+<td>126.646993</td>
+<td>0.02x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="xl-size-0-5">XL-size (0-5)<a class="headerlink" href="#xl-size-0-5" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>15.814259</td>
+<td>15.907476</td>
+<td>15.845883</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>20.752479</td>
+<td>20.837782</td>
+<td>20.797340</td>
+<td>0.76x</td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>20.315355</td>
+<td>20.490498</td>
+<td>20.376382</td>
+<td><strong>0.78x</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="parallel-execution-and-scalability">Parallel execution and scalability<a class="headerlink" href="#parallel-execution-and-scalability" title="Permanent link"></a></h2>
+<p>Apple Silicon and <a href="https://gcloud-compute.com/c4-standard-32.html">c4-standard-32</a> machine were used for benchmarking.</p>
+<ul>
+<li>cpu architecture: <code>x86_64</code></li>
+<li>cpu name: <code>INTEL(R) XEON(R) PLATINUM 8581C CPU @ 2.30GHz</code></li>
+<li>cpu cores: <code>16</code></li>
+<li>memory: <code>118 GB</code></li>
+<li>kernel: <code>#27~22.04.1-Ubuntu SMP Tue Jul 16 23:03:39 UTC 2024</code></li>
+<li>system: <code>Linux</code></li>
+<li>os-release: <code>Linux-6.5.0-1025-gcp-x86_64-with-glibc2.35</code></li>
+<li>python: <code>3.12.8</code></li>
+<li>polars-bio: <code>0.3.0</code></li>
+</ul>
+<p>Two strategies were used for parallel execution (<code>n</code> - degree of parallelism):</p>
+<ul>
+<li>
+<p><code>polars_bio-n</code>: Default, dynamic partitioning schema (median of 2 partitions/dataset) with repartitioning in DataFusion on Parquet scan and join operations:
+</p><div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-0-2"><a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a><span class="n">pb</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s2">"datafusion.optimizer.repartition_joins"</span><span class="p">,</span> <span class="s2">"true"</span><span class="p">)</span>
+</span><span id="__span-0-3"><a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a><span class="n">pb</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s2">"datafusion.optimizer.repartition_file_scans"</span><span class="p">,</span> <span class="s2">"true"</span><span class="p">)</span>
+</span><span id="__span-0-4"><a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">pb</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s2">"datafusion.execution.coalesce_batches"</span><span class="p">,</span> <span class="s2">"false"</span><span class="p">)</span>
+</span></code></pre></div>
+the <code>single-thread</code> dataset was used (see <a href="#test-datasets">Test datasets</a>)<p></p>
+</li>
+<li>
+<p><code>polars_bio-n-p</code>: Custom partitioning schema (constant number of 8 partitions/dataset) without any repartitioning in DataFusion:
+</p><div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a href="#__codelineno-1-1" id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">polars_bio</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pb</span>
+</span><span id="__span-1-2"><a href="#__codelineno-1-2" id="__codelineno-1-2" name="__codelineno-1-2"></a><span class="n">pb</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s2">"datafusion.optimizer.repartition_joins"</span><span class="p">,</span> <span class="s2">"false"</span><span class="p">)</span>
+</span><span id="__span-1-3"><a href="#__codelineno-1-3" id="__codelineno-1-3" name="__codelineno-1-3"></a><span class="n">pb</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s2">"datafusion.optimizer.repartition_file_scans"</span><span class="p">,</span> <span class="s2">"false"</span><span class="p">)</span>
+</span><span id="__span-1-4"><a href="#__codelineno-1-4" id="__codelineno-1-4" name="__codelineno-1-4"></a><span class="n">pb</span><span class="o">.</span><span class="n">set_option</span><span class="p">(</span><span class="s2">"datafusion.execution.coalesce_batches"</span><span class="p">,</span> <span class="s2">"false"</span><span class="p">)</span>
+</span></code></pre></div>
+the <code>parallel</code> dataset was used (see <a href="#test-datasets">Test datasets</a>)<p></p>
+</li>
+</ul>
+<h3 id="overlap-operation_1">Overlap operation<a class="headerlink" href="#overlap-operation_1" title="Permanent link"></a></h3>
+<h4 id="apple-silicon-macos_2">Apple Silicon (macOS) 🍎<a class="headerlink" href="#apple-silicon-macos_2" title="Permanent link"></a></h4>
+<h5 id="0-8">0-8<a class="headerlink" href="#0-8" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>9.146743</td>
+<td>10.067171</td>
+<td>9.512946</td>
+<td>0.31x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>17.084293</td>
+<td>17.394639</td>
+<td>17.207398</td>
+<td>0.17x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>2.784917</td>
+<td>3.184688</td>
+<td>2.963876</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>1.447746</td>
+<td>2.194926</td>
+<td>1.716935</td>
+<td>1.73x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>1.023359</td>
+<td>1.031373</td>
+<td>1.027862</td>
+<td>2.88x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>0.745024</td>
+<td>0.766747</td>
+<td>0.757039</td>
+<td><strong>3.92x</strong></td>
+</tr>
+<tr>
+<td>--------------</td>
+<td>-----------</td>
+<td>-----------</td>
+<td>-----------</td>
+<td>-----------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>3.106839</td>
+<td>3.335528</td>
+<td>3.221183</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>1.610237</td>
+<td>1.643171</td>
+<td>1.626704</td>
+<td>1.98x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>0.947643</td>
+<td>0.948290</td>
+<td>0.947967</td>
+<td>3.40x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>0.579332</td>
+<td>0.585496</td>
+<td>0.582414</td>
+<td><strong>5.53x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="7-8">7-8<a class="headerlink" href="#7-8" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>16.015978</td>
+<td>16.471722</td>
+<td>16.183480</td>
+<td>0.24x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>30.504657</td>
+<td>30.912445</td>
+<td>30.752887</td>
+<td>0.13x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>3.582070</td>
+<td>4.331780</td>
+<td>3.930337</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>1.798026</td>
+<td>1.866828</td>
+<td>1.829596</td>
+<td>2.15x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>1.126025</td>
+<td>1.135795</td>
+<td>1.132349</td>
+<td>3.47x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>0.703821</td>
+<td>0.707697</td>
+<td>0.705424</td>
+<td><strong>5.57x</strong></td>
+</tr>
+<tr>
+<td>--------------</td>
+<td>-----------</td>
+<td>-----------</td>
+<td>-----------</td>
+<td>-----------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>3.862783</td>
+<td>4.572159</td>
+<td>4.217471</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>2.003091</td>
+<td>2.006744</td>
+<td>2.004917</td>
+<td>2.10x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>1.081358</td>
+<td>1.097517</td>
+<td>1.089438</td>
+<td>3.87x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>0.652152</td>
+<td>0.653111</td>
+<td>0.652631</td>
+<td><strong>6.46x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="2-5">2-5<a class="headerlink" href="#2-5" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>7.359118</td>
+<td>8.248676</td>
+<td>7.747425</td>
+<td>0.42x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>12.017050</td>
+<td>12.394313</td>
+<td>12.172057</td>
+<td>0.26x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>3.168840</td>
+<td>3.279239</td>
+<td>3.221157</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>1.807984</td>
+<td>1.896123</td>
+<td>1.840286</td>
+<td>1.75x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>1.565173</td>
+<td>1.855352</td>
+<td>1.667814</td>
+<td>1.93x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>1.328546</td>
+<td>1.644594</td>
+<td>1.525987</td>
+<td><strong>2.11x</strong></td>
+</tr>
+<tr>
+<td>--------------</td>
+<td>----------</td>
+<td>----------</td>
+<td>----------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>4.691770</td>
+<td>4.771827</td>
+<td>4.731799</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>2.498744</td>
+<td>2.529678</td>
+<td>2.514211</td>
+<td>1.88x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>1.350183</td>
+<td>1.360860</td>
+<td>1.355522</td>
+<td>3.49x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>0.746751</td>
+<td>0.746974</td>
+<td>0.746863</td>
+<td><strong>6.34x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="3-0">3-0<a class="headerlink" href="#3-0" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>78.437583</td>
+<td>80.667906</td>
+<td>79.691000</td>
+<td>0.16x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>149.301588</td>
+<td>150.696560</td>
+<td>150.214238</td>
+<td>0.08x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>8.699317</td>
+<td>15.876707</td>
+<td>12.749627</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>7.107510</td>
+<td>11.556344</td>
+<td>8.876861</td>
+<td>1.44x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>6.368686</td>
+<td>6.746370</td>
+<td>6.558874</td>
+<td>1.94x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>5.673492</td>
+<td>6.341975</td>
+<td>6.052686</td>
+<td><strong>2.11x</strong></td>
+</tr>
+<tr>
+<td>--------------</td>
+<td>-----------</td>
+<td>-----------</td>
+<td>-----------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>16.687511</td>
+<td>19.602739</td>
+<td>18.145125</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>9.592687</td>
+<td>11.276648</td>
+<td>10.434667</td>
+<td>1.74x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>6.641342</td>
+<td>6.712883</td>
+<td>6.677113</td>
+<td>2.72x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>5.365854</td>
+<td>5.920471</td>
+<td>5.643162</td>
+<td><strong>3.22x</strong></td>
+</tr>
+</tbody>
+</table>
+<h4 id="intel-emerald-rapids-linux_2">Intel Emerald Rapids (Linux) 🐧<a class="headerlink" href="#intel-emerald-rapids-linux_2" title="Permanent link"></a></h4>
+<h5 id="0-8_1">0-8<a class="headerlink" href="#0-8_1" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>22.427066</td>
+<td>23.052440</td>
+<td>22.637076</td>
+<td>0.29x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>35.304058</td>
+<td>35.420546</td>
+<td>35.342961</td>
+<td>0.18x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>5.664570</td>
+<td>7.867539</td>
+<td>6.508315</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>3.485226</td>
+<td>3.621209</td>
+<td>3.564963</td>
+<td>1.83x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>2.262268</td>
+<td>2.320929</td>
+<td>2.287944</td>
+<td>2.84x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>1.287120</td>
+<td>1.311752</td>
+<td>1.297510</td>
+<td><strong>5.02x</strong></td>
+</tr>
+<tr>
+<td>---------------</td>
+<td>-----------</td>
+<td>-----------</td>
+<td>-----------</td>
+<td>-----------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>5.825176</td>
+<td>7.007628</td>
+<td>6.252962</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>2.976644</td>
+<td>3.025504</td>
+<td>2.995113</td>
+<td>2.09x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>1.622611</td>
+<td>1.690197</td>
+<td>1.650458</td>
+<td>3.79x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>1.009492</td>
+<td>1.046739</td>
+<td>1.025886</td>
+<td><strong>6.10x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="7-8_1">7-8<a class="headerlink" href="#7-8_1" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>41.676284</td>
+<td>42.974216</td>
+<td>42.485708</td>
+<td>0.18x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>63.524302</td>
+<td>63.774618</td>
+<td>63.679367</td>
+<td>0.12x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>6.510632</td>
+<td>9.640636</td>
+<td>7.619978</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>4.063316</td>
+<td>4.558028</td>
+<td>4.316856</td>
+<td>1.77x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>3.006938</td>
+<td>3.116209</td>
+<td>3.053199</td>
+<td>2.50x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>1.733345</td>
+<td>1.782316</td>
+<td>1.752699</td>
+<td><strong>4.35x</strong></td>
+</tr>
+<tr>
+<td>---------------</td>
+<td>-----------</td>
+<td>-----------</td>
+<td>-----------</td>
+<td>-----------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>6.666566</td>
+<td>8.707044</td>
+<td>7.364003</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>3.314721</td>
+<td>3.438854</td>
+<td>3.396223</td>
+<td>2.17x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>1.755033</td>
+<td>1.766559</td>
+<td>1.760501</td>
+<td>4.18x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>1.023208</td>
+<td>1.055603</td>
+<td>1.035804</td>
+<td><strong>7.11x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="2-5_1">2-5<a class="headerlink" href="#2-5_1" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>15.954215</td>
+<td>17.879185</td>
+<td>16.597961</td>
+<td>0.32x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>22.822777</td>
+<td>23.005675</td>
+<td>22.899582</td>
+<td>0.23x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>5.096198</td>
+<td>5.652478</td>
+<td>5.296669</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>3.216712</td>
+<td>3.390962</td>
+<td>3.296900</td>
+<td>1.61x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>2.941997</td>
+<td>3.078842</td>
+<td>3.004835</td>
+<td>1.76x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>2.373662</td>
+<td>2.483793</td>
+<td>2.423432</td>
+<td><strong>2.19x</strong></td>
+</tr>
+<tr>
+<td>---------------</td>
+<td>-----------</td>
+<td>-----------</td>
+<td>-----------</td>
+<td>-----------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>6.835908</td>
+<td>8.957041</td>
+<td>7.564713</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>3.406529</td>
+<td>3.430781</td>
+<td>3.416292</td>
+<td>2.21x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>1.815182</td>
+<td>1.942866</td>
+<td>1.872337</td>
+<td>4.04x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>1.026042</td>
+<td>1.065482</td>
+<td>1.039835</td>
+<td><strong>7.27x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="3-0_1">3-0<a class="headerlink" href="#3-0_1" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>158.193622</td>
+<td>159.014103</td>
+<td>158.563798</td>
+<td>0.17x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>OOM</td>
+<td>OOM</td>
+<td>OOM</td>
+<td>OOM</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>26.957168</td>
+<td>27.577231</td>
+<td>27.316310</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>19.440849</td>
+<td>19.631778</td>
+<td>19.567068</td>
+<td>1.40x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>16.432316</td>
+<td>16.657353</td>
+<td>16.570284</td>
+<td>1.65x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>12.845359</td>
+<td>13.136680</td>
+<td>12.951113</td>
+<td><strong>2.11x</strong></td>
+</tr>
+<tr>
+<td>--------------</td>
+<td>------------</td>
+<td>------------</td>
+<td>------------</td>
+<td>-----------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>34.869014</td>
+<td>35.937479</td>
+<td>35.249302</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>20.142638</td>
+<td>20.460018</td>
+<td>20.338156</td>
+<td>1.73x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>11.641085</td>
+<td>11.721084</td>
+<td>11.672311</td>
+<td>3.02x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>7.169329</td>
+<td>7.339832</td>
+<td>7.258024</td>
+<td><strong>4.86x</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="nearest-operation">Nearest operation<a class="headerlink" href="#nearest-operation" title="Permanent link"></a></h3>
+<h4 id="apple-silicon-macos_3">Apple Silicon (macOS) 🍎<a class="headerlink" href="#apple-silicon-macos_3" title="Permanent link"></a></h4>
+<h5 id="7-8_2">7-8<a class="headerlink" href="#7-8_2" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>2.617098</td>
+<td>2.632619</td>
+<td>2.626817</td>
+<td>0.39x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>2.928071</td>
+<td>2.952393</td>
+<td>2.942198</td>
+<td>0.35x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>0.999672</td>
+<td>1.038078</td>
+<td>1.016733</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>0.624798</td>
+<td>0.630383</td>
+<td>0.627723</td>
+<td>1.62x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>0.412480</td>
+<td>0.422400</td>
+<td>0.417233</td>
+<td>2.44x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>0.286680</td>
+<td>0.291932</td>
+<td>0.290088</td>
+<td><strong>3.50x</strong></td>
+</tr>
+<tr>
+<td>--------------</td>
+<td>----------</td>
+<td>----------</td>
+<td>----------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>1.450476</td>
+<td>1.478374</td>
+<td>1.466073</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>1.013673</td>
+<td>1.029715</td>
+<td>1.019719</td>
+<td>1.44x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>0.812852</td>
+<td>0.816052</td>
+<td>0.814196</td>
+<td>1.80x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>0.715727</td>
+<td>0.726820</td>
+<td>0.722109</td>
+<td><strong>2.03x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="0-8_2">0-8<a class="headerlink" href="#0-8_2" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>2.727178</td>
+<td>2.788261</td>
+<td>2.748268</td>
+<td>0.39x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>3.193758</td>
+<td>3.290031</td>
+<td>3.238138</td>
+<td>0.33x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>1.050470</td>
+<td>1.111362</td>
+<td>1.071476</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>0.603192</td>
+<td>0.614378</td>
+<td>0.607069</td>
+<td>1.76x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>0.477346</td>
+<td>0.484047</td>
+<td>0.480698</td>
+<td>2.23x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>0.371300</td>
+<td>0.377496</td>
+<td>0.374637</td>
+<td><strong>2.86x</strong></td>
+</tr>
+<tr>
+<td>--------------</td>
+<td>----------</td>
+<td>----------</td>
+<td>----------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>1.459614</td>
+<td>1.499385</td>
+<td>1.485763</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>1.031476</td>
+<td>1.032248</td>
+<td>1.031815</td>
+<td>1.44x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>0.813042</td>
+<td>0.818795</td>
+<td>0.815014</td>
+<td>1.82x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>0.727105</td>
+<td>0.735477</td>
+<td>0.730848</td>
+<td><strong>2.03x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="0-3">0-3<a class="headerlink" href="#0-3" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>0.605024</td>
+<td>0.655083</td>
+<td>0.628258</td>
+<td>1.45x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>0.892005</td>
+<td>0.899846</td>
+<td>0.895358</td>
+<td>1.01x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>0.901617</td>
+<td>0.919927</td>
+<td>0.908753</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>0.565947</td>
+<td>0.570143</td>
+<td>0.568091</td>
+<td>1.60x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>0.486143</td>
+<td>0.487667</td>
+<td>0.486668</td>
+<td>1.87x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>0.404343</td>
+<td>0.408482</td>
+<td>0.406183</td>
+<td><strong>2.24x</strong></td>
+</tr>
+<tr>
+<td>--------------</td>
+<td>----------</td>
+<td>----------</td>
+<td>----------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>1.934625</td>
+<td>1.983807</td>
+<td>1.962461</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>1.063823</td>
+<td>1.069980</td>
+<td>1.067726</td>
+<td>1.84x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>0.618193</td>
+<td>0.620918</td>
+<td>0.619740</td>
+<td>3.17x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>0.378345</td>
+<td>0.381553</td>
+<td>0.380137</td>
+<td><strong>5.16x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="2-5_2">2-5<a class="headerlink" href="#2-5_2" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>11.466866</td>
+<td>11.731607</td>
+<td>11.589608</td>
+<td>0.16x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>12.607366</td>
+<td>12.686471</td>
+<td>12.659969</td>
+<td>0.15x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>1.785067</td>
+<td>1.984576</td>
+<td>1.859738</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>1.550936</td>
+<td>1.616606</td>
+<td>1.576498</td>
+<td>1.18x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>1.293685</td>
+<td>1.354271</td>
+<td>1.327746</td>
+<td>1.40x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>1.229453</td>
+<td>1.255038</td>
+<td>1.244184</td>
+<td><strong>1.49x</strong></td>
+</tr>
+<tr>
+<td>--------------</td>
+<td>----------</td>
+<td>----------</td>
+<td>----------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>4.099759</td>
+<td>4.148830</td>
+<td>4.119466</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>3.899533</td>
+<td>3.927669</td>
+<td>3.910608</td>
+<td>1.05x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>3.730015</td>
+<td>3.764352</td>
+<td>3.748710</td>
+<td>1.10x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>3.740107</td>
+<td>3.776072</td>
+<td>3.758196</td>
+<td><strong>1.10x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="intel-emerald-rapids-linux_3">Intel Emerald Rapids (Linux) 🐧<a class="headerlink" href="#intel-emerald-rapids-linux_3" title="Permanent link"></a></h5>
+<h5 id="7-8_3">7-8<a class="headerlink" href="#7-8_3" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>4.206312</td>
+<td>4.294343</td>
+<td>4.241896</td>
+<td>0.45x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>4.442628</td>
+<td>4.488366</td>
+<td>4.458621</td>
+<td>0.43x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>1.891354</td>
+<td>1.948671</td>
+<td>1.912490</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>1.283955</td>
+<td>1.302282</td>
+<td>1.295635</td>
+<td>1.48x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>1.078061</td>
+<td>1.105893</td>
+<td>1.094149</td>
+<td>1.75x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>0.712460</td>
+<td>0.752014</td>
+<td>0.727148</td>
+<td><strong>2.63x</strong></td>
+</tr>
+<tr>
+<td>---------------</td>
+<td>----------</td>
+<td>----------</td>
+<td>----------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>2.828171</td>
+<td>2.931478</td>
+<td>2.890248</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>1.916772</td>
+<td>1.936575</td>
+<td>1.927385</td>
+<td>1.50x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>1.456353</td>
+<td>1.481438</td>
+<td>1.472393</td>
+<td>1.96x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>1.295097</td>
+<td>1.350529</td>
+<td>1.315073</td>
+<td><strong>2.20x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="0-8_3">0-8<a class="headerlink" href="#0-8_3" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>4.231424</td>
+<td>4.330897</td>
+<td>4.274404</td>
+<td>0.48x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>4.763702</td>
+<td>4.832694</td>
+<td>4.797875</td>
+<td>0.43x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>2.041052</td>
+<td>2.054510</td>
+<td>2.048951</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>1.427670</td>
+<td>1.462461</td>
+<td>1.445207</td>
+<td>1.42x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>1.133872</td>
+<td>1.182288</td>
+<td>1.150375</td>
+<td>1.78x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>0.743850</td>
+<td>0.786324</td>
+<td>0.769738</td>
+<td><strong>2.66x</strong></td>
+</tr>
+<tr>
+<td>---------------</td>
+<td>----------</td>
+<td>----------</td>
+<td>----------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>2.757630</td>
+<td>2.817896</td>
+<td>2.794401</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>1.912476</td>
+<td>1.934266</td>
+<td>1.926969</td>
+<td>1.45x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>1.483118</td>
+<td>1.571922</td>
+<td>1.534062</td>
+<td>1.82x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>1.345707</td>
+<td>1.363905</td>
+<td>1.356738</td>
+<td><strong>2.06x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="0-3_1">0-3<a class="headerlink" href="#0-3_1" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>0.929409</td>
+<td>1.043995</td>
+<td>0.989172</td>
+<td>1.29x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>1.232229</td>
+<td>1.277243</td>
+<td>1.250441</td>
+<td>1.02x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>1.121446</td>
+<td>1.560456</td>
+<td>1.272248</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>0.790184</td>
+<td>0.798372</td>
+<td>0.795170</td>
+<td>1.60x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>0.645712</td>
+<td>0.662949</td>
+<td>0.652850</td>
+<td>1.95x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>0.473802</td>
+<td>0.505282</td>
+<td>0.489050</td>
+<td><strong>2.60x</strong></td>
+</tr>
+<tr>
+<td>---------------</td>
+<td>----------</td>
+<td>----------</td>
+<td>----------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>2.863790</td>
+<td>3.048004</td>
+<td>2.927503</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>1.545225</td>
+<td>1.580199</td>
+<td>1.560213</td>
+<td>1.88x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>0.921394</td>
+<td>0.944576</td>
+<td>0.934756</td>
+<td>3.13x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>0.625656</td>
+<td>0.637595</td>
+<td>0.632294</td>
+<td><strong>4.63x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="2-5_3">2-5<a class="headerlink" href="#2-5_3" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>pyranges0-1</td>
+<td>21.188286</td>
+<td>21.349862</td>
+<td>21.267732</td>
+<td>0.24x</td>
+</tr>
+<tr>
+<td>pyranges1-1</td>
+<td>19.789758</td>
+<td>20.092196</td>
+<td>19.913107</td>
+<td>0.26x</td>
+</tr>
+<tr>
+<td>polars_bio-1</td>
+<td>5.085885</td>
+<td>5.158123</td>
+<td>5.120825</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>4.084694</td>
+<td>4.328842</td>
+<td>4.207706</td>
+<td>1.22x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>3.570746</td>
+<td>3.885584</td>
+<td>3.752306</td>
+<td>1.36x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>3.250405</td>
+<td>3.413984</td>
+<td>3.329296</td>
+<td><strong>1.54x</strong></td>
+</tr>
+<tr>
+<td>---------------</td>
+<td>----------</td>
+<td>----------</td>
+<td>----------</td>
+<td>---------</td>
+</tr>
+<tr>
+<td>polars_bio-1-p</td>
+<td>8.974429</td>
+<td>9.101872</td>
+<td>9.048213</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>polars_bio-2-p</td>
+<td>8.297582</td>
+<td>8.385287</td>
+<td>8.339353</td>
+<td>1.09x</td>
+</tr>
+<tr>
+<td>polars_bio-4-p</td>
+<td>8.007553</td>
+<td>8.099914</td>
+<td>8.053293</td>
+<td>1.12x</td>
+</tr>
+<tr>
+<td>polars_bio-8-p</td>
+<td>7.851029</td>
+<td>8.051397</td>
+<td>7.939732</td>
+<td>1.14x</td>
+</tr>
+<tr>
+<td>polars_bio-16-p</td>
+<td>7.746810</td>
+<td>7.985732</td>
+<td>7.882904</td>
+<td><strong>1.15x</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="dataframes-comparison">DataFrames comparison<a class="headerlink" href="#dataframes-comparison" title="Permanent link"></a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In the following benchmarks we compared the perfoemance of Python DataFrames libraries in the following scenarios:</p>
+<ul>
+<li><code>polars_bio</code>: <strong>native</strong> Rust Parquet (<em>default</em>) reader and Polars <strong>LazyFrame</strong> (<em>default</em>) as an output.</li>
+<li><code>polars_bio_pandas_lf</code>: <strong>Pandas DataFrames</strong> as an input and Polars <strong>LazyFrame</strong> as an output.</li>
+<li><code>polars_bio_pandas_pd</code>: <strong>Pandas DataFrames</strong> as an input and Pandas <strong>DataFrame</strong> as an output.</li>
+<li><code>polars_bio_polars_eager</code>: <strong>Polars DataFrames</strong> as an input and Polars <strong>LazyFrame</strong> as an output.</li>
+<li><code>polars_bio_polars_lazy</code>: Polars <strong>LazyFrames</strong> as an input and Polars <strong>LazyFrame</strong> as an output.</li>
+</ul>
+</div>
+<h3 id="apple-silicon-macos_4">Apple Silicon (macOS) 🍎<a class="headerlink" href="#apple-silicon-macos_4" title="Permanent link"></a></h3>
+<h4 id="s-size_5">S-size<a class="headerlink" href="#s-size_5" title="Permanent link"></a></h4>
+<h5 id="1-2">1-2<a class="headerlink" href="#1-2" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>0.035567</td>
+<td>0.036777</td>
+<td>0.035995</td>
+<td>0.91x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>0.040237</td>
+<td>0.041256</td>
+<td>0.040694</td>
+<td>0.80x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>0.040554</td>
+<td>0.040888</td>
+<td>0.040761</td>
+<td>0.80x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>0.032051</td>
+<td>0.033022</td>
+<td>0.032693</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>0.034346</td>
+<td>0.035225</td>
+<td>0.034775</td>
+<td><strong>0.94x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="2-7">2-7<a class="headerlink" href="#2-7" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>0.094768</td>
+<td>0.096217</td>
+<td>0.095266</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>0.163054</td>
+<td>0.164207</td>
+<td>0.163713</td>
+<td>0.58x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>0.163245</td>
+<td>0.166200</td>
+<td>0.165022</td>
+<td>0.58x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>0.142344</td>
+<td>0.145895</td>
+<td>0.144110</td>
+<td><strong>0.66x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>0.149738</td>
+<td>0.150299</td>
+<td>0.149929</td>
+<td>0.64x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="1-0">1-0<a class="headerlink" href="#1-0" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>0.145564</td>
+<td>0.151407</td>
+<td>0.147679</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>0.238292</td>
+<td>0.240374</td>
+<td>0.239504</td>
+<td>0.62x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>0.239330</td>
+<td>0.252445</td>
+<td>0.244414</td>
+<td>0.60x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>0.208421</td>
+<td>0.214513</td>
+<td>0.210896</td>
+<td><strong>0.70x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>0.219629</td>
+<td>0.222126</td>
+<td>0.220908</td>
+<td>0.67x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="m-size_5">M-size<a class="headerlink" href="#m-size_5" title="Permanent link"></a></h4>
+<h5 id="7-0">7-0<a class="headerlink" href="#7-0" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>0.224327</td>
+<td>0.227891</td>
+<td>0.225606</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>0.377938</td>
+<td>0.378380</td>
+<td>0.378205</td>
+<td>0.60x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>0.413825</td>
+<td>0.415470</td>
+<td>0.414630</td>
+<td>0.54x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>0.332434</td>
+<td>0.335960</td>
+<td>0.334393</td>
+<td><strong>0.67x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>0.347608</td>
+<td>0.350382</td>
+<td>0.349330</td>
+<td>0.65x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="7-3">7-3<a class="headerlink" href="#7-3" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>0.206701</td>
+<td>0.217080</td>
+<td>0.210280</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>0.345310</td>
+<td>0.355560</td>
+<td>0.349561</td>
+<td>0.60x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>0.415459</td>
+<td>0.417442</td>
+<td>0.416609</td>
+<td>0.50x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>0.311204</td>
+<td>0.313540</td>
+<td>0.312487</td>
+<td><strong>0.67x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>0.321170</td>
+<td>0.322826</td>
+<td>0.321981</td>
+<td>0.65x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="l-size_5">L-size<a class="headerlink" href="#l-size_5" title="Permanent link"></a></h4>
+<h5 id="0-8_4">0-8<a class="headerlink" href="#0-8_4" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>2.750666</td>
+<td>2.895516</td>
+<td>2.802942</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>3.525844</td>
+<td>3.646709</td>
+<td>3.592018</td>
+<td>0.78x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>6.455399</td>
+<td>6.539737</td>
+<td>6.487919</td>
+<td>0.43x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>3.236083</td>
+<td>3.428796</td>
+<td>3.331644</td>
+<td>0.84x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>3.220374</td>
+<td>3.251365</td>
+<td>3.232736</td>
+<td><strong>0.87x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="4-8">4-8<a class="headerlink" href="#4-8" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>3.677363</td>
+<td>3.877014</td>
+<td>3.749576</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>4.875777</td>
+<td>5.007774</td>
+<td>4.953983</td>
+<td>0.76x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>8.595318</td>
+<td>8.809947</td>
+<td>8.704564</td>
+<td>0.43x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>4.473527</td>
+<td>4.608746</td>
+<td>4.561838</td>
+<td><strong>0.82x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>4.728077</td>
+<td>4.786690</td>
+<td>4.758805</td>
+<td>0.79x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="7-8_4">7-8<a class="headerlink" href="#7-8_4" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>3.439489</td>
+<td>3.917193</td>
+<td>3.633215</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>3.930340</td>
+<td>4.079147</td>
+<td>3.985301</td>
+<td>0.91x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>9.646125</td>
+<td>9.994008</td>
+<td>9.798255</td>
+<td>0.37x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>3.742098</td>
+<td>3.995767</td>
+<td>3.832054</td>
+<td><strong>0.95x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>3.767904</td>
+<td>4.058453</td>
+<td>3.882342</td>
+<td>0.94x</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Peak Memory (MB))</th>
+<th>Factor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td><strong>14,671</strong></td>
+<td><strong>1.0x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>22,589</td>
+<td>1.54x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_eager</td>
+<td>23,681</td>
+<td>1.61x</td>
+</tr>
+</tbody>
+</table>
+<h6 id="memory-characteristic-polars_bio">Memory characteristic polars_bio<a class="headerlink" href="#memory-characteristic-polars_bio" title="Permanent link"></a></h6>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/memory/dataframes/polars-bio-overlap-mem.png"><img alt="polars-bio-overlap-mem.png" src="../assets/memory/dataframes/polars-bio-overlap-mem.png"/></a></p>
+<h6 id="memory-characteristic-polars_bio_pandas_pd">Memory characteristic polars_bio_pandas_pd<a class="headerlink" href="#memory-characteristic-polars_bio_pandas_pd" title="Permanent link"></a></h6>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/memory/dataframes/polars-bio-overlap-pd-mem.png"><img alt="polars-bio-overlap-pd-mem.png" src="../assets/memory/dataframes/polars-bio-overlap-pd-mem.png"/></a></p>
+<h6 id="memory-characteristic-polars_bio_polars_eager">Memory characteristic polars_bio_polars_eager<a class="headerlink" href="#memory-characteristic-polars_bio_polars_eager" title="Permanent link"></a></h6>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/memory/dataframes/polars-bio-overlap-pl-mem.png"><img alt="polars-bio-overlap-pl-mem.png" src="../assets/memory/dataframes/polars-bio-overlap-pl-mem.png"/></a></p>
+<h3 id="intel-emerald-rapids-linux_4">Intel Emerald Rapids (Linux) 🐧<a class="headerlink" href="#intel-emerald-rapids-linux_4" title="Permanent link"></a></h3>
+<h4 id="s-size_6">S-size<a class="headerlink" href="#s-size_6" title="Permanent link"></a></h4>
+<h5 id="1-2_1">1-2<a class="headerlink" href="#1-2_1" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>0.044786</td>
+<td>0.051431</td>
+<td>0.047491</td>
+<td>0.75x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>0.049655</td>
+<td>0.053397</td>
+<td>0.051123</td>
+<td>0.70x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>0.049221</td>
+<td>0.049408</td>
+<td>0.049292</td>
+<td>0.73x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>0.035443</td>
+<td>0.037997</td>
+<td>0.036327</td>
+<td><strong>0.99x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>0.035665</td>
+<td>0.036124</td>
+<td>0.035831</td>
+<td><strong>1.00x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="2-7_1">2-7<a class="headerlink" href="#2-7_1" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>0.121025</td>
+<td>0.125696</td>
+<td>0.122869</td>
+<td>0.88x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>0.136112</td>
+<td>0.146342</td>
+<td>0.141704</td>
+<td>0.76x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>0.136125</td>
+<td>0.137920</td>
+<td>0.137167</td>
+<td>0.79x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>0.106999</td>
+<td>0.111473</td>
+<td>0.108813</td>
+<td><strong>0.99x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>0.107742</td>
+<td>0.108038</td>
+<td>0.107885</td>
+<td><strong>1.00x</strong></td>
+</tr>
+</tbody>
+</table>
+<h5 id="1-0_1">1-0<a class="headerlink" href="#1-0_1" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>0.180773</td>
+<td>0.185704</td>
+<td>0.183153</td>
+<td>0.91x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>0.210633</td>
+<td>0.217342</td>
+<td>0.213262</td>
+<td>0.78x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>0.211245</td>
+<td>0.211972</td>
+<td>0.211680</td>
+<td>0.79x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>0.166366</td>
+<td>0.169000</td>
+<td>0.167294</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>0.166566</td>
+<td>0.167847</td>
+<td>0.167033</td>
+<td><strong>1.00x</strong></td>
+</tr>
+</tbody>
+</table>
+<h4 id="m-size_6">M-size<a class="headerlink" href="#m-size_6" title="Permanent link"></a></h4>
+<h5 id="7-0_1">7-0<a class="headerlink" href="#7-0_1" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>0.306130</td>
+<td>0.314524</td>
+<td>0.309803</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>0.416123</td>
+<td>0.432397</td>
+<td>0.422839</td>
+<td>0.73x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>0.410937</td>
+<td>0.414566</td>
+<td>0.412503</td>
+<td>0.75x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>0.353321</td>
+<td>0.364626</td>
+<td>0.358433</td>
+<td>0.86x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>0.355099</td>
+<td>0.359842</td>
+<td>0.357666</td>
+<td>0.87x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="7-3_1">7-3<a class="headerlink" href="#7-3_1" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>0.283038</td>
+<td>0.292933</td>
+<td>0.288120</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>0.496220</td>
+<td>0.510444</td>
+<td>0.502504</td>
+<td>0.57x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>0.495243</td>
+<td>0.498179</td>
+<td>0.497064</td>
+<td>0.58x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>0.446789</td>
+<td>0.455552</td>
+<td>0.450521</td>
+<td><strong>0.64x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>0.450512</td>
+<td>0.456530</td>
+<td>0.453931</td>
+<td>0.63x</td>
+</tr>
+</tbody>
+</table>
+<h4 id="l-size_6">L-size<a class="headerlink" href="#l-size_6" title="Permanent link"></a></h4>
+<h5 id="0-8_5">0-8<a class="headerlink" href="#0-8_5" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>4.519114</td>
+<td>4.539367</td>
+<td>4.532138</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>12.710922</td>
+<td>12.805014</td>
+<td>12.751166</td>
+<td>0.36x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>12.699757</td>
+<td>12.820158</td>
+<td>12.759016</td>
+<td>0.36x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>12.455788</td>
+<td>12.555952</td>
+<td>12.501217</td>
+<td>0.36x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>12.536595</td>
+<td>12.579006</td>
+<td>12.561026</td>
+<td>0.36x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="4-8_1">4-8<a class="headerlink" href="#4-8_1" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>6.043839</td>
+<td>6.129112</td>
+<td>6.088359</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>16.528438</td>
+<td>16.674857</td>
+<td>16.605654</td>
+<td>0.37x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>16.575829</td>
+<td>16.643302</td>
+<td>16.600709</td>
+<td>0.37x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>16.177433</td>
+<td>16.185123</td>
+<td>16.180217</td>
+<td>0.38x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>16.214009</td>
+<td>16.395757</td>
+<td>16.281422</td>
+<td>0.37x</td>
+</tr>
+</tbody>
+</table>
+<h5 id="7-8_5">7-8<a class="headerlink" href="#7-8_5" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio</td>
+<td>4.600700</td>
+<td>4.806215</td>
+<td>4.689799</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf</td>
+<td>19.858977</td>
+<td>20.342740</td>
+<td>20.104499</td>
+<td>0.23x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd</td>
+<td>20.263301</td>
+<td>20.594552</td>
+<td>20.402049</td>
+<td>0.23x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager</td>
+<td>19.837098</td>
+<td>20.012580</td>
+<td>19.922743</td>
+<td><strong>0.24x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy</td>
+<td>19.803839</td>
+<td>19.818197</td>
+<td>19.813257</td>
+<td><strong>0.24x</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="parallel-execution">Parallel execution<a class="headerlink" href="#parallel-execution" title="Permanent link"></a></h3>
+<h4 id="apple-silicon-macos_5">Apple Silicon (macOS) 🍎<a class="headerlink" href="#apple-silicon-macos_5" title="Permanent link"></a></h4>
+<h5 id="7-8_6">7-8<a class="headerlink" href="#7-8_6" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Min (s)</th>
+<th>Max (s)</th>
+<th>Mean (s)</th>
+<th>Speedup</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars_bio-1</td>
+<td>2.809130</td>
+<td>3.025777</td>
+<td>2.892455</td>
+<td><strong>1.00x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf-1</td>
+<td>6.113947</td>
+<td>6.343946</td>
+<td>6.200402</td>
+<td>0.47x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd-1</td>
+<td>7.101394</td>
+<td>7.133803</td>
+<td>7.121356</td>
+<td>0.41x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager-1</td>
+<td>6.083699</td>
+<td>6.269502</td>
+<td>6.188576</td>
+<td>0.47x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy-1</td>
+<td>6.282692</td>
+<td>6.359252</td>
+<td>6.328352</td>
+<td>0.46x</td>
+</tr>
+<tr>
+<td>polars_bio-2</td>
+<td>1.382220</td>
+<td>1.489515</td>
+<td>1.435259</td>
+<td><strong>2.02x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf-2</td>
+<td>4.088560</td>
+<td>4.139376</td>
+<td>4.107673</td>
+<td>0.70x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd-2</td>
+<td>5.591844</td>
+<td>5.612861</td>
+<td>5.603072</td>
+<td>0.52x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager-2</td>
+<td>3.995305</td>
+<td>4.058894</td>
+<td>4.020753</td>
+<td>0.72x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy-2</td>
+<td>3.961027</td>
+<td>4.047943</td>
+<td>4.001683</td>
+<td>0.72x</td>
+</tr>
+<tr>
+<td>polars_bio-4</td>
+<td>1.017920</td>
+<td>1.077169</td>
+<td>1.041166</td>
+<td><strong>2.78x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf-4</td>
+<td>3.084727</td>
+<td>3.126532</td>
+<td>3.102596</td>
+<td>0.93x</td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd-4</td>
+<td>4.925954</td>
+<td>4.957415</td>
+<td>4.943877</td>
+<td>0.59x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager-4</td>
+<td>2.914283</td>
+<td>2.971686</td>
+<td>2.935221</td>
+<td>0.99x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy-4</td>
+<td>2.918793</td>
+<td>2.944206</td>
+<td>2.930453</td>
+<td>0.99x</td>
+</tr>
+<tr>
+<td>polars_bio-8</td>
+<td>0.688430</td>
+<td>0.751968</td>
+<td>0.711147</td>
+<td><strong>4.07x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_lf-8</td>
+<td>2.558258</td>
+<td>2.606939</td>
+<td>2.588139</td>
+<td><strong>1.12x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_pandas_pd-8</td>
+<td>4.448074</td>
+<td>4.490866</td>
+<td>4.474837</td>
+<td>0.65x</td>
+</tr>
+<tr>
+<td>polars_bio_polars_eager-8</td>
+<td>2.398288</td>
+<td>2.513702</td>
+<td>2.446019</td>
+<td><strong>1.18x</strong></td>
+</tr>
+<tr>
+<td>polars_bio_polars_lazy-8</td>
+<td>2.406907</td>
+<td>2.418571</td>
+<td>2.411573</td>
+<td><strong>1.20x</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="memory-characteristics">Memory characteristics<a class="headerlink" href="#memory-characteristics" title="Permanent link"></a></h3>
+<p>How to run the benchmarks with <a href="https://github.com/pythonprofilers/memory_profiler">memory-profiler</a>:
+</p><div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a href="#__codelineno-2-1" id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="o">(</span>polars-bio-py3.12<span class="o">)</span><span class="w"> </span>➜<span class="w">  </span>polars-bio<span class="w"> </span>git:<span class="o">(</span>master<span class="o">)</span><span class="w"> </span>✗<span class="w"> </span>pip<span class="w"> </span>list<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>memory
+</span><span id="__span-2-2"><a href="#__codelineno-2-2" id="__codelineno-2-2" name="__codelineno-2-2"></a>memory-profiler<span class="w">            </span><span class="m">0</span>.61.0
+</span><span id="__span-2-3"><a href="#__codelineno-2-3" id="__codelineno-2-3" name="__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a href="#__codelineno-2-4" id="__codelineno-2-4" name="__codelineno-2-4"></a>mprof<span class="w"> </span>run<span class="w"> </span>--include-children<span class="w"> </span>benchmark/src/memory/mem_xxx.py
+</span><span id="__span-2-5"><a href="#__codelineno-2-5" id="__codelineno-2-5" name="__codelineno-2-5"></a>mprof<span class="w"> </span>plot<span class="w"> </span>mprofile_xxx.dat
+</span></code></pre></div><p></p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<ol>
+<li>Here we report end-to-end time, i.e. including reading and writing to a file and all the required operations in between, such as data transformation, Python object creation, etc.</li>
+</ol>
+</div>
+<h4 id="apple-silicon-macos_6">Apple Silicon (macOS) 🍎<a class="headerlink" href="#apple-silicon-macos_6" title="Permanent link"></a></h4>
+<h5 id="read-parquet-files-and-count-overlaps-7-8">Read Parquet files and count overlaps  7-8<a class="headerlink" href="#read-parquet-files-and-count-overlaps-7-8" title="Permanent link"></a></h5>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Peak Memory (MB)</th>
+<th>Factor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars-bio</td>
+<td><strong>14,650</strong></td>
+<td><strong>1.0x</strong></td>
+</tr>
+<tr>
+<td>bioframe</td>
+<td>35,720</td>
+<td>2.43x</td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>30,140</td>
+<td>2.06x</td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>35,940</td>
+<td>2.45x</td>
+</tr>
+</tbody>
+</table>
+<h6 id="polars-bio">polars-bio<a class="headerlink" href="#polars-bio" title="Permanent link"></a></h6>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/memory/polars-bio.png"><img alt="polars-bio" src="../assets/memory/polars-bio.png"/></a></p>
+<h6 id="bioframe">bioframe<a class="headerlink" href="#bioframe" title="Permanent link"></a></h6>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/memory/bioframe.png"><img alt="bioframe" src="../assets/memory/bioframe.png"/></a></p>
+<h6 id="pyranges0">pyranges0<a class="headerlink" href="#pyranges0" title="Permanent link"></a></h6>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/memory/pyranges0.png"><img alt="pyranges" src="../assets/memory/pyranges0.png"/></a></p>
+<h6 id="pyranges1">pyranges1<a class="headerlink" href="#pyranges1" title="Permanent link"></a></h6>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/memory/pyranges1.png"><img alt="pyranges" src="../assets/memory/pyranges1.png"/></a></p>
+<h4 id="calculate-overlaps-and-export-to-a-csv-file-7-8">Calculate overlaps and export to a CSV file 7-8<a class="headerlink" href="#calculate-overlaps-and-export-to-a-csv-file-7-8" title="Permanent link"></a></h4>
+<table>
+<thead>
+<tr>
+<th>Library</th>
+<th>Time (s)</th>
+<th>Speedup</th>
+<th>Peak Memory (MB)</th>
+<th>Factor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>polars-bio</td>
+<td><strong>23.765</strong></td>
+<td>0.77x</td>
+<td>14,660</td>
+<td>26.07x</td>
+</tr>
+<tr>
+<td><strong>polars-bio-stream</strong></td>
+<td><strong>18.221</strong><sup>1</sup></td>
+<td><strong>1.0x</strong></td>
+<td><strong>562.22</strong></td>
+<td><strong>1.0x</strong></td>
+</tr>
+<tr>
+<td>bioframe</td>
+<td>370.010</td>
+<td>0.05x</td>
+<td>33,352</td>
+<td>59.32x</td>
+</tr>
+<tr>
+<td>pyranges0</td>
+<td>275.237</td>
+<td>0.07x</td>
+<td>30.052</td>
+<td>53.45x</td>
+</tr>
+<tr>
+<td>pyranges1</td>
+<td>351.041</td>
+<td>0.05x</td>
+<td>36,530</td>
+<td>64.97x</td>
+</tr>
+</tbody>
+</table>
+<p><sup>1</sup> Despite limiting the number of threads in DataFusion (<code>datafusion.execution.target_partitions=1</code>) and in Polars (<code>POLARS_MAX_THREADS=1</code>) cpu utilization was constant and approx.160%.</p>
+<h6 id="polars-bio_1">polars-bio<a class="headerlink" href="#polars-bio_1" title="Permanent link"></a></h6>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/memory/polars-bio_sink.png"><img alt="polars-bio" src="../assets/memory/polars-bio_sink.png"/></a></p>
+<h6 id="polars-bio_stream">polars-bio_stream<a class="headerlink" href="#polars-bio_stream" title="Permanent link"></a></h6>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/memory/polars-bio_stream_sink.png"><img alt="polars-bio" src="../assets/memory/polars-bio_stream_sink.png"/></a></p>
+<h6 id="bioframe_1">bioframe<a class="headerlink" href="#bioframe_1" title="Permanent link"></a></h6>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/memory/bioframe_sink.png"><img alt="bioframe" src="../assets/memory/bioframe_sink.png"/></a></p>
+<h6 id="pyranges0_1">pyranges0<a class="headerlink" href="#pyranges0_1" title="Permanent link"></a></h6>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/memory/pyranges0_sink.png"><img alt="pyranges" src="../assets/memory/pyranges0_sink.png"/></a></p>
+<h6 id="pyranges1_1">pyranges1<a class="headerlink" href="#pyranges1_1" title="Permanent link"></a></h6>
+<p><a class="glightbox" data-desc-position="bottom" data-height="auto" data-type="image" data-width="auto" href="../assets/memory/pyranges1_sink.png"><img alt="pyranges" src="../assets/memory/pyranges1_sink.png"/></a></p>
+<h2 id="how-to-run-the-benchmarks">How to run the benchmarks<a class="headerlink" href="#how-to-run-the-benchmarks" title="Permanent link"></a></h2>
+<p>Check the <a href="https://github.com/biodatageeks/polars-bio-bench">repository</a> for more details on how to run the benchmarks.
+```</p>
+<div class="admonition todo">
+<p class="admonition-title">Todo</p>
+<ul>
+<li>Add more details on how to run the benchmarks</li>
+</ul>
+</div>
+</article>
+</div>
+<script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+</div>
+<button class="md-top md-icon" data-md-component="top" hidden="" type="button">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"></path></svg>
+  Back to top
+</button>
+</main>
+<footer class="md-footer">
+<div class="md-footer-meta md-typeset">
+<div class="md-footer-meta__inner md-grid">
+<div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener" target="_blank">
+      Material for MkDocs
+    </a>
+</div>
+<div class="md-social">
+<a class="md-social__link" href="https://discord.gg/bpxQ4Yxhk5" rel="noopener" target="_blank" title="Discord">
+<svg viewbox="0 0 576 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M492.5 69.8c-.2-.3-.4-.6-.8-.7-38.1-17.5-78.4-30-119.7-37.1-.4-.1-.8 0-1.1.1s-.6.4-.8.8c-5.5 9.9-10.5 20.2-14.9 30.6-44.6-6.8-89.9-6.8-134.4 0-4.5-10.5-9.5-20.7-15.1-30.6-.2-.3-.5-.6-.8-.8s-.7-.2-1.1-.2C162.5 39 122.2 51.5 84.1 69c-.3.1-.6.4-.8.7C7.1 183.5-13.8 294.6-3.6 404.2c0 .3.1.5.2.8s.3.4.5.6c44.4 32.9 94 58 146.8 74.2.4.1.8.1 1.1 0s.7-.4.9-.7c11.3-15.4 21.4-31.8 30-48.8.1-.2.2-.5.2-.8s0-.5-.1-.8-.2-.5-.4-.6-.4-.3-.7-.4c-15.8-6.1-31.2-13.4-45.9-21.9-.3-.2-.5-.4-.7-.6s-.3-.6-.3-.9 0-.6.2-.9.3-.5.6-.7c3.1-2.3 6.2-4.7 9.1-7.1.3-.2.6-.4.9-.4s.7 0 1 .1c96.2 43.9 200.4 43.9 295.5 0 .3-.1.7-.2 1-.2s.7.2.9.4c2.9 2.4 6 4.9 9.1 7.2.2.2.4.4.6.7s.2.6.2.9-.1.6-.3.9-.4.5-.6.6c-14.7 8.6-30 15.9-45.9 21.8-.2.1-.5.2-.7.4s-.3.4-.4.7-.1.5-.1.8.1.5.2.8c8.8 17 18.8 33.3 30 48.8.2.3.6.6.9.7s.8.1 1.1 0c52.9-16.2 102.6-41.3 147.1-74.2.2-.2.4-.4.5-.6s.2-.5.2-.8c12.3-126.8-20.5-236.9-86.9-334.5zm-302 267.7c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.4 59.2-52.8 59.2m195.4 0c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.2 59.2-52.8 59.2"></path></svg>
+</a>
+<a class="md-social__link" href="mailto:marek.wiewiorka@pw.edu.pl" rel="noopener" target="_blank" title="Email">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="m20 8-8 5-8-5V6l8 5 8-5m0-2H4c-1.11 0-2 .89-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2"></path></svg>
+</a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+<div class="md-dialog" data-md-component="dialog">
+<div class="md-dialog__inner md-typeset"></div>
+</div>
+<script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "content.code.select", "content.code.annotate", "content.tabs.link", "content.action.edit", "content.tooltips", "toc.follow", "navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.footer", "navigation.tracking", "navigation.instant", "content.footnote.tooltips"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": ["latest"], "provider": "mike"}}</script>
+<script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+<script src="../assets/_markdown_exec_pyodide.js"></script>
+<script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(()=>{ lightbox.reload(); });
+</script></body></html>
