@@ -301,6 +301,8 @@ pub struct VcfReadOptions {
     pub info_fields: Option<Vec<String>>,
     #[pyo3(get, set)]
     pub format_fields: Option<Vec<String>>,
+    #[pyo3(get, set)]
+    pub samples: Option<Vec<String>>,
     pub object_storage_options: Option<ObjectStorageOptions>,
     /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
     #[pyo3(get, set)]
@@ -310,16 +312,18 @@ pub struct VcfReadOptions {
 #[pymethods]
 impl VcfReadOptions {
     #[new]
-    #[pyo3(signature = (info_fields=None, format_fields=None, object_storage_options=None, zero_based=true))]
+    #[pyo3(signature = (info_fields=None, format_fields=None, samples=None, object_storage_options=None, zero_based=true))]
     pub fn new(
         info_fields: Option<Vec<String>>,
         format_fields: Option<Vec<String>>,
+        samples: Option<Vec<String>>,
         object_storage_options: Option<PyObjectStorageOptions>,
         zero_based: bool,
     ) -> Self {
         VcfReadOptions {
             info_fields,
             format_fields,
+            samples,
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
@@ -331,6 +335,7 @@ impl VcfReadOptions {
         VcfReadOptions {
             info_fields: None,
             format_fields: None,
+            samples: None,
             object_storage_options: Some(ObjectStorageOptions {
                 chunk_size: Some(1024 * 1024), // 1MB
                 concurrent_fetches: Some(4),

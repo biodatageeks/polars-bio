@@ -111,6 +111,13 @@ def _genotypes_by_sample(df: pl.DataFrame, row_idx: int = 0) -> dict:
     return result
 
 
+def _sample_ids(df: pl.DataFrame, row_idx: int = 0) -> list[str]:
+    """Extract ordered sample IDs from one row of nested genotypes."""
+    entries = df["genotypes"].to_list()[row_idx]
+    assert isinstance(entries, list), f"Expected list entries, got: {type(entries)}"
+    return [entry.get("sample_id") for entry in entries]
+
+
 def test_vcf_format_columns_multisample_specific_fields():
     """Test reading multi-sample VCF with specific FORMAT fields."""
     vcf_path = "tests/data/io/vcf/multisample.vcf"
@@ -183,3 +190,67 @@ def test_scan_vcf_multisample_format_columns():
     df = lf.collect()
 
     assert "genotypes" in df.columns
+
+
+def test_vcf_multisample_samples_subset_respects_requested_order():
+    """Requested sample order should be preserved in nested genotype output."""
+    vcf_path = "tests/data/io/vcf/multisample.vcf"
+    df = pb.read_vcf(
+        vcf_path,
+        format_fields=["GT"],
+        samples=["NA12880", "NA12878"],
+    )
+
+    assert _sample_ids(df, 0) == ["NA12880", "NA12878"]
+
+
+def test_scan_vcf_multisample_samples_subset():
+    """scan_vcf should apply the same sample subset filtering as read_vcf."""
+    vcf_path = "tests/data/io/vcf/multisample.vcf"
+    df = pb.scan_vcf(
+        vcf_path,
+        format_fields=["GT"],
+        samples=["NA12879"],
+    ).collect()
+
+    assert _sample_ids(df, 0) == ["NA12879"]
+
+
+def test_vcf_multisample_samples_missing_are_skipped():
+    """Unknown sample names should be skipped without raising."""
+    vcf_path = "tests/data/io/vcf/multisample.vcf"
+    df = pb.read_vcf(
+        vcf_path,
+        format_fields=["GT"],
+        samples=["MISSING_SAMPLE", "NA12878"],
+    )
+
+    assert _sample_ids(df, 0) == ["NA12878"]
+
+
+def test_vcf_multisample_samples_duplicates_deduplicated():
+    """Duplicate requested sample names should appear once in output."""
+    vcf_path = "tests/data/io/vcf/multisample.vcf"
+    df = pb.read_vcf(
+        vcf_path,
+        format_fields=["GT"],
+        samples=["NA12879", "NA12879", "NA12880"],
+    )
+
+    assert _sample_ids(df, 0) == ["NA12879", "NA12880"]
+
+
+def test_vcf_multisample_samples_none_regression():
+    """Default behavior with samples=None should keep all multisample entries."""
+    vcf_path = "tests/data/io/vcf/multisample.vcf"
+    df = pb.read_vcf(vcf_path, format_fields=["GT"])
+
+    assert _sample_ids(df, 0) == ["NA12878", "NA12879", "NA12880"]
+
+
+def test_vcf_single_sample_samples_filter_keeps_format_columns():
+    """Selecting the existing single-sample name should keep top-level FORMAT columns."""
+    vcf_path = "tests/data/io/vcf/antku_small.vcf.gz"
+    df = pb.read_vcf(vcf_path, format_fields=["GT"], samples=["default"])
+
+    assert "GT" in df.columns
