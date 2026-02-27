@@ -188,9 +188,6 @@ class IntervalOperations:
             1     chr1            3          8     chr1            4          8
 
             ```
-
-        Todo:
-             Support for on_cols.
         """
 
         _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type)
@@ -206,6 +203,7 @@ class IntervalOperations:
             suffixes=suffixes,
             columns_1=cols1,
             columns_2=cols2,
+            on_cols=on_cols,
             overlap_alg=algorithm,
             overlap_low_memory=low_memory,
         )
@@ -273,9 +271,6 @@ class IntervalOperations:
             This enables efficient processing of large datasets without loading the entire output dataset into memory.
 
         Example:
-
-        Todo:
-            Support for on_cols.
         """
 
         _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type)
@@ -294,6 +289,7 @@ class IntervalOperations:
             nearest_k=k,
             include_overlaps=overlap,
             compute_distance=distance,
+            on_cols=on_cols,
         )
         return range_operation(
             df1,
@@ -351,9 +347,6 @@ class IntervalOperations:
             This enables efficient processing of large datasets without loading the entire output dataset into memory.
 
         Example:
-
-        Todo:
-            Support for on_cols.
         """
 
         _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type)
@@ -369,6 +362,7 @@ class IntervalOperations:
             suffixes=suffixes,
             columns_1=cols1,
             columns_2=cols2,
+            on_cols=on_cols,
         )
         return range_operation(
             df2,
@@ -473,6 +467,7 @@ class IntervalOperations:
                 suffixes=suffixes,
                 columns_1=cols1,
                 columns_2=cols2,
+                on_cols=on_cols,
             )
             return range_operation(df2, df1, range_options, output_type, ctx)
         df1 = read_df_to_datafusion(my_ctx, df1)
@@ -594,9 +589,6 @@ class IntervalOperations:
                 and `datafusion.bio.coordinate_system_check` is "true" (default).
 
         Example:
-
-        Todo:
-            Support for on_cols.
         """
         suffixes = ("_1", "_2")
         _validate_overlap_input(cols, cols, on_cols, suffixes, output_type)
