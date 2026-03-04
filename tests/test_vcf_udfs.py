@@ -116,11 +116,12 @@ def test_list_and():
 
 
 def test_vcf_set_gts():
-    """vcf_set_gts masks GT values where mask is false; default replacement is './.'."""
+    """vcf_set_gts masks GT values where mask is false; replacement is './.'."""
     df = pb.sql(
         f"""SELECT vcf_set_gts(
             genotypes."GT",
-            list_gte(genotypes."GQ", 90)
+            list_gte(genotypes."GQ", 90),
+            './.'
         ) AS masked_gt FROM {TABLE_NAME}"""
     ).collect()
 
@@ -189,7 +190,7 @@ def test_bcftools_equivalent_query():
                     list_and(
                         list_gte(genotypes."GQ", 90),
                         list_gte(genotypes."DP", 25)
-                    )),
+                    ), './.'),
                 'GQ', genotypes."GQ",
                 'DP', genotypes."DP"
             ) AS genotypes

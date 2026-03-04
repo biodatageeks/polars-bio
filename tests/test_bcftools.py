@@ -31,7 +31,7 @@ SELECT chrom, start, "end", id, ref, alt, qual, filter, \
   named_struct(\
     'GT', vcf_set_gts(genotypes."GT", \
       list_and(list_and(list_gte(genotypes."GQ", 10), list_gte(genotypes."DP", 10)), \
-               list_lte(genotypes."DP", 200))), \
+               list_lte(genotypes."DP", 200)), './.'), \
     'GQ', genotypes."GQ", \
     'DP', genotypes."DP"\
   ) AS genotypes \
