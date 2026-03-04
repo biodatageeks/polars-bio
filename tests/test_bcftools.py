@@ -189,6 +189,45 @@ class TestBcftoolsSinkRoundtrip:
         roundtrip_df = pb.sql("SELECT * FROM bcftools_roundtrip").collect()
         assert roundtrip_df.shape[0] == 100
 
+    def test_sink_vcf_content_matches_bcftools(
+        self, registered_table, expected_df, tmp_path
+    ):
+        """Re-read sink_vcf output and verify GT/DP/GQ match bcftools expected."""
+        output_path = tmp_path / "bcftools_content_check.vcf.gz"
+
+        lf = pb.sql(FILTER_SQL)
+        pb.sink_vcf(lf, str(output_path))
+
+        table = f"sink_content_{tmp_path.name.replace('-', '_')}"
+        pb.register_vcf(
+            str(output_path),
+            name=table,
+            info_fields=[],
+            format_fields=["GT", "DP", "GQ"],
+        )
+        written_df = pb.sql(f"SELECT * FROM {table}").collect()
+
+        # Row count
+        assert written_df.shape[0] == expected_df.shape[0]
+
+        # GT values (including ./. masking) match bcftools
+        written_gts = written_df["genotypes"].struct.field("GT").to_list()
+        expected_gts = expected_df["genotypes"].struct.field("GT").to_list()
+        for i, (w, e) in enumerate(zip(written_gts, expected_gts)):
+            assert w == e, f"GT mismatch at variant {i} after sink_vcf roundtrip"
+
+        # DP values preserved through write
+        written_dp = written_df["genotypes"].struct.field("DP").to_list()
+        expected_dp = expected_df["genotypes"].struct.field("DP").to_list()
+        for i, (w, e) in enumerate(zip(written_dp, expected_dp)):
+            assert w == e, f"DP mismatch at variant {i} after sink_vcf roundtrip"
+
+        # GQ values preserved through write
+        written_gq = written_df["genotypes"].struct.field("GQ").to_list()
+        expected_gq = expected_df["genotypes"].struct.field("GQ").to_list()
+        for i, (w, e) in enumerate(zip(written_gq, expected_gq)):
+            assert w == e, f"GQ mismatch at variant {i} after sink_vcf roundtrip"
+
     def test_sink_vcf_preserves_sample_names(
         self, registered_table, selected_samples, tmp_path
     ):
