@@ -367,3 +367,80 @@ def test_vcf_explode_samples_single_sample_noop():
     assert "GT" in df.columns
     # No sample_id column since there's no genotypes to explode
     assert "sample_id" not in df.columns
+
+
+# =============================================================================
+# Non-standard AD field regression tests (forked noodles fix)
+#
+# head_106667_tail_6.vcf has:
+#   - AD declared as Number=. (variable-length Integer list)
+#   - Mixed FORMAT across rows: GT:AB:AD:DP:GQ:PL vs GT:AD:DP:GQ:PL
+#   - Haploid GTs on chrX (e.g., "0" instead of "0/0")
+#   - 3202 samples, 6 variants
+# =============================================================================
+
+NONSTANDARD_AD_VCF = "tests/data/io/vcf/head_106667_tail_6.vcf"
+
+
+def test_nonstandard_ad_read_succeeds():
+    """VCF with Number=. AD field should read without error."""
+    df = pb.read_vcf(NONSTANDARD_AD_VCF, format_fields=["GT", "AD", "DP", "GQ"])
+    assert df.shape[0] == 6
+    assert "genotypes" in df.columns
+
+
+def test_nonstandard_ad_type_is_list_of_lists():
+    """AD with Number=. should parse as List(List(Int32))."""
+    df = pb.read_vcf(NONSTANDARD_AD_VCF, format_fields=["AD"])
+    ad_type = df["genotypes"].struct.field("AD").dtype
+    assert ad_type == pl.List(pl.List(pl.Int32))
+
+
+def test_nonstandard_ad_values():
+    """AD values should contain ref,alt allelic depths per sample."""
+    df = pb.read_vcf(NONSTANDARD_AD_VCF, format_fields=["GT", "AD", "DP", "GQ"])
+    ad = df["genotypes"].struct.field("AD").to_list()
+
+    # Row 0, first sample: GT=0, AD should be [9,0] (from data: 9,0)
+    assert ad[0][0] == [9, 0]
+    # Row 0: all AD values should have 2 elements (biallelic site)
+    for sample_ad in ad[0]:
+        assert len(sample_ad) == 2, f"Expected 2 AD values, got {len(sample_ad)}"
+
+
+def test_nonstandard_ad_mixed_format_fields():
+    """Rows with different FORMAT fields (with/without AB) parse correctly."""
+    df = pb.read_vcf(NONSTANDARD_AD_VCF, format_fields=["GT", "AD", "DP", "GQ"])
+    geno = df["genotypes"]
+
+    # No null genotype structs
+    assert geno.null_count() == 0
+
+    # All rows should have 3202 samples
+    gt = geno.struct.field("GT").to_list()
+    for i, row in enumerate(gt):
+        assert len(row) == 3202, f"Row {i}: expected 3202 samples, got {len(row)}"
+
+    dp = geno.struct.field("DP").to_list()
+    for i, row in enumerate(dp):
+        assert len(row) == 3202, f"Row {i}: expected 3202 DP values, got {len(row)}"
+
+
+def test_nonstandard_ad_haploid_gt_preserved():
+    """Haploid GTs on chrX (e.g., '0') should be preserved, not coerced to '0/0'."""
+    df = pb.read_vcf(NONSTANDARD_AD_VCF, format_fields=["GT"])
+    gt = df["genotypes"].struct.field("GT").to_list()
+
+    # First sample in row 0 has haploid GT "0"
+    assert gt[0][0] == "0"
+    # Some samples have diploid "0/0"
+    assert "0/0" in gt[0]
+
+
+def test_nonstandard_ad_scan_vcf():
+    """Lazy scan path should also handle non-standard AD without error."""
+    lf = pb.scan_vcf(NONSTANDARD_AD_VCF, format_fields=["GT", "AD", "DP", "GQ"])
+    df = lf.collect()
+    assert df.shape[0] == 6
+    ad_type = df["genotypes"].struct.field("AD").dtype
+    assert ad_type == pl.List(pl.List(pl.Int32))
