@@ -231,25 +231,25 @@ class TestMultisampleVcfRoundTrip:
                 assert df1[col].to_list() == df2[col].to_list(), f"Mismatch in {col}"
 
     def test_multisample_format_columns_preserved(self, tmp_path):
-        """Verify nested multi-sample FORMAT values and sample ids survive roundtrip."""
-        df1 = pb.read_vcf(
+        """Verify columnar multi-sample FORMAT values and sample ids survive roundtrip."""
+        lf1 = pb.scan_vcf(
             self.MULTISAMPLE_VCF, info_fields=[], format_fields=self.FORMAT_FIELDS
         )
+        sample_names_1 = pb.get_metadata(lf1)["header"]["sample_names"]
+        df1 = lf1.collect()
         output_path = tmp_path / "multisample_format.vcf"
         pb.write_vcf(df1, str(output_path))
-        df2 = pb.read_vcf(
+        lf2 = pb.scan_vcf(
             str(output_path), info_fields=[], format_fields=self.FORMAT_FIELDS
         )
+        sample_names_2 = pb.get_metadata(lf2)["header"]["sample_names"]
+        df2 = lf2.collect()
 
         assert "genotypes" in df1.columns
         assert "genotypes" in df2.columns
+        assert sample_names_1 == sample_names_2
 
-        # Sample names come from metadata, genotypes is a struct with lists
-        meta1 = pb.get_metadata(df1)
-        meta2 = pb.get_metadata(df2)
-        assert meta1["header"]["sample_names"] == meta2["header"]["sample_names"]
-
-        # Validate that first-row GT values are preserved (not converted to nulls)
+        # Validate that first-row GT list values are preserved (not converted to nulls)
         geno1 = df1["genotypes"].to_list()[0]
         geno2 = df2["genotypes"].to_list()[0]
         assert geno1["GT"] == geno2["GT"]
@@ -257,6 +257,23 @@ class TestMultisampleVcfRoundTrip:
 
 class TestVcfSink:
     """Tests for sink_vcf streaming write."""
+
+    @staticmethod
+    def _first_variant_pos(path: str) -> int:
+        with open(path, "rt") as handle:
+            for line in handle:
+                if not line.startswith("#"):
+                    return int(line.split("\t")[1])
+        raise AssertionError(f"No variant records found in {path}")
+
+    @staticmethod
+    def _header_sample_names(path: str) -> list[str]:
+        with open(path, "rt") as handle:
+            for line in handle:
+                if line.startswith("#CHROM"):
+                    fields = line.rstrip("\n").split("\t")
+                    return fields[9:]
+        raise AssertionError(f"#CHROM header line not found in {path}")
 
     def test_sink_vcf_lazy_evaluation(self, tmp_path):
         """Test sink_vcf with LazyFrame."""
@@ -328,3 +345,101 @@ class TestVcfSink:
         assert (
             actual == expected
         ), f"With {partitions} partitions: wrote {actual} rows, expected {expected}"
+
+    def test_sink_vcf_sql_preserves_subset_sample_names(self, tmp_path):
+        """SQL LazyFrame keeps VCF sample metadata used by sink_vcf headers."""
+        input_path = f"{DATA_DIR}/io/vcf/multisample.vcf"
+        output_path = tmp_path / "sink_sql_subset_samples.vcf"
+        table_name = f"sql_sink_subset_{tmp_path.name.replace('-', '_')}"
+        selected_samples = ["NA12879", "NA12880"]
+
+        pb.register_vcf(
+            input_path,
+            name=table_name,
+            info_fields=[],
+            format_fields=["GT", "DP", "GQ"],
+            samples=selected_samples,
+        )
+        lf = pb.sql(f"SELECT * FROM {table_name}")
+
+        meta = pb.get_metadata(lf)
+        assert meta["format"] == "vcf"
+        assert meta["header"]["sample_names"] == selected_samples
+
+        pb.sink_vcf(lf, str(output_path))
+        assert self._header_sample_names(str(output_path)) == selected_samples
+
+    def test_sink_vcf_sql_preserves_coordinate_system(self, tmp_path):
+        """SQL LazyFrame keeps coordinate metadata so sink_vcf writes correct POS."""
+        input_path = f"{DATA_DIR}/io/vcf/multisample.vcf"
+        output_path = tmp_path / "sink_sql_coordinates.vcf"
+        table_name = f"sql_sink_coords_{tmp_path.name.replace('-', '_')}"
+
+        pb.register_vcf(
+            input_path,
+            name=table_name,
+            info_fields=[],
+            format_fields=["GT", "DP", "GQ"],
+        )
+        lf = pb.sql(f"SELECT * FROM {table_name}")
+        pb.sink_vcf(lf, str(output_path))
+
+        assert self._first_variant_pos(str(output_path)) == self._first_variant_pos(
+            input_path
+        )
+
+    def test_sink_vcf_sql_recomputed_ac_af_an_header_metadata(self, tmp_path):
+        """SQL-derived AC/AF/AN columns keep INFO metadata in sink_vcf headers."""
+        input_path = f"{DATA_DIR}/io/vcf/multisample.vcf"
+        output_path = tmp_path / "sink_sql_recomputed_ac_af_an.vcf"
+        table_name = f"sql_sink_recalc_{tmp_path.name.replace('-', '_')}"
+
+        pb.register_vcf(
+            input_path,
+            name=table_name,
+            info_fields=[],
+            format_fields=["GT", "DP", "GQ"],
+        )
+        lf = pb.sql(
+            f"""SELECT
+                chrom,
+                start,
+                "end",
+                id,
+                ref,
+                alt,
+                qual,
+                filter,
+                vcf_ac(genotypes."GT") AS "AC",
+                vcf_af(genotypes."GT") AS "AF",
+                vcf_an(genotypes."GT") AS "AN",
+                named_struct(
+                    'GT', genotypes."GT",
+                    'DP', genotypes."DP",
+                    'GQ', genotypes."GQ"
+                ) AS genotypes
+            FROM {table_name}"""
+        )
+        pb.sink_vcf(lf, str(output_path))
+
+        info_lines = {}
+        with open(output_path, "rt") as handle:
+            for line in handle:
+                if line.startswith("##INFO=<ID=AC,"):
+                    info_lines["AC"] = line.strip()
+                elif line.startswith("##INFO=<ID=AF,"):
+                    info_lines["AF"] = line.strip()
+                elif line.startswith("##INFO=<ID=AN,"):
+                    info_lines["AN"] = line.strip()
+                elif line.startswith("#CHROM"):
+                    break
+
+        assert "AC" in info_lines
+        assert "AF" in info_lines
+        assert "AN" in info_lines
+        assert "Number=A" in info_lines["AC"]
+        assert "Type=Integer" in info_lines["AC"]
+        assert "Number=A" in info_lines["AF"]
+        assert "Type=Float" in info_lines["AF"]
+        assert "Number=1" in info_lines["AN"]
+        assert "Type=Integer" in info_lines["AN"]

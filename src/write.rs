@@ -67,35 +67,33 @@ fn extract_format_fields_from_nested_genotypes(schema: &SchemaRef) -> Vec<String
         return Vec::new();
     };
 
-    // New shape: genotypes is Struct<GT: List, DP: List, ...>
-    if let DataType::Struct(fields) = genotypes_field.data_type() {
-        return fields.iter().map(|f| f.name().to_string()).collect();
+    match genotypes_field.data_type() {
+        // New shape: Struct<GT: List, DP: List, ...>
+        DataType::Struct(fields) => fields.iter().map(|f| f.name().to_string()).collect(),
+        // Legacy shape: List<Struct<sample_id, values: Struct<GT, DP, ...>>>
+        DataType::List(inner) | DataType::LargeList(inner) => {
+            let genotype_struct_fields = match inner.data_type() {
+                DataType::Struct(fields) => fields,
+                _ => return Vec::new(),
+            };
+
+            let Some(values_field) = genotype_struct_fields.iter().find(|f| f.name() == "values")
+            else {
+                return Vec::new();
+            };
+
+            let value_struct_fields = match values_field.data_type() {
+                DataType::Struct(fields) => fields,
+                _ => return Vec::new(),
+            };
+
+            value_struct_fields
+                .iter()
+                .map(|f| f.name().to_string())
+                .collect()
+        },
+        _ => Vec::new(),
     }
-
-    // Legacy shape: genotypes is List<Struct<sample_id, values: Struct<GT, DP, ...>>>
-    let list_item = match genotypes_field.data_type() {
-        DataType::List(inner) | DataType::LargeList(inner) => inner.as_ref(),
-        _ => return Vec::new(),
-    };
-
-    let genotype_struct_fields = match list_item.data_type() {
-        DataType::Struct(fields) => fields,
-        _ => return Vec::new(),
-    };
-
-    let Some(values_field) = genotype_struct_fields.iter().find(|f| f.name() == "values") else {
-        return Vec::new();
-    };
-
-    let value_struct_fields = match values_field.data_type() {
-        DataType::Struct(fields) => fields,
-        _ => return Vec::new(),
-    };
-
-    value_struct_fields
-        .iter()
-        .map(|f| f.name().to_string())
-        .collect()
 }
 
 /// Coalesce a physical plan to a single partition if it has multiple partitions.
@@ -239,129 +237,140 @@ fn apply_vcf_metadata_to_schema(
         // - New: genotypes: Struct<GT: List, DP: List, ...>
         // - Legacy: genotypes: List<Struct<sample_id, values: Struct<GT, DP, ...>>>
         if name == "genotypes" {
-            let genotypes_with_meta = (|| -> Option<Field> {
-                match field.data_type() {
-                    // New shape: Struct<GT: List, DP: List, ...>
-                    DataType::Struct(struct_fields) => {
-                        let mut rebuilt_fields = Vec::with_capacity(struct_fields.len());
-                        for sf in struct_fields.iter() {
-                            let format_id = sf.name();
-                            let mut rebuilt = sf.as_ref().clone();
-                            if let Some(serde_json::Value::Object(meta_obj)) =
-                                format_meta.get(format_id)
-                            {
-                                let field_metadata = build_field_metadata_from_vcf_meta(meta_obj);
-                                rebuilt = rebuilt.with_metadata(field_metadata);
-                            }
-                            if !format_fields.contains(format_id) {
-                                format_fields.push(format_id.to_string());
-                            }
-                            rebuilt_fields.push(std::sync::Arc::new(rebuilt));
-                        }
-                        let rebuilt_type = DataType::Struct(rebuilt_fields.into());
-                        let mut rebuilt_field = Field::new(name, rebuilt_type, field.is_nullable());
-                        if !field.metadata().is_empty() {
-                            rebuilt_field = rebuilt_field.with_metadata(field.metadata().clone());
-                        }
-                        Some(rebuilt_field)
-                    },
-                    // Legacy shape: List<Struct<sample_id, values: Struct<GT, DP, ...>>>
-                    DataType::List(item) | DataType::LargeList(item) => {
-                        let is_large_list = matches!(field.data_type(), DataType::LargeList(_));
-                        let item_field = item.as_ref();
+            let nested_with_meta = (|| -> Option<Field> {
+                // New shape: Struct<GT: List, DP: List, ...>
+                if let DataType::Struct(genotype_struct_fields) = field.data_type() {
+                    let mut rebuilt_genotype_fields =
+                        Vec::with_capacity(genotype_struct_fields.len());
 
-                        let genotype_struct_fields = match item_field.data_type() {
-                            DataType::Struct(fields) => fields,
-                            _ => return None,
-                        };
+                    for genotype_field in genotype_struct_fields.iter() {
+                        let format_id = genotype_field.name();
+                        let mut rebuilt_genotype_field = genotype_field.as_ref().clone();
 
-                        let mut rebuilt_genotype_fields =
-                            Vec::with_capacity(genotype_struct_fields.len());
-
-                        for genotype_field in genotype_struct_fields.iter() {
-                            if genotype_field.name() != "values" {
-                                rebuilt_genotype_fields
-                                    .push(std::sync::Arc::new(genotype_field.as_ref().clone()));
-                                continue;
-                            }
-
-                            let values_struct_fields = match genotype_field.data_type() {
-                                DataType::Struct(fields) => fields,
-                                _ => {
-                                    rebuilt_genotype_fields
-                                        .push(std::sync::Arc::new(genotype_field.as_ref().clone()));
-                                    continue;
-                                },
-                            };
-
-                            let mut rebuilt_values_fields =
-                                Vec::with_capacity(values_struct_fields.len());
-
-                            for value_field in values_struct_fields.iter() {
-                                let format_id = value_field.name();
-                                let mut rebuilt_value_field = value_field.as_ref().clone();
-
-                                if let Some(serde_json::Value::Object(meta_obj)) =
-                                    format_meta.get(format_id)
-                                {
-                                    let field_metadata =
-                                        build_field_metadata_from_vcf_meta(meta_obj);
-                                    rebuilt_value_field =
-                                        rebuilt_value_field.with_metadata(field_metadata);
-                                }
-
-                                if !format_fields.contains(format_id) {
-                                    format_fields.push(format_id.to_string());
-                                }
-
-                                rebuilt_values_fields
-                                    .push(std::sync::Arc::new(rebuilt_value_field));
-                            }
-
-                            let values_type = DataType::Struct(rebuilt_values_fields.into());
-                            let mut rebuilt_values_field = Field::new(
-                                genotype_field.name(),
-                                values_type,
-                                genotype_field.is_nullable(),
-                            );
-                            if !genotype_field.metadata().is_empty() {
-                                rebuilt_values_field = rebuilt_values_field
-                                    .with_metadata(genotype_field.metadata().clone());
-                            }
-
-                            rebuilt_genotype_fields.push(std::sync::Arc::new(rebuilt_values_field));
+                        if let Some(serde_json::Value::Object(meta_obj)) =
+                            format_meta.get(format_id)
+                        {
+                            let mut merged_metadata = rebuilt_genotype_field.metadata().clone();
+                            merged_metadata.extend(build_field_metadata_from_vcf_meta(meta_obj));
+                            rebuilt_genotype_field =
+                                rebuilt_genotype_field.with_metadata(merged_metadata);
                         }
 
-                        let rebuilt_item_type = DataType::Struct(rebuilt_genotype_fields.into());
-                        let mut rebuilt_item_field = Field::new(
-                            item_field.name(),
-                            rebuilt_item_type,
-                            item_field.is_nullable(),
-                        );
-                        if !item_field.metadata().is_empty() {
-                            rebuilt_item_field =
-                                rebuilt_item_field.with_metadata(item_field.metadata().clone());
+                        if !format_fields.contains(format_id) {
+                            format_fields.push(format_id.to_string());
                         }
 
-                        let rebuilt_list_type = if is_large_list {
-                            DataType::LargeList(std::sync::Arc::new(rebuilt_item_field))
-                        } else {
-                            DataType::List(std::sync::Arc::new(rebuilt_item_field))
-                        };
+                        rebuilt_genotype_fields.push(std::sync::Arc::new(rebuilt_genotype_field));
+                    }
 
-                        let mut rebuilt_genotypes_field =
-                            Field::new(name, rebuilt_list_type, field.is_nullable());
-                        if !field.metadata().is_empty() {
-                            rebuilt_genotypes_field =
-                                rebuilt_genotypes_field.with_metadata(field.metadata().clone());
-                        }
-                        Some(rebuilt_genotypes_field)
-                    },
-                    _ => None,
+                    let mut rebuilt_genotypes_field = Field::new(
+                        name,
+                        DataType::Struct(rebuilt_genotype_fields.into()),
+                        field.is_nullable(),
+                    );
+                    if !field.metadata().is_empty() {
+                        rebuilt_genotypes_field =
+                            rebuilt_genotypes_field.with_metadata(field.metadata().clone());
+                    }
+                    return Some(rebuilt_genotypes_field);
                 }
+
+                // Legacy shape: List<Struct<sample_id, values: Struct<GT, DP, ...>>>
+                let (item_field, is_large_list) = match field.data_type() {
+                    DataType::List(item) => (item, false),
+                    DataType::LargeList(item) => (item, true),
+                    _ => return None,
+                };
+
+                let genotype_struct_fields = match item_field.data_type() {
+                    DataType::Struct(fields) => fields,
+                    _ => return None,
+                };
+
+                let mut rebuilt_genotype_fields =
+                    Vec::with_capacity(genotype_struct_fields.len());
+
+                for genotype_field in genotype_struct_fields.iter() {
+                    if genotype_field.name() != "values" {
+                        rebuilt_genotype_fields
+                            .push(std::sync::Arc::new(genotype_field.as_ref().clone()));
+                        continue;
+                    }
+
+                    let values_struct_fields = match genotype_field.data_type() {
+                        DataType::Struct(fields) => fields,
+                        _ => {
+                            rebuilt_genotype_fields
+                                .push(std::sync::Arc::new(genotype_field.as_ref().clone()));
+                            continue;
+                        },
+                    };
+
+                    let mut rebuilt_values_fields =
+                        Vec::with_capacity(values_struct_fields.len());
+
+                    for value_field in values_struct_fields.iter() {
+                        let format_id = value_field.name();
+                        let mut rebuilt_value_field = value_field.as_ref().clone();
+
+                        if let Some(serde_json::Value::Object(meta_obj)) =
+                            format_meta.get(format_id)
+                        {
+                            let mut merged_metadata = rebuilt_value_field.metadata().clone();
+                            merged_metadata.extend(build_field_metadata_from_vcf_meta(meta_obj));
+                            rebuilt_value_field =
+                                rebuilt_value_field.with_metadata(merged_metadata);
+                        }
+
+                        if !format_fields.contains(format_id) {
+                            format_fields.push(format_id.to_string());
+                        }
+
+                        rebuilt_values_fields
+                            .push(std::sync::Arc::new(rebuilt_value_field));
+                    }
+
+                    let values_type = DataType::Struct(rebuilt_values_fields.into());
+                    let mut rebuilt_values_field = Field::new(
+                        genotype_field.name(),
+                        values_type,
+                        genotype_field.is_nullable(),
+                    );
+                    if !genotype_field.metadata().is_empty() {
+                        rebuilt_values_field = rebuilt_values_field
+                            .with_metadata(genotype_field.metadata().clone());
+                    }
+
+                    rebuilt_genotype_fields.push(std::sync::Arc::new(rebuilt_values_field));
+                }
+
+                let rebuilt_item_type = DataType::Struct(rebuilt_genotype_fields.into());
+                let mut rebuilt_item_field = Field::new(
+                    item_field.name(),
+                    rebuilt_item_type,
+                    item_field.is_nullable(),
+                );
+                if !item_field.metadata().is_empty() {
+                    rebuilt_item_field =
+                        rebuilt_item_field.with_metadata(item_field.metadata().clone());
+                }
+
+                let rebuilt_list_type = if is_large_list {
+                    DataType::LargeList(std::sync::Arc::new(rebuilt_item_field))
+                } else {
+                    DataType::List(std::sync::Arc::new(rebuilt_item_field))
+                };
+
+                let mut rebuilt_genotypes_field =
+                    Field::new(name, rebuilt_list_type, field.is_nullable());
+                if !field.metadata().is_empty() {
+                    rebuilt_genotypes_field =
+                        rebuilt_genotypes_field.with_metadata(field.metadata().clone());
+                }
+                Some(rebuilt_genotypes_field)
             })();
 
-            if let Some(genotypes_field) = genotypes_with_meta {
+            if let Some(genotypes_field) = nested_with_meta {
                 new_fields.push(genotypes_field);
                 continue;
             }

@@ -99,31 +99,51 @@ def test_vcf_format_fields_auto_detected_by_default():
 # =============================================================================
 
 
-def _genotypes_by_sample(df: pl.DataFrame, row_idx: int = 0) -> dict:
-    """Convert one row of genotypes struct to sample->values mapping.
+def _get_sample_names(
+    path: str = "tests/data/io/vcf/multisample.vcf",
+    format_fields: list[str] | None = None,
+    samples: list[str] | None = None,
+) -> list[str]:
+    """Get ordered sample names from VCF metadata."""
+    lf = pb.scan_vcf(path, format_fields=format_fields or ["GT"], samples=samples)
+    return pb.get_metadata(lf)["header"]["sample_names"]
 
-    New format: genotypes is a Struct with FORMAT fields as lists ordered by sample.
-    E.g., {'GT': ['0/1', '1/1', '0/0'], 'DP': [25, 30, 20]}
-    Sample names come from metadata: header.sample_names.
+
+def _genotypes_by_sample(
+    df: pl.DataFrame, row_idx: int = 0, sample_names: list[str] | None = None
+) -> dict:
+    """Convert one row of columnar genotypes to sample->values mapping.
+
+    New schema: genotypes: Struct<GT: List<Utf8>, DP: List<Int32>, ...>
+    Sample names come from metadata, not from the data itself.
     """
     geno = df["genotypes"].to_list()[row_idx]
     assert isinstance(geno, dict), f"Expected dict (struct), got: {type(geno)}"
-    meta = pb.get_metadata(df)
-    sample_names = meta["header"]["sample_names"]
+
+    if sample_names is None:
+        sample_names = _get_sample_names(
+            format_fields=list(geno.keys()),
+        )
+
     result = {}
-    for i, sample in enumerate(sample_names):
+    for i, sample_id in enumerate(sample_names):
         values = {}
-        for field, vals in geno.items():
+        for key, vals in geno.items():
             if vals is not None and i < len(vals):
-                values[field] = vals[i]
-        result[sample] = values
+                values[key] = vals[i]
+        result[sample_id] = values
     return result
 
 
-def _sample_ids(df: pl.DataFrame, row_idx: int = 0) -> list[str]:
-    """Extract ordered sample IDs from metadata."""
-    meta = pb.get_metadata(df)
-    return meta["header"]["sample_names"]
+def _sample_ids(
+    df: pl.DataFrame,
+    row_idx: int = 0,
+    path: str = "tests/data/io/vcf/multisample.vcf",
+    format_fields: list[str] | None = None,
+    samples: list[str] | None = None,
+) -> list[str]:
+    """Extract ordered sample IDs from metadata (no longer in genotypes data)."""
+    return _get_sample_names(path=path, format_fields=format_fields, samples=samples)
 
 
 def test_vcf_format_columns_multisample_specific_fields():
@@ -209,7 +229,7 @@ def test_vcf_multisample_samples_subset_respects_requested_order():
         samples=["NA12880", "NA12878"],
     )
 
-    assert _sample_ids(df, 0) == ["NA12880", "NA12878"]
+    assert _sample_ids(df, 0, samples=["NA12880", "NA12878"]) == ["NA12880", "NA12878"]
 
 
 def test_scan_vcf_multisample_samples_subset():
@@ -221,7 +241,7 @@ def test_scan_vcf_multisample_samples_subset():
         samples=["NA12879"],
     ).collect()
 
-    assert _sample_ids(df, 0) == ["NA12879"]
+    assert _sample_ids(df, 0, samples=["NA12879"]) == ["NA12879"]
 
 
 def test_vcf_multisample_samples_missing_are_skipped():
@@ -233,7 +253,7 @@ def test_vcf_multisample_samples_missing_are_skipped():
         samples=["MISSING_SAMPLE", "NA12878"],
     )
 
-    assert _sample_ids(df, 0) == ["NA12878"]
+    assert _sample_ids(df, 0, samples=["MISSING_SAMPLE", "NA12878"]) == ["NA12878"]
 
 
 def test_vcf_multisample_samples_duplicates_deduplicated():
@@ -245,7 +265,10 @@ def test_vcf_multisample_samples_duplicates_deduplicated():
         samples=["NA12879", "NA12879", "NA12880"],
     )
 
-    assert _sample_ids(df, 0) == ["NA12879", "NA12880"]
+    assert _sample_ids(df, 0, samples=["NA12879", "NA12879", "NA12880"]) == [
+        "NA12879",
+        "NA12880",
+    ]
 
 
 def test_vcf_multisample_samples_none_regression():
@@ -262,3 +285,85 @@ def test_vcf_single_sample_samples_filter_keeps_format_columns():
     df = pb.read_vcf(vcf_path, format_fields=["GT"], samples=["default"])
 
     assert "GT" in df.columns
+
+
+# =============================================================================
+# explode_samples tests
+# =============================================================================
+
+
+def test_vcf_explode_samples_basic():
+    """Verify flat schema, sample_id column, no genotypes column, correct row count."""
+    vcf_path = "tests/data/io/vcf/multisample.vcf"
+    df = pb.read_vcf(vcf_path, format_fields=["GT", "DP"], explode_samples=True)
+
+    # No genotypes column
+    assert "genotypes" not in df.columns, "genotypes should be removed after explode"
+    # sample_id column present
+    assert "sample_id" in df.columns, "sample_id column should be present"
+    # GT and DP are flat scalar columns
+    assert "GT" in df.columns, "GT should be a top-level column"
+    assert "DP" in df.columns, "DP should be a top-level column"
+    # Row count = variants * samples (3 variants * 3 samples = 9)
+    original = pb.read_vcf(vcf_path, format_fields=["GT"])
+    n_variants = len(original)
+    n_samples = 3  # NA12878, NA12879, NA12880
+    assert len(df) == n_variants * n_samples
+
+
+def test_vcf_explode_samples_gt_values():
+    """Verify GT is scalar Utf8 with correct values per sample."""
+    vcf_path = "tests/data/io/vcf/multisample.vcf"
+    df = pb.read_vcf(vcf_path, format_fields=["GT"], explode_samples=True)
+
+    # GT should be scalar string (not list)
+    assert df.schema["GT"] == pl.Utf8
+
+    # Check first variant's GT values by sample
+    first_variant = df.filter(pl.col("sample_id") == "NA12878").head(1)
+    assert first_variant["GT"].to_list()[0] == "0/1"
+
+    first_variant = df.filter(pl.col("sample_id") == "NA12879").head(1)
+    assert first_variant["GT"].to_list()[0] == "1/1"
+
+    first_variant = df.filter(pl.col("sample_id") == "NA12880").head(1)
+    assert first_variant["GT"].to_list()[0] == "0/0"
+
+
+def test_scan_vcf_explode_samples():
+    """Lazy scan path with explode_samples."""
+    vcf_path = "tests/data/io/vcf/multisample.vcf"
+    lf = pb.scan_vcf(vcf_path, format_fields=["GT"], explode_samples=True)
+    df = lf.collect()
+
+    assert "sample_id" in df.columns
+    assert "genotypes" not in df.columns
+    assert df.schema["GT"] == pl.Utf8
+
+
+def test_vcf_explode_samples_with_sample_filter():
+    """samples= + explode_samples=True compose correctly."""
+    vcf_path = "tests/data/io/vcf/multisample.vcf"
+    df = pb.read_vcf(
+        vcf_path,
+        format_fields=["GT"],
+        samples=["NA12878", "NA12880"],
+        explode_samples=True,
+    )
+
+    # Only the requested samples
+    assert set(df["sample_id"].unique().to_list()) == {"NA12878", "NA12880"}
+    # Row count = variants * 2 samples
+    original = pb.read_vcf(vcf_path, format_fields=["GT"])
+    assert len(df) == len(original) * 2
+
+
+def test_vcf_explode_samples_single_sample_noop():
+    """Single-sample VCF has no genotypes column, so explode is a no-op."""
+    vcf_path = "tests/data/io/vcf/antku_small.vcf.gz"
+    df = pb.read_vcf(vcf_path, format_fields=["GT"], explode_samples=True)
+
+    # Should still have GT as top-level (single-sample schema)
+    assert "GT" in df.columns
+    # No sample_id column since there's no genotypes to explode
+    assert "sample_id" not in df.columns

@@ -19,6 +19,7 @@ from polars_bio.polars_bio import (
     py_read_sql,
     py_read_table,
     py_register_table,
+    py_register_vcf_long_view,
     py_register_view,
 )
 
@@ -32,6 +33,8 @@ class SQL:
         path: str,
         name: Union[str, None] = None,
         info_fields: Union[list[str], None] = None,
+        format_fields: Union[list[str], None] = None,
+        samples: Union[list[str], None] = None,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
@@ -47,6 +50,8 @@ class SQL:
             path: The path to the VCF file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             info_fields: List of INFO field names to register. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit registration to specific fields for better performance.
+            format_fields: List of FORMAT field names to include in the columnar `genotypes` column (e.g., ``["GT", "DP", "GQ"]``). If *None*, no FORMAT fields are parsed and no ``genotypes`` column is produced. When specified, the table gains a ``genotypes`` column of type ``Struct<GT: List<Utf8>, DP: List<Int32>, ...>`` suitable for UDF-based filtering with ``list_avg``, ``list_gte``, ``list_lte``, ``list_and``, and ``vcf_set_gts``.
+            samples: List of sample names to include. If *None*, all samples in the VCF are included. Use this for sample subsetting (equivalent to ``bcftools view --samples``).
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -101,7 +106,9 @@ class SQL:
 
         vcf_read_options = VcfReadOptions(
             info_fields=all_info_fields,
+            format_fields=format_fields,
             object_storage_options=object_storage_options,
+            samples=samples,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
         py_register_table(ctx, path, name, InputFormat.Vcf, read_options)
@@ -429,6 +436,34 @@ class SQL:
         py_register_view(ctx, name, query)
 
     @staticmethod
+    def register_vcf_long_view(table_name: str) -> str:
+        """
+        Register a long-format SQL view for a multi-sample VCF table.
+
+        Creates a ``{table_name}_long`` view that unnests the columnar
+        ``genotypes`` column (``Struct<GT: List<Utf8>, DP: List<Int32>, ...>``)
+        into one row per variant × sample.  This is analogous to pivoting
+        from wide (one column per sample) to long (one row per sample)
+        format and enables per-sample SQL queries.
+
+        Parameters:
+            table_name: Name of a previously registered VCF table
+                (via :func:`register_vcf` with ``format_fields``).
+
+        Returns:
+            The view name (``"{table_name}_long"``).
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.register_vcf("multi.vcf.gz", "multi", format_fields=["GT", "DP", "GQ"])
+            view = pb.register_vcf_long_view("multi")
+            pb.sql("SELECT sample_id, GT, DP FROM multi_long").collect()
+            ```
+        """
+        return py_register_vcf_long_view(ctx, table_name)
+
+    @staticmethod
     def register_bam(
         path: str,
         name: Union[str, None] = None,
@@ -698,4 +733,77 @@ class SQL:
               ```
         """
         df = py_read_sql(ctx, query)
-        return _lazy_scan(df)
+        lf = _lazy_scan(df)
+
+        # Preserve source/header metadata for SQL-backed LazyFrames when the
+        # query schema still carries bio-format metadata (e.g. VCF passthrough).
+        try:
+            from ._metadata import set_source_metadata
+            from .metadata_extractors import extract_all_schema_metadata
+
+            schema_metadata = extract_all_schema_metadata(df.schema())
+            raw_schema_meta = schema_metadata.get("raw_schema_metadata", {})
+            format_specific = schema_metadata.get("format_specific", {})
+            schema_names = set(getattr(df.schema(), "names", []))
+
+            if "vcf" in format_specific:
+                vcf_meta = format_specific["vcf"]
+                info_fields = dict(vcf_meta.get("info_fields") or {})
+
+                # SQL projections that recompute AC/AF/AN via UDFs may lose INFO
+                # header metadata; restore canonical definitions when columns exist.
+                if "AC" in schema_names and "AC" not in info_fields:
+                    info_fields["AC"] = {
+                        "number": "A",
+                        "type": "Integer",
+                        "description": (
+                            "Allele count in genotypes, for each ALT allele, in the same "
+                            "order as listed"
+                        ),
+                        "id": "AC",
+                    }
+                if "AF" in schema_names and "AF" not in info_fields:
+                    info_fields["AF"] = {
+                        "number": "A",
+                        "type": "Float",
+                        "description": (
+                            "Allele Frequency, for each ALT allele, in the same order as listed"
+                        ),
+                        "id": "AF",
+                    }
+                if "AN" in schema_names and "AN" not in info_fields:
+                    info_fields["AN"] = {
+                        "number": "1",
+                        "type": "Integer",
+                        "description": "Total number of alleles in called genotypes",
+                        "id": "AN",
+                    }
+
+                header_metadata = {
+                    "info_fields": info_fields,
+                    "format_fields": vcf_meta.get("format_fields"),
+                    "sample_names": vcf_meta.get("sample_names"),
+                    "version": vcf_meta.get("version"),
+                    "contigs": vcf_meta.get("contigs"),
+                    "filters": vcf_meta.get("filters"),
+                    "alt_definitions": vcf_meta.get("alt_definitions"),
+                }
+                set_source_metadata(
+                    lf,
+                    format="vcf",
+                    path="",
+                    header=header_metadata,
+                )
+
+            zero_based_raw = raw_schema_meta.get("bio.coordinate_system_zero_based")
+            if zero_based_raw is not None:
+                if isinstance(zero_based_raw, bool):
+                    zero_based = zero_based_raw
+                else:
+                    zero_based = str(zero_based_raw).strip().lower() == "true"
+                lf.config_meta.set(coordinate_system_zero_based=zero_based)
+        except Exception:
+            # Metadata propagation is best-effort for SQL outputs.
+            pass
+
+        return lf
