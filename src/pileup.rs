@@ -146,8 +146,11 @@ impl TableFunctionImpl for DepthFunction {
                     .block_on(CramTableProvider::new(
                         path, None, // reference_path
                         None, // object_storage_options
-                        zero_based, None, // tag_fields
-                        true, // binary_cigar
+                        zero_based, None,  // tag_fields
+                        true,  // binary_cigar
+                        false, // infer_tag_types — pileup doesn't use tags
+                        0, // infer_tag_sample_size — safe: no inference when infer_tag_types=false
+                        None, // tag_type_hints
                     ))
                     .map_err(|e| {
                         datafusion::error::DataFusionError::Execution(format!(
@@ -162,8 +165,11 @@ impl TableFunctionImpl for DepthFunction {
                 let provider = handle
                     .block_on(BamTableProvider::new(
                         path, None, // object_storage_options
-                        zero_based, None, // tag_fields
-                        true, // binary_cigar
+                        zero_based, None,  // tag_fields
+                        true,  // binary_cigar
+                        false, // infer_tag_types — pileup doesn't use tags
+                        0, // infer_tag_sample_size — safe: no inference when infer_tag_types=false
+                        None, // tag_type_hints
                     ))
                     .map_err(|e| {
                         datafusion::error::DataFusionError::Execution(format!(

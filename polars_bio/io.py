@@ -64,6 +64,31 @@ _FORMAT_COLUMN_TYPES = {
     "Pairs": (PAIRS_STRING_COLUMNS, PAIRS_UINT32_COLUMNS, PAIRS_FLOAT32_COLUMNS),
 }
 
+_VALID_SAM_TYPE_CODES = {"i", "f", "Z", "A", "H"}
+
+
+def _validate_tag_type_hints(tag_type_hints: list[str]) -> None:
+    """Validate tag_type_hints format before passing to Rust.
+
+    Each hint must be 'TAG:TYPE' where TYPE is one of {i, f, Z, A, H}.
+    """
+    for hint in tag_type_hints:
+        parts = hint.split(":")
+        if len(parts) != 2 or len(parts[0]) != 2 or not parts[1]:
+            raise ValueError(
+                f"Invalid tag_type_hint '{hint}': expected 'TAG:TYPE' format "
+                f"where TAG is exactly 2 characters (e.g., 'pt:i', 'de:f'). "
+                f"Valid type codes: {sorted(_VALID_SAM_TYPE_CODES)}"
+            )
+        type_code = parts[1]
+        if type_code not in _VALID_SAM_TYPE_CODES:
+            raise ValueError(
+                f"Invalid type code '{type_code}' in tag_type_hint '{hint}'. "
+                f"Valid type codes: {sorted(_VALID_SAM_TYPE_CODES)} "
+                f"(i=Int32, f=Float32, Z=String, A=String(char), H=String(hex))"
+            )
+
+
 SCHEMAS = {
     "bed3": ["chrom", "start", "end"],
     "bed4": ["chrom", "start", "end", "name"],
@@ -560,6 +585,9 @@ class IOOperations:
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
+        infer_tag_types: bool = True,
+        infer_tag_sample_size: int = 100,
+        tag_type_hints: Optional[list[str]] = None,
     ) -> pl.DataFrame:
         """
         Read a BAM file into a DataFrame.
@@ -582,6 +610,9 @@ class IOOperations:
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
             predicate_pushdown: Enable predicate pushdown using index files (BAI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.bam.bai`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
+            infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags. This prevents integer tags from being decoded as ASCII characters.
+            infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]). Used as fallback when inference is disabled or a tag is not found in sampled records. Type codes: i=Int32, f=Float32, Z=String, A=String(char), H=String(hex).
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
@@ -598,6 +629,9 @@ class IOOperations:
             projection_pushdown,
             predicate_pushdown,
             use_zero_based,
+            infer_tag_types,
+            infer_tag_sample_size,
+            tag_type_hints,
         )
         # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
         zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
@@ -620,6 +654,9 @@ class IOOperations:
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
+        infer_tag_types: bool = True,
+        infer_tag_sample_size: int = 100,
+        tag_type_hints: Optional[list[str]] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a BAM file into a LazyFrame.
@@ -642,6 +679,9 @@ class IOOperations:
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
             predicate_pushdown: Enable predicate pushdown using index files (BAI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.bam.bai`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
+            infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags. This prevents integer tags from being decoded as ASCII characters.
+            infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]). Used as fallback when inference is disabled or a tag is not found in sampled records. Type codes: i=Int32, f=Float32, Z=String, A=String(char), H=String(hex).
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
@@ -657,10 +697,15 @@ class IOOperations:
         )
 
         zero_based = _resolve_zero_based(use_zero_based)
+        if tag_type_hints is not None:
+            _validate_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             object_storage_options=object_storage_options,
             zero_based=zero_based,
             tag_fields=tag_fields,
+            infer_tag_types=infer_tag_types,
+            infer_tag_sample_size=infer_tag_sample_size,
+            tag_type_hints=tag_type_hints,
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
         return _read_file(
@@ -686,6 +731,9 @@ class IOOperations:
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
+        infer_tag_types: bool = True,
+        infer_tag_sample_size: int = 100,
+        tag_type_hints: Optional[list[str]] = None,
     ) -> pl.DataFrame:
         """
         Read a CRAM file into a DataFrame.
@@ -709,6 +757,9 @@ class IOOperations:
             projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
             predicate_pushdown: Enable predicate pushdown using index files (CRAI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.cram.crai`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
+            infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags. This prevents integer tags from being decoded as ASCII characters.
+            infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]). Used as fallback when inference is disabled or a tag is not found in sampled records. Type codes: i=Int32, f=Float32, Z=String, A=String(char), H=String(hex).
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
@@ -787,6 +838,9 @@ class IOOperations:
             projection_pushdown,
             predicate_pushdown,
             use_zero_based,
+            infer_tag_types,
+            infer_tag_sample_size,
+            tag_type_hints,
         )
         # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
         zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
@@ -810,6 +864,9 @@ class IOOperations:
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
+        infer_tag_types: bool = True,
+        infer_tag_sample_size: int = 100,
+        tag_type_hints: Optional[list[str]] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a CRAM file into a LazyFrame.
@@ -833,6 +890,9 @@ class IOOperations:
             projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
             predicate_pushdown: Enable predicate pushdown using index files (CRAI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.cram.crai`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
+            infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags. This prevents integer tags from being decoded as ASCII characters.
+            infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]). Used as fallback when inference is disabled or a tag is not found in sampled records. Type codes: i=Int32, f=Float32, Z=String, A=String(char), H=String(hex).
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
@@ -917,11 +977,16 @@ class IOOperations:
         )
 
         zero_based = _resolve_zero_based(use_zero_based)
+        if tag_type_hints is not None:
+            _validate_tag_type_hints(tag_type_hints)
         cram_read_options = CramReadOptions(
             reference_path=reference_path,
             object_storage_options=object_storage_options,
             zero_based=zero_based,
             tag_fields=tag_fields,
+            infer_tag_types=infer_tag_types,
+            infer_tag_sample_size=infer_tag_sample_size,
+            tag_type_hints=tag_type_hints,
         )
         read_options = ReadOptions(cram_read_options=cram_read_options)
         return _read_file(
@@ -1719,6 +1784,9 @@ class IOOperations:
         tag_fields: Union[list[str], None] = None,
         projection_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
+        infer_tag_types: bool = True,
+        infer_tag_sample_size: int = 100,
+        tag_type_hints: Optional[list[str]] = None,
     ) -> pl.DataFrame:
         """
         Read a SAM file into a DataFrame.
@@ -1735,6 +1803,9 @@ class IOOperations:
             use_zero_based: If True, output 0-based half-open coordinates.
                 If False, output 1-based closed coordinates.
                 If None (default), uses the global configuration.
+            infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
+            infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
 
         !!! note
             By default, coordinates are output in **1-based closed** format.
@@ -1744,6 +1815,9 @@ class IOOperations:
             tag_fields,
             projection_pushdown,
             use_zero_based,
+            infer_tag_types,
+            infer_tag_sample_size,
+            tag_type_hints,
         )
         zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
         df = lf.collect()
@@ -1757,6 +1831,9 @@ class IOOperations:
         tag_fields: Union[list[str], None] = None,
         projection_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
+        infer_tag_types: bool = True,
+        infer_tag_sample_size: int = 100,
+        tag_type_hints: Optional[list[str]] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a SAM file into a LazyFrame.
@@ -1773,14 +1850,22 @@ class IOOperations:
             use_zero_based: If True, output 0-based half-open coordinates.
                 If False, output 1-based closed coordinates.
                 If None (default), uses the global configuration.
+            infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
+            infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
 
         !!! note
             By default, coordinates are output in **1-based closed** format.
         """
         zero_based = _resolve_zero_based(use_zero_based)
+        if tag_type_hints is not None:
+            _validate_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             zero_based=zero_based,
             tag_fields=tag_fields,
+            infer_tag_types=infer_tag_types,
+            infer_tag_sample_size=infer_tag_sample_size,
+            tag_type_hints=tag_type_hints,
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
         return _read_file(

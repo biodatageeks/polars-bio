@@ -683,6 +683,9 @@ fn py_register_pileup_table(
                             zero_based,
                             None,
                             binary_cigar,
+                            false,
+                            0,
+                            None,
                         )
                         .await
                         .map_err(|e| format!("Failed to create CRAM provider: {}", e))?;
@@ -695,6 +698,9 @@ fn py_register_pileup_table(
                             zero_based,
                             None,
                             binary_cigar,
+                            false,
+                            0,
+                            None,
                         )
                         .await
                         .map_err(|e| format!("Failed to create BAM provider: {}", e))?;

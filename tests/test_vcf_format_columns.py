@@ -100,22 +100,30 @@ def test_vcf_format_fields_auto_detected_by_default():
 
 
 def _genotypes_by_sample(df: pl.DataFrame, row_idx: int = 0) -> dict:
-    """Convert one row of nested genotypes to sample->values mapping."""
-    entries = df["genotypes"].to_list()[row_idx]
-    assert isinstance(entries, list), f"Expected list entries, got: {type(entries)}"
+    """Convert one row of genotypes struct to sample->values mapping.
+
+    New format: genotypes is a Struct with FORMAT fields as lists ordered by sample.
+    E.g., {'GT': ['0/1', '1/1', '0/0'], 'DP': [25, 30, 20]}
+    Sample names come from metadata: header.sample_names.
+    """
+    geno = df["genotypes"].to_list()[row_idx]
+    assert isinstance(geno, dict), f"Expected dict (struct), got: {type(geno)}"
+    meta = pb.get_metadata(df)
+    sample_names = meta["header"]["sample_names"]
     result = {}
-    for entry in entries:
-        sample_id = entry.get("sample_id")
-        values = entry.get("values") or {}
-        result[sample_id] = values
+    for i, sample in enumerate(sample_names):
+        values = {}
+        for field, vals in geno.items():
+            if vals is not None and i < len(vals):
+                values[field] = vals[i]
+        result[sample] = values
     return result
 
 
 def _sample_ids(df: pl.DataFrame, row_idx: int = 0) -> list[str]:
-    """Extract ordered sample IDs from one row of nested genotypes."""
-    entries = df["genotypes"].to_list()[row_idx]
-    assert isinstance(entries, list), f"Expected list entries, got: {type(entries)}"
-    return [entry.get("sample_id") for entry in entries]
+    """Extract ordered sample IDs from metadata."""
+    meta = pb.get_metadata(df)
+    return meta["header"]["sample_names"]
 
 
 def test_vcf_format_columns_multisample_specific_fields():

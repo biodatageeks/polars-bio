@@ -22,7 +22,7 @@ from polars_bio.polars_bio import (
 )
 
 from .context import ctx
-from .io import _cleanse_fields, _lazy_scan
+from .io import _cleanse_fields, _lazy_scan, _validate_tag_type_hints
 
 
 class SQL:
@@ -382,6 +382,9 @@ class SQL:
         max_retries: int = 5,
         timeout: int = 300,
         enable_request_payer: bool = False,
+        infer_tag_types: bool = True,
+        infer_tag_sample_size: int = 100,
+        tag_type_hints: Union[list[str], None] = None,
     ) -> None:
         """
         Register a BAM file as a Datafusion table.
@@ -396,6 +399,9 @@ class SQL:
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
+            infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
+            infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
         !!! note
             BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
 
@@ -436,9 +442,14 @@ class SQL:
             compression_type="auto",
         )
 
+        if tag_type_hints is not None:
+            _validate_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             object_storage_options=object_storage_options,
             tag_fields=tag_fields,
+            infer_tag_types=infer_tag_types,
+            infer_tag_sample_size=infer_tag_sample_size,
+            tag_type_hints=tag_type_hints,
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
         py_register_table(ctx, path, name, InputFormat.Bam, read_options)
@@ -448,6 +459,9 @@ class SQL:
         path: str,
         name: Union[str, None] = None,
         tag_fields: Union[list[str], None] = None,
+        infer_tag_types: bool = True,
+        infer_tag_sample_size: int = 100,
+        tag_type_hints: Union[list[str], None] = None,
     ) -> None:
         """
         Register a SAM file as a Datafusion table.
@@ -461,6 +475,9 @@ class SQL:
             name: The name of the table. If *None*, the name will be generated automatically from the path.
             tag_fields: List of SAM tag names to include as columns (e.g., ["NM", "MD", "AS"]).
                 If None, no optional tags are parsed (default).
+            infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
+            infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
 
         !!! Example
             ```python
@@ -469,8 +486,13 @@ class SQL:
             pb.sql("SELECT chrom, flags FROM my_sam").limit(5).collect()
             ```
         """
+        if tag_type_hints is not None:
+            _validate_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             tag_fields=tag_fields,
+            infer_tag_types=infer_tag_types,
+            infer_tag_sample_size=infer_tag_sample_size,
+            tag_type_hints=tag_type_hints,
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
         py_register_table(ctx, path, name, InputFormat.Sam, read_options)
@@ -486,6 +508,9 @@ class SQL:
         max_retries: int = 5,
         timeout: int = 300,
         enable_request_payer: bool = False,
+        infer_tag_types: bool = True,
+        infer_tag_sample_size: int = 100,
+        tag_type_hints: Union[list[str], None] = None,
     ) -> None:
         """
         Register a CRAM file as a Datafusion table.
@@ -510,6 +535,9 @@ class SQL:
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
+            infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
+            infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
         !!! note
             CRAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
 
@@ -528,10 +556,15 @@ class SQL:
             compression_type="auto",
         )
 
+        if tag_type_hints is not None:
+            _validate_tag_type_hints(tag_type_hints)
         cram_read_options = CramReadOptions(
             reference_path=None,
             object_storage_options=object_storage_options,
             tag_fields=tag_fields,
+            infer_tag_types=infer_tag_types,
+            infer_tag_sample_size=infer_tag_sample_size,
+            tag_type_hints=tag_type_hints,
         )
         read_options = ReadOptions(cram_read_options=cram_read_options)
         py_register_table(ctx, path, name, InputFormat.Cram, read_options)
