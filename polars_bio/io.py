@@ -74,10 +74,11 @@ def _validate_tag_type_hints(tag_type_hints: list[str]) -> None:
     """
     for hint in tag_type_hints:
         parts = hint.split(":")
-        if len(parts) != 2 or not parts[0] or not parts[1]:
+        if len(parts) != 2 or len(parts[0]) != 2 or not parts[1]:
             raise ValueError(
                 f"Invalid tag_type_hint '{hint}': expected 'TAG:TYPE' format "
-                f"(e.g., 'pt:i', 'de:f'). Valid type codes: {sorted(_VALID_SAM_TYPE_CODES)}"
+                f"where TAG is exactly 2 characters (e.g., 'pt:i', 'de:f'). "
+                f"Valid type codes: {sorted(_VALID_SAM_TYPE_CODES)}"
             )
         type_code = parts[1]
         if type_code not in _VALID_SAM_TYPE_CODES:
