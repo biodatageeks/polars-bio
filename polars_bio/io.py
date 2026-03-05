@@ -1755,6 +1755,9 @@ class IOOperations:
         tag_fields: Union[list[str], None] = None,
         projection_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
+        infer_tag_types: bool = True,
+        infer_tag_sample_size: int = 100,
+        tag_type_hints: Optional[list[str]] = None,
     ) -> pl.DataFrame:
         """
         Read a SAM file into a DataFrame.
@@ -1771,6 +1774,9 @@ class IOOperations:
             use_zero_based: If True, output 0-based half-open coordinates.
                 If False, output 1-based closed coordinates.
                 If None (default), uses the global configuration.
+            infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
+            infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
 
         !!! note
             By default, coordinates are output in **1-based closed** format.
@@ -1780,6 +1786,9 @@ class IOOperations:
             tag_fields,
             projection_pushdown,
             use_zero_based,
+            infer_tag_types,
+            infer_tag_sample_size,
+            tag_type_hints,
         )
         zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
         df = lf.collect()
@@ -1793,6 +1802,9 @@ class IOOperations:
         tag_fields: Union[list[str], None] = None,
         projection_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
+        infer_tag_types: bool = True,
+        infer_tag_sample_size: int = 100,
+        tag_type_hints: Optional[list[str]] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a SAM file into a LazyFrame.
@@ -1809,6 +1821,9 @@ class IOOperations:
             use_zero_based: If True, output 0-based half-open coordinates.
                 If False, output 1-based closed coordinates.
                 If None (default), uses the global configuration.
+            infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
+            infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
 
         !!! note
             By default, coordinates are output in **1-based closed** format.
@@ -1817,6 +1832,9 @@ class IOOperations:
         bam_read_options = BamReadOptions(
             zero_based=zero_based,
             tag_fields=tag_fields,
+            infer_tag_types=infer_tag_types,
+            infer_tag_sample_size=infer_tag_sample_size,
+            tag_type_hints=tag_type_hints,
         )
         read_options = ReadOptions(bam_read_options=bam_read_options)
         return _read_file(
