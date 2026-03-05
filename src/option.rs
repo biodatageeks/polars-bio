@@ -406,16 +406,28 @@ pub struct BamReadOptions {
     /// Optional list of BAM tag names to include as columns (e.g., ["NM", "AS", "MD"])
     #[pyo3(get, set)]
     pub tag_fields: Option<Vec<String>>,
+    /// If true, sample the file to auto-detect types for unknown tags
+    #[pyo3(get, set)]
+    pub infer_tag_types: bool,
+    /// Number of records to sample for tag type inference (default: 100)
+    #[pyo3(get, set)]
+    pub infer_tag_sample_size: usize,
+    /// Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"])
+    #[pyo3(get, set)]
+    pub tag_type_hints: Option<Vec<String>>,
 }
 
 #[pymethods]
 impl BamReadOptions {
     #[new]
-    #[pyo3(signature = (object_storage_options=None, zero_based=true, tag_fields=None))]
+    #[pyo3(signature = (object_storage_options=None, zero_based=true, tag_fields=None, infer_tag_types=true, infer_tag_sample_size=100, tag_type_hints=None))]
     pub fn new(
         object_storage_options: Option<PyObjectStorageOptions>,
         zero_based: bool,
         tag_fields: Option<Vec<String>>,
+        infer_tag_types: bool,
+        infer_tag_sample_size: usize,
+        tag_type_hints: Option<Vec<String>>,
     ) -> Self {
         BamReadOptions {
             object_storage_options: pyobject_storage_options_to_object_storage_options(
@@ -423,6 +435,9 @@ impl BamReadOptions {
             ),
             zero_based,
             tag_fields,
+            infer_tag_types,
+            infer_tag_sample_size,
+            tag_type_hints,
         }
     }
     #[staticmethod]
@@ -439,6 +454,9 @@ impl BamReadOptions {
             }),
             zero_based: true,
             tag_fields: None,
+            infer_tag_types: true,
+            infer_tag_sample_size: 100,
+            tag_type_hints: None,
         }
     }
 }
@@ -455,17 +473,29 @@ pub struct CramReadOptions {
     /// Optional list of CRAM tag names to include as columns (e.g., ["NM", "AS", "MD"])
     #[pyo3(get, set)]
     pub tag_fields: Option<Vec<String>>,
+    /// If true, sample the file to auto-detect types for unknown tags
+    #[pyo3(get, set)]
+    pub infer_tag_types: bool,
+    /// Number of records to sample for tag type inference (default: 100)
+    #[pyo3(get, set)]
+    pub infer_tag_sample_size: usize,
+    /// Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"])
+    #[pyo3(get, set)]
+    pub tag_type_hints: Option<Vec<String>>,
 }
 
 #[pymethods]
 impl CramReadOptions {
     #[new]
-    #[pyo3(signature = (reference_path=None, object_storage_options=None, zero_based=true, tag_fields=None))]
+    #[pyo3(signature = (reference_path=None, object_storage_options=None, zero_based=true, tag_fields=None, infer_tag_types=true, infer_tag_sample_size=100, tag_type_hints=None))]
     pub fn new(
         reference_path: Option<String>,
         object_storage_options: Option<PyObjectStorageOptions>,
         zero_based: bool,
         tag_fields: Option<Vec<String>>,
+        infer_tag_types: bool,
+        infer_tag_sample_size: usize,
+        tag_type_hints: Option<Vec<String>>,
     ) -> Self {
         CramReadOptions {
             reference_path,
@@ -474,6 +504,9 @@ impl CramReadOptions {
             ),
             zero_based,
             tag_fields,
+            infer_tag_types,
+            infer_tag_sample_size,
+            tag_type_hints,
         }
     }
     #[staticmethod]
@@ -491,6 +524,9 @@ impl CramReadOptions {
             }),
             zero_based: true,
             tag_fields: None,
+            infer_tag_types: true,
+            infer_tag_sample_size: 100,
+            tag_type_hints: None,
         }
     }
 }
