@@ -64,6 +64,30 @@ _FORMAT_COLUMN_TYPES = {
     "Pairs": (PAIRS_STRING_COLUMNS, PAIRS_UINT32_COLUMNS, PAIRS_FLOAT32_COLUMNS),
 }
 
+_VALID_SAM_TYPE_CODES = {"i", "f", "Z", "A", "H"}
+
+
+def _validate_tag_type_hints(tag_type_hints: list[str]) -> None:
+    """Validate tag_type_hints format before passing to Rust.
+
+    Each hint must be 'TAG:TYPE' where TYPE is one of {i, f, Z, A, H}.
+    """
+    for hint in tag_type_hints:
+        parts = hint.split(":")
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            raise ValueError(
+                f"Invalid tag_type_hint '{hint}': expected 'TAG:TYPE' format "
+                f"(e.g., 'pt:i', 'de:f'). Valid type codes: {sorted(_VALID_SAM_TYPE_CODES)}"
+            )
+        type_code = parts[1]
+        if type_code not in _VALID_SAM_TYPE_CODES:
+            raise ValueError(
+                f"Invalid type code '{type_code}' in tag_type_hint '{hint}'. "
+                f"Valid type codes: {sorted(_VALID_SAM_TYPE_CODES)} "
+                f"(i=Int32, f=Float32, Z=String, A=String(char), H=String(hex))"
+            )
+
+
 SCHEMAS = {
     "bed3": ["chrom", "start", "end"],
     "bed4": ["chrom", "start", "end", "name"],
@@ -672,6 +696,8 @@ class IOOperations:
         )
 
         zero_based = _resolve_zero_based(use_zero_based)
+        if tag_type_hints is not None:
+            _validate_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             object_storage_options=object_storage_options,
             zero_based=zero_based,
@@ -950,6 +976,8 @@ class IOOperations:
         )
 
         zero_based = _resolve_zero_based(use_zero_based)
+        if tag_type_hints is not None:
+            _validate_tag_type_hints(tag_type_hints)
         cram_read_options = CramReadOptions(
             reference_path=reference_path,
             object_storage_options=object_storage_options,
@@ -1829,6 +1857,8 @@ class IOOperations:
             By default, coordinates are output in **1-based closed** format.
         """
         zero_based = _resolve_zero_based(use_zero_based)
+        if tag_type_hints is not None:
+            _validate_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             zero_based=zero_based,
             tag_fields=tag_fields,

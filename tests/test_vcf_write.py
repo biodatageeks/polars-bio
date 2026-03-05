@@ -308,5 +308,4 @@ class TestVcfSink:
             line = format_lines[format_id]
             assert f'Number={expected["number"]}' in line
             assert f'Type={expected["type"]}' in line
-            # Description may be generic (e.g., "GT format field") after roundtrip
-            assert "Description=" in line
+            assert f'Description="{expected["description"]}"' in line
