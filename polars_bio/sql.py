@@ -8,6 +8,7 @@ from polars_bio.polars_bio import (
     CramReadOptions,
     FastqReadOptions,
     GffReadOptions,
+    GtfReadOptions,
     InputFormat,
     PairsReadOptions,
     PyObjectStorageOptions,
@@ -178,6 +179,35 @@ class SQL:
         )
         read_options = ReadOptions(gff_read_options=gff_read_options)
         py_register_table(ctx, path, name, InputFormat.Gff, read_options)
+
+    @staticmethod
+    def register_gtf(
+        path: str,
+        name: Union[str, None] = None,
+    ) -> None:
+        """
+        Register a GTF file as a Datafusion table.
+
+        GTF (Gene Transfer Format) shares the same 9-column structure as GFF but uses
+        different attribute syntax (``key "value"`` vs GFF's ``key=value``).
+
+        Parameters:
+            path: The path to the GTF file.
+            name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
+
+        !!! note
+            GTF reader uses **1-based** coordinate system for the `start` and `end` columns.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.register_gtf("/tmp/annotations.gtf", "my_gtf")
+            pb.sql("SELECT chrom, type, start FROM my_gtf").limit(5).collect()
+            ```
+        """
+        gtf_read_options = GtfReadOptions(attr_fields=None)
+        read_options = ReadOptions(gtf_read_options=gtf_read_options)
+        py_register_table(ctx, path, name, InputFormat.Gtf, read_options)
 
     @staticmethod
     def register_fastq(

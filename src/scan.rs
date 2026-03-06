@@ -19,6 +19,7 @@ use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
+use datafusion_bio_format_gtf::table_provider::GtfTableProvider;
 use datafusion_bio_format_pairs::table_provider::PairsTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
 use futures::Stream;
@@ -29,7 +30,7 @@ use tracing::debug;
 use crate::context::PyBioSessionContext;
 use crate::option::{
     BamReadOptions, BedReadOptions, CramReadOptions, FastaReadOptions, FastqReadOptions,
-    GffReadOptions, InputFormat, PairsReadOptions, ReadOptions, VcfReadOptions,
+    GffReadOptions, GtfReadOptions, InputFormat, PairsReadOptions, ReadOptions, VcfReadOptions,
 };
 
 /// A PartitionStream that yields pre-collected RecordBatches.
@@ -253,6 +254,8 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         InputFormat::Vcf
     } else if path.ends_with(".gff") || path.ends_with(".gff.gz") || path.ends_with(".gff.bgz") {
         InputFormat::Gff
+    } else if path.ends_with(".gtf") || path.ends_with(".gtf.gz") || path.ends_with(".gtf.bgz") {
+        InputFormat::Gtf
     } else if path.ends_with(".cram") {
         InputFormat::Cram
     } else if path.ends_with(".sam") {
@@ -471,7 +474,25 @@ pub(crate) async fn register_table(
                 .expect("Failed to register PAIRS table");
         },
         InputFormat::Gtf => {
-            todo!("Gtf format is not supported")
+            let gtf_read_options = match &read_options {
+                Some(options) => match options.clone().gtf_read_options {
+                    Some(gtf_read_options) => gtf_read_options,
+                    _ => GtfReadOptions::default(),
+                },
+                _ => GtfReadOptions::default(),
+            };
+            info!(
+                "Registering GTF table {} with options: {:?}",
+                table_name, gtf_read_options
+            );
+            let table_provider = GtfTableProvider::new(
+                path.to_string(),
+                gtf_read_options.attr_fields,
+                gtf_read_options.zero_based,
+            )
+            .unwrap();
+            ctx.register_table(table_name, Arc::new(table_provider))
+                .expect("Failed to register GTF table");
         },
     };
     table_name.to_string()

@@ -163,6 +163,8 @@ pub struct ReadOptions {
     #[pyo3(get, set)]
     pub gff_read_options: Option<GffReadOptions>,
     #[pyo3(get, set)]
+    pub gtf_read_options: Option<GtfReadOptions>,
+    #[pyo3(get, set)]
     pub fastq_read_options: Option<FastqReadOptions>,
     #[pyo3(get, set)]
     pub bam_read_options: Option<BamReadOptions>,
@@ -179,10 +181,11 @@ pub struct ReadOptions {
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None))]
+    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None))]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
         gff_read_options: Option<GffReadOptions>,
+        gtf_read_options: Option<GtfReadOptions>,
         fastq_read_options: Option<FastqReadOptions>,
         bam_read_options: Option<BamReadOptions>,
         cram_read_options: Option<CramReadOptions>,
@@ -193,6 +196,7 @@ impl ReadOptions {
         ReadOptions {
             vcf_read_options,
             gff_read_options,
+            gtf_read_options,
             fastq_read_options,
             bam_read_options,
             cram_read_options,
@@ -391,6 +395,35 @@ impl GffReadOptions {
                 timeout: Some(300), // 300 seconds
                 compression_type: Some(CompressionType::AUTO),
             }),
+            zero_based: true,
+        }
+    }
+}
+
+#[pyclass(name = "GtfReadOptions")]
+#[derive(Clone, Debug)]
+pub struct GtfReadOptions {
+    #[pyo3(get, set)]
+    pub attr_fields: Option<Vec<String>>,
+    /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+}
+
+#[pymethods]
+impl GtfReadOptions {
+    #[new]
+    #[pyo3(signature = (attr_fields=None, zero_based=true))]
+    pub fn new(attr_fields: Option<Vec<String>>, zero_based: bool) -> Self {
+        GtfReadOptions {
+            attr_fields,
+            zero_based,
+        }
+    }
+    #[staticmethod]
+    pub fn default() -> Self {
+        GtfReadOptions {
+            attr_fields: None,
             zero_based: true,
         }
     }

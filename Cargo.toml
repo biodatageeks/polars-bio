@@ -34,6 +34,7 @@ datafusion-bio-format-cram = { git = "https://github.com/biodatageeks/datafusion
 datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "3aefe42" }
 datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "3aefe42" }
 datafusion-bio-format-pairs = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "3aefe42" }
+datafusion-bio-format-gtf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "2cc5353" }
 
 datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "9ef64a1f16bedf4096ae37a0b332ce15f3a18255" }
 datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "9ef64a1f16bedf4096ae37a0b332ce15f3a18255", default-features = false }
