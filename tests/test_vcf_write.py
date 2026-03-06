@@ -309,3 +309,22 @@ class TestVcfSink:
             assert f'Number={expected["number"]}' in line
             assert f'Type={expected["type"]}' in line
             assert f'Description="{expected["description"]}"' in line
+
+    @pytest.mark.parametrize("partitions", [1, 2, 4, 8])
+    def test_sink_vcf_multi_partition_row_count(self, tmp_path, partitions):
+        """Test sink_vcf writes all rows regardless of target_partitions."""
+        input_path = f"{DATA_DIR}/io/vcf/multi_chrom.vcf.gz"
+        output_path = tmp_path / f"sink_partitions_{partitions}.vcf"
+
+        pb.set_option("datafusion.execution.target_partitions", str(partitions))
+        lf = pb.scan_vcf(input_path)
+        expected = lf.collect().height
+
+        lf = pb.scan_vcf(input_path)
+        pb.sink_vcf(lf, str(output_path))
+
+        pb.set_option("datafusion.execution.target_partitions", "1")
+        actual = pb.read_vcf(str(output_path)).height
+        assert (
+            actual == expected
+        ), f"With {partitions} partitions: wrote {actual} rows, expected {expected}"
