@@ -17,7 +17,10 @@ use datafusion::common::DataFusionError;
 use datafusion::dataframe::DataFrame;
 use datafusion::execution::context::SessionContext;
 use datafusion::logical_expr::dml::InsertOp;
-use datafusion::physical_plan::{RecordBatchStream, SendableRecordBatchStream};
+use datafusion::physical_plan::coalesce_partitions::CoalescePartitionsExec;
+use datafusion::physical_plan::{
+    ExecutionPlan, ExecutionPlanProperties, RecordBatchStream, SendableRecordBatchStream,
+};
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_core::metadata::{
     VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
@@ -93,6 +96,19 @@ fn extract_format_fields_from_nested_genotypes(schema: &SchemaRef) -> Vec<String
         .iter()
         .map(|f| f.name().to_string())
         .collect()
+}
+
+/// Coalesce a physical plan to a single partition if it has multiple partitions.
+///
+/// File writers (VCF, BAM, CRAM, FASTQ) write to a single output file and only execute
+/// partition 0. Without coalescing, data from partitions 1..N would be silently dropped
+/// when `target_partitions > 1`.
+fn coalesce_if_needed(plan: Arc<dyn ExecutionPlan>) -> Arc<dyn ExecutionPlan> {
+    if plan.output_partitioning().partition_count() > 1 {
+        Arc::new(CoalescePartitionsExec::new(plan))
+    } else {
+        plan
+    }
 }
 
 /// Consume a write stream and count total rows written.
@@ -501,6 +517,7 @@ async fn execute_vcf_streaming_write(
     // Wrap the input plan with a schema override to include VCF metadata
     // This ensures the VCF writer sees the correct field metadata for header generation
     let wrapped_input = Arc::new(SchemaOverrideExec::new(input_plan, schema_with_metadata));
+    let wrapped_input = coalesce_if_needed(wrapped_input);
 
     // Get the write execution plan via insert_into
     let write_plan = Arc::new(provider)
@@ -526,7 +543,7 @@ async fn execute_vcf_streaming_write(
 use datafusion::physical_expr::EquivalenceProperties;
 use datafusion::physical_plan::{
     execution_plan::{Boundedness, EmissionType},
-    DisplayAs, DisplayFormatType, ExecutionPlan, PlanProperties,
+    DisplayAs, DisplayFormatType, PlanProperties,
 };
 use std::any::Any;
 
@@ -694,6 +711,9 @@ async fn execute_streaming_write(
     // Create a physical plan for reading the source data
     let state = ctx.state();
     let input_plan = state.create_physical_plan(&logical_plan).await?;
+
+    // Coalesce to single partition for single-file write
+    let input_plan = coalesce_if_needed(input_plan);
 
     // Get the write execution plan via insert_into
     let write_plan = provider
@@ -944,6 +964,7 @@ async fn execute_bam_streaming_write(
     // Wrap the input plan with a schema override to include BAM tag metadata
     // and header metadata for full header reconstruction
     let wrapped_input = Arc::new(SchemaOverrideExec::new(input_plan, schema_with_metadata));
+    let wrapped_input = coalesce_if_needed(wrapped_input);
 
     // Get the write execution plan via insert_into
     let write_plan = Arc::new(provider)
@@ -1048,6 +1069,7 @@ async fn execute_cram_streaming_write(
     // Wrap the input plan with a schema override to include BAM tag metadata
     // and header metadata for full header reconstruction
     let wrapped_input = Arc::new(SchemaOverrideExec::new(input_plan, schema_with_metadata));
+    let wrapped_input = coalesce_if_needed(wrapped_input);
 
     // Get the write execution plan via insert_into
     let write_plan = Arc::new(provider)
