@@ -184,6 +184,13 @@ class SQL:
     def register_gtf(
         path: str,
         name: Union[str, None] = None,
+        chunk_size: int = 64,
+        concurrent_fetches: int = 8,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
     ) -> None:
         """
         Register a GTF file as a Datafusion table.
@@ -194,6 +201,13 @@ class SQL:
         Parameters:
             path: The path to the GTF file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
+            chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            compression_type: The compression type of the GTF file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compression is supported ('bgz' and 'gz').
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
 
         !!! note
             GTF reader uses **1-based** coordinate system for the `start` and `end` columns.
@@ -205,7 +219,20 @@ class SQL:
             pb.sql("SELECT chrom, type, start FROM my_gtf").limit(5).collect()
             ```
         """
-        gtf_read_options = GtfReadOptions(attr_fields=None)
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        gtf_read_options = GtfReadOptions(
+            attr_fields=None,
+            object_storage_options=object_storage_options,
+        )
         read_options = ReadOptions(gtf_read_options=gtf_read_options)
         py_register_table(ctx, path, name, InputFormat.Gtf, read_options)
 

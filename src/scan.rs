@@ -488,6 +488,7 @@ pub(crate) async fn register_table(
             let table_provider = GtfTableProvider::new(
                 path.to_string(),
                 gtf_read_options.attr_fields,
+                gtf_read_options.object_storage_options.clone(),
                 gtf_read_options.zero_based,
             )
             .unwrap();

@@ -405,6 +405,7 @@ impl GffReadOptions {
 pub struct GtfReadOptions {
     #[pyo3(get, set)]
     pub attr_fields: Option<Vec<String>>,
+    pub object_storage_options: Option<ObjectStorageOptions>,
     /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
     #[pyo3(get, set)]
     pub zero_based: bool,
@@ -413,10 +414,17 @@ pub struct GtfReadOptions {
 #[pymethods]
 impl GtfReadOptions {
     #[new]
-    #[pyo3(signature = (attr_fields=None, zero_based=true))]
-    pub fn new(attr_fields: Option<Vec<String>>, zero_based: bool) -> Self {
+    #[pyo3(signature = (attr_fields=None, object_storage_options=None, zero_based=true))]
+    pub fn new(
+        attr_fields: Option<Vec<String>>,
+        object_storage_options: Option<PyObjectStorageOptions>,
+        zero_based: bool,
+    ) -> Self {
         GtfReadOptions {
             attr_fields,
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
             zero_based,
         }
     }
@@ -424,6 +432,15 @@ impl GtfReadOptions {
     pub fn default() -> Self {
         GtfReadOptions {
             attr_fields: None,
+            object_storage_options: Some(ObjectStorageOptions {
+                chunk_size: Some(1024 * 1024), // 1MB
+                concurrent_fetches: Some(4),
+                allow_anonymous: false,
+                enable_request_payer: false,
+                max_retries: Some(5),
+                timeout: Some(300), // 300 seconds
+                compression_type: Some(CompressionType::AUTO),
+            }),
             zero_based: true,
         }
     }

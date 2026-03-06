@@ -578,6 +578,12 @@ class IOOperations:
     def read_gtf(
         path: str,
         attr_fields: Union[list[str], None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
@@ -593,6 +599,12 @@ class IOOperations:
             path: The path to the GTF file.
             attr_fields: List of attribute field names to extract as separate columns.
                 If *None*, attributes will be kept as a nested structure.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large-scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the GTF file. If not specified, it will be detected automatically.
             projection_pushdown: Enable column projection pushdown to optimize query performance.
             predicate_pushdown: Enable predicate pushdown for efficient filtering.
@@ -605,6 +617,12 @@ class IOOperations:
         lf = IOOperations.scan_gtf(
             path,
             attr_fields,
+            chunk_size,
+            concurrent_fetches,
+            allow_anonymous,
+            enable_request_payer,
+            max_retries,
+            timeout,
             compression_type,
             projection_pushdown,
             predicate_pushdown,
@@ -620,6 +638,12 @@ class IOOperations:
     def scan_gtf(
         path: str,
         attr_fields: Union[list[str], None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
         compression_type: str = "auto",
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
@@ -635,6 +659,12 @@ class IOOperations:
             path: The path to the GTF file.
             attr_fields: List of attribute field names to extract as separate columns.
                 If *None*, attributes will be kept as a nested structure.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large-scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the GTF file. If not specified, it will be detected automatically.
             projection_pushdown: Enable column projection pushdown to optimize query performance.
             predicate_pushdown: Enable predicate pushdown for efficient filtering.
@@ -644,9 +674,20 @@ class IOOperations:
         !!! note
             By default, coordinates are output in **1-based closed** format.
         """
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
         zero_based = _resolve_zero_based(use_zero_based)
         gtf_read_options = GtfReadOptions(
             attr_fields=attr_fields,
+            object_storage_options=object_storage_options,
             zero_based=zero_based,
         )
         read_options = ReadOptions(gtf_read_options=gtf_read_options)
