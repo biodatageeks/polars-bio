@@ -565,6 +565,7 @@ class IOOperations:
             zero_based=zero_based,
         )
         read_options = ReadOptions(gff_read_options=gff_read_options)
+        _store_py_object_storage_options(read_options, object_storage_options)
         return _read_file(
             path,
             InputFormat.Gff,
@@ -606,13 +607,12 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the GTF file. If not specified, it will be detected automatically.
-            projection_pushdown: Enable column projection pushdown to optimize query performance.
-            predicate_pushdown: Enable predicate pushdown for efficient filtering.
-            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates.
-                If None (default), uses the global configuration.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            predicate_pushdown: Enable predicate pushdown using index files (TBI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.gtf.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
-            By default, coordinates are output in **1-based closed** format.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
         lf = IOOperations.scan_gtf(
             path,
@@ -666,13 +666,12 @@ class IOOperations:
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the GTF file. If not specified, it will be detected automatically.
-            projection_pushdown: Enable column projection pushdown to optimize query performance.
-            predicate_pushdown: Enable predicate pushdown for efficient filtering.
-            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates.
-                If None (default), uses the global configuration.
+            projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
+            predicate_pushdown: Enable predicate pushdown using index files (TBI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.gtf.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
 
         !!! note
-            By default, coordinates are output in **1-based closed** format.
+            By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -691,6 +690,7 @@ class IOOperations:
             zero_based=zero_based,
         )
         read_options = ReadOptions(gtf_read_options=gtf_read_options)
+        _store_py_object_storage_options(read_options, object_storage_options)
         return _read_file(
             path,
             InputFormat.Gtf,
@@ -2545,16 +2545,21 @@ def _lazy_scan(
 
         table_refreshed = False
 
-        # === GFF-only pre-step ===
-        # GFF's "attributes" column contains semi-structured key=value pairs that
-        # can be parsed into individual columns. Unlike BAM/VCF/CRAM which have
-        # fixed schemas, GFF attribute columns must be configured at table
-        # registration time. If projection requests specific attribute columns we
-        # must re-register the table with those attr_fields.
+        # === GFF/GTF pre-step ===
+        # GFF/GTF "attributes" column contains semi-structured key=value pairs
+        # that can be parsed into individual columns. Unlike BAM/VCF/CRAM which
+        # have fixed schemas, attribute columns must be configured at table
+        # registration time. If projection requests specific attribute columns
+        # we must re-register the table with those attr_fields.
         table_to_query = table_name
-        if input_format == InputFormat.Gff and file_path is not None:
-            from polars_bio.polars_bio import GffReadOptions, PyObjectStorageOptions
+        if input_format in (InputFormat.Gff, InputFormat.Gtf) and file_path is not None:
+            from polars_bio.polars_bio import GffReadOptions
+            from polars_bio.polars_bio import GtfReadOptions as _GtfReadOptions
+            from polars_bio.polars_bio import PyObjectStorageOptions
             from polars_bio.polars_bio import ReadOptions as _ReadOptions
+
+            is_gff = input_format == InputFormat.Gff
+            opts_field = "gff_read_options" if is_gff else "gtf_read_options"
 
             requested_cols = (
                 _extract_column_names_from_expr(with_columns)
@@ -2579,7 +2584,7 @@ def _lazy_scan(
             zero_based = False
             if read_options is not None:
                 try:
-                    gopt = getattr(read_options, "gff_read_options", None)
+                    gopt = getattr(read_options, opts_field, None)
                     if gopt is not None:
                         zb = getattr(gopt, "zero_based", None)
                         if zb is not None:
@@ -2587,15 +2592,8 @@ def _lazy_scan(
                 except Exception:
                     pass
 
-            obj = PyObjectStorageOptions(
-                allow_anonymous=True,
-                enable_request_payer=False,
-                chunk_size=8,
-                concurrent_fetches=1,
-                max_retries=5,
-                timeout=300,
-                compression_type="auto",
-            )
+            obj = _extract_py_object_storage_options(read_options)
+
             if "attributes" in requested_cols:
                 _attr = None
             elif attr_fields:
@@ -2603,71 +2601,24 @@ def _lazy_scan(
             else:
                 _attr = []
 
-            gff_opts = GffReadOptions(
-                attr_fields=_attr,
-                object_storage_options=obj,
-                zero_based=zero_based,
-            )
-            ropts = _ReadOptions(gff_read_options=gff_opts)
-
-            if projection_pushdown and requested_cols:
-                table_obj = py_register_table(
-                    _ctx, file_path, table_name, InputFormat.Gff, ropts
+            if is_gff:
+                fmt_opts = GffReadOptions(
+                    attr_fields=_attr,
+                    object_storage_options=obj,
+                    zero_based=zero_based,
                 )
-                table_to_query = table_obj.name
-                table_refreshed = True
-
-        # === GTF pre-step (same schema as GFF, different read options) ===
-        if input_format == InputFormat.Gtf and file_path is not None:
-            from polars_bio.polars_bio import GtfReadOptions as _GtfReadOptions
-            from polars_bio.polars_bio import ReadOptions as _ReadOptions
-
-            requested_cols = (
-                _extract_column_names_from_expr(with_columns)
-                if with_columns is not None
-                else []
-            )
-
-            STATIC = {
-                "chrom",
-                "start",
-                "end",
-                "type",
-                "source",
-                "score",
-                "strand",
-                "phase",
-                "attributes",
-            }
-            attr_fields = [c for c in requested_cols if c not in STATIC]
-
-            zero_based = False
-            if read_options is not None:
-                try:
-                    gopt = getattr(read_options, "gtf_read_options", None)
-                    if gopt is not None:
-                        zb = getattr(gopt, "zero_based", None)
-                        if zb is not None:
-                            zero_based = zb
-                except Exception:
-                    pass
-
-            if "attributes" in requested_cols:
-                _attr = None
-            elif attr_fields:
-                _attr = attr_fields
+                ropts = _ReadOptions(gff_read_options=fmt_opts)
             else:
-                _attr = []
-
-            gtf_opts = _GtfReadOptions(
-                attr_fields=_attr,
-                zero_based=zero_based,
-            )
-            ropts = _ReadOptions(gtf_read_options=gtf_opts)
+                fmt_opts = _GtfReadOptions(
+                    attr_fields=_attr,
+                    object_storage_options=obj,
+                    zero_based=zero_based,
+                )
+                ropts = _ReadOptions(gtf_read_options=fmt_opts)
 
             if projection_pushdown and requested_cols:
                 table_obj = py_register_table(
-                    _ctx, file_path, table_name, InputFormat.Gtf, ropts
+                    _ctx, file_path, table_name, input_format, ropts
                 )
                 table_to_query = table_obj.name
                 table_refreshed = True
@@ -2765,6 +2716,45 @@ def _lazy_scan(
                 return
 
     return register_io_source(_overlap_source, schema=original_schema)
+
+
+# Module-level weak store for PyObjectStorageOptions keyed by ReadOptions id.
+# PyO3 structs don't support arbitrary Python attributes, so we store the
+# original options here during scan_gff/scan_gtf and retrieve them when
+# re-registering tables in pre-steps or LazyFrameWrapper.select().
+import weakref as _weakref
+
+_object_storage_options_store: dict = {}
+
+
+def _store_py_object_storage_options(read_options, obj_opts):
+    """Attach PyObjectStorageOptions to a ReadOptions instance via module dict."""
+    _object_storage_options_store[id(read_options)] = obj_opts
+    # Clean up when read_options is garbage-collected (best-effort).
+    try:
+        _weakref.finalize(
+            read_options, _object_storage_options_store.pop, id(read_options), None
+        )
+    except TypeError:
+        pass  # PyO3 objects may not support weak references
+
+
+def _extract_py_object_storage_options(read_options):
+    """Extract stored PyObjectStorageOptions from read_options, or return defaults."""
+    from polars_bio.polars_bio import PyObjectStorageOptions
+
+    stored = _object_storage_options_store.get(id(read_options))
+    if stored is not None:
+        return stored
+    return PyObjectStorageOptions(
+        allow_anonymous=True,
+        enable_request_payer=False,
+        chunk_size=8,
+        concurrent_fetches=1,
+        max_retries=5,
+        timeout=300,
+        compression_type="auto",
+    )
 
 
 def _extract_column_names_from_expr(with_columns: Union[pl.Expr, list]) -> "List[str]":
@@ -3052,12 +3042,25 @@ def _read_file(
     return lf
 
 
-class GffLazyFrameWrapper:
-    """Thin wrapper that preserves type while delegating to the underlying LazyFrame.
+class AnnotationLazyFrameWrapper:
+    """Unified wrapper for GFF/GTF LazyFrames with projection-aware attribute handling.
 
     Pushdown is decided exclusively inside the io_source callback based on
     with_columns and predicate; this wrapper only keeps chain type stable.
+    Parameterized by format_type ("gff" or "gtf") to handle the minor
+    differences in ReadOptions class, field name, InputFormat, and view prefix.
     """
+
+    _FORMAT_CONFIG = {
+        "gff": {
+            "opts_field": "gff_read_options",
+            "view_prefix": "_pb_gff_proj_",
+        },
+        "gtf": {
+            "opts_field": "gtf_read_options",
+            "view_prefix": "_pb_gtf_proj_",
+        },
+    }
 
     def __init__(
         self,
@@ -3066,12 +3069,33 @@ class GffLazyFrameWrapper:
         read_options: ReadOptions,
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
+        format_type: str = "gff",
     ):
         self._base_lf = base_lf
         self._file_path = file_path
         self._read_options = read_options
         self._projection_pushdown = projection_pushdown
         self._predicate_pushdown = predicate_pushdown
+        self._format_type = format_type
+        self._config = self._FORMAT_CONFIG[format_type]
+
+    def _make_wrapper(self, base_lf, projection_pushdown=None, predicate_pushdown=None):
+        """Create a new wrapper of the same concrete type."""
+        return type(self)(
+            base_lf,
+            self._file_path,
+            self._read_options,
+            (
+                projection_pushdown
+                if projection_pushdown is not None
+                else self._projection_pushdown
+            ),
+            (
+                predicate_pushdown
+                if predicate_pushdown is not None
+                else self._predicate_pushdown
+            ),
+        )
 
     def select(self, exprs):
         # Extract requested column names
@@ -3107,11 +3131,10 @@ class GffLazyFrameWrapper:
         # If selecting attribute fields, run one-shot SQL projection with proper attr_fields
         if columns and (attr_cols or "attributes" in columns):
             from polars_bio.polars_bio import GffReadOptions
+            from polars_bio.polars_bio import GtfReadOptions as _GtfReadOptions
             from polars_bio.polars_bio import InputFormat as _InputFormat
-            from polars_bio.polars_bio import PyObjectStorageOptions
             from polars_bio.polars_bio import ReadOptions as _ReadOptions
             from polars_bio.polars_bio import (
-                py_read_sql,
                 py_read_table,
                 py_register_table,
                 py_register_view,
@@ -3119,10 +3142,13 @@ class GffLazyFrameWrapper:
 
             from .context import ctx
 
+            is_gff = self._format_type == "gff"
+            input_fmt = _InputFormat.Gff if is_gff else _InputFormat.Gtf
+
             # Pull zero_based from original read options
-            zero_based = False  # Default to 1-based (matches Python default)
+            zero_based = False
             try:
-                gopt = getattr(self._read_options, "gff_read_options", None)
+                gopt = getattr(self._read_options, self._config["opts_field"], None)
                 if gopt is not None:
                     zb = getattr(gopt, "zero_based", None)
                     if zb is not None:
@@ -3130,15 +3156,8 @@ class GffLazyFrameWrapper:
             except Exception:
                 pass
 
-            obj = PyObjectStorageOptions(
-                allow_anonymous=True,
-                enable_request_payer=False,
-                chunk_size=8,
-                concurrent_fetches=1,
-                max_retries=5,
-                timeout=300,
-                compression_type="auto",
-            )
+            obj = _extract_py_object_storage_options(self._read_options)
+
             if "attributes" in columns:
                 _attr = None
             elif attr_cols:
@@ -3146,36 +3165,36 @@ class GffLazyFrameWrapper:
             else:
                 _attr = []
 
-            gff_opts = GffReadOptions(
-                attr_fields=_attr,
-                object_storage_options=obj,
-                zero_based=zero_based,
-            )
-            ropts = _ReadOptions(gff_read_options=gff_opts)
-            table = py_register_table(
-                ctx, self._file_path, None, _InputFormat.Gff, ropts
-            )
+            if is_gff:
+                fmt_opts = GffReadOptions(
+                    attr_fields=_attr,
+                    object_storage_options=obj,
+                    zero_based=zero_based,
+                )
+                ropts = _ReadOptions(gff_read_options=fmt_opts)
+            else:
+                fmt_opts = _GtfReadOptions(
+                    attr_fields=_attr,
+                    object_storage_options=obj,
+                    zero_based=zero_based,
+                )
+                ropts = _ReadOptions(gtf_read_options=fmt_opts)
+
+            table = py_register_table(ctx, self._file_path, None, input_fmt, ropts)
 
             # Extract WHERE clause from existing LazyFrame if it has filters applied
             where_clause = ""
             try:
-                # Check if the current LazyFrame has filters by examining its plan
                 logical_plan_str = str(self._base_lf.explain(optimized=False))
-
-                # Look for FILTER operations in the logical plan
                 if "FILTER" in logical_plan_str:
-                    # Try to translate polars expressions to SQL WHERE clause
                     where_clause = self._extract_sql_where_clause(logical_plan_str)
             except Exception:
-                # If we can't extract the WHERE clause, fall back to the original approach
-                # but at least warn that filtering may not work correctly
                 pass
 
             import uuid
 
             select_clause = ", ".join([f'"{c}"' for c in columns])
-            # Keep generated view identifiers SQL-safe regardless of source table name.
-            view_name = f"_pb_gff_proj_{uuid.uuid4().hex}"
+            view_name = f"{self._config['view_prefix']}{uuid.uuid4().hex}"
             quoted_table = _quote_sql_identifier(table.name)
             sql_query = f"SELECT {select_clause} FROM {quoted_table}"
 
@@ -3190,26 +3209,14 @@ class GffLazyFrameWrapper:
                 False,
                 self._predicate_pushdown,
                 view_name,
-                _InputFormat.Gff,
+                input_fmt,
                 self._file_path,
                 self._read_options,
             )
-            return GffLazyFrameWrapper(
-                new_lf,
-                self._file_path,
-                self._read_options,
-                False,
-                self._predicate_pushdown,
-            )
+            return self._make_wrapper(new_lf, projection_pushdown=False)
 
         # Otherwise delegate to Polars
-        return GffLazyFrameWrapper(
-            self._base_lf.select(exprs),
-            self._file_path,
-            self._read_options,
-            self._projection_pushdown,
-            self._predicate_pushdown,
-        )
+        return self._make_wrapper(self._base_lf.select(exprs))
 
     def filter(self, *predicates):
         if not predicates:
@@ -3217,29 +3224,20 @@ class GffLazyFrameWrapper:
         pred = predicates[0]
         for p in predicates[1:]:
             pred = pred & p
-        return GffLazyFrameWrapper(
-            self._base_lf.filter(pred),
-            self._file_path,
-            self._read_options,
-            self._projection_pushdown,
-            self._predicate_pushdown,
-        )
+        return self._make_wrapper(self._base_lf.filter(pred))
 
     def _extract_sql_where_clause(self, logical_plan_str):
         """Extract SQL WHERE clause from Polars logical plan string."""
         import re
 
-        # Look for SELECTION in the optimized plan or individual FILTER operations in unoptimized
         selection_match = re.search(r"SELECTION:\s*(.+)", logical_plan_str)
         if selection_match:
-            # Use the selection expression from optimized plan
             selection_expr = selection_match.group(1).strip()
             try:
                 return _build_sql_where_from_predicate_safe(selection_expr)
             except Exception:
                 pass
 
-        # Fallback: look for individual FILTER operations in unoptimized plan
         filter_lines = []
         for line in logical_plan_str.split("\n"):
             if "FILTER" in line and "[" in line:
@@ -3248,10 +3246,8 @@ class GffLazyFrameWrapper:
         if not filter_lines:
             return ""
 
-        # Extract all filter conditions and combine them
         all_conditions = []
         for line in filter_lines:
-            # Extract the condition inside brackets
             match = re.search(r"FILTER\s+\[(.+?)\]", line)
             if match:
                 condition = match.group(1)
@@ -3269,22 +3265,18 @@ class GffLazyFrameWrapper:
 
     def _parse_filter_expression(self, filter_expr):
         """Parse filter expression string to SQL WHERE clause."""
-        # Use the same logic as _build_sql_where_from_predicate_safe
-        # but work with the string directly from the logical plan
         import re
 
         conditions = []
 
-        # String equality patterns
         str_patterns = [
-            r'col\("([^"]+)"\)\.eq\(lit\("([^"]*)"\)\)',  # From logical plan
-            r'col\("([^"]+)"\)\s*==\s*"([^"]*)"',  # Standard format
+            r'col\("([^"]+)"\)\.eq\(lit\("([^"]*)"\)\)',
+            r'col\("([^"]+)"\)\s*==\s*"([^"]*)"',
         ]
         for pat in str_patterns:
             for column, value in re.findall(pat, filter_expr):
                 conditions.append(f"\"{column}\" = '{value}'")
 
-        # Numeric comparison patterns
         numeric_patterns = [
             (r'col\("([^"]+)"\)\.gt\(lit\((\d+)\)\)', ">"),
             (r'col\("([^"]+)"\)\.lt\(lit\((\d+)\)\)', "<"),
@@ -3292,7 +3284,6 @@ class GffLazyFrameWrapper:
             (r'col\("([^"]+)"\)\.lt_eq\(lit\((\d+)\)\)', "<="),
             (r'col\("([^"]+)"\)\.neq\(lit\((\d+)\)\)', "!="),
             (r'col\("([^"]+)"\)\.eq\(lit\((\d+)\)\)', "="),
-            # Standard format patterns
             (r'col\("([^"]+)"\)\s*>\s*(\d+)', ">"),
             (r'col\("([^"]+)"\)\s*<\s*(\d+)', "<"),
             (r'col\("([^"]+)"\)\s*>=\s*(\d+)', ">="),
@@ -3306,12 +3297,9 @@ class GffLazyFrameWrapper:
             for column, value in matches:
                 conditions.append(f'"{column}" {op} {value}')
 
-        # Join conditions with AND
         if conditions:
             return " AND ".join(conditions)
 
-        # Fallback: try to use the existing robust parser on the filter expression
-        # by creating a dummy predicate string
         try:
             return _build_sql_where_from_predicate_safe(filter_expr)
         except Exception:
@@ -3323,190 +3311,39 @@ class GffLazyFrameWrapper:
         return getattr(self._base_lf, name)
 
 
-class GtfLazyFrameWrapper:
-    """Thin wrapper for GTF LazyFrames, mirroring GffLazyFrameWrapper.
-
-    GTF shares the same 9-column schema as GFF but uses GtfReadOptions
-    and InputFormat.Gtf for table registration.
-    """
-
+class GffLazyFrameWrapper(AnnotationLazyFrameWrapper):
     def __init__(
         self,
-        base_lf: pl.LazyFrame,
-        file_path: str,
-        read_options: ReadOptions,
-        projection_pushdown: bool = True,
-        predicate_pushdown: bool = True,
+        base_lf,
+        file_path,
+        read_options,
+        projection_pushdown=True,
+        predicate_pushdown=True,
     ):
-        self._base_lf = base_lf
-        self._file_path = file_path
-        self._read_options = read_options
-        self._projection_pushdown = projection_pushdown
-        self._predicate_pushdown = predicate_pushdown
-
-    def select(self, exprs):
-        columns = []
-        try:
-            if isinstance(exprs, (list, tuple)):
-                for e in exprs:
-                    if isinstance(e, str):
-                        columns.append(e)
-                    elif hasattr(e, "meta") and hasattr(e.meta, "output_name"):
-                        columns.append(e.meta.output_name())
-            else:
-                if isinstance(exprs, str):
-                    columns = [exprs]
-                elif hasattr(exprs, "meta") and hasattr(exprs.meta, "output_name"):
-                    columns = [exprs.meta.output_name()]
-        except Exception:
-            columns = []
-
-        STATIC = {
-            "chrom",
-            "start",
-            "end",
-            "type",
-            "source",
-            "score",
-            "strand",
-            "phase",
-            "attributes",
-        }
-        attr_cols = [c for c in columns if c not in STATIC]
-
-        if columns and (attr_cols or "attributes" in columns):
-            from polars_bio.polars_bio import GtfReadOptions as _GtfReadOptions
-            from polars_bio.polars_bio import InputFormat as _InputFormat
-            from polars_bio.polars_bio import ReadOptions as _ReadOptions
-            from polars_bio.polars_bio import (
-                py_read_table,
-                py_register_table,
-                py_register_view,
-            )
-
-            from .context import ctx
-
-            zero_based = False
-            try:
-                gopt = getattr(self._read_options, "gtf_read_options", None)
-                if gopt is not None:
-                    zb = getattr(gopt, "zero_based", None)
-                    if zb is not None:
-                        zero_based = zb
-            except Exception:
-                pass
-
-            if "attributes" in columns:
-                _attr = None
-            elif attr_cols:
-                _attr = attr_cols
-            else:
-                _attr = []
-
-            gtf_opts = _GtfReadOptions(
-                attr_fields=_attr,
-                zero_based=zero_based,
-            )
-            ropts = _ReadOptions(gtf_read_options=gtf_opts)
-            table = py_register_table(
-                ctx, self._file_path, None, _InputFormat.Gtf, ropts
-            )
-
-            where_clause = ""
-            try:
-                logical_plan_str = str(self._base_lf.explain(optimized=False))
-                if "FILTER" in logical_plan_str:
-                    where_clause = self._extract_sql_where_clause(logical_plan_str)
-            except Exception:
-                pass
-
-            import uuid
-
-            select_clause = ", ".join([f'"{c}"' for c in columns])
-            view_name = f"_pb_gtf_proj_{uuid.uuid4().hex}"
-            quoted_table = _quote_sql_identifier(table.name)
-            sql_query = f"SELECT {select_clause} FROM {quoted_table}"
-
-            if where_clause:
-                sql_query += f" WHERE {where_clause}"
-
-            py_register_view(ctx, view_name, sql_query)
-            df_view = py_read_table(ctx, view_name)
-
-            new_lf = _lazy_scan(
-                df_view,
-                False,
-                self._predicate_pushdown,
-                view_name,
-                _InputFormat.Gtf,
-                self._file_path,
-                self._read_options,
-            )
-            return GtfLazyFrameWrapper(
-                new_lf,
-                self._file_path,
-                self._read_options,
-                False,
-                self._predicate_pushdown,
-            )
-
-        return GtfLazyFrameWrapper(
-            self._base_lf.select(exprs),
-            self._file_path,
-            self._read_options,
-            self._projection_pushdown,
-            self._predicate_pushdown,
+        super().__init__(
+            base_lf,
+            file_path,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            "gff",
         )
 
-    def filter(self, *predicates):
-        if not predicates:
-            return self
-        pred = predicates[0]
-        for p in predicates[1:]:
-            pred = pred & p
-        return GtfLazyFrameWrapper(
-            self._base_lf.filter(pred),
-            self._file_path,
-            self._read_options,
-            self._projection_pushdown,
-            self._predicate_pushdown,
+
+class GtfLazyFrameWrapper(AnnotationLazyFrameWrapper):
+    def __init__(
+        self,
+        base_lf,
+        file_path,
+        read_options,
+        projection_pushdown=True,
+        predicate_pushdown=True,
+    ):
+        super().__init__(
+            base_lf,
+            file_path,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            "gtf",
         )
-
-    def _extract_sql_where_clause(self, logical_plan_str):
-        import re
-
-        selection_match = re.search(r"SELECTION:\s*(.+)", logical_plan_str)
-        if selection_match:
-            selection_expr = selection_match.group(1).strip()
-            try:
-                return _build_sql_where_from_predicate_safe(selection_expr)
-            except Exception:
-                pass
-
-        filter_lines = []
-        for line in logical_plan_str.split("\n"):
-            if "FILTER" in line and "[" in line:
-                filter_lines.append(line.strip())
-
-        if not filter_lines:
-            return ""
-
-        all_conditions = []
-        for line in filter_lines:
-            match = re.search(r"FILTER\s+\[(.+?)\]", line)
-            if match:
-                condition = match.group(1)
-                try:
-                    sql_condition = _build_sql_where_from_predicate_safe(condition)
-                    if sql_condition:
-                        all_conditions.append(sql_condition)
-                except Exception:
-                    continue
-
-        if all_conditions:
-            return " AND ".join(all_conditions)
-
-        return ""
-
-    def __getattr__(self, name):
-        return getattr(self._base_lf, name)
