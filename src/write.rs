@@ -287,8 +287,7 @@ fn apply_vcf_metadata_to_schema(
                     _ => return None,
                 };
 
-                let mut rebuilt_genotype_fields =
-                    Vec::with_capacity(genotype_struct_fields.len());
+                let mut rebuilt_genotype_fields = Vec::with_capacity(genotype_struct_fields.len());
 
                 for genotype_field in genotype_struct_fields.iter() {
                     if genotype_field.name() != "values" {
@@ -306,8 +305,7 @@ fn apply_vcf_metadata_to_schema(
                         },
                     };
 
-                    let mut rebuilt_values_fields =
-                        Vec::with_capacity(values_struct_fields.len());
+                    let mut rebuilt_values_fields = Vec::with_capacity(values_struct_fields.len());
 
                     for value_field in values_struct_fields.iter() {
                         let format_id = value_field.name();
@@ -326,8 +324,7 @@ fn apply_vcf_metadata_to_schema(
                             format_fields.push(format_id.to_string());
                         }
 
-                        rebuilt_values_fields
-                            .push(std::sync::Arc::new(rebuilt_value_field));
+                        rebuilt_values_fields.push(std::sync::Arc::new(rebuilt_value_field));
                     }
 
                     let values_type = DataType::Struct(rebuilt_values_fields.into());
@@ -337,8 +334,8 @@ fn apply_vcf_metadata_to_schema(
                         genotype_field.is_nullable(),
                     );
                     if !genotype_field.metadata().is_empty() {
-                        rebuilt_values_field = rebuilt_values_field
-                            .with_metadata(genotype_field.metadata().clone());
+                        rebuilt_values_field =
+                            rebuilt_values_field.with_metadata(genotype_field.metadata().clone());
                     }
 
                     rebuilt_genotype_fields.push(std::sync::Arc::new(rebuilt_values_field));

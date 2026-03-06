@@ -124,6 +124,9 @@ fn create_context() -> SessionContext {
     // Register VCF scalar UDFs: list_avg, list_gte, list_lte, list_and, vcf_set_gts
     register_vcf_udfs(&ctx);
 
+    // Register local VCF UDFs: list_normalize_gt, vcf_process_genotypes
+    crate::vcf_udfs::register_local_vcf_udfs(&ctx);
+
     // Register depth UDTF for SQL: SELECT * FROM depth('file.bam')
     ctx.register_udtf(
         "depth",

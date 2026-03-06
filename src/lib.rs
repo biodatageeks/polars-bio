@@ -4,6 +4,7 @@ mod option;
 mod pileup;
 mod scan;
 mod utils;
+mod vcf_udfs;
 mod write;
 
 use std::string::ToString;
