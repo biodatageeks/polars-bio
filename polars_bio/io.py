@@ -1,4 +1,5 @@
 import logging
+import weakref as _weakref
 from typing import Dict, Iterator, Optional, Union
 
 import polars as pl
@@ -2722,8 +2723,6 @@ def _lazy_scan(
 # PyO3 structs don't support arbitrary Python attributes, so we store the
 # original options here during scan_gff/scan_gtf and retrieve them when
 # re-registering tables in pre-steps or LazyFrameWrapper.select().
-import weakref as _weakref
-
 _object_storage_options_store: dict = {}
 
 
@@ -3051,6 +3050,9 @@ class AnnotationLazyFrameWrapper:
     differences in ReadOptions class, field name, InputFormat, and view prefix.
     """
 
+    # InputFormat enum is not stored here because PyO3 enums can't be
+    # referenced at class-definition time; it's resolved at runtime via
+    # is_gff = self._format_type == "gff" in select().
     _FORMAT_CONFIG = {
         "gff": {
             "opts_field": "gff_read_options",
