@@ -1,4 +1,8 @@
+import gzip
+import shutil
+
 import polars as pl
+import pytest
 from _expected import DATA_DIR
 
 import polars_bio as pb
@@ -136,3 +140,71 @@ class TestIOGTF:
         # The test data has multiple tag entries: "basic", "TAGENE", "appris_principal_3", "CCDS"
         assert len(tag_values) >= 3
         assert "basic" in tag_values
+
+    def test_compressed_gz(self, tmp_path):
+        """read_gtf works with gzip-compressed files."""
+        gz_path = tmp_path / "test.gtf.gz"
+        with open(GTF_PATH, "rb") as f_in:
+            with gzip.open(gz_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        df = pb.read_gtf(str(gz_path))
+        assert len(df) == 23
+        assert df["chrom"][0] == "chr12"
+
+    def test_compressed_bgz(self, tmp_path):
+        """read_gtf works with bgzf-compressed files."""
+        if shutil.which("bgzip") is None:
+            pytest.skip("bgzip not available")
+        import subprocess
+
+        # Use .gtf.gz extension (common in bioinformatics for bgzf files)
+        bgz_path = tmp_path / "test.gtf.gz"
+        with open(GTF_PATH, "rb") as f_in:
+            result = subprocess.run(
+                ["bgzip", "-c"], stdin=f_in, capture_output=True, check=True
+            )
+        bgz_path.write_bytes(result.stdout)
+        df = pb.read_gtf(str(bgz_path))
+        assert len(df) == 23
+        assert df["chrom"][0] == "chr12"
+
+    def test_attr_fields_empty_list(self):
+        """attr_fields=[] returns only static columns, no attributes."""
+        df = pb.read_gtf(GTF_PATH, attr_fields=[])
+        static_cols = {
+            "chrom",
+            "start",
+            "end",
+            "type",
+            "source",
+            "score",
+            "strand",
+            "phase",
+        }
+        assert set(df.columns) == static_cols
+
+    def test_predicate_pushdown_toggle(self):
+        """predicate_pushdown=True and False produce identical results."""
+        result_on = (
+            pb.scan_gtf(GTF_PATH, predicate_pushdown=True)
+            .filter(pl.col("type") == "CDS")
+            .collect()
+        )
+        result_off = (
+            pb.scan_gtf(GTF_PATH, predicate_pushdown=False)
+            .filter(pl.col("type") == "CDS")
+            .collect()
+        )
+        assert result_on.shape == result_off.shape
+        assert result_on["type"].to_list() == result_off["type"].to_list()
+        assert result_on["chrom"].to_list() == result_off["chrom"].to_list()
+
+    def test_compression_type_override(self, tmp_path):
+        """Explicit compression_type overrides auto-detection."""
+        # Create a gzip file with .gtf.gz extension but read with explicit compression_type
+        gz_path = tmp_path / "test.gtf.gz"
+        with open(GTF_PATH, "rb") as f_in:
+            with gzip.open(gz_path, "wb") as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        df = pb.read_gtf(str(gz_path), compression_type="gz")
+        assert len(df) == 23
