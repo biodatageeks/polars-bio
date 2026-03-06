@@ -17,7 +17,10 @@ use datafusion::common::DataFusionError;
 use datafusion::dataframe::DataFrame;
 use datafusion::execution::context::SessionContext;
 use datafusion::logical_expr::dml::InsertOp;
-use datafusion::physical_plan::{RecordBatchStream, SendableRecordBatchStream};
+use datafusion::physical_plan::coalesce_partitions::CoalescePartitionsExec;
+use datafusion::physical_plan::{
+    ExecutionPlan, ExecutionPlanProperties, RecordBatchStream, SendableRecordBatchStream,
+};
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_core::metadata::{
     VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
@@ -93,6 +96,54 @@ fn extract_format_fields_from_nested_genotypes(schema: &SchemaRef) -> Vec<String
         .iter()
         .map(|f| f.name().to_string())
         .collect()
+}
+
+/// Coalesce a physical plan to a single partition if it has multiple partitions.
+///
+/// File writers (VCF, BAM, CRAM, FASTQ) write to a single output file and only execute
+/// partition 0. Without coalescing, data from partitions 1..N would be silently dropped
+/// when `target_partitions > 1`.
+fn coalesce_if_needed(plan: Arc<dyn ExecutionPlan>) -> Arc<dyn ExecutionPlan> {
+    if plan.output_partitioning().partition_count() > 1 {
+        Arc::new(CoalescePartitionsExec::new(plan))
+    } else {
+        plan
+    }
+}
+
+/// Execute a streaming write: create physical plan, optionally wrap with schema override,
+/// coalesce to single partition, and write via `insert_into()`.
+///
+/// This is the shared write path for all formats (VCF, BAM, CRAM, FASTQ).
+/// When `schema_override` is provided, the input plan is wrapped with `SchemaOverrideExec`
+/// to inject field metadata (e.g. VCF header info, BAM tags) before writing.
+async fn execute_write(
+    ctx: &SessionContext,
+    df: DataFrame,
+    provider: Arc<dyn TableProvider>,
+    schema_override: Option<SchemaRef>,
+) -> Result<u64, DataFusionError> {
+    let logical_plan = df.logical_plan().clone();
+    let state = ctx.state();
+    let input_plan = state.create_physical_plan(&logical_plan).await?;
+
+    let input_plan: Arc<dyn ExecutionPlan> = if let Some(schema) = schema_override {
+        Arc::new(SchemaOverrideExec::new(input_plan, schema))
+    } else {
+        input_plan
+    };
+    let input_plan = coalesce_if_needed(input_plan);
+
+    let write_plan = provider
+        .insert_into(&state, input_plan, InsertOp::Overwrite)
+        .await?;
+
+    let task_ctx = ctx.task_ctx();
+    let stream = write_plan.execute(0, task_ctx)?;
+    let total_rows = consume_write_stream(stream).await?;
+
+    info!("Successfully wrote {} rows to output", total_rows);
+    Ok(total_rows)
 }
 
 /// Consume a write stream and count total rows written.
@@ -491,31 +542,7 @@ async fn execute_vcf_streaming_write(
         zero_based,
     );
 
-    // Create the logical plan for the source data
-    let logical_plan = df.logical_plan().clone();
-
-    // Create a physical plan for reading the source data
-    let state = ctx.state();
-    let input_plan = state.create_physical_plan(&logical_plan).await?;
-
-    // Wrap the input plan with a schema override to include VCF metadata
-    // This ensures the VCF writer sees the correct field metadata for header generation
-    let wrapped_input = Arc::new(SchemaOverrideExec::new(input_plan, schema_with_metadata));
-
-    // Get the write execution plan via insert_into
-    let write_plan = Arc::new(provider)
-        .insert_into(&state, wrapped_input, InsertOp::Overwrite)
-        .await?;
-
-    // Execute the write plan - this streams batches through the writer
-    let task_ctx = ctx.task_ctx();
-    let stream = write_plan.execute(0, task_ctx)?;
-
-    // Consume the stream to execute the write
-    let total_rows = consume_write_stream(stream).await?;
-
-    info!("Successfully wrote {} rows to output", total_rows);
-    Ok(total_rows)
+    execute_write(ctx, df, Arc::new(provider), Some(schema_with_metadata)).await
 }
 
 /// Wrapper ExecutionPlan that overrides the schema to include VCF metadata.
@@ -526,7 +553,7 @@ async fn execute_vcf_streaming_write(
 use datafusion::physical_expr::EquivalenceProperties;
 use datafusion::physical_plan::{
     execution_plan::{Boundedness, EmissionType},
-    DisplayAs, DisplayFormatType, ExecutionPlan, PlanProperties,
+    DisplayAs, DisplayFormatType, PlanProperties,
 };
 use std::any::Any;
 
@@ -676,39 +703,7 @@ async fn write_fastq_streaming(
     // since the schema is fixed (name, description, sequence, quality_scores)
     let provider = FastqTableProvider::new(path.to_string(), None)?;
 
-    // Execute streaming write via insert_into
-    execute_streaming_write(ctx, df, Arc::new(provider)).await
-}
-
-/// Execute a streaming write using the TableProvider's insert_into() method.
-///
-/// This is the core streaming mechanism that processes data batch-by-batch.
-async fn execute_streaming_write(
-    ctx: &SessionContext,
-    df: DataFrame,
-    provider: Arc<dyn TableProvider>,
-) -> Result<u64, DataFusionError> {
-    // Create the logical plan for the source data
-    let logical_plan = df.logical_plan().clone();
-
-    // Create a physical plan for reading the source data
-    let state = ctx.state();
-    let input_plan = state.create_physical_plan(&logical_plan).await?;
-
-    // Get the write execution plan via insert_into
-    let write_plan = provider
-        .insert_into(&state, input_plan, InsertOp::Overwrite)
-        .await?;
-
-    // Execute the write plan - this streams batches through the writer
-    let task_ctx = ctx.task_ctx();
-    let stream = write_plan.execute(0, task_ctx)?;
-
-    // Consume the stream to execute the write
-    let total_rows = consume_write_stream(stream).await?;
-
-    info!("Successfully wrote {} rows to output", total_rows);
-    Ok(total_rows)
+    execute_write(ctx, df, Arc::new(provider), None).await
 }
 
 /// Extract INFO fields, FORMAT fields, and sample names from an Arrow schema.
@@ -934,31 +929,7 @@ async fn execute_bam_streaming_write(
         sort_on_write,
     );
 
-    // Create the logical plan for the source data
-    let logical_plan = df.logical_plan().clone();
-
-    // Create a physical plan for reading the source data
-    let state = ctx.state();
-    let input_plan = state.create_physical_plan(&logical_plan).await?;
-
-    // Wrap the input plan with a schema override to include BAM tag metadata
-    // and header metadata for full header reconstruction
-    let wrapped_input = Arc::new(SchemaOverrideExec::new(input_plan, schema_with_metadata));
-
-    // Get the write execution plan via insert_into
-    let write_plan = Arc::new(provider)
-        .insert_into(&state, wrapped_input, InsertOp::Overwrite)
-        .await?;
-
-    // Execute the write plan - this streams batches through the writer
-    let task_ctx = ctx.task_ctx();
-    let stream = write_plan.execute(0, task_ctx)?;
-
-    // Consume the stream to execute the write
-    let total_rows = consume_write_stream(stream).await?;
-
-    info!("Successfully wrote {} rows to output", total_rows);
-    Ok(total_rows)
+    execute_write(ctx, df, Arc::new(provider), Some(schema_with_metadata)).await
 }
 
 /// Stream write a DataFrame to CRAM format.
@@ -1038,31 +1009,7 @@ async fn execute_cram_streaming_write(
         sort_on_write,
     );
 
-    // Create the logical plan for the source data
-    let logical_plan = df.logical_plan().clone();
-
-    // Create a physical plan for reading the source data
-    let state = ctx.state();
-    let input_plan = state.create_physical_plan(&logical_plan).await?;
-
-    // Wrap the input plan with a schema override to include BAM tag metadata
-    // and header metadata for full header reconstruction
-    let wrapped_input = Arc::new(SchemaOverrideExec::new(input_plan, schema_with_metadata));
-
-    // Get the write execution plan via insert_into
-    let write_plan = Arc::new(provider)
-        .insert_into(&state, wrapped_input, InsertOp::Overwrite)
-        .await?;
-
-    // Execute the write plan
-    let task_ctx = ctx.task_ctx();
-    let stream = write_plan.execute(0, task_ctx)?;
-
-    // Consume the stream to execute the write
-    let total_rows = consume_write_stream(stream).await?;
-
-    info!("Successfully wrote {} rows to output", total_rows);
-    Ok(total_rows)
+    execute_write(ctx, df, Arc::new(provider), Some(schema_with_metadata)).await
 }
 
 /// Extract tag field names from schema (columns beyond 12 core BAM columns)
