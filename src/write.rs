@@ -694,13 +694,13 @@ async fn write_fastq_streaming(
     let provider = FastqTableProvider::new(path.to_string(), None)?;
 
     // Execute streaming write via insert_into
-    execute_streaming_write(ctx, df, Arc::new(provider)).await
+    execute_fastq_streaming_write(ctx, df, Arc::new(provider)).await
 }
 
 /// Execute a streaming write using the TableProvider's insert_into() method.
 ///
 /// This is the core streaming mechanism that processes data batch-by-batch.
-async fn execute_streaming_write(
+async fn execute_fastq_streaming_write(
     ctx: &SessionContext,
     df: DataFrame,
     provider: Arc<dyn TableProvider>,
