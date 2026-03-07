@@ -7,13 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- Bumped datafusion-bio-formats to 0.5.0 (#300)
-  - VCF parsing optimization: eliminate per-record clones, enable `libdeflater` for faster gzip decompression (upstream PR #67, #68)
-  - FASTQ sequential/remote parsing optimization: eliminate per-record allocations (upstream PR #69)
+## [0.26.0] - 2026-03-07
 
-### Removed
-- **BREAKING**: Removed `thread_num` parameter from `read_bed()`, `scan_bed()`, and `register_bed()`. Threading is now handled automatically by the upstream library. Simply remove the parameter from your calls.
+### Added
+- GTF format support with full read/scan/register pipeline (#336)
+  - `read_gtf()`, `scan_gtf()`, `register_gtf()` for reading GTF files
+  - Attribute flattening via `attr_fields` parameter
+  - Predicate pushdown and projection pushdown support
+  - Coordinate system support (0-based / 1-based)
+  - Compressed file support (gzip, bgzf)
+  - Object storage support (S3, GCS, Azure)
+- Auto-infer custom SAM tag types from file sampling (#335)
+  - New `infer_tag_types` parameter (default: True) for BAM/SAM/CRAM scan/read/describe/pileup
+  - New `infer_tag_sample_size` parameter to control sampling depth
+  - New `tag_type_hints` parameter for explicit type overrides (format: `["pt:i", "de:f"]`)
+  - Previously unknown tags defaulted to Utf8; now correctly inferred as Int32/Float32/etc.
+  - 26 nanopore-specific custom tags tested end-to-end
+
+### Fixed
+- **Critical**: Coalesce partitions before single-file writes (#338)
+  - When `target_partitions > 1`, data from partitions 1..N was silently dropped
+  - Affects VCF, BAM, CRAM, FASTQ write paths
+- Preserve contig metadata (##contig lines) in VCF write/sink output (#340)
+- Multisample VCF memory optimization (#331)
+- No-coordinate BAM regression test added (#332)
+
+### Security
+- Updated pypdf to 6.7.5 to resolve 4 CVEs (#341)
+
+### Changed
+- Deduplicated GffLazyFrameWrapper / GtfLazyFrameWrapper into shared AnnotationLazyFrameWrapper
+- Renamed `execute_streaming_write` to `execute_fastq_streaming_write`
+- Extracted shared `execute_write()` for all format writers
 
 ## [0.22.0] - 2025-02-12
 

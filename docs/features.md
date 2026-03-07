@@ -592,6 +592,7 @@ For bioinformatic format there are always three methods available: `read_*` (eag
 | [FASTQ](api.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: (GZI) | :white_check_mark: |  ❌  |  ❌   |
 | [FASTA](api.md#polars_bio.data_input.read_fasta) | :white_check_mark: |  ❌  | :white_check_mark: |  ❌  |  ❌   |
 | [GFF3](api.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
+| [GTF](api.md#polars_bio.data_input.read_gtf)     | :white_check_mark: | ❌                  | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [Pairs](api.md#polars_bio.data_input.read_pairs) | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 
 
