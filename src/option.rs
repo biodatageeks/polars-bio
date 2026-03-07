@@ -785,23 +785,28 @@ pub struct VcfWriteOptions {
     /// Sample names as JSON string: ["sample1", "sample2"]
     #[pyo3(get, set)]
     pub sample_names: Option<String>,
+    /// Contig metadata as JSON string: [{"id": "chr1", "length": 248956422}, ...]
+    #[pyo3(get, set)]
+    pub contigs_metadata: Option<String>,
 }
 
 #[pymethods]
 impl VcfWriteOptions {
     #[new]
-    #[pyo3(signature = (zero_based=true, info_fields_metadata=None, format_fields_metadata=None, sample_names=None))]
+    #[pyo3(signature = (zero_based=true, info_fields_metadata=None, format_fields_metadata=None, sample_names=None, contigs_metadata=None))]
     pub fn new(
         zero_based: bool,
         info_fields_metadata: Option<String>,
         format_fields_metadata: Option<String>,
         sample_names: Option<String>,
+        contigs_metadata: Option<String>,
     ) -> Self {
         VcfWriteOptions {
             zero_based,
             info_fields_metadata,
             format_fields_metadata,
             sample_names,
+            contigs_metadata,
         }
     }
 
@@ -812,6 +817,7 @@ impl VcfWriteOptions {
             info_fields_metadata: None,
             format_fields_metadata: None,
             sample_names: None,
+            contigs_metadata: None,
         }
     }
 }
