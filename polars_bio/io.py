@@ -293,7 +293,7 @@ class IOOperations:
         Parameters:
             path: The path to the VCF file.
             info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
-            format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`list<struct<sample_id, values>>`).
+            format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`) with sample names in `meta["header"]["sample_names"]`.
             samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
@@ -390,7 +390,7 @@ class IOOperations:
         Parameters:
             path: The path to the VCF file.
             info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
-            format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`list<struct<sample_id, values>>`).
+            format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`) with sample names in `meta["header"]["sample_names"]`.
             samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
