@@ -356,6 +356,12 @@ class TestVcfSink:
 
         assert len(output_contigs) == len(source_contigs)
 
+        # Verify first contig content matches
+        first = source_contigs[0]
+        assert output_contigs[0]["id"] == first["id"]
+        if first.get("length"):
+            assert output_contigs[0].get("length") == first["length"]
+
     @pytest.mark.parametrize("partitions", [1, 2, 4, 8])
     def test_sink_vcf_multi_partition_row_count(self, tmp_path, partitions):
         """Test sink_vcf writes all rows regardless of target_partitions."""

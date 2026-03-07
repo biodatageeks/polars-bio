@@ -23,7 +23,7 @@ use datafusion::physical_plan::{
 };
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_core::metadata::{
-    VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
+    VCF_CONTIGS_KEY, VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
 };
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
@@ -543,7 +543,6 @@ async fn execute_vcf_streaming_write(
 
     // Inject contigs into schema metadata so the upstream header builder emits ##contig lines
     let schema_with_metadata = if let Some(contigs) = contigs_json {
-        use datafusion_bio_format_core::metadata::VCF_CONTIGS_KEY;
         let mut metadata = schema_with_metadata.metadata().clone();
         metadata.insert(VCF_CONTIGS_KEY.to_string(), contigs);
         Arc::new(
