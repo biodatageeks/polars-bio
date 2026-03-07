@@ -296,12 +296,12 @@ result = pb.overlap(df1, df2, ...)  # Reads from metadata
 
 polars-bio automatically attaches comprehensive metadata to DataFrames when reading genomic files. This metadata includes format information, coordinate systems, and format-specific details like VCF header fields.
 
-### VCF changes since 0.25.0
+### VCF changes since 0.26.0
 
-Compared to `v0.24.0`, VCF handling has the following behavior changes:
+Compared to `v0.25.0`, VCF handling has the following behavior changes:
 
 1. **Multisample FORMAT schema changed (breaking)**
-   Multisample VCF FORMAT data is now exposed as a nested `genotypes` column (`list<struct<sample_id, values>>`) instead of flattened columns like `NA12878_GT`.
+   Multisample VCF FORMAT data is now exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`) instead of flattened columns like `NA12878_GT`. Sample names are available via `meta["header"]["sample_names"]`; each FORMAT field contains a list of values ordered by sample.
 
 2. **Single-sample FORMAT schema unchanged**
    Single-sample VCFs still expose FORMAT fields as top-level columns (`GT`, `DP`, `GQ`, ...).
