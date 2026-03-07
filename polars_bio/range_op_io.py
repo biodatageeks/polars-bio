@@ -318,11 +318,12 @@ def _rename_columns(
 
 
 def _get_schema(
-    path: str,
+    path: Union[str, Path],
     ctx: BioSessionContext,
     suffix=None,
     read_options: Union[ReadOptions, None] = None,
 ) -> pl.Schema:
+    path = str(path)
     ext = Path(path).suffixes
     if len(ext) == 0:
         df: DataFrame = py_read_table(ctx, path)
