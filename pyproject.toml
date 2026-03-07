@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "polars-bio"
-version = "0.25.0"
+version = "0.26.0"
 description = "Blazing fast genomic operations on large Python dataframes"
 authors = []
 requires-python = ">=3.10"
@@ -37,7 +37,7 @@ ignore_missing_imports = true
 
 [tool.poetry]
 name = "polars-bio"
-version = "0.1.0"
+version = "0.26.0"
 description = ""
 authors = ["Marek Wiewiórka <marek.wiewiorka@gmail.com>"]
 readme = "README.md"
