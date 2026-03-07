@@ -250,33 +250,42 @@ def _extract_vcf_specific_metadata(
                     seen_samples.add(sample)
                     sample_names.append(sample)
 
-    # Fallback for nested multisample schema where FORMAT definitions are carried
-    # by the `genotypes.values` struct and not exposed as field metadata.
+    # Fallback for columnar multisample schema where FORMAT definitions are carried
+    # by the `genotypes` struct children (each child is a List<T> for one FORMAT field).
     if not format_fields and "genotypes" in schema.names:
         genotypes_field = schema.field("genotypes")
         genotypes_type = genotypes_field.type
-        if pa.types.is_list(genotypes_type) or pa.types.is_large_list(genotypes_type):
-            item_field = genotypes_type.value_field
-            if pa.types.is_struct(item_field.type):
-                values_field = next(
-                    (field for field in item_field.type if field.name == "values"), None
-                )
-                if values_field and pa.types.is_struct(values_field.type):
-                    for value_field in values_field.type:
-                        value_meta = _decode_metadata_dict(value_field.metadata or {})
-                        format_id = value_meta.get(
-                            "bio.vcf.field.format_id", value_field.name
-                        )
-                        format_fields[format_id] = {
-                            "number": value_meta.get("bio.vcf.field.number", "1"),
-                            "type": value_meta.get(
-                                "bio.vcf.field.type",
-                                _vcf_type_from_arrow(value_field.type),
-                            ),
-                            "description": value_meta.get(
-                                "bio.vcf.field.description", ""
-                            ),
-                        }
+        if pa.types.is_struct(genotypes_type):
+            for child_field in genotypes_type:
+                child_meta = _decode_metadata_dict(child_field.metadata or {})
+                format_id = child_meta.get("bio.vcf.field.format_id", child_field.name)
+                # Unwrap List<T> → T for VCF type inference
+                inner_type = child_field.type
+                if pa.types.is_list(inner_type) or pa.types.is_large_list(inner_type):
+                    inner_type = inner_type.value_type
+                format_fields[format_id] = {
+                    "number": child_meta.get("bio.vcf.field.number", "1"),
+                    "type": child_meta.get(
+                        "bio.vcf.field.type",
+                        _vcf_type_from_arrow(inner_type),
+                    ),
+                    "description": child_meta.get("bio.vcf.field.description", ""),
+                }
+
+    # Fallback: extract sample_names from genotypes field metadata
+    # (bio.vcf.genotypes.sample_names) when not found from schema-level metadata.
+    if not sample_names and "genotypes" in schema.names:
+        genotypes_field = schema.field("genotypes")
+        genotypes_meta = _decode_metadata_dict(genotypes_field.metadata or {})
+        sample_names_json = genotypes_meta.get("bio.vcf.genotypes.sample_names")
+        if sample_names_json:
+            try:
+                parsed = json.loads(sample_names_json)
+                if isinstance(parsed, list):
+                    sample_names = [str(s) for s in parsed]
+                    seen_samples = set(sample_names)
+            except (json.JSONDecodeError, TypeError):
+                pass
 
     # Handle single-sample VCFs where column name equals format_id
     if format_fields and not sample_names:

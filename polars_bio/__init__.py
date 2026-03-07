@@ -55,6 +55,7 @@ register_cram = data_processing.register_cram
 register_bed = data_processing.register_bed
 register_pairs = data_processing.register_pairs
 register_view = data_processing.register_view
+register_vcf_long_view = data_processing.register_vcf_long_view
 
 sql = data_processing.sql
 
@@ -185,6 +186,7 @@ __all__ = [
     "register_bed",
     "register_pairs",
     "register_view",
+    "register_vcf_long_view",
     "sql",
     "depth",
     "overlap",

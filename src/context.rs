@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use datafusion::config::ConfigOptions;
 use datafusion::prelude::{SessionConfig, SessionContext};
+use datafusion_bio_format_vcf::register_vcf_udfs;
 use datafusion_bio_function_ranges::{register_ranges_functions, BioConfig, BioSessionExt};
 use datafusion_python::dataframe::PyDataFrame;
 use log::debug;
@@ -119,6 +120,12 @@ fn create_context() -> SessionContext {
 
     // Register coverage() and count_overlaps() SQL UDTFs
     register_ranges_functions(&ctx);
+
+    // Register VCF scalar UDFs: list_avg, list_gte, list_lte, list_and, vcf_set_gts
+    register_vcf_udfs(&ctx);
+
+    // Register local VCF UDFs: list_normalize_gt, vcf_process_genotypes
+    crate::vcf_udfs::register_local_vcf_udfs(&ctx);
 
     // Register depth UDTF for SQL: SELECT * FROM depth('file.bam')
     ctx.register_udtf(

@@ -4,6 +4,7 @@ mod option;
 mod pileup;
 mod scan;
 mod utils;
+mod vcf_udfs;
 mod write;
 
 use std::string::ToString;
@@ -485,19 +486,16 @@ fn py_write_from_sql(
 
 /// Build a VCF multisample `genotypes` target type where nested string fields
 /// use Utf8 (required by the current VCF writer implementation).
+///
+/// New columnar schema: Struct<GT: List<Utf8>, DP: List<Int32>, ...>
+/// For each child List<Utf8View/LargeUtf8>, cast the inner type to Utf8.
 fn vcf_genotypes_utf8_type(
     data_type: &datafusion::arrow::datatypes::DataType,
 ) -> Option<datafusion::arrow::datatypes::DataType> {
     use datafusion::arrow::datatypes::{DataType, Field};
     use std::sync::Arc;
 
-    let (item_field, is_large_list) = match data_type {
-        DataType::List(item) => (item, false),
-        DataType::LargeList(item) => (item, true),
-        _ => return None,
-    };
-
-    let genotype_fields = match item_field.data_type() {
+    let struct_fields = match data_type {
         DataType::Struct(fields) => fields,
         _ => return None,
     };
@@ -511,42 +509,35 @@ fn vcf_genotypes_utf8_type(
         Arc::new(new_field)
     };
 
-    let mut new_genotype_fields: Vec<Arc<Field>> = Vec::with_capacity(genotype_fields.len());
+    let mut new_children: Vec<Arc<Field>> = Vec::with_capacity(struct_fields.len());
 
-    for field in genotype_fields.iter() {
-        if field.name() == "sample_id" {
-            new_genotype_fields.push(field_with_type_preserving_meta(field, DataType::Utf8));
-            continue;
+    for child in struct_fields.iter() {
+        match child.data_type() {
+            // List<Utf8View/LargeUtf8> → List<Utf8>
+            DataType::List(inner)
+                if matches!(inner.data_type(), DataType::Utf8View | DataType::LargeUtf8) =>
+            {
+                let new_inner = Arc::new(Field::new(
+                    inner.name(),
+                    DataType::Utf8,
+                    inner.is_nullable(),
+                ));
+                new_children.push(field_with_type_preserving_meta(
+                    child,
+                    DataType::List(new_inner),
+                ));
+            },
+            // Scalar Utf8View/LargeUtf8 → Utf8 (shouldn't happen in columnar schema but be safe)
+            DataType::Utf8View | DataType::LargeUtf8 => {
+                new_children.push(field_with_type_preserving_meta(child, DataType::Utf8));
+            },
+            _ => {
+                new_children.push(Arc::new(child.as_ref().clone()));
+            },
         }
-
-        if field.name() == "values" {
-            if let DataType::Struct(value_fields) = field.data_type() {
-                let mut new_value_fields: Vec<Arc<Field>> = Vec::with_capacity(value_fields.len());
-                for value_field in value_fields.iter() {
-                    let value_type = match value_field.data_type() {
-                        DataType::Utf8View | DataType::LargeUtf8 | DataType::Utf8 => DataType::Utf8,
-                        other => other.clone(),
-                    };
-                    new_value_fields.push(field_with_type_preserving_meta(value_field, value_type));
-                }
-
-                let values_type = DataType::Struct(new_value_fields.into());
-                new_genotype_fields.push(field_with_type_preserving_meta(field, values_type));
-                continue;
-            }
-        }
-
-        new_genotype_fields.push(Arc::new(field.as_ref().clone()));
     }
 
-    let item_type = DataType::Struct(new_genotype_fields.into());
-    let new_item_field = field_with_type_preserving_meta(item_field, item_type);
-
-    if is_large_list {
-        Some(DataType::LargeList(new_item_field))
-    } else {
-        Some(DataType::List(new_item_field))
-    }
+    Some(DataType::Struct(new_children.into()))
 }
 
 #[pyfunction]
@@ -726,6 +717,37 @@ fn py_register_pileup_table(
     })
 }
 
+/// Register a long-format SQL view for a multi-sample VCF table.
+///
+/// Creates a `{table_name}_long` view that unnests columnar genotypes
+/// (Struct<GT: List<Utf8>, DP: List<Int32>, ...>) into one row per
+/// variant × sample using SQL-level CROSS JOIN generate_series.
+///
+/// Returns the view name (`"{table_name}_long"`).
+#[pyfunction]
+#[pyo3(signature = (py_ctx, table_name))]
+fn py_register_vcf_long_view(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    table_name: String,
+) -> PyResult<String> {
+    py.allow_threads(|| {
+        let rt = Runtime::new().map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        let ctx = &py_ctx.ctx;
+        rt.block_on(datafusion_bio_format_vcf::auto_register_vcf_long_view(
+            ctx,
+            &table_name,
+        ))
+        .map_err(|e| {
+            PyRuntimeError::new_err(format!(
+                "Failed to register long view for '{}': {}",
+                table_name, e
+            ))
+        })?;
+        Ok(format!("{}_long", table_name))
+    })
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -744,6 +766,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(scan::py_describe_bam, m)?)?;
     m.add_function(wrap_pyfunction!(scan::py_describe_cram, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_pileup_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_register_vcf_long_view, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;
