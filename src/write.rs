@@ -487,6 +487,7 @@ async fn write_vcf_streaming(
                     vcf_opts.info_fields_metadata.clone(),
                     vcf_opts.format_fields_metadata.clone(),
                     vcf_opts.sample_names.clone(),
+                    vcf_opts.contigs_metadata.clone(),
                 )),
             )
         } else {
@@ -510,22 +511,50 @@ async fn execute_vcf_streaming_write(
     df: DataFrame,
     path: &str,
     zero_based: bool,
-    vcf_metadata: Option<(Option<String>, Option<String>, Option<String>)>,
+    vcf_metadata: Option<(
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+    )>,
 ) -> Result<u64, DataFusionError> {
     // Get the schema from the DataFrame
     let schema = df.schema().inner().clone();
 
     // Apply VCF metadata to the converted schema, or fall back to heuristics
-    let (info_fields, format_fields, sample_names, schema_with_metadata) =
-        if let Some((info_meta, format_meta, sample_meta)) = vcf_metadata {
+    let (info_fields, format_fields, sample_names, schema_with_metadata, contigs_json) =
+        if let Some((info_meta, format_meta, sample_meta, contigs_meta)) = vcf_metadata {
             // Parse metadata and add to schema
-            apply_vcf_metadata_to_schema(&schema, info_meta, format_meta, sample_meta)?
+            let (info_fields, format_fields, sample_names, schema_with_metadata) =
+                apply_vcf_metadata_to_schema(&schema, info_meta, format_meta, sample_meta)?;
+            (
+                info_fields,
+                format_fields,
+                sample_names,
+                schema_with_metadata,
+                contigs_meta,
+            )
         } else {
             // Fall back to heuristics
             let (info_fields, format_fields, sample_names) =
                 extract_vcf_fields_from_schema(&schema);
-            (info_fields, format_fields, sample_names, schema)
+            (info_fields, format_fields, sample_names, schema, None)
         };
+
+    // Inject contigs into schema metadata so the upstream header builder emits ##contig lines
+    let schema_with_metadata = if let Some(contigs) = contigs_json {
+        use datafusion_bio_format_core::metadata::VCF_CONTIGS_KEY;
+        let mut metadata = schema_with_metadata.metadata().clone();
+        metadata.insert(VCF_CONTIGS_KEY.to_string(), contigs);
+        Arc::new(
+            schema_with_metadata
+                .as_ref()
+                .clone()
+                .with_metadata(metadata),
+        )
+    } else {
+        schema_with_metadata
+    };
 
     info!(
         "VCF write: zero_based={}, info_fields={:?}, format_fields={:?}, samples={:?}",

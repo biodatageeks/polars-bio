@@ -310,6 +310,52 @@ class TestVcfSink:
             assert f'Type={expected["type"]}' in line
             assert f'Description="{expected["description"]}"' in line
 
+    def test_sink_vcf_contig_header_roundtrip(self, tmp_path):
+        """Test sink_vcf preserves ##contig lines from source VCF header."""
+        input_path = f"{DATA_DIR}/io/vcf/multisample.vcf.gz"
+        output_path = tmp_path / "sink_contigs.vcf"
+
+        lf = pb.scan_vcf(input_path, info_fields=[], format_fields=["GT"])
+        source_contigs = pb.get_metadata(lf)["header"]["contigs"]
+        assert len(source_contigs) > 0, "Source VCF should have contigs"
+
+        pb.sink_vcf(lf, str(output_path))
+
+        # Parse ##contig lines from output
+        output_contigs = []
+        with open(output_path, "rt") as handle:
+            for line in handle:
+                if line.startswith("##contig=<ID="):
+                    output_contigs.append(line.strip())
+                elif line.startswith("#CHROM"):
+                    break
+
+        assert len(output_contigs) == len(
+            source_contigs
+        ), f"Expected {len(source_contigs)} contig lines, got {len(output_contigs)}"
+
+        # Verify first contig has correct id and length
+        first = source_contigs[0]
+        assert f'ID={first["id"]}' in output_contigs[0]
+        if first.get("length"):
+            assert f'length={first["length"]}' in output_contigs[0]
+
+    def test_write_vcf_contig_header_roundtrip(self, tmp_path):
+        """Test write_vcf preserves ##contig lines from source VCF header."""
+        input_path = f"{DATA_DIR}/io/vcf/multisample.vcf.gz"
+        output_path = tmp_path / "write_contigs.vcf"
+
+        df = pb.read_vcf(input_path, info_fields=[], format_fields=["GT"])
+        source_contigs = pb.get_metadata(df)["header"]["contigs"]
+
+        pb.write_vcf(df, str(output_path))
+
+        # Re-read and check contigs in metadata
+        df_out = pb.read_vcf(str(output_path), info_fields=[], format_fields=["GT"])
+        output_contigs = pb.get_metadata(df_out)["header"]["contigs"]
+
+        assert len(output_contigs) == len(source_contigs)
+
     @pytest.mark.parametrize("partitions", [1, 2, 4, 8])
     def test_sink_vcf_multi_partition_row_count(self, tmp_path, partitions):
         """Test sink_vcf writes all rows regardless of target_partitions."""
