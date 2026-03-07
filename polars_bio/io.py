@@ -1,5 +1,6 @@
 import logging
 import weakref as _weakref
+from pathlib import Path
 from typing import Dict, Iterator, Optional, Union
 
 import polars as pl
@@ -145,7 +146,7 @@ def _quote_sql_identifier(identifier: str) -> str:
 class IOOperations:
     @staticmethod
     def read_fasta(
-        path: str,
+        path: Union[str, Path],
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -204,7 +205,7 @@ class IOOperations:
 
     @staticmethod
     def scan_fasta(
-        path: str,
+        path: Union[str, Path],
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -266,7 +267,7 @@ class IOOperations:
 
     @staticmethod
     def read_vcf(
-        path: str,
+        path: Union[str, Path],
         info_fields: Union[list[str], None] = None,
         format_fields: Union[list[str], None] = None,
         chunk_size: int = 8,
@@ -363,7 +364,7 @@ class IOOperations:
 
     @staticmethod
     def scan_vcf(
-        path: str,
+        path: Union[str, Path],
         info_fields: Union[list[str], None] = None,
         format_fields: Union[list[str], None] = None,
         chunk_size: int = 8,
@@ -459,7 +460,7 @@ class IOOperations:
 
     @staticmethod
     def read_gff(
-        path: str,
+        path: Union[str, Path],
         attr_fields: Union[list[str], None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -516,7 +517,7 @@ class IOOperations:
 
     @staticmethod
     def scan_gff(
-        path: str,
+        path: Union[str, Path],
         attr_fields: Union[list[str], None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -578,7 +579,7 @@ class IOOperations:
 
     @staticmethod
     def read_gtf(
-        path: str,
+        path: Union[str, Path],
         attr_fields: Union[list[str], None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -637,7 +638,7 @@ class IOOperations:
 
     @staticmethod
     def scan_gtf(
-        path: str,
+        path: Union[str, Path],
         attr_fields: Union[list[str], None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -703,7 +704,7 @@ class IOOperations:
 
     @staticmethod
     def read_bam(
-        path: str,
+        path: Union[str, Path],
         tag_fields: Union[list[str], None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -772,7 +773,7 @@ class IOOperations:
 
     @staticmethod
     def scan_bam(
-        path: str,
+        path: Union[str, Path],
         tag_fields: Union[list[str], None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -848,7 +849,7 @@ class IOOperations:
 
     @staticmethod
     def read_cram(
-        path: str,
+        path: Union[str, Path],
         reference_path: str = None,
         tag_fields: Union[list[str], None] = None,
         chunk_size: int = 8,
@@ -981,7 +982,7 @@ class IOOperations:
 
     @staticmethod
     def scan_cram(
-        path: str,
+        path: Union[str, Path],
         reference_path: str = None,
         tag_fields: Union[list[str], None] = None,
         chunk_size: int = 8,
@@ -1129,7 +1130,7 @@ class IOOperations:
 
     @staticmethod
     def describe_bam(
-        path: str,
+        path: Union[str, Path],
         sample_size: int = 100,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
@@ -1191,6 +1192,7 @@ class IOOperations:
             # └─────────────┴───────────┴──────────┴──────────┴──────────┴──────────────────────┘
             ```
         """
+        path = str(path)
         # Build object storage options
         object_storage_options = PyObjectStorageOptions(
             chunk_size=chunk_size,
@@ -1220,7 +1222,7 @@ class IOOperations:
 
     @staticmethod
     def describe_cram(
-        path: str,
+        path: Union[str, Path],
         reference_path: str = None,
         sample_size: int = 100,
         chunk_size: int = 8,
@@ -1277,6 +1279,7 @@ class IOOperations:
             print(tags["column_name"])
             ```
         """
+        path = str(path)
         # Build object storage options
         object_storage_options = PyObjectStorageOptions(
             chunk_size=chunk_size,
@@ -1307,7 +1310,7 @@ class IOOperations:
 
     @staticmethod
     def read_fastq(
-        path: str,
+        path: Union[str, Path],
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -1350,7 +1353,7 @@ class IOOperations:
 
     @staticmethod
     def scan_fastq(
-        path: str,
+        path: Union[str, Path],
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -1397,7 +1400,7 @@ class IOOperations:
 
     @staticmethod
     def read_pairs(
-        path: str,
+        path: Union[str, Path],
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -1457,7 +1460,7 @@ class IOOperations:
 
     @staticmethod
     def scan_pairs(
-        path: str,
+        path: Union[str, Path],
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -1523,7 +1526,7 @@ class IOOperations:
 
     @staticmethod
     def read_bed(
-        path: str,
+        path: Union[str, Path],
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -1578,7 +1581,7 @@ class IOOperations:
 
     @staticmethod
     def scan_bed(
-        path: str,
+        path: Union[str, Path],
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -1636,7 +1639,7 @@ class IOOperations:
         )
 
     @staticmethod
-    def read_table(path: str, schema: Dict = None, **kwargs) -> pl.DataFrame:
+    def read_table(path: Union[str, Path], schema: Dict = None, **kwargs) -> pl.DataFrame:
         """
          Read a tab-delimited (i.e. BED) file into a Polars DataFrame.
          Tries to be compatible with Bioframe's [read_table](https://bioframe.readthedocs.io/en/latest/guide-io.html)
@@ -1649,7 +1652,7 @@ class IOOperations:
         return IOOperations.scan_table(path, schema, **kwargs).collect()
 
     @staticmethod
-    def scan_table(path: str, schema: Dict = None, **kwargs) -> pl.LazyFrame:
+    def scan_table(path: Union[str, Path], schema: Dict = None, **kwargs) -> pl.LazyFrame:
         """
          Lazily read a tab-delimited (i.e. BED) file into a Polars LazyFrame.
          Tries to be compatible with Bioframe's [read_table](https://bioframe.readthedocs.io/en/latest/guide-io.html)
@@ -1672,7 +1675,7 @@ class IOOperations:
 
     @staticmethod
     def describe_vcf(
-        path: str,
+        path: Union[str, Path],
         allow_anonymous: bool = True,
         enable_request_payer: bool = False,
         compression_type: str = "auto",
@@ -1686,6 +1689,7 @@ class IOOperations:
             enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
         """
+        path = str(path)
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
             enable_request_payer=enable_request_payer,
@@ -1716,7 +1720,7 @@ class IOOperations:
     @staticmethod
     def write_vcf(
         df: Union[pl.DataFrame, pl.LazyFrame],
-        path: str,
+        path: Union[str, Path],
     ) -> int:
         """
         Write a DataFrame to VCF format.
@@ -1754,7 +1758,7 @@ class IOOperations:
     @staticmethod
     def sink_vcf(
         lf: pl.LazyFrame,
-        path: str,
+        path: Union[str, Path],
     ) -> None:
         """
         Streaming write a LazyFrame to VCF format.
@@ -1784,7 +1788,7 @@ class IOOperations:
     @staticmethod
     def write_fastq(
         df: Union[pl.DataFrame, pl.LazyFrame],
-        path: str,
+        path: Union[str, Path],
     ) -> int:
         """
         Write a DataFrame to FASTQ format.
@@ -1822,7 +1826,7 @@ class IOOperations:
     @staticmethod
     def sink_fastq(
         lf: pl.LazyFrame,
-        path: str,
+        path: Union[str, Path],
     ) -> None:
         """
         Streaming write a LazyFrame to FASTQ format.
@@ -1848,7 +1852,7 @@ class IOOperations:
     @staticmethod
     def write_bam(
         df: Union[pl.DataFrame, pl.LazyFrame],
-        path: str,
+        path: Union[str, Path],
         sort_on_write: bool = False,
     ) -> int:
         """
@@ -1884,7 +1888,7 @@ class IOOperations:
     @staticmethod
     def sink_bam(
         lf: pl.LazyFrame,
-        path: str,
+        path: Union[str, Path],
         sort_on_write: bool = False,
     ) -> None:
         """
@@ -1909,7 +1913,7 @@ class IOOperations:
 
     @staticmethod
     def read_sam(
-        path: str,
+        path: Union[str, Path],
         tag_fields: Union[list[str], None] = None,
         projection_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
@@ -1956,7 +1960,7 @@ class IOOperations:
 
     @staticmethod
     def scan_sam(
-        path: str,
+        path: Union[str, Path],
         tag_fields: Union[list[str], None] = None,
         projection_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
@@ -2007,7 +2011,7 @@ class IOOperations:
 
     @staticmethod
     def describe_sam(
-        path: str,
+        path: Union[str, Path],
         sample_size: int = 100,
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
@@ -2025,6 +2029,7 @@ class IOOperations:
         Returns:
             DataFrame with columns: column_name, data_type, nullable, category, sam_type, description
         """
+        path = str(path)
         zero_based = _resolve_zero_based(use_zero_based)
 
         df = py_describe_bam(
@@ -2041,7 +2046,7 @@ class IOOperations:
     @staticmethod
     def write_sam(
         df: Union[pl.DataFrame, pl.LazyFrame],
-        path: str,
+        path: Union[str, Path],
         sort_on_write: bool = False,
     ) -> int:
         """
@@ -2070,7 +2075,7 @@ class IOOperations:
     @staticmethod
     def sink_sam(
         lf: pl.LazyFrame,
-        path: str,
+        path: Union[str, Path],
         sort_on_write: bool = False,
     ) -> None:
         """
@@ -2094,7 +2099,7 @@ class IOOperations:
     @staticmethod
     def write_cram(
         df: Union[pl.DataFrame, pl.LazyFrame],
-        path: str,
+        path: Union[str, Path],
         reference_path: str,
         sort_on_write: bool = False,
     ) -> int:
@@ -2138,7 +2143,7 @@ class IOOperations:
     @staticmethod
     def sink_cram(
         lf: pl.LazyFrame,
-        path: str,
+        path: Union[str, Path],
         reference_path: str,
         sort_on_write: bool = False,
     ) -> None:
@@ -2188,7 +2193,7 @@ def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
 
 def _write_file(
     df: Union[pl.DataFrame, pl.LazyFrame],
-    path: str,
+    path: Union[str, Path],
     output_format: OutputFormat,
 ) -> int:
     """
@@ -2208,6 +2213,7 @@ def _write_file(
     Returns:
         The number of rows written.
     """
+    path = str(path)
     import json
 
     from ._metadata import get_coordinate_system, get_metadata
@@ -2283,12 +2289,13 @@ def _write_file(
 
 def _write_bam_file(
     df: Union[pl.DataFrame, pl.LazyFrame],
-    path: str,
+    path: Union[str, Path],
     output_format: OutputFormat,
     reference_path: Optional[str] = None,
     sort_on_write: bool = False,
 ) -> int:
     """Internal helper for BAM/CRAM write with streaming."""
+    path = str(path)
     import json
 
     from ._metadata import get_coordinate_system, get_metadata
@@ -2954,13 +2961,14 @@ def _format_to_string(input_format: InputFormat) -> str:
 
 
 def _read_file(
-    path: str,
+    path: Union[str, Path],
     input_format: InputFormat,
     read_options: ReadOptions,
     projection_pushdown: bool = True,
     predicate_pushdown: bool = False,
     zero_based: bool = True,
 ) -> pl.LazyFrame:
+    path = str(path)
     table = py_register_table(ctx, path, None, input_format, read_options)
 
     # Get schema WITHOUT materializing data - critical for large files!
