@@ -391,7 +391,16 @@ def _validate_overlap_input(
     Note: Coordinate system is now determined from DataFrame metadata,
     not from an explicit parameter.
     """
-    assert on_cols is None, "on_cols is not supported yet"
+    if on_cols is not None:
+        if not isinstance(on_cols, list):
+            raise TypeError(
+                f"on_cols must be a list of column names or None, got {type(on_cols)}"
+            )
+        if not all(isinstance(col, str) for col in on_cols):
+            raise TypeError("All elements in on_cols must be strings")
+        if len(on_cols) == 0:
+            raise ValueError("on_cols cannot be an empty list, use None instead")
+    
     assert output_type in [
         "polars.LazyFrame",
         "polars.DataFrame",

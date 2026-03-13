@@ -287,6 +287,22 @@ async fn do_count_overlaps_coverage_naive(
     right_table: String,
     coverage: bool,
 ) -> datafusion::dataframe::DataFrame {
+    // Validate that on_cols is not provided for naive operations
+    if let Some(ref cols) = range_opts.on_cols {
+        if !cols.is_empty() {
+            let op_name = if coverage { "coverage" } else { "count_overlaps" };
+            let suggestion = if coverage {
+                "The coverage operation does not support on_cols filtering. \
+                 Consider filtering the input DataFrames before calling coverage."
+            } else {
+                "Set naive_query=False to use the SQL-based path which supports on_cols."
+            };
+            panic!(
+                "on_cols parameter {:?} is not supported in naive {} operation. {}",
+                cols, op_name, suggestion
+            );
+        }
+    }
     let columns_1 = range_opts.columns_1.unwrap();
     let columns_2 = range_opts.columns_2.unwrap();
     let session = ctx.clone();
