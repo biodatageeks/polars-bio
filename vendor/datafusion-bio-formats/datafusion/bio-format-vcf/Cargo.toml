@@ -1,0 +1,49 @@
+[package]
+name = "datafusion-bio-format-vcf"
+version = "0.5.4"
+description = "VCF file format support for Apache DataFusion"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+edition.workspace = true
+readme = "README.md"
+
+[dependencies]
+datafusion.workspace = true
+datafusion-execution.workspace = true
+async-trait.workspace = true
+opendal.workspace = true
+noodles-vcf = { git = "https://github.com/biodatageeks/noodles.git",rev = "086061d2ff5385f63a5bf0c500ebebb84a153af1", features = ["async"] }
+noodles = { git = "https://github.com/biodatageeks/noodles.git",rev = "086061d2ff5385f63a5bf0c500ebebb84a153af1", features = ["vcf", "bgzf"] }
+noodles-bgzf = { workspace = true }
+noodles-bgzf-vcf = { package = "noodles-bgzf", git = "https://github.com/biodatageeks/noodles.git", rev = "086061d2ff5385f63a5bf0c500ebebb84a153af1", features = ["libdeflate"] }
+tokio-util.workspace = true
+tokio.workspace = true
+bytes.workspace = true
+futures.workspace = true
+async-stream.workspace = true
+async-compression.workspace = true
+
+datafusion-bio-format-core = {path = "../bio-format-core"}
+noodles-tabix = { git = "https://github.com/biodatageeks/noodles.git", rev = "086061d2ff5385f63a5bf0c500ebebb84a153af1" }
+noodles-csi = { git = "https://github.com/biodatageeks/noodles.git", rev = "086061d2ff5385f63a5bf0c500ebebb84a153af1" }
+noodles-core = { git = "https://github.com/biodatageeks/noodles.git", rev = "086061d2ff5385f63a5bf0c500ebebb84a153af1" }
+
+log = "0.4.22"
+env_logger = "0.11.6"
+flate2.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile = "3.0"
+
+
+[[example]]
+name = "datafusion_integration"
+# Some issue when publishing and path isn't specified, so adding here
+path = "./examples/datafusion_integration.rs"
+
+[[example]]
+name = "vcf_multisample_bench"
+path = "../../benchmarks/vcf/vcf_multisample_bench.rs"

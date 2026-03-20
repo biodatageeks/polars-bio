@@ -1247,7 +1247,6 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-core"
 version = "0.5.4"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=333638a#333638a2b39e04df4ae432448093e39d40827e59"
 dependencies = [
  "async-compression",
  "bytes",
@@ -1424,7 +1423,6 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-vcf"
 version = "0.5.4"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=333638a#333638a2b39e04df4ae432448093e39d40827e59"
 dependencies = [
  "async-compression",
  "async-stream",

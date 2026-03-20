@@ -1,0 +1,40 @@
+[workspace]
+resolver = "2"
+
+members = [ "datafusion/bio-format-bam", "datafusion/bio-format-bed",
+    "datafusion/bio-format-core", "datafusion/bio-format-fastq", "datafusion/bio-format-gff",
+    "datafusion/bio-format-gtf", "datafusion/bio-format-vcf", "datafusion/bio-format-fasta",
+    "datafusion/bio-format-cram", "datafusion/bio-format-pairs",
+    "benchmarks/common", "benchmarks/runner",
+]
+
+[workspace.package]
+license = "Apache-2.0"
+authors = ["BiodataGeeks Team"]
+repository = "https://github.com/biodatageeks/datafusion-bio-formats"
+homepage = "https://github.com/biodatageeks/datafusion-bio-formats"
+edition = "2024"
+
+
+[workspace.dependencies]
+datafusion = {version = "50.3.0"}
+datafusion-execution = "50.3.0"
+async-trait = "0.1.85"
+opendal = { version = "0.53.3", features = ["services-gcs", "services-s3","layers-blocking", "services-azblob", "services-http"] }
+noodles = { version = "0.93.0",  features = ["bam", "vcf", "bgzf", "cram", "async"]}
+
+noodles-bgzf = { version = "0.36.0",features = ["libdeflate"] }
+noodles-cram  = { git = "https://github.com/biodatageeks/noodles.git",rev = "da905fff4909ada93e407c780456332fe113858b", features = ["async"] }
+noodles-sam = { git = "https://github.com/biodatageeks/noodles.git",rev = "da905fff4909ada93e407c780456332fe113858b" }
+noodles-fasta = { git = "https://github.com/biodatageeks/noodles.git",rev = "da905fff4909ada93e407c780456332fe113858b", features = ["async"] }
+tokio = { version = "1.43.0", features = ["rt-multi-thread", "rt", "macros"] }
+tokio-util = {  version="0.7.13", features = ["io-util", "compat"] }
+bytes = "1.10.0"
+futures = "0.3.31"
+async-stream = "0.3.6"
+futures-util = "0.3.31"
+async-compression = "0.4.19"
+log = "0.4.27"
+flate2 = { version = "1.0", features = ["zlib-rs"], default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

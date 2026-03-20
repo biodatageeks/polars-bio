@@ -1,3 +1,4 @@
+import pytest
 import polars as pl
 import polars.testing as pl_testing
 
@@ -301,6 +302,23 @@ def test_vcf_ensembl_2_parsing():
                 pl_testing.assert_series_equal(
                     actual_series, expected_df[expected_col], check_dtypes=True
                 )
+
+
+def test_vcf_nonfloat_qual_is_null():
+    """Non-float QUAL values (e.g. 'PASS') must be read as null, not raise an error.
+
+    VCF 4.x spec allows '.' for missing QUAL; some tools also write string values
+    like 'PASS'. Both should be treated as null (Float64 None) rather than crashing.
+    """
+    df = pb.read_vcf("tests/data/io/vcf/qual_nonfloat.vcf")
+    qual = df["qual"]
+    assert qual.dtype == pl.Float64
+    # Row 0: valid float 30.5 — must be preserved
+    assert qual[0] == pytest.approx(30.5)
+    # Row 1: QUAL="PASS" — non-float string must become null
+    assert qual[1] is None
+    # Row 2: QUAL="." — VCF missing sentinel must remain null (regression)
+    assert qual[2] is None
 
 
 def test_deepvariant_vcf():

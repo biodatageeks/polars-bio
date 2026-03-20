@@ -43,3 +43,7 @@ async-trait = "0.1.86"
 futures = "0.3.31"
 rand = "0.8.5"
 serde_json = "1.0"
+
+[patch."https://github.com/biodatageeks/datafusion-bio-formats.git"]
+datafusion-bio-format-vcf  = { path = "vendor/datafusion-bio-formats/datafusion/bio-format-vcf" }
+datafusion-bio-format-core = { path = "vendor/datafusion-bio-formats/datafusion/bio-format-core" }
