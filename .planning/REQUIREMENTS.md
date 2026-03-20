@@ -9,9 +9,9 @@ Requirements for initial benchmark release. Each maps to roadmap phases.
 
 ### Dataset
 
-- [ ] **DATA-01**: Download and index ENCODE ENCSR329MHM BAM (HepG2, SE76, ~36M reads, GRCh38)
-- [ ] **DATA-02**: Download Gencode v49 comprehensive GTF (GRCh38.p14)
-- [ ] **DATA-03**: Verify chromosome naming consistency between BAM and GTF (chr-prefixed)
+- [x] **DATA-01**: Download and index ENCODE ENCSR329MHM BAM (HepG2, SE76, ~36M reads, GRCh38)
+- [x] **DATA-02**: Download Gencode v49 comprehensive GTF (GRCh38.p14)
+- [x] **DATA-03**: Verify chromosome naming consistency between BAM and GTF (chr-prefixed)
 
 ### Counting
 
@@ -79,9 +79,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | Phase 1 | Pending |
-| DATA-02 | Phase 1 | Pending |
-| DATA-03 | Phase 1 | Pending |
+| DATA-01 | Phase 1 | Complete |
+| DATA-02 | Phase 1 | Complete |
+| DATA-03 | Phase 1 | Complete |
 | COUNT-01 | Phase 2 | Pending |
 | COUNT-02 | Phase 2 | Pending |
 | COUNT-03 | Phase 2 | Pending |
