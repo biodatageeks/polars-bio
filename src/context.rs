@@ -5,7 +5,7 @@ use datafusion::prelude::{SessionConfig, SessionContext};
 use datafusion_bio_function_ranges::{register_ranges_functions, BioConfig, BioSessionExt};
 use datafusion_python::dataframe::PyDataFrame;
 use log::debug;
-use pyo3::{pyclass, pymethods, PyResult, Python};
+use pyo3::{pyclass, pymethods, PyObject, PyResult, Python};
 use tokio::runtime::Runtime;
 
 #[pyclass(name = "BioSessionContext")]
@@ -62,6 +62,23 @@ impl PyBioSessionContext {
                 name, e
             ))
         })?;
+        Ok(())
+    }
+
+    /// Register an external extension into this session.
+    ///
+    /// The callback receives a raw pointer (as `usize`) to the inner
+    /// `datafusion::prelude::SessionContext`. The extension can cast it
+    /// back and register UDFs, UDTFs, or table providers.
+    ///
+    /// # Safety
+    ///
+    /// The pointer is valid only for the duration of the callback.
+    /// The callback must not store or use it after returning.
+    #[pyo3(signature = (callback))]
+    pub fn register_extension(&mut self, py: Python<'_>, callback: PyObject) -> PyResult<()> {
+        let ptr = &self.ctx as *const SessionContext as usize;
+        callback.call1(py, (ptr,))?;
         Ok(())
     }
 
