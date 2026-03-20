@@ -5,181 +5,286 @@
 ## Naming Patterns
 
 **Files:**
-- Python modules use `snake_case` (e.g., `predicate_translator.py`, `pileup_op.py`)
-- Rust source files use `snake_case` (e.g., `context.rs`, `operation.rs`)
-- Test files follow pytest convention: `test_*.py` prefix (e.g., `test_io_bam.py`, `test_predicate_pushdown.py`)
-- Private/internal modules prefixed with underscore (e.g., `_metadata.py`, `_expected.py`)
+- Python modules: lowercase with underscores (e.g., `predicate_translator.py`, `range_op_helpers.py`)
+- Test files: `test_*.py` prefix (e.g., `test_io_bam.py`, `test_predicate_pushdown.py`)
+- Rust files: lowercase snake_case (e.g., `pileup.rs`, `operation.rs`)
 
 **Functions:**
-- Python functions use `snake_case` (e.g., `read_fasta()`, `scan_bam()`, `translate_predicate()`)
-- Private functions prefixed with single underscore: `_lazy_scan()`, `_overlap_source()`, `_validate_tag_type_hints()`
-- Rust functions use `snake_case` (e.g., `do_range_operation()`, `register_table()`)
-- PyO3 wrapper functions prefixed with `py_`: `py_read_sql()`, `py_pileup_depth()`, `py_describe_bam()`
-- Static methods on classes use descriptive names: `IOOperations.read_bam()`, `IOOperations.scan_vcf()`
+- Lowercase with underscores: `_validate_tag_type_hints()`, `_cleanse_fields()`, `_quote_sql_identifier()`
+- Private helpers prefixed with single underscore: `_lazy_scan()`, `_overlap_source()`, `_extract_column_names_from_expr()`
+- Public methods use camelCase in class methods when wrapping APIs: `read_bam()`, `scan_vcf()`, `register_gff()`
+
+**Classes:**
+- PascalCase: `IOOperations`, `IntervalOperations`, `PileupOperations`, `PyBioSessionContext`
+- Exception classes end with `Error`: `CoordinateSystemMismatchError`, `MissingCoordinateSystemError`, `PredicateTranslationError`
 
 **Variables:**
-- Python uses `snake_case` for all variables (e.g., `DATA_DIR`, `projected_columns`)
-- Constants in UPPERCASE: `DEFAULT_BATCH_SIZE`, `LEFT_TABLE`, `DEFAULT_COLUMN_NAMES`
-- Rust uses `snake_case` for variables and static strings
-- Module-level context variables use underscore prefix in Python: `_ACTIVE_STRING_COLS`, `_local`
-- Dictionary keys for format types use uppercase strings: `"Bam"`, `"Sam"`, `"Cram"`, `"Vcf"`, `"Gff"` (matching PyO3 InputFormat enum discriminant names)
+- Lowercase with underscores: `projection_pushdown`, `predicate_pushdown`, `tag_type_hints`, `zero_based`
+- Module-level constants: `UPPERCASE_WITH_UNDERSCORES` (e.g., `LEFT_TABLE`, `DEFAULT_COLUMN_NAMES`, `_VALID_SAM_TYPE_CODES`)
+- Private module state: `_ACTIVE_STRING_COLS`, `_ACTIVE_UINT32_COLS`, `_ACTIVE_FLOAT32_COLS`
+- Dictionary keys for format-based lookups use string keys (not enums): `_FORMAT_COLUMN_TYPES = {"Bam": ..., "Vcf": ..., "Gff": ...}` (PyO3 InputFormat is not hashable)
 
-**Types & Classes:**
-- Python classes use `PascalCase` (e.g., `IOOperations`, `PredicateTranslationError`, `CoordinateSystemMismatchError`)
-- Rust structs use `PascalCase` (e.g., `PyBioSessionContext`, `FilterOp`)
-- Exception classes end with `Error`: `PredicateTranslationError`, `CoordinateSystemMismatchError`, `MissingCoordinateSystemError`
+**Types:**
+- TypeVar and generic types follow standard conventions: `Union[list[str], None]`, `Optional[bool]`
+- Type hints use `from __future__ import annotations` for forward references
 
 ## Code Style
 
 **Formatting:**
-- Python: Black formatter (version 24.10.0) enforced via pre-commit
-  - Line length: Black default (88 characters)
-  - String quotes: Black default (single quotes preferred, double quotes when containing single quotes)
-- Import sorting: isort with Black profile (via pre-commit hook)
-- Rust: `rustfmt` configured (see `rustfmt.toml`)
+- Black formatter configured with implicit settings (line length 88)
+- isort for import sorting with `--profile black`
+- Applied via pre-commit hooks
 
 **Linting:**
-- Python: ruff available but currently disabled in pre-commit (commented out)
-- Rust: cargo-check via pre-commit hooks
-- Pre-commit hooks also check: mixed line endings, trailing whitespace, case conflicts, Python AST validity
+- Ruff configuration present but currently commented out in `.pre-commit-config.yaml`
+- Black and isort are active linting/formatting tools
+- Manual compliance with pre-commit hooks on `check-ast`, `mixed-line-ending`, `trailing-whitespace`, `check-case-conflict`
 
-**Pre-commit configuration:**
-- File: `.pre-commit-config.yaml`
-- Active hooks: pre-commit-hooks, isort, black, rust formatting/check
-- Disabled: ruff linting (commented out, likely due to conflicts with Black)
+**Formatting Command:**
+```bash
+# Pre-commit enforces these:
+black .                           # Format code
+isort . --profile black           # Sort imports
+cargo fmt                         # Rust formatting
+cargo check                       # Rust compilation check
+```
 
 ## Import Organization
 
-**Order (Python):**
-1. Standard library imports (`os`, `logging`, `contextlib`, `threading`)
-2. Third-party imports (`polars`, `datafusion`, `pysam`, `pytest`, `pandas`)
-3. Local/relative imports (from `polars_bio.*`)
-4. Conditional/try-except imports for optional dependencies
+**Order:**
+1. Standard library imports (`import logging`, `import json`, `from pathlib import Path`)
+2. Third-party imports (`import polars as pl`, `import pytest`, `from datafusion import DataFrame`)
+3. Local/relative imports (`from . import polars_ext`, `from ._metadata import ...`)
+
+**Examples:**
+```python
+# polars_bio/io.py
+import logging
+import weakref as _weakref
+from typing import Dict, Iterator, Optional, Union
+
+import polars as pl
+
+logger = logging.getLogger(__name__)
+from datafusion import DataFrame
+from polars.io.plugins import register_io_source
+from tqdm.auto import tqdm
+
+from polars_bio.polars_bio import (
+    BamReadOptions,
+    BamWriteOptions,
+    ...
+)
+
+from ._metadata import get_vcf_metadata, set_coordinate_system, set_vcf_metadata
+from .context import _resolve_zero_based, ctx
+from .predicate_translator import (
+    BAM_INT32_COLUMNS,
+    BAM_STRING_COLUMNS,
+    ...
+)
+```
 
 **Path Aliases:**
-- No import aliases defined in `pyproject.toml`
-- Standard imports used directly: `import polars as pl`, `from datafusion import DataFrame`
-- Relative imports for submodules: `from . import polars_ext`, `from ._metadata import ...`
-
-**Module Structure:**
-- Main public API exposed in `__init__.py` using explicit imports
-- Functions aliased at package level: `IOOperations as data_input`, `IntervalOperations as range_operations`
-- Private implementation modules import specific items (not wildcard imports)
-- Clear separation: core logic in `io.py`, `pileup_op.py`, `range_op.py`; utilities in `utils.py`, `predicate_translator.py`
+- Relative imports preferred for internal modules
+- Absolute imports from `polars_bio.polars_bio` (the PyO3-compiled Rust module)
+- No path aliases configured in pyproject.toml
 
 ## Error Handling
 
-**Custom Exceptions:**
-- File: `polars_bio/exceptions.py`
-- Two main domain exceptions:
-  - `CoordinateSystemMismatchError`: Raised when two DataFrames have different coordinate systems (0-based vs 1-based)
-  - `MissingCoordinateSystemError`: Raised when DataFrame lacks required coordinate system metadata
-- Exceptions have detailed docstrings with usage examples
-- PyO3 layer converts Rust errors to Python exceptions: `PyValueError::new_err()`, `PyRuntimeError::new_err()`
+**Patterns:**
+- Custom exceptions inherit from `Exception` and are defined in `polars_bio/exceptions.py`
+- Exceptions have detailed docstrings with examples: `CoordinateSystemMismatchError`, `MissingCoordinateSystemError`
+- Try-except blocks catch broad exceptions during fallback operations, with silent fallback to client-side filtering:
+  ```python
+  try:
+      query_df = query_df.filter(datafusion_predicate)
+      datafusion_predicate_applied = True
+  except Exception as e:
+      datafusion_predicate_applied = False
+      # Fallback to Python-level filtering
+  ```
+- PyO3 functions raise `PyValueError` and `PyRuntimeError` for Rust-Python boundary errors
+- Validation functions raise `ValueError` with descriptive messages: `_validate_tag_type_hints()` checks format and valid type codes
 
-**Error Handling Patterns:**
-- Try-except blocks with fallback behavior: `_lazy_scan()` falls back to client-side filtering if predicate pushdown fails
-- Exception chaining: `raise PredicateTranslationError(...) from e`
-- Validation before processing: `_validate_tag_type_hints()` validates input format before passing to Rust
-- Safe error wrapping: `.map_err(|e| PyValueError::new_err(e.to_string()))` in Rust FFI code
-
-**Assertions in Code:**
-- Used in tests for expected behavior (e.g., `assert len(self.df) == 2333`)
-- Condition checks with error messages: `.map_err(|e| ...)` patterns in Rust
-- Test-time soft assertions: pytest.assume() context manager in conftest (collects all failures, fails once at end)
+**Validation Pattern:**
+```python
+def _validate_tag_type_hints(tag_type_hints: list[str]) -> None:
+    """Validate tag_type_hints format before passing to Rust."""
+    for hint in tag_type_hints:
+        parts = hint.split(":")
+        if len(parts) != 2 or len(parts[0]) != 2 or not parts[1]:
+            raise ValueError(f"Invalid tag_type_hint '{hint}': expected 'TAG:TYPE' format...")
+        type_code = parts[1]
+        if type_code not in _VALID_SAM_TYPE_CODES:
+            raise ValueError(f"Invalid type code '{type_code}'...")
+```
 
 ## Logging
 
-**Framework:** Standard Python `logging` module
+**Framework:** Python's built-in `logging` module
 
-**Setup:**
-- Module: `polars_bio/logging.py`
-- Root logger initialized with WARNING level default
-- Per-module logger: `logger = logging.getLogger("polars_bio")`
-- Levels: DEBUG, INFO, WARN (not increased, can only decrease)
+**Setup Pattern:**
+```python
+# polars_bio/logging.py
+import logging
 
-**Logging Patterns:**
-- Import at module level: `import logging` and `logger = logging.getLogger(__name__)`
-- Log at appropriate levels: info/debug for operations, warn for compatibility issues
-- Rust side uses `log` crate: `use log::{debug, error, info}`
-- User-facing API: `set_loglevel(level: str)` accepts "debug", "info", "warn", "warning"
-- Logging must be set as first step after import; level can only be decreased, not increased
+logging.basicConfig()
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.WARN)
+logger = logging.getLogger("polars_bio")
+logger.setLevel(logging.WARN)
+
+def set_loglevel(level: str):
+    """Set log level for logger and root logger."""
+    level = level.lower()
+    if level == "debug":
+        logger.setLevel(logging.DEBUG)
+        root_logger.setLevel(logging.DEBUG)
+        ...
+```
+
+**Usage Pattern:**
+```python
+# In modules
+from polars_bio.logging import logger
+logger = logging.getLogger(__name__)
+
+# In Rust modules
+use log::{debug, error, info};
+```
+
+**When to Log:**
+- Info level: Major operations like file registration, table creation
+- Debug level: Detailed operation flow, intermediate states
+- Warn level: Default; deprecated patterns, fallback behavior
+
+**Loglevel Control:**
+```python
+import polars_bio as pb
+pb.set_loglevel("info")  # Must be set as first step after import
+```
 
 ## Comments
 
 **When to Comment:**
-- Docstrings required on all public functions and classes (module-level, class-level, function-level)
-- Inline comments for non-obvious algorithm logic (e.g., predicate translation, range operations)
-- Comments explaining "why" not "what" for complex branching or workarounds
-- Comments noting version compatibility issues or known gotchas
+- Algorithm explanation: When predicate translation or optimization logic is non-obvious
+- Bug workarounds: Mark with inline comments (though project uses `# FIXME` in pre-commit config)
+- Complex parsing logic: Explain parsing approach (e.g., PyO3 string manipulation in `_strip_polars_wrapping()`)
 
-**JSDoc/Docstring Format:**
-- Python: Google-style or numpy-style docstrings (observed in codebase)
-- Format elements: summary line, blank line, detailed description, Parameters/Args section, Returns section, Raises section
-- Example from `read_fasta()`: includes Parameters with descriptions, and !!! Example block with code
-- Markdown formatting in docstrings: code blocks with ```python, ```shell, bold/italic for emphasis
-- Special mkdocs directives: !!! Example, !!! note blocks for documentation generation
+**Module-Level Docstrings:**
+Comprehensive module docstrings explaining purpose and design:
+```python
+"""
+Polars to DataFusion predicate translator for bio-format table providers.
 
-**File-level Docstrings:**
-- Modules with docstrings explain purpose and usage (e.g., predicate_translator.py has 10-line module docstring)
-- Rare but used for complex modules like context/query translators
+This module converts Polars expressions to DataFusion expressions for predicate pushdown optimization.
+Uses the DataFusion Python DataFrame API instead of SQL string construction for better type safety.
+
+Supports BAM/SAM/CRAM, VCF, and GFF formats. Each format defines its own known column types;
+unknown columns (BAM tags, VCF INFO/FORMAT fields, GFF attribute fields) are handled permissively,
+allowing all operators and letting DataFusion type-check at execution time.
+"""
+```
+
+**JSDoc/TSDoc:**
+- Python docstrings use Google-style format with sections: Description, Parameters, Returns, Raises, Examples
+- Rust documentation uses `///` for public items with markdown formatting
+- Example in docstrings are enclosed in markdown code blocks with language specification
+
+**Docstring Example:**
+```python
+def scan_fasta(
+    path: str,
+    chunk_size: int = 8,
+    concurrent_fetches: int = 1,
+    ...
+) -> pl.LazyFrame:
+    """
+    Lazily read a FASTA file into a LazyFrame.
+
+    Parameters:
+        path: The path to the FASTA file.
+        chunk_size: The size in MB of a chunk when reading from an object store. Default is 8 MB.
+        concurrent_fetches: [GCS] The number of concurrent fetches. Default is 1.
+        ...
+
+    !!! Example
+        ```shell
+        wget https://www.ebi.ac.uk/ena/browser/api/fasta/BK006935.2?download=true -O /tmp/test.fasta
+        ```
+
+        ```python
+        import polars_bio as pb
+        pb.scan_fasta("/tmp/test.fasta").limit(1).collect()
+        ```
+    """
+```
 
 ## Function Design
 
-**Size:**
-- Functions generally 15-60 lines
-- Large functions (100+ lines) typical for complex operations like `_overlap_source()` (implements full pipeline)
-- Preference for composition: helper functions called from larger functions
+**Size:** Functions are typically 20-50 lines; longer functions broken into smaller helpers:
+- `_overlap_source()` in `polars_bio/utils.py` is 200+ lines but handles complete predicate+projection+fallback pipeline
+- Most utility functions are 10-30 lines
 
 **Parameters:**
-- Type hints used throughout: `def _validate_tag_type_hints(tag_type_hints: list[str]) -> None`
-- Union types for multiple valid inputs: `Union[pl.DataFrame, pl.LazyFrame]`
-- Optional parameters: `Optional[Set[str]] = None`
-- Keyword-only args for complex functions (seen in PyO3 decorators)
-- Sentinel/default values common: `compression_type: str = "auto"`, `chunk_size: int = 8`
+- Type hints on all parameters and return types
+- Optional parameters use `Union[Type, None]` or `Optional[Type]` with defaults
+- Common pattern: `projection_pushdown: bool = True`, `predicate_pushdown: bool = False`
+- Static methods on operation classes accept multiple input types: `Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"]`
 
 **Return Values:**
-- Explicit return type hints: `-> pl.DataFrame:`, `-> Iterator[pl.DataFrame]:`
-- Single return type preferred (no multiple return types unless using Union)
-- DataFrames/LazyFrames returned directly from I/O functions
-- Generator/Iterator pattern for streaming results: `Iterator[pl.DataFrame]` in `_overlap_source()`
+- Explicit return type hints on all functions
+- Functions returning DataFrames may return LazyFrames or DataFrames depending on input
+- Fallible operations return tuples of (result, applied_flag) for debugging: `datafusion_projection_applied = True/False`
+
+**Context Management:**
+- Temporary module state protected with try/finally blocks:
+  ```python
+  global _ACTIVE_STRING_COLS, _ACTIVE_UINT32_COLS, _ACTIVE_FLOAT32_COLS
+  _ACTIVE_STRING_COLS = string_cols
+  try:
+      return _translate_polars_expr(predicate)
+  finally:
+      _ACTIVE_STRING_COLS = None
+  ```
 
 ## Module Design
 
 **Exports:**
-- Explicit `__all__` list in `__init__.py` enumerates public API (100+ items)
-- Private items not exported (prefixed with `_`)
-- Public API aliases defined at package level (e.g., `data_input = IOOperations`)
+- All public APIs defined in `polars_bio/__init__.py` with explicit `__all__` list
+- Class methods statically exposed as module-level functions: `read_bam = data_input.read_bam`
+- Aliases for backward compatibility: `data_input`, `data_processing`, `pileup_operations`, `range_operations`
 
 **Barrel Files:**
 - Not used; imports are explicit
-- Main package init imports from submodules and re-exports
 
-**Module Boundaries:**
-- Clear separation of concerns: I/O (`io.py`), range operations (`range_op.py`), pileup (`pileup_op.py`)
-- Shared utilities in dedicated modules: `utils.py`, `predicate_translator.py`, `sql.py`
-- Configuration in `constants.py` and `context.py`
-- Metadata handling centralized in `_metadata.py`
+**Organization:**
+- `polars_bio/io.py`: All I/O operations (read_*, scan_*, write_*, sink_*, register_*)
+- `polars_bio/range_op.py`: Genomic interval operations (overlap, nearest, merge, etc.)
+- `polars_bio/pileup_op.py`: Depth/pileup operations
+- `polars_bio/sql.py`: SQL query execution and table registration
+- `polars_bio/predicate_translator.py`: Polars-to-DataFusion expression translation
+- `polars_bio/_metadata.py`: Coordinate system metadata management
+- `polars_bio/exceptions.py`: Custom exception definitions
+- `polars_bio/logging.py`: Logging configuration
 
-## Python Version & Type Checking
+## Rust Conventions
 
-**Target Python Version:** 3.10+ (from `pyproject.toml`)
+**Code Style:**
+- Rust formatting enforced via `cargo fmt` in pre-commit hooks
+- Edition 2021
 
-**Type Checking:**
-- mypy enabled with minimal overrides (ignores `polars.utils.udfs`)
-- Type hints used consistently throughout codebase
-- PyO3 provides type stubs for Rust bindings
+**Error Handling:**
+- Functions return `PyResult<T>` for PyO3 interop
+- Internal errors wrapped in `PyValueError::new_err()` or `PyRuntimeError::new_err()`
+- GIL handling: Explicit `py.allow_threads()` for CPU-bound work
 
-## Rust-Python Integration
+**Naming:**
+- Module names: lowercase snake_case (`mod context`, `mod operation`, `mod pileup`)
+- Function names: lowercase snake_case (`register_frame_from_batches()`)
+- Constants: UPPERCASE (`LEFT_TABLE`, `DEFAULT_COLUMN_NAMES`)
 
-**PyO3 Conventions:**
-- Functions exposed to Python decorated with `#[pyfunction]`
-- Signature decorators for flexible argument handling: `#[pyo3(signature = (...))]`
-- Error conversion: Rust `Result<T, E>` → Python exceptions via `.map_err()`
-- GIL management: `py.allow_threads()` for CPU-bound work, GIL held during FFI operations
-- Arrow FFI used for zero-copy data exchange: `PyArrowType<ArrowArrayStreamReader>`
+---
 
-**Binary Compilation:**
-- Maturin build backend in `pyproject.toml`
-- Rust module name: `polars_bio` (matches crate name)
-- Compiled as C dynamic library (`cdylib`)
+*Convention analysis: 2026-03-20*

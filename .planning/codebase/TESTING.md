@@ -5,312 +5,360 @@
 ## Test Framework
 
 **Runner:**
-- pytest 8.3.3+ (from `pyproject.toml`)
-- Config: `pyproject.toml` only (no pytest.ini or setup.cfg)
-- Auto-discovery: standard pytest pattern (tests in `tests/` directory, test_*.py files)
+- pytest 8.3.3+
+- Config file: `pyproject.toml` (tool.poetry section references pytest)
 
 **Assertion Library:**
-- pytest built-in assertions
-- Polars testing utilities: `pl.testing` module (exposed in conftest for compatibility)
-- Custom soft-assertion: `pytest.assume()` context manager (implemented in conftest.py)
-
-**Coverage:**
-- Tool: pytest-cov (^6.0.0)
-- No explicit coverage target enforced in config
+- pytest built-in assertions with custom `pytest.assume()` fixture for soft assertions
 
 **Run Commands:**
 ```bash
-python -m pytest tests/test_io_*.py -v              # Run IO tests with verbose output
-python -m pytest tests/ -v                          # Run all tests
-python -m pytest tests/test_io_bam.py::TestIOBAM::test_count -v  # Single test
-pytest --cov=polars_bio tests/                      # Coverage report (requires pytest-cov)
+python -m pytest tests/test_io_*.py -v           # Run IO tests
+python -m pytest tests/test_predicate_pushdown.py -v  # Run specific test file
+python -m pytest -k "test_overlap" -v            # Run tests matching pattern
+python -m pytest tests/ -v --tb=short            # All tests with short traceback
+```
+
+**Coverage:**
+```bash
+python -m pytest --cov=polars_bio --cov-report=html tests/
 ```
 
 ## Test File Organization
 
 **Location:**
-- Tests co-located in separate `tests/` directory (not alongside source)
-- Organized by feature area: `test_io_bam.py`, `test_io_vcf.py`, `test_predicate_pushdown.py`, `test_overlap_algorithms.py`
-- Path: `/Users/mwiewior/research/git/polars-bio/tests/`
+- Test files co-located in `tests/` directory at project root
+- Test files organized by functionality: `test_io_bam.py`, `test_io_fastq.py`, `test_io_indexed.py`, `test_predicate_pushdown.py`, etc.
+- Expected test data in `tests/_expected.py` (constants and fixtures)
 
 **Naming:**
-- Prefix pattern: `test_*.py`
-- Descriptive names describing what's tested: `test_io_bam.py` (I/O operations on BAM), `test_predicate_pushdown.py` (predicate translation)
-- Test methods use `test_` prefix: `test_count()`, `test_fields()`, `test_overlap_count()`
+- Test files: `test_*.py` prefix
+- Test classes: `Test*` prefix (e.g., `TestIOBAM`, `TestFastq`, `TestParallelFastq`)
+- Test methods: `test_*` prefix (e.g., `test_count`, `test_fields`, `test_register`)
 
-**Data/Fixtures Directory:**
-- Test data: `tests/data/` directory
-- Shared test constants and fixtures: `tests/_expected.py` (pandas DataFrames, paths, expected results)
-- Configuration: `tests/conftest.py` (pytest fixtures, soft-assertion framework)
+**File Structure:**
+```
+tests/
+├── _expected.py              # Expected data and fixtures
+├── conftest.py               # pytest configuration and shared fixtures
+├── test_io_bam.py           # BAM I/O tests
+├── test_io_fastq.py         # FASTQ I/O tests
+├── test_io_indexed.py       # Indexed format tests
+├── test_predicate_pushdown.py # Predicate translation tests
+├── test_polars.py           # Polars-specific operation tests
+├── test_pileup.py           # Pileup/depth operation tests
+├── test_coordinate_system_metadata.py  # Metadata tests
+└── ...                      # Other test modules
+```
 
 ## Test Structure
 
 **Suite Organization:**
+Tests organize around functionality using class-based test grouping:
+
 ```python
 class TestIOBAM:
-    """Group related tests in classes for organization."""
-    df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")  # Class-level setup
+    df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
 
     def test_count(self):
-        """Test individual assertions."""
         assert len(self.df) == 2333
 
     def test_fields(self):
-        """Test multiple assertions in one test."""
         assert self.df["name"][2] == "20FUKAAXX100202:1:22:19822:80281"
         assert self.df["flags"][3] == 1123
-        assert self.df["cigar"][4] == "101M"
+
+    def test_register(self):
+        pb.register_bam(f"{DATA_DIR}/io/bam/test.bam", "test_bam")
+        count = pb.sql("select count(*) as cnt from test_bam").collect()
+        assert count["cnt"][0] == 2333
 ```
 
 **Patterns:**
-- Setup at class level (shared across methods): `df = pb.read_bam(...)`
-- Per-test setup rarely needed (data is read once, reused)
-- Teardown: rare, used for cleanup (see tmp_path fixture usage in `test_bam_scan_indexed_no_coor_only_records`)
-- Grouped tests by class for related functionality: `TestIOBAM`, `TestIOSAM`, `TestIOVCF`
 
-## Test Structure Examples
+1. **Class-level setup:** Data loaded once per test class for efficiency
+   ```python
+   class TestFastq:
+       def test_count(self):
+           assert (
+               pb.scan_fastq(f"{DATA_DIR}/io/fastq/example.fastq.bgz")
+               .count()
+               .collect()["name"][0]
+               == 200
+           )
+   ```
 
-**Basic Assertion Pattern:**
-```python
-def test_count(self):
-    """Test record count."""
-    assert len(self.df) == 2333
-```
+2. **Lazy vs eager testing:** Tests check both `.collect()` (eager) and `.limit().collect()` (lazy) paths
+   ```python
+   class TestParallelFastq:
+       def test_read_parallel_fastq_with_limit(self):
+           lf = pb.scan_fastq(f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz").limit(10)
+           print(lf.explain())
+           df = lf.collect()
+           assert len(df) == 10
+   ```
 
-**Multiple Field Assertions:**
-```python
-def test_fields(self):
-    """Test field values at specific indices."""
-    assert self.df["name"][2] == "20FUKAAXX100202:1:22:19822:80281"
-    assert self.df["flags"][3] == 1123
-    assert self.df["cigar"][4] == "101M"
-```
+3. **Predicate testing:** SQL generation and end-to-end validation separated
+   ```python
+   class TestPredicatePushdownSQLGeneration:
+       def test_simple_string_equality(self):
+           predicate = pl.col("chrom") == "chr22"
+           sql_where = _build_sql_where_from_predicate_safe(predicate)
+           assert sql_where == "\"chrom\" = 'chr22'"
 
-**DataFrame Equality:**
-```python
-def test_overlap_schema_rows(self):
-    """Test result matches expected DataFrame."""
-    result = self.result_frame.sort(by=self.result_frame.columns)
-    assert self.expected.equals(result)
-```
-
-**Parametrized Tests (set comprehension):**
-```python
-def test_simple_numeric_comparison(self):
-    """Test multiple predicates via iteration."""
-    test_cases = [
-        (pl.col("start") > 100000, '"start" > 100000'),
-        (pl.col("start") < 500000, '"start" < 500000'),
-        (pl.col("start") >= 100000, '"start" >= 100000'),
-    ]
-    for predicate, expected_sql in test_cases:
-        sql_where = _build_sql_where_from_predicate_safe(predicate)
-        assert sql_where == expected_sql
-```
-
-**Exception Testing:**
-```python
-def test_missing_coordinate_system_error(self):
-    """Test exception is raised in strict mode."""
-    pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
-    try:
-        with pytest.raises(MissingCoordinateSystemError):
-            pb.overlap(df1, df2, ...)
-    finally:
-        pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
-```
-
-**Temporary File Testing:**
-```python
-def test_bam_scan_indexed_no_coor_only_records(self, tmp_path):
-    """Test with temporary BAM files."""
-    header = {"HD": {"VN": "1.6", "SO": "coordinate"}, ...}
-    unsorted_path = str(tmp_path / "no_coor.unsorted.bam")
-    sorted_path = str(tmp_path / "no_coor.sorted.bam")
-
-    with pysam.AlignmentFile(unsorted_path, "wb", header=header) as out:
-        # Write records
-        out.write(record)
-
-    pysam.sort("-o", sorted_path, unsorted_path)
-    pysam.index(sorted_path)
-    df = pb.scan_bam(sorted_path).collect()
-    assert len(df) == 2
-```
+   class TestPredicatePushdownEndToEnd:
+       def test_pushdown_with_registered_table(self):
+           pb.register_gff(f"{DATA_DIR}/io/gff/annotation.gff3", "gff_table")
+           result = pb.sql("select * from gff_table where chrom='chrY'").collect()
+           # Verify results match predicate
+   ```
 
 ## Mocking
 
-**Framework:** No explicit mocking library detected; pysam used for creating test BAM files in-memory
+**Framework:** pytest's built-in monkeypatch fixture (no external mocking library used)
 
 **Patterns:**
-- Real files used preferentially: `pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")`
-- File creation via libraries: pysam for BAM/SAM records
-- Temporary files: pytest `tmp_path` fixture for ephemeral test data
+
+1. **Fixture-based data setup** (preferred):
+   ```python
+   @pytest.fixture(scope="module")
+   def sample_vcf_data():
+       # Set up test data once per module
+       df = pb.read_vcf(f"{DATA_DIR}/io/vcf/test.vcf")
+       return df
+   ```
+
+2. **Temporary file handling** using temporary directories:
+   ```python
+   import tempfile
+   from pathlib import Path
+
+   with tempfile.TemporaryDirectory() as tmpdir:
+       output_path = Path(tmpdir) / "output.vcf"
+       pb.write_vcf(df, str(output_path))
+       # Verify written file
+   ```
 
 **What to Mock:**
-- External file I/O: use real test data files in `tests/data/`
-- Temporary file operations: use pytest `tmp_path` fixture
-- External API calls: not applicable (local bioinformatics library)
+- External file system operations (when testing I/O without actual files)
+- Environment variables (via monkeypatch)
+- Session context options
 
 **What NOT to Mock:**
-- DataFrame operations (Polars/datafusion is stable)
-- File format reading (test against real files)
-- Rust bindings (compiled into wheel, tested via Python API)
+- Core DataFusion operations (test with real data)
+- Polars operations (test against real Polars)
+- Actual file I/O for I/O tests (use real test data)
 
 ## Fixtures and Factories
 
 **Test Data:**
-- Path setup: `DATA_DIR = TEST_DIR / "data"` in `_expected.py`
-- Pandas DataFrames created manually with expected results:
+Stored in `tests/_expected.py`:
 
 ```python
-PD_DF_OVERLAP = pd.DataFrame({
-    "contig_1": ["chr1", "chr1", ...],
-    "pos_start_1": [150, 150, ...],
-    "pos_end_1": [250, 250, ...],
-    ...
-}).astype({
-    "pos_start_1": "int64",
-    "pos_end_1": "int64",
+# _expected.py
+from pathlib import Path
+import polars as pl
+
+DATA_DIR = Path(__file__).parent / "data"
+
+# Polars DataFrames with metadata
+PL_DF1 = pl.DataFrame({
+    "contig": ["chr1", "chr2"],
+    "pos_start": [1000, 2000],
+    "pos_end": [2000, 3000],
 })
+PL_DF1.config_meta.set(coordinate_system_zero_based=False)
+
+# Expected results
+PL_DF_OVERLAP = pl.DataFrame({...})
+PL_DF_NEAREST = pl.DataFrame({...})
 ```
 
-- Polars DataFrames created from Pandas: `PL_DF_OVERLAP = pl.from_pandas(PD_DF_OVERLAP)`
-- CSV test data: `DF_OVER_PATH1 = f"{DATA_DIR}/overlap/reads.csv"` loaded via pandas
-- Parquet test data: `BIO_DF_PATH1 = f"{DATA_DIR}/exons/*.parquet"`
-
 **Location:**
-- Fixtures: `tests/_expected.py` (not pytest fixtures, but test data constants)
-- Conftest: `tests/conftest.py` (pytest.assume() shim, polars.testing exposure)
+- `tests/_expected.py`: Contains test data and expected results
+- `tests/data/`: Actual test files (BAM, VCF, FASTQ, etc.)
+- Test fixtures accessed via `_expected.DATA_DIR` constant
 
-**Pytest Fixtures Used:**
-- `tmp_path`: pytest built-in for temporary directories (used in BAM creation tests)
-- `autouse=True` fixture for assumption collection (in conftest)
+**Fixture Pattern:**
+```python
+@pytest.fixture(scope="module")
+def annotation_file():
+    """Load annotation once per test module."""
+    return pb.read_gff(f"{DATA_DIR}/io/gff/annotation.gff3")
+
+@pytest.fixture(scope="class")
+def tmp_output_dir():
+    """Provide temporary directory for test outputs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield tmpdir
+```
 
 ## Coverage
 
-**Requirements:** None enforced (target TBD)
+**Requirements:** No explicit coverage threshold enforced in CI
 
 **View Coverage:**
 ```bash
-pytest --cov=polars_bio --cov-report=html tests/
-# View: htmlcov/index.html
+python -m pytest --cov=polars_bio --cov-report=html tests/
+# View coverage report in htmlcov/index.html
 ```
 
 ## Test Types
 
 **Unit Tests:**
-- Scope: Individual functions and classes
-- Approach: Test method, field access, error conditions
-- Examples: `test_count()` validates record count, `test_fields()` validates field values
-- File: `test_io_bam.py` has 20+ unit tests for BAM I/O
-- Assertion style: direct equality checks on small data
+- Scope: Individual functions and methods
+- Examples: `test_simple_string_equality()` (predicate translation), `test_validate_tag_type_hints()` (validation)
+- Approach: Test with multiple input cases using parameterization
+- Location: `tests/test_predicate_pushdown.py`, `tests/test_custom_tag_inference.py`
 
 **Integration Tests:**
-- Scope: Multi-component workflows (I/O → predicate pushdown → result)
-- Approach: Read file, apply filters, verify output matches expected
-- Examples: `test_predicate_pushdown.py` tests SQL generation and end-to-end filtering
-- File: `test_projection_pushdown.py`, `test_predicate_pushdown.py`
-- Assertion style: DataFrame equality with `.equals()` or sorted comparison
+- Scope: I/O + operations + metadata pipeline
+- Examples: `TestIOBAM.test_register()` (read → register → SQL query), `TestParallelFastq.test_read_parallel_fastq()`
+- Approach: Real file I/O, real DataFusion execution
+- Location: Most test files (`test_io_*.py`, `test_polars.py`)
 
 **End-to-End Tests:**
 - Scope: Full user workflows
-- Approach: Range operations (overlap, nearest, merge) with real data
-- Examples: `test_overlap.py`, `test_nearest.py` with Pandas/Polars DataFrames
-- File: `test_polars.py`, `test_pandas.py` (inferred from imports in test files)
-- Assertion style: result count, schema validation, sorted DataFrame comparison
+- Examples: `TestCoordinateSystemMetadata.*` (coordinate system tracking through operations), `TestPredicatePushdownEndToEnd.*`
+- Approach: Real data, real SQL queries, coordinate system validation
+- Location: `tests/test_coordinate_system_metadata.py`, `tests/test_predicate_pushdown.py`
 
-**Format-Specific Tests:**
-- BAM: `test_io_bam.py` (core fields, tags, SQL queries, indexed scans)
-- VCF: `test_vcf_format_columns.py` (format columns)
-- GFF/GTF: `test_predicate_pushdown.py` (coordinate system, attribute fields)
-- FASTQ: `test_io_fastq.py` (assumed from file listing)
-
-**E2E Tests:**
-- No dedicated E2E framework (pytest sufficient)
-- User-facing workflows tested via integration tests with real file data
+**E2E/Regression Tests:**
+- Framework: pytest
+- Examples: `test_optimization_bug_fix.py` (tests for previously fixed bugs), `test_filter_select_attributes_bug_fix.py`
+- Location: Named `test_*_bug_fix.py` or `test_optimization_*.py`
 
 ## Common Patterns
 
+**Parametrized Testing:**
+```python
+@pytest.mark.parametrize("partitions", [1, 2, 3, 4])
+def test_read_parallel_fastq(self, partitions):
+    pb.set_option("datafusion.execution.target_partitions", str(partitions))
+    df = pb.read_fastq(f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz")
+    assert len(df) == 2000
+```
+
+**Soft Assertions:**
+Custom `pytest.assume()` fixture allows multiple assertions to run before test failure:
+
+```python
+# conftest.py provides pytest.assume()
+@contextlib.contextmanager
+def assume():
+    try:
+        yield
+    except AssertionError as e:
+        failures = getattr(_local, "failures", None)
+        if failures is not None:
+            failures.append(str(e))
+        else:
+            raise
+
+# Usage:
+def test_multiple_assertions():
+    with pytest.assume():
+        assert condition1
+    with pytest.assume():
+        assert condition2
+    # Test fails at teardown with summary of both failures
+```
+
 **Async Testing:**
-- No async tests found (I/O is synchronous)
-- Tokio runtime used in Rust, but exposed synchronously to Python
+Not used; all operations are synchronous or use Polars' lazy evaluation.
 
 **Error Testing:**
+Tests verify exceptions are raised correctly:
+
 ```python
-def test_missing_coordinate_system_error(self):
-    """Test exception is raised."""
+def test_missing_coordinate_system_raises():
+    """Test that missing metadata raises appropriate error."""
+    df = pb.read_vcf(f"{DATA_DIR}/io/vcf/test.vcf")
+    # Clear metadata
+    if hasattr(df, "config_meta"):
+        df.config_meta.set(coordinate_system_zero_based=None)
+
     with pytest.raises(MissingCoordinateSystemError):
-        pb.overlap(df1, df2, ...)
+        pb.overlap(df, df)
+
+def test_coordinate_mismatch_raises():
+    """Test that coordinate system mismatch raises."""
+    df1 = pb.read_vcf(f"{DATA_DIR}/io/vcf/test1.vcf")  # 0-based
+    df2 = pb.read_vcf(f"{DATA_DIR}/io/vcf/test2.vcf")  # 1-based
+
+    with pytest.raises(CoordinateSystemMismatchError):
+        pb.overlap(df1, df2)
 ```
 
-**Parametrization Pattern (Manual):**
-```python
-# Instead of @pytest.mark.parametrize, use list iteration
-test_cases = [
-    (input1, expected1),
-    (input2, expected2),
-]
-for input_val, expected in test_cases:
-    assert transform(input_val) == expected
+**Test Isolation:**
+- Class-level data setup shared across methods (efficient)
+- Fixtures with `scope="module"` for expensive setup
+- Fixtures with `scope="function"` for isolated tests
+- Autouse fixture `_assume_collector()` resets soft assertion state per test
+
+**Test Data Versioning:**
+- Real genomic test files in `tests/data/` subdirectories (io/bam, io/vcf, io/fastq, etc.)
+- Test data is committed to repo and not generated dynamically
+- Expected results hardcoded in `_expected.py` for reproducibility
+
+## Rust Tests
+
+**Framework:** cargo test (inline tests using `#[cfg(test)]`)
+
+**Location:**
+- Rust tests defined inline with `#[cfg(test)]` modules
+- Example: `src/write.rs` has a test module
+- Run: `cargo test`
+
+**Pattern:**
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_function_name() {
+        // Test implementation
+    }
+}
 ```
 
-**Soft Assertions (Multiple failures per test):**
-```python
-# In conftest: pytest.assume() context manager
-with pytest.assume():
-    assert condition1
-with pytest.assume():
-    assert condition2
-# Test fails at end with all failures summarized
+## Running Tests
+
+**All tests:**
+```bash
+python -m pytest tests/ -v
 ```
 
-**State Reset Patterns:**
-- Context managers for option changes:
-```python
-pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
-try:
-    # test code
-finally:
-    pb.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
+**Specific test file:**
+```bash
+python -m pytest tests/test_io_bam.py -v
 ```
 
-**DataFrame Assertion:**
-```python
-# Column presence
-assert "name" in df.columns
-assert len(df.columns) == 15
-
-# Row count
-assert len(df) == 2333
-
-# Value equality
-assert df["name"][2] == "expected_value"
-
-# Null counts
-assert df["CB"].null_count() == 0
-
-# Set equality
-assert set(df["CB"].to_list()) == {"CELL1", "CELL2"}
-
-# DataFrame equality
-result = result_frame.sort(by=result_frame.columns)
-assert expected.equals(result)
+**Specific test class:**
+```bash
+python -m pytest tests/test_io_bam.py::TestIOBAM -v
 ```
 
-## Test Organization Summary
+**Specific test method:**
+```bash
+python -m pytest tests/test_io_bam.py::TestIOBAM::test_count -v
+```
 
-**By module:**
-- `test_io_*.py`: Files for each format (BAM, VCF, GFF, FASTQ, etc.)
-- `test_predicate_pushdown.py`: SQL predicate translation
-- `test_projection_pushdown.py`: Column projection optimization
-- `test_overlap_algorithms.py`: Range operations
-- `test_warnings.py`: Error conditions and coordinate system metadata
-- `test_polars.py`: Polars DataFrame integration
-- `test_pandas.py`: Pandas DataFrame integration (inferred)
+**Tests matching pattern:**
+```bash
+python -m pytest -k "test_overlap" -v
+```
 
-**By concern:**
-- Core functionality: `test_io_*.py` (read/write/register)
-- Optimization: `test_predicate_pushdown.py`, `test_projection_pushdown.py`
-- Integration: `test_polars.py`, `test_pandas.py`, `test_user_scenario.py`
-- Regression/edge cases: `test_*_bug_fix.py` files (e.g., `test_optimization_bug_fix.py`)
+**With output:**
+```bash
+python -m pytest tests/ -v -s  # Show print statements
+```
+
+**With debugging:**
+```bash
+python -m pytest tests/ -v --pdb  # Drop into debugger on failure
+```
+
+---
+
+*Testing analysis: 2026-03-20*
