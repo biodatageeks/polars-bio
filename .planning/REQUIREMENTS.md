@@ -9,9 +9,9 @@ Requirements for initial benchmark release. Each maps to roadmap phases.
 
 ### Dataset
 
-- [x] **DATA-01**: Download and index ENCODE ENCSR329MHM BAM (HepG2, SE76, ~36M reads, GRCh38)
-- [x] **DATA-02**: Download Gencode v49 comprehensive GTF (GRCh38.p14)
-- [x] **DATA-03**: Verify chromosome naming consistency between BAM and GTF (chr-prefixed)
+- [ ] **DATA-01**: Download and index ENCODE ENCSR329MHM BAM (HepG2, SE76, ~36M reads, GRCh38)
+- [ ] **DATA-02**: Download Gencode v49 comprehensive GTF (GRCh38.p14)
+- [ ] **DATA-03**: Verify chromosome naming consistency between BAM and GTF (chr-prefixed)
 
 ### Counting
 
@@ -79,36 +79,36 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | Phase 1 | Complete |
-| DATA-02 | Phase 1 | Complete |
-| DATA-03 | Phase 1 | Complete |
-| COUNT-01 | Phase 2 | Pending |
-| COUNT-02 | Phase 2 | Pending |
-| COUNT-03 | Phase 2 | Pending |
-| COUNT-04 | Phase 2 | Pending |
-| COUNT-05 | Phase 2 | Pending |
-| COUNT-06 | Phase 2 | Pending |
-| COUNT-07 | Phase 2 | Pending |
-| BASE-01 | Phase 3 | Pending |
-| BASE-02 | Phase 3 | Pending |
-| BASE-03 | Phase 3 | Pending |
-| CORR-01 | Phase 4 | Pending |
-| CORR-02 | Phase 4 | Pending |
-| CORR-03 | Phase 4 | Pending |
-| CORR-04 | Phase 4 | Pending |
-| PERF-01 | Phase 4 | Pending |
-| PERF-02 | Phase 4 | Pending |
-| PERF-03 | Phase 4 | Pending |
-| NOTE-01 | Phase 5 | Pending |
-| NOTE-02 | Phase 5 | Pending |
-| NOTE-03 | Phase 5 | Pending |
-| NOTE-04 | Phase 5 | Pending |
+| DATA-01 | — | Pending |
+| DATA-02 | — | Pending |
+| DATA-03 | — | Pending |
+| COUNT-01 | — | Pending |
+| COUNT-02 | — | Pending |
+| COUNT-03 | — | Pending |
+| COUNT-04 | — | Pending |
+| COUNT-05 | — | Pending |
+| COUNT-06 | — | Pending |
+| COUNT-07 | — | Pending |
+| BASE-01 | — | Pending |
+| BASE-02 | — | Pending |
+| BASE-03 | — | Pending |
+| CORR-01 | — | Pending |
+| CORR-02 | — | Pending |
+| CORR-03 | — | Pending |
+| CORR-04 | — | Pending |
+| PERF-01 | — | Pending |
+| PERF-02 | — | Pending |
+| PERF-03 | — | Pending |
+| NOTE-01 | — | Pending |
+| NOTE-02 | — | Pending |
+| NOTE-03 | — | Pending |
+| NOTE-04 | — | Pending |
 
 **Coverage:**
 - v1 requirements: 24 total
-- Mapped to phases: 24
-- Unmapped: 0 ✓
+- Mapped to phases: 0
+- Unmapped: 24 ⚠️
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-20 after roadmap creation*
+*Last updated: 2026-03-20 after initial definition*
