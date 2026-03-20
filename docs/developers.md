@@ -778,6 +778,91 @@ print(df.execution_plan())
     `COUNT(*)` queries also benefit — when no columns are needed, the empty projection path avoids parsing any fields while still counting records correctly.
 
 
+## External Extension Registration
+
+polars-bio exposes a `register_extension()` method on `BioSessionContext` that allows external PyO3 crates to register UDFs, UDTFs, and table providers into the shared DataFusion session — without modifying polars-bio itself.
+
+### Mechanism
+
+The method passes a raw pointer to the inner `SessionContext` plus the `DATAFUSION_VERSION` string to a Python callback. The external crate's callback casts the pointer back, verifies ABI compatibility, and registers its functions:
+
+```mermaid
+sequenceDiagram
+    participant Python
+    participant polars_bio as polars-bio (Rust)
+    participant vepyr as Extension (Rust)
+
+    Python->>polars_bio: ctx.register_extension(callback)
+    polars_bio->>polars_bio: ptr = &mut self.ctx as *mut SessionContext
+    polars_bio->>Python: callback(ptr, DATAFUSION_VERSION)
+    Python->>vepyr: _register_vep(ptr, version)
+    vepyr->>vepyr: verify DATAFUSION_VERSION matches
+    vepyr->>vepyr: ctx = unsafe { &*(ptr as *const SessionContext) }
+    vepyr->>vepyr: register_vep_functions(ctx)
+```
+
+### Safety contract
+
+The extension crate **must** be compiled with the exact same `datafusion` crate version, feature flags, and Rust toolchain as polars-bio. Casting the pointer from a mismatched build is undefined behavior, even if `DATAFUSION_VERSION` strings match.
+
+The pointer is valid only for the duration of the callback. The callback must not store or use it after returning.
+
+### Example: vepyr integration
+
+[vepyr](https://github.com/biodatageeks/vepyr) uses this mechanism to register VEP annotation functions (`annotate_vep()`, `lookup_variants()`, and scalar UDFs) into the polars-bio session:
+
+```python
+import polars_bio as pb
+import vepyr
+
+# VEP functions auto-register on first use of vepyr.annotate()
+# Or register explicitly:
+pb.ctx.register_extension(vepyr._core._register_vep)
+
+# Now annotate_vep() is available as a SQL table function
+pb.register_vcf("input.vcf", "vcf")
+result = pb.sql(
+    "SELECT * FROM annotate_vep('vcf', '/data/cache/variation', 'parquet', '{}')"
+).collect()
+```
+
+### Writing an extension
+
+To create your own extension that registers functions into polars-bio's session:
+
+**Rust side** — implement a `#[pyfunction]` that takes the pointer and version:
+
+```rust
+use datafusion::prelude::SessionContext;
+
+#[pyfunction]
+fn _register_my_functions(ctx_ptr: usize, datafusion_version: &str) -> PyResult<()> {
+    // 1. Verify ABI compatibility
+    if datafusion_version != datafusion::DATAFUSION_VERSION {
+        return Err(PyRuntimeError::new_err("DataFusion version mismatch"));
+    }
+    // 2. Cast pointer back to SessionContext
+    let ctx = unsafe { &*(ctx_ptr as *const SessionContext) };
+    // 3. Register your functions
+    ctx.register_udf(my_udf());
+    ctx.register_udtf("my_table_func", Arc::new(MyTableFunction::new()));
+    Ok(())
+}
+```
+
+**Python side** — call `register_extension`:
+
+```python
+import polars_bio as pb
+from my_extension._core import _register_my_functions
+
+pb.ctx.register_extension(_register_my_functions)
+```
+
+!!! warning
+    This is an **unsafe** escape hatch. If the extension is compiled against a different `datafusion` version or with different compiler flags, the pointer cast will produce undefined behavior. Always build polars-bio and extensions from the same CI pipeline or workspace.
+
+
 ## Building & Development
 
 ### Building from source
