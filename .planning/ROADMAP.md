@@ -29,7 +29,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. GENCODE v49 comprehensive GTF is downloaded and readable by `pb.scan_gtf()`
   3. Chromosome name prefixes match between BAM and GTF (both use `chr`-prefixed contigs, confirmed by spot-check)
   4. featureCounts 2.1.1 and HTSeq-count 2.1.2 are installed in the benchmark conda environment and return expected version strings
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 01-01-PLAN.md — Create benchmark notebook with data download, validation, and tool install cells
+- [ ] 01-02-PLAN.md — User runs notebook to download data and verify environment (checkpoint)
 
 ### Phase 2: Core Counting Implementation
 **Goal**: A working `count_features(bam_path, gtf_path)` function produces a gene-level count table using polars-bio primitives, with unit tests confirming correctness on small synthetic data
@@ -82,7 +85,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Dataset Preparation | 0/TBD | Not started | - |
+| 1. Dataset Preparation | 0/2 | Planning complete | - |
 | 2. Core Counting Implementation | 0/TBD | Not started | - |
 | 3. Baseline Tool Runs | 0/TBD | Not started | - |
 | 4. Validation and Benchmarking | 0/TBD | Not started | - |
