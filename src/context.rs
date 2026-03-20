@@ -67,18 +67,18 @@ impl PyBioSessionContext {
 
     /// Register an external extension into this session.
     ///
-    /// The callback receives a raw pointer (as `usize`) to the inner
-    /// `datafusion::prelude::SessionContext`. The extension can cast it
-    /// back and register UDFs, UDTFs, or table providers.
+    /// The callback receives:
+    ///   - `ctx_ptr`: raw pointer (as `usize`) to the inner `SessionContext`
+    ///   - `datafusion_version`: version string for ABI compatibility check
     ///
-    /// # Safety
-    ///
-    /// The pointer is valid only for the duration of the callback.
-    /// The callback must not store or use it after returning.
+    /// The extension must verify the datafusion version matches before
+    /// casting the pointer. The pointer is valid only for the duration
+    /// of the callback.
     #[pyo3(signature = (callback))]
     pub fn register_extension(&mut self, py: Python<'_>, callback: PyObject) -> PyResult<()> {
         let ptr = &self.ctx as *const SessionContext as usize;
-        callback.call1(py, (ptr,))?;
+        let df_version = datafusion::DATAFUSION_VERSION;
+        callback.call1(py, (ptr, df_version))?;
         Ok(())
     }
 
