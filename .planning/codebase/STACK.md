@@ -5,149 +5,121 @@
 ## Languages
 
 **Primary:**
-- Rust 1.91.0 - Core I/O operations, format readers/writers, range operations via PyO3 bindings
-- Python 3.10+ (up to 3.14) - Public API, data manipulation wrappers, SQL utilities, extension module loading
+- Rust 1.88.0+ - Core computational engine with PyO3 bindings for genomic operations
+- Python 3.10-3.14 - User-facing API and high-level operations
 
 **Secondary:**
-- YAML - GitHub Actions CI/CD workflow definitions
-- SQL - DataFusion query execution for distributed processing
+- YAML - GitHub Actions CI/CD workflows
 
 ## Runtime
 
 **Environment:**
-- Python: CPython 3.10, 3.11, 3.12, 3.13, 3.14
-- Rust: 1.91.0 (specified in `rust-toolchain.toml`)
-- Tokio 1.42.0 - Async runtime for Rust operations
-- OS: Linux (Ubuntu 24.04), macOS (x86_64 and aarch64), Windows (x64)
+- CPython (standard interpreter)
+- PyPy (supported via ABI3)
 
 **Package Manager:**
-- Poetry 1.8.5+ - Python dependency management
-- Cargo - Rust dependency management
-- Lockfile: `poetry.lock` and `Cargo.lock` (both present)
+- Poetry (Python) - Version 2.1.4
+- pip (Python) - Fallback dependency installation
+- Cargo (Rust) - Rust package and build management
+- Lockfile: `Cargo.lock` and `pyproject.toml` with pinned versions
 
 ## Frameworks
 
 **Core:**
-- Polars >= 1.37.1 - DataFrame/LazyFrame API
-- DataFusion 50.x - SQL query engine and distributed computing backend
-- DataFusion Python 50.1.0 - Python bindings for DataFusion
-- PyO3 0.25.1 - Rust-Python FFI bindings with extension module support (`abi3` feature)
+- Polars 1.37.1+ - High-performance DataFrame library (required)
+- DataFusion 50.3.0 - SQL query engine for predicate/projection pushdown
+- PyO3 0.25.1 - Python-Rust interoperability with ABI3 extension modules
+- datafusion-python 50.1.0 - Python bindings for DataFusion
+
+**Data Processing:**
+- Arrow (Apache Arrow) 56.1.0 - Columnar data format and FFI interop
+- arrow-array 56.1.0 - Array operations with FFI support
+
+**Async & Concurrency:**
+- Tokio 1.42.0 - Async runtime with full feature set and tracing
+- futures 0.3.31 - Future combinators
+- async-trait 0.1.86 - Async trait support
 
 **Testing:**
-- pytest ^8.3.3 - Test runner
-- pytest-cov ^6.0.0 - Coverage reporting
+- pytest 8.3.3+ (Python) - Test framework
+- pytest-cov 6.0.0+ - Coverage measurement
 
 **Build/Dev:**
-- Maturin 1.7.5+ - Build tool for Python extension modules (Rust/Python)
-- Black 24.10.0 - Code formatting
-- isort 5.13.2 - Import sorting
-- pre-commit - Git hooks for code quality
-- Ruff ^0.8.2 - Linting
-
-**Documentation:**
-- MkDocs 1.6.1 - Static documentation generator
-- MkDocs Material 9.5.48 - Material design theme
-- mkdocs-jupyter 0.25.1 - Jupyter notebook support
-- mkdocs-table-reader-plugin 3.1.0 - Markdown table rendering
+- maturin 1.7.5+ - Rust-Python package builder
+- sccache - Distributed compiler cache (GitHub Actions)
 
 ## Key Dependencies
 
 **Critical:**
-- arrow 56.1.0 - Apache Arrow format support for columnar data interchange
-- arrow-schema 56.1.0 - Arrow schema definitions
-- arrow-array 56.1.0 - Arrow array implementations with FFI support
-- polars (>=1.37.1, <1.38) - DataFrame/LazyFrame engine
-- pyarrow (>=21.0.0 for Python <3.14, >=22.0.0 for >=3.14) - Arrow Python bindings
+- datafusion-bio-format-vcf - VCF file format handler (git: rev 333638a)
+- datafusion-bio-format-bam - BAM/SAM alignment format handler (git: rev 333638a)
+- datafusion-bio-format-cram - CRAM compressed alignment format (git: rev 333638a)
+- datafusion-bio-format-gff - GFF/GTF annotation format (git: rev 333638a)
+- datafusion-bio-format-fastq - FASTQ sequence format (git: rev 333638a)
+- datafusion-bio-format-fasta - FASTA sequence format (git: rev 333638a)
+- datafusion-bio-format-bed - BED interval format (git: rev 333638a)
+- datafusion-bio-format-pairs - PAIRs interaction format (git: rev 333638a)
+- datafusion-bio-format-core - Core storage and object store abstraction (git: rev 333638a)
 
-**Genomics Format Support:**
-- datafusion-bio-format-vcf - VCF file reader/writer
-- datafusion-bio-format-core - Base types and object storage abstraction
-- datafusion-bio-format-gff - GFF/GTF format support
-- datafusion-bio-format-fastq - FASTQ sequence format
-- datafusion-bio-format-bam - BAM (Binary Alignment/Map) format
-- datafusion-bio-format-cram - CRAM (Compressed Reference-oriented Map) format
-- datafusion-bio-format-bed - BED (Browser Extensible Data) format
-- datafusion-bio-format-fasta - FASTA sequence format
-- datafusion-bio-format-pairs - Paired reads format
-- datafusion-bio-format-gtf - GTF (Gene Transfer Format) support
+**Functions:**
+- datafusion-bio-function-ranges - Range overlap/interval operations UDTF (git: rev 9ef64a1)
+- datafusion-bio-function-pileup - Pileup depth calculation UDTF, default-features=false (git: rev 9ef64a1)
 
-**Infrastructure & Functions:**
-- datafusion-bio-function-ranges - Interval overlap, nearest, merge operations
-- datafusion-bio-function-pileup - Depth calculation (pileup) UDTF
-- datafusion-bio-function-ranges (via git: github.com/biodatageeks/datafusion-bio-formats rev 333638a)
-- datafusion-bio-function-pileup (via git: github.com/biodatageeks/datafusion-bio-functions rev 9ef64a1, default-features=false)
-
-**Async & Utilities:**
-- async-trait 0.1.86 - Async trait support
-- futures 0.3.31 - Async utilities
-- futures-util 0.3.31 - Async utility extensions
-- tokio 1.42.0 - Async runtime with full features
-- log 0.4.22 - Logging facade
-- tracing 0.1.41 - Structured instrumentation
-- pyo3-log 0.12.4 - Logging integration for PyO3
+**Utilities:**
+- pyo3-log 0.12.4 - Python logging integration with Rust
+- log 0.4.22 - Rust logging facade
+- tracing 0.1.41 - Structured tracing with log compatibility
 - serde_json 1.0 - JSON serialization
 - rand 0.8.5 - Random number generation
-- tqdm (>=4.67.0, <5) - Progress bars
+- tqdm 4.67.0+ - Progress bar display
 
-**Optional Dependencies:**
-- pandas - DataFrames compatibility (optional extras)
-- bioframe - Genome annotation visualization
-- matplotlib - Plotting
-- pysam - Sequence/alignment utilities for testing
-
-**Development & Benchmarking:**
-- pyranges (dev, git: github.com/pyranges/pyranges rev 4f0a15)
-- GenomicRanges 0.8.4 (dev)
-- pybedtools 0.12.0 (dev)
-- pygenomics (dev, git: gitlab.com/gtamazian/pygenomics rev 0.1.1)
-- memory-profiler 0.61.0 (dev)
-- py-cpuinfo 9.0.0 (dev)
-- rich 13.9.4 (dev)
-- psutil 6.1.1 (dev)
-- jupyter ^1.1.0 (dev)
-- jupyter_client ^8.6.3 (dev)
+**Optional:**
+- pyarrow 21.0.0-23 (Python 3.10-3.13), 22.0.0-23 (Python 3.14+) - Arrow Python API
+- polars-config-meta 0.3.0+ - Polars metadata support
+- typing-extensions 4.14.0+ - Type hint backports
+- pandas - For optional dataframe conversion (optional extra: `pip install polars-bio[pandas]`)
+- pysam - For genomics testing and SAM tag validation (optional extra: `pip install polars-bio[test]`)
+- bioframe 0.8.0+ - For optional visualization (optional extra: `pip install polars-bio[viz]`)
+- matplotlib - For optional interval visualization (optional extra: `pip install polars-bio[viz]`)
 
 ## Configuration
 
 **Environment:**
-- Python: Requires 3.10+ (specified in pyproject.toml `requires-python`)
-- Polars version locked to >=1.37.1 (required for Arrow C Stream support)
-- DataFusion version locked to 50.x (breaking changes in 51+)
-- PyArrow version conditional: 21.0+ for Python <3.14, 22.0+ for >=3.14
-- POLARS_FORCE_NEW_STREAMING env var auto-set based on Polars version (set to "1" for >=1.32)
+- POLARS_FORCE_NEW_STREAMING - Enabled for Polars >= 1.32, disabled for earlier versions (set in `polars_bio/__init__.py`)
+- RUSTFLAGS (build-time) - Compiler flags for optimization and linking
+  - Linux/Windows: `-Dwarnings -Ctarget-cpu=skylake` (fail on warnings, target CPU)
+  - macOS x86_64: `-Dwarnings -Clink-arg=-undefined -Clink-arg=dynamic_lookup -Ctarget-cpu=skylake`
+  - macOS ARM64: `-Dwarnings -Clink-arg=-undefined -Clink-arg=dynamic_lookup -Ctarget-cpu=apple-m1`
+- POETRY_VERSION: 2.1.4 (CI/CD)
+- TARGET_CPU: skylake (default optimization target)
 
 **Build:**
-- `rust-toolchain.toml`: Pins Rust 1.91.0 with rustfmt component
-- `.cargo/config.toml`: Apple-specific linker flags for dynamic symbol resolution
-  - `-Clink-arg=-undefined -Clink-arg=dynamic_lookup` for both x86_64 and aarch64 Darwin targets
-- `pyproject.toml` maturin config: Produces `polars_bio` module (cdylib crate type)
-- Maturin build settings: Uses sccache for compilation caching, manylinux=auto for Linux wheels
-- Target CPU: skylake (default for Linux/Windows x86_64), apple-m1 for aarch64 macOS, skylake for x86_64 macOS
+- `pyproject.toml` - PEP 517/518 build spec with maturin backend
+- `Cargo.toml` - Rust library and dependencies
+- `Cargo.lock` - Locked Rust dependency versions
+- `.cargo/config.toml` - macOS linking flags for dynamic symbol lookup
 
 ## Platform Requirements
 
 **Development:**
-- Python 3.10+ (pyenv or system)
-- Rust 1.91.0 (via rustup)
-- Build essentials: gcc/clang, pkg-config
-- System libraries for bioinformatics: libbz2-dev, liblzma-dev, libcurl4-openssl-dev (for samtools/pysam)
-- Poetry 1.8.5+ for Python dependency management
-- Maturin 1.7.5+ for building extension module
+- Rust toolchain 1.88.0+ (`rustup show` validates in CI)
+- Python 3.10 minimum (3.14 maximum tested)
+- Poetry 2.1.4 for reproducible builds
+- System libraries for pysam optional build:
+  - libbz2-dev, liblzma-dev, libcurl4-openssl-dev
+  - zlib1g-dev, libdeflate-dev (for Linux testing)
 
-**Production/Distribution:**
-- CPython 3.10-3.14 with native extension support
-- PyPI: Wheels built for:
-  - Linux: manylinux (auto) x86_64
-  - macOS: x86_64, aarch64
-  - Windows: x64
-- Source distribution (sdist) also available
-- Installation: `pip install polars-bio`
+**Production:**
+- Any Linux distribution (x86_64) or Windows (x64) or macOS (x86_64, aarch64)
+- Python 3.10-3.14
+- Polars 1.37.1+
+- DataFusion 50.0.0+
+- PyArrow 21.0.0+ (version-dependent on Python version)
 
-**Deployment & Documentation:**
-- Hosted on PyPI for package distribution
-- Documentation built on ReadTheDocs (Ubuntu 24.04, Python 3.12)
-- GitHub Pages for hosting generated docs (gh-pages branch)
-- GitHub Actions runners: ubuntu-latest, macos-latest, macos-14, windows-latest
+**Deployment:**
+- PyPI package repository - Primary distribution channel
+- Bioconda package repository - Conda distribution
+- GitHub Actions - CI/CD runner for cross-platform builds
 
 ---
 

@@ -4,237 +4,230 @@
 
 ## Pattern Overview
 
-**Overall:** Hybrid Python/Rust bridge with lazy execution streaming model
+**Overall:** Hybrid Python-Rust architecture with Apache DataFusion as the query engine backbone.
 
 **Key Characteristics:**
-- **Language boundary:** Python public API + Rust compute engine via PyO3 bindings
-- **Query engine:** DataFusion-based execution with predicate/projection pushdown
-- **Streaming:** Arrow C FFI streams to avoid GIL overhead; column-oriented data flow
-- **Lazy evaluation:** LazyFrame wrapping custom I/O sources with format-specific handlers
-- **Multi-format:** Unified code path for BAM/SAM/CRAM/VCF/GFF/GTF/FASTQ/FASTA/BED with format-aware options
+- Two-layer design: Python API layer on top of Rust/DataFusion computation engine
+- Format-aware table providers for genomics data (BAM/SAM/CRAM/VCF/GFF/GTF/FASTQ/FASTA/BED/PAIRS)
+- Predicate and projection pushdown optimization via DataFusion
+- Zero-copy Arrow C Stream integration for efficient Python-Rust data exchange
+- Session-based context management for maintaining state across operations
 
 ## Layers
 
-**Public API Layer:**
-- Purpose: Expose high-level I/O and genomic operations to users
-- Location: `polars_bio/__init__.py`
-- Contains: Aliases and re-exports (scan/read/write/sink functions, range/pileup operations, SQL registry)
-- Depends on: IOOperations, PileupOperations, IntervalOperations, SQL classes
-- Used by: User code
+**Python API Layer:**
+- Purpose: User-facing interface exposing genomic operations as clean, composable functions
+- Location: `polars_bio/` (21 Python modules)
+- Contains: High-level IO operations, range operations (overlap/nearest/coverage), SQL interface, metadata handling, coordinate system validation
+- Depends on: Rust bindings (PyO3), Polars, DataFusion Python client, Arrow
+- Used by: End-user scripts and Jupyter notebooks
 
-**I/O Operations Layer:**
-- Purpose: Unified interface for reading/writing genomic file formats
-- Location: `polars_bio/io.py` (main entry point; 3200+ lines)
-- Contains: IOOperations class with static methods for each format (read_bam, scan_vcf, write_cram, etc.)
-- Depends on: Rust bindings (py_read_table, py_register_table, py_write_table), DataFusion Python, Polars
-- Used by: User code directly; internally by SQL and range operations
+**Rust FFI Bindings & Options Layer:**
+- Purpose: PyO3 bindings and option serialization for Rust computation
+- Location: `src/option.rs` (29KB)
+- Contains: `InputFormat`, `OutputFormat`, `RangeOp`, `FilterOp`, read/write options for each format (`BamReadOptions`, `VcfReadOptions`, etc.)
+- Depends on: PyO3, datafusion-bio-formats crates
+- Used by: Python layer to configure and invoke Rust operations
 
-**Query Pipeline Layer:**
-- Purpose: Bridge between Polars LazyFrame/DataFrame and DataFusion execution
-- Location: `polars_bio/io.py` (_read_file, _lazy_scan, _overlap_source functions)
-- Key flow:
-  1. `_read_file()` registers table with Rust via `py_register_table()`, extracts schema
-  2. `_lazy_scan()` wraps schema in Polars IO source callback `_overlap_source()`
-  3. `_overlap_source()` executed during `.collect()`: re-registers file, translates predicates, streams via Arrow C FFI
-  4. Predicate pushdown via `translate_predicate()` → SQL string → DataFusion `filter()`
-  5. Projection pushdown via `query_df.select(parsed_sql_expr)` at DataFusion level
-  6. Client-side safety net: filter/select reapplied if pushdown fails
-- Location: `polars_bio/io.py:2496-2723`
-- Depends on: predicate_translator.py, Polars register_io_source, DataFusion DataFrame
-- Used by: _read_file, SQL registration
+**Session Context & Configuration:**
+- Purpose: Centralized DataFusion session management and execution configuration
+- Location: `src/context.rs` (4.1KB), `polars_bio/context.py` (4.4KB)
+- Contains: `PyBioSessionContext` (Rust), `Context` singleton (Python), session config options, UDTF registration
+- Depends on: DataFusion SessionContext, datafusion-bio-function-ranges
+- Used by: All query execution paths
 
-**Predicate Translator Layer:**
-- Purpose: Convert Polars expressions to DataFusion expressions with type validation
-- Location: `polars_bio/predicate_translator.py`
-- Key pattern:
-  - `translate_predicate()` validates operators against format-specific column types (BAM_STRING_COLUMNS, VCF_UINT32_COLUMNS, etc.)
-  - Handles unknown columns permissively (BAM tags, VCF INFO/FORMAT fields, GFF attributes)
-  - Unknown columns pass validation; type errors caught at DataFusion execution time
-  - Recursively translates BinaryOp (==, >, IN, etc.), UnaryOp (not), and BooleanFunction (and, or)
-- Location: `polars_bio/predicate_translator.py:72-100+`
-- Depends on: DataFusion col/lit/functions
-- Used by: _overlap_source
+**Table Scanning & Registration:**
+- Purpose: Load genomic files into DataFusion memory or streaming contexts
+- Location: `src/scan.rs` (26KB), `polars_bio/io.py` (152KB)
+- Contains: Table provider instantiation for each format, predicate/projection pushdown, Arrow stream consumers
+- Depends on: datafusion-bio-format-* crates, Arrow C Stream FFI
+- Used by: Range operations, SQL queries, direct read/write operations
 
-**Rust/PyO3 Binding Layer:**
-- Purpose: FFI boundary to Rust compute engine
-- Location: `src/lib.rs`, `src/scan.rs`, `src/context.rs`
-- Exposes functions:
-  - `py_register_table()` - register file-backed table (BAM/VCF/GFF/etc)
-  - `py_read_table()` - get DataFusion DataFrame for a registered table
-  - `py_read_sql()` - execute SQL query, return DataFusion DataFrame
-  - `range_operation_frame/lazy()` - spatial join operations (overlap, nearest, etc)
-  - `py_pileup_depth()` - compute per-base depth
-- Depends on: datafusion-bio-formats (VCF/BAM/GFF/etc readers), datafusion-bio-functions (range/pileup operations)
-- Used by: Python I/O layer
+**Range Operations Engine:**
+- Purpose: Interval overlap, nearest, merge, and coverage calculations
+- Location: `src/operation.rs` (15KB), `polars_bio/range_op.py` (36KB), `polars_bio/range_op_helpers.py` (14KB)
+- Contains: COITrees-based interval joins, nearest neighbor queries, coverage/count computation
+- Depends on: datafusion-bio-function-ranges, DataFusion
+- Used by: `overlap()`, `nearest()`, `count_overlaps()`, `coverage()`, `merge()`, `cluster()`, `complement()`, `subtract()`
 
-**Rust Format Support:**
-- Location: `src/scan.rs:1-100+`
-- Table providers (one per format):
-  - `VcfTableProvider` - VCF format with INFO/FORMAT field handling
-  - `BamTableProvider`, `CramTableProvider` - alignment formats with tag discovery
-  - `GffTableProvider`, `GtfTableProvider` - annotation with attribute parsing
-  - `FastqTableProvider`, `FastaTableProvider`, `BedTableProvider` - sequence formats
-  - `PairsTableProvider` - Hi-C interaction data
-- All inherit from DataFusion's `TableProvider` trait
+**Pileup/Depth Operations:**
+- Purpose: Per-base read depth computation via CIGAR walk
+- Location: `src/pileup.rs` (7.2KB), `polars_bio/pileup_op.py` (9.3KB)
+- Contains: `DepthFunction` UDTF, `DepthTableProvider` for streaming depth calculation
+- Depends on: datafusion-bio-function-pileup
+- Used by: `pb.depth()` function for coverage analysis
 
-**Genomic Operations Layer:**
-- Purpose: Range/interval operations and pileup analysis
-- Locations:
-  - `polars_bio/range_op.py` - FilterOp-based interval operations (overlap, nearest, count_overlaps, merge, cluster, complement, subtract)
-  - `polars_bio/pileup_op.py` - Per-base depth computation (PileupOperations class)
-  - Rust: `src/operation.rs`, `src/pileup.rs`
-- Depends on: DataFusion SQL UDFs, Polars Arrow interop, coordinate system metadata
-- Used by: User code via public API
+**SQL Interface & Table Registration:**
+- Purpose: Register genomic files as SQL-queryable tables; execute raw DataFusion SQL
+- Location: `polars_bio/sql.py` (35KB)
+- Contains: Table registration methods for each format, VCF INFO field auto-detection, GFF attribute handling
+- Depends on: DataFusion SQL parser, table providers
+- Used by: `pb.sql()`, `pb.register_*()` functions
 
-**SQL/Registration Layer:**
-- Purpose: Enable SQL-based table registration and querying
-- Location: `polars_bio/sql.py` (SQL class)
-- Pattern: `register_vcf()`, `register_gff()`, etc. call underlying py_register_table() and log table names
-- Enables: `SELECT * FROM table_name` in DataFusion SQL context
-- Used by: Users working with SQL interface
+**Predicate Translation:**
+- Purpose: Convert Polars expressions to DataFusion expressions for filter pushdown
+- Location: `polars_bio/predicate_translator.py` (22KB)
+- Contains: Format-aware column type definitions, Polars → DataFusion expression translation
+- Depends on: Polars Expr API, DataFusion functions
+- Used by: IO operations for predicate pushdown on BAM/SAM/CRAM/VCF/GFF
 
-**Metadata Layer:**
-- Purpose: Track file format metadata and coordinate systems (1-based vs 0-based)
-- Location: `polars_bio/_metadata.py`, `polars_bio/metadata_extractors.py`
-- Stores in DataFrame.metadata:
-  - `coordinate_system_zero_based` (bool)
-  - `source_format`, `source_path`
-  - Format-specific: VCF sample_names, BAM header, GFF attributes
-- Critical for: Range operations (FilterOp.Strict/Weak), output correctness, metadata preservation through `.collect()`
-- Used by: range_op.py, io.py, user introspection
+**Metadata & Coordinate Systems:**
+- Purpose: Track and validate genomic coordinate systems and VCF/BAM metadata
+- Location: `polars_bio/_metadata.py` (26KB), `polars_bio/metadata_extractors.py` (14KB)
+- Contains: Coordinate system validation, VCF header parsing, BAM tag type inference, metadata attachment to DataFrames
+- Depends on: Polars metadata API, DataFusion-bio format readers
+- Used by: Range operations, IO operations for proper coordinate interpretation
 
-**GFF/GTF Projection Wrapper:**
-- Purpose: Handle attribute field extraction with projection awareness
-- Location: `polars_bio/io.py:3048-3200+` (AnnotationLazyFrameWrapper, GffLazyFrameWrapper, GtfLazyFrameWrapper classes)
-- Why needed: GFF attributes column is unparsed key=value pairs; requested attr columns must be re-registered at table level
-- Wraps base LazyFrame and intercepts `.select()` to trigger re-registration with appropriate attr_fields
-- Used by: _read_file for GFF/GTF returns
+**Write Operations:**
+- Purpose: Stream DataFrames back to genomic file formats
+- Location: `src/write.rs` (45KB), `polars_bio/io.py` (write methods)
+- Contains: VCF/FASTQ/BAM/SAM/CRAM write streaming, contig metadata preservation, FORMAT field handling
+- Depends on: datafusion-bio-format-* crates insert_into() API
+- Used by: `write_*()` and `sink_*()` functions
 
 ## Data Flow
 
-**Read Flow (scan_bam → .collect()):**
+**Read Path (Lazy Scan):**
 
-1. User calls `pb.scan_bam("file.bam")`
-2. `IOOperations.scan_bam()` calls `_read_file(path, InputFormat.Bam, ...)`
-3. `_read_file()`:
-   - Calls `py_register_table(ctx, path, ...)` → Rust registers BamTableProvider in DataFusion context
-   - Calls `py_get_table_schema(ctx, table_name)` → extracts PyArrow schema WITHOUT scanning file
-   - Calls `_lazy_scan(schema)` → wraps in Polars LazyFrame with custom IO source
-   - Sets metadata (coordinate_system, source format/path)
-   - Returns LazyFrame
-4. User applies filters/selects on LazyFrame (lazy, not executed)
-5. User calls `.collect()`
-6. Polars invokes `_overlap_source(with_columns, predicate, n_rows, ...)` callback:
-   - Re-registers table (fresh provider state)
-   - Translates Polars predicate to DataFusion Expr via `translate_predicate()`
-   - Applies `query_df.filter(expr)` at DataFusion level (pushdown)
-   - Applies `query_df.select(parsed_cols)` at DataFusion level (pushdown)
-   - Calls `query_df.execute_stream()` → Arrow C FFI stream (GIL-free)
-   - Iterates batches, converts to Polars DataFrame, applies client-side fallback if needed
-   - Yields results to Polars
+1. User calls `pb.scan_bam(path, filters=...)`
+2. `_lazy_scan()` in `io.py` → creates `ReadOptions` with predicates
+3. Polars registers plugin via `polars_ext.py` namespace
+4. DataFusion session created if needed
+5. `_overlap_source()` called with Polars LazyFrame
+6. Predicate validation: `translate_predicate()` converts Polars Expr → DataFusion Expr
+7. `register_table()` in `scan.rs` → instantiates `BamTableProvider` (or other format provider)
+8. Provider applies predicate pushdown and projection pushdown internally
+9. Execution plan returned to Polars for lazy evaluation
+10. User calls `.collect()` → Rust executes, streams batches back via Arrow C Streams
 
-**Write Flow (DataFrame → sink_bam):**
+**Range Operation (Overlap Example):**
 
-1. User calls `pb.sink_bam(lazy_frame, "output.bam")`
-2. Calls `_write_bam_file(lf, path, OutputFormat.Bam, ...)`
-3. `_write_file()` helper:
-   - Calls `.collect_into_list()` on LazyFrame to get batches
-   - Converts each batch to PyArrow RecordBatch
-   - Calls `py_write_table(ctx, batches, OutputFormat.Bam, ...)` in Rust
-   - Rust writes directly to disk via datafusion-bio-format-bam
-4. Returns row count
+1. User calls `pb.overlap(df1, df2, cols1=["chrom","start","end"], cols2=["chrom","start","end"])`
+2. `overlap()` in `range_op.py` validates coordinate systems from metadata
+3. Input DataFrames converted to Arrow C Streams or pre-collected RecordBatches
+4. `range_operation_lazy()` or `range_operation_frame()` in `lib.rs` called with stream readers
+5. Streams consumed with GIL held (required for Arrow FFI export)
+6. GIL released for computation: `register_frame_from_arrow_stream()` builds MemTable
+7. `do_range_operation()` in `operation.rs` → applies `OverlapProvider` UDTF
+8. UDTF uses COITrees algorithm (from datafusion-bio-function-ranges) to find overlaps
+9. Result DataFrame returned to Python as PyDataFrame
+10. Converted back to Polars LazyFrame and returned to user
 
-**Range Operation Flow (overlap example):**
+**SQL Query Path:**
 
-1. User calls `pb.overlap(query_df, subject_df, how="inner")`
-2. Calls `_validate_overlap_input()` to extract coordinate system metadata
-3. Determines FilterOp (Strict for 0-based, Weak for 1-based) from metadata
-4. Extracts Arrow C streams from both LazyFrames (GIL-free via `__arrow_c_stream__()`)
-5. Calls `range_operation_lazy(ctx, stream1, stream2, FilterOp.Strict, ...)` in Rust
-6. Rust performs spatial join using datafusion-bio-function-ranges
-7. Returns PyDataFrame result
+1. User calls `pb.register_bam("file.bam", "my_bam")`
+2. `register_table()` in `scan.rs` registers table with DataFusion context
+3. User calls `pb.sql("SELECT * FROM my_bam WHERE start < 1000")`
+4. SQL string parsed by DataFusion
+5. Predicate filter pushed to `BamTableProvider` (or other provider)
+6. Projection pushed to provider for column selection
+7. Provider returns filtered/projected batches
+8. Results streamed back to Python as DataFrame
+
+**Write Path:**
+
+1. User calls `pb.write_vcf(lf, "output.vcf.gz")`
+2. LazyFrame collected to DataFrame / Arrow batches
+3. `write_table()` in `write.rs` → streams batches to `VcfTableProvider.insert_into()`
+4. Provider writes VCF header (with preserved contig metadata) and variant records
+5. File written to disk/cloud storage
 
 **State Management:**
 
-- **DataFusion Context:** Module-level `ctx` in `polars_bio/context.py`; thread-safe, shared across operations
-- **Table Registration:** Tables registered by path+format; fresh state per `_overlap_source()` invocation
-- **Metadata:** Attached to DataFrame.metadata dict; lost on `.collect()` unless explicitly re-set
-- **Option Store:** Module-level dict in `io.py` caches PyObjectStorageOptions for GFF re-registration
+- Global singleton `Context` instance (`polars_bio/context.py`) holds the `BioSessionContext`
+- BioSessionContext wraps DataFusion `SessionContext` + session config HashMap
+- All operations access shared context: `ctx.ctx` for DataFusion operations
+- Options persisted in both Python config dict and Rust context via `set_option()`
+- Tokio runtime created per operation (async workflows handled with `py.allow_threads()`)
 
 ## Key Abstractions
 
-**InputFormat / OutputFormat:**
-- Purpose: Enum-like marker for file format (PyO3 from Rust, not hashable)
-- Examples: InputFormat.Bam, InputFormat.Vcf, OutputFormat.Cram
-- Usage: Passed to `py_register_table()` and `py_write_table()` to dispatch to correct TableProvider
+**ReadOptions & WriteOptions:**
+- Purpose: Encapsulate format-specific read/write parameters
+- Examples: `BamReadOptions`, `VcfReadOptions`, `GffReadOptions`, `VcfWriteOptions`, `BamWriteOptions`
+- Pattern: PyO3 classes mapping to Rust structs; passed to table providers for configuration
+- Location: `src/option.rs` (read/write structs), `polars_bio/io.py` (Python wrapper functions)
 
-**ReadOptions / BamReadOptions / VcfReadOptions / etc:**
-- Purpose: PyO3 structs bundling format-specific read parameters
-- Pattern: Created in Python, passed to Rust
-- Example: VcfReadOptions includes info_fields, format_fields, samples; BamReadOptions includes tag_fields
-- Used by: _read_file to configure table provider behavior
+**InputFormat & OutputFormat Enums:**
+- Purpose: Discriminate between file types at runtime
+- Examples: `InputFormat.Bam`, `InputFormat.Vcf`, `InputFormat.Gff`
+- Pattern: PyO3 enums; used as dictionary keys (converted to string for hashing) in `_FORMAT_COLUMN_TYPES`
+- Location: `src/option.rs`
 
-**RangeOptions / FilterOp:**
-- Purpose: Parameters for spatial join operations
-- FilterOp: Enum (Strict=0-based, Weak=1-based) controlling interval boundary interpretation
-- RangeOptions: Includes operation type (Overlap/Nearest/etc), FilterOp, column names
-- Used by: range_operation_frame/lazy Rust functions
+**TableProvider Trait (DataFusion):**
+- Purpose: Defines interface for lazy/streaming file readers
+- Examples: `BamTableProvider`, `VcfTableProvider`, `GffTableProvider` from upstream crates
+- Pattern: Implements scan(), insert_into() methods; handles predicate/projection pushdown
+- Location: datafusion-bio-format-* crates (external git dependencies)
 
-**LazyFrame Wrappers:**
-- Purpose: Preserve LazyFrame type while adding projection-aware behavior
-- Examples: GffLazyFrameWrapper, GtfLazyFrameWrapper
-- Pattern: Intercept `.select()` to trigger re-registration with proper attr_fields
-- Implemented as: Proxy class with __getattr__ delegation to underlying LazyFrame
+**FilterOp Enum (Coordinate System):**
+- Purpose: Distinguish 0-based (Strict) from 1-based (Weak) interval filtering
+- Pattern: Set based on metadata; passed to range operation UDTFs to configure boundary semantics
+- Location: `src/option.rs`
+
+**PredicateTranslator:**
+- Purpose: Translate user Polars filter expressions to DataFusion Expr for pushdown
+- Pattern: Generic translator with format-aware column type validation; permissive when column types unknown
+- Location: `polars_bio/predicate_translator.py`
+
+**Arrow C Stream Integration:**
+- Purpose: Zero-copy data transfer from Polars LazyFrames to Rust
+- Pattern: `ArrowArrayStreamReader` consumed in Rust; Polars exports via `__arrow_c_stream__()` (Polars >= 1.37.1)
+- Location: `src/scan.rs` (`ArrowCStreamPartitionStream`), `src/lib.rs` (`range_operation_lazy`)
 
 ## Entry Points
 
-**scan_bam:**
-- Location: `polars_bio/io.py:IOOperations.scan_bam()`
-- Triggers: Lazy registration → LazyFrame returned
-- Responsibilities: Parameter validation, read options setup, call _read_file()
+**`pb.scan_*()` / `pb.read_*()` (Scan Entry Points):**
+- Location: `polars_bio/io.py::IOOperations` static methods
+- Triggers: User import of polars_bio and calls to scan/read functions
+- Responsibilities: Parse read options, validate predicates, create LazyFrame (scan) or collect immediately (read)
 
-**read_bam:**
-- Location: `polars_bio/io.py:IOOperations.read_bam()`
-- Triggers: scan_bam().collect()
-- Responsibilities: Add .collect() call to return DataFrame
+**`pb.overlap()` / `pb.nearest()` / `pb.coverage()` (Range Operation Entry Points):**
+- Location: `polars_bio/range_op.py` module functions
+- Triggers: User calls with two DataFrames
+- Responsibilities: Validate coordinate systems, convert inputs to Arrow/batches, dispatch to Rust via `range_operation_*()` functions, return result as LazyFrame
 
-**write_vcf / sink_vcf:**
-- Location: `polars_bio/io.py:IOOperations.write_vcf()` / `.sink_vcf()`
-- Triggers: Eager collect (write) or streaming via .collect() (sink)
-- Responsibilities: Call _write_file() with OutputFormat.Vcf
+**`pb.sql()` (SQL Query Entry Point):**
+- Location: `polars_bio/sql.py::SQL.sql()` static method
+- Triggers: User calls with SQL string
+- Responsibilities: Parse SQL, execute against registered tables, return results
 
-**depth:**
-- Location: `polars_bio/pileup_op.py:PileupOperations.depth()`
-- Triggers: File path → pileup calculation via UDTF
-- Responsibilities: Parameter setup, coordinate system resolution, Rust integration
+**`pb.depth()` (Pileup Entry Point):**
+- Location: `polars_bio/pileup_op.py::PileupOperations.depth()` static method
+- Triggers: User calls with BAM/SAM/CRAM path
+- Responsibilities: Configure pileup options, invoke Rust `py_pileup_depth()`, return depth LazyFrame
 
-**overlap / nearest / etc:**
-- Location: `polars_bio/range_op.py:IntervalOperations.<op>()`
-- Triggers: Two LazyFrames/DataFrames → spatial result
-- Responsibilities: Metadata validation, Arrow stream extraction, Rust spatial join
+**`pb.register_*()` (SQL Table Registration Entry Points):**
+- Location: `polars_bio/sql.py::SQL.register_*()` static methods
+- Triggers: User calls to make files queryable via SQL
+- Responsibilities: Auto-detect metadata (VCF INFO fields, GFF attributes), register table with DataFusion context
 
 ## Error Handling
 
-**Strategy:** Graceful degradation with fallback to client-side execution
+**Strategy:** Layered validation and error propagation with context
 
 **Patterns:**
-- Predicate pushdown failure → logs warning, applies filter client-side (may cause full scan)
-- Projection pushdown failure → logs debug, applies select client-side
-- Unknown file format → raises ValueError with supported formats list
-- Missing index for indexed reads → uses full scan (slower but still correct)
-- Metadata missing → raises MissingCoordinateSystemError or uses global config fallback
+- Predicate validation: `translate_predicate()` raises `PredicateTranslationError` if Polars expression cannot be converted
+- Coordinate system validation: `validate_coordinate_systems()` raises `CoordinateSystemMismatchError` if metadata mismatches
+- Option validation: `_validate_tag_type_hints()` in `io.py` validates SAM tag type codes before passing to Rust
+- Metadata validation: `set_coordinate_system()` in `_metadata.py` raises `MissingCoordinateSystemError` if metadata required but absent
+- Format-aware type checking: Column type sets defined per format; unknown columns (tags, INFO fields) treated permissively
 
-**Cross-Cutting Concerns:**
+## Cross-Cutting Concerns
 
-**Logging:** Module-level logger in `polars_bio/logging.py`; uses Python logging; tracing for Rust via pyo3-log
+**Logging:**
+- Approach: Python `logging` module (configured via `polars_bio/logging.py::set_loglevel()`)
+- Rust side: `log` and `tracing` crates, bridged via `pyo3-log`
+- Usage: Debug info on option setting, table registration; info on operation execution
 
 **Validation:**
-- Tag type hints validated before Rust call (format "TAG:TYPE")
-- Predicate type validation in translate_predicate() per format
-- Coordinate system validation in range operations (both inputs must match)
-- Attribute field names validated against GFF schema
+- Approach: Multi-point validation: predicate translation, coordinate system metadata, tag type hints, column existence
+- Philosophy: Fail early with descriptive errors; permissive for unknown columns (let DataFusion type-check at execution)
 
-**Authentication:** Handled by object_storage_options (allow_anonymous, enable_request_payer, S3/GCS credentials via environment)
+**Authentication:**
+- Approach: Cloud storage via `PyObjectStorageOptions` (wrapper around `ObjectStorageOptions` from upstream)
+- Supports: AWS S3 (with request payer option), GCS, Azure with credentials/env var configuration
+- Usage: Passed to table providers for remote file access
 
 ---
 
