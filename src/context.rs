@@ -68,15 +68,18 @@ impl PyBioSessionContext {
     /// Register an external extension into this session.
     ///
     /// The callback receives:
-    ///   - `ctx_ptr`: raw pointer (as `usize`) to the inner `SessionContext`
+    ///   - `ctx_ptr`: mutable raw pointer (as `usize`) to the inner `SessionContext`
     ///   - `datafusion_version`: version string for ABI compatibility check
     ///
-    /// The extension must verify the datafusion version matches before
-    /// casting the pointer. The pointer is valid only for the duration
-    /// of the callback.
-    #[pyo3(signature = (callback))]
+    /// **Safety contract**: The extension crate MUST be compiled with the exact
+    /// same `datafusion` crate version, feature flags, and Rust toolchain as
+    /// this library. Casting the pointer from a mismatched build is undefined
+    /// behavior, even if `DATAFUSION_VERSION` strings match.
+    ///
+    /// The pointer is valid only for the duration of the callback.
+    /// The callback must not store or use it after returning.
     pub fn register_extension(&mut self, py: Python<'_>, callback: PyObject) -> PyResult<()> {
-        let ptr = &self.ctx as *const SessionContext as usize;
+        let ptr = &mut self.ctx as *mut SessionContext as usize;
         let df_version = datafusion::DATAFUSION_VERSION;
         callback.call1(py, (ptr, df_version))?;
         Ok(())
