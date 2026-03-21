@@ -272,21 +272,24 @@ fn py_read_sql(
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
         let rt = Runtime::new()?;
-        // Clone the SessionContext (cheap — it's Arc-based internally) so we
-        // can move it into a spawned task on a worker thread. This is required
-        // because table functions like annotate_vep() call block_in_place()
-        // internally, which deadlocks on the block_on driver thread.
         let ctx = py_ctx.ctx.clone();
+        eprintln!("[py_read_sql] entering block_on with spawn");
         let df = rt
             .block_on(async move {
+                eprintln!("[py_read_sql] inside block_on, spawning task");
                 let task = tokio::task::spawn(async move {
-                    ctx.sql(&sql_text).await
+                    eprintln!("[py_read_sql] inside spawn, calling ctx.sql()");
+                    let result = ctx.sql(&sql_text).await;
+                    eprintln!("[py_read_sql] ctx.sql() returned: {:?}", result.is_ok());
+                    result
                 });
+                eprintln!("[py_read_sql] awaiting task");
                 task.await.map_err(|e| {
                     datafusion::error::DataFusionError::Execution(format!("{e}"))
                 })?
             })
             .map_err(|e| PyValueError::new_err(format!("SQL query failed: {}", e)))?;
+        eprintln!("[py_read_sql] done");
         Ok(PyDataFrame::new(df))
     })
 }
