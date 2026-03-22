@@ -272,19 +272,9 @@ fn py_read_sql(
     #[allow(clippy::useless_conversion)]
     py.allow_threads(|| {
         let rt = Runtime::new()?;
-        // Clone the SessionContext (cheap, Arc-based) so we can move it into
-        // a spawned task. Running SQL on a worker thread is required for table
-        // functions that use block_in_place() internally.
-        let ctx = py_ctx.ctx.clone();
+        let ctx = &py_ctx.ctx;
         let df = rt
-            .block_on(async move {
-                let task = tokio::task::spawn(async move {
-                    ctx.sql(&sql_text).await
-                });
-                task.await.map_err(|e| {
-                    datafusion::error::DataFusionError::Execution(format!("{e}"))
-                })?
-            })
+            .block_on(ctx.sql(&sql_text))
             .map_err(|e| PyValueError::new_err(format!("SQL query failed: {}", e)))?;
         Ok(PyDataFrame::new(df))
     })
