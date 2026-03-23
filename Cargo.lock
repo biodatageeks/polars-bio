@@ -1451,9 +1451,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "datafusion-bio-function"
+version = "0.1.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions?branch=feature%2Foptimize_unnest_groupby#f48e1bd26a84c23a949ad8c950b7f91cf055a9ab"
+dependencies = [
+ "async-trait",
+ "datafusion",
+ "datafusion-bio-function-ranges",
+ "datafusion-bio-function-vcftools",
+ "log",
+]
+
+[[package]]
 name = "datafusion-bio-function-pileup"
-version = "0.3.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=9ef64a1f16bedf4096ae37a0b332ce15f3a18255#9ef64a1f16bedf4096ae37a0b332ce15f3a18255"
+version = "0.3.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions?branch=feature%2Foptimize_unnest_groupby#f48e1bd26a84c23a949ad8c950b7f91cf055a9ab"
 dependencies = [
  "async-trait",
  "datafusion",
@@ -1466,8 +1478,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-ranges"
-version = "0.3.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=9ef64a1f16bedf4096ae37a0b332ce15f3a18255#9ef64a1f16bedf4096ae37a0b332ce15f3a18255"
+version = "0.3.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions?branch=feature%2Foptimize_unnest_groupby#f48e1bd26a84c23a949ad8c950b7f91cf055a9ab"
 dependencies = [
  "ahash",
  "async-trait",
@@ -1479,6 +1491,18 @@ dependencies = [
  "parking_lot",
  "rust-lapper",
  "superintervals",
+ "tokio",
+]
+
+[[package]]
+name = "datafusion-bio-function-vcftools"
+version = "0.1.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions?branch=feature%2Foptimize_unnest_groupby#f48e1bd26a84c23a949ad8c950b7f91cf055a9ab"
+dependencies = [
+ "async-trait",
+ "datafusion",
+ "futures",
+ "log",
  "tokio",
 ]
 
@@ -4284,8 +4308,10 @@ dependencies = [
  "datafusion-bio-format-gtf",
  "datafusion-bio-format-pairs",
  "datafusion-bio-format-vcf",
+ "datafusion-bio-function",
  "datafusion-bio-function-pileup",
  "datafusion-bio-function-ranges",
+ "datafusion-bio-function-vcftools",
  "datafusion-python",
  "futures",
  "futures-util",
@@ -5407,8 +5433,8 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "superintervals"
-version = "0.5.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=9ef64a1f16bedf4096ae37a0b332ce15f3a18255#9ef64a1f16bedf4096ae37a0b332ce15f3a18255"
+version = "0.5.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions?branch=feature%2Foptimize_unnest_groupby#f48e1bd26a84c23a949ad8c950b7f91cf055a9ab"
 dependencies = [
  "aligned-vec",
  "serde",

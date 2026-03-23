@@ -2,7 +2,8 @@ use std::collections::HashMap;
 
 use datafusion::config::ConfigOptions;
 use datafusion::prelude::{SessionConfig, SessionContext};
-use datafusion_bio_function_ranges::{register_ranges_functions, BioConfig, BioSessionExt};
+use datafusion_bio_function::BioSessionExt;
+use datafusion_bio_function_ranges::{register_ranges_functions, BioConfig};
 use datafusion_python::dataframe::PyDataFrame;
 use log::debug;
 use pyo3::{pyclass, pymethods, PyResult, Python};
