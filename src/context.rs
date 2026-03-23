@@ -5,6 +5,7 @@ use datafusion::prelude::{SessionConfig, SessionContext};
 use datafusion_bio_function::BioSessionExt;
 use datafusion_bio_function_ranges::{register_ranges_functions, BioConfig};
 use datafusion_python::dataframe::PyDataFrame;
+use datafusion_bio_format_vcf::register_vcf_udfs;
 use log::debug;
 use pyo3::{pyclass, pymethods, PyResult, Python};
 use tokio::runtime::Runtime;
@@ -120,6 +121,9 @@ fn create_context() -> SessionContext {
 
     // Register coverage() and count_overlaps() SQL UDTFs
     register_ranges_functions(&ctx);
+
+    // Register analytical UDFs: list_avg, list_gte, list_lte, list_and, vcf_set_gts
+    register_vcf_udfs(&ctx);
 
     // Register depth UDTF for SQL: SELECT * FROM depth('file.bam')
     ctx.register_udtf(
