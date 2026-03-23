@@ -32,6 +32,7 @@ class SQL:
         path: str,
         name: Union[str, None] = None,
         info_fields: Union[list[str], None] = None,
+        format_fields: Union[list[str], None] = None,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
@@ -39,6 +40,7 @@ class SQL:
         timeout: int = 300,
         enable_request_payer: bool = False,
         compression_type: str = "auto",
+        samples: Union[list[str], None] = None,
     ) -> None:
         """
         Register a VCF file as a Datafusion table.
@@ -47,6 +49,8 @@ class SQL:
             path: The path to the VCF file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             info_fields: List of INFO field names to register. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit registration to specific fields for better performance.
+            format_fields: Optional list of FORMAT field names to register. If *None*, all FORMAT fields will be detected automatically from the VCF header. Use this to limit registration to specific fields for better performance.
+            samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -101,6 +105,8 @@ class SQL:
 
         vcf_read_options = VcfReadOptions(
             info_fields=all_info_fields,
+            format_fields=format_fields,
+            samples=samples,
             object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
