@@ -25,21 +25,21 @@ log = "0.4.22"
 tracing = { version = "0.1.41", features = ["log"] }
 futures-util = "0.3.31"
 
-datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "333638a" }
-datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "333638a" }
-datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "333638a" }
-datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "333638a" }
-datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "333638a" }
-datafusion-bio-format-cram = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "333638a" }
-datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "333638a" }
-datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "333638a" }
-datafusion-bio-format-pairs = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "333638a" }
-datafusion-bio-format-gtf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "333638a" }
+datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "feature/optimize_list_avg" }
+datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "feature/optimize_list_avg" }
+datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "feature/optimize_list_avg" }
+datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "feature/optimize_list_avg" }
+datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "feature/optimize_list_avg" }
+datafusion-bio-format-cram = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "feature/optimize_list_avg" }
+datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "feature/optimize_list_avg" }
+datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "feature/optimize_list_avg" }
+datafusion-bio-format-pairs = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "feature/optimize_list_avg" }
+datafusion-bio-format-gtf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "feature/optimize_list_avg" }
 
-datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", branch = "feature/optimize_unnest_groupby" }
-datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", branch = "feature/optimize_unnest_groupby", default-features = false }
-datafusion-bio-function-vcftools = { git = "https://github.com/biodatageeks/datafusion-bio-functions", branch = "feature/optimize_unnest_groupby" }
-datafusion-bio-function = { git = "https://github.com/biodatageeks/datafusion-bio-functions", branch = "feature/optimize_unnest_groupby" }
+datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", branch = "feature/optimize_fused_transform" }
+datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", branch = "feature/optimize_fused_transform", default-features = false }
+datafusion-bio-function-vcftools = { git = "https://github.com/biodatageeks/datafusion-bio-functions", branch = "feature/optimize_fused_transform" }
+datafusion-bio-function = { git = "https://github.com/biodatageeks/datafusion-bio-functions", branch = "feature/optimize_fused_transform" }
 
 async-trait = "0.1.86"
 futures = "0.3.31"
