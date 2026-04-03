@@ -26,6 +26,7 @@ use datafusion_bio_format_core::metadata::{
     VCF_CONTIGS_KEY, VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
 };
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
+use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
 use futures::{Stream, StreamExt};
@@ -463,6 +464,7 @@ pub(crate) async fn write_table(
 
     match format {
         OutputFormat::Vcf => write_vcf_streaming(ctx, df, path, write_options).await,
+        OutputFormat::Fasta => write_fasta_streaming(ctx, df, path, write_options).await,
         OutputFormat::Fastq => write_fastq_streaming(ctx, df, path, write_options).await,
         OutputFormat::Bam | OutputFormat::Sam => {
             write_bam_streaming(ctx, df, path, write_options).await
@@ -718,6 +720,18 @@ impl RecordBatchStream for SchemaOverrideStream {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
+}
+
+/// Stream write a DataFrame to FASTA format.
+async fn write_fasta_streaming(
+    ctx: &SessionContext,
+    df: DataFrame,
+    path: &str,
+    _write_options: Option<WriteOptions>,
+) -> Result<u64, DataFusionError> {
+    let provider = FastaTableProvider::new(path.to_string(), None)?;
+
+    execute_write(ctx, df, Arc::new(provider), None).await
 }
 
 /// Stream write a DataFrame to FASTQ format.

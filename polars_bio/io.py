@@ -16,6 +16,7 @@ from polars_bio.polars_bio import (
     CramReadOptions,
     CramWriteOptions,
     FastaReadOptions,
+    FastaWriteOptions,
     FastqReadOptions,
     FastqWriteOptions,
     GffReadOptions,
@@ -1782,6 +1783,69 @@ class IOOperations:
         _write_file(lf, path, OutputFormat.Vcf)
 
     @staticmethod
+    def write_fasta(
+        df: Union[pl.DataFrame, pl.LazyFrame],
+        path: str,
+    ) -> int:
+        """
+        Write a DataFrame to FASTA format.
+
+        Compression is auto-detected from the file extension.
+
+        Parameters:
+            df: The DataFrame or LazyFrame to write. Must have columns:
+                - name: Sequence name/identifier
+                - sequence: DNA/RNA sequence
+                Optional: description (added after name on header line)
+            path: The output file path. Compression is auto-detected from extension
+                  (.fasta.bgz for BGZF, .fasta.gz/.fa.gz for GZIP, .fasta/.fa for uncompressed).
+
+        Returns:
+            The number of rows written.
+
+        !!! Example "Writing FASTA files"
+            ```python
+            import polars_bio as pb
+
+            # Read a FASTA file
+            df = pb.read_fasta("input.fasta")
+
+            # Write to uncompressed FASTA
+            pb.write_fasta(df, "output.fasta")
+
+            # Write to GZIP-compressed FASTA
+            pb.write_fasta(df, "output.fasta.gz")
+            ```
+        """
+        return _write_file(df, path, OutputFormat.Fasta)
+
+    @staticmethod
+    def sink_fasta(
+        lf: pl.LazyFrame,
+        path: str,
+    ) -> None:
+        """
+        Streaming write a LazyFrame to FASTA format.
+
+        Compression is auto-detected from the file extension.
+
+        Parameters:
+            lf: The LazyFrame to write.
+            path: The output file path. Compression is auto-detected from extension
+                  (.fasta.bgz for BGZF, .fasta.gz/.fa.gz for GZIP, .fasta/.fa for uncompressed).
+
+        !!! Example "Streaming write FASTA"
+            ```python
+            import polars_bio as pb
+
+            # Lazy read, filter, then sink
+            lf = pb.scan_fasta("large_input.fasta.gz")
+            pb.sink_fasta(lf.limit(1000), "sample_output.fasta")
+            ```
+        """
+        _write_file(lf, path, OutputFormat.Fasta)
+
+    @staticmethod
     def write_fastq(
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
@@ -2258,6 +2322,9 @@ def _write_file(
             contigs_metadata=contigs_json,
         )
         write_options = WriteOptions(vcf_write_options=vcf_opts)
+    elif output_format == OutputFormat.Fasta:
+        fasta_opts = FastaWriteOptions()
+        write_options = WriteOptions(fasta_write_options=fasta_opts)
     elif output_format == OutputFormat.Fastq:
         fastq_opts = FastqWriteOptions()
         write_options = WriteOptions(fastq_write_options=fastq_opts)

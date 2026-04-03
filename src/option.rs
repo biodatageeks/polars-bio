@@ -751,6 +751,7 @@ impl PileupOptions {
 #[derive(Clone, PartialEq, Debug)]
 pub enum OutputFormat {
     Vcf,
+    Fasta,
     Fastq,
     Bam,
     Sam,
@@ -761,6 +762,7 @@ impl fmt::Display for OutputFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             OutputFormat::Vcf => write!(f, "VCF"),
+            OutputFormat::Fasta => write!(f, "FASTA"),
             OutputFormat::Fastq => write!(f, "FASTQ"),
             OutputFormat::Bam => write!(f, "BAM"),
             OutputFormat::Sam => write!(f, "SAM"),
@@ -819,6 +821,19 @@ impl VcfWriteOptions {
             sample_names: None,
             contigs_metadata: None,
         }
+    }
+}
+
+/// Options for writing FASTA files (placeholder for future options)
+#[pyclass(name = "FastaWriteOptions")]
+#[derive(Clone, Debug, Default)]
+pub struct FastaWriteOptions {}
+
+#[pymethods]
+impl FastaWriteOptions {
+    #[new]
+    pub fn new() -> Self {
+        FastaWriteOptions {}
     }
 }
 
@@ -912,6 +927,8 @@ pub struct WriteOptions {
     #[pyo3(get, set)]
     pub vcf_write_options: Option<VcfWriteOptions>,
     #[pyo3(get, set)]
+    pub fasta_write_options: Option<FastaWriteOptions>,
+    #[pyo3(get, set)]
     pub fastq_write_options: Option<FastqWriteOptions>,
     #[pyo3(get, set)]
     pub bam_write_options: Option<BamWriteOptions>,
@@ -922,15 +939,17 @@ pub struct WriteOptions {
 #[pymethods]
 impl WriteOptions {
     #[new]
-    #[pyo3(signature = (vcf_write_options=None, fastq_write_options=None, bam_write_options=None, cram_write_options=None))]
+    #[pyo3(signature = (vcf_write_options=None, fasta_write_options=None, fastq_write_options=None, bam_write_options=None, cram_write_options=None))]
     pub fn new(
         vcf_write_options: Option<VcfWriteOptions>,
+        fasta_write_options: Option<FastaWriteOptions>,
         fastq_write_options: Option<FastqWriteOptions>,
         bam_write_options: Option<BamWriteOptions>,
         cram_write_options: Option<CramWriteOptions>,
     ) -> Self {
         WriteOptions {
             vcf_write_options,
+            fasta_write_options,
             fastq_write_options,
             bam_write_options,
             cram_write_options,

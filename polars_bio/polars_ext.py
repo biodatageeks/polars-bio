@@ -341,6 +341,26 @@ class PolarsRangesOperations:
         """
         pb.sink_vcf(self._ldf, path)
 
+    def sink_fasta(self, path: str) -> None:
+        """
+        Streaming write LazyFrame to FASTA format.
+
+        Compression is auto-detected from file extension.
+
+        Parameters:
+            path: Output file path. Compression detected from extension
+                  (.fasta.bgz for BGZF, .fasta.gz for GZIP, .fasta for uncompressed).
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+
+            lf = pb.scan_fasta("input.fasta.gz").limit(1000)
+            lf.pb.sink_fasta("sample.fasta")
+            ```
+        """
+        pb.sink_fasta(self._ldf, path)
+
     def sink_fastq(self, path: str) -> None:
         """
         Streaming write LazyFrame to FASTQ format.
@@ -464,6 +484,29 @@ class PolarsDataFrameOperations:
             ```
         """
         return pb.write_vcf(self._df, path)
+
+    def write_fasta(self, path: str) -> int:
+        """
+        Write DataFrame to FASTA format.
+
+        Compression is auto-detected from file extension.
+
+        Parameters:
+            path: Output file path. Compression detected from extension
+                  (.fasta.bgz for BGZF, .fasta.gz for GZIP, .fasta for uncompressed).
+
+        Returns:
+            The number of rows written.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+
+            df = pb.read_fasta("input.fasta")
+            df.pb.write_fasta("output.fasta.gz")
+            ```
+        """
+        return pb.write_fasta(self._df, path)
 
     def write_fastq(self, path: str) -> int:
         """
