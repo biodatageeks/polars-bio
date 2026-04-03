@@ -405,16 +405,44 @@ fn apply_vcf_metadata_to_schema(
             }
         }
 
-        // If not found, try single-sample pattern: column name equals format_id directly
+        // If not found, try single-sample pattern: column name equals format_id directly,
+        // or column was renamed due to INFO/FORMAT collision (fmt_{id} or format_{id})
         if !is_format {
-            if let Some(Value::Object(meta_obj)) = format_meta.get(name) {
-                let field_metadata = build_field_metadata_from_vcf_meta(meta_obj);
-
-                if !format_fields.contains(name) {
-                    format_fields.push(name.clone());
+            // Direct match: column name IS the format_id (e.g., "GT" → format_meta["GT"])
+            let format_id_match = if format_meta.contains_key(name) {
+                Some(name.clone())
+            } else if let Some(stripped) = name.strip_prefix("fmt_") {
+                // Collision rename: fmt_DP → format_meta["DP"]
+                if format_meta.contains_key(stripped) {
+                    Some(stripped.to_string())
+                } else {
+                    None
                 }
-                new_fields.push(field.as_ref().clone().with_metadata(field_metadata));
-                is_format = true;
+            } else if let Some(stripped) = name.strip_prefix("format_") {
+                // Secondary collision rename: format_DP → format_meta["DP"]
+                if format_meta.contains_key(stripped) {
+                    Some(stripped.to_string())
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            if let Some(format_id) = format_id_match {
+                if let Some(Value::Object(meta_obj)) = format_meta.get(&format_id) {
+                    let mut field_metadata = build_field_metadata_from_vcf_meta(meta_obj);
+                    // Preserve original format_id so the serializer can resolve the column
+                    field_metadata.insert("bio.vcf.field.format_id".to_string(), format_id.clone());
+                    field_metadata
+                        .insert("bio.vcf.field.field_type".to_string(), "FORMAT".to_string());
+
+                    if !format_fields.contains(&format_id) {
+                        format_fields.push(format_id);
+                    }
+                    new_fields.push(field.as_ref().clone().with_metadata(field_metadata));
+                    is_format = true;
+                }
             }
         }
 

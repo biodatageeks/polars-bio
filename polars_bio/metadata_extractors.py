@@ -244,7 +244,13 @@ def _extract_vcf_specific_metadata(
                 }
 
             # Legacy path: sample name from flattened "{sample}_{format}" columns.
-            if field_name.endswith(f"_{format_id}"):
+            # Skip renamed collision columns (fmt_DP, format_DP) — these are
+            # single-sample FORMAT fields, not multi-sample "{sample}_{format}".
+            if (
+                field_name.endswith(f"_{format_id}")
+                and field_name != f"fmt_{format_id}"
+                and field_name != f"format_{format_id}"
+            ):
                 sample = field_name[: -len(format_id) - 1]
                 if sample and sample not in seen_samples:
                     seen_samples.add(sample)
@@ -279,10 +285,13 @@ def _extract_vcf_specific_metadata(
                         }
 
     # Handle single-sample VCFs where column name equals format_id
+    # or is a renamed collision column (fmt_{id} or format_{id})
     if format_fields and not sample_names:
         format_ids = set(format_fields.keys())
         for field in schema:
-            if field.name in format_ids:
+            if field.name in format_ids or any(
+                field.name in (f"fmt_{fid}", f"format_{fid}") for fid in format_ids
+            ):
                 sample_names = ["sample"]
                 break
 
