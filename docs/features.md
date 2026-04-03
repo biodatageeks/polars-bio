@@ -769,6 +769,7 @@ polars-bio supports writing DataFrames back to bioinformatic file formats. Two m
 | [BAM](api.md#polars_bio.data_output.write_bam) | :white_check_mark: | :white_check_mark: | BGZF (built-in) | Binary alignment format |
 | [SAM](api.md#polars_bio.data_output.write_sam) | :white_check_mark: | :white_check_mark: | None | Plain text alignment format |
 | [CRAM](api.md#polars_bio.data_output.write_cram) | :white_check_mark: | :white_check_mark: | Built-in | Requires reference FASTA |
+| [FASTA](api.md#polars_bio.data_output.write_fasta) | :white_check_mark: | :white_check_mark: | `.fasta.gz`, `.fasta.bgz` | Auto-detected from extension |
 | [FASTQ](api.md#polars_bio.data_output.write_fastq) | :white_check_mark: | :white_check_mark: | `.fastq.gz`, `.fastq.bgz` | Auto-detected from extension |
 
 ### Basic Usage
@@ -833,7 +834,7 @@ pb.sink_cram(lf, "output.cram", reference_path="reference.fa", sort_on_write=Tru
 
 ### Output Compression
 
-Output compression is auto-detected from the file extension for VCF and FASTQ formats:
+Output compression is auto-detected from the file extension for VCF, FASTA, and FASTQ formats:
 
 | Extension | Compression |
 |-----------|-------------|
@@ -850,6 +851,12 @@ pb.write_vcf(df, "output.vcf")        # plain text
 pb.write_vcf(df, "output.vcf.gz")     # GZIP
 pb.write_vcf(df, "output.vcf.bgz")    # BGZF (recommended for indexing)
 
+# FASTA
+df = pb.read_fasta("sequences.fasta")
+pb.write_fasta(df, "output.fasta")       # plain text
+pb.write_fasta(df, "output.fasta.gz")    # GZIP
+pb.write_fasta(df, "output.fasta.bgz")   # BGZF
+
 # FASTQ
 df = pb.read_fastq("reads.fastq")
 pb.write_fastq(df, "output.fastq")       # plain text
@@ -857,6 +864,9 @@ pb.write_fastq(df, "output.fastq.gz")    # GZIP
 pb.write_fastq(df, "output.fastq.bgz")   # BGZF (recommended for parallel reads with GZI index)
 
 # Streaming write
+lf = pb.scan_fasta("large_sequences.fasta.gz")
+pb.sink_fasta(lf.limit(1000), "sample.fasta")
+
 lf = pb.scan_fastq("large_reads.fastq.gz")
 pb.sink_fastq(lf.limit(1000), "sample.fastq")
 ```
@@ -897,6 +907,7 @@ df.pb.write_bam("output.bam", sort_on_write=True)
 df.pb.write_sam("output.sam")
 df.pb.write_cram("output.cram", reference_path="ref.fa")
 df.pb.write_vcf("output.vcf.bgz")
+df.pb.write_fasta("output.fasta.gz")
 df.pb.write_fastq("output.fastq.gz")
 
 # LazyFrame extensions
@@ -905,6 +916,7 @@ lf.pb.sink_bam("output.bam", sort_on_write=True)
 lf.pb.sink_sam("output.sam")
 lf.pb.sink_cram("output.cram", reference_path="ref.fa")
 lf.pb.sink_vcf("output.vcf.bgz")
+lf.pb.sink_fasta("output.fasta.bgz")
 lf.pb.sink_fastq("output.fastq.bgz")
 ```
 

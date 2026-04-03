@@ -88,6 +88,8 @@ scan_table = data_input.scan_table
 scan_vcf = data_input.scan_vcf
 write_vcf = data_input.write_vcf
 sink_vcf = data_input.sink_vcf
+write_fasta = data_input.write_fasta
+sink_fasta = data_input.sink_fasta
 write_fastq = data_input.write_fastq
 sink_fastq = data_input.sink_fastq
 write_bam = data_input.write_bam
@@ -167,6 +169,8 @@ __all__ = [
     "scan_vcf",
     "write_vcf",
     "sink_vcf",
+    "write_fasta",
+    "sink_fasta",
     "write_fastq",
     "sink_fastq",
     "write_bam",
