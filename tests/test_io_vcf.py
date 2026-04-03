@@ -80,6 +80,79 @@ class TestIOVCF:
             assert info_result[csq_col][0] is not None  # CSQ field should have data
 
 
+class TestVCFInfoFormatCollision:
+    """Tests for single-sample VCF with INFO/FORMAT column name collision (issue #350)."""
+
+    vcf_path = f"{DATA_DIR}/io/vcf/single_sample_collision.vcf"
+
+    def test_schema_has_fmt_prefix(self):
+        """FORMAT DP is renamed to fmt_DP when INFO DP exists."""
+        df = pb.read_vcf(self.vcf_path)
+        assert "DP" in df.columns, "INFO DP should be present as 'DP'"
+        assert "fmt_DP" in df.columns, "FORMAT DP should be renamed to 'fmt_DP'"
+        assert "GT" in df.columns, "Non-colliding FORMAT fields keep original names"
+        assert "GQ" in df.columns
+
+    def test_info_and_format_values_correct(self):
+        """INFO DP and FORMAT fmt_DP have distinct, correct values."""
+        df = pb.read_vcf(self.vcf_path)
+        # INFO DP = 50, 60
+        assert df["DP"][0] == 50
+        assert df["DP"][1] == 60
+        # FORMAT DP (renamed to fmt_DP) = 20, 30
+        assert df["fmt_DP"][0] == 20
+        assert df["fmt_DP"][1] == 30
+
+    def test_non_colliding_format_values(self):
+        """GT and GQ (no collision) have correct values."""
+        df = pb.read_vcf(self.vcf_path)
+        assert df["GT"][0] == "0/1"
+        assert df["GT"][1] == "1/1"
+        assert df["GQ"][0] == 99
+        assert df["GQ"][1] == 95
+
+    def test_scan_vcf_collision(self):
+        """scan_vcf also handles the collision correctly."""
+        lf = pb.scan_vcf(self.vcf_path)
+        df = lf.collect()
+        assert "DP" in df.columns
+        assert "fmt_DP" in df.columns
+        assert df["DP"][0] == 50
+        assert df["fmt_DP"][0] == 20
+
+    def test_sql_query_collision(self):
+        """SQL queries can reference both DP and fmt_DP."""
+        pb.register_vcf(self.vcf_path, "collision_vcf")
+        result = pb.sql(
+            'SELECT "DP", "fmt_DP", "GT" FROM collision_vcf ORDER BY start'
+        ).collect()
+        assert len(result) == 2
+        assert result["DP"][0] == 50
+        assert result["fmt_DP"][0] == 20
+
+    def test_write_roundtrip_collision(self, tmp_path):
+        """Write and read back preserves both INFO and FORMAT DP."""
+        df = pb.read_vcf(self.vcf_path)
+        out_path = str(tmp_path / "collision_roundtrip.vcf")
+        rows_written = pb.write_vcf(df, out_path)
+        assert rows_written == 2
+
+        df_back = pb.read_vcf(out_path)
+        assert len(df_back) == 2
+        assert "DP" in df_back.columns
+        assert "fmt_DP" in df_back.columns
+        assert df_back["DP"][0] == 50
+        assert df_back["fmt_DP"][0] == 20
+
+    def test_multisample_collision_unaffected(self):
+        """Multi-sample VCF with same-named INFO/FORMAT fields is not affected."""
+        df = pb.read_vcf(f"{DATA_DIR}/io/vcf/multisample.vcf")
+        # Multi-sample: FORMAT fields are nested in genotypes, no fmt_ prefix
+        assert "fmt_DP" not in df.columns
+        # INFO AF should be present at top level
+        assert "AF" in df.columns
+
+
 class TestVCFWrite:
     """Tests for VCF write functionality."""
 

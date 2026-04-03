@@ -1,0 +1,9 @@
+##fileformat=VCFv4.3
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Combined depth across samples">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency">
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype quality">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SampleA
+chr1	100	rs1	A	T	60	PASS	DP=50;AF=0.5	GT:DP:GQ	0/1:20:99
+chr1	200	rs2	G	C	80	PASS	DP=60;AF=0.3	GT:DP:GQ	1/1:30:95
