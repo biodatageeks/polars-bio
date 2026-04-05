@@ -328,6 +328,93 @@ class TestCRAMWrite:
         assert len(df_bam) == 2333
 
 
+class TestCRAMWritePositionRoundtrip:
+    """Regression tests for CRAM write position off-by-one.
+
+    See: https://github.com/biodatageeks/polars-bio/issues/356
+         https://github.com/biodatageeks/datafusion-bio-formats/issues/163
+
+    Same root cause as the BAM position bug: the upstream table provider
+    defaults to zero_based=true when schema metadata is missing, which
+    causes a +1 on every roundtrip for 1-based data.
+    """
+
+    REFERENCE = f"{DATA_DIR}/io/cram/external_ref/chr20.fa"
+    CRAM_PATH = f"{DATA_DIR}/io/cram/external_ref/test_chr20.cram"
+
+    def test_roundtrip_positions_one_based(self, tmp_path):
+        """1-based read -> write -> read must preserve start and mate_start."""
+        df_orig = pb.read_cram(
+            self.CRAM_PATH, reference_path=self.REFERENCE, use_zero_based=False
+        )
+        out = str(tmp_path / "rt_1based.cram")
+        pb.write_cram(df_orig, out, reference_path=self.REFERENCE)
+        df_back = pb.read_cram(out, reference_path=self.REFERENCE, use_zero_based=False)
+
+        assert (
+            df_back["start"].to_list() == df_orig["start"].to_list()
+        ), "start positions drifted after 1-based roundtrip"
+        assert (
+            df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
+        ), "mate_start positions drifted after 1-based roundtrip"
+
+    def test_roundtrip_positions_zero_based(self, tmp_path):
+        """0-based read -> write -> read must preserve start and mate_start."""
+        df_orig = pb.read_cram(
+            self.CRAM_PATH, reference_path=self.REFERENCE, use_zero_based=True
+        )
+        out = str(tmp_path / "rt_0based.cram")
+        pb.write_cram(df_orig, out, reference_path=self.REFERENCE)
+        df_back = pb.read_cram(out, reference_path=self.REFERENCE, use_zero_based=True)
+
+        assert (
+            df_back["start"].to_list() == df_orig["start"].to_list()
+        ), "start positions drifted after 0-based roundtrip"
+        assert (
+            df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
+        ), "mate_start positions drifted after 0-based roundtrip"
+
+    def test_roundtrip_positions_sink_one_based(self, tmp_path):
+        """1-based scan -> sink -> read must preserve positions."""
+        lf = pb.scan_cram(
+            self.CRAM_PATH, reference_path=self.REFERENCE, use_zero_based=False
+        )
+        out = str(tmp_path / "sink_1based.cram")
+        pb.sink_cram(lf, out, reference_path=self.REFERENCE)
+
+        df_orig = pb.read_cram(
+            self.CRAM_PATH, reference_path=self.REFERENCE, use_zero_based=False
+        )
+        df_back = pb.read_cram(out, reference_path=self.REFERENCE, use_zero_based=False)
+
+        assert (
+            df_back["start"].to_list() == df_orig["start"].to_list()
+        ), "start positions drifted after 1-based sink roundtrip"
+        assert (
+            df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
+        ), "mate_start positions drifted after 1-based sink roundtrip"
+
+    def test_roundtrip_positions_sink_zero_based(self, tmp_path):
+        """0-based scan -> sink -> read must preserve positions."""
+        lf = pb.scan_cram(
+            self.CRAM_PATH, reference_path=self.REFERENCE, use_zero_based=True
+        )
+        out = str(tmp_path / "sink_0based.cram")
+        pb.sink_cram(lf, out, reference_path=self.REFERENCE)
+
+        df_orig = pb.read_cram(
+            self.CRAM_PATH, reference_path=self.REFERENCE, use_zero_based=True
+        )
+        df_back = pb.read_cram(out, reference_path=self.REFERENCE, use_zero_based=True)
+
+        assert (
+            df_back["start"].to_list() == df_orig["start"].to_list()
+        ), "start positions drifted after 0-based sink roundtrip"
+        assert (
+            df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
+        ), "mate_start positions drifted after 0-based sink roundtrip"
+
+
 class TestCRAMHeaderPreservation:
     """Tests that CRAM header metadata is read and preserved in conversions."""
 

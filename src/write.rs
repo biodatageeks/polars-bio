@@ -23,7 +23,8 @@ use datafusion::physical_plan::{
 };
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_core::metadata::{
-    VCF_CONTIGS_KEY, VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
+    COORDINATE_SYSTEM_METADATA_KEY, VCF_CONTIGS_KEY, VCF_FIELD_DESCRIPTION_KEY,
+    VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
 };
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
@@ -990,6 +991,13 @@ async fn execute_bam_streaming_write(
     // Merge header metadata (reference sequences, read groups, programs, etc.) into schema
     let schema_with_metadata = merge_header_metadata(schema_with_metadata, &header_metadata);
 
+    // Inject coordinate system metadata so the upstream writer knows whether
+    // positions are 0-based or 1-based.  Without this key the upstream
+    // BamTableProvider::insert_into() defaults to zero_based=true, which
+    // causes a +1 offset when the data is actually 1-based.
+    // See: https://github.com/biodatageeks/datafusion-bio-formats/issues/163
+    let schema_with_metadata = add_coordinate_system_metadata(schema_with_metadata, zero_based);
+
     // Create BAM table provider for write
     let provider = BamTableProvider::new_for_write(
         path.to_string(),
@@ -1068,6 +1076,10 @@ async fn execute_cram_streaming_write(
 
     // Merge header metadata (reference sequences, read groups, programs, etc.) into schema
     let schema_with_metadata = merge_header_metadata(schema_with_metadata, &header_metadata);
+
+    // Inject coordinate system metadata (same fix as BAM write path)
+    // See: https://github.com/biodatageeks/datafusion-bio-formats/issues/163
+    let schema_with_metadata = add_coordinate_system_metadata(schema_with_metadata, zero_based);
 
     // Create CRAM table provider for write
     let provider = CramTableProvider::new_for_write(
@@ -1162,6 +1174,23 @@ fn merge_header_metadata(schema: SchemaRef, header_metadata: &Option<String>) ->
         }
     }
 
+    Arc::new(Schema::new_with_metadata(
+        schema.fields().to_vec(),
+        metadata,
+    ))
+}
+
+/// Ensure the `bio.coordinate_system_zero_based` key is present in schema metadata.
+///
+/// The upstream `BamTableProvider::insert_into()` reads this key to decide
+/// whether positions need 0→1-based conversion.  If the key is absent it
+/// defaults to `true` (0-based), which causes a +1 offset for 1-based data.
+fn add_coordinate_system_metadata(schema: SchemaRef, zero_based: bool) -> SchemaRef {
+    let mut metadata = schema.metadata().clone();
+    metadata.insert(
+        COORDINATE_SYSTEM_METADATA_KEY.to_string(),
+        zero_based.to_string(),
+    );
     Arc::new(Schema::new_with_metadata(
         schema.fields().to_vec(),
         metadata,
