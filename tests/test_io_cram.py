@@ -343,7 +343,7 @@ class TestCRAMWritePositionRoundtrip:
     CRAM_PATH = f"{DATA_DIR}/io/cram/external_ref/test_chr20.cram"
 
     def test_roundtrip_positions_one_based(self, tmp_path):
-        """1-based read -> write -> read must preserve start and mate_start."""
+        """1-based read -> write -> read must preserve start, end, and mate_start."""
         df_orig = pb.read_cram(
             self.CRAM_PATH, reference_path=self.REFERENCE, use_zero_based=False
         )
@@ -355,11 +355,14 @@ class TestCRAMWritePositionRoundtrip:
             df_back["start"].to_list() == df_orig["start"].to_list()
         ), "start positions drifted after 1-based roundtrip"
         assert (
+            df_back["end"].to_list() == df_orig["end"].to_list()
+        ), "end positions drifted after 1-based roundtrip"
+        assert (
             df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
         ), "mate_start positions drifted after 1-based roundtrip"
 
     def test_roundtrip_positions_zero_based(self, tmp_path):
-        """0-based read -> write -> read must preserve start and mate_start."""
+        """0-based read -> write -> read must preserve start, end, and mate_start."""
         df_orig = pb.read_cram(
             self.CRAM_PATH, reference_path=self.REFERENCE, use_zero_based=True
         )
@@ -370,6 +373,9 @@ class TestCRAMWritePositionRoundtrip:
         assert (
             df_back["start"].to_list() == df_orig["start"].to_list()
         ), "start positions drifted after 0-based roundtrip"
+        assert (
+            df_back["end"].to_list() == df_orig["end"].to_list()
+        ), "end positions drifted after 0-based roundtrip"
         assert (
             df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
         ), "mate_start positions drifted after 0-based roundtrip"
@@ -391,6 +397,9 @@ class TestCRAMWritePositionRoundtrip:
             df_back["start"].to_list() == df_orig["start"].to_list()
         ), "start positions drifted after 1-based sink roundtrip"
         assert (
+            df_back["end"].to_list() == df_orig["end"].to_list()
+        ), "end positions drifted after 1-based sink roundtrip"
+        assert (
             df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
         ), "mate_start positions drifted after 1-based sink roundtrip"
 
@@ -410,6 +419,9 @@ class TestCRAMWritePositionRoundtrip:
         assert (
             df_back["start"].to_list() == df_orig["start"].to_list()
         ), "start positions drifted after 0-based sink roundtrip"
+        assert (
+            df_back["end"].to_list() == df_orig["end"].to_list()
+        ), "end positions drifted after 0-based sink roundtrip"
         assert (
             df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
         ), "mate_start positions drifted after 0-based sink roundtrip"
