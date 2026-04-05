@@ -199,6 +199,26 @@ class TestIOGTF:
         assert result_on["type"].to_list() == result_off["type"].to_list()
         assert result_on["chrom"].to_list() == result_off["chrom"].to_list()
 
+    def test_attr_fields_duplicate_keys_concatenated(self):
+        """attr_fields with duplicate keys (tag) returns comma-separated values (issue #358)."""
+        df = pb.read_gtf(GTF_PATH, attr_fields=["tag", "gene_id"])
+        assert "tag" in df.columns
+        assert "gene_id" in df.columns
+        # All 23 rows have: tag "basic"; tag "TAGENE"; tag "appris_principal_3"; tag "CCDS"
+        for i in range(len(df)):
+            tag_val = df["tag"][i]
+            assert (
+                tag_val == "basic,TAGENE,appris_principal_3,CCDS"
+            ), f"Row {i}: expected comma-separated tags, got {tag_val!r}"
+        # gene_id (single-occurrence key) should still work normally
+        assert df["gene_id"][0] == "ENSG00000111640.16"
+
+    def test_scan_attr_fields_duplicate_keys(self):
+        """scan_gtf + attr_fields with duplicate keys works via lazy path."""
+        df = pb.scan_gtf(GTF_PATH).select(["tag", "gene_name"]).collect()
+        assert df["tag"][0] == "basic,TAGENE,appris_principal_3,CCDS"
+        assert df["gene_name"][0] == "GAPDH"
+
     def test_compression_type_override(self, tmp_path):
         """Explicit compression_type overrides auto-detection."""
         # Create a gzip file with .gtf.gz extension but read with explicit compression_type
