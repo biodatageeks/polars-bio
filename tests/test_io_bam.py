@@ -320,6 +320,180 @@ class TestBAMWrite:
         assert len(df_back) == 25
 
 
+class TestBAMWritePositionRoundtrip:
+    """Regression tests for BAM write position off-by-one.
+
+    See: https://github.com/biodatageeks/polars-bio/issues/356
+         https://github.com/biodatageeks/datafusion-bio-formats/issues/163
+
+    When writing BAM files, positions (start, mate_start) must survive a
+    read -> write -> read roundtrip without drift.  The upstream
+    BamTableProvider defaults to zero_based=true when schema metadata is
+    missing, which caused a +1 on every roundtrip for 1-based data.
+
+    The polars-bio fix injects coordinate_system metadata into the schema
+    before calling the upstream writer.  A full upstream fix (using the
+    self.coordinate_system_zero_based field as fallback) is tracked in
+    datafusion-bio-formats#163.
+    """
+
+    BAM_PATH = f"{DATA_DIR}/io/bam/test.bam"
+
+    def test_roundtrip_positions_one_based(self, tmp_path):
+        """1-based read -> write -> read must preserve start, end, and mate_start."""
+        df_orig = pb.read_bam(self.BAM_PATH, use_zero_based=False)
+        out = str(tmp_path / "rt_1based.bam")
+        pb.write_bam(df_orig, out)
+        df_back = pb.read_bam(out, use_zero_based=False)
+
+        assert (
+            df_back["start"].to_list() == df_orig["start"].to_list()
+        ), "start positions drifted after 1-based roundtrip"
+        assert (
+            df_back["end"].to_list() == df_orig["end"].to_list()
+        ), "end positions drifted after 1-based roundtrip"
+        assert (
+            df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
+        ), "mate_start positions drifted after 1-based roundtrip"
+
+    def test_roundtrip_positions_zero_based(self, tmp_path):
+        """0-based read -> write -> read must preserve start, end, and mate_start."""
+        df_orig = pb.read_bam(self.BAM_PATH, use_zero_based=True)
+        out = str(tmp_path / "rt_0based.bam")
+        pb.write_bam(df_orig, out)
+        df_back = pb.read_bam(out, use_zero_based=True)
+
+        assert (
+            df_back["start"].to_list() == df_orig["start"].to_list()
+        ), "start positions drifted after 0-based roundtrip"
+        assert (
+            df_back["end"].to_list() == df_orig["end"].to_list()
+        ), "end positions drifted after 0-based roundtrip"
+        assert (
+            df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
+        ), "mate_start positions drifted after 0-based roundtrip"
+
+    def test_roundtrip_positions_sink_one_based(self, tmp_path):
+        """1-based scan -> sink -> read must preserve positions."""
+        lf = pb.scan_bam(self.BAM_PATH, use_zero_based=False)
+        out = str(tmp_path / "sink_1based.bam")
+        pb.sink_bam(lf, out)
+
+        df_orig = pb.read_bam(self.BAM_PATH, use_zero_based=False)
+        df_back = pb.read_bam(out, use_zero_based=False)
+
+        assert (
+            df_back["start"].to_list() == df_orig["start"].to_list()
+        ), "start positions drifted after 1-based sink roundtrip"
+        assert (
+            df_back["end"].to_list() == df_orig["end"].to_list()
+        ), "end positions drifted after 1-based sink roundtrip"
+        assert (
+            df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
+        ), "mate_start positions drifted after 1-based sink roundtrip"
+
+    def test_roundtrip_positions_sink_zero_based(self, tmp_path):
+        """0-based scan -> sink -> read must preserve positions."""
+        lf = pb.scan_bam(self.BAM_PATH, use_zero_based=True)
+        out = str(tmp_path / "sink_0based.bam")
+        pb.sink_bam(lf, out)
+
+        df_orig = pb.read_bam(self.BAM_PATH, use_zero_based=True)
+        df_back = pb.read_bam(out, use_zero_based=True)
+
+        assert (
+            df_back["start"].to_list() == df_orig["start"].to_list()
+        ), "start positions drifted after 0-based sink roundtrip"
+        assert (
+            df_back["end"].to_list() == df_orig["end"].to_list()
+        ), "end positions drifted after 0-based sink roundtrip"
+        assert (
+            df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
+        ), "mate_start positions drifted after 0-based sink roundtrip"
+
+
+class TestSAMWritePositionRoundtrip:
+    """Regression tests for SAM write position off-by-one.
+
+    SAM shares the same write path (execute_bam_streaming_write) as BAM,
+    so the same coordinate metadata fix applies.
+    """
+
+    SAM_PATH = f"{DATA_DIR}/io/sam/test.sam"
+
+    def test_roundtrip_positions_one_based(self, tmp_path):
+        """1-based read -> write -> read must preserve start, end, and mate_start."""
+        df_orig = pb.read_sam(self.SAM_PATH, use_zero_based=False)
+        out = str(tmp_path / "rt_1based.sam")
+        pb.write_sam(df_orig, out)
+        df_back = pb.read_sam(out, use_zero_based=False)
+
+        assert (
+            df_back["start"].to_list() == df_orig["start"].to_list()
+        ), "start positions drifted after 1-based SAM roundtrip"
+        assert (
+            df_back["end"].to_list() == df_orig["end"].to_list()
+        ), "end positions drifted after 1-based SAM roundtrip"
+        assert (
+            df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
+        ), "mate_start positions drifted after 1-based SAM roundtrip"
+
+    def test_roundtrip_positions_zero_based(self, tmp_path):
+        """0-based read -> write -> read must preserve start, end, and mate_start."""
+        df_orig = pb.read_sam(self.SAM_PATH, use_zero_based=True)
+        out = str(tmp_path / "rt_0based.sam")
+        pb.write_sam(df_orig, out)
+        df_back = pb.read_sam(out, use_zero_based=True)
+
+        assert (
+            df_back["start"].to_list() == df_orig["start"].to_list()
+        ), "start positions drifted after 0-based SAM roundtrip"
+        assert (
+            df_back["end"].to_list() == df_orig["end"].to_list()
+        ), "end positions drifted after 0-based SAM roundtrip"
+        assert (
+            df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
+        ), "mate_start positions drifted after 0-based SAM roundtrip"
+
+    def test_roundtrip_positions_sink_one_based(self, tmp_path):
+        """1-based scan -> sink -> read must preserve positions."""
+        lf = pb.scan_sam(self.SAM_PATH, use_zero_based=False)
+        out = str(tmp_path / "sink_1based.sam")
+        pb.sink_sam(lf, out)
+
+        df_orig = pb.read_sam(self.SAM_PATH, use_zero_based=False)
+        df_back = pb.read_sam(out, use_zero_based=False)
+
+        assert (
+            df_back["start"].to_list() == df_orig["start"].to_list()
+        ), "start positions drifted after 1-based SAM sink roundtrip"
+        assert (
+            df_back["end"].to_list() == df_orig["end"].to_list()
+        ), "end positions drifted after 1-based SAM sink roundtrip"
+        assert (
+            df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
+        ), "mate_start positions drifted after 1-based SAM sink roundtrip"
+
+    def test_roundtrip_positions_sink_zero_based(self, tmp_path):
+        """0-based scan -> sink -> read must preserve positions."""
+        lf = pb.scan_sam(self.SAM_PATH, use_zero_based=True)
+        out = str(tmp_path / "sink_0based.sam")
+        pb.sink_sam(lf, out)
+
+        df_orig = pb.read_sam(self.SAM_PATH, use_zero_based=True)
+        df_back = pb.read_sam(out, use_zero_based=True)
+
+        assert (
+            df_back["start"].to_list() == df_orig["start"].to_list()
+        ), "start positions drifted after 0-based SAM sink roundtrip"
+        assert (
+            df_back["end"].to_list() == df_orig["end"].to_list()
+        ), "end positions drifted after 0-based SAM sink roundtrip"
+        assert (
+            df_back["mate_start"].to_list() == df_orig["mate_start"].to_list()
+        ), "mate_start positions drifted after 0-based SAM sink roundtrip"
+
+
 class TestSAMWrite:
     """Tests for SAM write functionality."""
 
