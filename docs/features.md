@@ -914,7 +914,17 @@ df = df.with_columns(
 )
 
 pb.write_bam(df, "with_tags.bam")
+
+# BAM optional tags are only parsed when requested on read.
+roundtrip = pb.read_bam(
+    "with_tags.bam",
+    tag_fields=["XI", "XF", "XZ", "ML", "FZ"],
+)
 ```
+
+If you call `read_bam("with_tags.bam")` or `scan_bam("with_tags.bam")` without
+`tag_fields`, you will only see the 12 core BAM columns. The tags are still present in
+the file; they are simply not parsed by default.
 
 For ambiguous string tags such as `A` (single ASCII character) and `H` (hex), pass
 `tag_type_overrides` explicitly:
