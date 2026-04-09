@@ -68,29 +68,103 @@ _FORMAT_COLUMN_TYPES = {
     "Pairs": (PAIRS_STRING_COLUMNS, PAIRS_UINT32_COLUMNS, PAIRS_FLOAT32_COLUMNS),
 }
 
-_VALID_SAM_TYPE_CODES = {"i", "f", "Z", "A", "H"}
+_VALID_SAM_SCALAR_TYPE_CODES = {"A", "c", "C", "s", "S", "i", "I", "f", "Z", "H"}
+_VALID_SAM_ARRAY_SUBTYPE_CODES = {"c", "C", "s", "S", "i", "I", "f"}
+_VALID_SAM_TYPE_CODES = _VALID_SAM_SCALAR_TYPE_CODES | {"B"}
+
+
+def _supported_sam_type_message() -> str:
+    return (
+        "Supported scalar types: A, c, C, s, S, i, I, f, Z, H. "
+        "Array types: B or B:<subtype> where subtype is one of c, C, s, S, i, I, f."
+    )
+
+
+def _validate_tag_name(tag: str, parameter_name: str, raw_value: str) -> None:
+    if len(tag) != 2:
+        raise ValueError(
+            f"Invalid {parameter_name} '{raw_value}': TAG must be exactly 2 characters."
+        )
+
+
+def _validate_sam_type_spec(
+    type_spec: str,
+    parameter_name: str,
+    raw_value: str,
+) -> None:
+    parts = type_spec.split(":")
+
+    if len(parts) == 1:
+        type_code = parts[0]
+        if type_code not in _VALID_SAM_TYPE_CODES:
+            raise ValueError(
+                f"Invalid {parameter_name} '{raw_value}': unsupported SAM type "
+                f"'{type_code}'. {_supported_sam_type_message()}"
+            )
+        return
+
+    if len(parts) == 2 and parts[0] == "B":
+        subtype = parts[1]
+        if subtype in _VALID_SAM_ARRAY_SUBTYPE_CODES:
+            return
+        raise ValueError(
+            f"Invalid {parameter_name} '{raw_value}': unsupported SAM array subtype "
+            f"'{subtype}'. {_supported_sam_type_message()}"
+        )
+
+    raise ValueError(
+        f"Invalid {parameter_name} '{raw_value}': expected scalar TYPE, 'B', or "
+        f"'B:SUBTYPE'. {_supported_sam_type_message()}"
+    )
 
 
 def _validate_tag_type_hints(tag_type_hints: list[str]) -> None:
     """Validate tag_type_hints format before passing to Rust.
 
-    Each hint must be 'TAG:TYPE' where TYPE is one of {i, f, Z, A, H}.
+    Each hint must be one of:
+    - TAG:TYPE
+    - TAG:B
+    - TAG:B:SUBTYPE
     """
     for hint in tag_type_hints:
         parts = hint.split(":")
-        if len(parts) != 2 or len(parts[0]) != 2 or not parts[1]:
+        if len(parts) not in (2, 3) or not parts[0]:
             raise ValueError(
-                f"Invalid tag_type_hint '{hint}': expected 'TAG:TYPE' format "
-                f"where TAG is exactly 2 characters (e.g., 'pt:i', 'de:f'). "
-                f"Valid type codes: {sorted(_VALID_SAM_TYPE_CODES)}"
+                f"Invalid tag_type_hint '{hint}': expected 'TAG:TYPE', 'TAG:B', "
+                f"or 'TAG:B:SUBTYPE' format. {_supported_sam_type_message()}"
             )
-        type_code = parts[1]
-        if type_code not in _VALID_SAM_TYPE_CODES:
-            raise ValueError(
-                f"Invalid type code '{type_code}' in tag_type_hint '{hint}'. "
-                f"Valid type codes: {sorted(_VALID_SAM_TYPE_CODES)} "
-                f"(i=Int32, f=Float32, Z=String, A=String(char), H=String(hex))"
-            )
+        tag = parts[0]
+        _validate_tag_name(tag, "tag_type_hint", hint)
+        _validate_sam_type_spec(":".join(parts[1:]), "tag_type_hint", hint)
+
+
+def _normalize_read_tag_type_hints(
+    tag_type_hints: Optional[list[str]],
+) -> Optional[list[str]]:
+    """Normalize read-side hints to the stricter upstream parser contract.
+
+    Upstream now requires array hints to include a subtype (`TAG:B:<subtype>`),
+    but polars-bio intentionally keeps accepting bare `TAG:B` as the default
+    integer-array hint for backward compatibility. Rewrite those hints to
+    `TAG:B:i` before they reach the Rust table providers.
+    """
+    if tag_type_hints is None:
+        return None
+
+    normalized_hints = []
+    for hint in tag_type_hints:
+        if hint.endswith(":B") and hint.count(":") == 1:
+            normalized_hints.append(f"{hint}:i")
+        else:
+            normalized_hints.append(hint)
+    return normalized_hints
+
+
+def _validate_tag_type_overrides(tag_type_overrides: Dict[str, str]) -> None:
+    """Validate BAM/SAM write-time tag type overrides."""
+    for tag, type_spec in tag_type_overrides.items():
+        _validate_tag_name(tag, "tag_type_override", f"{tag}={type_spec}")
+        _validate_sam_type_spec(type_spec, "tag_type_override", f"{tag}={type_spec}")
 
 
 SCHEMAS = {
@@ -742,7 +816,7 @@ class IOOperations:
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
             infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags. This prevents integer tags from being decoded as ASCII characters.
             infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
-            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]). Used as fallback when inference is disabled or a tag is not found in sampled records. Type codes: i=Int32, f=Float32, Z=String, A=String(char), H=String(hex).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "ML:B:C", "FZ:B:S"]). Used as fallback when inference is disabled or a tag is not found in sampled records. Supported forms: TAG:TYPE, TAG:B, or TAG:B:SUBTYPE where TYPE is one of A, c, C, s, S, i, I, f, Z, H and SUBTYPE is one of c, C, s, S, i, I, f.
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
@@ -811,7 +885,7 @@ class IOOperations:
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
             infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags. This prevents integer tags from being decoded as ASCII characters.
             infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
-            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]). Used as fallback when inference is disabled or a tag is not found in sampled records. Type codes: i=Int32, f=Float32, Z=String, A=String(char), H=String(hex).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "ML:B:C", "FZ:B:S"]). Used as fallback when inference is disabled or a tag is not found in sampled records. Supported forms: TAG:TYPE, TAG:B, or TAG:B:SUBTYPE where TYPE is one of A, c, C, s, S, i, I, f, Z, H and SUBTYPE is one of c, C, s, S, i, I, f.
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
@@ -829,6 +903,7 @@ class IOOperations:
         zero_based = _resolve_zero_based(use_zero_based)
         if tag_type_hints is not None:
             _validate_tag_type_hints(tag_type_hints)
+            tag_type_hints = _normalize_read_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             object_storage_options=object_storage_options,
             zero_based=zero_based,
@@ -889,7 +964,7 @@ class IOOperations:
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
             infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags. This prevents integer tags from being decoded as ASCII characters.
             infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
-            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]). Used as fallback when inference is disabled or a tag is not found in sampled records. Type codes: i=Int32, f=Float32, Z=String, A=String(char), H=String(hex).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "ML:B:C", "FZ:B:S"]). Used as fallback when inference is disabled or a tag is not found in sampled records. Supported forms: TAG:TYPE, TAG:B, or TAG:B:SUBTYPE where TYPE is one of A, c, C, s, S, i, I, f, Z, H and SUBTYPE is one of c, C, s, S, i, I, f.
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
@@ -1022,7 +1097,7 @@ class IOOperations:
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
             infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags. This prevents integer tags from being decoded as ASCII characters.
             infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
-            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]). Used as fallback when inference is disabled or a tag is not found in sampled records. Type codes: i=Int32, f=Float32, Z=String, A=String(char), H=String(hex).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "ML:B:C", "FZ:B:S"]). Used as fallback when inference is disabled or a tag is not found in sampled records. Supported forms: TAG:TYPE, TAG:B, or TAG:B:SUBTYPE where TYPE is one of A, c, C, s, S, i, I, f, Z, H and SUBTYPE is one of c, C, s, S, i, I, f.
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
@@ -1109,6 +1184,7 @@ class IOOperations:
         zero_based = _resolve_zero_based(use_zero_based)
         if tag_type_hints is not None:
             _validate_tag_type_hints(tag_type_hints)
+            tag_type_hints = _normalize_read_tag_type_hints(tag_type_hints)
         cram_read_options = CramReadOptions(
             reference_path=reference_path,
             object_storage_options=object_storage_options,
@@ -1914,6 +1990,7 @@ class IOOperations:
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
         sort_on_write: bool = False,
+        tag_type_overrides: Optional[dict[str, str]] = None,
     ) -> int:
         """
         Write a DataFrame to BAM/SAM format.
@@ -1929,6 +2006,9 @@ class IOOperations:
             path: Output file path (.bam or .sam)
             sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
                 If False (default), set header SO:unsorted.
+            tag_type_overrides: Optional exact SAM tag type specifications for ambiguous
+                or newly created tag columns, e.g. {"tp": "A", "XH": "H", "ML": "B:C"}.
+                Overrides take precedence over preserved source metadata and Arrow dtype inference.
 
         Returns:
             Number of rows written
@@ -1942,7 +2022,12 @@ class IOOperations:
             ```
         """
         return _write_bam_file(
-            df, path, OutputFormat.Bam, None, sort_on_write=sort_on_write
+            df,
+            path,
+            OutputFormat.Bam,
+            None,
+            sort_on_write=sort_on_write,
+            tag_type_overrides=tag_type_overrides,
         )
 
     @staticmethod
@@ -1950,6 +2035,7 @@ class IOOperations:
         lf: pl.LazyFrame,
         path: str,
         sort_on_write: bool = False,
+        tag_type_overrides: Optional[dict[str, str]] = None,
     ) -> None:
         """
         Streaming write a LazyFrame to BAM/SAM format.
@@ -1961,6 +2047,9 @@ class IOOperations:
             path: Output file path (.bam or .sam)
             sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
                 If False (default), set header SO:unsorted.
+            tag_type_overrides: Optional exact SAM tag type specifications for ambiguous
+                or newly created tag columns, e.g. {"tp": "A", "XH": "H", "ML": "B:C"}.
+                Overrides take precedence over preserved source metadata and Arrow dtype inference.
 
         !!! Example "Streaming write BAM"
             ```python
@@ -1969,7 +2058,14 @@ class IOOperations:
             pb.sink_bam(lf, "filtered.bam")
             ```
         """
-        _write_bam_file(lf, path, OutputFormat.Bam, None, sort_on_write=sort_on_write)
+        _write_bam_file(
+            lf,
+            path,
+            OutputFormat.Bam,
+            None,
+            sort_on_write=sort_on_write,
+            tag_type_overrides=tag_type_overrides,
+        )
 
     @staticmethod
     def read_sam(
@@ -1998,7 +2094,7 @@ class IOOperations:
                 If None (default), uses the global configuration.
             infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
             infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
-            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "ML:B:C", "FZ:B:S"]). Supported forms: TAG:TYPE, TAG:B, or TAG:B:SUBTYPE where TYPE is one of A, c, C, s, S, i, I, f, Z, H and SUBTYPE is one of c, C, s, S, i, I, f.
 
         !!! note
             By default, coordinates are output in **1-based closed** format.
@@ -2045,7 +2141,7 @@ class IOOperations:
                 If None (default), uses the global configuration.
             infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
             infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
-            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "ML:B:C", "FZ:B:S"]). Supported forms: TAG:TYPE, TAG:B, or TAG:B:SUBTYPE where TYPE is one of A, c, C, s, S, i, I, f, Z, H and SUBTYPE is one of c, C, s, S, i, I, f.
 
         !!! note
             By default, coordinates are output in **1-based closed** format.
@@ -2053,6 +2149,7 @@ class IOOperations:
         zero_based = _resolve_zero_based(use_zero_based)
         if tag_type_hints is not None:
             _validate_tag_type_hints(tag_type_hints)
+            tag_type_hints = _normalize_read_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             zero_based=zero_based,
             tag_fields=tag_fields,
@@ -2107,6 +2204,7 @@ class IOOperations:
         df: Union[pl.DataFrame, pl.LazyFrame],
         path: str,
         sort_on_write: bool = False,
+        tag_type_overrides: Optional[dict[str, str]] = None,
     ) -> int:
         """
         Write a DataFrame to SAM format (plain text).
@@ -2116,6 +2214,9 @@ class IOOperations:
             path: Output file path (.sam)
             sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
                 If False (default), set header SO:unsorted.
+            tag_type_overrides: Optional exact SAM tag type specifications for ambiguous
+                or newly created tag columns, e.g. {"tp": "A", "XH": "H", "ML": "B:C"}.
+                Overrides take precedence over preserved source metadata and Arrow dtype inference.
 
         Returns:
             Number of rows written
@@ -2128,7 +2229,12 @@ class IOOperations:
             ```
         """
         return _write_bam_file(
-            df, path, OutputFormat.Sam, None, sort_on_write=sort_on_write
+            df,
+            path,
+            OutputFormat.Sam,
+            None,
+            sort_on_write=sort_on_write,
+            tag_type_overrides=tag_type_overrides,
         )
 
     @staticmethod
@@ -2136,6 +2242,7 @@ class IOOperations:
         lf: pl.LazyFrame,
         path: str,
         sort_on_write: bool = False,
+        tag_type_overrides: Optional[dict[str, str]] = None,
     ) -> None:
         """
         Streaming write a LazyFrame to SAM format (plain text).
@@ -2145,6 +2252,9 @@ class IOOperations:
             path: Output file path (.sam)
             sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
                 If False (default), set header SO:unsorted.
+            tag_type_overrides: Optional exact SAM tag type specifications for ambiguous
+                or newly created tag columns, e.g. {"tp": "A", "XH": "H", "ML": "B:C"}.
+                Overrides take precedence over preserved source metadata and Arrow dtype inference.
 
         !!! Example "Streaming write SAM"
             ```python
@@ -2153,7 +2263,14 @@ class IOOperations:
             pb.sink_sam(lf, "filtered.sam")
             ```
         """
-        _write_bam_file(lf, path, OutputFormat.Sam, None, sort_on_write=sort_on_write)
+        _write_bam_file(
+            lf,
+            path,
+            OutputFormat.Sam,
+            None,
+            sort_on_write=sort_on_write,
+            tag_type_overrides=tag_type_overrides,
+        )
 
     @staticmethod
     def write_cram(
@@ -2358,6 +2475,7 @@ def _write_bam_file(
     output_format: OutputFormat,
     reference_path: Optional[str] = None,
     sort_on_write: bool = False,
+    tag_type_overrides: Optional[Dict[str, str]] = None,
 ) -> int:
     """Internal helper for BAM/CRAM write with streaming."""
     import json
@@ -2384,6 +2502,13 @@ def _write_bam_file(
     if zero_based is None:
         zero_based = _resolve_zero_based(None)
 
+    if tag_type_overrides is not None:
+        _validate_tag_type_overrides(tag_type_overrides)
+
+    tag_type_overrides_json = (
+        json.dumps(tag_type_overrides) if tag_type_overrides else None
+    )
+
     # Build write options
     if output_format == OutputFormat.Cram:
         # reference_path is optional - None means reference-free CRAM
@@ -2393,6 +2518,7 @@ def _write_bam_file(
             tag_fields=None,
             header_metadata=json.dumps(bam_header) if bam_header else None,
             sort_on_write=sort_on_write,
+            tag_type_overrides=tag_type_overrides_json,
         )
         write_options = WriteOptions(cram_write_options=cram_opts)
     else:
@@ -2401,6 +2527,7 @@ def _write_bam_file(
             tag_fields=None,
             header_metadata=json.dumps(bam_header) if bam_header else None,
             sort_on_write=sort_on_write,
+            tag_type_overrides=tag_type_overrides_json,
         )
         write_options = WriteOptions(bam_write_options=bam_opts)
 

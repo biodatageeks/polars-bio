@@ -894,6 +894,78 @@ filtered = df.filter(pl.col("mapping_quality") > 20)
 pb.write_bam(filtered, "filtered.bam")
 ```
 
+### Adding BAM/SAM Tags on Write
+
+You can create new BAM/SAM tag columns with standard Polars expressions and write them back out.
+For most numeric, string, and array tags, the SAM type is inferred from the column dtype:
+
+```python
+import polars as pl
+import polars_bio as pb
+
+df = pb.read_bam("input.bam").head(2)
+
+df = df.with_columns(
+    pl.Series("XI", [7, 8], dtype=pl.Int32),             # integer tag
+    pl.Series("XF", [0.25, 0.50], dtype=pl.Float32),     # float tag
+    pl.Series("XZ", ["alpha", "beta"], dtype=pl.Utf8),   # string tag (Z)
+    pl.Series("ML", [[1, 2, 3], [2, 3, 4]], dtype=pl.List(pl.UInt8)),   # B:C
+    pl.Series("FZ", [[1000, 2000], [1001, 2001]], dtype=pl.List(pl.UInt16)),  # B:S
+)
+
+pb.write_bam(df, "with_tags.bam")
+
+# BAM optional tags are only parsed when requested on read.
+roundtrip = pb.read_bam(
+    "with_tags.bam",
+    tag_fields=["XI", "XF", "XZ", "ML", "FZ"],
+)
+```
+
+If you call `read_bam("with_tags.bam")` or `scan_bam("with_tags.bam")` without
+`tag_fields`, you will only see the 12 core BAM columns. The tags are still present in
+the file; they are simply not parsed by default.
+
+For ambiguous string tags such as `A` (single ASCII character) and `H` (hex), pass
+`tag_type_overrides` explicitly:
+
+```python
+import polars as pl
+import polars_bio as pb
+
+df = pb.read_bam("input.bam").head(2).with_columns(
+    pl.Series("XA", ["A", "B"], dtype=pl.Utf8),          # should be SAM type A
+    pl.Series("XH", ["0A0B", "C0FFEE"], dtype=pl.Utf8),  # should be SAM type H
+)
+
+pb.write_bam(
+    df,
+    "with_ambiguous_tags.bam",
+    tag_type_overrides={"XA": "A", "XH": "H"},
+)
+```
+
+The same parameter is available on `write_sam()`, `sink_bam()`, `sink_sam()`, and the
+Polars namespace methods (`df.pb.write_bam(...)`, `lf.pb.sink_sam(...)`).
+
+If a tag already existed in the source BAM/SAM and was read with its exact type, that type
+is preserved automatically through ordinary Polars transforms:
+
+```python
+import polars as pl
+import polars_bio as pb
+
+df = pb.read_bam("input.bam", tag_fields=["tp", "ML"])
+
+edited = df.with_columns(
+    pl.col("tp"),
+    pl.col("ML"),
+)
+
+# Existing exact tag types are preserved; no override needed here.
+pb.write_bam(edited, "roundtrip.bam")
+```
+
 ### Polars Extension Methods
 
 Write functions are also available as Polars namespace extensions:
@@ -991,9 +1063,8 @@ schema = pb.describe_cram("file.cram")
 
 ### BAM Optional Tags
 
-polars-bio supports reading BAM optional alignment tags as individual columns. Tags are only parsed when explicitly requested, ensuring zero overhead for standard reads.
-
-> **Note**: CRAM tag support is planned for a future release. The `tag_fields` parameter is accepted for CRAM functions but currently ignored with a warning.
+polars-bio supports reading BAM, SAM, and CRAM optional alignment tags as individual columns.
+Tags are only parsed when explicitly requested, ensuring zero overhead for standard reads.
 
 #### Usage
 
@@ -1016,7 +1087,20 @@ high_quality = lf.filter((pl.col("NM") <= 2) & (pl.col("AS") >= 100)).collect()
 # SQL queries (tags must be quoted)
 pb.register_bam("alignments.bam", "reads", tag_fields=["NM", "RG"])
 result = pb.sql('SELECT name, "NM" FROM reads WHERE "NM" <= 2').collect()
+
+# Exact type hints for custom or array tags
+typed = pb.read_bam(
+    "alignments.bam",
+    tag_fields=["tp", "ML", "FZ"],
+    infer_tag_types=False,
+    tag_type_hints=["tp:A", "ML:B:C", "FZ:B:S"],
+)
 ```
+
+`tag_type_hints` accepts scalar forms such as `NM:i`, `de:f`, `tp:A`, `XH:H`,
+plus array forms `TAG:B` and `TAG:B:SUBTYPE` such as `ML:B:C` or `FZ:B:S`.
+Bare `TAG:B` is treated as the default integer-array hint and normalized to
+`TAG:B:i` internally, so it reads back as `list[i32]`.
 
 #### Common Tags
 

@@ -26,6 +26,11 @@ import pytest
 from _expected import DATA_DIR
 
 import polars_bio as pb
+from polars_bio.io import (
+    _normalize_read_tag_type_hints,
+    _validate_tag_type_hints,
+    _validate_tag_type_overrides,
+)
 
 NANOPORE_BAM = f"{DATA_DIR}/io/bam/nanopore_custom_tags.bam"
 NANOPORE_CRAM = f"{DATA_DIR}/io/cram/nanopore_custom_tags.cram"
@@ -70,6 +75,68 @@ STRING_TAGS = ["fn", "st", "sv"]
 # Known SAM spec tags
 KNOWN_INT_TAGS = ["NM", "AS"]
 KNOWN_STR_TAGS = ["MD", "RG"]
+
+
+class TestTagTypeValidators:
+    @pytest.mark.parametrize(
+        "tag_type_hints",
+        [
+            ["pt:i", "de:f", "tp:A", "XH:H"],
+            ["ML:B", "ML:B:C", "FZ:B:S", "XC:B:c", "XY:B:f"],
+        ],
+    )
+    def test_validate_tag_type_hints_accepts_scalar_and_array_types(
+        self, tag_type_hints
+    ):
+        _validate_tag_type_hints(tag_type_hints)
+
+    def test_normalize_read_tag_type_hints_rewrites_default_array_to_int32(self):
+        assert _normalize_read_tag_type_hints(["XB:B", "ML:B:C", "pt:i"]) == [
+            "XB:B:i",
+            "ML:B:C",
+            "pt:i",
+        ]
+
+    @pytest.mark.parametrize(
+        "tag_type_hints",
+        [
+            ["pt"],
+            ["pt:X:extra"],
+            ["p:i"],
+            ["LONG:i"],
+            ["ML:B:Q"],
+        ],
+    )
+    def test_validate_tag_type_hints_rejects_invalid_specs(self, tag_type_hints):
+        with pytest.raises(ValueError):
+            _validate_tag_type_hints(tag_type_hints)
+
+    @pytest.mark.parametrize(
+        "tag_type_overrides",
+        [
+            {"XA": "A", "XH": "H", "XY": "Z"},
+            {"ML": "B:C", "FZ": "B:S", "XB": "B"},
+        ],
+    )
+    def test_validate_tag_type_overrides_accepts_scalar_and_array_types(
+        self, tag_type_overrides
+    ):
+        _validate_tag_type_overrides(tag_type_overrides)
+
+    @pytest.mark.parametrize(
+        "tag_type_overrides",
+        [
+            {"X": "A"},
+            {"LONG": "Z"},
+            {"XA": "Q"},
+            {"ML": "B:Q"},
+        ],
+    )
+    def test_validate_tag_type_overrides_rejects_invalid_specs(
+        self, tag_type_overrides
+    ):
+        with pytest.raises(ValueError):
+            _validate_tag_type_overrides(tag_type_overrides)
 
 
 @pytest.fixture(scope="module")
@@ -744,3 +811,67 @@ class TestCramRegisterTagInference:
         assert result["NM"].dtype == pl.Int32
         assert result["de"].dtype == pl.Float32
         assert result["MD"].dtype == pl.Utf8
+
+
+class TestTypedArrayTagHints:
+    def test_read_bam_supports_exact_array_hints(self, typed_tag_alignment_paths):
+        df = pb.read_bam(
+            typed_tag_alignment_paths["bam"],
+            tag_fields=["ML", "FZ"],
+            infer_tag_types=False,
+            tag_type_hints=["ML:B:C", "FZ:B:S"],
+        )
+
+        assert df["ML"].dtype == pl.List(pl.UInt8)
+        assert df["FZ"].dtype == pl.List(pl.UInt16)
+        assert df["ML"].to_list() == [[1, 2, 3], [2, 3, 4]]
+        assert df["FZ"].to_list() == [[1000, 2000], [1001, 2001]]
+
+    def test_read_bam_supports_default_array_hint(self, typed_tag_alignment_paths):
+        df = pb.read_bam(
+            typed_tag_alignment_paths["bam"],
+            tag_fields=["XB"],
+            infer_tag_types=False,
+            tag_type_hints=["XB:B"],
+        )
+
+        assert df["XB"].dtype == pl.List(pl.Int32)
+        assert df["XB"].to_list() == [[5, 6], [6, 7]]
+
+    def test_read_sam_supports_exact_array_hints(self, typed_tag_alignment_paths):
+        df = pb.read_sam(
+            typed_tag_alignment_paths["sam"],
+            tag_fields=["ML", "FZ"],
+            infer_tag_types=False,
+            tag_type_hints=["ML:B:C", "FZ:B:S"],
+        )
+
+        assert df["ML"].dtype == pl.List(pl.UInt8)
+        assert df["FZ"].dtype == pl.List(pl.UInt16)
+
+    def test_inferred_standard_typed_arrays_round_trip_to_expected_dtypes(
+        self, typed_tag_alignment_paths
+    ):
+        df = pb.read_bam(
+            typed_tag_alignment_paths["bam"],
+            tag_fields=["ML", "FZ", "XC", "XS", "XB", "XW", "XY"],
+        )
+
+        assert df["ML"].dtype == pl.List(pl.UInt8)
+        assert df["FZ"].dtype == pl.List(pl.UInt16)
+        assert df["XC"].dtype == pl.List(pl.Int8)
+        assert df["XS"].dtype == pl.List(pl.Int16)
+        assert df["XB"].dtype == pl.List(pl.Int32)
+        assert df["XW"].dtype == pl.List(pl.UInt32)
+        assert df["XY"].dtype == pl.List(pl.Float32)
+
+    def test_invalid_array_subtype_hint_raises_before_scan(
+        self, typed_tag_alignment_paths
+    ):
+        with pytest.raises(ValueError):
+            pb.read_bam(
+                typed_tag_alignment_paths["bam"],
+                tag_fields=["ML"],
+                infer_tag_types=False,
+                tag_type_hints=["ML:B:Q"],
+            )

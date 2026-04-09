@@ -23,7 +23,12 @@ from polars_bio.polars_bio import (
 )
 
 from .context import ctx
-from .io import _cleanse_fields, _lazy_scan, _validate_tag_type_hints
+from .io import (
+    _cleanse_fields,
+    _lazy_scan,
+    _normalize_read_tag_type_hints,
+    _validate_tag_type_hints,
+)
 
 
 class SQL:
@@ -458,7 +463,7 @@ class SQL:
             timeout: The timeout in seconds for reading the file from object storage.
             infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
             infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
-            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "ML:B:C", "FZ:B:S"]). Supported forms: TAG:TYPE, TAG:B, or TAG:B:SUBTYPE where TYPE is one of A, c, C, s, S, i, I, f, Z, H and SUBTYPE is one of c, C, s, S, i, I, f.
         !!! note
             BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
 
@@ -501,6 +506,7 @@ class SQL:
 
         if tag_type_hints is not None:
             _validate_tag_type_hints(tag_type_hints)
+            tag_type_hints = _normalize_read_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             object_storage_options=object_storage_options,
             tag_fields=tag_fields,
@@ -534,7 +540,7 @@ class SQL:
                 If None, no optional tags are parsed (default).
             infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
             infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
-            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "ML:B:C", "FZ:B:S"]). Supported forms: TAG:TYPE, TAG:B, or TAG:B:SUBTYPE where TYPE is one of A, c, C, s, S, i, I, f, Z, H and SUBTYPE is one of c, C, s, S, i, I, f.
 
         !!! Example
             ```python
@@ -545,6 +551,7 @@ class SQL:
         """
         if tag_type_hints is not None:
             _validate_tag_type_hints(tag_type_hints)
+            tag_type_hints = _normalize_read_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             tag_fields=tag_fields,
             infer_tag_types=infer_tag_types,
@@ -594,7 +601,7 @@ class SQL:
             timeout: The timeout in seconds for reading the file from object storage.
             infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
             infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
-            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "ML:B:C", "FZ:B:S"]). Supported forms: TAG:TYPE, TAG:B, or TAG:B:SUBTYPE where TYPE is one of A, c, C, s, S, i, I, f, Z, H and SUBTYPE is one of c, C, s, S, i, I, f.
         !!! note
             CRAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
 
@@ -615,6 +622,7 @@ class SQL:
 
         if tag_type_hints is not None:
             _validate_tag_type_hints(tag_type_hints)
+            tag_type_hints = _normalize_read_tag_type_hints(tag_type_hints)
         cram_read_options = CramReadOptions(
             reference_path=None,
             object_storage_options=object_storage_options,

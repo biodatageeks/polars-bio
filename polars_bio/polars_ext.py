@@ -381,7 +381,12 @@ class PolarsRangesOperations:
         """
         pb.sink_fastq(self._ldf, path)
 
-    def sink_bam(self, path: str, sort_on_write: bool = False) -> None:
+    def sink_bam(
+        self,
+        path: str,
+        sort_on_write: bool = False,
+        tag_type_overrides: Optional[dict[str, str]] = None,
+    ) -> None:
         """
         Streaming write LazyFrame to BAM/SAM format.
 
@@ -391,6 +396,9 @@ class PolarsRangesOperations:
             path: Output file path (.bam or .sam)
             sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
                 If False (default), set header SO:unsorted.
+            tag_type_overrides: Optional exact SAM tag types for newly created or ambiguous
+                tags, for example `{"XA": "A", "XH": "H", "ML": "B:C"}`.
+                Overrides take precedence over preserved source metadata and Arrow dtype inference.
 
         !!! Example
             ```python
@@ -400,9 +408,19 @@ class PolarsRangesOperations:
             lf.pb.sink_bam("filtered.bam")
             ```
         """
-        pb.sink_bam(self._ldf, path, sort_on_write=sort_on_write)
+        pb.sink_bam(
+            self._ldf,
+            path,
+            sort_on_write=sort_on_write,
+            tag_type_overrides=tag_type_overrides,
+        )
 
-    def sink_sam(self, path: str, sort_on_write: bool = False) -> None:
+    def sink_sam(
+        self,
+        path: str,
+        sort_on_write: bool = False,
+        tag_type_overrides: Optional[dict[str, str]] = None,
+    ) -> None:
         """
         Streaming write LazyFrame to SAM format (plain text).
 
@@ -410,6 +428,9 @@ class PolarsRangesOperations:
             path: Output file path (.sam)
             sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
                 If False (default), set header SO:unsorted.
+            tag_type_overrides: Optional exact SAM tag types for newly created or ambiguous
+                tags, for example `{"XA": "A", "XH": "H", "ML": "B:C"}`.
+                Overrides take precedence over preserved source metadata and Arrow dtype inference.
 
         !!! Example
             ```python
@@ -419,7 +440,12 @@ class PolarsRangesOperations:
             lf.pb.sink_sam("filtered.sam")
             ```
         """
-        pb.sink_sam(self._ldf, path, sort_on_write=sort_on_write)
+        pb.sink_sam(
+            self._ldf,
+            path,
+            sort_on_write=sort_on_write,
+            tag_type_overrides=tag_type_overrides,
+        )
 
     def sink_cram(
         self,
@@ -531,7 +557,12 @@ class PolarsDataFrameOperations:
         """
         return pb.write_fastq(self._df, path)
 
-    def write_bam(self, path: str, sort_on_write: bool = False) -> int:
+    def write_bam(
+        self,
+        path: str,
+        sort_on_write: bool = False,
+        tag_type_overrides: Optional[dict[str, str]] = None,
+    ) -> int:
         """
         Write DataFrame to BAM/SAM format.
 
@@ -542,6 +573,9 @@ class PolarsDataFrameOperations:
             path: Output file path (.bam or .sam)
             sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
                 If False (default), set header SO:unsorted.
+            tag_type_overrides: Optional exact SAM tag types for newly created or ambiguous
+                tags, for example `{"XA": "A", "XH": "H", "ML": "B:C"}`.
+                Overrides take precedence over preserved source metadata and Arrow dtype inference.
 
         Returns:
             The number of rows written.
@@ -554,9 +588,19 @@ class PolarsDataFrameOperations:
             df.pb.write_bam("output.bam")
             ```
         """
-        return pb.write_bam(self._df, path, sort_on_write=sort_on_write)
+        return pb.write_bam(
+            self._df,
+            path,
+            sort_on_write=sort_on_write,
+            tag_type_overrides=tag_type_overrides,
+        )
 
-    def write_sam(self, path: str, sort_on_write: bool = False) -> int:
+    def write_sam(
+        self,
+        path: str,
+        sort_on_write: bool = False,
+        tag_type_overrides: Optional[dict[str, str]] = None,
+    ) -> int:
         """
         Write DataFrame to SAM format (plain text).
 
@@ -564,6 +608,9 @@ class PolarsDataFrameOperations:
             path: Output file path (.sam)
             sort_on_write: If True, sort records by (chrom, start) and set header SO:coordinate.
                 If False (default), set header SO:unsorted.
+            tag_type_overrides: Optional exact SAM tag types for newly created or ambiguous
+                tags, for example `{"XA": "A", "XH": "H", "ML": "B:C"}`.
+                Overrides take precedence over preserved source metadata and Arrow dtype inference.
 
         Returns:
             The number of rows written.
@@ -576,7 +623,12 @@ class PolarsDataFrameOperations:
             df.pb.write_sam("output.sam")
             ```
         """
-        return pb.write_sam(self._df, path, sort_on_write=sort_on_write)
+        return pb.write_sam(
+            self._df,
+            path,
+            sort_on_write=sort_on_write,
+            tag_type_overrides=tag_type_overrides,
+        )
 
     def write_cram(
         self,

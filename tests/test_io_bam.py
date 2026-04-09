@@ -9,6 +9,27 @@ from _expected import DATA_DIR
 
 import polars_bio as pb
 
+CORE_BAM_COLUMNS = [
+    "name",
+    "chrom",
+    "start",
+    "end",
+    "flags",
+    "cigar",
+    "mapping_quality",
+    "mate_chrom",
+    "mate_start",
+    "sequence",
+    "quality_scores",
+    "template_length",
+]
+
+
+def _first_record_tag_data(path: str, mode: str, tags: list[str]) -> dict[str, tuple]:
+    with pysam.AlignmentFile(path, mode) as alignment:
+        record = next(alignment)
+        return {tag: record.get_tag(tag, with_value_type=True) for tag in tags}
+
 
 class TestIOBAM:
     df = pb.read_bam(f"{DATA_DIR}/io/bam/test.bam")
@@ -318,6 +339,254 @@ class TestBAMWrite:
 
         df_back = pb.read_bam(str(numeric_output))
         assert len(df_back) == 25
+
+
+class TestTypedTagMetadataAndRoundtrip:
+    EXPECTED_TAG_TYPES = {
+        "XA": "A",
+        "XH": "H",
+        "ML": "B:C",
+        "FZ": "B:S",
+    }
+
+    def _assert_expected_tag_types(self, meta):
+        header = meta.get("header", {})
+        assert "tag_types" in header
+        for tag, expected in self.EXPECTED_TAG_TYPES.items():
+            assert header["tag_types"][tag] == expected
+
+    def test_bam_read_exposes_exact_tag_types_in_metadata(
+        self, typed_tag_alignment_paths
+    ):
+        df = pb.read_bam(
+            typed_tag_alignment_paths["bam"],
+            tag_fields=["XA", "XH", "ML", "FZ"],
+        )
+
+        self._assert_expected_tag_types(pb.get_metadata(df))
+
+    def test_bam_tag_types_survive_eager_transformations(
+        self, typed_tag_alignment_paths
+    ):
+        df = pb.read_bam(
+            typed_tag_alignment_paths["bam"],
+            tag_fields=["XA", "XH", "ML", "FZ"],
+        )
+
+        transformed = (
+            df.with_columns(
+                pl.col("XA").alias("XA"),
+                pl.col("ML").alias("ML"),
+            )
+            .filter(pl.col("mapping_quality") > 0)
+            .select(CORE_BAM_COLUMNS + ["XA", "XH", "ML", "FZ"])
+        )
+
+        self._assert_expected_tag_types(pb.get_metadata(transformed))
+
+    def test_bam_tag_types_survive_lazy_transformations(
+        self, typed_tag_alignment_paths
+    ):
+        lf = pb.scan_bam(
+            typed_tag_alignment_paths["bam"],
+            tag_fields=["XA", "XH", "ML", "FZ"],
+        )
+
+        transformed = (
+            lf.with_columns(
+                pl.col("XA").alias("XA"),
+                pl.col("ML").alias("ML"),
+            )
+            .filter(pl.col("mapping_quality") > 0)
+            .select(CORE_BAM_COLUMNS + ["XA", "XH", "ML", "FZ"])
+        )
+
+        self._assert_expected_tag_types(pb.get_metadata(transformed))
+
+    def test_write_bam_preserves_existing_exact_tag_types(
+        self, typed_tag_alignment_paths, tmp_path
+    ):
+        df = (
+            pb.read_bam(
+                typed_tag_alignment_paths["bam"],
+                tag_fields=["XA", "XH", "ML", "FZ"],
+            )
+            .filter(pl.col("mapping_quality") > 0)
+            .select(CORE_BAM_COLUMNS + ["XA", "XH", "ML", "FZ"])
+        )
+
+        out_path = str(tmp_path / "typed_roundtrip.bam")
+        pb.write_bam(df, out_path)
+
+        tag_data = _first_record_tag_data(out_path, "rb", ["XA", "XH", "ML", "FZ"])
+        assert tag_data["XA"] == ("A", "A")
+        assert tag_data["XH"][1] == "H"
+        assert tag_data["ML"][1] == "BC"
+        assert tag_data["FZ"][1] == "BS"
+
+    def test_write_sam_preserves_existing_exact_tag_types(
+        self, typed_tag_alignment_paths, tmp_path
+    ):
+        df = (
+            pb.read_sam(
+                typed_tag_alignment_paths["sam"],
+                tag_fields=["XA", "XH", "ML", "FZ"],
+            )
+            .filter(pl.col("mapping_quality") > 0)
+            .select(CORE_BAM_COLUMNS + ["XA", "XH", "ML", "FZ"])
+        )
+
+        out_path = str(tmp_path / "typed_roundtrip.sam")
+        pb.write_sam(df, out_path)
+
+        tag_data = _first_record_tag_data(out_path, "r", ["XA", "XH", "ML", "FZ"])
+        assert tag_data["XA"] == ("A", "A")
+        assert tag_data["XH"][1] == "H"
+        assert tag_data["ML"][1] == "BC"
+        assert tag_data["FZ"][1] == "BS"
+
+    def test_write_bam_with_explicit_a_and_h_overrides(
+        self, typed_tag_alignment_paths, tmp_path
+    ):
+        base = pb.read_bam(typed_tag_alignment_paths["bam"]).select(CORE_BAM_COLUMNS)
+        df = base.with_columns(
+            pl.Series("YA", ["Q", "R"], dtype=pl.Utf8),
+            pl.Series("YH", ["0A0B", "C0FFEE"], dtype=pl.Utf8),
+        )
+
+        out_path = str(tmp_path / "override_tags.bam")
+        pb.write_bam(
+            df,
+            out_path,
+            tag_type_overrides={"YA": "A", "YH": "H"},
+        )
+
+        tag_data = _first_record_tag_data(out_path, "rb", ["YA", "YH"])
+        assert tag_data["YA"] == ("Q", "A")
+        assert tag_data["YH"][1] == "H"
+
+    def test_write_bam_overrides_take_precedence_over_preserved_metadata(
+        self, typed_tag_alignment_paths, tmp_path
+    ):
+        df = pb.read_bam(
+            typed_tag_alignment_paths["bam"],
+            tag_fields=["XA"],
+        ).select(CORE_BAM_COLUMNS + ["XA"])
+
+        out_path = str(tmp_path / "override_precedence.bam")
+        pb.write_bam(
+            df,
+            out_path,
+            tag_type_overrides={"XA": "Z"},
+        )
+
+        tag_data = _first_record_tag_data(out_path, "rb", ["XA"])
+        assert tag_data["XA"] == ("A", "Z")
+
+    def test_write_bam_roundtrip_with_new_scalar_and_array_tags(
+        self, typed_tag_alignment_paths, tmp_path
+    ):
+        base = pb.read_bam(typed_tag_alignment_paths["bam"]).select(CORE_BAM_COLUMNS)
+        df = base.with_columns(
+            pl.Series("YI", [10, 20], dtype=pl.Int32),
+            pl.Series("YF", [1.25, 2.5], dtype=pl.Float32),
+            pl.Series("YZ", ["alpha", "beta"], dtype=pl.Utf8),
+            pl.Series("YL", [[1, 2], [3, 4]], dtype=pl.List(pl.UInt8)),
+        )
+
+        out_path = str(tmp_path / "new_tags.bam")
+        pb.write_bam(df, out_path)
+
+        df_back = pb.read_bam(out_path, tag_fields=["YI", "YF", "YZ", "YL"])
+        assert df_back["YI"].to_list() == [10, 20]
+        assert df_back["YF"].to_list() == pytest.approx([1.25, 2.5])
+        assert df_back["YZ"].to_list() == ["alpha", "beta"]
+        assert df_back["YL"].dtype == pl.List(pl.UInt8)
+        assert df_back["YL"].to_list() == [[1, 2], [3, 4]]
+
+        tag_data = _first_record_tag_data(out_path, "rb", ["YI", "YF", "YZ", "YL"])
+        assert tag_data["YI"][1] in {"c", "C", "s", "S", "i", "I"}
+        assert tag_data["YF"][1] == "f"
+        assert tag_data["YZ"][1] == "Z"
+        assert tag_data["YL"][1] == "BC"
+
+    def test_sink_bam_roundtrip_preserves_existing_and_new_typed_tags(
+        self, typed_tag_alignment_paths, tmp_path
+    ):
+        lf = (
+            pb.scan_bam(
+                typed_tag_alignment_paths["bam"],
+                tag_fields=["ML", "FZ"],
+            )
+            .with_columns(
+                pl.lit(42).cast(pl.Int32).alias("YI"),
+                pl.lit(2.5).cast(pl.Float64).alias("YF"),
+                pl.col("ML").alias("YL"),
+            )
+            .select(CORE_BAM_COLUMNS + ["ML", "FZ", "YI", "YF", "YL"])
+        )
+
+        out_path = str(tmp_path / "lazy_typed_tags.bam")
+        pb.sink_bam(lf, out_path)
+
+        df_back = pb.read_bam(out_path, tag_fields=["ML", "FZ", "YI", "YF", "YL"])
+        assert df_back["ML"].dtype == pl.List(pl.UInt8)
+        assert df_back["FZ"].dtype == pl.List(pl.UInt16)
+        assert df_back["YI"].to_list() == [42, 42]
+        assert df_back["YF"].to_list() == pytest.approx([2.5, 2.5])
+        assert df_back["YL"].dtype == pl.List(pl.UInt8)
+        assert df_back["YL"].to_list() == [[1, 2, 3], [2, 3, 4]]
+
+        tag_data = _first_record_tag_data(
+            out_path, "rb", ["ML", "FZ", "YI", "YF", "YL"]
+        )
+        assert tag_data["ML"][1] == "BC"
+        assert tag_data["FZ"][1] == "BS"
+        assert tag_data["YI"][1] in {"c", "C", "s", "S", "i", "I"}
+        assert tag_data["YF"][1] == "f"
+        assert tag_data["YL"][1] == "BC"
+
+
+@pytest.mark.parametrize(
+    ("tag_name", "dtype", "value", "expected_exact_type"),
+    [
+        ("C8", pl.Int8, -5, None),
+        ("U8", pl.UInt8, 250, None),
+        ("C6", pl.Int16, -300, None),
+        ("U6", pl.UInt16, 60_000, None),
+        ("I3", pl.Int32, 123_456, None),
+        ("I6", pl.Int64, 123_456_789, None),
+        ("N3", pl.UInt32, 3_000_000_000, None),
+        ("N6", pl.UInt64, 3_000_000_000, None),
+        ("F3", pl.Float32, 1.25, "f"),
+        ("F6", pl.Float64, 2.5, "f"),
+    ],
+)
+def test_write_bam_accepts_wide_numeric_widths(
+    typed_tag_alignment_paths,
+    tmp_path,
+    tag_name,
+    dtype,
+    value,
+    expected_exact_type,
+):
+    df = pb.read_bam(typed_tag_alignment_paths["bam"]).head(1).select(CORE_BAM_COLUMNS)
+    df = df.with_columns(pl.Series(tag_name, [value], dtype=dtype))
+
+    out_path = str(tmp_path / f"wide_{tag_name}.bam")
+    pb.write_bam(df, out_path)
+
+    roundtrip_value, actual_type = _first_record_tag_data(out_path, "rb", [tag_name])[
+        tag_name
+    ]
+    if isinstance(value, float):
+        assert roundtrip_value == pytest.approx(value)
+        assert actual_type == expected_exact_type
+    else:
+        assert roundtrip_value == value
+        # Integer tags can roundtrip as any valid SAM integer type because the
+        # upstream writer canonicalizes widths based on the value being encoded.
+        assert actual_type in {"c", "C", "s", "S", "i", "I"}
 
 
 class TestBAMWritePositionRoundtrip:

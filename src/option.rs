@@ -862,23 +862,27 @@ pub struct BamWriteOptions {
     pub header_metadata: Option<String>,
     #[pyo3(get, set)]
     pub sort_on_write: bool,
+    #[pyo3(get, set)]
+    pub tag_type_overrides: Option<String>,
 }
 
 #[pymethods]
 impl BamWriteOptions {
     #[new]
-    #[pyo3(signature = (zero_based=true, tag_fields=None, header_metadata=None, sort_on_write=false))]
+    #[pyo3(signature = (zero_based=true, tag_fields=None, header_metadata=None, sort_on_write=false, tag_type_overrides=None))]
     pub fn new(
         zero_based: bool,
         tag_fields: Option<Vec<String>>,
         header_metadata: Option<String>,
         sort_on_write: bool,
+        tag_type_overrides: Option<String>,
     ) -> Self {
         BamWriteOptions {
             zero_based,
             tag_fields,
             header_metadata,
             sort_on_write,
+            tag_type_overrides,
         }
     }
 }
@@ -897,18 +901,21 @@ pub struct CramWriteOptions {
     pub header_metadata: Option<String>,
     #[pyo3(get, set)]
     pub sort_on_write: bool,
+    #[pyo3(get, set)]
+    pub tag_type_overrides: Option<String>,
 }
 
 #[pymethods]
 impl CramWriteOptions {
     #[new]
-    #[pyo3(signature = (reference_path=None, zero_based=true, tag_fields=None, header_metadata=None, sort_on_write=false))]
+    #[pyo3(signature = (reference_path=None, zero_based=true, tag_fields=None, header_metadata=None, sort_on_write=false, tag_type_overrides=None))]
     pub fn new(
         reference_path: Option<String>,
         zero_based: bool,
         tag_fields: Option<Vec<String>>,
         header_metadata: Option<String>,
         sort_on_write: bool,
+        tag_type_overrides: Option<String>,
     ) -> Self {
         CramWriteOptions {
             zero_based,
@@ -916,6 +923,7 @@ impl CramWriteOptions {
             tag_fields,
             header_metadata,
             sort_on_write,
+            tag_type_overrides,
         }
     }
 }
