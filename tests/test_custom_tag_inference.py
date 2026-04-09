@@ -26,7 +26,11 @@ import pytest
 from _expected import DATA_DIR
 
 import polars_bio as pb
-from polars_bio.io import _validate_tag_type_hints, _validate_tag_type_overrides
+from polars_bio.io import (
+    _normalize_read_tag_type_hints,
+    _validate_tag_type_hints,
+    _validate_tag_type_overrides,
+)
 
 NANOPORE_BAM = f"{DATA_DIR}/io/bam/nanopore_custom_tags.bam"
 NANOPORE_CRAM = f"{DATA_DIR}/io/cram/nanopore_custom_tags.cram"
@@ -85,6 +89,13 @@ class TestTagTypeValidators:
         self, tag_type_hints
     ):
         _validate_tag_type_hints(tag_type_hints)
+
+    def test_normalize_read_tag_type_hints_rewrites_default_array_to_int32(self):
+        assert _normalize_read_tag_type_hints(["XB:B", "ML:B:C", "pt:i"]) == [
+            "XB:B:i",
+            "ML:B:C",
+            "pt:i",
+        ]
 
     @pytest.mark.parametrize(
         "tag_type_hints",

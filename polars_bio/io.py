@@ -138,6 +138,28 @@ def _validate_tag_type_hints(tag_type_hints: list[str]) -> None:
         _validate_sam_type_spec(":".join(parts[1:]), "tag_type_hint", hint)
 
 
+def _normalize_read_tag_type_hints(
+    tag_type_hints: Optional[list[str]],
+) -> Optional[list[str]]:
+    """Normalize read-side hints to the stricter upstream parser contract.
+
+    Upstream now requires array hints to include a subtype (`TAG:B:<subtype>`),
+    but polars-bio intentionally keeps accepting bare `TAG:B` as the default
+    integer-array hint for backward compatibility. Rewrite those hints to
+    `TAG:B:i` before they reach the Rust table providers.
+    """
+    if tag_type_hints is None:
+        return None
+
+    normalized_hints = []
+    for hint in tag_type_hints:
+        if hint.endswith(":B") and hint.count(":") == 1:
+            normalized_hints.append(f"{hint}:i")
+        else:
+            normalized_hints.append(hint)
+    return normalized_hints
+
+
 def _validate_tag_type_overrides(tag_type_overrides: Dict[str, str]) -> None:
     """Validate BAM/SAM write-time tag type overrides."""
     for tag, type_spec in tag_type_overrides.items():
@@ -881,6 +903,7 @@ class IOOperations:
         zero_based = _resolve_zero_based(use_zero_based)
         if tag_type_hints is not None:
             _validate_tag_type_hints(tag_type_hints)
+            tag_type_hints = _normalize_read_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             object_storage_options=object_storage_options,
             zero_based=zero_based,
@@ -1161,6 +1184,7 @@ class IOOperations:
         zero_based = _resolve_zero_based(use_zero_based)
         if tag_type_hints is not None:
             _validate_tag_type_hints(tag_type_hints)
+            tag_type_hints = _normalize_read_tag_type_hints(tag_type_hints)
         cram_read_options = CramReadOptions(
             reference_path=reference_path,
             object_storage_options=object_storage_options,
@@ -2125,6 +2149,7 @@ class IOOperations:
         zero_based = _resolve_zero_based(use_zero_based)
         if tag_type_hints is not None:
             _validate_tag_type_hints(tag_type_hints)
+            tag_type_hints = _normalize_read_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             zero_based=zero_based,
             tag_fields=tag_fields,

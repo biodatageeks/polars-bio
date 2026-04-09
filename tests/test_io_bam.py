@@ -548,16 +548,16 @@ class TestTypedTagMetadataAndRoundtrip:
 
 
 @pytest.mark.parametrize(
-    ("tag_name", "dtype", "value", "expected_type"),
+    ("tag_name", "dtype", "value", "expected_exact_type"),
     [
-        ("C8", pl.Int8, -5, "c"),
-        ("U8", pl.UInt8, 250, "C"),
-        ("C6", pl.Int16, -300, "s"),
-        ("U6", pl.UInt16, 60_000, "S"),
-        ("I3", pl.Int32, 123_456, "i"),
-        ("I6", pl.Int64, 123_456_789, "i"),
-        ("N3", pl.UInt32, 3_000_000_000, "I"),
-        ("N6", pl.UInt64, 3_000_000_000, "I"),
+        ("C8", pl.Int8, -5, None),
+        ("U8", pl.UInt8, 250, None),
+        ("C6", pl.Int16, -300, None),
+        ("U6", pl.UInt16, 60_000, None),
+        ("I3", pl.Int32, 123_456, None),
+        ("I6", pl.Int64, 123_456_789, None),
+        ("N3", pl.UInt32, 3_000_000_000, None),
+        ("N6", pl.UInt64, 3_000_000_000, None),
         ("F3", pl.Float32, 1.25, "f"),
         ("F6", pl.Float64, 2.5, "f"),
     ],
@@ -568,7 +568,7 @@ def test_write_bam_accepts_wide_numeric_widths(
     tag_name,
     dtype,
     value,
-    expected_type,
+    expected_exact_type,
 ):
     df = pb.read_bam(typed_tag_alignment_paths["bam"]).head(1).select(CORE_BAM_COLUMNS)
     df = df.with_columns(pl.Series(tag_name, [value], dtype=dtype))
@@ -581,9 +581,11 @@ def test_write_bam_accepts_wide_numeric_widths(
     ]
     if isinstance(value, float):
         assert roundtrip_value == pytest.approx(value)
-        assert actual_type == expected_type
+        assert actual_type == expected_exact_type
     else:
         assert roundtrip_value == value
+        # Integer tags can roundtrip as any valid SAM integer type because the
+        # upstream writer canonicalizes widths based on the value being encoded.
         assert actual_type in {"c", "C", "s", "S", "i", "I"}
 
 

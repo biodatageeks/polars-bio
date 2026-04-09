@@ -1099,6 +1099,8 @@ typed = pb.read_bam(
 
 `tag_type_hints` accepts scalar forms such as `NM:i`, `de:f`, `tp:A`, `XH:H`,
 plus array forms `TAG:B` and `TAG:B:SUBTYPE` such as `ML:B:C` or `FZ:B:S`.
+Bare `TAG:B` is treated as the default integer-array hint and normalized to
+`TAG:B:i` internally, so it reads back as `list[i32]`.
 
 #### Common Tags
 

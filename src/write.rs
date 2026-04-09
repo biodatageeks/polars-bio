@@ -1230,7 +1230,10 @@ fn extract_tag_types_from_header_metadata(
 
     let parsed: serde_json::Value = match serde_json::from_str(header_json) {
         Ok(v) => v,
-        Err(_) => return HashMap::new(),
+        Err(e) => {
+            log::debug!("Failed to parse BAM header metadata JSON: {}", e);
+            return HashMap::new();
+        },
     };
 
     let obj = match parsed.as_object() {
@@ -1255,11 +1258,11 @@ fn parse_tag_type_overrides_json(
     };
 
     let parsed: serde_json::Value = serde_json::from_str(overrides_json).map_err(|e| {
-        DataFusionError::Internal(format!("Failed to parse tag_type_overrides JSON: {e}"))
+        DataFusionError::Plan(format!("Failed to parse tag_type_overrides JSON: {e}"))
     })?;
 
     parse_string_map_json_value(&parsed).ok_or_else(|| {
-        DataFusionError::Internal(
+        DataFusionError::Plan(
             "tag_type_overrides must be a JSON object with string values".to_string(),
         )
     })
@@ -1272,6 +1275,9 @@ fn parse_string_map_json_value(value: &serde_json::Value) -> Option<HashMap<Stri
             .map(|(key, value)| value.as_str().map(|v| (key.clone(), v.to_string())))
             .collect(),
         serde_json::Value::String(json) => {
+            // `source_header["tag_types"]` normally arrives as a nested JSON object, but
+            // tolerate double-encoded values from older callers or manually-constructed
+            // header metadata payloads.
             let parsed: serde_json::Value = serde_json::from_str(json).ok()?;
             parse_string_map_json_value(&parsed)
         },
@@ -1349,9 +1355,6 @@ fn add_bam_tag_metadata(
                 .unwrap_or_else(|| infer_bam_tag_type(field.data_type()));
 
             let mut field_metadata = field.metadata().clone();
-            if field_metadata.is_empty() {
-                field_metadata = HashMap::new();
-            }
             field_metadata.insert(BAM_TAG_TYPE_KEY.to_string(), sam_type);
             field_metadata.insert(BAM_TAG_TAG_KEY.to_string(), field.name().clone());
             let normalized_data_type = normalize_bam_write_data_type(field.data_type());
@@ -1394,5 +1397,30 @@ mod tests {
         );
         assert_eq!(parse_format_column_name("chrom"), None);
         assert_eq!(parse_format_column_name("AF"), None); // No sample prefix
+    }
+
+    #[test]
+    fn test_parse_string_map_json_value_accepts_double_encoded_json() {
+        let value = serde_json::Value::String("{\"ML\":\"BC\",\"FZ\":\"BS\"}".to_string());
+
+        assert_eq!(
+            parse_string_map_json_value(&value),
+            Some(HashMap::from([
+                ("ML".to_string(), "BC".to_string()),
+                ("FZ".to_string(), "BS".to_string()),
+            ]))
+        );
+    }
+
+    #[test]
+    fn test_parse_tag_type_overrides_json_uses_plan_error_for_invalid_input() {
+        let err = parse_tag_type_overrides_json(&Some("[1,2,3]".to_string())).unwrap_err();
+
+        match err {
+            DataFusionError::Plan(message) => {
+                assert!(message.contains("tag_type_overrides must be a JSON object"));
+            },
+            other => panic!("expected DataFusionError::Plan, got {other:?}"),
+        }
     }
 }

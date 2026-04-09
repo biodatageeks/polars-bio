@@ -23,7 +23,12 @@ from polars_bio.polars_bio import (
 )
 
 from .context import ctx
-from .io import _cleanse_fields, _lazy_scan, _validate_tag_type_hints
+from .io import (
+    _cleanse_fields,
+    _lazy_scan,
+    _normalize_read_tag_type_hints,
+    _validate_tag_type_hints,
+)
 
 
 class SQL:
@@ -501,6 +506,7 @@ class SQL:
 
         if tag_type_hints is not None:
             _validate_tag_type_hints(tag_type_hints)
+            tag_type_hints = _normalize_read_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             object_storage_options=object_storage_options,
             tag_fields=tag_fields,
@@ -545,6 +551,7 @@ class SQL:
         """
         if tag_type_hints is not None:
             _validate_tag_type_hints(tag_type_hints)
+            tag_type_hints = _normalize_read_tag_type_hints(tag_type_hints)
         bam_read_options = BamReadOptions(
             tag_fields=tag_fields,
             infer_tag_types=infer_tag_types,
@@ -615,6 +622,7 @@ class SQL:
 
         if tag_type_hints is not None:
             _validate_tag_type_hints(tag_type_hints)
+            tag_type_hints = _normalize_read_tag_type_hints(tag_type_hints)
         cram_read_options = CramReadOptions(
             reference_path=None,
             object_storage_options=object_storage_options,
