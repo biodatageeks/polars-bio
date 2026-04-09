@@ -330,6 +330,19 @@ def _extract_bam_specific_metadata(
             clean_key = key.replace("bio.bam.", "")
             bam_meta[clean_key] = value
 
+    tag_types = {}
+    for field_name, metadata in field_meta.items():
+        tag_type = metadata.get("bio.bam.tag.type")
+        if not tag_type:
+            continue
+
+        tag_name = metadata.get("bio.bam.tag.tag", field_name)
+        if isinstance(tag_name, str) and len(tag_name) == 2:
+            tag_types[tag_name] = tag_type
+
+    if tag_types:
+        bam_meta["tag_types"] = tag_types
+
     return bam_meta
 
 

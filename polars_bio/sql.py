@@ -458,7 +458,7 @@ class SQL:
             timeout: The timeout in seconds for reading the file from object storage.
             infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
             infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
-            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "ML:B:C", "FZ:B:S"]). Supported forms: TAG:TYPE, TAG:B, or TAG:B:SUBTYPE where TYPE is one of A, c, C, s, S, i, I, f, Z, H and SUBTYPE is one of c, C, s, S, i, I, f.
         !!! note
             BAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
 
@@ -534,7 +534,7 @@ class SQL:
                 If None, no optional tags are parsed (default).
             infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
             infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
-            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "ML:B:C", "FZ:B:S"]). Supported forms: TAG:TYPE, TAG:B, or TAG:B:SUBTYPE where TYPE is one of A, c, C, s, S, i, I, f, Z, H and SUBTYPE is one of c, C, s, S, i, I, f.
 
         !!! Example
             ```python
@@ -594,7 +594,7 @@ class SQL:
             timeout: The timeout in seconds for reading the file from object storage.
             infer_tag_types: If True (default), sample the file to auto-detect types for custom/unknown tags.
             infer_tag_sample_size: Number of records to sample for tag type inference (default: 100).
-            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "de:f"]).
+            tag_type_hints: Explicit SAM-style type hints for tags (e.g., ["pt:i", "ML:B:C", "FZ:B:S"]). Supported forms: TAG:TYPE, TAG:B, or TAG:B:SUBTYPE where TYPE is one of A, c, C, s, S, i, I, f, Z, H and SUBTYPE is one of c, C, s, S, i, I, f.
         !!! note
             CRAM reader uses **1-based** coordinate system for the `start`, `end`, `mate_start`, `mate_end` columns.
 

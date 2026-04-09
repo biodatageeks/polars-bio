@@ -23,9 +23,10 @@ use datafusion::physical_plan::{
 };
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_core::metadata::{
-    COORDINATE_SYSTEM_METADATA_KEY, VCF_CONTIGS_KEY, VCF_FIELD_DESCRIPTION_KEY,
-    VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
+    BAM_TAG_TAG_KEY, BAM_TAG_TYPE_KEY, COORDINATE_SYSTEM_METADATA_KEY, VCF_CONTIGS_KEY,
+    VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
 };
+use datafusion_bio_format_core::tag_registry::format_sam_tag_type;
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
@@ -935,7 +936,7 @@ async fn write_bam_streaming(
     path: &str,
     write_options: Option<WriteOptions>,
 ) -> Result<u64, DataFusionError> {
-    let (zero_based, tag_fields, header_metadata, sort_on_write) =
+    let (zero_based, tag_fields, header_metadata, sort_on_write, tag_type_overrides) =
         if let Some(opts) = &write_options {
             if let Some(bam_opts) = &opts.bam_write_options {
                 (
@@ -943,12 +944,13 @@ async fn write_bam_streaming(
                     bam_opts.tag_fields.clone(),
                     bam_opts.header_metadata.clone(),
                     bam_opts.sort_on_write,
+                    bam_opts.tag_type_overrides.clone(),
                 )
             } else {
-                (true, None, None, false)
+                (true, None, None, false, None)
             }
         } else {
-            (true, None, None, false)
+            (true, None, None, false, None)
         };
 
     execute_bam_streaming_write(
@@ -959,6 +961,7 @@ async fn write_bam_streaming(
         tag_fields,
         header_metadata,
         sort_on_write,
+        tag_type_overrides,
     )
     .await
 }
@@ -972,21 +975,26 @@ async fn execute_bam_streaming_write(
     tag_fields: Option<Vec<String>>,
     header_metadata: Option<String>,
     sort_on_write: bool,
+    tag_type_overrides: Option<String>,
 ) -> Result<u64, DataFusionError> {
     let schema = df.schema().inner().clone();
+    let preserved_tag_types = extract_tag_types_from_header_metadata(&header_metadata);
+    let tag_type_overrides = parse_tag_type_overrides_json(&tag_type_overrides)?;
 
     // Auto-detect tag fields if not specified
     let tags = tag_fields.unwrap_or_else(|| extract_tag_fields_from_schema(&schema));
 
     info!(
-        "BAM write: zero_based={}, tags={:?}, header_metadata={:?}",
+        "BAM write: zero_based={}, tags={:?}, header_metadata={:?}, tag_type_overrides={}",
         zero_based,
         tags,
-        header_metadata.as_ref().map(|_| "present")
+        header_metadata.as_ref().map(|_| "present"),
+        !tag_type_overrides.is_empty()
     );
 
     // Add BAM tag metadata to schema (required for serialization)
-    let schema_with_metadata = add_bam_tag_metadata(schema, &tags);
+    let schema_with_metadata =
+        add_bam_tag_metadata(schema, &tags, &preserved_tag_types, &tag_type_overrides);
 
     // Merge header metadata (reference sequences, read groups, programs, etc.) into schema
     let schema_with_metadata = merge_header_metadata(schema_with_metadata, &header_metadata);
@@ -1017,24 +1025,31 @@ async fn write_cram_streaming(
     path: &str,
     write_options: Option<WriteOptions>,
 ) -> Result<u64, DataFusionError> {
-    let (zero_based, reference_path, tag_fields, header_metadata, sort_on_write) =
-        if let Some(opts) = &write_options {
-            if let Some(cram_opts) = &opts.cram_write_options {
-                (
-                    cram_opts.zero_based,
-                    cram_opts.reference_path.clone(),
-                    cram_opts.tag_fields.clone(),
-                    cram_opts.header_metadata.clone(),
-                    cram_opts.sort_on_write,
-                )
-            } else {
-                // Default: no reference (reference-free CRAM)
-                (true, None, None, None, false)
-            }
+    let (
+        zero_based,
+        reference_path,
+        tag_fields,
+        header_metadata,
+        sort_on_write,
+        tag_type_overrides,
+    ) = if let Some(opts) = &write_options {
+        if let Some(cram_opts) = &opts.cram_write_options {
+            (
+                cram_opts.zero_based,
+                cram_opts.reference_path.clone(),
+                cram_opts.tag_fields.clone(),
+                cram_opts.header_metadata.clone(),
+                cram_opts.sort_on_write,
+                cram_opts.tag_type_overrides.clone(),
+            )
         } else {
             // Default: no reference (reference-free CRAM)
-            (true, None, None, None, false)
-        };
+            (true, None, None, None, false, None)
+        }
+    } else {
+        // Default: no reference (reference-free CRAM)
+        (true, None, None, None, false, None)
+    };
 
     execute_cram_streaming_write(
         ctx,
@@ -1045,6 +1060,7 @@ async fn write_cram_streaming(
         tag_fields,
         header_metadata,
         sort_on_write,
+        tag_type_overrides,
     )
     .await
 }
@@ -1059,20 +1075,25 @@ async fn execute_cram_streaming_write(
     tag_fields: Option<Vec<String>>,
     header_metadata: Option<String>,
     sort_on_write: bool,
+    tag_type_overrides: Option<String>,
 ) -> Result<u64, DataFusionError> {
     let schema = df.schema().inner().clone();
+    let preserved_tag_types = extract_tag_types_from_header_metadata(&header_metadata);
+    let tag_type_overrides = parse_tag_type_overrides_json(&tag_type_overrides)?;
     let tags = tag_fields.unwrap_or_else(|| extract_tag_fields_from_schema(&schema));
 
     info!(
-        "CRAM write: zero_based={}, reference={:?}, tags={:?}, header_metadata={:?}",
+        "CRAM write: zero_based={}, reference={:?}, tags={:?}, header_metadata={:?}, tag_type_overrides={}",
         zero_based,
         reference_path,
         tags,
-        header_metadata.as_ref().map(|_| "present")
+        header_metadata.as_ref().map(|_| "present"),
+        !tag_type_overrides.is_empty()
     );
 
     // Add BAM tag metadata to schema (required for serialization)
-    let schema_with_metadata = add_bam_tag_metadata(schema, &tags);
+    let schema_with_metadata =
+        add_bam_tag_metadata(schema, &tags, &preserved_tag_types, &tag_type_overrides);
 
     // Merge header metadata (reference sequences, read groups, programs, etc.) into schema
     let schema_with_metadata = merge_header_metadata(schema_with_metadata, &header_metadata);
@@ -1153,6 +1174,8 @@ fn merge_header_metadata(schema: SchemaRef, header_metadata: &Option<String>) ->
     let key_mapping = [
         ("file_format_version", "bio.bam.file_format_version"),
         ("sort_order", "bio.bam.sort_order"),
+        ("group_order", "bio.bam.group_order"),
+        ("subsort_order", "bio.bam.subsort_order"),
         ("reference_sequences", "bio.bam.reference_sequences"),
         ("read_groups", "bio.bam.read_groups"),
         ("program_info", "bio.bam.program_info"),
@@ -1197,40 +1220,149 @@ fn add_coordinate_system_metadata(schema: SchemaRef, zero_based: bool) -> Schema
     ))
 }
 
-fn add_bam_tag_metadata(schema: SchemaRef, tag_fields: &[String]) -> SchemaRef {
-    use datafusion_bio_format_core::{BAM_TAG_TAG_KEY, BAM_TAG_TYPE_KEY};
-    use std::collections::HashMap;
+fn extract_tag_types_from_header_metadata(
+    header_metadata: &Option<String>,
+) -> HashMap<String, String> {
+    let header_json = match header_metadata {
+        Some(json) if !json.is_empty() && json != "null" => json,
+        _ => return HashMap::new(),
+    };
 
+    let parsed: serde_json::Value = match serde_json::from_str(header_json) {
+        Ok(v) => v,
+        Err(_) => return HashMap::new(),
+    };
+
+    let obj = match parsed.as_object() {
+        Some(o) => o,
+        None => return HashMap::new(),
+    };
+
+    let tag_types = match obj.get("tag_types") {
+        Some(value) => value,
+        None => return HashMap::new(),
+    };
+
+    parse_string_map_json_value(tag_types).unwrap_or_default()
+}
+
+fn parse_tag_type_overrides_json(
+    tag_type_overrides: &Option<String>,
+) -> Result<HashMap<String, String>, DataFusionError> {
+    let overrides_json = match tag_type_overrides {
+        Some(json) if !json.is_empty() && json != "null" => json,
+        _ => return Ok(HashMap::new()),
+    };
+
+    let parsed: serde_json::Value = serde_json::from_str(overrides_json).map_err(|e| {
+        DataFusionError::Internal(format!("Failed to parse tag_type_overrides JSON: {e}"))
+    })?;
+
+    parse_string_map_json_value(&parsed).ok_or_else(|| {
+        DataFusionError::Internal(
+            "tag_type_overrides must be a JSON object with string values".to_string(),
+        )
+    })
+}
+
+fn parse_string_map_json_value(value: &serde_json::Value) -> Option<HashMap<String, String>> {
+    match value {
+        serde_json::Value::Object(obj) => obj
+            .iter()
+            .map(|(key, value)| value.as_str().map(|v| (key.clone(), v.to_string())))
+            .collect(),
+        serde_json::Value::String(json) => {
+            let parsed: serde_json::Value = serde_json::from_str(json).ok()?;
+            parse_string_map_json_value(&parsed)
+        },
+        _ => None,
+    }
+}
+
+fn infer_bam_scalar_tag_type(data_type: &DataType) -> String {
+    match data_type {
+        DataType::Int8 => "c".to_string(),
+        DataType::UInt8 => "C".to_string(),
+        DataType::Int16 => "s".to_string(),
+        DataType::UInt16 => "S".to_string(),
+        DataType::Int32 | DataType::Int64 => "i".to_string(),
+        DataType::UInt32 | DataType::UInt64 => "I".to_string(),
+        DataType::Float32 | DataType::Float64 => "f".to_string(),
+        DataType::Utf8 | DataType::LargeUtf8 => "Z".to_string(),
+        _ => "Z".to_string(),
+    }
+}
+
+fn normalize_bam_array_data_type(data_type: &DataType) -> Option<DataType> {
+    let (field, nullable) = match data_type {
+        DataType::List(field) | DataType::LargeList(field) => (field.as_ref(), field.is_nullable()),
+        DataType::FixedSizeList(field, _) => (field.as_ref(), field.is_nullable()),
+        _ => return None,
+    };
+
+    let normalized_inner = match field.data_type() {
+        DataType::Int8 => DataType::Int8,
+        DataType::UInt8 => DataType::UInt8,
+        DataType::Int16 => DataType::Int16,
+        DataType::UInt16 => DataType::UInt16,
+        DataType::Int32 | DataType::Int64 => DataType::Int32,
+        DataType::UInt32 | DataType::UInt64 => DataType::UInt32,
+        DataType::Float32 | DataType::Float64 => DataType::Float32,
+        _ => return None,
+    };
+
+    Some(DataType::List(Arc::new(Field::new(
+        field.name(),
+        normalized_inner,
+        nullable,
+    ))))
+}
+
+fn infer_bam_tag_type(data_type: &DataType) -> String {
+    if let Some(normalized_array_type) = normalize_bam_array_data_type(data_type) {
+        return format_sam_tag_type('B', &normalized_array_type);
+    }
+
+    infer_bam_scalar_tag_type(data_type)
+}
+
+fn normalize_bam_write_data_type(data_type: &DataType) -> DataType {
+    normalize_bam_array_data_type(data_type).unwrap_or_else(|| data_type.clone())
+}
+
+fn add_bam_tag_metadata(
+    schema: SchemaRef,
+    tag_fields: &[String],
+    preserved_tag_types: &HashMap<String, String>,
+    tag_type_overrides: &HashMap<String, String>,
+) -> SchemaRef {
     let mut new_fields = Vec::new();
     let tag_set: std::collections::HashSet<&str> = tag_fields.iter().map(|s| s.as_str()).collect();
 
     for field in schema.fields().iter() {
         if tag_set.contains(field.name().as_str()) {
-            // This is a tag field - add metadata
-            // First check if the field already has BAM_TAG_TYPE_KEY metadata (preserve existing)
-            let sam_type = if let Some(existing_type) = field.metadata().get(BAM_TAG_TYPE_KEY) {
-                // Preserve existing tag type metadata (e.g., from read_bam)
-                existing_type.chars().next().unwrap_or('Z')
+            let sam_type = tag_type_overrides
+                .get(field.name())
+                .cloned()
+                .or_else(|| preserved_tag_types.get(field.name()).cloned())
+                .or_else(|| field.metadata().get(BAM_TAG_TYPE_KEY).cloned())
+                .unwrap_or_else(|| infer_bam_tag_type(field.data_type()));
+
+            let mut field_metadata = field.metadata().clone();
+            if field_metadata.is_empty() {
+                field_metadata = HashMap::new();
+            }
+            field_metadata.insert(BAM_TAG_TYPE_KEY.to_string(), sam_type);
+            field_metadata.insert(BAM_TAG_TAG_KEY.to_string(), field.name().clone());
+            let normalized_data_type = normalize_bam_write_data_type(field.data_type());
+            let new_field = if normalized_data_type == *field.data_type() {
+                field.as_ref().clone().with_metadata(field_metadata)
             } else {
-                // Infer SAM type from Arrow data type
-                match field.data_type() {
-                    DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => 'i',
-                    DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => 'i',
-                    DataType::Float32 | DataType::Float64 => 'f',
-                    DataType::Utf8 | DataType::LargeUtf8 => 'Z',
-                    // Handle array/list types for BAM 'B' tags (integer/byte arrays)
-                    DataType::List(_) | DataType::LargeList(_) | DataType::FixedSizeList(_, _) => {
-                        'B'
-                    },
-                    _ => 'Z', // Default to string for unknown types
-                }
+                Field::new(field.name(), normalized_data_type, field.is_nullable())
+                    .with_metadata(field_metadata)
             };
 
-            let mut field_metadata = HashMap::new();
-            field_metadata.insert(BAM_TAG_TYPE_KEY.to_string(), sam_type.to_string());
-            field_metadata.insert(BAM_TAG_TAG_KEY.to_string(), field.name().clone());
-
-            new_fields.push(field.as_ref().clone().with_metadata(field_metadata));
+            new_fields.push(new_field);
         } else {
             new_fields.push(field.as_ref().clone());
         }
