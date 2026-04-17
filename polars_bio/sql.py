@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Union
 
 import polars as pl
@@ -34,7 +35,7 @@ from .io import (
 class SQL:
     @staticmethod
     def register_vcf(
-        path: str,
+        path: Union[str, Path],
         name: Union[str, None] = None,
         info_fields: Union[list[str], None] = None,
         chunk_size: int = 64,
@@ -73,6 +74,7 @@ class SQL:
         !!! tip
             `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the VCF file. As a rule of thumb for large scale operations (reading a whole VCF), it is recommended to the default values.
         """
+        path = str(path)
 
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -113,7 +115,7 @@ class SQL:
 
     @staticmethod
     def register_gff(
-        path: str,
+        path: Union[str, Path],
         name: Union[str, None] = None,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
@@ -167,6 +169,7 @@ class SQL:
         !!! tip
             `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the GFF file. As a rule of thumb for large scale operations (reading a whole GFF), it is recommended to the default values.
         """
+        path = str(path)
 
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -187,7 +190,7 @@ class SQL:
 
     @staticmethod
     def register_gtf(
-        path: str,
+        path: Union[str, Path],
         name: Union[str, None] = None,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
@@ -224,6 +227,7 @@ class SQL:
             pb.sql("SELECT chrom, type, start FROM my_gtf").limit(5).collect()
             ```
         """
+        path = str(path)
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
             enable_request_payer=enable_request_payer,
@@ -243,7 +247,7 @@ class SQL:
 
     @staticmethod
     def register_fastq(
-        path: str,
+        path: Union[str, Path],
         name: Union[str, None] = None,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
@@ -297,6 +301,7 @@ class SQL:
         !!! tip
             `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the FASTQ file. As a rule of thumb for large scale operations (reading a whole FASTQ), it is recommended to the default values.
         """
+        path = str(path)
 
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -316,7 +321,7 @@ class SQL:
 
     @staticmethod
     def register_bed(
-        path: str,
+        path: Union[str, Path],
         name: Union[str, None] = None,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
@@ -381,6 +386,7 @@ class SQL:
         !!! tip
             `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the BED file. As a rule of thumb for large scale operations (reading a whole BED), it is recommended to the default values.
         """
+        path = str(path)
 
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -435,7 +441,7 @@ class SQL:
 
     @staticmethod
     def register_bam(
-        path: str,
+        path: Union[str, Path],
         name: Union[str, None] = None,
         tag_fields: Union[list[str], None] = None,
         chunk_size: int = 64,
@@ -493,6 +499,7 @@ class SQL:
             `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the BAM file. As a rule of thumb for large scale operations (reading a whole BAM), it is recommended keep the default values.
             For more interactive inspecting a schema, it is recommended to decrease `chunk_size` to **8-16** and `concurrent_fetches` to **1-2**.
         """
+        path = str(path)
 
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -519,7 +526,7 @@ class SQL:
 
     @staticmethod
     def register_sam(
-        path: str,
+        path: Union[str, Path],
         name: Union[str, None] = None,
         tag_fields: Union[list[str], None] = None,
         infer_tag_types: bool = True,
@@ -549,6 +556,7 @@ class SQL:
             pb.sql("SELECT chrom, flags FROM my_sam").limit(5).collect()
             ```
         """
+        path = str(path)
         if tag_type_hints is not None:
             _validate_tag_type_hints(tag_type_hints)
             tag_type_hints = _normalize_read_tag_type_hints(tag_type_hints)
@@ -563,7 +571,7 @@ class SQL:
 
     @staticmethod
     def register_cram(
-        path: str,
+        path: Union[str, Path],
         name: Union[str, None] = None,
         tag_fields: Union[list[str], None] = None,
         chunk_size: int = 64,
@@ -609,6 +617,7 @@ class SQL:
             `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the CRAM file. As a rule of thumb for large scale operations (reading a whole CRAM), it is recommended to keep the default values.
             For more interactive inspecting a schema, it is recommended to decrease `chunk_size` to **8-16** and `concurrent_fetches` to **1-2**.
         """
+        path = str(path)
 
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -636,7 +645,7 @@ class SQL:
 
     @staticmethod
     def register_pairs(
-        path: str,
+        path: Union[str, Path],
         name: Union[str, None] = None,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
@@ -673,6 +682,7 @@ class SQL:
             pb.sql("SELECT * FROM hic_contacts WHERE chr1 = 'chr1'").collect()
             ```
         """
+        path = str(path)
 
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
