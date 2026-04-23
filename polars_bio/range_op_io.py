@@ -336,7 +336,7 @@ def _get_schema(
     suffix=None,
     read_options: Union[ReadOptions, None] = None,
 ) -> pl.Schema:
-    if isinstance(path, pl.LazyFrame):
+    if _is_lazyframe_like(path):
         schema = path.collect_schema()
         return (
             _rename_columns(pl.DataFrame(schema=schema), suffix).schema

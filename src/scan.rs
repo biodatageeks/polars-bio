@@ -234,7 +234,7 @@ fn dispatch_arrow_stream_batches(
     mut stream_reader: ArrowArrayStreamReader,
     senders: Vec<Sender<Result<RecordBatch, DataFusionError>>>,
 ) {
-    let partition_count = senders.len().max(1);
+    let partition_count = senders.len();
 
     for (batch_index, batch_result) in stream_reader.by_ref().enumerate() {
         match batch_result {

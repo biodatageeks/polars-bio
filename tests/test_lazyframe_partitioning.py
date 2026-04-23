@@ -18,12 +18,32 @@ from _expected import (
 )
 
 import polars_bio as pb
-from polars_bio.polars_bio import py_debug_arrow_stream_partition_count
-from polars_bio.range_op_io import _prepare_lazy_stream_input
+from polars_bio.polars_bio import _debug_arrow_stream_partition_count
+from polars_bio.range_op_io import _get_schema, _prepare_lazy_stream_input
 
 COLUMNS = ["contig", "pos_start", "pos_end"]
 TARGET_PARTITIONS_KEY = "datafusion.execution.target_partitions"
 BATCH_SIZE_KEY = "datafusion.execution.batch_size"
+OPTION_DEFAULTS = {
+    TARGET_PARTITIONS_KEY: "1",
+    BATCH_SIZE_KEY: "8192",
+    "datafusion.bio.coordinate_system_check": "false",
+    "datafusion.bio.coordinate_system_zero_based": "false",
+}
+
+
+class _DummyLazyWrapper:
+    def __init__(self, base_lf: pl.LazyFrame):
+        self._base_lf = base_lf
+
+    def collect_schema(self):
+        return self._base_lf.collect_schema()
+
+    def collect_batches(self, *args, **kwargs):
+        return self._base_lf.collect_batches(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._base_lf, name)
 
 
 def _read_csv_with_metadata(path: str, zero_based: bool) -> pl.DataFrame:
@@ -51,7 +71,10 @@ def _session_option(key: str, value: str):
     try:
         yield
     finally:
-        pb.set_option(key, original or "1")
+        restored = original if original is not None else OPTION_DEFAULTS.get(key)
+        if restored is None:
+            raise AssertionError(f"No restore value configured for option: {key}")
+        pb.set_option(key, restored)
 
 
 def _sorted(df: pl.DataFrame) -> pl.DataFrame:
@@ -318,7 +341,18 @@ def _lazy_input_partition_count(path: str, zero_based: bool) -> int:
     schema, stream_factory = _prepare_lazy_stream_input(
         lazyframe, COLUMNS[0], batch_size=2
     )
-    return py_debug_arrow_stream_partition_count(pb.ctx, stream_factory(), schema)
+    return _debug_arrow_stream_partition_count(pb.ctx, stream_factory(), schema)
+
+
+def test_get_schema_supports_lazyframe_wrappers():
+    lazyframe = _scan_csv_with_metadata(DF_OVER_PATH1, zero_based=False)
+    wrapper = _DummyLazyWrapper(lazyframe)
+
+    schema = _get_schema(wrapper, pb.ctx)
+    suffixed_schema = _get_schema(wrapper, pb.ctx, "_x")
+
+    assert schema == lazyframe.collect_schema()
+    assert suffixed_schema.names() == [f"{name}_x" for name in schema.names()]
 
 
 @pytest.mark.parametrize(

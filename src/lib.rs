@@ -268,7 +268,7 @@ fn py_register_table(
 ///
 /// This exercises the same streaming-table registration path used by LazyFrame-backed
 /// range operations, but keeps the surface area small for Python unit tests.
-#[pyfunction]
+#[pyfunction(name = "_debug_arrow_stream_partition_count")]
 #[pyo3(signature = (py_ctx, stream, schema))]
 fn py_debug_arrow_stream_partition_count(
     py: Python<'_>,
