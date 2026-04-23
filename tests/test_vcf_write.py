@@ -93,6 +93,33 @@ class TestVcfWriteBasic:
             first_bytes = f.read(2)
         assert first_bytes == b"\x1f\x8b", "File should be gzip compressed"
 
+    @pytest.mark.parametrize("partitions", [2, 4, 8])
+    def test_write_vcf_preserves_row_order_when_session_is_partitioned(
+        self, tmp_path, partitions
+    ):
+        """Arrow-stream writes must not inherit partition fanout from the session."""
+        input_path = f"{DATA_DIR}/io/vcf/single_sample_collision.vcf"
+        output_path = tmp_path / f"collision_tp{partitions}.vcf"
+        original_target_partitions = pb.get_option(
+            "datafusion.execution.target_partitions"
+        )
+
+        try:
+            pb.set_option("datafusion.execution.target_partitions", str(partitions))
+            df = pb.read_vcf(input_path)
+            rows_written = pb.write_vcf(df, str(output_path))
+        finally:
+            pb.set_option(
+                "datafusion.execution.target_partitions", original_target_partitions
+            )
+
+        assert rows_written == 2
+
+        df_back = pb.read_vcf(str(output_path))
+        assert df_back["start"].to_list() == [100, 200]
+        assert df_back["DP"].to_list() == [50, 60]
+        assert df_back["fmt_DP"].to_list() == [20, 30]
+
 
 class TestVcfRoundTrip:
     """Round-trip tests for VCF read-write-read."""

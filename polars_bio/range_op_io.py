@@ -225,21 +225,34 @@ def _prepare_lazy_stream_input(
         contig_col: Name of the contig/chromosome column
         batch_size: Batch size for streaming (synced with datafusion.execution.batch_size)
 
-    Note: The schema is extracted from the actual stream (not from Polars schema)
-    to ensure type compatibility (e.g., Utf8View vs LargeUtf8).
+    Note: For LazyFrames we derive the Arrow schema from `collect_schema().to_arrow()`
+    so we do not have to build and consume a temporary Arrow stream just to inspect it.
     """
     if isinstance(df, str):
-        raise ValueError(
-            "File path inputs must be provided for both arguments to use scan-based streaming."
-        )
+        path = Path(df)
+        suffixes = path.suffixes
+
+        if ".parquet" in suffixes:
+            lazy_df = pl.scan_parquet(df)
+        elif ".csv" in suffixes:
+            lazy_df = pl.scan_csv(df)
+        else:
+            raise ValueError(
+                "Mixed LazyFrame + path streaming is only supported for CSV and Parquet inputs."
+            )
+
+        arrow_schema = lazy_df.collect_schema().to_arrow()
+
+        def stream_factory():
+            batches = lazy_df.collect_batches(
+                lazy=True, engine="streaming", chunk_size=batch_size
+            )
+            return batches._inner
+
+        return arrow_schema, stream_factory
 
     if isinstance(df, pl.LazyFrame) or _is_lazyframe_like(df):
-        # Get schema from a temporary stream to ensure type compatibility
-        # (Polars may use Utf8View which differs from LargeUtf8 in empty DataFrame)
-        temp_batches = df.collect_batches(
-            lazy=True, engine="streaming", chunk_size=batch_size
-        )
-        arrow_schema = pa.RecordBatchReader.from_stream(temp_batches._inner).schema
+        arrow_schema = df.collect_schema().to_arrow()
 
         # Return a factory that creates a fresh stream each time
         # This allows the LazyFrame result to be collected multiple times
@@ -318,11 +331,34 @@ def _rename_columns(
 
 
 def _get_schema(
-    path: str,
+    path: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
     ctx: BioSessionContext,
     suffix=None,
     read_options: Union[ReadOptions, None] = None,
 ) -> pl.Schema:
+    if _is_lazyframe_like(path):
+        schema = path.collect_schema()
+        return (
+            _rename_columns(pl.DataFrame(schema=schema), suffix).schema
+            if suffix is not None
+            else schema
+        )
+    if isinstance(path, pl.DataFrame):
+        schema = path.schema
+        return (
+            _rename_columns(pl.DataFrame(schema=schema), suffix).schema
+            if suffix is not None
+            else schema
+        )
+    if pd is not None and isinstance(path, pd.DataFrame):
+        polars_df = pl.from_pandas(path)
+        schema = polars_df.schema
+        return (
+            _rename_columns(pl.DataFrame(schema=schema), suffix).schema
+            if suffix is not None
+            else schema
+        )
+
     ext = Path(path).suffixes
     if len(ext) == 0:
         df: DataFrame = py_read_table(ctx, path)

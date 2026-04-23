@@ -1,6 +1,7 @@
 use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll};
+use std::thread;
 
 use arrow::array::{RecordBatch, RecordBatchReader};
 use arrow::error::ArrowError;
@@ -25,6 +26,7 @@ use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
 use futures::Stream;
 use log::info;
 use tokio::runtime::Runtime;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tracing::debug;
 
 use crate::context::PyBioSessionContext;
@@ -32,6 +34,13 @@ use crate::option::{
     BamReadOptions, BedReadOptions, CramReadOptions, FastaReadOptions, FastqReadOptions,
     GffReadOptions, GtfReadOptions, InputFormat, PairsReadOptions, ReadOptions, VcfReadOptions,
 };
+
+/// Maximum number of RecordBatches buffered per partition when fanning out a LazyFrame
+/// Arrow C stream into multiple DataFusion partitions.
+///
+/// Keeping this small preserves streaming behavior and provides backpressure to the
+/// dispatcher thread instead of allowing it to accumulate the full input in memory.
+const ARROW_STREAM_PARTITION_BUFFER_SIZE: usize = 2;
 
 /// A PartitionStream that yields pre-collected RecordBatches.
 /// Used to enable multi-partition parallel execution for DataFrame inputs.
@@ -126,6 +135,10 @@ impl Stream for ArrowCStreamBatchStream {
     type Item = Result<RecordBatch, DataFusionError>;
 
     fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        // For single-partition execution we keep the implementation simple and read
+        // directly from the Arrow C stream on the consumer task. The multi-partition
+        // path uses a dedicated OS thread plus bounded channels so probe-side
+        // parallelism does not depend on synchronous reads inside `poll_next`.
         match self.reader.next() {
             Some(Ok(batch)) => Poll::Ready(Some(Ok(batch))),
             Some(Err(e)) => Poll::Ready(Some(Err(DataFusionError::External(Box::new(e))))),
@@ -137,6 +150,56 @@ impl Stream for ArrowCStreamBatchStream {
 impl RecordBatchStream for ArrowCStreamBatchStream {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
+    }
+}
+
+/// A PartitionStream backed by a receiver fed from a shared Arrow C stream.
+///
+/// The source stream is read once and batches are dispatched round-robin to each
+/// partition receiver so DataFusion can execute probe-side partitions in parallel.
+pub struct ArrowCStreamFanoutPartitionStream {
+    schema: SchemaRef,
+    receiver: Arc<Mutex<Option<Receiver<Result<RecordBatch, DataFusionError>>>>>,
+}
+
+impl ArrowCStreamFanoutPartitionStream {
+    pub fn new(
+        schema: SchemaRef,
+        receiver: Receiver<Result<RecordBatch, DataFusionError>>,
+    ) -> Self {
+        Self {
+            schema,
+            receiver: Arc::new(Mutex::new(Some(receiver))),
+        }
+    }
+}
+
+impl std::fmt::Debug for ArrowCStreamFanoutPartitionStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ArrowCStreamFanoutPartitionStream")
+            .field("schema", &self.schema)
+            .finish()
+    }
+}
+
+impl PartitionStream for ArrowCStreamFanoutPartitionStream {
+    fn schema(&self) -> &SchemaRef {
+        &self.schema
+    }
+
+    fn execute(&self, _ctx: Arc<TaskContext>) -> SendableRecordBatchStream {
+        let receiver = self
+            .receiver
+            .lock()
+            .unwrap()
+            .take()
+            .expect("Arrow C Stream partition already consumed");
+
+        let stream = futures::stream::unfold(receiver, |mut receiver| async move {
+            receiver.recv().await.map(|batch| (batch, receiver))
+        });
+
+        Box::pin(RecordBatchStreamAdapter::new(self.schema.clone(), stream))
     }
 }
 
@@ -169,6 +232,88 @@ fn create_partition_streams(
                 as Arc<dyn PartitionStream>
         })
         .collect()
+}
+
+fn dispatch_arrow_stream_batches(
+    mut stream_reader: ArrowArrayStreamReader,
+    senders: Vec<Sender<Result<RecordBatch, DataFusionError>>>,
+) {
+    let partition_count = senders.len();
+
+    for (batch_index, batch_result) in stream_reader.by_ref().enumerate() {
+        match batch_result {
+            Ok(batch) => {
+                let partition_idx = batch_index % partition_count;
+                if senders[partition_idx].blocking_send(Ok(batch)).is_err() {
+                    // The query stopped consuming this stream, so stop dispatching.
+                    return;
+                }
+            },
+            Err(error) => {
+                let message = format!("Arrow C Stream read failed: {}", error);
+                for sender in &senders {
+                    let _ = sender.blocking_send(Err(DataFusionError::Execution(message.clone())));
+                }
+                return;
+            },
+        }
+    }
+}
+
+fn create_arrow_stream_partition_streams(
+    schema: SchemaRef,
+    stream_reader: ArrowArrayStreamReader,
+    target_partitions: usize,
+) -> Vec<Arc<dyn PartitionStream>> {
+    let num_partitions = target_partitions.max(1);
+
+    if num_partitions == 1 {
+        return vec![
+            Arc::new(ArrowCStreamPartitionStream::new(schema, stream_reader))
+                as Arc<dyn PartitionStream>,
+        ];
+    }
+
+    let mut senders = Vec::with_capacity(num_partitions);
+    let mut partitions = Vec::with_capacity(num_partitions);
+
+    for _ in 0..num_partitions {
+        let (sender, receiver) = channel(ARROW_STREAM_PARTITION_BUFFER_SIZE);
+        senders.push(sender);
+        partitions.push(Arc::new(ArrowCStreamFanoutPartitionStream::new(
+            schema.clone(),
+            receiver,
+        )) as Arc<dyn PartitionStream>);
+    }
+
+    // The bounded fanout queues rely on downstream consumers polling partitions
+    // concurrently. That is true for the current DataFusion `execute_stream()`
+    // path, which coalesces multi-partition plans by spawning one task per input
+    // partition. If a future caller were to drain these partitions strictly
+    // sequentially, this fanout design would need to be revisited.
+    thread::Builder::new()
+        .name("arrow-c-stream-fanout".to_string())
+        .spawn(move || dispatch_arrow_stream_batches(stream_reader, senders))
+        .expect("failed to spawn Arrow C Stream fanout thread");
+
+    partitions
+}
+
+fn register_frame_from_arrow_stream_with_partitions(
+    py_ctx: &PyBioSessionContext,
+    stream_reader: ArrowArrayStreamReader,
+    schema: Arc<arrow::datatypes::Schema>,
+    table_name: String,
+    target_partitions: usize,
+) {
+    let ctx = &py_ctx.ctx;
+    let partitions =
+        create_arrow_stream_partition_streams(schema.clone(), stream_reader, target_partitions);
+    let table_source = StreamingTable::try_new(schema, partitions).unwrap();
+
+    ctx.deregister_table(&table_name).unwrap();
+    ctx.register_table(&table_name, Arc::new(table_source))
+        .unwrap();
 }
 
 pub(crate) fn register_frame(
@@ -226,20 +371,33 @@ pub(crate) fn register_frame_from_arrow_stream(
     schema: Arc<arrow::datatypes::Schema>,
     table_name: String,
 ) {
-    let ctx = &py_ctx.ctx;
-
-    // Create a single partition stream that reads from Arrow C Stream
-    let partition = Arc::new(ArrowCStreamPartitionStream::new(
-        schema.clone(),
+    let target_partitions = py_ctx
+        .ctx
+        .state()
+        .config()
+        .options()
+        .execution
+        .target_partitions;
+    register_frame_from_arrow_stream_with_partitions(
+        py_ctx,
         stream_reader,
-    )) as Arc<dyn PartitionStream>;
+        schema,
+        table_name,
+        target_partitions,
+    );
+}
 
-    // Use StreamingTable with the Arrow C Stream partition
-    let table_source = StreamingTable::try_new(schema, vec![partition]).unwrap();
-
-    ctx.deregister_table(&table_name).unwrap();
-    ctx.register_table(&table_name, Arc::new(table_source))
-        .unwrap();
+/// Register an Arrow C stream as a single-partition streaming table.
+///
+/// Writers use this path so their input row order does not depend on session-level
+/// partition fanout. Range operations should continue to use the partition-aware path.
+pub(crate) fn register_frame_from_arrow_stream_single_partition(
+    py_ctx: &PyBioSessionContext,
+    stream_reader: ArrowArrayStreamReader,
+    schema: Arc<arrow::datatypes::Schema>,
+    table_name: String,
+) {
+    register_frame_from_arrow_stream_with_partitions(py_ctx, stream_reader, schema, table_name, 1);
 }
 
 pub(crate) fn get_input_format(path: &str) -> InputFormat {

@@ -15,7 +15,7 @@ from polars_bio.polars_bio import (
 
 from ._metadata import set_coordinate_system
 from .logging import logger
-from .range_op_io import _df_to_reader, _get_schema, _rename_columns, range_lazy_scan
+from .range_op_io import _df_to_reader, _get_schema, range_lazy_scan
 
 try:
     import pandas as pd
@@ -162,12 +162,7 @@ def _lazyframe_to_dataframe(
     This is more efficient than writing to parquet now that GIL is released
     during Arrow operations via py.allow_threads().
     """
-    if hasattr(df, "_base_lf"):
-        # GffLazyFrameWrapper or similar - collect the underlying LazyFrame
-        return df.collect()
-    else:
-        # Regular LazyFrame
-        return df.collect()
+    return df.collect()
 
 
 def range_operation(
@@ -310,9 +305,8 @@ def range_operation(
         zero_based = _get_zero_based_from_filter_op(range_options.filter_op)
 
         if output_type == "polars.LazyFrame":
-            # Get base schemas from collected DataFrames
-            df1_base_schema = _rename_columns(df1, "").schema
-            df2_base_schema = _rename_columns(df2, "").schema
+            df1_base_schema = _get_schema(df1, ctx, None, read_options1)
+            df2_base_schema = _get_schema(df2, ctx, None, read_options2)
 
             # Generate schema based on operation type
             if range_options.range_op == RangeOp.CountOverlapsNaive:
