@@ -410,9 +410,6 @@ class TestBioframe:
         )
         pd.testing.assert_frame_equal(result, expected)
 
-    @pytest.mark.xfail(
-        reason="cluster boundaries still diverge from bioframe under target_partitions=4"
-    )
     def test_cluster_parallel_lazyframe_schema_rows(self):
         with _target_partitions(4):
             result_parallel = (
