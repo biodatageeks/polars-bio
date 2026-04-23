@@ -162,12 +162,7 @@ def _lazyframe_to_dataframe(
     This is more efficient than writing to parquet now that GIL is released
     during Arrow operations via py.allow_threads().
     """
-    if hasattr(df, "_base_lf"):
-        # GffLazyFrameWrapper or similar - collect the underlying LazyFrame
-        return df.collect()
-    else:
-        # Regular LazyFrame
-        return df.collect()
+    return df.collect()
 
 
 def range_operation(

@@ -135,6 +135,10 @@ impl Stream for ArrowCStreamBatchStream {
     type Item = Result<RecordBatch, DataFusionError>;
 
     fn poll_next(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        // For single-partition execution we keep the implementation simple and read
+        // directly from the Arrow C stream on the consumer task. The multi-partition
+        // path uses a dedicated OS thread plus bounded channels so probe-side
+        // parallelism does not depend on synchronous reads inside `poll_next`.
         match self.reader.next() {
             Some(Ok(batch)) => Poll::Ready(Some(Ok(batch))),
             Some(Err(e)) => Poll::Ready(Some(Err(DataFusionError::External(Box::new(e))))),
@@ -282,6 +286,11 @@ fn create_arrow_stream_partition_streams(
         )) as Arc<dyn PartitionStream>);
     }
 
+    // The bounded fanout queues rely on downstream consumers polling partitions
+    // concurrently. That is true for the current DataFusion `execute_stream()`
+    // path, which coalesces multi-partition plans by spawning one task per input
+    // partition. If a future caller were to drain these partitions strictly
+    // sequentially, this fanout design would need to be revisited.
     thread::Builder::new()
         .name("arrow-c-stream-fanout".to_string())
         .spawn(move || dispatch_arrow_stream_batches(stream_reader, senders))
