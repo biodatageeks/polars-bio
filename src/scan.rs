@@ -299,6 +299,23 @@ fn create_arrow_stream_partition_streams(
     partitions
 }
 
+fn register_frame_from_arrow_stream_with_partitions(
+    py_ctx: &PyBioSessionContext,
+    stream_reader: ArrowArrayStreamReader,
+    schema: Arc<arrow::datatypes::Schema>,
+    table_name: String,
+    target_partitions: usize,
+) {
+    let ctx = &py_ctx.ctx;
+    let partitions =
+        create_arrow_stream_partition_streams(schema.clone(), stream_reader, target_partitions);
+    let table_source = StreamingTable::try_new(schema, partitions).unwrap();
+
+    ctx.deregister_table(&table_name).unwrap();
+    ctx.register_table(&table_name, Arc::new(table_source))
+        .unwrap();
+}
+
 pub(crate) fn register_frame(
     py_ctx: &PyBioSessionContext,
     df: PyArrowType<ArrowArrayStreamReader>,
@@ -354,15 +371,33 @@ pub(crate) fn register_frame_from_arrow_stream(
     schema: Arc<arrow::datatypes::Schema>,
     table_name: String,
 ) {
-    let ctx = &py_ctx.ctx;
-    let target_partitions = ctx.state().config().options().execution.target_partitions;
-    let partitions =
-        create_arrow_stream_partition_streams(schema.clone(), stream_reader, target_partitions);
-    let table_source = StreamingTable::try_new(schema, partitions).unwrap();
+    let target_partitions = py_ctx
+        .ctx
+        .state()
+        .config()
+        .options()
+        .execution
+        .target_partitions;
+    register_frame_from_arrow_stream_with_partitions(
+        py_ctx,
+        stream_reader,
+        schema,
+        table_name,
+        target_partitions,
+    );
+}
 
-    ctx.deregister_table(&table_name).unwrap();
-    ctx.register_table(&table_name, Arc::new(table_source))
-        .unwrap();
+/// Register an Arrow C stream as a single-partition streaming table.
+///
+/// Writers use this path so their input row order does not depend on session-level
+/// partition fanout. Range operations should continue to use the partition-aware path.
+pub(crate) fn register_frame_from_arrow_stream_single_partition(
+    py_ctx: &PyBioSessionContext,
+    stream_reader: ArrowArrayStreamReader,
+    schema: Arc<arrow::datatypes::Schema>,
+    table_name: String,
+) {
+    register_frame_from_arrow_stream_with_partitions(py_ctx, stream_reader, schema, table_name, 1);
 }
 
 pub(crate) fn get_input_format(path: &str) -> InputFormat {

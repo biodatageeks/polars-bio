@@ -3,6 +3,17 @@ from _expected import DATA_DIR
 
 import polars_bio as pb
 
+TARGET_PARTITIONS_KEY = "datafusion.execution.target_partitions"
+
+
+@pytest.fixture(autouse=True)
+def _restore_target_partitions():
+    original_target_partitions = pb.get_option(TARGET_PARTITIONS_KEY)
+    try:
+        yield
+    finally:
+        pb.set_option(TARGET_PARTITIONS_KEY, original_target_partitions)
+
 
 class TestFastq:
     def test_count(self):
@@ -51,7 +62,7 @@ class TestFastq:
 class TestParallelFastq:
     @pytest.mark.parametrize("partitions", [1, 2, 3, 4])
     def test_read_parallel_fastq(self, partitions):
-        pb.set_option("datafusion.execution.target_partitions", str(partitions))
+        pb.set_option(TARGET_PARTITIONS_KEY, str(partitions))
         df = pb.read_fastq(
             f"{DATA_DIR}/io/fastq/sample_parallel.fastq.bgz",
         )

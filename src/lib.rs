@@ -35,7 +35,7 @@ use crate::option::{
 };
 use crate::scan::{
     maybe_register_table, register_frame, register_frame_from_arrow_stream,
-    register_frame_from_batches, register_table,
+    register_frame_from_arrow_stream_single_partition, register_frame_from_batches, register_table,
 };
 
 const LEFT_TABLE: &str = "s1";
@@ -617,7 +617,12 @@ fn py_write_table(
         // Register a streaming table backed directly by the Arrow C Stream.
         // This avoids materializing all batches in Python and lets DataFusion
         // pull data on demand without the GIL.
-        register_frame_from_arrow_stream(
+        //
+        // Writes intentionally keep Arrow-stream inputs single-partition even when
+        // the session target_partitions is > 1. The downstream write path coalesces
+        // to one partition to emit a single file, but that coalescing does not
+        // preserve row order across parallel input partitions.
+        register_frame_from_arrow_stream_single_partition(
             py_ctx,
             stream_reader,
             schema.clone(),
