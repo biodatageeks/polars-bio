@@ -14,6 +14,7 @@ use datafusion::arrow::ffi_stream::ArrowArrayStreamReader;
 use datafusion::arrow::pyarrow::PyArrowType;
 use datafusion::dataframe::DataFrame;
 use datafusion::datasource::MemTable;
+use datafusion::physical_plan::ExecutionPlanProperties;
 use datafusion_bio_format_core::object_storage::ObjectStorageOptions;
 use datafusion_bio_format_vcf::storage::VcfReader;
 use datafusion_python::dataframe::PyDataFrame;
@@ -260,6 +261,51 @@ fn py_register_table(
                 )))
             },
         }
+    })
+}
+
+/// Test helper: register one Arrow C stream input and return the physical partition count.
+///
+/// This exercises the same streaming-table registration path used by LazyFrame-backed
+/// range operations, but keeps the surface area small for Python unit tests.
+#[pyfunction]
+#[pyo3(signature = (py_ctx, stream, schema))]
+fn py_debug_arrow_stream_partition_count(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    stream: PyArrowType<ArrowArrayStreamReader>,
+    schema: PyArrowType<arrow::datatypes::Schema>,
+) -> PyResult<usize> {
+    let stream_reader = stream.0;
+    let schema = Arc::new(schema.0);
+    let table_name = format!("_debug_stream_{}", rand::random::<u32>());
+
+    py.allow_threads(|| {
+        let rt = Runtime::new().map_err(|e| PyValueError::new_err(e.to_string()))?;
+        let ctx = &py_ctx.ctx;
+
+        register_frame_from_arrow_stream(py_ctx, stream_reader, schema, table_name.clone());
+
+        let partition_count = rt
+            .block_on(async {
+                let df = ctx
+                    .table(&table_name)
+                    .await
+                    .map_err(|e| format!("Failed to access debug table: {}", e))?;
+                let logical_plan = df.logical_plan().clone();
+                let physical_plan = ctx
+                    .state()
+                    .create_physical_plan(&logical_plan)
+                    .await
+                    .map_err(|e| format!("Failed to build debug physical plan: {}", e))?;
+                Ok::<usize, String>(physical_plan.output_partitioning().partition_count())
+            })
+            .map_err(PyRuntimeError::new_err)?;
+
+        ctx.deregister_table(&table_name)
+            .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+
+        Ok(partition_count)
     })
 }
 
@@ -736,6 +782,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(range_operation_lazy, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_debug_arrow_stream_partition_count, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_sql, m)?)?;
     m.add_function(wrap_pyfunction!(py_get_table_schema, m)?)?;
