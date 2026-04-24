@@ -141,17 +141,22 @@ def test_pandas_dataframe_to_reader_uses_arrow_c_stream():
                 self, requested_schema=requested_schema, **kwargs
             )
 
-    df = TrackingDataFrame(
-        {
-            "contig": ["chr1", "chr2"],
-            "pos_start": [1, 10],
-            "pos_end": [5, 20],
-        }
-    )
+    for contig_values in (
+        ["chr1", "chr2"],
+        pd.Series(["chr1", "chr2"], dtype="string"),
+    ):
+        TrackingDataFrame.arrow_stream_called = False
+        df = TrackingDataFrame(
+            {
+                "contig": contig_values,
+                "pos_start": [1, 10],
+                "pos_end": [5, 20],
+            }
+        )
 
-    reader = _df_to_reader(df, "contig")
-    batches = list(reader)
+        reader = _df_to_reader(df, "contig")
+        batches = list(reader)
 
-    assert TrackingDataFrame.arrow_stream_called
-    assert len(batches) == 1
-    assert batches[0].schema.field("contig").type == pa.large_string()
+        assert TrackingDataFrame.arrow_stream_called
+        assert len(batches) == 1
+        assert pa.types.is_large_string(batches[0].schema.field("contig").type)

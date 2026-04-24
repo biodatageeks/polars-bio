@@ -37,6 +37,9 @@ env:
 jobs:
   rust_tests:
     runs-on: ubuntu-latest
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4

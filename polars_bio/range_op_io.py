@@ -127,7 +127,8 @@ def range_lazy_scan(
                 _n_rows,
             )
         else:
-            assert reader_factory1 is not None and reader_factory2 is not None
+            if reader_factory1 is None or reader_factory2 is None:
+                raise RuntimeError("reader factories must be set for eager execution")
             # Create fresh readers from eager DataFrames. Polars inputs reuse a
             # pre-converted Arrow table; pandas inputs export a fresh Arrow C
             # stream via the PyCapsule protocol on each execution.
@@ -407,10 +408,33 @@ def _df_to_reader(
             arrow_tbl = pa.Table.from_pandas(df)
             arrow_tbl = _string_to_largestring(arrow_tbl, col)
         else:
-            return pa.RecordBatchReader.from_stream(df)
+            reader = pa.RecordBatchReader.from_stream(df)
+            target_schema = _schema_with_largestring(reader.schema, col)
+            if target_schema == reader.schema:
+                return reader
+            return pa.RecordBatchReader.from_stream(df, schema=target_schema)
     else:
         raise ValueError("Only polars and pandas are supported")
     return arrow_tbl.to_reader()
+
+
+def _schema_with_largestring(schema: pa.Schema, column_name: str) -> pa.Schema:
+    try:
+        index = schema.names.index(column_name)
+    except ValueError as exc:
+        raise KeyError(f"Column '{column_name}' not found in the schema.") from exc
+    field = schema.field(index)
+    if pa.types.is_large_string(field.type):
+        return schema
+    return schema.set(
+        index,
+        pa.field(
+            field.name,
+            pa.large_string(),
+            nullable=field.nullable,
+            metadata=field.metadata,
+        ),
+    )
 
 
 def _make_eager_reader_factory(
@@ -419,6 +443,8 @@ def _make_eager_reader_factory(
 ) -> Callable[[], pa.RecordBatchReader]:
     if isinstance(df, pl.DataFrame):
         arrow_tbl = df.to_arrow()
+        # Returning the bound method lets each call create a fresh reader over
+        # the same immutable Arrow table without re-converting the DataFrame.
         return arrow_tbl.to_reader
     if pd and isinstance(df, pd.DataFrame):
         return lambda df=df, col=col: _df_to_reader(df, col)

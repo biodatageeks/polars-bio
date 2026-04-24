@@ -221,7 +221,7 @@ fn partition_record_batches(
 
     let total_rows = batches.iter().map(RecordBatch::num_rows).sum::<usize>();
     if total_rows == 0 {
-        return vec![batches];
+        return vec![vec![]];
     }
 
     let num_partitions = target_partitions.max(1).min(total_rows);
@@ -937,5 +937,30 @@ mod tests {
 
         assert_eq!(partitions.len(), 2);
         assert_eq!(partition_sizes(&partitions), vec![1, 1]);
+    }
+
+    #[test]
+    fn eager_partitioning_merges_batches_when_target_partitions_is_smaller() {
+        let batches = vec![
+            make_batch(0, 2),
+            make_batch(2, 2),
+            make_batch(4, 2),
+            make_batch(6, 2),
+        ];
+
+        let partitions = partition_record_batches(batches, 2);
+
+        assert_eq!(partitions.len(), 2);
+        assert_eq!(partition_sizes(&partitions), vec![4, 4]);
+    }
+
+    #[test]
+    fn eager_partitioning_uses_one_partition_when_target_is_zero() {
+        let batches = vec![make_batch(0, 3), make_batch(3, 2)];
+
+        let partitions = partition_record_batches(batches, 0);
+
+        assert_eq!(partitions.len(), 1);
+        assert_eq!(partition_sizes(&partitions), vec![5]);
     }
 }
