@@ -35,6 +35,21 @@ env:
   TARGET_CPU: skylake
 
 jobs:
+  rust_tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Set up Rust
+        run: rustup show
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Install system dependencies for Rust test build
+        run: sudo apt-get update && sudo apt-get install -y libbz2-dev liblzma-dev libcurl4-openssl-dev zlib1g-dev libdeflate-dev
+      - name: Run Rust unit tests
+        run: cargo test --lib
+
   linux_tests:
     runs-on: ubuntu-latest
     strategy:
@@ -167,7 +182,7 @@ jobs:
   release:
     name: Release
     if: "startsWith(github.ref, 'refs/tags/')"
-    needs: [linux, windows, macos, sdist]
+    needs: [rust_tests, linux, windows, macos, sdist]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -188,4 +203,3 @@ jobs:
       with:
         command: upload
         args: --non-interactive --skip-existing wheels-*/*
-
