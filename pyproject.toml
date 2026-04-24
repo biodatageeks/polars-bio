@@ -89,6 +89,7 @@ mkdocs-glightbox = "^0.5.1"
 cairosvg = "^2.8.2"
 bioframe = "^0.8.0"
 weasyprint = ">=68.0"
+Pygments = "<2.20"
 
 
 ## only for benchmarking
