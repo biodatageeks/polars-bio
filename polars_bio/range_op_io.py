@@ -44,7 +44,7 @@ def range_lazy_scan(
     if use_file_paths:
         range_function = range_operation_scan
         stored_df1, stored_df2 = df_1, df_2
-        stored_arrow_tbl1 = stored_arrow_tbl2 = None
+        reader_factory1 = reader_factory2 = None
         lazy_sources = None
     elif use_lazy_sources:
         range_function = range_operation_lazy
@@ -58,30 +58,13 @@ def range_lazy_scan(
             _prepare_lazy_stream_input(df_2, col2, batch_size),
         )
         stored_df1 = stored_df2 = None
-        stored_arrow_tbl1 = stored_arrow_tbl2 = None
+        reader_factory1 = reader_factory2 = None
     else:
         range_function = range_operation_frame
         col1, col2 = range_options.columns_1[0], range_options.columns_2[0]
-
-        if isinstance(df_1, pl.DataFrame):
-            stored_arrow_tbl1 = df_1.to_arrow()
-            stored_df1 = df_1
-        elif pd is not None and isinstance(df_1, pd.DataFrame):
-            stored_arrow_tbl1 = pa.Table.from_pandas(df_1)
-            stored_arrow_tbl1 = _string_to_largestring(stored_arrow_tbl1, col1)
-            stored_df1 = df_1
-        else:
-            raise ValueError("df_1 must be a Polars DataFrame or Pandas DataFrame")
-
-        if isinstance(df_2, pl.DataFrame):
-            stored_arrow_tbl2 = df_2.to_arrow()
-            stored_df2 = df_2
-        elif pd is not None and isinstance(df_2, pd.DataFrame):
-            stored_arrow_tbl2 = pa.Table.from_pandas(df_2)
-            stored_arrow_tbl2 = _string_to_largestring(stored_arrow_tbl2, col2)
-            stored_df2 = df_2
-        else:
-            raise ValueError("df_2 must be a Polars DataFrame or Pandas DataFrame")
+        stored_df1 = stored_df2 = None
+        reader_factory1 = _make_eager_reader_factory(df_1, col1)
+        reader_factory2 = _make_eager_reader_factory(df_2, col2)
         lazy_sources = None
 
     def _range_source(
@@ -144,11 +127,12 @@ def range_lazy_scan(
                 _n_rows,
             )
         else:
-            # Create fresh readers from pre-converted Arrow tables.
-            # Arrow tables were converted in the main thread (thread-safe).
-            # Creating readers from tables is thread-safe.
-            reader1 = stored_arrow_tbl1.to_reader()
-            reader2 = stored_arrow_tbl2.to_reader()
+            assert reader_factory1 is not None and reader_factory2 is not None
+            # Create fresh readers from eager DataFrames. Polars inputs reuse a
+            # pre-converted Arrow table; pandas inputs export a fresh Arrow C
+            # stream via the PyCapsule protocol on each execution.
+            reader1 = reader_factory1()
+            reader2 = reader_factory2()
             df_lazy: datafusion.DataFrame = range_function(
                 ctx,
                 reader1,
@@ -419,8 +403,23 @@ def _df_to_reader(
     if isinstance(df, pl.DataFrame):
         arrow_tbl = df.to_arrow()
     elif pd and isinstance(df, pd.DataFrame):
-        arrow_tbl = pa.Table.from_pandas(df)
-        arrow_tbl = _string_to_largestring(arrow_tbl, col)
+        if not hasattr(df, "__arrow_c_stream__"):
+            arrow_tbl = pa.Table.from_pandas(df)
+            arrow_tbl = _string_to_largestring(arrow_tbl, col)
+        else:
+            return pa.RecordBatchReader.from_stream(df)
     else:
         raise ValueError("Only polars and pandas are supported")
     return arrow_tbl.to_reader()
+
+
+def _make_eager_reader_factory(
+    df: Union[pl.DataFrame, "pd.DataFrame"],
+    col: str,
+) -> Callable[[], pa.RecordBatchReader]:
+    if isinstance(df, pl.DataFrame):
+        arrow_tbl = df.to_arrow()
+        return arrow_tbl.to_reader
+    if pd and isinstance(df, pd.DataFrame):
+        return lambda df=df, col=col: _df_to_reader(df, col)
+    raise ValueError("df must be a Polars DataFrame or Pandas DataFrame")
