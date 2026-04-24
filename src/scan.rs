@@ -203,30 +203,68 @@ impl PartitionStream for ArrowCStreamFanoutPartitionStream {
     }
 }
 
+/// Split eager RecordBatches into row-balanced partitions.
+///
+/// DataFrame inputs often arrive as a small number of large Arrow batches
+/// (for example one batch per Parquet row group). Treating those batches as
+/// indivisible caps parallelism at `batches.len()`, even when session
+/// `target_partitions` is larger. We instead slice large batches into
+/// zero-copy RecordBatch views so eager inputs can fill the requested
+/// partitions.
+fn partition_record_batches(
+    batches: Vec<RecordBatch>,
+    target_partitions: usize,
+) -> Vec<Vec<RecordBatch>> {
+    if batches.is_empty() {
+        return vec![vec![]];
+    }
+
+    let total_rows = batches.iter().map(RecordBatch::num_rows).sum::<usize>();
+    if total_rows == 0 {
+        return vec![vec![]];
+    }
+
+    let num_partitions = target_partitions.max(1).min(total_rows);
+    let base_rows_per_partition = total_rows / num_partitions;
+    let partitions_with_extra_row = total_rows % num_partitions;
+    let mut partition_batches: Vec<Vec<RecordBatch>> =
+        (0..num_partitions).map(|_| Vec::new()).collect();
+    let mut partition_index = 0usize;
+    let mut partition_rows_remaining =
+        base_rows_per_partition + usize::from(partition_index < partitions_with_extra_row);
+
+    for batch in batches {
+        let batch_rows = batch.num_rows();
+        if batch_rows == 0 {
+            continue;
+        }
+
+        let mut offset = 0usize;
+        while offset < batch_rows {
+            if partition_rows_remaining == 0 && partition_index + 1 < num_partitions {
+                partition_index += 1;
+                partition_rows_remaining = base_rows_per_partition
+                    + usize::from(partition_index < partitions_with_extra_row);
+            }
+
+            let slice_len = (batch_rows - offset).min(partition_rows_remaining);
+            partition_batches[partition_index].push(batch.slice(offset, slice_len));
+            offset += slice_len;
+            partition_rows_remaining -= slice_len;
+        }
+    }
+
+    partition_batches
+}
+
 /// Distributes RecordBatches into PartitionStreams for parallel execution.
-/// Uses round-robin distribution to balance batches across partitions.
 fn create_partition_streams(
     schema: SchemaRef,
     batches: Vec<RecordBatch>,
     target_partitions: usize,
 ) -> Vec<Arc<dyn PartitionStream>> {
-    if batches.is_empty() {
-        // Return single empty partition
-        return vec![Arc::new(RecordBatchPartitionStream::new(schema, vec![]))];
-    }
-
-    let num_partitions = target_partitions.min(batches.len()).max(1);
-    let mut partition_batches: Vec<Vec<RecordBatch>> =
-        (0..num_partitions).map(|_| Vec::new()).collect();
-
-    // Round-robin distribution
-    for (i, batch) in batches.into_iter().enumerate() {
-        partition_batches[i % num_partitions].push(batch);
-    }
-
-    partition_batches
+    partition_record_batches(batches, target_partitions)
         .into_iter()
-        .filter(|p| !p.is_empty())
         .map(|batches| {
             Arc::new(RecordBatchPartitionStream::new(schema.clone(), batches))
                 as Arc<dyn PartitionStream>
@@ -827,4 +865,102 @@ pub fn py_describe_cram(
             })?;
         Ok(datafusion_python::dataframe::PyDataFrame::new(df))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use arrow::array::{Int32Array, StringArray};
+    use arrow_schema::{DataType, Field, Schema};
+
+    use super::partition_record_batches;
+    use super::RecordBatch;
+
+    fn make_batch(start: i32, len: usize) -> RecordBatch {
+        let contigs = StringArray::from_iter_values((0..len).map(|_| "chr1"));
+        let starts = Int32Array::from_iter_values((0..len).map(|offset| start + offset as i32));
+        let ends = Int32Array::from_iter_values((0..len).map(|offset| start + offset as i32 + 10));
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("contig", DataType::Utf8, false),
+            Field::new("start", DataType::Int32, false),
+            Field::new("end", DataType::Int32, false),
+        ]));
+
+        RecordBatch::try_new(
+            schema,
+            vec![Arc::new(contigs), Arc::new(starts), Arc::new(ends)],
+        )
+        .unwrap()
+    }
+
+    fn partition_sizes(partitions: &[Vec<RecordBatch>]) -> Vec<usize> {
+        partitions
+            .iter()
+            .map(|partition| partition.iter().map(RecordBatch::num_rows).sum())
+            .collect()
+    }
+
+    #[test]
+    fn eager_partitioning_splits_large_batches_to_fill_target_partitions() {
+        let batches = vec![make_batch(0, 10), make_batch(10, 10)];
+
+        let partitions = partition_record_batches(batches, 4);
+
+        assert_eq!(partitions.len(), 4);
+        assert_eq!(partition_sizes(&partitions), vec![5, 5, 5, 5]);
+        assert_eq!(
+            partitions
+                .iter()
+                .flatten()
+                .map(RecordBatch::num_rows)
+                .collect::<Vec<_>>(),
+            vec![5, 5, 5, 5]
+        );
+    }
+
+    #[test]
+    fn eager_partitioning_balances_rows_when_total_rows_not_divisible() {
+        let batches = vec![make_batch(0, 10), make_batch(10, 3)];
+
+        let partitions = partition_record_batches(batches, 4);
+
+        assert_eq!(partitions.len(), 4);
+        assert_eq!(partition_sizes(&partitions), vec![4, 3, 3, 3]);
+    }
+
+    #[test]
+    fn eager_partitioning_caps_partitions_at_total_rows() {
+        let batches = vec![make_batch(0, 2)];
+
+        let partitions = partition_record_batches(batches, 8);
+
+        assert_eq!(partitions.len(), 2);
+        assert_eq!(partition_sizes(&partitions), vec![1, 1]);
+    }
+
+    #[test]
+    fn eager_partitioning_merges_batches_when_target_partitions_is_smaller() {
+        let batches = vec![
+            make_batch(0, 2),
+            make_batch(2, 2),
+            make_batch(4, 2),
+            make_batch(6, 2),
+        ];
+
+        let partitions = partition_record_batches(batches, 2);
+
+        assert_eq!(partitions.len(), 2);
+        assert_eq!(partition_sizes(&partitions), vec![4, 4]);
+    }
+
+    #[test]
+    fn eager_partitioning_uses_one_partition_when_target_is_zero() {
+        let batches = vec![make_batch(0, 3), make_batch(3, 2)];
+
+        let partitions = partition_record_batches(batches, 0);
+
+        assert_eq!(partitions.len(), 1);
+        assert_eq!(partition_sizes(&partitions), vec![5]);
+    }
 }
