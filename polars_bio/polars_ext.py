@@ -19,6 +19,7 @@ class PolarsRangesOperations:
         cols2=["chrom", "start", "end"],
         algorithm: str = "Coitrees",
         overlap_output: Literal["join", "left"] = "join",
+        distinct_output: bool = False,
     ) -> pl.LazyFrame:
         """
         !!! note
@@ -36,6 +37,7 @@ class PolarsRangesOperations:
             cols2=cols2,
             algorithm=algorithm,
             overlap_output=overlap_output,
+            distinct_output=distinct_output,
         )
 
     def nearest(

@@ -1550,7 +1550,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-function-ranges"
 version = "0.8.3"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=ebd00aff58fad9e74e8088ae41f37aa55de02688#ebd00aff58fad9e74e8088ae41f37aa55de02688"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=c850fc7a379c521a065329156ba0ff3507f12ad6#c850fc7a379c521a065329156ba0ff3507f12ad6"
 dependencies = [
  "ahash",
  "async-trait",
@@ -5856,7 +5856,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 [[package]]
 name = "superintervals"
 version = "0.10.3"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=ebd00aff58fad9e74e8088ae41f37aa55de02688#ebd00aff58fad9e74e8088ae41f37aa55de02688"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=c850fc7a379c521a065329156ba0ff3507f12ad6#c850fc7a379c521a065329156ba0ff3507f12ad6"
 dependencies = [
  "aligned-vec",
  "serde",

@@ -225,9 +225,11 @@ async fn do_overlap(
         .overlap_output
         .clone()
         .unwrap_or(OverlapOutputMode::Join);
-    let upstream_overlap_output = match overlap_output {
-        OverlapOutputMode::Join => RangesOverlapOutputMode::Join,
-        OverlapOutputMode::Left => RangesOverlapOutputMode::Left,
+    let distinct_output = range_opts.distinct_output.unwrap_or(false);
+    let upstream_overlap_output = match (&overlap_output, distinct_output) {
+        (OverlapOutputMode::Join, _) => RangesOverlapOutputMode::Join,
+        (OverlapOutputMode::Left, false) => RangesOverlapOutputMode::Left,
+        (OverlapOutputMode::Left, true) => RangesOverlapOutputMode::LeftDistinct,
     };
 
     let session = ctx.clone();

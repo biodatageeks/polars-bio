@@ -1324,7 +1324,15 @@ Use `overlap_output="left"` when you only need rows from `df1` that overlap at l
 pb.overlap(df1, df2, overlap_output="left")
 ```
 
-The left output mode returns only `df1` columns with their original names. It preserves duplicate rows from `df1` by row identity and does not use `DISTINCT` over projected values.
+The left output mode returns only `df1` columns with their original names. By default it preserves overlap multiplicity, returning one `df1` row for each matching `df2` row.
+
+Use `distinct_output=True` to return each overlapping `df1` row once by row identity:
+
+```python
+pb.overlap(df1, df2, overlap_output="left", distinct_output=True)
+```
+
+This distinct mode preserves duplicate rows from `df1` by row identity and does not use `DISTINCT` over projected values.
 
 ## Compression
 *polars-bio* supports **GZIP** (default file extension `*.gz`) and **Block GZIP** (BGZIP, default file extension `*.bgz`) when reading files from local and cloud storages.

@@ -1362,6 +1362,23 @@ colorama = ">=0.4"
 pypi = ["pip (>=24.0)", "platformdirs (>=4.2)", "wheel (>=0.42)"]
 
 [[package]]
+name = "gtfreader"
+version = "0.2.0"
+description = "Fast Cython-backed parsing for GTF attribute columns."
+optional = false
+python-versions = ">=3.12"
+groups = ["main", "dev"]
+markers = "python_version < \"3.14\" and python_version >= \"3.12\""
+files = [
+    {file = "gtfreader-0.2.0-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:77a112f972ed52ac7d37fe5dd13df2cb954a23905ad1f31a50a96a09bf50d839"},
+    {file = "gtfreader-0.2.0-cp313-cp313-manylinux_2_5_x86_64.manylinux1_x86_64.manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e98c7c4e5c2e2d44341261ab3bd8bb47846b4cf6b494c97fc57e0b6a886e9b5d"},
+    {file = "gtfreader-0.2.0.tar.gz", hash = "sha256:59c0dece31c8fcb2b398beb247fd6b6214d0a20bd6122987ed5fd67efb11b61d"},
+]
+
+[package.dependencies]
+pandas = ">=2.0"
+
+[[package]]
 name = "h11"
 version = "0.16.0"
 description = "A pure-Python, bring-your-own-I/O implementation of HTTP/1.1"
@@ -3175,11 +3192,12 @@ version = "8.4.0"
 description = "Simple yet flexible natural sorting in Python."
 optional = false
 python-versions = ">=3.7"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "natsort-8.4.0-py3-none-any.whl", hash = "sha256:4732914fb471f56b5cce04d7bae6f164a592c7712e1c85f9ef585e197299521c"},
     {file = "natsort-8.4.0.tar.gz", hash = "sha256:45312c4a0e5507593da193dedd04abb1469253b601ecaf63445ad80f0a1ea581"},
 ]
+markers = {main = "python_version < \"3.14\" and python_version >= \"3.12\""}
 
 [package.extras]
 fast = ["fastnumbers (>=2.0.0)"]
@@ -4291,6 +4309,33 @@ reference = "4f0a153336e7153cdfea15b141ce4ea35a24e233"
 resolved_reference = "4f0a153336e7153cdfea15b141ce4ea35a24e233"
 
 [[package]]
+name = "pyranges1"
+version = "1.3.8"
+description = "GenomicRanges for Python."
+optional = false
+python-versions = ">=3.12.0"
+groups = ["main", "dev"]
+markers = "python_version < \"3.14\" and python_version >= \"3.12\""
+files = [
+    {file = "pyranges1-1.3.8-py3-none-any.whl", hash = "sha256:0cae73cb2ab8b564e93004350f6c490f759de107b70a6b9431444fabb460db5e"},
+    {file = "pyranges1-1.3.8.tar.gz", hash = "sha256:91a68f4bcad99804fe8700ec1a5d7aaeaab4d70a4264c535cd2d36739b5bd0c2"},
+]
+
+[package.dependencies]
+gtfreader = ">=0.2.0"
+natsort = "*"
+pandas = "*"
+ruranges = ">=0.1.4"
+tabulate = "*"
+
+[package.extras]
+add-ons = ["bamread", "joblib", "pyBigWig", "pyfaidx", "pyrle (>=0.0.43)"]
+all = ["pyranges1[add-ons]", "pyranges1[cli]", "pyranges1[dev]", "pyranges1[docs]"]
+cli = ["fire"]
+dev = ["pandas-stubs", "pyright", "pytest-watcher", "pytest-xdist", "ruff (==0.14.1)", "tox", "types-tabulate"]
+docs = ["sphinx", "sphinx-autoapi", "sphinx_rtd_theme", "sphinxcontrib-napoleon"]
+
+[[package]]
 name = "pysam"
 version = "0.23.3"
 description = "Package for reading, manipulating, and writing genomic data"
@@ -4890,6 +4935,25 @@ files = [
 ]
 
 [[package]]
+name = "ruranges"
+version = "0.1.4"
+description = ""
+optional = false
+python-versions = ">=3.12"
+groups = ["main", "dev"]
+markers = "python_version < \"3.14\" and python_version >= \"3.12\""
+files = [
+    {file = "ruranges-0.1.4-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:2fc7ff8257ce22656d747724382da7b92450c29e6fa9196b912081e9d9dcf1dc"},
+    {file = "ruranges-0.1.4-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:8b6af7012856416abe1e0acfc3974a8595d6eb04eaee3a6c1ad2d2e3ad9f6da4"},
+    {file = "ruranges-0.1.4-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:5d76c13f65b8ecc134d0a3433ecf46b488850b735cf6b010b3146f7fa9653fde"},
+    {file = "ruranges-0.1.4-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:5835045ce5b594cf9ac69ba1d08dfc847a05f2efb0d8cdc3419dc913ef5e2c2c"},
+    {file = "ruranges-0.1.4.tar.gz", hash = "sha256:b5d8710a0fb36ab364f2543dff4eb450d38360539bd58ec7ecdc5405acdfb5f1"},
+]
+
+[package.dependencies]
+numpy = "*"
+
+[[package]]
 name = "seaborn"
 version = "0.13.2"
 description = "Statistical data visualization"
@@ -5092,11 +5156,12 @@ version = "0.9.0"
 description = "Pretty-print tabular data"
 optional = false
 python-versions = ">=3.7"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "tabulate-0.9.0-py3-none-any.whl", hash = "sha256:024ca478df22e9340661486f85298cff5f6dcdba14f3813e8830015b9ed1948f"},
     {file = "tabulate-0.9.0.tar.gz", hash = "sha256:0095b12bf5966de529c0feb1fa08671671b3368eec77d7ef7ab114be2c068b3c"},
 ]
+markers = {main = "python_version < \"3.14\" and python_version >= \"3.12\""}
 
 [package.extras]
 widechars = ["wcwidth"]
@@ -5494,10 +5559,10 @@ test = ["pytest"]
 
 [extras]
 pandas = ["pandas"]
-test = ["pysam"]
+test = ["pyranges1", "pysam"]
 viz = ["bioframe", "matplotlib"]
 
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.15"
-content-hash = "942515a66c4b9f7d82a1df49582d62af4e83e2d436862a7757798136a3b78d7b"
+content-hash = "5b1d72169c713adbe6ed4c12eef95bf40e44e4b796e0bc7f9e6895be73a1cbc8"

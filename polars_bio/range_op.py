@@ -124,6 +124,7 @@ class IntervalOperations:
         algorithm: str = "Coitrees",
         low_memory: bool = False,
         overlap_output: Literal["join", "left"] = "join",
+        distinct_output: bool = False,
         output_type: str = "polars.LazyFrame",
         read_options1: Union[ReadOptions, None] = None,
         read_options2: Union[ReadOptions, None] = None,
@@ -149,6 +150,7 @@ class IntervalOperations:
             algorithm: The algorithm to use for the overlap operation. Available options: Coitrees, IntervalTree, ArrayIntervalTree, Lapper, SuperIntervals
             low_memory: If True, use low memory method for output generation. This caps the output batch size, trading some performance for significantly lower peak memory consumption. Recommended for operations that produce very large result sets.
             overlap_output: Output shape for overlap. "join" returns the current joined df1/df2 rows with suffixes. "left" returns only df1 rows that overlap at least one df2 row, preserving duplicate df1 rows and original column names.
+            distinct_output: When overlap_output="left", True returns each overlapping df1 row once by row identity. False returns one df1 row per matching df2 row.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             read_options1: Additional options for reading the input files.
             read_options2: Additional options for reading the input files.
@@ -222,6 +224,7 @@ class IntervalOperations:
             overlap_alg=algorithm,
             overlap_low_memory=low_memory,
             overlap_output=_parse_overlap_output_mode(overlap_output),
+            distinct_output=distinct_output,
         )
 
         return range_operation(
