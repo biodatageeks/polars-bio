@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 import polars as pl
 
@@ -18,6 +18,7 @@ class PolarsRangesOperations:
         cols1=["chrom", "start", "end"],
         cols2=["chrom", "start", "end"],
         algorithm: str = "Coitrees",
+        overlap_output: Literal["join", "left"] = "join",
     ) -> pl.LazyFrame:
         """
         !!! note
@@ -34,6 +35,7 @@ class PolarsRangesOperations:
             cols1=cols1,
             cols2=cols2,
             algorithm=algorithm,
+            overlap_output=overlap_output,
         )
 
     def nearest(

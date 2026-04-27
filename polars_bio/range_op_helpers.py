@@ -6,6 +6,7 @@ import polars as pl
 from polars_bio.polars_bio import (
     BioSessionContext,
     FilterOp,
+    OverlapOutputMode,
     RangeOp,
     RangeOptions,
     ReadOptions,
@@ -58,7 +59,9 @@ def _generate_overlap_schema(
     range_options: RangeOptions,
 ) -> pl.Schema:
     """Generate schema for overlap operations with correct suffix handling."""
-    coord_cols = set(range_options.columns_1 + range_options.columns_2)
+    if range_options.overlap_output == OverlapOutputMode.Left:
+        return df1_schema
+
     merged_schema_dict = {}
 
     # Add df1 columns with appropriate suffixes

@@ -1310,6 +1310,22 @@ Parallellism can be controlled using the `datafusion.execution.target_partitions
     └──────────┴─────────────┴───────────┴──────────┴─────────────┴───────────┘
    ```
 
+### Overlap Output Modes
+
+`pb.overlap()` returns joined pairs by default. This is the historical behavior and keeps suffixing both inputs:
+
+```python
+pb.overlap(df1, df2, overlap_output="join")
+```
+
+Use `overlap_output="left"` when you only need rows from `df1` that overlap at least one row in `df2`:
+
+```python
+pb.overlap(df1, df2, overlap_output="left")
+```
+
+The left output mode returns only `df1` columns with their original names. It preserves duplicate rows from `df1` by row identity and does not use `DISTINCT` over projected values.
+
 ## Compression
 *polars-bio* supports **GZIP** (default file extension `*.gz`) and **Block GZIP** (BGZIP, default file extension `*.bgz`) when reading files from local and cloud storages.
 For BGZIP-compressed FASTQ files, parallel decoding of compressed blocks is **automatic** — see [Automatic parallel partitioning](#automatic-parallel-partitioning) and [Index file generation](#index-file-generation) for details. Please take a look at the following [GitHub discussion](https://github.com/biodatageeks/polars-bio/issues/132).

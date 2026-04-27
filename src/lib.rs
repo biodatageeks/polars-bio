@@ -29,7 +29,7 @@ use crate::option::{
     pyobject_storage_options_to_object_storage_options, BamReadOptions, BamWriteOptions,
     BedReadOptions, BioTable, CramReadOptions, CramWriteOptions, FastaReadOptions,
     FastaWriteOptions, FastqReadOptions, FastqWriteOptions, FilterOp, GffReadOptions,
-    GtfReadOptions, InputFormat, OutputFormat, PairsReadOptions, PileupOptions,
+    GtfReadOptions, InputFormat, OutputFormat, OverlapOutputMode, PairsReadOptions, PileupOptions,
     PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions, VcfWriteOptions,
     WriteOptions,
 };
@@ -802,6 +802,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;
+    m.add_class::<OverlapOutputMode>()?;
     m.add_class::<RangeOptions>()?;
     m.add_class::<InputFormat>()?;
     m.add_class::<OutputFormat>()?;
