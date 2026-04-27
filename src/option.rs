@@ -23,6 +23,10 @@ pub struct RangeOptions {
     #[pyo3(get, set)]
     pub overlap_low_memory: Option<bool>,
     #[pyo3(get, set)]
+    pub overlap_output: Option<OverlapOutputMode>,
+    #[pyo3(get, set)]
+    pub distinct_output: Option<bool>,
+    #[pyo3(get, set)]
     pub nearest_k: Option<usize>,
     #[pyo3(get, set)]
     pub include_overlaps: Option<bool>,
@@ -40,7 +44,7 @@ pub struct RangeOptions {
 impl RangeOptions {
     #[allow(clippy::too_many_arguments)]
     #[new]
-    #[pyo3(signature = (range_op, filter_op=None, suffixes=None, columns_1=None, columns_2=None, on_cols=None, overlap_alg=None, overlap_low_memory=None, nearest_k=None, include_overlaps=None, compute_distance=None, min_dist=None, view_table=None, view_columns=None))]
+    #[pyo3(signature = (range_op, filter_op=None, suffixes=None, columns_1=None, columns_2=None, on_cols=None, overlap_alg=None, overlap_low_memory=None, nearest_k=None, include_overlaps=None, compute_distance=None, min_dist=None, view_table=None, view_columns=None, overlap_output=None, distinct_output=None))]
     pub fn new(
         range_op: RangeOp,
         filter_op: Option<FilterOp>,
@@ -56,6 +60,8 @@ impl RangeOptions {
         min_dist: Option<i64>,
         view_table: Option<String>,
         view_columns: Option<Vec<String>>,
+        overlap_output: Option<OverlapOutputMode>,
+        distinct_output: Option<bool>,
     ) -> Self {
         RangeOptions {
             range_op,
@@ -66,6 +72,8 @@ impl RangeOptions {
             on_cols,
             overlap_alg,
             overlap_low_memory,
+            overlap_output,
+            distinct_output,
             nearest_k,
             include_overlaps,
             compute_distance,
@@ -74,6 +82,13 @@ impl RangeOptions {
             view_columns,
         }
     }
+}
+
+#[pyclass(eq, eq_int)]
+#[derive(Clone, PartialEq, Debug)]
+pub enum OverlapOutputMode {
+    Join = 0,
+    Left = 1,
 }
 
 #[pyclass(eq, eq_int)]

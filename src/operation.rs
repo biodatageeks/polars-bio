@@ -5,7 +5,8 @@ use datafusion::common::TableReference;
 use datafusion::prelude::SessionContext;
 use datafusion_bio_function_ranges::{
     Algorithm, BioConfig, ClusterProvider, ComplementProvider, CountOverlapsProvider,
-    FilterOp as RangesFilterOp, MergeProvider, NearestProvider, OverlapProvider, SubtractProvider,
+    FilterOp as RangesFilterOp, MergeProvider, NearestProvider,
+    OverlapOutputMode as RangesOverlapOutputMode, OverlapProvider, SubtractProvider,
 };
 use log::{debug, info};
 use tokio::runtime::Runtime;
@@ -19,7 +20,7 @@ static COMPLEMENT_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
 static SUBTRACT_TABLE_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 use crate::context::set_option_internal;
-use crate::option::{FilterOp, RangeOp, RangeOptions};
+use crate::option::{FilterOp, OverlapOutputMode, RangeOp, RangeOptions};
 use crate::utils::default_cols_to_string;
 use crate::DEFAULT_COLUMN_NAMES;
 
@@ -220,6 +221,16 @@ async fn do_overlap(
         FilterOp::Weak => RangesFilterOp::Weak,
         FilterOp::Strict => RangesFilterOp::Strict,
     };
+    let overlap_output = range_opts
+        .overlap_output
+        .clone()
+        .unwrap_or(OverlapOutputMode::Join);
+    let distinct_output = range_opts.distinct_output.unwrap_or(false);
+    let upstream_overlap_output = match (&overlap_output, distinct_output) {
+        (OverlapOutputMode::Join, _) => RangesOverlapOutputMode::Join,
+        (OverlapOutputMode::Left, false) => RangesOverlapOutputMode::Left,
+        (OverlapOutputMode::Left, true) => RangesOverlapOutputMode::LeftDistinct,
+    };
 
     let session = ctx.clone();
     let left_table_ref = TableReference::from(left_table.clone());
@@ -239,7 +250,7 @@ async fn do_overlap(
         .as_arrow()
         .clone();
 
-    let overlap_provider = OverlapProvider::new(
+    let overlap_provider = OverlapProvider::new_with_output_mode(
         Arc::new(session),
         left_table,
         right_table,
@@ -248,6 +259,7 @@ async fn do_overlap(
         columns_1,
         columns_2,
         upstream_filter_op,
+        upstream_overlap_output,
     );
 
     let table_name = format!(
@@ -257,24 +269,35 @@ async fn do_overlap(
     ctx.register_table(table_name.as_str(), Arc::new(overlap_provider))
         .unwrap();
 
-    // Build SELECT clause to rename left_* → *{suffix_1}, right_* → *{suffix_2}
     let mut select_parts = Vec::new();
-    for field in left_schema.fields() {
-        select_parts.push(format!(
-            "`left_{}` AS `{}{}`",
-            field.name(),
-            field.name(),
-            suffixes.0
-        ));
+
+    match overlap_output {
+        OverlapOutputMode::Join => {
+            // Build SELECT clause to rename left_* -> *{suffix_1}, right_* -> *{suffix_2}
+            for field in left_schema.fields() {
+                select_parts.push(format!(
+                    "`left_{}` AS `{}{}`",
+                    field.name(),
+                    field.name(),
+                    suffixes.0
+                ));
+            }
+            for field in right_schema.fields() {
+                select_parts.push(format!(
+                    "`right_{}` AS `{}{}`",
+                    field.name(),
+                    field.name(),
+                    suffixes.1
+                ));
+            }
+        },
+        OverlapOutputMode::Left => {
+            for field in left_schema.fields() {
+                select_parts.push(format!("`{}`", field.name()));
+            }
+        },
     }
-    for field in right_schema.fields() {
-        select_parts.push(format!(
-            "`right_{}` AS `{}{}`",
-            field.name(),
-            field.name(),
-            suffixes.1
-        ));
-    }
+
     let query = format!("SELECT {} FROM {}", select_parts.join(", "), table_name);
     debug!("Query: {}", query);
     ctx.sql(&query).await.unwrap()
