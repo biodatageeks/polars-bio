@@ -352,7 +352,7 @@ class TestOptimizationPerformance:
 
         # Don't make this test too strict - performance can vary
         # Just ensure optimized version isn't significantly slower
-        assert optimized_time <= unoptimized_time * 2.0, (
+        assert optimized_time <= unoptimized_time * 1.5, (
             f"Optimizations seem to have made query slower: "
             f"{optimized_time:.3f}s vs {unoptimized_time:.3f}s"
         )
