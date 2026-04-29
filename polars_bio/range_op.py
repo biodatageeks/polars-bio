@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import itertools
+from typing import Literal, Union
 
 import datafusion
 import polars as pl
 from datafusion import col, literal
-from typing_extensions import Literal, Union
 
 from polars_bio.polars_bio import ReadOptions
 
