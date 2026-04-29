@@ -1,10 +1,9 @@
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Union
 
 import datafusion
 import polars as pl
 import pyarrow as pa
-from typing_extensions import Union
 
 from .constants import DEFAULT_INTERVAL_COLUMNS
 from .context import Context
