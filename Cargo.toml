@@ -43,3 +43,21 @@ async-trait = "0.1.86"
 futures = "0.3.31"
 rand = "0.8.5"
 serde_json = "1.0"
+
+# Temporary patch: override datafusion-bio-format-* crates to pull from
+# sitekwb's fork containing the bare-INFO-key fix
+# (biodatageeks/datafusion-bio-formats#178). Once that PR merges and a new
+# datafusion-bio-formats release is cut, the rev pins above can be bumped
+# directly and this [patch] block removed.
+# Tracking: biodatageeks/polars-bio#380, biodatageeks/datafusion-bio-formats#178
+[patch."https://github.com/biodatageeks/datafusion-bio-formats.git"]
+datafusion-bio-format-vcf = { git = "https://github.com/sitekwb/datafusion-bio-formats.git", branch = "claude/fix-info-missing-array-q9k7" }
+datafusion-bio-format-core = { git = "https://github.com/sitekwb/datafusion-bio-formats.git", branch = "claude/fix-info-missing-array-q9k7" }
+datafusion-bio-format-gff = { git = "https://github.com/sitekwb/datafusion-bio-formats.git", branch = "claude/fix-info-missing-array-q9k7" }
+datafusion-bio-format-fastq = { git = "https://github.com/sitekwb/datafusion-bio-formats.git", branch = "claude/fix-info-missing-array-q9k7" }
+datafusion-bio-format-bam = { git = "https://github.com/sitekwb/datafusion-bio-formats.git", branch = "claude/fix-info-missing-array-q9k7" }
+datafusion-bio-format-cram = { git = "https://github.com/sitekwb/datafusion-bio-formats.git", branch = "claude/fix-info-missing-array-q9k7" }
+datafusion-bio-format-bed = { git = "https://github.com/sitekwb/datafusion-bio-formats.git", branch = "claude/fix-info-missing-array-q9k7" }
+datafusion-bio-format-fasta = { git = "https://github.com/sitekwb/datafusion-bio-formats.git", branch = "claude/fix-info-missing-array-q9k7" }
+datafusion-bio-format-pairs = { git = "https://github.com/sitekwb/datafusion-bio-formats.git", branch = "claude/fix-info-missing-array-q9k7" }
+datafusion-bio-format-gtf = { git = "https://github.com/sitekwb/datafusion-bio-formats.git", branch = "claude/fix-info-missing-array-q9k7" }
