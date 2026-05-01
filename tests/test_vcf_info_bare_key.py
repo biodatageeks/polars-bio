@@ -56,6 +56,24 @@ def test_bare_info_array_key_yields_null():
     assert abs(af2[0] - 0.1) < 1e-6
 
 
+def test_real_data_evidence_bare_key_yields_null():
+    """Real-data regression: row 4,032,720 of HG00096.hg38.wgs.vcf.bgz
+    (1000 Genomes high-coverage WGS), chrX:1946351 ``<DEL>``, where the
+    bare INFO key ``EVIDENCE`` (declared ``Number=.,Type=String``)
+    appears at the end of the INFO column with no ``=value`` separator.
+    Without the fix at ``physical_exec.rs`` L483 this row crashes the
+    entire batch with
+    ``InvalidArgumentError("Error reading INFO field: missing value")``.
+    """
+    realdata_path = "tests/data/io/vcf/info_bare_key_realdata.vcf"
+    df = pb.read_vcf(realdata_path, info_fields=["AC", "AF", "EVIDENCE"])
+    assert len(df) == 1, f"Expected 1 row, got {len(df)}"
+    assert df["EVIDENCE"][0] is None, (
+        "EVIDENCE must read as null when the key has no =value "
+        "(real-data chrX:1946351 case)"
+    )
+
+
 def test_flag_key_still_works_alongside_bare_keys():
     """Flag INFO fields ('GT_FLAG' present means true) coexist with bare
     non-Flag keys without disturbing the record."""
