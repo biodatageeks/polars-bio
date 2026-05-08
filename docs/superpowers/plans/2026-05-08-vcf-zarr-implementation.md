@@ -467,6 +467,7 @@ use std::sync::Arc;
 
 use datafusion::common::{DataFusionError, Result};
 use serde_json::Value;
+use zarrs::config::MetadataRetrieveVersion;
 use zarrs::filesystem::FilesystemStore;
 use zarrs::group::Group;
 
@@ -500,7 +501,7 @@ impl VcfZarrMetadata {
             ))
         })?);
 
-        let group = Group::open(store, "/").map_err(|error| {
+        let group = Group::open_opt(store, "/", &MetadataRetrieveVersion::V2).map_err(|error| {
             DataFusionError::Execution(format!(
                 "Failed to read VCF Zarr root metadata at {path}: {error}"
             ))
