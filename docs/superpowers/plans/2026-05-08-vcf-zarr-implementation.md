@@ -456,17 +456,19 @@ fn vcf_zarr_accepts_version_0_4_fixture() {
 }
 ```
 
-- [ ] **Step 2: Implement root `.zattrs` parsing**
+- [ ] **Step 2: Implement root Zarr group metadata parsing with `zarrs`**
 
 Replace `metadata.rs` with:
 
 ```rust
 use std::collections::HashMap;
-use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use datafusion::common::{DataFusionError, Result};
 use serde_json::Value;
+use zarrs::filesystem::FilesystemStore;
+use zarrs::group::Group;
 
 pub const SUPPORTED_VCF_ZARR_VERSION: &str = "0.4";
 
@@ -492,36 +494,36 @@ impl VcfZarrMetadata {
             )));
         }
 
-        let attrs_path = root_path.join(".zattrs");
-        let text = fs::read_to_string(&attrs_path).map_err(|error| {
+        let store = Arc::new(FilesystemStore::new(&root_path).map_err(|error| {
             DataFusionError::Execution(format!(
-                "Failed to read VCF Zarr root attributes at {}: {error}",
-                attrs_path.display()
+                "Failed to open VCF Zarr filesystem store at {path}: {error}"
             ))
-        })?;
+        })?);
 
-        let root_attributes: HashMap<String, Value> = serde_json::from_str(&text).map_err(|error| {
+        let group = Group::open(store, "/").map_err(|error| {
             DataFusionError::Execution(format!(
-                "Failed to parse VCF Zarr root attributes at {}: {error}",
-                attrs_path.display()
+                "Failed to read VCF Zarr root metadata at {path}: {error}"
             ))
         })?;
+        let root_attributes: HashMap<String, Value> = group
+            .attributes()
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect();
 
         let version = root_attributes
             .get("vcf_zarr_version")
             .and_then(Value::as_str)
             .ok_or_else(|| {
                 DataFusionError::Execution(format!(
-                    "VCF Zarr root attribute 'vcf_zarr_version' is missing at {}",
-                    attrs_path.display()
+                    "VCF Zarr root attribute 'vcf_zarr_version' is missing at {path}"
                 ))
             })?
             .to_string();
 
         if version != SUPPORTED_VCF_ZARR_VERSION {
             return Err(DataFusionError::Execution(format!(
-                "unsupported vcf_zarr_version '{version}' at {}; expected {SUPPORTED_VCF_ZARR_VERSION}",
-                attrs_path.display()
+                "unsupported vcf_zarr_version '{version}' at {path}; expected {SUPPORTED_VCF_ZARR_VERSION}"
             )));
         }
 
