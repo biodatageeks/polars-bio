@@ -655,9 +655,9 @@ pub fn build_logical_schema(
         Field::new("start", DataType::UInt32, false),
         Field::new("end", DataType::UInt32, false),
         Field::new("id", DataType::Utf8, true),
-        Field::new("ref", DataType::Utf8, true),
-        Field::new("alt", DataType::Utf8, true),
-        Field::new("qual", DataType::Float32, true),
+        Field::new("ref", DataType::Utf8, false),
+        Field::new("alt", DataType::Utf8, false),
+        Field::new("qual", DataType::Float64, true),
         Field::new("filter", DataType::Utf8, true),
     ];
 
