@@ -72,7 +72,7 @@ In `/Users/mwiewior/CLionProjects/datafusion-bio-formats/datafusion/bio-format-v
 
 ```toml
 zarrs = { version = "0.23.10", default-features = true }
-ndarray = "0.16"
+ndarray = "0.17"
 ```
 
 Keep `zarrs` in this crate first. Move it to `[workspace.dependencies]` only if another crate needs it.
