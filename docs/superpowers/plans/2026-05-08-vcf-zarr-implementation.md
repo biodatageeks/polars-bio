@@ -155,6 +155,7 @@ fn vcf_zarr_rejects_missing_store() {
 }
 
 #[test]
+#[ignore = "requires VCF Zarr metadata parsing and fixture"]
 fn vcf_zarr_requires_version_0_4() {
     let fixture = "tests/data/vcf_zarr/unsupported_version.vcz";
     let result = VcfZarrTableProvider::new(fixture.to_string(), VcfZarrReadOptions::default());
@@ -163,7 +164,7 @@ fn vcf_zarr_requires_version_0_4() {
         .expect_err("unsupported vcf_zarr_version must fail")
         .to_string();
     assert!(
-        message.contains("vcf_zarr_version") && message.contains("0.4"),
+        message.contains("unsupported vcf_zarr_version") && message.contains("0.4"),
         "unexpected error: {message}"
     );
 }
@@ -315,7 +316,7 @@ impl VcfZarrMetadata {
         }
 
         Err(DataFusionError::NotImplemented(format!(
-            "VCF Zarr metadata reader must validate vcf_zarr_version={SUPPORTED_VCF_ZARR_VERSION}"
+            "VCF Zarr metadata reader must validate vcf_zarr_version against supported version {SUPPORTED_VCF_ZARR_VERSION}"
         )))
     }
 }
@@ -382,6 +383,8 @@ PY
 
 Expected: `unsupported_version.vcz/.zattrs` contains `"vcf_zarr_version": "999.0"`.
 
+Leave `vcf_zarr_requires_version_0_4` ignored until metadata parsing is implemented.
+
 - [ ] **Step 3: Add a supported-version test**
 
 Append to `tests/vcf_zarr_provider_test.rs`:
@@ -408,6 +411,7 @@ cargo test -p datafusion-bio-format-vcf --test vcf_zarr_provider_test vcf_zarr -
 ```
 
 Expected: unsupported-version and supported-version tests fail until real `.zattrs` parsing is implemented.
+Because `vcf_zarr_requires_version_0_4` is ignored until Task 4, the active expected failure is the supported-version fixture test.
 
 - [ ] **Step 5: Commit fixtures**
 
@@ -429,6 +433,9 @@ git -C /Users/mwiewior/CLionProjects/datafusion-bio-formats commit -m "test(vcf)
 - [ ] **Step 1: Expand metadata tests**
 
 Replace the temporary supported-version test body with:
+
+Also remove the `#[ignore = "requires VCF Zarr metadata parsing and fixture"]` attribute from
+`vcf_zarr_requires_version_0_4` so unsupported-version validation is active.
 
 ```rust
 #[test]
@@ -508,7 +515,7 @@ impl VcfZarrMetadata {
 
         if version != SUPPORTED_VCF_ZARR_VERSION {
             return Err(DataFusionError::Execution(format!(
-                "Unsupported VCF Zarr version '{version}' at {}; expected {SUPPORTED_VCF_ZARR_VERSION}",
+                "unsupported vcf_zarr_version '{version}' at {}; expected {SUPPORTED_VCF_ZARR_VERSION}",
                 attrs_path.display()
             )));
         }
