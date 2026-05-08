@@ -391,6 +391,7 @@ Append to `tests/vcf_zarr_provider_test.rs`:
 
 ```rust
 #[test]
+#[ignore = "requires VCF Zarr metadata parsing"]
 fn vcf_zarr_accepts_version_0_4_fixture() {
     let fixture = "tests/data/vcf_zarr/multi_chrom.vcz";
     let provider = VcfZarrTableProvider::new(fixture.to_string(), VcfZarrReadOptions::default())
@@ -401,6 +402,7 @@ fn vcf_zarr_accepts_version_0_4_fixture() {
 ```
 
 This assertion is intentionally temporary: it confirms metadata opening before schema construction exists.
+Leave this test ignored until metadata parsing is implemented.
 
 - [ ] **Step 4: Run fixture tests**
 
@@ -411,7 +413,8 @@ cargo test -p datafusion-bio-format-vcf --test vcf_zarr_provider_test vcf_zarr -
 ```
 
 Expected: unsupported-version and supported-version tests fail until real `.zattrs` parsing is implemented.
-Because `vcf_zarr_requires_version_0_4` is ignored until Task 4, the active expected failure is the supported-version fixture test.
+The ignored fixture tests may be run with `--ignored` to observe the expected failures, but the default
+test binary should pass with the fixture-dependent tests ignored.
 
 - [ ] **Step 5: Commit fixtures**
 
@@ -436,6 +439,8 @@ Replace the temporary supported-version test body with:
 
 Also remove the `#[ignore = "requires VCF Zarr metadata parsing and fixture"]` attribute from
 `vcf_zarr_requires_version_0_4` so unsupported-version validation is active.
+Remove the `#[ignore = "requires VCF Zarr metadata parsing"]` attribute from
+`vcf_zarr_accepts_version_0_4_fixture` when replacing its temporary body.
 
 ```rust
 #[test]
