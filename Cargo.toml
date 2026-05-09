@@ -43,3 +43,15 @@ async-trait = "0.1.86"
 futures = "0.3.31"
 rand = "0.8.5"
 serde_json = "1.0"
+
+[patch."https://github.com/biodatageeks/datafusion-bio-formats.git"]
+datafusion-bio-format-bam = { path = "/Users/mwiewior/CLionProjects/datafusion-bio-formats/datafusion/bio-format-bam" }
+datafusion-bio-format-bed = { path = "/Users/mwiewior/CLionProjects/datafusion-bio-formats/datafusion/bio-format-bed" }
+datafusion-bio-format-core = { path = "/Users/mwiewior/CLionProjects/datafusion-bio-formats/datafusion/bio-format-core" }
+datafusion-bio-format-cram = { path = "/Users/mwiewior/CLionProjects/datafusion-bio-formats/datafusion/bio-format-cram" }
+datafusion-bio-format-fasta = { path = "/Users/mwiewior/CLionProjects/datafusion-bio-formats/datafusion/bio-format-fasta" }
+datafusion-bio-format-fastq = { path = "/Users/mwiewior/CLionProjects/datafusion-bio-formats/datafusion/bio-format-fastq" }
+datafusion-bio-format-gff = { path = "/Users/mwiewior/CLionProjects/datafusion-bio-formats/datafusion/bio-format-gff" }
+datafusion-bio-format-gtf = { path = "/Users/mwiewior/CLionProjects/datafusion-bio-formats/datafusion/bio-format-gtf" }
+datafusion-bio-format-pairs = { path = "/Users/mwiewior/CLionProjects/datafusion-bio-formats/datafusion/bio-format-pairs" }
+datafusion-bio-format-vcf = { path = "/Users/mwiewior/CLionProjects/datafusion-bio-formats/datafusion/bio-format-vcf" }

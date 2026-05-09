@@ -31,7 +31,7 @@ use crate::option::{
     FastaWriteOptions, FastqReadOptions, FastqWriteOptions, FilterOp, GffReadOptions,
     GtfReadOptions, InputFormat, OutputFormat, OverlapOutputMode, PairsReadOptions, PileupOptions,
     PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions, VcfWriteOptions,
-    WriteOptions,
+    VcfZarrReadOptions, WriteOptions,
 };
 use crate::scan::{
     maybe_register_table, register_frame, register_frame_from_arrow_stream,
@@ -240,7 +240,8 @@ fn py_register_table(
             &table_name,
             input_format.clone(),
             read_options,
-        ));
+        ))
+        .map_err(|e| PyValueError::new_err(format!("Failed to register table: {e}")))?;
         match rt.block_on(ctx.table(&table_name)) {
             Ok(table) => {
                 let schema = table.schema().as_arrow();
@@ -811,6 +812,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<GffReadOptions>()?;
     m.add_class::<GtfReadOptions>()?;
     m.add_class::<VcfReadOptions>()?;
+    m.add_class::<VcfZarrReadOptions>()?;
     m.add_class::<VcfWriteOptions>()?;
     m.add_class::<FastqReadOptions>()?;
     m.add_class::<FastqWriteOptions>()?;
