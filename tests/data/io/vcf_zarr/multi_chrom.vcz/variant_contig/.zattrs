@@ -1,0 +1,6 @@
+{
+  "_ARRAY_DIMENSIONS": [
+    "variants"
+  ],
+  "description": "An identifier from the reference genome or an angle-bracketed ID string pointing to a contig in the assembly file"
+}

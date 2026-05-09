@@ -3,18 +3,11 @@ from pathlib import Path
 
 import polars as pl
 import pytest
+from _expected import DATA_DIR
 
 import polars_bio as pb
 
-VCF_ZARR = Path(
-    "/Users/mwiewior/CLionProjects/datafusion-bio-formats/"
-    "datafusion/bio-format-vcf/tests/data/vcf_zarr/multi_chrom.vcz"
-)
-
-
-pytestmark = pytest.mark.skipif(
-    not VCF_ZARR.exists(), reason="local VCF Zarr fixture is not available"
-)
+VCF_ZARR = DATA_DIR / "io" / "vcf_zarr" / "multi_chrom.vcz"
 
 
 def _write_i32_2d_array(root: Path, name: str, rows: int, samples: int, value):
