@@ -21,7 +21,7 @@
 **Files:**
 - Create: `notebooks/vcf_zarr_benchmark.ipynb`
 
-- [ ] **Step 1: Create the notebook with title, usage, and configuration cells**
+- [x] **Step 1: Create the notebook with title, usage, and configuration cells**
 
   Generate a notebook with markdown explaining:
 
@@ -63,7 +63,7 @@
   import polars_bio as pb
   ```
 
-- [ ] **Step 2: Add environment parsing helpers**
+- [x] **Step 2: Add environment parsing helpers**
 
   Include helpers:
 
@@ -85,7 +85,7 @@
       return [part.strip() for part in value.split(",") if part.strip()]
   ```
 
-- [ ] **Step 3: Verify notebook imports**
+- [x] **Step 3: Verify notebook imports**
 
   Run:
 
@@ -103,7 +103,7 @@
 **Files:**
 - Modify: `notebooks/vcf_zarr_benchmark.ipynb`
 
-- [ ] **Step 1: Add dataset profile metadata**
+- [x] **Step 1: Add dataset profile metadata**
 
   Add `DATASET_PROFILES` with at least these profiles:
 
@@ -149,7 +149,7 @@
 
   Then generate `phase3_wgs_autosomes` and `30x_wgs_autosomes` from chr1-22 URL templates, and add `legacy_wes_exome` plus `custom`.
 
-- [ ] **Step 2: Add profile resolution**
+- [x] **Step 2: Add profile resolution**
 
   Build `CONFIG` with resolved paths:
 
@@ -161,7 +161,7 @@
   VCZ_PATH = Path(os.environ["VCZ_BENCH_CUSTOM_VCZ"]).expanduser() if os.environ.get("VCZ_BENCH_CUSTOM_VCZ") else PROFILE_DIR / f"{PROFILE_NAME}.vcz"
   ```
 
-- [ ] **Step 3: Add gated download and conversion functions**
+- [x] **Step 3: Add gated download and conversion functions**
 
   Include functions:
 
@@ -188,7 +188,7 @@
       subprocess.run([*cmd_prefix, "encode", str(icf_path), str(output_vcz)], check=True)
   ```
 
-- [ ] **Step 4: Add gate enforcement cells**
+- [x] **Step 4: Add gate enforcement cells**
 
   The cell must print remediation instead of silently downloading:
 
@@ -205,7 +205,7 @@
 **Files:**
 - Modify: `notebooks/vcf_zarr_benchmark.ipynb`
 
-- [ ] **Step 1: Add optional import helpers**
+- [x] **Step 1: Add optional import helpers**
 
   Include:
 
@@ -218,7 +218,7 @@
           return None
   ```
 
-- [ ] **Step 2: Add VCF Zarr metadata inspection**
+- [x] **Step 2: Add VCF Zarr metadata inspection**
 
   Use zarr-python if available:
 
@@ -233,7 +233,7 @@
 
   Add helpers to read arrays, decode bytes, infer variant/sample counts, choose INFO/FORMAT fields, and choose a default region.
 
-- [ ] **Step 3: Add sgkit opener**
+- [x] **Step 3: Add sgkit opener**
 
   Try `sgkit.load_dataset`, then `xarray.open_zarr`, and raise a `SkipBenchmark` if neither works.
 
@@ -242,7 +242,7 @@
 **Files:**
 - Modify: `notebooks/vcf_zarr_benchmark.ipynb`
 
-- [ ] **Step 1: Add result dataclass and skip exception**
+- [x] **Step 1: Add result dataclass and skip exception**
 
   ```python
   class SkipBenchmark(Exception):
@@ -263,7 +263,7 @@
       notes: str
   ```
 
-- [ ] **Step 2: Add timing helper**
+- [x] **Step 2: Add timing helper**
 
   ```python
   def measure(tool: str, scenario: str, partition: str, fn: Callable[[], Any], validate: Callable[[Any], str], notes: str = "") -> list[ResultRow]:
@@ -283,7 +283,7 @@
       return rows
   ```
 
-- [ ] **Step 3: Add polars-bio scenarios**
+- [x] **Step 3: Add polars-bio scenarios**
 
   Implement functions for:
 
@@ -295,11 +295,11 @@
   - variant lookup,
   - sample FORMAT query.
 
-- [ ] **Step 4: Add zarr-python scenarios**
+- [x] **Step 4: Add zarr-python scenarios**
 
   Implement raw-array equivalents for the same scenarios where arrays exist. Raise `SkipBenchmark` for missing arrays.
 
-- [ ] **Step 5: Add sgkit scenarios**
+- [x] **Step 5: Add sgkit scenarios**
 
   Implement xarray/sgkit equivalents where variables exist. Raise `SkipBenchmark` for unsupported variables or incompatible datasets.
 
@@ -308,7 +308,7 @@
 **Files:**
 - Modify: `notebooks/vcf_zarr_benchmark.ipynb`
 
-- [ ] **Step 1: Add result table creation**
+- [x] **Step 1: Add result table creation**
 
   Build:
 
@@ -328,7 +328,7 @@
   )
   ```
 
-- [ ] **Step 2: Add plots**
+- [x] **Step 2: Add plots**
 
   Use matplotlib/seaborn if available:
 
@@ -337,7 +337,7 @@
 
   If plotting dependencies are unavailable, print a message and keep the tables.
 
-- [ ] **Step 3: Smoke execute notebook against repo fixture**
+- [x] **Step 3: Smoke execute notebook against repo fixture**
 
   Run:
 
@@ -352,7 +352,7 @@
 
   Expected: notebook executes; sgkit/zarr scenarios may be skipped if optional dependencies are missing, but polars-bio scenarios run.
 
-- [ ] **Step 4: Validate notebook JSON and diff**
+- [x] **Step 4: Validate notebook JSON and diff**
 
   Run:
 
@@ -363,7 +363,7 @@
 
   Expected: both commands exit 0.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git add notebooks/vcf_zarr_benchmark.ipynb
