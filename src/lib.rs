@@ -108,6 +108,7 @@ fn range_operation_frame(
 /// subsequent batch processing happens in pure Rust without GIL.
 #[pyfunction]
 #[pyo3(signature = (py_ctx, stream1, stream2, schema1, schema2, range_options, limit=None))]
+#[allow(clippy::too_many_arguments)]
 fn range_operation_lazy(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
@@ -162,6 +163,7 @@ fn range_operation_lazy(
 
 #[pyfunction]
 #[pyo3(signature = (py_ctx, df_path_or_table1, df_path_or_table2, range_options, read_options1=None, read_options2=None, limit=None))]
+#[allow(clippy::too_many_arguments)]
 fn range_operation_scan(
     py: Python<'_>,
     py_ctx: &PyBioSessionContext,
@@ -224,15 +226,16 @@ fn py_register_table(
 
         let table_name = match name {
             Some(name) => name,
-            None => path
-                .to_lowercase()
-                .split('/')
-                .last()
-                .unwrap()
-                .to_string()
-                .replace(&format!(".{}", input_format).to_string().to_lowercase(), "")
-                .replace(".", "_")
-                .replace("-", "_"),
+            None => {
+                let path = path.to_lowercase();
+                let extension = format!(".{input_format}").to_lowercase();
+                path.rsplit('/')
+                    .next()
+                    .unwrap()
+                    .replace(&extension, "")
+                    .replace(".", "_")
+                    .replace("-", "_")
+            },
         };
         rt.block_on(register_table(
             ctx,

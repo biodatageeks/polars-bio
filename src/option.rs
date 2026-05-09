@@ -201,6 +201,7 @@ pub struct ReadOptions {
 impl ReadOptions {
     #[new]
     #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None))]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
         gff_read_options: Option<GffReadOptions>,

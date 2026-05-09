@@ -121,10 +121,7 @@ fn create_context() -> SessionContext {
     register_ranges_functions(&ctx);
 
     // Register depth UDTF for SQL: SELECT * FROM depth('file.bam')
-    ctx.register_udtf(
-        "depth",
-        std::sync::Arc::new(crate::pileup::DepthFunction::default()),
-    );
+    ctx.register_udtf("depth", std::sync::Arc::new(crate::pileup::DepthFunction));
 
     ctx
 }

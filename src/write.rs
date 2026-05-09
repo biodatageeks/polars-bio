@@ -36,6 +36,14 @@ use log::info;
 
 use crate::option::{OutputFormat, WriteOptions};
 
+type VcfSchemaParts = (Vec<String>, Vec<String>, Vec<String>, SchemaRef);
+type VcfMetadataJson = (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+);
+
 /// Build field metadata HashMap from a VCF meta object.
 ///
 /// Extracts "number", "type", and "description" fields from a JSON metadata object
@@ -165,7 +173,7 @@ async fn consume_write_stream(
                 .as_any()
                 .downcast_ref::<datafusion::arrow::array::UInt64Array>()
             {
-                if count_array.len() > 0 && !count_array.is_null(0) {
+                if !count_array.is_empty() && !count_array.is_null(0) {
                     total_rows += count_array.value(0);
                 }
             }
@@ -186,7 +194,7 @@ fn apply_vcf_metadata_to_schema(
     info_meta_json: Option<String>,
     format_meta_json: Option<String>,
     sample_names_json: Option<String>,
-) -> Result<(Vec<String>, Vec<String>, Vec<String>, SchemaRef), DataFusionError> {
+) -> Result<VcfSchemaParts, DataFusionError> {
     use serde_json::Value;
 
     // Parse INFO field metadata
@@ -371,14 +379,12 @@ fn apply_vcf_metadata_to_schema(
         }
 
         // Check if this is an INFO field
-        if let Some(meta_value) = info_meta.get(name) {
-            if let Value::Object(meta_obj) = meta_value {
-                let field_metadata = build_field_metadata_from_vcf_meta(meta_obj);
+        if let Some(Value::Object(meta_obj)) = info_meta.get(name) {
+            let field_metadata = build_field_metadata_from_vcf_meta(meta_obj);
 
-                info_fields.push(name.clone());
-                new_fields.push(field.as_ref().clone().with_metadata(field_metadata));
-                continue;
-            }
+            info_fields.push(name.clone());
+            new_fields.push(field.as_ref().clone().with_metadata(field_metadata));
+            continue;
         }
 
         // Check if this is a FORMAT field
@@ -543,12 +549,7 @@ async fn execute_vcf_streaming_write(
     df: DataFrame,
     path: &str,
     zero_based: bool,
-    vcf_metadata: Option<(
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-    )>,
+    vcf_metadata: Option<VcfMetadataJson>,
 ) -> Result<u64, DataFusionError> {
     // Get the schema from the DataFrame
     let schema = df.schema().inner().clone();
@@ -967,6 +968,7 @@ async fn write_bam_streaming(
 }
 
 /// Execute BAM streaming write with metadata support.
+#[allow(clippy::too_many_arguments)]
 async fn execute_bam_streaming_write(
     ctx: &SessionContext,
     df: DataFrame,
@@ -1066,6 +1068,7 @@ async fn write_cram_streaming(
 }
 
 /// Execute CRAM streaming write with metadata support.
+#[allow(clippy::too_many_arguments)]
 async fn execute_cram_streaming_write(
     ctx: &SessionContext,
     df: DataFrame,

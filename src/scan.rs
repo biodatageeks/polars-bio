@@ -39,6 +39,9 @@ use crate::option::{
     VcfZarrReadOptions,
 };
 
+type BatchResultReceiver = Receiver<Result<RecordBatch, DataFusionError>>;
+type SharedBatchResultReceiver = Arc<Mutex<Option<BatchResultReceiver>>>;
+
 /// Maximum number of RecordBatches buffered per partition when fanning out a LazyFrame
 /// Arrow C stream into multiple DataFusion partitions.
 ///
@@ -163,14 +166,11 @@ impl RecordBatchStream for ArrowCStreamBatchStream {
 /// partition receiver so DataFusion can execute probe-side partitions in parallel.
 pub struct ArrowCStreamFanoutPartitionStream {
     schema: SchemaRef,
-    receiver: Arc<Mutex<Option<Receiver<Result<RecordBatch, DataFusionError>>>>>,
+    receiver: SharedBatchResultReceiver,
 }
 
 impl ArrowCStreamFanoutPartitionStream {
-    pub fn new(
-        schema: SchemaRef,
-        receiver: Receiver<Result<RecordBatch, DataFusionError>>,
-    ) -> Self {
+    pub fn new(schema: SchemaRef, receiver: BatchResultReceiver) -> Self {
         Self {
             schema,
             receiver: Arc::new(Mutex::new(Some(receiver))),
@@ -825,6 +825,7 @@ pub fn py_describe_bam(
 #[pyo3::pyfunction]
 #[pyo3(signature = (py_ctx, path, reference_path=None, object_storage_options=None, zero_based=true, tag_fields=None, sample_size=None))]
 #[allow(unused_variables)]
+#[allow(clippy::too_many_arguments)]
 pub fn py_describe_cram(
     py: pyo3::Python<'_>,
     py_ctx: &crate::context::PyBioSessionContext,
