@@ -69,6 +69,7 @@ def test_vcf_zarr_benchmark_has_cross_tool_quality_gate():
     assert "class ScenarioOutput" in source
     assert "canonical" in source
     assert "assert_comparable_results(raw_results_pd)" in source
+    assert "if canonical is None:" in source
     assert "VCZ_BENCH_CONSOLIDATE_METADATA" in source
     assert "consolidated=ZARR_METADATA_CONSOLIDATED" in source
 
@@ -101,6 +102,32 @@ def test_canonical_gate_normalizes_logical_and_raw_alleles():
     assert helpers["canonical_from_pb_df"](pb_df, include_alleles=True) == helpers[
         "canonical_from_raw_arrays"
     ](raw, include_alleles=True)
+
+
+def test_canonical_gate_is_order_insensitive_for_parallel_scan_rows():
+    helpers = _canonical_helpers()
+    pb_df = pl.DataFrame(
+        {
+            "chrom": ["chr22", "chr22"],
+            "start": [2, 1],
+            "ref": ["G", "CA"],
+            "alt": ["A", "C"],
+            "AF": ["0.0377889", "0.000312305"],
+        }
+    )
+    raw = {
+        "contig": np.array([21, 21], dtype=np.int8),
+        "position": np.array([1, 2], dtype=np.int32),
+        "allele": np.array([["CA", "C"], ["G", "A"]]),
+        "value": np.array([[0.000312305], [0.0377889]], dtype=np.float32),
+    }
+
+    assert helpers["canonical_from_pb_df"](pb_df, include_alleles=True) == helpers[
+        "canonical_from_raw_arrays"
+    ](raw, include_alleles=True)
+    assert helpers["canonical_from_pb_df"](pb_df, value_column="AF") == helpers[
+        "canonical_from_raw_arrays"
+    ](raw, value_name="variant_AF")
 
 
 def test_canonical_gate_normalizes_missing_quality_values():
@@ -137,3 +164,25 @@ def test_canonical_gate_normalizes_single_alt_info_values():
     assert helpers["canonical_from_pb_df"](pb_df, value_column="AF") == helpers[
         "canonical_from_raw_arrays"
     ](raw, value_name="variant_AF")
+
+
+def test_canonical_gate_is_order_insensitive_for_sample_format_rows():
+    helpers = _canonical_helpers()
+    pb_df = pl.DataFrame(
+        {
+            "chrom": ["chr22", "chr22"],
+            "start": [2, 1],
+            "genotypes": [{"GT": ["1|1", "0|0"]}, {"GT": ["0|0", "0|1"]}],
+        },
+        schema={"chrom": pl.String, "start": pl.Int64, "genotypes": pl.Object},
+    )
+    raw = {
+        "contig": np.array([21, 21], dtype=np.int8),
+        "position": np.array([1, 2], dtype=np.int32),
+        "value": np.array([[[0, 0], [0, 1]], [[1, 1], [0, 0]]], dtype=np.int8),
+        "phased": np.array([[True, True], [True, True]]),
+    }
+
+    assert helpers["canonical_sample_strings_from_pb"](pb_df, "GT") == helpers[
+        "canonical_sample_strings_from_raw"
+    ](raw, "GT")
