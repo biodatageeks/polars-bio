@@ -1,13 +1,11 @@
 import logging
 from pathlib import Path
-from typing import Callable, Iterator, Union
+from typing import Callable, Union
 
-import datafusion
 import polars as pl
 import pyarrow as pa
 from datafusion import DataFrame
 from polars.io.plugins import register_io_source
-from tqdm.auto import tqdm
 
 from polars_bio.polars_bio import (
     BioSessionContext,
@@ -19,6 +17,12 @@ from polars_bio.polars_bio import (
     range_operation_frame,
     range_operation_lazy,
     range_operation_scan,
+)
+
+from polars_bio._streaming import (
+    StreamingConfig,
+    make_streaming_source,
+    pyarrow_schema_to_polars_dict,
 )
 
 try:
@@ -67,110 +71,49 @@ def range_lazy_scan(
         reader_factory2 = _make_eager_reader_factory(df_2, col2)
         lazy_sources = None
 
-    def _range_source(
-        with_columns: Union[pl.Expr, None],
-        predicate: Union[pl.Expr, None],
-        _n_rows: Union[int, None],
-        _batch_size: Union[int, None],
-    ) -> Iterator[pl.DataFrame]:
-        # Extract projected columns if projection pushdown is enabled
-        projected_columns = None
-        if projection_pushdown and with_columns is not None:
-            from .io import _extract_column_names_from_expr
-
-            projected_columns = _extract_column_names_from_expr(with_columns)
-
-        # Apply projection pushdown to range options if enabled
-        modified_range_options = range_options
-        if projection_pushdown and projected_columns:
-            # Create a copy of range options with projection information
-            # This is where we would modify the SQL generation in a full implementation
-            modified_range_options = range_options
-
+    def _df_factory(_, n_rows):
         # Announce chosen algorithm for overlap at execution time
         try:
-            alg = getattr(modified_range_options, "overlap_alg", None)
+            alg = getattr(range_options, "overlap_alg", None)
             if alg is not None:
                 logging.info(
-                    "Optimizing into IntervalJoinExec using %s algorithm",
-                    alg,
+                    "Optimizing into IntervalJoinExec using %s algorithm", alg
                 )
         except Exception:
             pass
 
-        # For file paths, use stored paths directly.
-        # For LazyFrames, create fresh iterators from collect_batches().
-        # For DataFrames, create fresh Arrow readers from stored tables.
         if use_file_paths:
-            df_lazy: datafusion.DataFrame = range_function(
-                ctx,
-                stored_df1,
-                stored_df2,
-                modified_range_options,
-                read_options1,
-                read_options2,
-                _n_rows,
+            return range_function(
+                ctx, stored_df1, stored_df2, range_options,
+                read_options1, read_options2, n_rows,
             )
         elif use_lazy_sources:
             assert lazy_sources is not None
             left_schema, left_stream_factory = lazy_sources[0]
             right_schema, right_stream_factory = lazy_sources[1]
-            # Call factories to get fresh streams - allows LazyFrame to be collected multiple times
-            # Rust extracts Arrow C Stream via __arrow_c_stream__ protocol
-            df_lazy = range_function(
+            return range_function(
                 ctx,
-                left_stream_factory(),
-                right_stream_factory(),
-                left_schema,
-                right_schema,
-                modified_range_options,
-                _n_rows,
+                left_stream_factory(), right_stream_factory(),
+                left_schema, right_schema, range_options, n_rows,
             )
         else:
             if reader_factory1 is None or reader_factory2 is None:
                 raise RuntimeError("reader factories must be set for eager execution")
-            # Create fresh readers from eager DataFrames. Polars inputs reuse a
-            # pre-converted Arrow table; pandas inputs export a fresh Arrow C
-            # stream via the PyCapsule protocol on each execution.
-            reader1 = reader_factory1()
-            reader2 = reader_factory2()
-            df_lazy: datafusion.DataFrame = range_function(
-                ctx,
-                reader1,
-                reader2,
-                modified_range_options,
-                _n_rows,
+            return range_function(
+                ctx, reader_factory1(), reader_factory2(), range_options, n_rows,
             )
 
-        # Apply DataFusion-level projection if enabled
-        datafusion_projection_applied = False
-        if projection_pushdown and projected_columns:
-            try:
-                # Try to select only the requested columns at the DataFusion level
-                df_lazy = df_lazy.select(projected_columns)
-                datafusion_projection_applied = True
-            except Exception:
-                # Fallback to Python-level selection if DataFusion selection fails
-                datafusion_projection_applied = False
+    _config = StreamingConfig(
+        use_sql_expr_projection=False,
+        predicate_config=None,
+        apply_limit_pushdown=False,
+        projection_pushdown=projection_pushdown,
+    )
 
-        df_lazy.schema()
-        df_stream = df_lazy.execute_stream()
-        progress_bar = tqdm(unit="rows")
-        for r in df_stream:
-            py_df = r.to_pyarrow()
-            df = pl.DataFrame(py_df)
-            # Handle predicate and column projection
-            if predicate is not None:
-                df = df.filter(predicate)
-            # Apply Python-level projection if DataFusion projection failed or projection pushdown is disabled
-            if with_columns is not None and (
-                not projection_pushdown or not datafusion_projection_applied
-            ):
-                df = df.select(with_columns)
-            progress_bar.update(len(df))
-            yield df
-
-    return register_io_source(_range_source, schema=schema)
+    return register_io_source(
+        make_streaming_source(_df_factory, None, _config),
+        schema=schema,
+    )
 
 
 def _is_lazyframe_like(df: object) -> bool:
@@ -348,11 +291,8 @@ def _get_schema(
     if len(ext) == 0:
         df: DataFrame = py_read_table(ctx, path)
         arrow_schema = df.schema()
-        empty_table = pa.Table.from_arrays(
-            [pa.array([], type=field.type) for field in arrow_schema],
-            schema=arrow_schema,
-        )
-        df = pl.from_arrow(empty_table)
+        polars_schema = pyarrow_schema_to_polars_dict(arrow_schema)
+        df = pl.DataFrame(schema=polars_schema)
 
     elif ext[-1] == ".parquet":
         df = pl.read_parquet(path)
@@ -362,11 +302,8 @@ def _get_schema(
         table = py_register_table(ctx, path, None, InputFormat.Vcf, read_options)
         df: DataFrame = py_read_table(ctx, table.name)
         arrow_schema = df.schema()
-        empty_table = pa.Table.from_arrays(
-            [pa.array([], type=field.type) for field in arrow_schema],
-            schema=arrow_schema,
-        )
-        df = pl.from_arrow(empty_table)
+        polars_schema = pyarrow_schema_to_polars_dict(arrow_schema)
+        df = pl.DataFrame(schema=polars_schema)
     else:
         raise ValueError("Only CSV and Parquet files are supported")
     if suffix is not None:
