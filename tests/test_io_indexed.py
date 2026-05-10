@@ -163,6 +163,25 @@ class TestIndexedVCFPredicate:
         df = lf.filter(pl.col("chrom") == "chr21").collect()
         assert len(df) == VCF_CHR21
 
+    def test_scan_exact_start_count_with_no_info_fields(self):
+        predicate = (pl.col("chrom") == "chr21") & (pl.col("start") == 10000)
+        df_push = (
+            pb.scan_vcf(VCF_PATH, info_fields=[], predicate_pushdown=True)
+            .filter(predicate)
+            .count()
+            .collect()
+        )
+        df_no = (
+            pb.scan_vcf(VCF_PATH, info_fields=[], predicate_pushdown=False)
+            .filter(predicate)
+            .count()
+            .collect()
+        )
+
+        assert df_push["chrom"].item() == 1
+        assert df_push["start"].item() == 1
+        assert df_push.to_dicts() == df_no.to_dicts()
+
     def test_scan_multi_chrom_pushdown(self):
         lf = pb.scan_vcf(VCF_PATH, predicate_pushdown=True)
         df = lf.filter(pl.col("chrom").is_in(["chr21", "chr22"])).collect()
