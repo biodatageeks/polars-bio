@@ -36,6 +36,7 @@ def _canonical_helpers() -> dict:
         "np": np,
         "pd": pd,
         "pl": pl,
+        "re": __import__("re"),
     }
 
     def decode_scalar(value):
@@ -78,14 +79,29 @@ def test_vcf_zarr_benchmark_sample_format_uses_same_region_and_samples():
     source = _notebook_source()
 
     zarr_start = source.index("def zarr_sample_format")
-    sgkit_start = source.index("def sgkit_sample_format")
+    sgkit_start = source.index("def sgkit_format_dataset")
     zarr_source = source[zarr_start:sgkit_start]
     sgkit_source = source[sgkit_start:]
 
     assert "BENCH_REGION" in zarr_source
     assert "SAMPLES_FOR_QUERY" in zarr_source
-    assert "BENCH_REGION" in sgkit_source
+    assert "sgkit_region_mask" in sgkit_source
     assert "SAMPLES_FOR_QUERY" in sgkit_source
+
+
+def test_vcf_zarr_benchmark_has_heavy_genotype_scenarios():
+    source = _notebook_source()
+
+    assert "VCZ_BENCH_HEAVY_SAMPLE_COUNT" in source
+    assert "VCZ_BENCH_ENABLE_ALL_SAMPLE_HEAVY" in source
+    assert (
+        'ENABLE_ALL_SAMPLE_HEAVY = env_flag("VCZ_BENCH_ENABLE_ALL_SAMPLE_HEAVY", True)'
+        in source
+    )
+    assert "HEAVY_SAMPLES_FOR_QUERY" in source
+    assert "wide_sample_format" in source
+    assert "gt_sample_stats" in source
+    assert "gt_full_region_all_samples" in source
 
 
 def test_canonical_gate_normalizes_logical_and_raw_alleles():
@@ -186,3 +202,23 @@ def test_canonical_gate_is_order_insensitive_for_sample_format_rows():
     assert helpers["canonical_sample_strings_from_pb"](pb_df, "GT") == helpers[
         "canonical_sample_strings_from_raw"
     ](raw, "GT")
+
+
+def test_genotype_stats_match_logical_and_raw_gt_representations():
+    helpers = _canonical_helpers()
+    sample_ids = ["s1", "s2"]
+    pb_df = pl.DataFrame(
+        {
+            "chrom": ["chr22", "chr22"],
+            "start": [2, 1],
+            "genotypes": [{"GT": ["1|1", "0|0"]}, {"GT": ["0|0", "0|1"]}],
+        },
+        schema={"chrom": pl.String, "start": pl.Int64, "genotypes": pl.Object},
+    )
+    raw = {
+        "value": np.array([[[0, 0], [0, 1]], [[1, 1], [0, 0]]], dtype=np.int8),
+    }
+
+    assert helpers["genotype_stats_from_pb_df"](pb_df, sample_ids) == helpers[
+        "genotype_stats_from_raw_payload"
+    ](raw, sample_ids)
