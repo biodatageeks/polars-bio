@@ -9,10 +9,11 @@ VCF Zarr stores VCF data as Zarr arrays. The latest VCF Zarr specification check
 - Read and scan local VCF Zarr stores.
 - Preserve polars-bio's existing logical VCF schema.
 - Keep query pruning in the DataFusion provider layer.
-- Support projected INFO and FORMAT fields.
+- Support projected INFO and FORMAT fields while preserving supported VCF Zarr primitive types.
 - Support sample subset selection.
 - Support genomic predicate pruning through `region_index` when available.
 - Provide a fallback pruning path when `region_index` is absent.
+- Default VCF Zarr `GT` output to raw typed genotype calls, with string encoding available as an explicit compatibility option.
 
 ## Non-Goals
 
@@ -53,10 +54,35 @@ Rationale: `.zarr` is generic, and explicit APIs avoid surprising routing behavi
 Expose the same logical schema as existing VCF scans:
 
 - core VCF columns as `chrom`, `start`, `end`, `id`, `ref`, `alt`, `qual`, `filter`
-- INFO fields as their field IDs
-- FORMAT fields using the current single-sample and multisample conventions
+- INFO fields as their field IDs, preserving supported VCF Zarr primitive dtypes
+- FORMAT fields using the current single-sample and multisample conventions, preserving supported non-GT primitive dtypes
 
 Rationale: existing polars-bio filters, projections, metadata handling, and range operations should work without users learning raw VCF Zarr array names.
+
+### Typed INFO and FORMAT Mapping
+
+VCF Zarr INFO and non-GT FORMAT arrays should map directly to Arrow types instead of first converting values into VCF text:
+
+- one-dimensional numeric and boolean INFO arrays become scalar Arrow numeric or boolean columns,
+- INFO arrays with an additional value dimension become `List<T>` columns,
+- non-GT FORMAT arrays keep the selected-sample dimension in `genotypes.<ID>`,
+- non-GT FORMAT arrays with an additional value dimension become nested list values under `genotypes.<ID>`,
+- string-typed source arrays remain strings.
+
+The implementation should preserve the source Arrow-compatible primitive width where practical. If a source dtype cannot be represented directly by Arrow or Polars, it may be promoted to the smallest compatible Arrow type and documented in code/tests.
+
+Rationale: current stringification adds CPU work, allocations, and downstream casts. Preserving types lets DataFusion and Polars evaluate numeric filters and aggregations on native values.
+
+### Genotype Encoding
+
+VCF Zarr `GT` has two mutually exclusive encodings:
+
+- raw typed encoding, selected by default,
+- VCF-style string encoding, selected by an explicit `genotype_encoding_raw=False` option.
+
+The API should not expose raw and string `GT` representations in the same scan. In raw mode, `genotypes.GT` preserves raw allele calls with selected-sample and ploidy dimensions. If the store contains phasing or genotype mask arrays, the reader may expose those as typed genotype metadata fields needed to interpret raw calls. In string mode, `genotypes.GT` keeps the current VCF-style string representation and suppresses raw `GT` fields.
+
+Rationale: raw `GT` avoids the most expensive VCZ conversion path and is the better default for analytical queries. String mode remains available for callers that need the familiar VCF representation.
 
 ### Pruning Strategy
 
@@ -86,4 +112,3 @@ During development, polars-bio will use a local path dependency. Before final re
 ## Open Questions
 
 - None for the initial implementation scope.
-

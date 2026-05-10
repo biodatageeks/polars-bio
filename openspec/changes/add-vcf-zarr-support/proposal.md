@@ -10,6 +10,8 @@ VCF Zarr provides chunked, columnar storage for large VCF datasets. polars-bio s
 - Implement a VCF Zarr DataFusion table provider in the local `datafusion-bio-formats` checkout.
 - Use `zarrs` for local filesystem Zarr access.
 - Expose the same logical schema as existing `scan_vcf`.
+- Preserve supported VCF Zarr primitive types for INFO and non-GT FORMAT fields instead of stringifying them.
+- Default VCF Zarr `GT` to raw typed allele calls, with an explicit string-encoding option for compatibility.
 - Support read/scan only in the first version.
 - Support local filesystem stores only in the first version.
 - Support VCF Zarr spec 0.4 / Zarr v2 stores readable by `zarrs`.
@@ -35,4 +37,3 @@ VCF Zarr provides chunked, columnar storage for large VCF datasets. polars-bio s
   - Use branch `add-vcf-zarr-support` in both repositories.
   - Temporarily use a local path dependency from polars-bio to `/Users/mwiewior/CLionProjects/datafusion-bio-formats`.
   - Replace the local path dependency with a publishable git revision before final review.
-

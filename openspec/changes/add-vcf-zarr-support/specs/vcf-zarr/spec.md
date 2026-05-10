@@ -33,11 +33,73 @@ The system SHALL expose VCF Zarr data using the same logical VCF schema conventi
 
 #### Scenario: INFO fields are projected
 - **WHEN** a user requests INFO fields through `info_fields` or lazy projection
-- **THEN** matching `variant_<ID>` arrays are exposed as logical columns named by their INFO field IDs.
+- **THEN** matching `variant_<ID>` arrays are exposed as logical columns named by their INFO field IDs
+- **AND** supported VCF Zarr primitive types are preserved as typed Arrow columns rather than VCF text strings.
 
 #### Scenario: FORMAT fields are projected
 - **WHEN** a user requests FORMAT fields through `format_fields` or lazy projection
-- **THEN** matching `call_<ID>` arrays are exposed according to existing single-sample and multisample VCF output conventions.
+- **THEN** matching `call_<ID>` arrays are exposed according to existing single-sample and multisample VCF output conventions
+- **AND** supported non-GT primitive types are preserved as typed Arrow values inside FORMAT output rather than VCF text strings.
+
+### Requirement: Typed VCF Zarr INFO and FORMAT Columns
+The system SHALL preserve supported VCF Zarr primitive types for projected INFO and non-GT FORMAT fields.
+
+#### Scenario: Numeric INFO remains numeric
+- **WHEN** a supported VCF Zarr store contains a numeric `variant_<ID>` array
+- **AND** a user requests that INFO field
+- **THEN** the logical INFO column uses a numeric Arrow type
+- **AND** numeric predicates and aggregations do not require casting from string values.
+
+#### Scenario: Boolean INFO remains boolean
+- **WHEN** a supported VCF Zarr store contains a boolean `variant_<ID>` array
+- **AND** a user requests that INFO field
+- **THEN** the logical INFO column uses a boolean Arrow type
+- **AND** values are not converted to `"true"` or `"false"` strings.
+
+#### Scenario: Array-valued INFO preserves list shape
+- **WHEN** a supported VCF Zarr INFO array has an additional value dimension
+- **AND** a user requests that INFO field
+- **THEN** the logical INFO column preserves the value dimension as an Arrow list
+- **AND** values are not comma-joined into a single string.
+
+#### Scenario: Non-GT FORMAT remains typed
+- **WHEN** a supported VCF Zarr store contains a numeric, boolean, or string `call_<ID>` FORMAT array other than `call_genotype`
+- **AND** a user requests that FORMAT field
+- **THEN** the `genotypes.<ID>` field preserves the source primitive type inside the existing sample-oriented FORMAT output
+- **AND** values are not converted to `List<Utf8>` unless the source array is string-typed.
+
+#### Scenario: Array-valued FORMAT preserves list shape
+- **WHEN** a supported VCF Zarr FORMAT array has sample and value dimensions
+- **AND** a user requests that FORMAT field
+- **THEN** the `genotypes.<ID>` field preserves both the selected-sample dimension and value dimension using nested Arrow lists
+- **AND** values are not comma-joined into strings.
+
+### Requirement: VCF Zarr Genotype Encoding Option
+The system SHALL default VCF Zarr `GT` output to a raw typed encoding and SHALL allow callers to request the existing string encoding instead.
+
+#### Scenario: Raw GT is the default
+- **WHEN** a user scans or reads VCF Zarr with `format_fields` containing `GT`
+- **AND** the user does not override genotype encoding
+- **THEN** `genotypes.GT` is emitted as raw typed allele calls preserving the selected-sample and ploidy dimensions
+- **AND** no string-formatted `GT` field is emitted for the same scan.
+
+#### Scenario: String GT can be requested
+- **WHEN** a user scans or reads VCF Zarr with `format_fields` containing `GT`
+- **AND** the user requests string genotype encoding
+- **THEN** `genotypes.GT` uses the VCF-style string representation
+- **AND** no raw-typed `GT` field is emitted for the same scan.
+
+#### Scenario: Raw GT sidecar metadata is typed
+- **WHEN** raw genotype encoding is used
+- **AND** the VCF Zarr store contains phasing or genotype mask arrays
+- **THEN** the reader exposes the necessary phasing or mask metadata as typed genotype fields
+- **AND** those metadata fields are not duplicated as VCF-style strings.
+
+#### Scenario: Sample subset applies to both encodings
+- **WHEN** a user provides `samples`
+- **AND** the scan emits raw or string `GT`
+- **THEN** genotype values are limited to the selected samples
+- **AND** selected-sample order follows the requested order.
 
 ### Requirement: Projection Pruning
 The system SHALL avoid reading raw VCF Zarr arrays that are not required by the projected logical columns or pushed predicates.
@@ -87,4 +149,3 @@ The initial implementation SHALL support local filesystem VCF Zarr stores and SH
 #### Scenario: Unsupported remote path
 - **WHEN** a user provides an unsupported remote path
 - **THEN** the reader fails with an error that remote VCF Zarr storage is not supported in this version.
-
