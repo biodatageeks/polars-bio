@@ -1,13 +1,12 @@
 import logging
 import weakref as _weakref
-from typing import Dict, Iterator, Optional, Union
+from typing import Dict, Optional, Union
 
 import polars as pl
 
 logger = logging.getLogger(__name__)
 from datafusion import DataFrame
 from polars.io.plugins import register_io_source
-from tqdm.auto import tqdm
 
 from polars_bio.polars_bio import (
     BamReadOptions,
@@ -55,6 +54,7 @@ from .predicate_translator import (
     VCF_STRING_COLUMNS,
     VCF_UINT32_COLUMNS,
 )
+from polars_bio._streaming import extract_column_names, pyarrow_schema_to_polars_dict
 
 # Mapping from format name to (string_cols, uint32_cols, float32_cols) for predicate validation.
 # Uses string keys because PyO3 InputFormat is not hashable.
@@ -2687,8 +2687,86 @@ def _build_sql_where_from_predicate_safe(predicate):
     return ""
 
 
+def _make_gff_pre_hook(
+    input_format: InputFormat,
+    file_path: Optional[str],
+    read_options: ReadOptions,
+    projection_pushdown: bool,
+) -> Optional[callable]:
+    """Return a pre_query_hook for GFF/GTF formats, or None for all other formats.
+
+    The hook re-registers the table with attr_fields derived from the projection
+    so that attribute columns are parsed at registration time.
+    Returns the effective table name to query (may differ from the registered name).
+    """
+    if input_format not in (InputFormat.Gff, InputFormat.Gtf) or file_path is None:
+        return None
+
+    def _hook(table_name: Optional[str], with_columns) -> Optional[str]:
+        from polars_bio.polars_bio import GffReadOptions
+        from polars_bio.polars_bio import GtfReadOptions as _GtfReadOptions
+        from polars_bio.polars_bio import ReadOptions as _ReadOptions
+        from polars_bio.polars_bio import py_register_table
+
+        from .context import ctx as _ctx
+
+        is_gff = input_format == InputFormat.Gff
+        opts_field = "gff_read_options" if is_gff else "gtf_read_options"
+
+        requested_cols = (
+            extract_column_names(with_columns) if with_columns is not None else []
+        )
+
+        STATIC = {
+            "chrom", "start", "end", "type", "source",
+            "score", "strand", "phase", "attributes",
+        }
+        attr_fields = [c for c in requested_cols if c not in STATIC]
+
+        zero_based = False
+        if read_options is not None:
+            try:
+                gopt = getattr(read_options, opts_field, None)
+                if gopt is not None:
+                    zb = getattr(gopt, "zero_based", None)
+                    if zb is not None:
+                        zero_based = zb
+            except Exception:
+                pass
+
+        obj = _extract_py_object_storage_options(read_options)
+
+        if "attributes" in requested_cols:
+            _attr = None
+        elif attr_fields:
+            _attr = attr_fields
+        else:
+            _attr = []
+
+        if is_gff:
+            fmt_opts = GffReadOptions(
+                attr_fields=_attr, object_storage_options=obj, zero_based=zero_based
+            )
+            ropts = _ReadOptions(gff_read_options=fmt_opts)
+        else:
+            fmt_opts = _GtfReadOptions(
+                attr_fields=_attr, object_storage_options=obj, zero_based=zero_based
+            )
+            ropts = _ReadOptions(gtf_read_options=fmt_opts)
+
+        if projection_pushdown and requested_cols:
+            table_obj = py_register_table(
+                _ctx, file_path, table_name, input_format, ropts
+            )
+            return table_obj.name
+
+        return None
+
+    return _hook
+
+
 def _lazy_scan(
-    schema_or_df,  # Either: PyArrow schema (from py_get_table_schema) or DataFusion DataFrame (from py_read_sql for SQL path)
+    schema_or_df,  # PyArrow schema (py_get_table_schema) or DataFusion DataFrame (sql() path)
     projection_pushdown: bool = True,
     predicate_pushdown: bool = False,
     table_name: str = None,
@@ -2696,225 +2774,63 @@ def _lazy_scan(
     file_path: str = None,
     read_options: ReadOptions = None,
 ) -> pl.LazyFrame:
-
-    # Handle both PyArrow schema (new streaming path) and DataFusion DataFrame (old SQL path)
     import pyarrow as pa
 
-    df_for_stream = None  # Used for SQL path
+    from polars_bio._streaming import (
+        PredicatePushdownConfig,
+        StreamingConfig,
+        make_streaming_source,
+    )
 
-    # Check if it's a DataFusion DataFrame by checking for schema() method
-    # We use hasattr because there are multiple DataFrame classes in datafusion package
+    df_for_stream = None
     is_datafusion_df = hasattr(schema_or_df, "schema") and hasattr(
         schema_or_df, "execute_stream"
     )
 
     if isinstance(schema_or_df, pa.Schema):
-        # PyArrow schema (from py_get_table_schema or df.schema())
-        # Convert to Polars schema dict for register_io_source
-        empty_table = pa.table(
-            {field.name: pa.array([], type=field.type) for field in schema_or_df}
-        )
-        temp_df = pl.from_arrow(empty_table)
-        original_schema = dict(temp_df.schema)  # Convert to dict for register_io_source
+        original_schema = pyarrow_schema_to_polars_dict(schema_or_df)
     elif is_datafusion_df:
-        # DataFusion DataFrame from py_read_sql (sql() function)
-        # Extract PyArrow schema and convert to Polars schema dict
         df_for_stream = schema_or_df
-        pa_schema = schema_or_df.schema()
-        empty_table = pa.table(
-            {field.name: pa.array([], type=field.type) for field in pa_schema}
-        )
-        temp_df = pl.from_arrow(empty_table)
-        original_schema = dict(temp_df.schema)  # Convert to dict for register_io_source
+        original_schema = pyarrow_schema_to_polars_dict(schema_or_df.schema())
     else:
-        # Fallback: already a Polars schema
         original_schema = (
             dict(schema_or_df) if not isinstance(schema_or_df, dict) else schema_or_df
         )
 
-    def _overlap_source(
-        with_columns: Union[pl.Expr, None],
-        predicate: Union[pl.Expr, None],
-        n_rows: Union[int, None],
-        _batch_size: Union[int, None],
-    ) -> Iterator[pl.DataFrame]:
+    def _df_factory(tn: Optional[str], *_):
         from polars_bio.polars_bio import py_read_table, py_register_table
 
         from .context import ctx as _ctx
 
-        table_refreshed = False
-
-        # === GFF/GTF pre-step ===
-        # GFF/GTF "attributes" column contains semi-structured key=value pairs
-        # that can be parsed into individual columns. Unlike BAM/VCF/CRAM which
-        # have fixed schemas, attribute columns must be configured at table
-        # registration time. If projection requests specific attribute columns
-        # we must re-register the table with those attr_fields.
-        table_to_query = table_name
-        if input_format in (InputFormat.Gff, InputFormat.Gtf) and file_path is not None:
-            from polars_bio.polars_bio import GffReadOptions
-            from polars_bio.polars_bio import GtfReadOptions as _GtfReadOptions
-            from polars_bio.polars_bio import PyObjectStorageOptions
-            from polars_bio.polars_bio import ReadOptions as _ReadOptions
-
-            is_gff = input_format == InputFormat.Gff
-            opts_field = "gff_read_options" if is_gff else "gtf_read_options"
-
-            requested_cols = (
-                _extract_column_names_from_expr(with_columns)
-                if with_columns is not None
-                else []
-            )
-
-            STATIC = {
-                "chrom",
-                "start",
-                "end",
-                "type",
-                "source",
-                "score",
-                "strand",
-                "phase",
-                "attributes",
-            }
-            attr_fields = [c for c in requested_cols if c not in STATIC]
-
-            # Derive zero_based from read_options
-            zero_based = False
-            if read_options is not None:
-                try:
-                    gopt = getattr(read_options, opts_field, None)
-                    if gopt is not None:
-                        zb = getattr(gopt, "zero_based", None)
-                        if zb is not None:
-                            zero_based = zb
-                except Exception:
-                    pass
-
-            obj = _extract_py_object_storage_options(read_options)
-
-            if "attributes" in requested_cols:
-                _attr = None
-            elif attr_fields:
-                _attr = attr_fields
-            else:
-                _attr = []
-
-            if is_gff:
-                fmt_opts = GffReadOptions(
-                    attr_fields=_attr,
-                    object_storage_options=obj,
-                    zero_based=zero_based,
-                )
-                ropts = _ReadOptions(gff_read_options=fmt_opts)
-            else:
-                fmt_opts = _GtfReadOptions(
-                    attr_fields=_attr,
-                    object_storage_options=obj,
-                    zero_based=zero_based,
-                )
-                ropts = _ReadOptions(gtf_read_options=fmt_opts)
-
-            if projection_pushdown and requested_cols:
-                table_obj = py_register_table(
-                    _ctx, file_path, table_name, input_format, ropts
-                )
-                table_to_query = table_obj.name
-                table_refreshed = True
-
-        # === Unified path for ALL formats ===
-
-        # 1. Get base DataFusion DataFrame
         if df_for_stream is not None:
-            query_df = df_for_stream
-        else:
-            # Re-register file-backed sources on each execution so every collect()
-            # sees a fresh provider state for this LazyFrame.
-            if (
-                file_path is not None
-                and not table_refreshed
-                and table_to_query is not None
-            ):
-                py_register_table(
-                    _ctx, file_path, table_to_query, input_format, read_options
-                )
-            query_df = py_read_table(_ctx, table_to_query)
+            return df_for_stream
 
-        # 2. Predicate pushdown via DataFusion Expr API
-        #    Flow: Polars Expr → DataFusion Expr (validates types) → SQL string
-        #    → query_df.parse_sql_expr() → query_df.filter()
-        #    parse_sql_expr() creates a binding-compatible Expr from the same
-        #    PyO3 compilation unit, avoiding the type mismatch between the
-        #    polars_bio Rust extension and the pip datafusion package.
-        datafusion_predicate_applied = False
-        if predicate_pushdown and predicate is not None:
-            try:
-                from .predicate_translator import (
-                    datafusion_expr_to_sql,
-                    translate_predicate,
-                )
+        # Re-register on each execution so every collect() sees a fresh provider.
+        if file_path is not None and tn is not None:
+            py_register_table(_ctx, file_path, tn, input_format, read_options)
+        return py_read_table(_ctx, tn)
 
-                _fmt_key = str(input_format).rsplit(".", 1)[-1]
-                string_cols, uint32_cols, float32_cols = _FORMAT_COLUMN_TYPES.get(
-                    _fmt_key, (None, None, None)
-                )
-                df_expr = translate_predicate(
-                    predicate, string_cols, uint32_cols, float32_cols
-                )
-                sql_predicate = datafusion_expr_to_sql(df_expr)
-                native_expr = query_df.parse_sql_expr(sql_predicate)
-                query_df = query_df.filter(native_expr)
-                datafusion_predicate_applied = True
-            except Exception as e:
-                logger.warning(
-                    f"DataFusion predicate pushdown failed, will filter "
-                    f"client-side (this may cause a full scan): {e}"
-                )
+    _fmt_key = str(input_format).rsplit(".", 1)[-1] if input_format is not None else ""
+    string_cols, uint32_cols, float32_cols = _FORMAT_COLUMN_TYPES.get(
+        _fmt_key, (None, None, None)
+    )
+    pred_cfg = (
+        PredicatePushdownConfig(string_cols, uint32_cols, float32_cols)
+        if predicate_pushdown
+        else None
+    )
 
-        # 3. Projection pushdown via DataFusion select
-        datafusion_projection_applied = False
-        if projection_pushdown and with_columns is not None:
-            requested_cols = _extract_column_names_from_expr(with_columns)
-            if requested_cols:
-                try:
-                    select_exprs = [
-                        query_df.parse_sql_expr(f'"{c}"') for c in requested_cols
-                    ]
-                    query_df = query_df.select(*select_exprs)
-                    datafusion_projection_applied = True
-                except Exception as e:
-                    logger.debug(f"DataFusion projection pushdown failed: {e}")
+    config = StreamingConfig(
+        predicate_config=pred_cfg,
+        pre_query_hook=_make_gff_pre_hook(
+            input_format, file_path, read_options, projection_pushdown
+        ),
+    )
 
-        # 4. Limit
-        if n_rows and n_rows > 0:
-            query_df = query_df.limit(int(n_rows))
-
-        # 5. Stream with safety net
-        df_stream = query_df.execute_stream()
-        progress_bar = tqdm(unit="rows")
-        remaining = int(n_rows) if n_rows is not None else None
-        for r in df_stream:
-            out = pl.DataFrame(r.to_pyarrow())
-            # Apply client-side predicate only when DataFusion pushdown failed
-            if predicate is not None and not datafusion_predicate_applied:
-                out = out.filter(predicate)
-            # Apply client-side projection only when DataFusion pushdown failed
-            if with_columns is not None and not datafusion_projection_applied:
-                out = out.select(with_columns)
-
-            if remaining is not None:
-                if remaining <= 0:
-                    break
-                if len(out) > remaining:
-                    out = out.head(remaining)
-                remaining -= len(out)
-
-            progress_bar.update(len(out))
-            yield out
-            if remaining is not None and remaining <= 0:
-                return
-
-    return register_io_source(_overlap_source, schema=original_schema)
+    return register_io_source(
+        make_streaming_source(_df_factory, table_name, config),
+        schema=original_schema,
+    )
 
 
 # Module-level weak store for PyObjectStorageOptions keyed by ReadOptions id.
@@ -2952,37 +2868,6 @@ def _extract_py_object_storage_options(read_options):
         timeout=300,
         compression_type="auto",
     )
-
-
-def _extract_column_names_from_expr(with_columns: Union[pl.Expr, list]) -> "List[str]":
-    """Extract column names from Polars expressions."""
-    if with_columns is None:
-        return []
-
-    # Handle different types of with_columns input
-    if hasattr(with_columns, "__iter__") and not isinstance(with_columns, str):
-        # It's a list of expressions or strings
-        column_names = []
-        for item in with_columns:
-            if isinstance(item, str):
-                column_names.append(item)
-            elif hasattr(item, "meta") and hasattr(item.meta, "output_name"):
-                # Polars expression with output name
-                try:
-                    column_names.append(item.meta.output_name())
-                except Exception:
-                    pass
-        return column_names
-    elif isinstance(with_columns, str):
-        return [with_columns]
-    elif hasattr(with_columns, "meta") and hasattr(with_columns.meta, "output_name"):
-        # Single Polars expression
-        try:
-            return [with_columns.meta.output_name()]
-        except Exception:
-            pass
-
-    return []
 
 
 def _extract_vcf_metadata_from_schema(schema) -> dict:

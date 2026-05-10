@@ -1,43 +1,21 @@
-from typing import Iterator, List, Optional, Union
+from typing import Optional, Union
 
 import polars as pl
-import pyarrow as pa
 from polars.io.plugins import register_io_source
-from tqdm.auto import tqdm
 
 from ._metadata import set_coordinate_system
 from .context import _resolve_zero_based, ctx
-from .logging import logger
+from polars_bio._streaming import (
+    PredicatePushdownConfig,
+    StreamingConfig,
+    make_streaming_source,
+    pyarrow_schema_to_polars_dict,
+)
 
 try:
     import pandas as pd
 except ImportError:
     pd = None
-
-
-def _extract_column_names_from_expr(with_columns) -> List[str]:
-    """Extract column names from Polars expressions (same logic as io.py)."""
-    if with_columns is None:
-        return []
-    if hasattr(with_columns, "__iter__") and not isinstance(with_columns, str):
-        column_names = []
-        for item in with_columns:
-            if isinstance(item, str):
-                column_names.append(item)
-            elif hasattr(item, "meta") and hasattr(item.meta, "output_name"):
-                try:
-                    column_names.append(item.meta.output_name())
-                except Exception:
-                    pass
-        return column_names
-    elif isinstance(with_columns, str):
-        return [with_columns]
-    elif hasattr(with_columns, "meta") and hasattr(with_columns.meta, "output_name"):
-        try:
-            return [with_columns.meta.output_name()]
-        except Exception:
-            pass
-    return []
 
 
 class PileupOperations:
@@ -138,100 +116,28 @@ class PileupOperations:
 
         # 2. Get schema without materializing data
         schema = py_get_table_schema(ctx, table_name)
-        empty_table = pa.table(
-            {field.name: pa.array([], type=field.type) for field in schema}
-        )
-        polars_schema = dict(pl.from_arrow(empty_table).schema)
+
+        polars_schema = pyarrow_schema_to_polars_dict(schema)
 
         # 3. Define streaming callback (executed only on .collect())
-        def _pileup_source(
-            with_columns: Union[pl.Expr, None],
-            predicate: Union[pl.Expr, None],
-            n_rows: Union[int, None],
-            _batch_size: Union[int, None],
-        ) -> Iterator[pl.DataFrame]:
+        def _df_factory(tn, *_):
             from polars_bio.polars_bio import py_read_table
-
             from .context import ctx as _ctx
+            return py_read_table(_ctx, tn)
 
-            query_df = py_read_table(_ctx, table_name)
-
-            # Projection pushdown
-            projection_applied = False
-            if with_columns is not None:
-                requested_cols = _extract_column_names_from_expr(with_columns)
-                if requested_cols:
-                    try:
-                        select_exprs = [
-                            query_df.parse_sql_expr(f'"{c}"') for c in requested_cols
-                        ]
-                        query_df = query_df.select(*select_exprs)
-                        projection_applied = True
-                    except Exception as e:
-                        logger.debug("Projection pushdown failed: %s", e)
-
-            # Predicate pushdown (reuses pattern from _overlap_source in io.py)
-            predicate_pushed_down = False
-            if predicate is not None:
-                try:
-                    from .predicate_translator import (
-                        datafusion_expr_to_sql,
-                        translate_predicate,
-                    )
-
-                    df_expr = translate_predicate(
-                        predicate,
-                        string_cols={"contig"},
-                        uint32_cols={"pos", "pos_start", "pos_end", "coverage"},
-                    )
-                    sql_predicate = datafusion_expr_to_sql(df_expr)
-                    native_expr = query_df.parse_sql_expr(sql_predicate)
-                    query_df = query_df.filter(native_expr)
-                    predicate_pushed_down = True
-                except Exception as e:
-                    logger.debug("Pileup predicate pushdown failed: %s", e)
-
-            # Limit pushdown
-            if n_rows and n_rows > 0:
-                query_df = query_df.limit(int(n_rows))
-
-            # Stream batches
-            df_stream = query_df.execute_stream()
-            progress_bar = tqdm(unit="rows")
-            remaining = int(n_rows) if n_rows is not None else None
-
-            for batch in df_stream:
-                out = pl.DataFrame(batch.to_pyarrow())
-
-                # Client-side predicate filtering (fallback)
-                if predicate is not None and not predicate_pushed_down:
-                    out = out.filter(predicate)
-
-                # Client-side projection fallback
-                if with_columns is not None and not projection_applied:
-                    out = out.select(with_columns)
-
-                if remaining is not None:
-                    if remaining <= 0:
-                        break
-                    if len(out) > remaining:
-                        out = out.head(remaining)
-                    remaining -= len(out)
-
-                progress_bar.update(len(out))
-                yield out
-
-                if remaining is not None and remaining <= 0:
-                    return
-
-            # Clean up registered table to free memory
-            try:
-                _ctx.deregister_table(table_name)
-            except Exception:
-                pass
+        _config = StreamingConfig(
+            predicate_config=PredicatePushdownConfig(
+                string_cols={"contig"},
+                uint32_cols={"pos", "pos_start", "pos_end", "coverage"},
+                float32_cols=None,
+            ),
+        )
 
         # 4. Create lazy frame
-        lf = register_io_source(_pileup_source, schema=polars_schema)
+        lf = register_io_source(
+            make_streaming_source(_df_factory, table_name, _config),
+            schema=polars_schema,
+        )
         set_coordinate_system(lf, zero_based)
 
         # 5. Handle output_type
