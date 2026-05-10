@@ -34,6 +34,61 @@ def _write_i32_2d_array(root: Path, name: str, rows: int, samples: int, value):
     (array_path / "0.0").write_bytes(chunk)
 
 
+def _write_i32_3d_array(
+    root: Path, name: str, rows: int, samples: int, width: int, value
+):
+    array_path = root / name
+    array_path.mkdir(parents=True, exist_ok=True)
+    (array_path / ".zarray").write_text(
+        f"""{{
+  "shape": [{rows}, {samples}, {width}],
+  "chunks": [{rows}, {samples}, {width}],
+  "dtype": "<i4",
+  "fill_value": -1,
+  "order": "C",
+  "filters": null,
+  "dimension_separator": ".",
+  "compressor": null,
+  "zarr_format": 2
+}}"""
+    )
+    (array_path / ".zattrs").write_text(
+        '{"_ARRAY_DIMENSIONS":["variants","samples","ploidy"]}'
+    )
+    chunk = bytearray()
+    for row in range(rows):
+        for sample in range(samples):
+            for item in range(width):
+                chunk.extend(
+                    int(value(row, sample, item)).to_bytes(4, "little", signed=True)
+                )
+    (array_path / "0.0.0").write_bytes(chunk)
+
+
+def _write_bool_2d_array(root: Path, name: str, rows: int, samples: int, value):
+    array_path = root / name
+    array_path.mkdir(parents=True, exist_ok=True)
+    (array_path / ".zarray").write_text(
+        f"""{{
+  "shape": [{rows}, {samples}],
+  "chunks": [{rows}, {samples}],
+  "dtype": "|b1",
+  "fill_value": false,
+  "order": "C",
+  "filters": null,
+  "dimension_separator": ".",
+  "compressor": null,
+  "zarr_format": 2
+}}"""
+    )
+    (array_path / ".zattrs").write_text('{"_ARRAY_DIMENSIONS":["variants","samples"]}')
+    chunk = bytearray()
+    for row in range(rows):
+        for sample in range(samples):
+            chunk.append(1 if value(row, sample) else 0)
+    (array_path / "0.0").write_bytes(chunk)
+
+
 def _sampled_format_store(tmp_path: Path) -> Path:
     root = tmp_path / "sampled.vcz"
     shutil.copytree(VCF_ZARR, root)
@@ -53,6 +108,31 @@ def _sampled_format_store(tmp_path: Path) -> Path:
         1000,
         2,
         lambda row, sample: (sample + 1) * 1_000 + row,
+    )
+    return root
+
+
+def _spec_genotype_store(tmp_path: Path) -> Path:
+    root = tmp_path / "genotype.vcz"
+    shutil.copytree(VCF_ZARR, root)
+    shutil.rmtree(root / "sample_id")
+    shutil.copytree(root / "contig_id", root / "sample_id")
+    (root / "sample_id" / ".zattrs").write_text('{"_ARRAY_DIMENSIONS":["samples"]}')
+    _write_i32_3d_array(
+        root,
+        "call_genotype",
+        1000,
+        2,
+        2,
+        lambda _row, sample, ploidy: {
+            (0, 0): 0,
+            (0, 1): 1,
+            (1, 0): 1,
+            (1, 1): 0,
+        }.get((sample, ploidy), -2),
+    )
+    _write_bool_2d_array(
+        root, "call_genotype_phased", 1000, 2, lambda _row, sample: sample == 1
     )
     return root
 
@@ -92,6 +172,7 @@ def test_scan_vcf_zarr_reads_requested_info_field():
 
     assert df.columns == ["chrom", "DP"]
     assert df.height == 2
+    assert df.schema["DP"] == pl.Int8
 
 
 def test_scan_vcf_zarr_auto_discovers_info_field():
@@ -99,6 +180,20 @@ def test_scan_vcf_zarr_auto_discovers_info_field():
 
     assert df.columns == ["chrom", "DP"]
     assert df.height == 2
+    assert df.schema["DP"] == pl.Int8
+
+
+def test_scan_vcf_zarr_reads_list_valued_float_info_field():
+    df = (
+        pb.scan_vcf_zarr(str(VCF_ZARR), info_fields=["AF"])
+        .filter(pl.col("start") == 5_000_100)
+        .select("AF")
+        .collect()
+    )
+
+    assert df.height == 1
+    assert df.schema["AF"] == pl.List(pl.Float32)
+    assert len(df["AF"].to_list()[0]) == 1
 
 
 def test_scan_vcf_zarr_info_projection_prunes_format_chunks(tmp_path):
@@ -132,7 +227,7 @@ def test_scan_vcf_zarr_format_projection_prunes_info_chunks(tmp_path):
     df = lf.collect()
 
     assert df.height == 1
-    assert df["genotypes"].to_list()[0] == {"DP": ["2000"]}
+    assert df["genotypes"].to_list()[0] == {"DP": [2000]}
 
 
 def test_scan_vcf_zarr_core_projection_prunes_info_and_format_chunks(tmp_path):
@@ -256,8 +351,8 @@ def test_scan_vcf_zarr_materializes_format_with_sample_pruning(tmp_path):
 
     assert df.height == 1
     assert df["genotypes"].to_list()[0] == {
-        "GT": ["20000", "10000"],
-        "DP": ["2000", "1000"],
+        "GT": [20000, 10000],
+        "DP": [2000, 1000],
     }
 
 
@@ -272,7 +367,43 @@ def test_scan_vcf_zarr_auto_discovers_format_fields(tmp_path):
     )
 
     assert df.height == 1
-    assert df["genotypes"].to_list()[0] == {"GT": ["20000"], "DP": ["2000"]}
+    assert df["genotypes"].to_list()[0] == {"GT": [20000], "DP": [2000]}
+
+
+def test_scan_vcf_zarr_defaults_spec_gt_to_raw_encoding(tmp_path):
+    store = _spec_genotype_store(tmp_path)
+
+    df = (
+        pb.scan_vcf_zarr(str(store), format_fields=["GT"], samples=["22"])
+        .filter(pl.col("start") == 5_000_100)
+        .select("genotypes")
+        .collect()
+    )
+
+    assert df.height == 1
+    assert df["genotypes"].to_list()[0] == {
+        "GT": [[1, 0]],
+        "GT_phased": [True],
+    }
+
+
+def test_scan_vcf_zarr_can_request_string_gt_encoding(tmp_path):
+    store = _spec_genotype_store(tmp_path)
+
+    df = (
+        pb.scan_vcf_zarr(
+            str(store),
+            format_fields=["GT"],
+            samples=["22"],
+            genotype_encoding_raw=False,
+        )
+        .filter(pl.col("start") == 5_000_100)
+        .select("genotypes")
+        .collect()
+    )
+
+    assert df.height == 1
+    assert df["genotypes"].to_list()[0] == {"GT": ["1|0"]}
 
 
 def test_scan_vcf_zarr_prunes_unrequested_format_arrays(tmp_path):
@@ -287,4 +418,4 @@ def test_scan_vcf_zarr_prunes_unrequested_format_arrays(tmp_path):
     )
 
     assert df.height == 1
-    assert df["genotypes"].to_list()[0] == {"DP": ["2000"]}
+    assert df["genotypes"].to_list()[0] == {"DP": [2000]}

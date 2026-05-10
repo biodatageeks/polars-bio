@@ -550,6 +550,7 @@ pub(crate) async fn register_table(
                     format_fields: vcf_zarr_read_options.format_fields,
                     samples: vcf_zarr_read_options.samples,
                     coordinate_system_zero_based: vcf_zarr_read_options.zero_based,
+                    genotype_encoding_raw: vcf_zarr_read_options.genotype_encoding_raw,
                 },
             )?;
             ctx.register_table(table_name, Arc::new(table_provider))?;

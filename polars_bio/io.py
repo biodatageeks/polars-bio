@@ -357,6 +357,7 @@ class IOOperations:
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
         samples: Union[list[str], None] = None,
+        genotype_encoding_raw: bool = True,
     ) -> pl.DataFrame:
         """
         Read a VCF file into a DataFrame.
@@ -543,6 +544,7 @@ class IOOperations:
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
         samples: Union[list[str], None] = None,
+        genotype_encoding_raw: bool = True,
     ) -> pl.DataFrame:
         """
         Read a local VCF Zarr store into a DataFrame.
@@ -555,6 +557,7 @@ class IOOperations:
             predicate_pushdown: Enable predicate pushdown at the DataFusion level.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None, uses the global configuration.
             samples: Optional list of sample names to include.
+            genotype_encoding_raw: If True, output GT as raw typed allele calls. If False, output VCF-style GT strings.
         """
         lf = IOOperations.scan_vcf_zarr(
             path=path,
@@ -564,6 +567,7 @@ class IOOperations:
             predicate_pushdown=predicate_pushdown,
             use_zero_based=use_zero_based,
             samples=samples,
+            genotype_encoding_raw=genotype_encoding_raw,
         )
         zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
         df = lf.collect()
@@ -580,6 +584,7 @@ class IOOperations:
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
         samples: Union[list[str], None] = None,
+        genotype_encoding_raw: bool = True,
     ) -> pl.LazyFrame:
         """
         Lazily read a local VCF Zarr store into a LazyFrame.
@@ -592,6 +597,7 @@ class IOOperations:
             predicate_pushdown: Enable predicate pushdown at the DataFusion level.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None, uses the global configuration.
             samples: Optional list of sample names to include.
+            genotype_encoding_raw: If True, output GT as raw typed allele calls. If False, output VCF-style GT strings.
         """
         zero_based = _resolve_zero_based(use_zero_based)
         vcf_zarr_read_options = VcfZarrReadOptions(
@@ -599,6 +605,7 @@ class IOOperations:
             format_fields=format_fields,
             samples=samples,
             zero_based=zero_based,
+            genotype_encoding_raw=genotype_encoding_raw,
         )
         read_options = ReadOptions(vcf_zarr_read_options=vcf_zarr_read_options)
         return _read_file(

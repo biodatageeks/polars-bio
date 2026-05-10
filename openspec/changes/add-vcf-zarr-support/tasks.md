@@ -28,19 +28,19 @@
 
 ## 3. Typed VCZ Values and Genotype Encoding
 
-- [ ] 3.1 Add upstream VCF Zarr read options for `genotype_encoding_raw`, defaulting to raw typed `GT`.
-- [ ] 3.2 Infer Arrow schema types for projected INFO and non-GT FORMAT fields from supported VCF Zarr array dtypes and dimensions.
-- [ ] 3.3 Build typed Arrow arrays for scalar, list-valued, and nested selected-sample INFO/FORMAT values without stringifying numeric or boolean data.
-- [ ] 3.4 Implement mutually exclusive `GT` output modes: raw typed allele calls by default, existing VCF-style strings when `genotype_encoding_raw=False`.
-- [ ] 3.5 Expose `genotype_encoding_raw: bool = True` in `scan_vcf_zarr` and `read_vcf_zarr`, and pass it through to the upstream provider.
-- [ ] 3.6 Add upstream Rust coverage for typed INFO, typed FORMAT, raw `GT` default, string `GT` compatibility mode, sample subsets, and projection pruning.
-- [ ] 3.7 Add polars-bio Python coverage for default raw `GT`, requested string `GT`, no duplicate raw/string `GT` exposure, typed INFO/FORMAT dtypes, and representative analytical queries.
+- [x] 3.1 Add upstream VCF Zarr read options for `genotype_encoding_raw`, defaulting to raw typed `GT`.
+- [x] 3.2 Infer Arrow schema types for projected INFO and non-GT FORMAT fields from supported VCF Zarr array dtypes and dimensions.
+- [x] 3.3 Build typed Arrow arrays for scalar, list-valued, and nested selected-sample INFO/FORMAT values without stringifying numeric or boolean data.
+- [x] 3.4 Implement mutually exclusive `GT` output modes: raw typed allele calls by default, existing VCF-style strings when `genotype_encoding_raw=False`.
+- [x] 3.5 Expose `genotype_encoding_raw: bool = True` in `scan_vcf_zarr` and `read_vcf_zarr`, and pass it through to the upstream provider.
+- [x] 3.6 Add upstream Rust coverage for typed INFO, typed FORMAT, raw `GT` default, string `GT` compatibility mode, sample subsets, and projection pruning.
+- [x] 3.7 Add polars-bio Python coverage for default raw `GT`, requested string `GT`, no duplicate raw/string `GT` exposure, typed INFO/FORMAT dtypes, and representative analytical queries.
 
 ## 4. Finalization
 
-- [ ] 4.1 Replace the local path dependency with a publishable git revision or agreed dependency reference.
+- [x] 4.1 Replace the local path dependency with a publishable git revision or agreed dependency reference.
 - [x] 4.2 Run upstream Rust tests for the affected `datafusion-bio-formats` crate(s).
 - [x] 4.3 Run polars-bio Rust checks/tests.
 - [x] 4.4 Run targeted polars-bio VCF Zarr pytest tests.
 - [x] 4.5 Run `openspec validate add-vcf-zarr-support --strict`.
-- [ ] 4.6 Update this task list to checked state after implementation is complete.
+- [x] 4.6 Update this task list to checked state after implementation is complete.
