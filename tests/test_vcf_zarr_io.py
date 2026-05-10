@@ -65,6 +65,10 @@ def _write_malformed_array_metadata(root: Path, name: str):
     (array_path / ".zarray").write_text("{not valid json")
 
 
+def _write_corrupt_chunk(root: Path, array_name: str, chunk_name: str):
+    (root / array_name / chunk_name).write_bytes(b"not a valid zarr chunk")
+
+
 def test_scan_vcf_zarr_returns_lazyframe():
     lf = pb.scan_vcf_zarr(str(VCF_ZARR))
 
@@ -95,6 +99,83 @@ def test_scan_vcf_zarr_auto_discovers_info_field():
 
     assert df.columns == ["chrom", "DP"]
     assert df.height == 2
+
+
+def test_scan_vcf_zarr_info_projection_prunes_format_chunks(tmp_path):
+    store = _sampled_format_store(tmp_path)
+    lf = (
+        pb.scan_vcf_zarr(
+            str(store), info_fields=["DP"], format_fields=["DP"], samples=["22"]
+        )
+        .filter(pl.col("start") == 5_000_100)
+        .select("DP")
+    )
+    _write_corrupt_chunk(store, "call_DP", "0.0")
+
+    df = lf.collect()
+
+    assert df.columns == ["DP"]
+    assert df.height == 1
+
+
+def test_scan_vcf_zarr_format_projection_prunes_info_chunks(tmp_path):
+    store = _sampled_format_store(tmp_path)
+    lf = (
+        pb.scan_vcf_zarr(
+            str(store), info_fields=["DP"], format_fields=["DP"], samples=["22"]
+        )
+        .filter(pl.col("start") == 5_000_100)
+        .select("genotypes")
+    )
+    _write_corrupt_chunk(store, "variant_DP", "0")
+
+    df = lf.collect()
+
+    assert df.height == 1
+    assert df["genotypes"].to_list()[0] == {"DP": ["2000"]}
+
+
+def test_scan_vcf_zarr_core_projection_prunes_info_and_format_chunks(tmp_path):
+    store = _sampled_format_store(tmp_path)
+    lf = (
+        pb.scan_vcf_zarr(
+            str(store), info_fields=["DP"], format_fields=["DP"], samples=["22"]
+        )
+        .select(["chrom", "start"])
+        .head(2)
+    )
+    _write_corrupt_chunk(store, "variant_DP", "0")
+    _write_corrupt_chunk(store, "call_DP", "0.0")
+
+    df = lf.collect()
+
+    assert df.columns == ["chrom", "start"]
+    assert df.height == 2
+
+
+def test_scan_vcf_zarr_sql_count_star_uses_empty_projection(tmp_path):
+    from polars_bio.context import ctx
+    from polars_bio.polars_bio import (
+        InputFormat,
+        ReadOptions,
+        VcfZarrReadOptions,
+        py_read_sql,
+        py_register_table,
+    )
+
+    store = _sampled_format_store(tmp_path)
+    _write_corrupt_chunk(store, "variant_DP", "0")
+    _write_corrupt_chunk(store, "call_DP", "0.0")
+
+    read_options = ReadOptions(
+        vcf_zarr_read_options=VcfZarrReadOptions(
+            info_fields=["DP"], format_fields=["DP"], samples=["22"]
+        )
+    )
+    table = py_register_table(ctx, str(store), None, InputFormat.VcfZarr, read_options)
+    result = py_read_sql(ctx, f"SELECT COUNT(*) FROM {table.name}")
+
+    assert result.to_pydict()["count(*)"][0] == 1000
 
 
 def test_scan_vcf_zarr_prunes_unrequested_info_arrays(tmp_path):
