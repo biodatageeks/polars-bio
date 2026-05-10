@@ -12,23 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout main
-        uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+        uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
         with:
-          python-version: 3.12
-      - uses: snok/install-poetry@v1
-        with:
-          version: 1.8.5
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-          virtualenvs-path: .venv
-          installer-parallel: true
-      - run: poetry lock --no-update && poetry install --no-root
+          python-version: '3.12'
+      - run: uv sync
       - name: Install polars-bio
-        run: |
-          source .venv/bin/activate
-          pip install polars-bio
+        run: uv run pip install polars-bio
       - name: Deploy docs
-        run: poetry run mkdocs gh-deploy --force --remote-branch gh-pages -f mkdocs.yml
+        run: uv run mkdocs gh-deploy --force --remote-branch gh-pages -f mkdocs.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

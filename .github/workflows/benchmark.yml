@@ -191,17 +191,13 @@ jobs:
             cd polars-bio-bench && git pull && cd ..
           fi
 
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install polars-bio-bench dependencies
         run: |
           cd polars-bio-bench
-          # Update lock file to match pyproject.toml
-          poetry lock
-          # Install dependencies only, not the package itself
-          poetry install --no-root
+          uv sync --no-install-project
 
       # ============================================
       # BASELINE BENCHMARK
@@ -209,9 +205,8 @@ jobs:
 
       - name: Install baseline polars-bio from PyPI
         run: |
-          # For baseline, install the released version from PyPI into poetry virtualenv
           cd polars-bio-bench
-          poetry run pip install polars-bio==$(echo "${{ needs.prepare.outputs.baseline_tag }}" | sed 's/^v//')
+          uv pip install polars-bio==$(echo "${{ needs.prepare.outputs.baseline_tag }}" | sed 's/^v//')
 
       - name: Restore benchmark test data cache
         id: cache-benchmark-data
@@ -233,8 +228,7 @@ jobs:
           cd polars-bio-bench
           export BENCH_DATA_ROOT=/tmp/polars-bio-bench/
           export POLARS_MAX_THREADS=1
-          # Run benchmarks using poetry
-          poetry run python src/run-benchmarks.py --bench-config ${{ needs.prepare.outputs.benchmark_config }}
+          uv run python src/run-benchmarks.py --bench-config ${{ needs.prepare.outputs.benchmark_config }}
           # List results directory structure
           echo "Results directory contents:"
           ls -laR results/ || echo "No results directory found"
@@ -272,7 +266,7 @@ jobs:
       - name: Clean previous installation
         run: |
           cd polars-bio-bench
-          poetry run pip uninstall -y polars-bio || true
+          uv pip uninstall polars-bio || true
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -309,19 +303,16 @@ jobs:
           RUSTFLAGS: "${{ steps.rust-target.outputs.rustflags }}"
           CARGO_INCREMENTAL: "1"
         run: |
-          # Install maturin in poetry virtualenv
           cd polars-bio-bench
-          poetry run pip install maturin
-          # Build from repo root with explicit Cargo.toml path
-          poetry run maturin develop --release -m ../Cargo.toml
+          uv pip install maturin
+          uv run maturin develop --release -m ../Cargo.toml
 
       - name: Run target benchmarks
         run: |
           cd polars-bio-bench
           export BENCH_DATA_ROOT=/tmp/polars-bio-bench/
           export POLARS_MAX_THREADS=1
-          # Run benchmarks using poetry
-          poetry run python src/run-benchmarks.py --bench-config ${{ needs.prepare.outputs.benchmark_config }}
+          uv run python src/run-benchmarks.py --bench-config ${{ needs.prepare.outputs.benchmark_config }}
           # List results directory structure
           echo "Results directory contents:"
           ls -laR results/ || echo "No results directory found"
