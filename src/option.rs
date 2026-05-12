@@ -135,6 +135,7 @@ pub enum InputFormat {
     Sam,
     Cram,
     Vcf,
+    VcfZarr,
     Fastq,
     Fasta,
     Bed,
@@ -159,6 +160,7 @@ impl fmt::Display for InputFormat {
             InputFormat::Bam => "BAM",
             InputFormat::Sam => "SAM",
             InputFormat::Vcf => "VCF",
+            InputFormat::VcfZarr => "VCF_ZARR",
             InputFormat::Fastq => "FASTQ",
             InputFormat::Fasta => "FASTA",
             InputFormat::Bed => "BED",
@@ -191,12 +193,15 @@ pub struct ReadOptions {
     pub fasta_read_options: Option<FastaReadOptions>,
     #[pyo3(get, set)]
     pub pairs_read_options: Option<PairsReadOptions>,
+    #[pyo3(get, set)]
+    pub vcf_zarr_read_options: Option<VcfZarrReadOptions>,
 }
 
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None))]
+    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None))]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
         gff_read_options: Option<GffReadOptions>,
@@ -207,6 +212,7 @@ impl ReadOptions {
         bed_read_options: Option<BedReadOptions>,
         fasta_read_options: Option<FastaReadOptions>,
         pairs_read_options: Option<PairsReadOptions>,
+        vcf_zarr_read_options: Option<VcfZarrReadOptions>,
     ) -> Self {
         ReadOptions {
             vcf_read_options,
@@ -218,6 +224,7 @@ impl ReadOptions {
             bed_read_options,
             fasta_read_options,
             pairs_read_options,
+            vcf_zarr_read_options,
         }
     }
 }
@@ -366,6 +373,55 @@ impl VcfReadOptions {
             }),
             zero_based: true,
         }
+    }
+}
+
+#[pyclass(name = "VcfZarrReadOptions")]
+#[derive(Clone, Debug)]
+pub struct VcfZarrReadOptions {
+    #[pyo3(get, set)]
+    pub info_fields: Option<Vec<String>>,
+    #[pyo3(get, set)]
+    pub format_fields: Option<Vec<String>>,
+    #[pyo3(get, set)]
+    pub samples: Option<Vec<String>>,
+    /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+    /// If true (default), output GT as raw typed allele calls; if false, output VCF-style strings.
+    #[pyo3(get, set)]
+    pub genotype_encoding_raw: bool,
+}
+
+#[pymethods]
+impl VcfZarrReadOptions {
+    #[new]
+    #[pyo3(signature = (info_fields=None, format_fields=None, samples=None, zero_based=true, genotype_encoding_raw=true))]
+    pub fn new(
+        info_fields: Option<Vec<String>>,
+        format_fields: Option<Vec<String>>,
+        samples: Option<Vec<String>>,
+        zero_based: bool,
+        genotype_encoding_raw: bool,
+    ) -> Self {
+        VcfZarrReadOptions {
+            info_fields,
+            format_fields,
+            samples,
+            zero_based,
+            genotype_encoding_raw,
+        }
+    }
+
+    #[staticmethod]
+    pub fn default() -> Self {
+        Self::new(None, None, None, true, true)
+    }
+}
+
+impl Default for VcfZarrReadOptions {
+    fn default() -> Self {
+        Self::new(None, None, None, true, true)
     }
 }
 

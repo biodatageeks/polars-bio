@@ -4,7 +4,7 @@ import polars_config_meta  # noqa: F401 - initializes DataFrame metadata support
 
 from polars_bio.polars_bio import InputFormat
 from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
-from polars_bio.polars_bio import ReadOptions, VcfReadOptions
+from polars_bio.polars_bio import ReadOptions, VcfReadOptions, VcfZarrReadOptions
 
 from . import polars_ext  # registers pl.LazyFrame.pb namespace
 from ._metadata import (
@@ -71,6 +71,7 @@ read_gff = data_input.read_gff
 read_gtf = data_input.read_gtf
 read_table = data_input.read_table
 read_vcf = data_input.read_vcf
+read_vcf_zarr = data_input.read_vcf_zarr
 read_fastq = data_input.read_fastq
 read_bed = data_input.read_bed
 read_fasta = data_input.read_fasta
@@ -86,6 +87,7 @@ scan_gtf = data_input.scan_gtf
 scan_pairs = data_input.scan_pairs
 scan_table = data_input.scan_table
 scan_vcf = data_input.scan_vcf
+scan_vcf_zarr = data_input.scan_vcf_zarr
 write_vcf = data_input.write_vcf
 sink_vcf = data_input.sink_vcf
 write_fasta = data_input.write_fasta
@@ -125,6 +127,7 @@ __all__ = [
     "utils",
     "ReadOptions",
     "VcfReadOptions",
+    "VcfZarrReadOptions",
     "ObjectStorageOptions",
     "POLARS_BIO_COORDINATE_SYSTEM_CHECK",
     "POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED",
@@ -156,6 +159,7 @@ __all__ = [
     "read_gtf",
     "read_table",
     "read_vcf",
+    "read_vcf_zarr",
     "scan_bam",
     "scan_sam",
     "scan_cram",
@@ -167,6 +171,7 @@ __all__ = [
     "scan_pairs",
     "scan_table",
     "scan_vcf",
+    "scan_vcf_zarr",
     "write_vcf",
     "sink_vcf",
     "write_fasta",

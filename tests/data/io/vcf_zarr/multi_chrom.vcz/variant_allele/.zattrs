@@ -1,0 +1,7 @@
+{
+  "_ARRAY_DIMENSIONS": [
+    "variants",
+    "alleles"
+  ],
+  "description": "List of the reference and alternate alleles"
+}

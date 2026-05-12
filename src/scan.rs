@@ -23,6 +23,9 @@ use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_gtf::table_provider::GtfTableProvider;
 use datafusion_bio_format_pairs::table_provider::PairsTableProvider;
 use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
+use datafusion_bio_format_vcf::zarr::{
+    VcfZarrReadOptions as NativeVcfZarrReadOptions, VcfZarrTableProvider,
+};
 use futures::Stream;
 use log::info;
 use tokio::runtime::Runtime;
@@ -33,7 +36,11 @@ use crate::context::PyBioSessionContext;
 use crate::option::{
     BamReadOptions, BedReadOptions, CramReadOptions, FastaReadOptions, FastqReadOptions,
     GffReadOptions, GtfReadOptions, InputFormat, PairsReadOptions, ReadOptions, VcfReadOptions,
+    VcfZarrReadOptions,
 };
+
+type BatchResultReceiver = Receiver<Result<RecordBatch, DataFusionError>>;
+type SharedBatchResultReceiver = Arc<Mutex<Option<BatchResultReceiver>>>;
 
 /// Maximum number of RecordBatches buffered per partition when fanning out a LazyFrame
 /// Arrow C stream into multiple DataFusion partitions.
@@ -159,14 +166,11 @@ impl RecordBatchStream for ArrowCStreamBatchStream {
 /// partition receiver so DataFusion can execute probe-side partitions in parallel.
 pub struct ArrowCStreamFanoutPartitionStream {
     schema: SchemaRef,
-    receiver: Arc<Mutex<Option<Receiver<Result<RecordBatch, DataFusionError>>>>>,
+    receiver: SharedBatchResultReceiver,
 }
 
 impl ArrowCStreamFanoutPartitionStream {
-    pub fn new(
-        schema: SchemaRef,
-        receiver: Receiver<Result<RecordBatch, DataFusionError>>,
-    ) -> Self {
+    pub fn new(schema: SchemaRef, receiver: BatchResultReceiver) -> Self {
         Self {
             schema,
             receiver: Arc::new(Mutex::new(Some(receiver))),
@@ -472,7 +476,7 @@ pub(crate) async fn register_table(
     table_name: &str,
     format: InputFormat,
     read_options: Option<ReadOptions>,
-) -> String {
+) -> datafusion::common::Result<String> {
     ctx.deregister_table(table_name).unwrap();
     match format {
         InputFormat::Parquet => ctx
@@ -526,6 +530,30 @@ pub(crate) async fn register_table(
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register VCF table");
+        },
+        InputFormat::VcfZarr => {
+            let vcf_zarr_read_options = match &read_options {
+                Some(options) => match options.clone().vcf_zarr_read_options {
+                    Some(vcf_zarr_read_options) => vcf_zarr_read_options,
+                    _ => VcfZarrReadOptions::default(),
+                },
+                _ => VcfZarrReadOptions::default(),
+            };
+            info!(
+                "Registering VCF Zarr table {} with options: {:?}",
+                table_name, vcf_zarr_read_options
+            );
+            let table_provider = VcfZarrTableProvider::new(
+                path.to_string(),
+                NativeVcfZarrReadOptions {
+                    info_fields: vcf_zarr_read_options.info_fields,
+                    format_fields: vcf_zarr_read_options.format_fields,
+                    samples: vcf_zarr_read_options.samples,
+                    coordinate_system_zero_based: vcf_zarr_read_options.zero_based,
+                    genotype_encoding_raw: vcf_zarr_read_options.genotype_encoding_raw,
+                },
+            )?;
+            ctx.register_table(table_name, Arc::new(table_provider))?;
         },
         InputFormat::Gff => {
             let gff_read_options = match &read_options {
@@ -692,7 +720,7 @@ pub(crate) async fn register_table(
                 .expect("Failed to register GTF table");
         },
     };
-    table_name.to_string()
+    Ok(table_name.to_string())
 }
 
 pub(crate) fn maybe_register_table(
@@ -715,7 +743,8 @@ pub(crate) fn maybe_register_table(
                 default_table,
                 get_input_format(&df_path_or_table),
                 read_options,
-            ));
+            ))
+            .expect("Failed to register table");
             default_table.to_string()
         },
         _ => df_path_or_table,
@@ -797,6 +826,7 @@ pub fn py_describe_bam(
 #[pyo3::pyfunction]
 #[pyo3(signature = (py_ctx, path, reference_path=None, object_storage_options=None, zero_based=true, tag_fields=None, sample_size=None))]
 #[allow(unused_variables)]
+#[allow(clippy::too_many_arguments)]
 pub fn py_describe_cram(
     py: pyo3::Python<'_>,
     py_ctx: &crate::context::PyBioSessionContext,

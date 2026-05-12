@@ -28,6 +28,7 @@ from polars_bio.polars_bio import (
     ReadOptions,
     VcfReadOptions,
     VcfWriteOptions,
+    VcfZarrReadOptions,
     WriteOptions,
     py_describe_bam,
     py_describe_cram,
@@ -63,6 +64,7 @@ _FORMAT_COLUMN_TYPES = {
     "Sam": (BAM_STRING_COLUMNS, BAM_UINT32_COLUMNS | BAM_INT32_COLUMNS, None),
     "Cram": (BAM_STRING_COLUMNS, BAM_UINT32_COLUMNS | BAM_INT32_COLUMNS, None),
     "Vcf": (VCF_STRING_COLUMNS, VCF_UINT32_COLUMNS, None),
+    "VcfZarr": (VCF_STRING_COLUMNS, VCF_UINT32_COLUMNS, None),
     "Gff": (GFF_STRING_COLUMNS, GFF_UINT32_COLUMNS, GFF_FLOAT32_COLUMNS),
     "Gtf": (GFF_STRING_COLUMNS, GFF_UINT32_COLUMNS, GFF_FLOAT32_COLUMNS),
     "Pairs": (PAIRS_STRING_COLUMNS, PAIRS_UINT32_COLUMNS, PAIRS_FLOAT32_COLUMNS),
@@ -355,6 +357,7 @@ class IOOperations:
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
         samples: Union[list[str], None] = None,
+        genotype_encoding_raw: bool = True,
     ) -> pl.DataFrame:
         """
         Read a VCF file into a DataFrame.
@@ -526,6 +529,88 @@ class IOOperations:
         return _read_file(
             path,
             InputFormat.Vcf,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
+        )
+
+    @staticmethod
+    def read_vcf_zarr(
+        path: str,
+        info_fields: Union[list[str], None] = None,
+        format_fields: Union[list[str], None] = None,
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+        samples: Union[list[str], None] = None,
+        genotype_encoding_raw: bool = True,
+    ) -> pl.DataFrame:
+        """
+        Read a local VCF Zarr store into a DataFrame.
+
+        Parameters:
+            path: The path to the VCF Zarr store directory.
+            info_fields: Optional list of INFO field names to include. If None, local INFO arrays are discovered automatically. Use [] to disable INFO fields.
+            format_fields: Optional list of FORMAT field names to include. If None, local FORMAT arrays are discovered automatically. Use [] to disable FORMAT fields.
+            projection_pushdown: Enable column projection pushdown at the DataFusion level.
+            predicate_pushdown: Enable predicate pushdown at the DataFusion level.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None, uses the global configuration.
+            samples: Optional list of sample names to include.
+            genotype_encoding_raw: If True, output GT as raw typed allele calls. If False, output VCF-style GT strings.
+        """
+        lf = IOOperations.scan_vcf_zarr(
+            path=path,
+            info_fields=info_fields,
+            format_fields=format_fields,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+            use_zero_based=use_zero_based,
+            samples=samples,
+            genotype_encoding_raw=genotype_encoding_raw,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_vcf_zarr(
+        path: str,
+        info_fields: Union[list[str], None] = None,
+        format_fields: Union[list[str], None] = None,
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+        samples: Union[list[str], None] = None,
+        genotype_encoding_raw: bool = True,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read a local VCF Zarr store into a LazyFrame.
+
+        Parameters:
+            path: The path to the VCF Zarr store directory.
+            info_fields: Optional list of INFO field names to include. If None, local INFO arrays are discovered automatically. Use [] to disable INFO fields.
+            format_fields: Optional list of FORMAT field names to include. If None, local FORMAT arrays are discovered automatically. Use [] to disable FORMAT fields.
+            projection_pushdown: Enable column projection pushdown at the DataFusion level.
+            predicate_pushdown: Enable predicate pushdown at the DataFusion level.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None, uses the global configuration.
+            samples: Optional list of sample names to include.
+            genotype_encoding_raw: If True, output GT as raw typed allele calls. If False, output VCF-style GT strings.
+        """
+        zero_based = _resolve_zero_based(use_zero_based)
+        vcf_zarr_read_options = VcfZarrReadOptions(
+            info_fields=info_fields,
+            format_fields=format_fields,
+            samples=samples,
+            zero_based=zero_based,
+            genotype_encoding_raw=genotype_encoding_raw,
+        )
+        read_options = ReadOptions(vcf_zarr_read_options=vcf_zarr_read_options)
+        return _read_file(
+            path,
+            InputFormat.VcfZarr,
             read_options,
             projection_pushdown,
             predicate_pushdown,
@@ -2696,7 +2781,6 @@ def _lazy_scan(
     file_path: str = None,
     read_options: ReadOptions = None,
 ) -> pl.LazyFrame:
-
     # Handle both PyArrow schema (new streaming path) and DataFusion DataFrame (old SQL path)
     import pyarrow as pa
 
@@ -3127,7 +3211,9 @@ def _format_to_string(input_format: InputFormat) -> str:
     """
     # Use string comparison since InputFormat is not hashable
     format_str = str(input_format)
-    if "Vcf" in format_str:
+    if "VcfZarr" in format_str:
+        return "vcf_zarr"
+    elif "Vcf" in format_str:
         return "vcf"
     elif "Sam" in format_str:
         return "sam"
@@ -3178,7 +3264,10 @@ def _read_file(
 
     # SAM and CRAM use the same schema metadata keys as BAM (bio.bam.*),
     # so look up "bam" in format_specific when reading SAM or CRAM files.
-    metadata_key = "bam" if format_str in ("sam", "cram") else format_str
+    if format_str == "vcf_zarr":
+        metadata_key = "vcf"
+    else:
+        metadata_key = "bam" if format_str in ("sam", "cram") else format_str
 
     if metadata_key in format_specific:
         # Use the parsed format-specific metadata
