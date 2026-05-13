@@ -17,7 +17,7 @@ polars-bio 0.31.0 adds first-class support for [VCF Zarr](https://github.com/sgk
 
 VCF is still the standard interchange format for genetic variation. It is compact, human-readable, and widely supported. But even when bgzipped and indexed with tabix, VCF is fundamentally a row-oriented text format. A query engine still has to decompress blocks, parse text records, split INFO fields, split FORMAT/sample fields, and then rebuild typed arrays.
 
-[Zarr](https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html) takes a different approach. It stores typed N-dimensional arrays in independently compressed chunks with JSON metadata. VCF Zarr uses that model for the VCF data model: variants, samples, INFO fields, FORMAT fields, genotype calls, masks, phasing, and region lookup metadata are stored as arrays instead of text rows.
+[Zarr](https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html) takes a different approach. It stores typed N-dimensional arrays in independently compressed chunks with JSON metadata. VCF Zarr uses that model for the VCF data model: variants, samples, INFO fields, FORMAT fields, genotype calls, masks, phasing, and region lookup metadata are stored as arrays instead of text rows. The format and motivation are described in the paper [Analysis-ready VCF at Biobank scale using Zarr](https://doi.org/10.1093/gigascience/giaf049).
 
 ```mermaid
 flowchart LR
@@ -126,7 +126,7 @@ calls = (
 
 By default, VCZ genotype calls are returned in the raw typed representation from the store, rather than being converted back to VCF-style strings. This avoids unnecessary conversion and preserves the array-native representation. If you need string GT values for compatibility, use `genotype_encoding_raw=False`.
 
-The first release focuses on local VCF Zarr 0.4 stores produced by bio2zarr. It supports lazy scans, eager reads, projection pushdown, INFO and FORMAT field selection, sample selection, raw typed genotype values, genomic predicate pruning through the VCZ region index, and DataFusion parallel execution.
+The first release focuses on local VCF Zarr 0.4 stores produced by bio2zarr. It supports lazy scans, eager reads, projection pushdown, INFO and FORMAT field selection, sample selection, raw typed genotype values, genomic predicate pruning through the VCZ region index, and DataFusion parallel execution. Under the hood, the VCF Zarr reader was added as a new `datafusion-bio-formats` bio-format provider using the Rust [`zarrs`](https://crates.io/crates/zarrs) crate for Zarr store and array access.
 
 ## Converting VCF to VCF Zarr
 
@@ -174,7 +174,7 @@ vcf2zarr create_index cohort.vcz
 
 ## Benchmarks
 
-The benchmark notebook is [`notebooks/vcf_zarr_small_benchmark.ipynb`](https://github.com/biodatageeks/polars-bio/blob/main/notebooks/vcf_zarr_small_benchmark.ipynb). The dataset is the 1000 Genomes high-coverage chr22 VCF converted to VCF Zarr:
+The benchmark notebook is [`notebooks/vcf_zarr_small_benchmark.ipynb`](https://github.com/biodatageeks/polars-bio/blob/master/notebooks/vcf_zarr_small_benchmark.ipynb). The dataset is the 1000 Genomes high-coverage chr22 VCF converted to VCF Zarr:
 
 | Dataset | Value |
 | --- | --- |
@@ -185,18 +185,18 @@ The benchmark notebook is [`notebooks/vcf_zarr_small_benchmark.ipynb`](https://g
 | Genotype chunks | `[1000, 10, 2]` for variants, samples, ploidy |
 | `target_partitions` | 1 |
 
-These results compare `pb.scan_vcf_zarr(...)` with `pb.scan_vcf(...)` against the same logical query. The VCF path uses the bgzipped VCF and its tabix index, including bounded `start >= ... AND start <= ...` pruning.
+These results compare `pb.scan_vcf_zarr(...)` with `pb.scan_vcf(...)` against the same logical query. The VCF path uses the bgzipped VCF and its tabix index, including bounded `start >= ... AND start <= ...` pruning. Comparable text-streaming rows also include `bcftools query` plus `awk` timings; full table materialization is left blank because it is not a text-query equivalent.
 
-| Scenario | VCZ Wall Time | BGZF VCF Wall Time | VCZ Speedup |
-| --- | ---: | ---: | ---: |
-| Full chromosome count by chrom | 0.210 s | 6.35 s | 30.2x |
-| 100 kb region core summary | 0.0279 s | 0.0430 s | 1.5x |
-| 100 kb region AF projection | 0.0171 s | 0.0511 s | 3.0x |
-| 100 kb region 3-sample GT slice | 0.0331 s | 0.0409 s | 1.2x |
-| 100 kb region all-sample GT summary | 0.716 s | 0.965 s | 1.3x |
-| Full scan AF >= 0.05 analytics | 0.269 s | 9.47 s | 35.2x |
-| Full scan 3-sample GT grouping | 0.928 s | 6.79 s | 7.3x |
-| Full table materialized in memory | 156.8 s | 387.0 s | 2.5x |
+| Scenario                            | `polars-bio` VCZ [s] | `polars-bio` BGZF VCF [s] | `bcftools`/`awk` [s] | `polars-bio` VCZ vs BGZF VCF |
+|-------------------------------------|---------------------:|--------------------------:|---------------------:|-----------------------------:|
+| Full chromosome count by chrom      |                0.210 |                      6.35 |                 3.82 |                        30.2x |
+| 100 kb region core summary          |               0.0279 |                    0.0430 |               0.0580 |                         1.5x |
+| 100 kb region AF projection         |               0.0171 |                    0.0511 |               0.0637 |                         3.0x |
+| 100 kb region 3-sample GT slice     |               0.0331 |                    0.0409 |               0.0784 |                         1.2x |
+| 100 kb region all-sample GT summary |                0.716 |                     0.965 |                0.657 |                         1.3x |
+| Full scan AF >= 0.05 analytics      |                0.269 |                      9.47 |                 6.60 |                        35.2x |
+| Full scan 3-sample GT grouping      |                0.928 |                      6.79 |                 9.96 |                         7.3x |
+| Full table materialized in memory   |                156.8 |                     387.0 |                    - |                         2.5x |
 
 The most important result is not that VCZ always replaces tabix for narrow lookups. After bounded `start` pruning, bgzipped VCF is already very competitive for small indexed regions. In the 100 kb region tests above, VCZ ranges from roughly comparable to about 3x faster, depending on which columns are selected.
 
@@ -296,4 +296,5 @@ Resources:
 - [polars-bio documentation](https://biodatageeks.org/polars-bio/)
 - [VCF Zarr specification](https://github.com/sgkit-dev/vcf-zarr-spec)
 - [bio2zarr vcf2zarr CLI reference](https://sgkit-dev.github.io/bio2zarr/vcf2zarr/cli_ref.html)
+- [zarrs Rust crate](https://crates.io/crates/zarrs)
 - [Zarr core specification](https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html)
