@@ -26,7 +26,7 @@ It provides a DataFrame API for genomics data and is designed to be blazing fast
 * [out-of-core/streaming](https://biodatageeks.org/polars-bio/features/#streaming) processing (for data too large to fit into a computer's main memory)  with [Apache DataFusion](https://datafusion.apache.org/) and [polars](https://pola.rs/)
 * support for *federated* and *streamed* reading data from [cloud storages](https://biodatageeks.org/polars-bio/features/#cloud-storage) (e.g. S3, GCS) with [Apache OpenDAL](https://github.com/apache/opendal) enabling processing large-scale genomics data without materializing in memory
 * zero-copy data exchange with [Apache Arrow](https://arrow.apache.org/)
-* bioinformatics file [formats](https://biodatageeks.org/polars-bio/features/#file-formats-support) with [noodles](https://github.com/zaeleus/noodles)
+* bioinformatics file [formats](https://biodatageeks.org/polars-bio/features/#file-formats-support) with [noodles](https://github.com/zaeleus/noodles); VCF Zarr support is implemented as a `datafusion-bio-formats` bio-format provider using the Rust [zarrs](https://crates.io/crates/zarrs) crate
 * fast overlap operations with [COITrees: Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees)
 * pre-built wheel packages for *Linux*, *Windows* and *MacOS* (*arm64* and *x86_64*) available on [PyPI](https://pypi.org/project/polars-bio/#files)
 
@@ -55,5 +55,13 @@ If you use **polars-bio** in your work, please cite:
     eprint = {https://academic.oup.com/bioinformatics/advance-article-pdf/doi/10.1093/bioinformatics/btaf640/65667510/btaf640.pdf},
 }
 ```
+
+## References
+
+VCF Zarr support in polars-bio builds on:
+
+* [Analysis-ready VCF at Biobank scale using Zarr](https://doi.org/10.1093/gigascience/giaf049)
+* [VCF Zarr specification](https://github.com/sgkit-dev/vcf-zarr-spec)
+* [zarrs Rust crate](https://crates.io/crates/zarrs)
 
 Read the [documentation](https://biodatageeks.github.io/polars-bio/)
