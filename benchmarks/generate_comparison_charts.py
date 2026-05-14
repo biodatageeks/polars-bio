@@ -10,7 +10,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict
 
 # Try to import tomllib (Python 3.11+), fall back to tomli
 try:
@@ -20,6 +20,49 @@ except ImportError:
         import tomli as tomllib
     except ImportError:
         tomllib = None
+
+
+def _normalize_dependency_name(value: str) -> str:
+    match = re.match(r"\s*([A-Za-z0-9_.-]+)", value)
+    return match.group(1) if match else value.strip()
+
+
+def _dependency_version(value: Any) -> str | None:
+    if isinstance(value, str):
+        text = value.split(";", 1)[0].strip()
+        if "@" in text:
+            return None
+        match = re.search(r"(?:==|>=|~=|\^|>|<)\s*([^,\s]+)", text)
+        if match:
+            return match.group(1).strip()
+        return text or None
+    if isinstance(value, dict) and "version" in value:
+        return str(value["version"]).lstrip("^~>=<").split(",", 1)[0].strip()
+    return None
+
+
+def _collect_dependency_entries(pyproject: Dict[str, Any]) -> Dict[str, Any]:
+    entries: Dict[str, Any] = {}
+
+    for dependency in pyproject.get("project", {}).get("dependencies", []):
+        entries[_normalize_dependency_name(dependency)] = dependency
+
+    for dependencies in (
+        pyproject.get("project", {}).get("optional-dependencies", {}).values()
+    ):
+        for dependency in dependencies:
+            entries[_normalize_dependency_name(dependency)] = dependency
+
+    for dependencies in pyproject.get("dependency-groups", {}).values():
+        for dependency in dependencies:
+            if isinstance(dependency, str):
+                entries[_normalize_dependency_name(dependency)] = dependency
+
+    poetry_config = pyproject.get("tool", {}).get("poetry", {})
+    entries.update(poetry_config.get("dependencies", {}))
+    entries.update(poetry_config.get("dev-dependencies", {}))
+
+    return entries
 
 
 def extract_library_versions(benchmark_dir: Path) -> Dict[str, str]:
@@ -42,15 +85,7 @@ def extract_library_versions(benchmark_dir: Path) -> Dict[str, str]:
     try:
         with open(pyproject_path, "rb") as f:
             pyproject = tomllib.load(f)
-            # Check both dependencies and dev-dependencies
-            dependencies = (
-                pyproject.get("tool", {}).get("poetry", {}).get("dependencies", {})
-            )
-            dev_dependencies = (
-                pyproject.get("tool", {}).get("poetry", {}).get("dev-dependencies", {})
-            )
-            # Merge both, preferring dev-dependencies
-            all_deps = {**dependencies, **dev_dependencies}
+            all_deps = _collect_dependency_entries(pyproject)
 
             # Map package names to our tool names
             package_mapping = {
@@ -63,13 +98,8 @@ def extract_library_versions(benchmark_dir: Path) -> Dict[str, str]:
 
             for package_name, tool_name in package_mapping.items():
                 if package_name in all_deps:
-                    dep = all_deps[package_name]
-                    if isinstance(dep, str):
-                        # Remove version specifiers like ^, ~, >=, etc.
-                        version = dep.lstrip("^~>=<")
-                        versions[tool_name] = version
-                    elif isinstance(dep, dict) and "version" in dep:
-                        version = dep["version"].lstrip("^~>=<")
+                    version = _dependency_version(all_deps[package_name])
+                    if version:
                         versions[tool_name] = version
 
         print(f"Extracted versions: {versions}")
@@ -151,7 +181,6 @@ def generate_html_charts(
             if len(lines) < 2:
                 continue
 
-            headers = lines[0].strip().split(",")
             for line in lines[1:]:
                 parts = line.strip().split(",")
                 if len(parts) < 4:
@@ -309,7 +338,7 @@ def generate_html_charts(
 
         html_content += f"""
     <div class="chart-container">
-        <h2>{operation_name.replace('_', ' ').title()} Operation - Total Runtime</h2>
+        <h2>{operation_name.replace("_", " ").title()} Operation - Total Runtime</h2>
         <div id="chart-{operation_name}-total"></div>
     </div>
 """
@@ -322,7 +351,7 @@ def generate_html_charts(
 
         html_content += f"""
     <div class="chart-container">
-        <h2>{operation_name.replace('_', ' ').title()} Operation - Per Test Case</h2>
+        <h2>{operation_name.replace("_", " ").title()} Operation - Per Test Case</h2>
         <div id="chart-{operation_name}-detail"></div>
     </div>
 """
@@ -346,7 +375,6 @@ def generate_html_charts(
             tool_data = data["tools"][tool]
             baseline_values = []
             pr_values = []
-            test_case_labels = []
 
             # Sum across all test cases (total runtime)
             baseline_total = sum(tool_data["baseline"].values())
@@ -364,7 +392,7 @@ def generate_html_charts(
                 name: 'Baseline',
                 type: 'bar',
                 marker: {{color: '#636EFA'}},
-                showlegend: {'true' if tool == tools[0] else 'false'},
+                showlegend: {"true" if tool == tools[0] else "false"},
                 hovertemplate: '{tool}<br>Baseline: %{{y:.2f}} ms ({baseline_count} tests)<extra></extra>'
             }},
 """
@@ -379,7 +407,7 @@ def generate_html_charts(
                 name: 'PR',
                 type: 'bar',
                 marker: {{color: '#EF553B'}},
-                showlegend: {'true' if tool == tools[0] else 'false'},
+                showlegend: {"true" if tool == tools[0] else "false"},
                 hovertemplate: '{tool}<br>PR: %{{y:.2f}} ms ({pr_count} tests)<extra></extra>'
             }},
 """

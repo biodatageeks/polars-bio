@@ -782,26 +782,26 @@ print(df.execution_plan())
 
 ### Building from source
 
-polars-bio can be built from source using [maturin](https://github.com/PyO3/maturin) and [poetry](https://python-poetry.org/):
+polars-bio can be built from source using [maturin](https://github.com/PyO3/maturin) and [uv](https://docs.astral.sh/uv/):
 
 ```bash
 git clone https://github.com/biodatageeks/polars-bio.git
 cd polars-bio
-poetry env use 3.12
-poetry update
-RUSTFLAGS="-Ctarget-cpu=native" maturin build --release -m Cargo.toml
+uv sync --all-extras
+RUSTFLAGS="-Ctarget-cpu=native" uv run maturin build --release -m Cargo.toml
 pip install target/wheels/polars_bio-*.whl
 ```
 
-For development (installs directly into the current virtual environment):
+For development (installs directly into the uv project environment):
 
 ```bash
-RUSTFLAGS="-Ctarget-cpu=native" maturin develop --release -m Cargo.toml
+uv sync --all-extras
+RUSTFLAGS="-Ctarget-cpu=native" uv run maturin develop --release -m Cargo.toml
 ```
 
 !!! tip "Required dependencies"
-    - Python >= 3.10, < 3.15 (3.12 or 3.13 recommended, 3.14 is **experimental**)
-    - [poetry](https://python-poetry.org/)
+    - Python >= 3.11, < 3.15 (3.12 or 3.13 recommended, 3.14 is **experimental**)
+    - [uv](https://docs.astral.sh/uv/)
     - cmake
     - Rust compiler + Cargo ([rustup](https://rustup.rs/) recommended)
 

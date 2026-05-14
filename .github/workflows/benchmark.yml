@@ -191,13 +191,14 @@ jobs:
             cd polars-bio-bench && git pull && cd ..
           fi
 
-      - name: Install Poetry
+      - name: Install Poetry for polars-bio-bench
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
 
       - name: Install polars-bio-bench dependencies
         run: |
           cd polars-bio-bench
+          # polars-bio-bench is an external repository that still uses Poetry.
           # Update lock file to match pyproject.toml
           poetry lock
           # Install dependencies only, not the package itself
@@ -309,7 +310,7 @@ jobs:
           RUSTFLAGS: "${{ steps.rust-target.outputs.rustflags }}"
           CARGO_INCREMENTAL: "1"
         run: |
-          # Install maturin in poetry virtualenv
+          # Build into the external benchmark repository's Poetry virtualenv.
           cd polars-bio-bench
           poetry run pip install maturin
           # Build from repo root with explicit Cargo.toml path
