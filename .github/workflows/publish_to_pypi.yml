@@ -40,8 +40,8 @@ jobs:
       SCCACHE_GHA_ENABLED: "true"
       RUSTC_WRAPPER: "sccache"
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - name: Set up Rust
@@ -59,8 +59,8 @@ jobs:
         target: [x86_64]
         python-version: [ "3.11", "3.12", "3.13", "3.14" ]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
       - uses: astral-sh/setup-uv@v8.1.0
@@ -84,8 +84,8 @@ jobs:
       matrix:
         target: [x86_64]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - name: Build wheels
@@ -99,7 +99,7 @@ jobs:
           RUSTFLAGS: "-Dwarnings -Ctarget-cpu=${{ env.TARGET_CPU }}"
 
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-manylinux-${{ matrix.target }}
           path: dist
@@ -109,8 +109,8 @@ jobs:
       matrix:
         target: [x64]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           architecture: ${{ matrix.target }}
@@ -123,7 +123,7 @@ jobs:
         env:
           RUSTFLAGS: "-Dwarnings -Ctarget-cpu=${{ env.TARGET_CPU }}"
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-win-${{ matrix.target }}
           path: dist
@@ -139,8 +139,8 @@ jobs:
           - target: aarch64
             apple_cpu_target: "apple-m1"
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - name: Build wheels
@@ -152,21 +152,21 @@ jobs:
         env:
           RUSTFLAGS: "-Dwarnings -Clink-arg=-undefined -Clink-arg=dynamic_lookup -Ctarget-cpu=${{ matrix.apple_cpu_target }}"
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-macos-${{ matrix.target }}
           path: dist
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
       - name: Build sdist
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
           args: --out dist
       - name: Upload sdist
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-sdist
           path: dist
@@ -185,9 +185,9 @@ jobs:
       # Used to generate artifact attestation
       attestations: write
     steps:
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v7
     - name: Generate artifact attestation
-      uses: actions/attest-build-provenance@v1
+      uses: actions/attest-build-provenance@v3
       with:
         subject-path: 'wheels-*/*'
     - name: Publish to PyPI
