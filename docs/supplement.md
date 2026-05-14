@@ -122,7 +122,7 @@ All Parquet files from this dataset shared the same schema:
 Randomly generated intervals (100-10,000,000) inspired by [bioframe](http://bioframe.readthedocs.io/en/latest/guide-performance.html) performance analysis.
 Generated with [generate_dataset.py](https://github.com/biodatageeks/polars-bio-bench/blob/bioframe-data-generator/src/generate_dataset.py)
 ```shell
-poetry run python src/generate_dataset.py
+uv run python src/generate_dataset.py
 ```
 All Parquet files from this dataset shared the same schema:
 ```sql
@@ -461,4 +461,3 @@ memory usage: 9.4 GB
 
 !!! Note
     Please note that `pyranges` unlike *bioframe* and *polars-bio* returns only one chromosome column but uses `int64` data types for encoding start and end positions even if input datasets use `int32`.
-

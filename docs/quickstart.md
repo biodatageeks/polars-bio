@@ -11,13 +11,12 @@ For visualization features, which depend on `bioframe` and `matplotlib`, install
 pip install polars-bio[viz]
 ```
 There are binary versions for Linux (x86_64), MacOS (x86_64 and arm64) and Windows (x86_64).
-In case of other platforms (or errors indicating incompatibilites between Python's ABI), it is fairly easy to build polars-bio from source with [poetry](https://python-poetry.org/) and [maturin](https://github.com/PyO3/maturin):
+In case of other platforms (or errors indicating incompatibilites between Python's ABI), it is fairly easy to build polars-bio from source with [uv](https://docs.astral.sh/uv/) and [maturin](https://github.com/PyO3/maturin):
 ```shell
 git clone https://github.com/biodatageeks/polars-bio.git
 cd polars-bio
-poetry env use 3.12
-poetry update
-RUSTFLAGS="-Ctarget-cpu=native" maturin build --release -m Cargo.toml
+uv sync --all-extras
+RUSTFLAGS="-Ctarget-cpu=native" uv run maturin build --release -m Cargo.toml
 ```
 and you should see the following output:
 ```shell
@@ -32,8 +31,8 @@ pip install /Users/mwiewior/research/git/polars-bio/target/wheels/polars_bio-0.1
 !!! tip
     Required dependencies:
 
-    * Python>=3.10<3.15 (3.12 or 3.13 are recommended, 3.14 is **experimental**),
-    * [poetry](https://python-poetry.org/)
+    * Python>=3.11<3.15 (3.12 or 3.13 are recommended, 3.14 is **experimental**),
+    * [uv](https://docs.astral.sh/uv/)
     * cmake,
     * Rust compiler
     * Cargo

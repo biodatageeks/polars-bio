@@ -34,7 +34,7 @@
 
 ### Build System
 - `maturin` (>=1.0) - Build Python wheels from Rust
-- `poetry` (1.8.4) - Python dependency management
+- `uv` - Python dependency and environment management
 
 ### Documentation
 - `mkdocs` with `mkdocs-material` theme
@@ -139,7 +139,7 @@
 1. **Performance Critical**: Operations must handle millions of intervals efficiently
 2. **Memory Efficiency**: Support out-of-core processing for large datasets
 3. **Cross-Platform**: Must build wheels for Linux, macOS (arm64/x86_64), Windows
-4. **Python Version Support**: 3.10 through 3.13
+4. **Python Version Support**: 3.11 through 3.14
 5. **Rust Compiler Warnings**: All warnings treated as errors in CI (`-Dwarnings`)
 
 ## External Dependencies
