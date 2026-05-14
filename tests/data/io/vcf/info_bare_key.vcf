@@ -1,0 +1,10 @@
+##fileformat=VCFv4.3
+##INFO=<ID=DP,Number=1,Type=Integer,Description="Total depth">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency">
+##INFO=<ID=ALLELE_ID,Number=.,Type=String,Description="Allele identifiers">
+##INFO=<ID=DB,Number=0,Type=Flag,Description="dbSNP membership">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	rs1	A	T	60	PASS	DP;AF=0.5;ALLELE_ID=alt1;DB
+chr1	200	rs2	G	C	80	PASS	DP=42;AF;ALLELE_ID=alt2
+chr1	300	rs3	C	T	70	PASS	DP=7;AF=0.2;ALLELE_ID
+chr1	400	rs4	T	G	90	PASS	DP=9;AF=0.3;ALLELE_ID=alt4;DB

@@ -1,0 +1,4 @@
+##fileformat=VCFv4.3
+##INFO=<ID=DB,Number=0,Type=Flag,Description="dbSNP membership">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	rs1	A	T	60	PASS	DB=unexpected_payload
