@@ -42,7 +42,7 @@ jobs:
       benchmark_config: ${{ steps.benchmark-config.outputs.config }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -137,7 +137,7 @@ jobs:
         run: echo "/home/gha/.local/bin" >> $GITHUB_PATH
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0  # Fetch all history for tag identification
 
@@ -162,7 +162,7 @@ jobs:
           echo "Using alert threshold: $THRESHOLD%"
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
 
@@ -178,7 +178,7 @@ jobs:
           brew install bedtools jq
 
       - name: Cache polars-bio-bench repository
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: polars-bio-bench
           key: polars-bio-bench-${{ hashFiles('**/lockfiles') }}
@@ -216,7 +216,7 @@ jobs:
 
       - name: Restore benchmark test data cache
         id: cache-benchmark-data
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: /tmp/polars-bio-bench
           key: polars-bio-bench-data-${{ hashFiles('polars-bio-bench/conf/benchmark_small.yaml') }}
@@ -295,7 +295,7 @@ jobs:
         uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Cache Cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry/index/
@@ -351,7 +351,7 @@ jobs:
 
       - name: Save benchmark test data cache
         if: success()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: /tmp/polars-bio-bench
           key: ${{ steps.cache-benchmark-data.outputs.cache-primary-key }}
@@ -373,7 +373,7 @@ jobs:
           cat runner_info.json
 
       - name: Upload benchmark results as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: benchmark-results-${{ matrix.runner }}
           path: |
@@ -390,13 +390,13 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           fetch-tags: true
 
       - name: Download all benchmark artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: all-results/
           pattern: benchmark-results-*
@@ -720,7 +720,7 @@ jobs:
 
       - name: Comment PR with comparison results
         if: steps.find_pr.outputs.has_pr == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
