@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##contig=<ID=chrX,length=156040895>
+##INFO=<ID=AC,Number=A,Type=Integer,Description="Allele count for each ALT allele">
+##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency for each ALT allele">
+##INFO=<ID=EVIDENCE,Number=.,Type=String,Description="Classes of random forest support">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chrX	1946351	HGSV_249298	A	<DEL>	.	.	AC=2;AF=0.998595;EVIDENCE
