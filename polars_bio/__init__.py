@@ -48,6 +48,7 @@ if "POLARS_FORCE_NEW_STREAMING" not in os.environ:
 register_gff = data_processing.register_gff
 register_gtf = data_processing.register_gtf
 register_vcf = data_processing.register_vcf
+register_vcf_zarr = data_processing.register_vcf_zarr
 register_fastq = data_processing.register_fastq
 register_bam = data_processing.register_bam
 register_sam = data_processing.register_sam
@@ -59,6 +60,7 @@ register_view = data_processing.register_view
 sql = data_processing.sql
 
 describe_vcf = data_input.describe_vcf
+describe_vcf_zarr = data_input.describe_vcf_zarr
 describe_bam = data_input.describe_bam
 describe_sam = data_input.describe_sam
 describe_cram = data_input.describe_cram
@@ -144,6 +146,7 @@ __all__ = [
     "print_metadata_summary",
     # I/O functions
     "describe_vcf",
+    "describe_vcf_zarr",
     "describe_bam",
     "describe_sam",
     "describe_cram",
@@ -187,6 +190,7 @@ __all__ = [
     "register_gff",
     "register_gtf",
     "register_vcf",
+    "register_vcf_zarr",
     "register_fastq",
     "register_bam",
     "register_sam",

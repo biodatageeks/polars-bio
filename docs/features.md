@@ -1003,6 +1003,21 @@ pb.register_vcf("gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.
 pb.sql("SELECT * FROM gnomad_sv WHERE SVTYPE = 'DEL' AND SVLEN > 1000").limit(3).collect()
 ```
 
+Local VCF Zarr stores can be registered with the same SQL context:
+
+```python
+import polars_bio as pb
+
+pb.register_vcf_zarr(
+    "cohort.vcz",
+    "cohort",
+    info_fields=["DP"],
+    format_fields=["GT"],
+    samples=["HG001"],
+)
+pb.sql('SELECT chrom, start, "DP", genotypes FROM cohort LIMIT 5').collect()
+```
+
 ### Accessing registered tables
 
 You can access registered tables programmatically using the `ctx.table()` method, which returns a DataFusion DataFrame:
@@ -1038,6 +1053,7 @@ Quickly inspect BAM/CRAM file schemas without reading the entire file:
 
 ```python
 import polars_bio as pb
+import polars as pl
 
 # Get schema information for BAM file
 schema = pb.describe_bam("file.bam")
@@ -1059,6 +1075,13 @@ print(schema)  # Shows 14 columns including tags
 
 # CRAM schema
 schema = pb.describe_cram("file.cram")
+
+# VCF and local VCF Zarr describe output includes INFO and FORMAT rows.
+vcf_schema = pb.describe_vcf("variants.vcf")
+vcz_schema = pb.describe_vcf_zarr("cohort.vcz")
+format_fields = vcf_schema.filter(pl.col("field_type") == "FORMAT")
+
+# VCF describe columns: name, field_type, data_type, description.
 ```
 
 ### BAM Optional Tags

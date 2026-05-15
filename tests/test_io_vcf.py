@@ -3,6 +3,19 @@ from _expected import DATA_DIR
 import polars_bio as pb
 
 
+def test_describe_vcf_includes_info_and_format_fields():
+    schema = pb.describe_vcf(f"{DATA_DIR}/io/vcf/multisample.vcf")
+
+    assert schema.columns == ["name", "field_type", "data_type", "description"]
+
+    rows = {
+        (row["field_type"], row["name"]): row["data_type"] for row in schema.to_dicts()
+    }
+    assert rows[("INFO", "AF")] == "Float"
+    assert rows[("FORMAT", "GT")] == "String"
+    assert rows[("FORMAT", "DP")] == "Integer"
+
+
 class TestIOVCF:
     """Tests for VCF read functionality."""
 

@@ -33,6 +33,7 @@ from polars_bio.polars_bio import (
     py_describe_bam,
     py_describe_cram,
     py_describe_vcf,
+    py_describe_vcf_zarr,
     py_from_polars,
     py_get_table_schema,
     py_read_sql,
@@ -1858,6 +1859,16 @@ class IOOperations:
             compression_type=compression_type,
         )
         return py_describe_vcf(ctx, path, object_storage_options).to_polars()
+
+    @staticmethod
+    def describe_vcf_zarr(path: str) -> pl.DataFrame:
+        """
+        Describe VCF Zarr INFO and FORMAT schema.
+
+        Parameters:
+            path: The path to the local VCF Zarr store directory.
+        """
+        return py_describe_vcf_zarr(ctx, path).to_polars()
 
     @staticmethod
     def from_polars(name: str, df: Union[pl.DataFrame, pl.LazyFrame]) -> None:

@@ -14,6 +14,7 @@ from polars_bio.polars_bio import (
     PyObjectStorageOptions,
     ReadOptions,
     VcfReadOptions,
+    VcfZarrReadOptions,
     py_describe_vcf,
     py_from_polars,
     py_read_sql,
@@ -22,7 +23,7 @@ from polars_bio.polars_bio import (
     py_register_view,
 )
 
-from .context import ctx
+from .context import _resolve_zero_based, ctx
 from .io import (
     _cleanse_fields,
     _lazy_scan,
@@ -99,7 +100,12 @@ class SQL:
                     enable_request_payer=enable_request_payer,
                     compression_type=compression_type,
                 )
-                all_info_fields = vcf_schema_df.select("name").to_series().to_list()
+                all_info_fields = (
+                    vcf_schema_df.filter(pl.col("field_type") == "INFO")
+                    .select("name")
+                    .to_series()
+                    .to_list()
+                )
             except Exception:
                 # Fallback to empty list if unable to get info fields
                 all_info_fields = []
@@ -110,6 +116,39 @@ class SQL:
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
         py_register_table(ctx, path, name, InputFormat.Vcf, read_options)
+
+    @staticmethod
+    def register_vcf_zarr(
+        path: str,
+        name: Union[str, None] = None,
+        info_fields: Union[list[str], None] = None,
+        format_fields: Union[list[str], None] = None,
+        use_zero_based: Union[bool, None] = None,
+        samples: Union[list[str], None] = None,
+        genotype_encoding_raw: bool = True,
+    ) -> None:
+        """
+        Register a local VCF Zarr store as a Datafusion table.
+
+        Parameters:
+            path: The path to the VCF Zarr store directory.
+            name: The table name. If *None*, the table name is generated from the path.
+            info_fields: Optional list of INFO field names to include. If *None*, local INFO arrays are discovered automatically. Use [] to disable INFO fields.
+            format_fields: Optional list of FORMAT field names to include. If *None*, local FORMAT arrays are discovered automatically. Use [] to disable FORMAT fields.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None, uses the global configuration.
+            samples: Optional list of sample names to include.
+            genotype_encoding_raw: If True, output GT as raw typed allele calls. If False, output VCF-style GT strings.
+        """
+        zero_based = _resolve_zero_based(use_zero_based)
+        vcf_zarr_read_options = VcfZarrReadOptions(
+            info_fields=info_fields,
+            format_fields=format_fields,
+            samples=samples,
+            zero_based=zero_based,
+            genotype_encoding_raw=genotype_encoding_raw,
+        )
+        read_options = ReadOptions(vcf_zarr_read_options=vcf_zarr_read_options)
+        py_register_table(ctx, path, name, InputFormat.VcfZarr, read_options)
 
     @staticmethod
     def register_gff(
