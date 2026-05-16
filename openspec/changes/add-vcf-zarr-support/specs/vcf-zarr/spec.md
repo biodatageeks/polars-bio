@@ -156,13 +156,16 @@ The system SHALL provide explicit `describe_vcf_zarr` and `register_vcf_zarr` AP
 #### Scenario: Describe VCF fields
 - **WHEN** a user calls `describe_vcf` with a supported VCF path
 - **THEN** the system returns a Polars `DataFrame` with `name`, `field_type`, `data_type`, and `description` columns
-- **AND** each row describes one discovered INFO or FORMAT field
+- **AND** each row describes one discovered INFO field or exposed FORMAT column
+- **AND** nested multisample FORMAT data is described as the exposed `genotypes` column
+- **AND** single-sample FORMAT rows use the exposed column name, including collision names such as `fmt_DP`
 - **AND** `field_type` is `INFO` for INFO rows and `FORMAT` for FORMAT rows.
 
 #### Scenario: Describe VCF Zarr fields
 - **WHEN** a user calls `describe_vcf_zarr` with a supported local VCF Zarr path
 - **THEN** the system returns a Polars `DataFrame` with `name`, `field_type`, `data_type`, and `description` columns
-- **AND** each row describes one discovered INFO or FORMAT field
+- **AND** each row describes one discovered INFO field or exposed FORMAT column
+- **AND** nested FORMAT data is described as the exposed `genotypes` column
 - **AND** `field_type` is `INFO` for INFO rows and `FORMAT` for FORMAT rows.
 
 #### Scenario: Register VCF Zarr for SQL

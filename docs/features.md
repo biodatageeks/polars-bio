@@ -1077,6 +1077,7 @@ print(schema)  # Shows 14 columns including tags
 schema = pb.describe_cram("file.cram")
 
 # VCF and local VCF Zarr describe output includes INFO and FORMAT rows.
+# Nested FORMAT data is reported by its selectable column name, `genotypes`.
 vcf_schema = pb.describe_vcf("variants.vcf")
 vcz_schema = pb.describe_vcf_zarr("cohort.vcz")
 format_fields = vcf_schema.filter(pl.col("field_type") == "FORMAT")

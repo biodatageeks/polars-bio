@@ -333,8 +333,9 @@ def test_describe_vcf_zarr_returns_info_and_format_schema(tmp_path):
     assert data_type_by_field[("INFO", "AF")] == "Float"
     assert data_type_by_field[("INFO", "DB")] == "Flag"
     assert data_type_by_field[("INFO", "DP")] == "Integer"
-    assert data_type_by_field[("FORMAT", "DP")] == "Integer"
-    assert data_type_by_field[("FORMAT", "GT")] == "Integer"
+    assert data_type_by_field[("FORMAT", "genotypes")] == "Struct"
+    assert ("FORMAT", "DP") not in data_type_by_field
+    assert ("FORMAT", "GT") not in data_type_by_field
 
 
 def test_read_vcf_zarr_collects_dataframe():
