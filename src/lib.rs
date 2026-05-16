@@ -454,6 +454,35 @@ fn py_describe_vcf(
     })
 }
 
+#[pyfunction]
+#[pyo3(signature = (py_ctx, path))]
+fn py_describe_vcf_zarr(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    path: String,
+) -> PyResult<PyDataFrame> {
+    py.allow_threads(|| {
+        let rt = Runtime::new()?;
+        let ctx = &py_ctx.ctx;
+        let rb = datafusion_bio_format_vcf::zarr::describe_fields(path).map_err(|e| {
+            PyRuntimeError::new_err(format!("VCF Zarr schema extraction failed: {e}"))
+        })?;
+        let mem_table = MemTable::try_new(rb.schema().clone(), vec![vec![rb]])
+            .map_err(|e| PyRuntimeError::new_err(format!("Failed to create memory table: {e}")))?;
+        let table_name = format!("vcf_zarr_schema_{}", rand::random::<u32>());
+        let df = rt
+            .block_on(async {
+                ctx.register_table(table_name.clone(), Arc::new(mem_table))
+                    .map_err(|e| format!("Failed to register table: {e}"))?;
+                ctx.table(table_name)
+                    .await
+                    .map_err(|e| format!("Failed to get table: {e}"))
+            })
+            .map_err(PyRuntimeError::new_err)?;
+        Ok(PyDataFrame::new(df))
+    })
+}
+
 fn quote_sql_identifier(identifier: &str) -> String {
     format!("\"{}\"", identifier.replace('"', "\"\""))
 }
@@ -796,6 +825,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_read_sql, m)?)?;
     m.add_function(wrap_pyfunction!(py_get_table_schema, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
+    m.add_function(wrap_pyfunction!(py_describe_vcf_zarr, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
     m.add_function(wrap_pyfunction!(py_write_table, m)?)?;

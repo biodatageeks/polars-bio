@@ -24,7 +24,11 @@
 - [x] 2.6 Add predicate type metadata for VCF Zarr logical columns.
 - [x] 2.7 Preserve coordinate-system and source metadata.
 - [x] 2.8 Add Python tests for API behavior, projection pushdown, predicate pushdown, sample pruning, and metadata.
-- [ ] 2.9 Add user documentation and API examples.
+- [x] 2.9 Extend `describe_vcf` output to include FORMAT rows with a `field_type` discriminator.
+- [x] 2.10 Add `describe_vcf_zarr` Rust/PyO3 and Python API support.
+- [x] 2.11 Add `register_vcf_zarr` Python SQL registration API support.
+- [x] 2.12 Add Python tests for `describe_vcf`, `describe_vcf_zarr`, and `register_vcf_zarr`.
+- [x] 2.13 Add user documentation and API examples.
 
 ## 3. Typed VCZ Values and Genotype Encoding
 

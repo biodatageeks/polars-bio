@@ -3,6 +3,33 @@ from _expected import DATA_DIR
 import polars_bio as pb
 
 
+def test_describe_vcf_includes_info_and_nested_format_column():
+    schema = pb.describe_vcf(f"{DATA_DIR}/io/vcf/multisample.vcf")
+
+    assert schema.columns == ["name", "field_type", "data_type", "description"]
+
+    rows = {
+        (row["field_type"], row["name"]): row["data_type"] for row in schema.to_dicts()
+    }
+    assert rows[("INFO", "AF")] == "Float"
+    assert rows[("FORMAT", "genotypes")] == "Struct"
+    assert ("FORMAT", "GT") not in rows
+    assert ("FORMAT", "DP") not in rows
+
+
+def test_describe_vcf_single_sample_format_names_match_selectable_columns():
+    schema = pb.describe_vcf(f"{DATA_DIR}/io/vcf/single_sample_collision.vcf")
+
+    assert schema.columns == ["name", "field_type", "data_type", "description"]
+
+    rows = {
+        (row["field_type"], row["name"]): row["data_type"] for row in schema.to_dicts()
+    }
+    assert rows[("FORMAT", "GT")] == "String"
+    assert rows[("FORMAT", "fmt_DP")] == "Integer"
+    assert ("FORMAT", "DP") not in rows
+
+
 class TestIOVCF:
     """Tests for VCF read functionality."""
 

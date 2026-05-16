@@ -322,6 +322,22 @@ def test_scan_vcf_zarr_sets_source_metadata():
     assert metadata["source_path"] == str(VCF_ZARR)
 
 
+def test_describe_vcf_zarr_returns_info_and_format_schema(tmp_path):
+    store = _sampled_format_store(tmp_path)
+    schema = pb.describe_vcf_zarr(str(store)).sort(["name", "field_type"])
+
+    assert schema.columns == ["name", "field_type", "data_type", "description"]
+    data_type_by_field = {
+        (row["field_type"], row["name"]): row["data_type"] for row in schema.to_dicts()
+    }
+    assert data_type_by_field[("INFO", "AF")] == "Float"
+    assert data_type_by_field[("INFO", "DB")] == "Flag"
+    assert data_type_by_field[("INFO", "DP")] == "Integer"
+    assert data_type_by_field[("FORMAT", "genotypes")] == "Struct"
+    assert ("FORMAT", "DP") not in data_type_by_field
+    assert ("FORMAT", "GT") not in data_type_by_field
+
+
 def test_read_vcf_zarr_collects_dataframe():
     df = pb.read_vcf_zarr(str(VCF_ZARR))
 
@@ -416,6 +432,39 @@ def test_scan_vcf_zarr_prunes_unrequested_format_arrays(tmp_path):
         .select("genotypes")
         .collect()
     )
+
+    assert df.height == 1
+    assert df["genotypes"].to_list()[0] == {"DP": [2000]}
+
+
+def test_register_vcf_zarr_queries_core_and_info_columns():
+    pb.register_vcf_zarr(str(VCF_ZARR), name="test_vcz_register", info_fields=["DP"])
+
+    df = (
+        pb.sql(
+            'SELECT chrom, start, "DP" FROM test_vcz_register WHERE start >= 5000100'
+        )
+        .head(2)
+        .collect()
+    )
+
+    assert df.columns == ["chrom", "start", "DP"]
+    assert df.height == 2
+    assert df.schema["DP"] == pl.Int8
+
+
+def test_register_vcf_zarr_queries_requested_format_fields(tmp_path):
+    store = _sampled_format_store(tmp_path)
+    pb.register_vcf_zarr(
+        str(store),
+        name="test_vcz_format_register",
+        format_fields=["DP"],
+        samples=["22"],
+    )
+
+    df = pb.sql(
+        "SELECT genotypes FROM test_vcz_format_register WHERE start = 5000100"
+    ).collect()
 
     assert df.height == 1
     assert df["genotypes"].to_list()[0] == {"DP": [2000]}
