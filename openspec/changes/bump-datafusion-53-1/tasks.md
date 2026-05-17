@@ -2,7 +2,7 @@
 - [x] 1.1 Update Rust DataFusion, Arrow, datafusion-python, and PyO3 dependencies.
 - [x] 1.2 Update Python runtime dependency range for `datafusion`.
 - [x] 1.3 Update pinned datafusion-bio-formats and datafusion-bio-functions git revisions.
-- [x] 1.4 Patch datafusion-python crate manifests to use DataFusion 53 without the compression feature.
+- [x] 1.4 Use published datafusion-python 53 without local vendoring.
 - [x] 1.5 Regenerate `Cargo.lock` and `uv.lock`.
 - [x] 1.6 Update Rust wrapper code for DataFusion 53 API changes.
 - [x] 1.7 Run `cargo fmt`.

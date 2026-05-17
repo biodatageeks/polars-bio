@@ -69,7 +69,7 @@ def test_predicate_pushdown_results_match_polars():
     # Polars baseline over the same data (collect->polars)
     # Baseline: read all columns, project and filter in Polars
     df_all = py_read_table(ctx, table_name)
-    df_sel_all = df_all.select_columns("chrom", "start", "type")
+    df_sel_all = df_all.select_exprs("chrom", "start", "type")
     predicate = (pl.col("chrom") == "chrY") & (pl.col("start") < 500000)
     base_count = 0
     for batch in df_sel_all.execute_stream():

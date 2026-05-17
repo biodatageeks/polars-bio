@@ -9,7 +9,7 @@ polars-bio links directly to Rust DataFusion and datafusion-python while also co
 - Use `datafusion = "53.1.0"` in Rust.
 - Use `datafusion-python = "53.0.0"` in Rust with default features disabled so its `mimalloc` global allocator is not linked into the polars-bio extension.
 - Use `pyo3 = "0.28.3"` and `pyo3-log = "0.13.3"` to keep one `links = "python"` provider in Cargo resolution.
-- Patch `datafusion-python` and `datafusion-python-util` through local vendored crate manifests so their internal DataFusion dependency disables default compression and avro while retaining the default expression, parquet, recursive protection, and SQL capabilities.
+- Use the published crates.io `datafusion-python` 53 crate directly rather than a local vendored patch.
 - Use `datafusion>=53.0.0,<54` in Python metadata.
 - Use `pyarrow>=22.0.0,<25` for all supported Python versions so PyArrow stays compatible with DataFusion Python 53 and Python 3.14 wheels.
 - Use DataFusion 53-compatible upstream commits for bio-formats and bio-functions.
@@ -18,5 +18,4 @@ polars-bio links directly to Rust DataFusion and datafusion-python while also co
 - Rust and Python DataFusion patch versions differ by one patch release. Cargo resolution shows this is compatible, but tests must cover Python SQL and DataFusion context flows.
 - Arrow 58 Rust crates and PyArrow 22+ have different release cadences. FFI paths must be tested through Polars/PyArrow conversion.
 - Downstream pinned git revisions must be updated atomically to avoid duplicate DataFusion versions in the dependency tree.
-- The local datafusion-python patch must be revisited when upstream publishes a no-compression feature path or a release that no longer conflicts with CRAM's LZMA provider.
-- Avro entry points in the vendored datafusion-python crate intentionally return runtime errors in this build because Apache Avro also pulls a conflicting LZMA provider. polars-bio does not expose Avro I/O.
+- The published datafusion-python crate controls its own optional transitive dependencies, so Cargo resolution must be checked for duplicate native link providers and duplicate DataFusion/Arrow major versions.
