@@ -69,7 +69,7 @@ impl PyBioSessionContext {
     #[pyo3(signature = (name))]
     pub fn table(&self, name: &str, py: Python) -> PyResult<PyDataFrame> {
         let table_name = name.to_string();
-        py.allow_threads(|| {
+        py.detach(|| {
             let rt = Runtime::new().map_err(|e| {
                 pyo3::exceptions::PyRuntimeError::new_err(format!(
                     "Failed to create Tokio runtime: {}",

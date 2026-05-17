@@ -67,7 +67,7 @@ fn range_operation_frame(
 
     // Now release GIL for the actual computation (registration and join)
     #[allow(clippy::useless_conversion)]
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         register_frame_from_batches(py_ctx, batches1, schema1, LEFT_TABLE.to_string());
@@ -128,7 +128,7 @@ fn range_operation_lazy(
 
     // Release GIL for the actual computation (registration and join)
     // The Arrow C Streams have been extracted - no more Python interaction needed
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new().map_err(|e| PyValueError::new_err(e.to_string()))?;
         let ctx = &py_ctx.ctx;
 
@@ -175,7 +175,7 @@ fn range_operation_scan(
     limit: Option<usize>,
 ) -> PyResult<PyDataFrame> {
     #[allow(clippy::useless_conversion)]
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         let left_table = maybe_register_table(
@@ -220,7 +220,7 @@ fn py_register_table(
     read_options: Option<ReadOptions>,
 ) -> PyResult<BioTable> {
     #[allow(clippy::useless_conversion)]
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
 
@@ -284,7 +284,7 @@ fn py_debug_arrow_stream_partition_count(
     let schema = Arc::new(schema.0);
     let table_name = format!("_debug_stream_{}", rand::random::<u32>());
 
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new().map_err(|e| PyValueError::new_err(e.to_string()))?;
         let ctx = &py_ctx.ctx;
 
@@ -321,7 +321,7 @@ fn py_read_sql(
     sql_text: String,
 ) -> PyResult<PyDataFrame> {
     #[allow(clippy::useless_conversion)]
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         let df = rt
@@ -339,7 +339,7 @@ fn py_read_table(
     table_name: String,
 ) -> PyResult<PyDataFrame> {
     #[allow(clippy::useless_conversion)]
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         let df = rt.block_on(ctx.table(&table_name)).map_err(|e| {
@@ -384,7 +384,7 @@ fn py_get_table_schema(
     py_ctx: &PyBioSessionContext,
     table_name: String,
 ) -> PyResult<PyArrowType<datafusion::arrow::datatypes::Schema>> {
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new()
             .map_err(|e| PyValueError::new_err(format!("Failed to create runtime: {}", e)))?;
         let ctx = &py_ctx.ctx;
@@ -416,7 +416,7 @@ fn py_describe_vcf(
     path: String,
     object_storage_options: Option<PyObjectStorageOptions>,
 ) -> PyResult<PyDataFrame> {
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         let base_options =
@@ -461,7 +461,7 @@ fn py_describe_vcf_zarr(
     py_ctx: &PyBioSessionContext,
     path: String,
 ) -> PyResult<PyDataFrame> {
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         let rb = datafusion_bio_format_vcf::zarr::describe_fields(path).map_err(|e| {
@@ -495,7 +495,7 @@ fn py_register_view(
     name: String,
     query: String,
 ) -> PyResult<()> {
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         let quoted_name = quote_sql_identifier(&name);
@@ -516,7 +516,7 @@ fn py_from_polars(
     name: String,
     df: PyArrowType<ArrowArrayStreamReader>,
 ) {
-    py.allow_threads(|| {
+    py.detach(|| {
         register_frame(py_ctx, df, name);
     })
 }
@@ -542,7 +542,7 @@ fn py_write_from_sql(
     output_format: OutputFormat,
     write_options: Option<WriteOptions>,
 ) -> PyResult<u64> {
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new().map_err(|e| PyValueError::new_err(e.to_string()))?;
         let ctx = &py_ctx.ctx;
 
@@ -643,7 +643,7 @@ fn py_write_table(
     let schema = stream_reader.schema();
     let temp_table_name = format!("_write_stream_{}", rand::random::<u32>());
 
-    py.allow_threads(move || {
+    py.detach(move || {
         let rt = Runtime::new().map_err(|e| PyValueError::new_err(e.to_string()))?;
         let ctx = &py_ctx.ctx;
 
@@ -751,7 +751,7 @@ fn py_register_pileup_table(
     path: String,
     pileup_options: Option<PileupOptions>,
 ) -> PyResult<String> {
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         let config = pileup::pileup_options_to_config(pileup_options);

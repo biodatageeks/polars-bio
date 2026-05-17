@@ -766,7 +766,7 @@ pub fn py_describe_bam(
     use datafusion::datasource::MemTable;
     use pyo3::exceptions::PyRuntimeError;
 
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         let object_storage_opts =
@@ -841,7 +841,7 @@ pub fn py_describe_cram(
     use datafusion::datasource::MemTable;
     use pyo3::exceptions::PyRuntimeError;
 
-    py.allow_threads(|| {
+    py.detach(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         let object_storage_opts =
