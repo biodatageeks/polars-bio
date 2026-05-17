@@ -67,7 +67,7 @@ def test_datafusion_direct_projection_pushdown():
     full_projected = extract_projected_columns_from_plan(full_plan)
 
     # Test 2: Column projection
-    df_projected = df_full.select_columns("chrom", "start")
+    df_projected = df_full.select_exprs("chrom", "start")
     proj_plan = str(df_projected.execution_plan())
     proj_projected = extract_projected_columns_from_plan(proj_plan)
 
