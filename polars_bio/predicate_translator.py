@@ -55,6 +55,16 @@ PAIRS_STRING_COLUMNS = {"readID", "chr1", "chr2", "strand1", "strand2"}
 PAIRS_UINT32_COLUMNS = {"pos1", "pos2"}
 PAIRS_FLOAT32_COLUMNS: set = set()
 
+# BigWig
+BIGWIG_STRING_COLUMNS = {"chrom"}
+BIGWIG_UINT32_COLUMNS = {"start", "end"}
+BIGWIG_FLOAT32_COLUMNS = {"value"}
+
+# BigBed
+BIGBED_STRING_COLUMNS = {"chrom", "name", "rest"}
+BIGBED_UINT32_COLUMNS = {"start", "end"}
+BIGBED_FLOAT32_COLUMNS: set = set()
+
 # ---------------------------------------------------------------------------
 # Module-level context for the current translation (set by translate_predicate)
 # ---------------------------------------------------------------------------
