@@ -142,6 +142,8 @@ pub enum InputFormat {
     Gff,
     Gtf,
     Pairs,
+    BigWig,
+    BigBed,
 }
 
 #[pyclass(eq, get_all)]
@@ -168,6 +170,8 @@ impl fmt::Display for InputFormat {
             InputFormat::Gtf => "GTF",
             InputFormat::Cram => "CRAM",
             InputFormat::Pairs => "PAIRS",
+            InputFormat::BigWig => "BigWig",
+            InputFormat::BigBed => "BigBed",
         };
         write!(f, "{}", text)
     }
@@ -195,12 +199,16 @@ pub struct ReadOptions {
     pub pairs_read_options: Option<PairsReadOptions>,
     #[pyo3(get, set)]
     pub vcf_zarr_read_options: Option<VcfZarrReadOptions>,
+    #[pyo3(get, set)]
+    pub bigwig_read_options: Option<BigWigReadOptions>,
+    #[pyo3(get, set)]
+    pub bigbed_read_options: Option<BigBedReadOptions>,
 }
 
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None))]
+    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None, bigwig_read_options=None, bigbed_read_options=None))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
@@ -213,6 +221,8 @@ impl ReadOptions {
         fasta_read_options: Option<FastaReadOptions>,
         pairs_read_options: Option<PairsReadOptions>,
         vcf_zarr_read_options: Option<VcfZarrReadOptions>,
+        bigwig_read_options: Option<BigWigReadOptions>,
+        bigbed_read_options: Option<BigBedReadOptions>,
     ) -> Self {
         ReadOptions {
             vcf_read_options,
@@ -225,6 +235,8 @@ impl ReadOptions {
             fasta_read_options,
             pairs_read_options,
             vcf_zarr_read_options,
+            bigwig_read_options,
+            bigbed_read_options,
         }
     }
 }
@@ -686,6 +698,91 @@ impl BedReadOptions {
                 compression_type: Some(CompressionType::AUTO),
             }),
             zero_based: true,
+        }
+    }
+}
+
+#[pyclass(name = "BigWigReadOptions")]
+#[derive(Clone, Debug)]
+pub struct BigWigReadOptions {
+    pub object_storage_options: Option<ObjectStorageOptions>,
+    /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+}
+
+#[pymethods]
+impl BigWigReadOptions {
+    #[new]
+    #[pyo3(signature = (object_storage_options=None, zero_based=true))]
+    pub fn new(object_storage_options: Option<PyObjectStorageOptions>, zero_based: bool) -> Self {
+        BigWigReadOptions {
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
+            zero_based,
+        }
+    }
+    #[staticmethod]
+    pub fn default() -> Self {
+        BigWigReadOptions {
+            object_storage_options: Some(ObjectStorageOptions {
+                chunk_size: Some(1024 * 1024),
+                concurrent_fetches: Some(4),
+                allow_anonymous: false,
+                enable_request_payer: false,
+                max_retries: Some(5),
+                timeout: Some(300),
+                compression_type: Some(CompressionType::AUTO),
+            }),
+            zero_based: true,
+        }
+    }
+}
+
+#[pyclass(name = "BigBedReadOptions")]
+#[derive(Clone, Debug)]
+pub struct BigBedReadOptions {
+    pub object_storage_options: Option<ObjectStorageOptions>,
+    /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+    /// Schema discovery mode: "auto" uses autoSQL when possible, "rest" exposes raw fields.
+    #[pyo3(get, set)]
+    pub schema: String,
+}
+
+#[pymethods]
+impl BigBedReadOptions {
+    #[new]
+    #[pyo3(signature = (object_storage_options=None, zero_based=true, schema="auto".to_string()))]
+    pub fn new(
+        object_storage_options: Option<PyObjectStorageOptions>,
+        zero_based: bool,
+        schema: String,
+    ) -> Self {
+        BigBedReadOptions {
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
+            zero_based,
+            schema,
+        }
+    }
+    #[staticmethod]
+    pub fn default() -> Self {
+        BigBedReadOptions {
+            object_storage_options: Some(ObjectStorageOptions {
+                chunk_size: Some(1024 * 1024),
+                concurrent_fetches: Some(4),
+                allow_anonymous: false,
+                enable_request_payer: false,
+                max_retries: Some(5),
+                timeout: Some(300),
+                compression_type: Some(CompressionType::AUTO),
+            }),
+            zero_based: true,
+            schema: "auto".to_string(),
         }
     }
 }

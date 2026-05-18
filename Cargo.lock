@@ -659,6 +659,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "bigtools"
+version = "0.5.7-dev"
+source = "git+https://github.com/biodatageeks/bigtools.git?rev=c18d9a386bdb80583bfea50ae95aa234ce5f320c#c18d9a386bdb80583bfea50ae95aa234ce5f320c"
+dependencies = [
+ "byteorder",
+ "byteordered",
+ "bytes",
+ "crossbeam-utils",
+ "index_list",
+ "itertools 0.10.5",
+ "libdeflater",
+ "smallvec",
+ "thiserror 1.0.69",
+ "tokio",
+]
+
+[[package]]
 name = "bio"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -677,7 +694,7 @@ dependencies = [
  "enum-map",
  "fxhash",
  "getset",
- "itertools",
+ "itertools 0.14.0",
  "itertools-num",
  "multimap",
  "ndarray 0.16.1",
@@ -902,6 +919,15 @@ name = "byteorder"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
+
+[[package]]
+name = "byteordered"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbf2cd9424f5ff404aba1959c835cbc448ee8b689b870a9981c76c0fd46280e6"
+dependencies = [
+ "byteorder",
+]
 
 [[package]]
 name = "bytes"
@@ -1351,7 +1377,7 @@ dependencies = [
  "datafusion-sql",
  "flate2",
  "futures",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "object_store",
  "parking_lot",
@@ -1370,7 +1396,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bam"
 version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=94d4d6811eaa8d967ae2ae99485a91ca80d82e6d#94d4d6811eaa8d967ae2ae99485a91ca80d82e6d"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=f65de29a4371fc2d9069fee8ee895570190ec0d3#f65de29a4371fc2d9069fee8ee895570190ec0d3"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1394,9 +1420,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "datafusion-bio-format-bbi"
+version = "1.6.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=f65de29a4371fc2d9069fee8ee895570190ec0d3#f65de29a4371fc2d9069fee8ee895570190ec0d3"
+dependencies = [
+ "async-trait",
+ "bigtools",
+ "datafusion",
+ "datafusion-bio-format-core",
+ "futures-util",
+ "log",
+]
+
+[[package]]
 name = "datafusion-bio-format-bed"
 version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=94d4d6811eaa8d967ae2ae99485a91ca80d82e6d#94d4d6811eaa8d967ae2ae99485a91ca80d82e6d"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=f65de29a4371fc2d9069fee8ee895570190ec0d3#f65de29a4371fc2d9069fee8ee895570190ec0d3"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1420,7 +1459,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-core"
 version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=94d4d6811eaa8d967ae2ae99485a91ca80d82e6d#94d4d6811eaa8d967ae2ae99485a91ca80d82e6d"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=f65de29a4371fc2d9069fee8ee895570190ec0d3#f65de29a4371fc2d9069fee8ee895570190ec0d3"
 dependencies = [
  "async-compression",
  "bytes",
@@ -1443,7 +1482,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-cram"
 version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=94d4d6811eaa8d967ae2ae99485a91ca80d82e6d#94d4d6811eaa8d967ae2ae99485a91ca80d82e6d"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=f65de29a4371fc2d9069fee8ee895570190ec0d3#f65de29a4371fc2d9069fee8ee895570190ec0d3"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1469,7 +1508,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fasta"
 version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=94d4d6811eaa8d967ae2ae99485a91ca80d82e6d#94d4d6811eaa8d967ae2ae99485a91ca80d82e6d"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=f65de29a4371fc2d9069fee8ee895570190ec0d3#f65de29a4371fc2d9069fee8ee895570190ec0d3"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1493,7 +1532,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fastq"
 version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=94d4d6811eaa8d967ae2ae99485a91ca80d82e6d#94d4d6811eaa8d967ae2ae99485a91ca80d82e6d"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=f65de29a4371fc2d9069fee8ee895570190ec0d3#f65de29a4371fc2d9069fee8ee895570190ec0d3"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1518,7 +1557,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-gff"
 version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=94d4d6811eaa8d967ae2ae99485a91ca80d82e6d#94d4d6811eaa8d967ae2ae99485a91ca80d82e6d"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=f65de29a4371fc2d9069fee8ee895570190ec0d3#f65de29a4371fc2d9069fee8ee895570190ec0d3"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1547,7 +1586,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-gtf"
 version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=94d4d6811eaa8d967ae2ae99485a91ca80d82e6d#94d4d6811eaa8d967ae2ae99485a91ca80d82e6d"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=f65de29a4371fc2d9069fee8ee895570190ec0d3#f65de29a4371fc2d9069fee8ee895570190ec0d3"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1572,7 +1611,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-pairs"
 version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=94d4d6811eaa8d967ae2ae99485a91ca80d82e6d#94d4d6811eaa8d967ae2ae99485a91ca80d82e6d"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=f65de29a4371fc2d9069fee8ee895570190ec0d3#f65de29a4371fc2d9069fee8ee895570190ec0d3"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1600,7 +1639,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-vcf"
 version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=94d4d6811eaa8d967ae2ae99485a91ca80d82e6d#94d4d6811eaa8d967ae2ae99485a91ca80d82e6d"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=f65de29a4371fc2d9069fee8ee895570190ec0d3#f65de29a4371fc2d9069fee8ee895570190ec0d3"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1678,7 +1717,7 @@ dependencies = [
  "datafusion-session",
  "datafusion-sql",
  "futures",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "object_store",
  "parking_lot",
@@ -1769,7 +1808,7 @@ dependencies = [
  "flate2",
  "futures",
  "glob",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "object_store",
  "parquet",
@@ -1881,7 +1920,7 @@ dependencies = [
  "datafusion-pruning",
  "datafusion-session",
  "futures",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "object_store",
  "parking_lot",
@@ -1947,7 +1986,7 @@ dependencies = [
  "arrow",
  "datafusion-common",
  "indexmap",
- "itertools",
+ "itertools 0.14.0",
  "paste",
 ]
 
@@ -1992,7 +2031,7 @@ dependencies = [
  "datafusion-expr-common",
  "datafusion-macros",
  "hex",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "md-5",
  "rand 0.9.4",
@@ -2053,7 +2092,7 @@ dependencies = [
  "datafusion-functions-aggregate-common",
  "datafusion-macros",
  "datafusion-physical-expr-common",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "paste",
 ]
@@ -2126,7 +2165,7 @@ dependencies = [
  "datafusion-expr-common",
  "datafusion-physical-expr",
  "indexmap",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "recursive",
  "regex",
@@ -2149,7 +2188,7 @@ dependencies = [
  "half",
  "hashbrown 0.14.5",
  "indexmap",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "parking_lot",
  "paste",
@@ -2168,7 +2207,7 @@ dependencies = [
  "datafusion-functions",
  "datafusion-physical-expr",
  "datafusion-physical-expr-common",
- "itertools",
+ "itertools 0.14.0",
 ]
 
 [[package]]
@@ -2182,7 +2221,7 @@ dependencies = [
  "datafusion-common",
  "datafusion-expr-common",
  "hashbrown 0.14.5",
- "itertools",
+ "itertools 0.14.0",
 ]
 
 [[package]]
@@ -2200,7 +2239,7 @@ dependencies = [
  "datafusion-physical-expr-common",
  "datafusion-physical-plan",
  "datafusion-pruning",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "recursive",
 ]
@@ -2229,7 +2268,7 @@ dependencies = [
  "half",
  "hashbrown 0.14.5",
  "indexmap",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "parking_lot",
  "pin-project-lite",
@@ -2277,7 +2316,7 @@ dependencies = [
  "datafusion-physical-expr",
  "datafusion-physical-expr-common",
  "datafusion-physical-plan",
- "itertools",
+ "itertools 0.14.0",
  "log",
 ]
 
@@ -2325,7 +2364,7 @@ dependencies = [
  "datafusion-physical-plan",
  "datafusion-sql",
  "futures",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "object_store",
  "parking_lot",
@@ -3177,6 +3216,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "index_list"
+version = "0.2.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30141a73bc8a129ac1ce472e33f45af3e2091d86b3479061b9c2f92fdbe9a28c"
+
+[[package]]
 name = "indexmap"
 version = "2.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3243,6 +3288,15 @@ name = "is_terminal_polyfill"
 version = "1.70.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
+
+[[package]]
+name = "itertools"
+version = "0.10.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
+]
 
 [[package]]
 name = "itertools"
@@ -4431,7 +4485,7 @@ dependencies = [
  "httparse",
  "humantime",
  "hyper",
- "itertools",
+ "itertools 0.14.0",
  "md-5",
  "parking_lot",
  "percent-encoding",
@@ -4874,6 +4928,7 @@ dependencies = [
  "async-trait",
  "datafusion",
  "datafusion-bio-format-bam",
+ "datafusion-bio-format-bbi",
  "datafusion-bio-format-bed",
  "datafusion-bio-format-core",
  "datafusion-bio-format-cram",
@@ -5014,7 +5069,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.14.0",
  "proc-macro2 1.0.106",
  "quote 1.0.45",
  "syn 2.0.117",
@@ -7360,7 +7415,7 @@ dependencies = [
  "getrandom 0.3.4",
  "half",
  "inventory",
- "itertools",
+ "itertools 0.14.0",
  "itoa",
  "libz-sys",
  "log",
@@ -7399,7 +7454,7 @@ checksum = "1cf67386fd96a0336cd3e5ab5ca6cb14e0e05aee80f1acae8c4d3cf562a8bb65"
 dependencies = [
  "derive_more",
  "inventory",
- "itertools",
+ "itertools 0.14.0",
  "rayon",
  "thiserror 2.0.18",
  "tinyvec",
@@ -7431,7 +7486,7 @@ dependencies = [
  "derive_more",
  "futures",
  "inventory",
- "itertools",
+ "itertools 0.14.0",
  "rayon",
  "thiserror 2.0.18",
  "unsafe_cell_slice",
@@ -7468,7 +7523,7 @@ checksum = "270efeb0181651aee5460b3232f2fc83e91bd646cefe75001d1c8f9a4f3abf81"
 dependencies = [
  "bytes",
  "derive_more",
- "itertools",
+ "itertools 0.14.0",
  "libc",
  "page_size",
  "pathdiff",
@@ -7529,7 +7584,7 @@ dependencies = [
  "auto_impl",
  "bytes",
  "derive_more",
- "itertools",
+ "itertools 0.14.0",
  "thiserror 2.0.18",
  "unsafe_cell_slice",
 ]
