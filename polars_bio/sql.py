@@ -5,6 +5,8 @@ import polars as pl
 from polars_bio.polars_bio import (
     BamReadOptions,
     BedReadOptions,
+    BigBedReadOptions,
+    BigWigReadOptions,
     CramReadOptions,
     FastqReadOptions,
     GffReadOptions,
@@ -27,6 +29,7 @@ from .context import _resolve_zero_based, ctx
 from .io import (
     _cleanse_fields,
     _lazy_scan,
+    _normalize_bigbed_schema_mode,
     _normalize_read_tag_type_hints,
     _validate_tag_type_hints,
 )
@@ -436,6 +439,74 @@ class SQL:
         )
         read_options = ReadOptions(bed_read_options=bed_read_options)
         py_register_table(ctx, path, name, InputFormat.Bed, read_options)
+
+    @staticmethod
+    def register_bigwig(
+        path: str,
+        name: Union[str, None] = None,
+        chunk_size: int = 64,
+        concurrent_fetches: int = 8,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+        use_zero_based: Union[bool, None] = None,
+    ) -> None:
+        """
+        Register a local BigWig file as a DataFusion table.
+        """
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        bigwig_read_options = BigWigReadOptions(
+            object_storage_options=object_storage_options,
+            zero_based=_resolve_zero_based(use_zero_based),
+        )
+        read_options = ReadOptions(bigwig_read_options=bigwig_read_options)
+        py_register_table(ctx, path, name, InputFormat.BigWig, read_options)
+
+    @staticmethod
+    def register_bigbed(
+        path: str,
+        name: Union[str, None] = None,
+        chunk_size: int = 64,
+        concurrent_fetches: int = 8,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+        use_zero_based: Union[bool, None] = None,
+        schema: str = "auto",
+    ) -> None:
+        """
+        Register a local BigBed file as a DataFusion table.
+        """
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        bigbed_read_options = BigBedReadOptions(
+            object_storage_options=object_storage_options,
+            zero_based=_resolve_zero_based(use_zero_based),
+            schema=_normalize_bigbed_schema_mode(schema),
+        )
+        read_options = ReadOptions(bigbed_read_options=bigbed_read_options)
+        py_register_table(ctx, path, name, InputFormat.BigBed, read_options)
 
     @staticmethod
     def register_view(name: str, query: str) -> None:
