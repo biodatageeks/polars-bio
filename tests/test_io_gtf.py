@@ -219,6 +219,25 @@ class TestIOGTF:
         assert df["tag"][0] == "basic,TAGENE,appris_principal_3,CCDS"
         assert df["gene_name"][0] == "GAPDH"
 
+    def test_filter_with_unsupported_attribute_predicate_selects_attribute(self):
+        """Unsupported attribute predicates must not be dropped before attr selection."""
+        lf = (
+            pb.scan_gtf(
+                GTF_PATH,
+                attr_fields=["gene_type", "transcript_id"],
+                predicate_pushdown=True,
+                projection_pushdown=True,
+            )
+            .filter(pl.col("type") == "transcript")
+            .filter(pl.col("gene_type").str.contains("pseudogene"))
+        )
+
+        projected = lf.select("transcript_id").collect()
+        collected_first = lf.collect().select("transcript_id")
+
+        pl.testing.assert_frame_equal(projected, collected_first)
+        assert projected.height == 0
+
     def test_compression_type_override(self, tmp_path):
         """Explicit compression_type overrides auto-detection."""
         # Create a gzip file with .gtf.gz extension but read with explicit compression_type

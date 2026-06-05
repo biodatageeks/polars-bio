@@ -272,6 +272,27 @@ class TestFilterSelectAttributesBug:
         assert all(result["chrom"] == "chr1"), "All results should be from chr1"
         assert "attributes" in result.columns, "Should include attributes column"
 
+    def test_filter_with_unsupported_attribute_predicate_selects_attribute(
+        self, test_gff_file
+    ):
+        """Unsupported attribute predicates must not be dropped before attr selection."""
+        lf = (
+            pb.scan_gff(
+                test_gff_file,
+                attr_fields=["ID", "Type"],
+                predicate_pushdown=True,
+                projection_pushdown=True,
+            )
+            .filter(pl.col("type") == "transcript")
+            .filter(pl.col("Type").str.contains("pseudogene"))
+        )
+
+        projected = lf.select("ID").collect()
+        collected_first = lf.collect().select("ID")
+
+        pl.testing.assert_frame_equal(projected, collected_first)
+        assert projected.height == 0
+
 
 class TestFilterSelectPerformance:
     """Performance-related tests for the filter().select() fix."""

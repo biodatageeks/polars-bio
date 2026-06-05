@@ -3388,6 +3388,7 @@ class AnnotationLazyFrameWrapper:
             "view_prefix": "_pb_gtf_proj_",
         },
     }
+    _PRESERVE_DEFERRED_PREDICATE = object()
 
     def __init__(
         self,
@@ -3397,6 +3398,7 @@ class AnnotationLazyFrameWrapper:
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         format_type: str = "gff",
+        deferred_predicate: Optional[pl.Expr] = None,
     ):
         self._base_lf = base_lf
         self._file_path = file_path
@@ -3405,8 +3407,15 @@ class AnnotationLazyFrameWrapper:
         self._predicate_pushdown = predicate_pushdown
         self._format_type = format_type
         self._config = self._FORMAT_CONFIG[format_type]
+        self._deferred_predicate = deferred_predicate
 
-    def _make_wrapper(self, base_lf, projection_pushdown=None, predicate_pushdown=None):
+    def _make_wrapper(
+        self,
+        base_lf,
+        projection_pushdown=None,
+        predicate_pushdown=None,
+        deferred_predicate=_PRESERVE_DEFERRED_PREDICATE,
+    ):
         """Create a new wrapper of the same concrete type."""
         return type(self)(
             base_lf,
@@ -3421,6 +3430,11 @@ class AnnotationLazyFrameWrapper:
                 predicate_pushdown
                 if predicate_pushdown is not None
                 else self._predicate_pushdown
+            ),
+            (
+                self._deferred_predicate
+                if deferred_predicate is self._PRESERVE_DEFERRED_PREDICATE
+                else deferred_predicate
             ),
         )
 
@@ -3453,7 +3467,9 @@ class AnnotationLazyFrameWrapper:
             "phase",
             "attributes",
         }
-        attr_cols = [c for c in columns if c not in STATIC]
+        predicate_columns = self._extract_predicate_column_names()
+        scan_columns = list(dict.fromkeys(columns + predicate_columns))
+        attr_cols = [c for c in scan_columns if c not in STATIC]
 
         # If selecting attribute fields, run one-shot SQL projection with proper attr_fields
         if columns and (attr_cols or "attributes" in columns):
@@ -3461,11 +3477,7 @@ class AnnotationLazyFrameWrapper:
             from polars_bio.polars_bio import GtfReadOptions as _GtfReadOptions
             from polars_bio.polars_bio import InputFormat as _InputFormat
             from polars_bio.polars_bio import ReadOptions as _ReadOptions
-            from polars_bio.polars_bio import (
-                py_read_table,
-                py_register_table,
-                py_register_view,
-            )
+            from polars_bio.polars_bio import py_read_table, py_register_table
 
             from .context import ctx
 
@@ -3509,38 +3521,63 @@ class AnnotationLazyFrameWrapper:
 
             table = py_register_table(ctx, self._file_path, None, input_fmt, ropts)
 
-            # Extract WHERE clause from existing LazyFrame if it has filters applied
-            where_clause = ""
-            try:
-                logical_plan_str = str(self._base_lf.explain(optimized=False))
-                if "FILTER" in logical_plan_str:
-                    where_clause = self._extract_sql_where_clause(logical_plan_str)
-            except Exception:
-                pass
+            query_df = py_read_table(ctx, table.name)
+            datafusion_predicate_applied = False
+            if self._predicate_pushdown and self._deferred_predicate is not None:
+                try:
+                    from .predicate_translator import (
+                        datafusion_expr_to_sql,
+                        translate_predicate,
+                    )
 
-            import uuid
+                    _fmt_key = str(input_fmt).rsplit(".", 1)[-1]
+                    string_cols, uint32_cols, float32_cols = _FORMAT_COLUMN_TYPES.get(
+                        _fmt_key, (None, None, None)
+                    )
+                    df_expr = translate_predicate(
+                        self._deferred_predicate,
+                        string_cols,
+                        uint32_cols,
+                        float32_cols,
+                    )
+                    sql_predicate = datafusion_expr_to_sql(df_expr)
+                    native_expr = query_df.parse_sql_expr(sql_predicate)
+                    query_df = query_df.filter(native_expr)
+                    datafusion_predicate_applied = True
+                except Exception as e:
+                    logger.warning(
+                        f"DataFusion predicate pushdown failed, will filter "
+                        f"client-side (this may cause a full scan): {e}"
+                    )
 
-            select_clause = ", ".join([f'"{c}"' for c in columns])
-            view_name = f"{self._config['view_prefix']}{uuid.uuid4().hex}"
-            quoted_table = _quote_sql_identifier(table.name)
-            sql_query = f"SELECT {select_clause} FROM {quoted_table}"
-
-            if where_clause:
-                sql_query += f" WHERE {where_clause}"
-
-            py_register_view(ctx, view_name, sql_query)
-            df_view = py_read_table(ctx, view_name)
+            datafusion_columns = (
+                columns if datafusion_predicate_applied else scan_columns
+            )
+            if datafusion_columns:
+                select_exprs = [
+                    query_df.parse_sql_expr(f'"{c}"') for c in datafusion_columns
+                ]
+                query_df = query_df.select(*select_exprs)
 
             new_lf = _lazy_scan(
-                df_view,
+                query_df,
                 False,
-                self._predicate_pushdown,
-                view_name,
+                False,
+                table.name,
                 input_fmt,
                 self._file_path,
                 self._read_options,
             )
-            return self._make_wrapper(new_lf, projection_pushdown=False)
+            if (
+                self._deferred_predicate is not None
+                and not datafusion_predicate_applied
+            ):
+                new_lf = new_lf.filter(self._deferred_predicate)
+            if datafusion_columns != columns:
+                new_lf = new_lf.select(columns)
+            return self._make_wrapper(
+                new_lf, projection_pushdown=False, deferred_predicate=None
+            )
 
         # Otherwise delegate to Polars
         return self._make_wrapper(self._base_lf.select(exprs))
@@ -3551,7 +3588,22 @@ class AnnotationLazyFrameWrapper:
         pred = predicates[0]
         for p in predicates[1:]:
             pred = pred & p
-        return self._make_wrapper(self._base_lf.filter(pred))
+        deferred_predicate = (
+            pred
+            if self._deferred_predicate is None
+            else self._deferred_predicate & pred
+        )
+        return self._make_wrapper(
+            self._base_lf.filter(pred), deferred_predicate=deferred_predicate
+        )
+
+    def _extract_predicate_column_names(self):
+        if self._deferred_predicate is None:
+            return []
+        try:
+            return list(self._deferred_predicate.meta.root_names())
+        except Exception:
+            return []
 
     def _extract_sql_where_clause(self, logical_plan_str):
         """Extract SQL WHERE clause from Polars logical plan string."""
@@ -3646,6 +3698,7 @@ class GffLazyFrameWrapper(AnnotationLazyFrameWrapper):
         read_options,
         projection_pushdown=True,
         predicate_pushdown=True,
+        deferred_predicate=None,
     ):
         super().__init__(
             base_lf,
@@ -3654,6 +3707,7 @@ class GffLazyFrameWrapper(AnnotationLazyFrameWrapper):
             projection_pushdown,
             predicate_pushdown,
             "gff",
+            deferred_predicate,
         )
 
 
@@ -3665,6 +3719,7 @@ class GtfLazyFrameWrapper(AnnotationLazyFrameWrapper):
         read_options,
         projection_pushdown=True,
         predicate_pushdown=True,
+        deferred_predicate=None,
     ):
         super().__init__(
             base_lf,
@@ -3673,4 +3728,5 @@ class GtfLazyFrameWrapper(AnnotationLazyFrameWrapper):
             projection_pushdown,
             predicate_pushdown,
             "gtf",
+            deferred_predicate,
         )
