@@ -44,6 +44,47 @@ class TestFastqWriteBasic:
         df2 = pb.read_fastq(str(output_path))
         assert len(df2) == len(df)
 
+    def test_write_fastq_documented_column_order(self, tmp_path):
+        """Test writing FASTQ data with columns ordered as documented."""
+        output_path = tmp_path / "documented_order.fastq"
+        sequence = "ACGT" * 37
+        quality_scores = "I" * len(sequence)
+        df = pl.DataFrame(
+            {
+                "name": ["read1"],
+                "sequence": [sequence],
+                "quality_scores": [quality_scores],
+            }
+        ).with_columns(pl.lit(None).alias("description"))
+
+        row_count = pb.write_fastq(df, str(output_path))
+
+        assert row_count == 1
+        df2 = pb.read_fastq(str(output_path))
+        assert df2["sequence"].to_list() == [sequence]
+        assert df2["quality_scores"].to_list() == [quality_scores]
+
+    def test_write_fastq_without_description(self, tmp_path):
+        """Test writing FASTQ data without the optional description column."""
+        output_path = tmp_path / "without_description.fastq"
+        sequence = "ACGT"
+        quality_scores = "IIII"
+        df = pl.DataFrame(
+            {
+                "name": ["read1"],
+                "sequence": [sequence],
+                "quality_scores": [quality_scores],
+            }
+        )
+
+        row_count = pb.write_fastq(df, str(output_path))
+
+        assert row_count == 1
+        df2 = pb.read_fastq(str(output_path))
+        assert df2["description"].to_list() == [None]
+        assert df2["sequence"].to_list() == [sequence]
+        assert df2["quality_scores"].to_list() == [quality_scores]
+
     def test_write_auto_compression_detection(self, tmp_path):
         """Test that compression is auto-detected from extension."""
         input_path = f"{DATA_DIR}/io/fastq/example.fastq"
@@ -170,6 +211,25 @@ class TestFastqSink:
         assert output_path.exists()
         df = pb.read_fastq(str(output_path))
         assert len(df) == 10
+
+    def test_sink_fastq_documented_column_order(self, tmp_path):
+        """Test streaming FASTQ data with columns ordered as documented."""
+        output_path = tmp_path / "sink_documented_order.fastq"
+        sequence = "ACGT" * 37
+        quality_scores = "I" * len(sequence)
+        df = pl.DataFrame(
+            {
+                "name": ["read1"],
+                "sequence": [sequence],
+                "quality_scores": [quality_scores],
+            }
+        ).with_columns(pl.lit(None).alias("description"))
+
+        pb.sink_fastq(df.lazy(), str(output_path))
+
+        df2 = pb.read_fastq(str(output_path))
+        assert df2["sequence"].to_list() == [sequence]
+        assert df2["quality_scores"].to_list() == [quality_scores]
 
 
 class TestFastqFromCompressed:

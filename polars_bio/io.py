@@ -2463,6 +2463,32 @@ def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
     return [x.strip() for x in t]
 
 
+_FASTQ_COLUMNS = ["name", "description", "sequence", "quality_scores"]
+_FASTQ_REQUIRED_COLUMNS = ["name", "sequence", "quality_scores"]
+
+
+def _normalize_fastq_columns(
+    df: Union[pl.DataFrame, pl.LazyFrame],
+) -> Union[pl.DataFrame, pl.LazyFrame]:
+    columns = (
+        df.collect_schema().names() if isinstance(df, pl.LazyFrame) else df.columns
+    )
+    missing = [column for column in _FASTQ_REQUIRED_COLUMNS if column not in columns]
+    if missing:
+        raise ValueError(
+            "FASTQ write requires columns: "
+            + ", ".join(_FASTQ_REQUIRED_COLUMNS)
+            + f"; missing: {', '.join(missing)}"
+        )
+
+    if "description" in columns:
+        df = df.with_columns(pl.col("description").cast(pl.String))
+    else:
+        df = df.with_columns(pl.lit(None, dtype=pl.String).alias("description"))
+
+    return df.select(_FASTQ_COLUMNS)
+
+
 def _write_file(
     df: Union[pl.DataFrame, pl.LazyFrame],
     path: str,
@@ -2541,6 +2567,7 @@ def _write_file(
     elif output_format == OutputFormat.Fastq:
         fastq_opts = FastqWriteOptions()
         write_options = WriteOptions(fastq_write_options=fastq_opts)
+        df = _normalize_fastq_columns(df)
     else:
         write_options = None
 
