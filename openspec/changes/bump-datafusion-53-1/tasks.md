@@ -1,0 +1,14 @@
+## 1. Implementation
+- [x] 1.1 Update Rust DataFusion, Arrow, datafusion-python, and PyO3 dependencies.
+- [x] 1.2 Update Python runtime dependency range for `datafusion`.
+- [x] 1.3 Update pinned datafusion-bio-formats and datafusion-bio-functions git revisions.
+- [x] 1.4 Use published datafusion-python 53 without local vendoring.
+- [x] 1.5 Regenerate `Cargo.lock` and `uv.lock`.
+- [x] 1.6 Update Rust wrapper code for DataFusion 53 API changes.
+- [x] 1.7 Run `cargo fmt`.
+- [x] 1.8 Run `cargo check --all-targets`.
+- [x] 1.9 Build the Python extension with maturin.
+- [x] 1.10 Run focused Python tests for SQL, I/O, projection pushdown, streaming, and pileup.
+- [x] 1.11 Run `openspec validate bump-datafusion-53-1 --strict`.
+- [x] 1.12 Raise the Python `pyarrow` floor to `>=23.0.1` for #398.
+- [x] 1.13 Run focused pyarrow/DataFusion import and projection-plan validation.

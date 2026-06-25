@@ -622,17 +622,17 @@ use std::any::Any;
 struct SchemaOverrideExec {
     input: Arc<dyn ExecutionPlan>,
     schema: SchemaRef,
-    cache: PlanProperties,
+    cache: Arc<PlanProperties>,
 }
 
 impl SchemaOverrideExec {
     fn new(input: Arc<dyn ExecutionPlan>, schema: SchemaRef) -> Self {
-        let cache = PlanProperties::new(
+        let cache = Arc::new(PlanProperties::new(
             EquivalenceProperties::new(schema.clone()),
             input.properties().output_partitioning().clone(),
             EmissionType::Final,
             Boundedness::Bounded,
-        );
+        ));
         Self {
             input,
             schema,
@@ -656,7 +656,7 @@ impl ExecutionPlan for SchemaOverrideExec {
         self
     }
 
-    fn properties(&self) -> &PlanProperties {
+    fn properties(&self) -> &Arc<PlanProperties> {
         &self.cache
     }
 

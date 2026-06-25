@@ -3,7 +3,7 @@ use std::fmt;
 use datafusion_bio_format_core::object_storage::{CompressionType, ObjectStorageOptions};
 use pyo3::{pyclass, pymethods};
 
-#[pyclass(name = "RangeOptions")]
+#[pyclass(name = "RangeOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct RangeOptions {
     #[pyo3(get, set)]
@@ -84,21 +84,21 @@ impl RangeOptions {
     }
 }
 
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, from_py_object)]
 #[derive(Clone, PartialEq, Debug)]
 pub enum OverlapOutputMode {
     Join = 0,
     Left = 1,
 }
 
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, from_py_object)]
 #[derive(Clone, PartialEq, Debug)]
 pub enum FilterOp {
     Weak = 0,
     Strict = 1,
 }
 
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, from_py_object)]
 #[derive(Clone, PartialEq, Debug)]
 pub enum RangeOp {
     Overlap = 0,
@@ -126,7 +126,7 @@ impl fmt::Display for RangeOp {
     }
 }
 
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, from_py_object)]
 #[derive(Clone, PartialEq, Debug)]
 pub enum InputFormat {
     Parquet,
@@ -144,7 +144,7 @@ pub enum InputFormat {
     Pairs,
 }
 
-#[pyclass(eq, get_all)]
+#[pyclass(eq, get_all, from_py_object)]
 #[derive(Clone, PartialEq, Debug)]
 pub struct BioTable {
     pub name: String,
@@ -172,7 +172,7 @@ impl fmt::Display for InputFormat {
         write!(f, "{}", text)
     }
 }
-#[pyclass(name = "ReadOptions")]
+#[pyclass(name = "ReadOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct ReadOptions {
     #[pyo3(get, set)]
@@ -229,7 +229,7 @@ impl ReadOptions {
     }
 }
 
-#[pyclass(name = "PyObjectStorageOptions")]
+#[pyclass(name = "PyObjectStorageOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PyObjectStorageOptions {
     #[pyo3(get, set)]
@@ -287,7 +287,7 @@ pub fn pyobject_storage_options_to_object_storage_options(
     })
 }
 
-#[pyclass(name = "FastqReadOptions")]
+#[pyclass(name = "FastqReadOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct FastqReadOptions {
     pub object_storage_options: Option<ObjectStorageOptions>,
@@ -320,7 +320,7 @@ impl FastqReadOptions {
     }
 }
 
-#[pyclass(name = "VcfReadOptions")]
+#[pyclass(name = "VcfReadOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct VcfReadOptions {
     #[pyo3(get, set)]
@@ -376,7 +376,7 @@ impl VcfReadOptions {
     }
 }
 
-#[pyclass(name = "VcfZarrReadOptions")]
+#[pyclass(name = "VcfZarrReadOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct VcfZarrReadOptions {
     #[pyo3(get, set)]
@@ -425,7 +425,7 @@ impl Default for VcfZarrReadOptions {
     }
 }
 
-#[pyclass(name = "GffReadOptions")]
+#[pyclass(name = "GffReadOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct GffReadOptions {
     #[pyo3(get, set)]
@@ -471,7 +471,7 @@ impl GffReadOptions {
     }
 }
 
-#[pyclass(name = "GtfReadOptions")]
+#[pyclass(name = "GtfReadOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct GtfReadOptions {
     #[pyo3(get, set)]
@@ -517,7 +517,7 @@ impl GtfReadOptions {
     }
 }
 
-#[pyclass(name = "BamReadOptions")]
+#[pyclass(name = "BamReadOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct BamReadOptions {
     pub object_storage_options: Option<ObjectStorageOptions>,
@@ -582,7 +582,7 @@ impl BamReadOptions {
     }
 }
 
-#[pyclass(name = "CramReadOptions")]
+#[pyclass(name = "CramReadOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct CramReadOptions {
     #[pyo3(get, set)]
@@ -652,7 +652,7 @@ impl CramReadOptions {
     }
 }
 
-#[pyclass(name = "BedReadOptions")]
+#[pyclass(name = "BedReadOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct BedReadOptions {
     pub object_storage_options: Option<ObjectStorageOptions>,
@@ -690,7 +690,7 @@ impl BedReadOptions {
     }
 }
 
-#[pyclass(name = "FastaReadOptions")]
+#[pyclass(name = "FastaReadOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct FastaReadOptions {
     pub object_storage_options: Option<ObjectStorageOptions>,
@@ -727,7 +727,7 @@ impl FastaReadOptions {
     }
 }
 
-#[pyclass(name = "PairsReadOptions")]
+#[pyclass(name = "PairsReadOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PairsReadOptions {
     pub object_storage_options: Option<ObjectStorageOptions>,
@@ -769,7 +769,7 @@ impl PairsReadOptions {
 // Pileup Options
 // ============================================================================
 
-#[pyclass(name = "PileupOptions")]
+#[pyclass(name = "PileupOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct PileupOptions {
     #[pyo3(get, set)]
@@ -818,7 +818,7 @@ impl PileupOptions {
 // ============================================================================
 
 /// Output format for write operations
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, from_py_object)]
 #[derive(Clone, PartialEq, Debug)]
 pub enum OutputFormat {
     Vcf,
@@ -843,7 +843,7 @@ impl fmt::Display for OutputFormat {
 }
 
 /// Options for writing VCF files
-#[pyclass(name = "VcfWriteOptions")]
+#[pyclass(name = "VcfWriteOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct VcfWriteOptions {
     /// Whether the source DataFrame uses 0-based coordinates
@@ -896,7 +896,7 @@ impl VcfWriteOptions {
 }
 
 /// Options for writing FASTA files (placeholder for future options)
-#[pyclass(name = "FastaWriteOptions")]
+#[pyclass(name = "FastaWriteOptions", from_py_object)]
 #[derive(Clone, Debug, Default)]
 pub struct FastaWriteOptions {}
 
@@ -909,7 +909,7 @@ impl FastaWriteOptions {
 }
 
 /// Options for writing FASTQ files (placeholder for future options)
-#[pyclass(name = "FastqWriteOptions")]
+#[pyclass(name = "FastqWriteOptions", from_py_object)]
 #[derive(Clone, Debug, Default)]
 pub struct FastqWriteOptions {}
 
@@ -922,7 +922,7 @@ impl FastqWriteOptions {
 }
 
 /// Options for writing BAM files
-#[pyclass(name = "BamWriteOptions")]
+#[pyclass(name = "BamWriteOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct BamWriteOptions {
     #[pyo3(get, set)]
@@ -959,7 +959,7 @@ impl BamWriteOptions {
 }
 
 /// Options for writing CRAM files
-#[pyclass(name = "CramWriteOptions")]
+#[pyclass(name = "CramWriteOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct CramWriteOptions {
     #[pyo3(get, set)]
@@ -1000,7 +1000,7 @@ impl CramWriteOptions {
 }
 
 /// Container for write options for different formats
-#[pyclass(name = "WriteOptions")]
+#[pyclass(name = "WriteOptions", from_py_object)]
 #[derive(Clone, Debug)]
 pub struct WriteOptions {
     #[pyo3(get, set)]

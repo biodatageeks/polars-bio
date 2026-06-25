@@ -371,7 +371,7 @@ class TestProjectionPushdown:
         full_projected = extract_projected_columns_from_plan(full_plan)
 
         # Test 2: Projected DataFrame (selected columns)
-        df_projected = df_full.select_columns("chrom", "start")
+        df_projected = df_full.select_exprs("chrom", "start")
         proj_plan = str(df_projected.execution_plan())
         proj_projected = extract_projected_columns_from_plan(proj_plan)
 
@@ -540,7 +540,7 @@ class TestProjectionPushdown:
         table = py_register_table(ctx, bam_path, None, InputFormat.Bam, read_options)
 
         df = py_read_table(ctx, table.name)
-        df_proj = df.select_columns("name", "chrom")
+        df_proj = df.select_exprs("name", "chrom")
         plan = str(df_proj.execution_plan())
 
         projected = extract_projected_columns_from_plan(plan)
@@ -565,7 +565,7 @@ class TestProjectionPushdown:
         table = py_register_table(ctx, cram_path, None, InputFormat.Cram, read_options)
 
         df = py_read_table(ctx, table.name)
-        df_proj = df.select_columns("name", "chrom")
+        df_proj = df.select_exprs("name", "chrom")
         plan = str(df_proj.execution_plan())
 
         projected = extract_projected_columns_from_plan(plan)
@@ -590,7 +590,7 @@ class TestProjectionPushdown:
         table = py_register_table(ctx, vcf_path, None, InputFormat.Vcf, read_options)
 
         df = py_read_table(ctx, table.name)
-        df_proj = df.select_columns("chrom", "start")
+        df_proj = df.select_exprs("chrom", "start")
         plan = str(df_proj.execution_plan())
 
         projected = extract_projected_columns_from_plan(plan)
