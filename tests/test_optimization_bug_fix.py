@@ -318,29 +318,28 @@ class TestOptimizationPerformance:
 
         pb.set_option("datafusion.execution.target_partitions", "1")
 
-        # Test with optimizations
-        start_time = time.time()
-        lf_optimized = pb.scan_gff(
-            sample_data_path, projection_pushdown=True, predicate_pushdown=True
-        )
-        result_optimized = (
-            lf_optimized.filter(EXPECTED_FILTER_CONDITION)
-            .select(EXPECTED_COLUMNS)
-            .collect()
-        )
-        optimized_time = time.time() - start_time
+        def collect_gff(projection_pushdown, predicate_pushdown):
+            lf = pb.scan_gff(
+                sample_data_path,
+                projection_pushdown=projection_pushdown,
+                predicate_pushdown=predicate_pushdown,
+            )
+            return (
+                lf.filter(EXPECTED_FILTER_CONDITION).select(EXPECTED_COLUMNS).collect()
+            )
 
-        # Test without optimizations
-        start_time = time.time()
-        lf_unoptimized = pb.scan_gff(
-            sample_data_path, projection_pushdown=False, predicate_pushdown=False
-        )
-        result_unoptimized = (
-            lf_unoptimized.filter(EXPECTED_FILTER_CONDITION)
-            .select(EXPECTED_COLUMNS)
-            .collect()
-        )
-        unoptimized_time = time.time() - start_time
+        def timed_collect(projection_pushdown, predicate_pushdown):
+            start_time = time.perf_counter()
+            result = collect_gff(projection_pushdown, predicate_pushdown)
+            return result, time.perf_counter() - start_time
+
+        # Warm both paths before timing. This test uses a small dataset, so one-time
+        # initialization and file/cache effects can otherwise dominate the assertion.
+        collect_gff(True, True)
+        collect_gff(False, False)
+
+        result_optimized, optimized_time = timed_collect(True, True)
+        result_unoptimized, unoptimized_time = timed_collect(False, False)
 
         # Results should be identical
         assert len(result_optimized) == len(result_unoptimized)
@@ -352,7 +351,8 @@ class TestOptimizationPerformance:
 
         # Don't make this test too strict - performance can vary
         # Just ensure optimized version isn't significantly slower
-        assert optimized_time <= unoptimized_time * 1.5, (
+        max_allowed_time = max(unoptimized_time * 1.5, unoptimized_time + 0.05)
+        assert optimized_time <= max_allowed_time, (
             f"Optimizations seem to have made query slower: "
             f"{optimized_time:.3f}s vs {unoptimized_time:.3f}s"
         )
