@@ -10,3 +10,5 @@
 - [x] 1.9 Build the Python extension with maturin.
 - [x] 1.10 Run focused Python tests for SQL, I/O, projection pushdown, streaming, and pileup.
 - [x] 1.11 Run `openspec validate bump-datafusion-53-1 --strict`.
+- [x] 1.12 Raise the Python `pyarrow` floor to `>=23.0.1` for #398.
+- [x] 1.13 Run focused pyarrow/DataFusion import and projection-plan validation.

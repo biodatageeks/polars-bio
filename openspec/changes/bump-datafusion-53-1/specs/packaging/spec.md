@@ -16,3 +16,8 @@ The project SHALL use permissive version specifiers for dependencies that allow 
 - **WHEN** Rust dependencies use Apache DataFusion 53.1.0
 - **THEN** Python metadata SHALL allow `datafusion>=53.0.0,<54`
 - **AND** the Rust extension SHALL use the latest published compatible `datafusion-python` crate in the 53 major line
+
+#### Scenario: PyArrow vulnerability floor
+- **WHEN** polars-bio declares its Python runtime dependencies
+- **THEN** Python metadata SHALL require `pyarrow>=23.0.1,<25`
+- **AND** dependency resolution SHALL exclude vulnerable `pyarrow<23.0.1` releases

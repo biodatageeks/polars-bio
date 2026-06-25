@@ -2961,7 +2961,7 @@ requires-dist = [
     { name = "pandas", marker = "extra == 'pandas'", specifier = ">=3.0.0" },
     { name = "polars", specifier = ">=1.37.1" },
     { name = "polars-config-meta", specifier = ">=0.3.0,<1" },
-    { name = "pyarrow", specifier = ">=22.0.0,<25" },
+    { name = "pyarrow", specifier = ">=23.0.1,<25" },
     { name = "pyranges1", marker = "python_full_version >= '3.12' and python_full_version < '3.14' and extra == 'test'", specifier = "==1.3.8" },
     { name = "pysam", marker = "extra == 'test'" },
     { name = "tqdm", specifier = ">=4.67.0,<5" },
