@@ -247,3 +247,30 @@ class TestIOGTF:
                 shutil.copyfileobj(f_in, f_out)
         df = pb.read_gtf(str(gz_path), compression_type="gz")
         assert len(df) == 23
+
+
+def test_gtf_parsed_predicate_with_raw_attributes_select(tmp_path):
+    """GTF: predicate on a parsed field + select the raw nested ``attributes``."""
+    gtf = tmp_path / "t.gtf"
+    gtf.write_text(
+        'chr1\ttest\tgene\t1\t9\t.\t+\t.\tgene_id "ENSG1"; gene_name "A";\n'
+        'chr1\ttest\tgene\t10\t19\t.\t+\t.\tgene_id "ENSG2"; gene_name "B";\n'
+    )
+    got = (
+        pb.scan_gtf(str(gtf), attr_fields=["gene_id"])
+        .filter(pl.col("gene_id") == "ENSG1")
+        .select("attributes")
+        .collect()
+    )
+    assert got.height == 1
+    recovered = got.select(
+        pl.col("attributes")
+        .list.eval(
+            pl.element()
+            .filter(pl.element().struct.field("tag") == "gene_id")
+            .struct.field("value")
+        )
+        .list.first()
+        .alias("gene_id")
+    )["gene_id"].to_list()
+    assert recovered == ["ENSG1"]
