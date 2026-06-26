@@ -293,6 +293,35 @@ class TestFilterSelectAttributesBug:
         pl.testing.assert_frame_equal(projected, collected_first)
         assert projected.height == 0
 
+    def test_raw_attributes_predicate_with_parsed_select_raises(self, test_gff_file):
+        """Mixing a raw-``attributes`` predicate with a parsed-field select.
+
+        The GFF reader can expose either the raw ``attributes`` column or
+        parsed attribute fields, but not both in one registration, so this
+        combination must raise a clear ``NotImplementedError`` instead of a
+        cryptic DataFusion "No field named" schema error.
+        """
+        lf = pb.scan_gff(test_gff_file).filter(
+            pl.col("attributes").str.contains("protein_coding")
+        )
+
+        with pytest.raises(NotImplementedError, match="raw 'attributes' column"):
+            lf.select("ID").collect()
+
+    def test_parsed_predicate_with_raw_attributes_select_raises(self, test_gff_file):
+        """Mixing a parsed-field predicate with a raw-``attributes`` select.
+
+        Symmetric to the previous case: the predicate needs the parsed ``ID``
+        field while the projection needs the raw ``attributes`` column, which
+        cannot be served by a single registration.
+        """
+        lf = pb.scan_gff(test_gff_file, attr_fields=["ID"]).filter(
+            pl.col("ID").str.contains("GENE")
+        )
+
+        with pytest.raises(NotImplementedError, match="raw 'attributes' column"):
+            lf.select("attributes").collect()
+
 
 class TestFilterSelectPerformance:
     """Performance-related tests for the filter().select() fix."""
