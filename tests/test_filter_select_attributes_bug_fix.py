@@ -293,34 +293,82 @@ class TestFilterSelectAttributesBug:
         pl.testing.assert_frame_equal(projected, collected_first)
         assert projected.height == 0
 
-    def test_raw_attributes_predicate_with_parsed_select_raises(self, test_gff_file):
-        """Mixing a raw-``attributes`` predicate with a parsed-field select.
+    def test_raw_attributes_predicate_with_parsed_select(self, test_gff_file):
+        """Predicate on raw nested ``attributes`` + select a parsed field returns correct rows.
 
-        The GFF reader can expose either the raw ``attributes`` column or
-        parsed attribute fields, but not both in one registration, so this
-        combination must raise a clear ``NotImplementedError`` instead of a
-        cryptic DataFusion "No field named" schema error.
+        A single registration now exposes both the raw ``attributes`` column
+        and parsed attribute fields (via the reader's "attributes" sentinel),
+        so this no longer raises.
         """
-        lf = pb.scan_gff(test_gff_file).filter(
-            pl.col("attributes").str.contains("protein_coding")
+        # Select rows that carry a "Type" attribute (only gene rows do in the fixture).
+        has_type = (
+            pl.col("attributes")
+            .list.eval(pl.element().struct.field("tag"))
+            .list.contains("Type")
+        )
+        extract_id = (
+            pl.col("attributes")
+            .list.eval(
+                pl.element()
+                .filter(pl.element().struct.field("tag") == "ID")
+                .struct.field("value")
+            )
+            .list.first()
+            .alias("ID")
         )
 
-        with pytest.raises(NotImplementedError, match="raw 'attributes' column"):
-            lf.select("ID").collect()
-
-    def test_parsed_predicate_with_raw_attributes_select_raises(self, test_gff_file):
-        """Mixing a parsed-field predicate with a raw-``attributes`` select.
-
-        Symmetric to the previous case: the predicate needs the parsed ``ID``
-        field while the projection needs the raw ``attributes`` column, which
-        cannot be served by a single registration.
-        """
-        lf = pb.scan_gff(test_gff_file, attr_fields=["ID"]).filter(
-            pl.col("ID").str.contains("GENE")
+        projected = pb.scan_gff(test_gff_file).filter(has_type).select("ID").collect()
+        # Independent oracle: extract ID from the nested attributes via eager Polars.
+        oracle = (
+            pb.scan_gff(test_gff_file).filter(has_type).collect().select(extract_id)
         )
 
-        with pytest.raises(NotImplementedError, match="raw 'attributes' column"):
-            lf.select("attributes").collect()
+        pl.testing.assert_frame_equal(projected, oracle)
+        assert projected.height > 0
+        assert projected["ID"].null_count() == 0
+
+    def test_parsed_predicate_with_raw_attributes_select(self, test_gff_file):
+        """Predicate on a parsed field + select the raw nested ``attributes`` returns correct rows."""
+        flt = pl.col("ID").str.contains("GENE")
+        got = (
+            pb.scan_gff(test_gff_file, attr_fields=["ID"])
+            .filter(flt)
+            .select("attributes")
+            .collect()
+        )
+        expected_ids = (
+            pb.scan_gff(test_gff_file, attr_fields=["ID"])
+            .filter(flt)
+            .select("ID")
+            .collect()["ID"]
+            .to_list()
+        )
+
+        assert got.height == len(expected_ids)
+        assert got.height > 0
+        # Each returned nested attributes row contains its matching ID value.
+        recovered = got.select(
+            pl.col("attributes")
+            .list.eval(
+                pl.element()
+                .filter(pl.element().struct.field("tag") == "ID")
+                .struct.field("value")
+            )
+            .list.first()
+            .alias("ID")
+        )["ID"].to_list()
+        assert recovered == expected_ids
+
+    def test_select_raw_attributes_and_parsed_field_together(self, test_gff_file):
+        """Selecting raw ``attributes`` and a parsed field together (no predicate) works."""
+        out = pb.scan_gff(test_gff_file).select(["attributes", "ID"]).collect()
+        assert set(out.columns) == {"attributes", "ID"}
+        assert out.height > 0
+        assert out["ID"].null_count() == 0
+        # attributes is the nested List<Struct> representation
+        assert out.schema["attributes"] == pl.List(
+            pl.Struct({"tag": pl.String, "value": pl.String})
+        )
 
 
 class TestFilterSelectPerformance:

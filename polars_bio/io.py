@@ -2915,7 +2915,12 @@ def _lazy_scan(
 
             obj = _extract_py_object_storage_options(read_options)
 
-            if "attributes" in requested_cols:
+            # When both the raw nested ``attributes`` column and parsed fields
+            # are requested, use the reader's "attributes" sentinel to emit both
+            # from a single registration.
+            if "attributes" in requested_cols and attr_fields:
+                _attr = attr_fields + ["attributes"]
+            elif "attributes" in requested_cols:
                 _attr = None
             elif attr_fields:
                 _attr = attr_fields
@@ -3497,31 +3502,18 @@ class AnnotationLazyFrameWrapper:
 
             obj = _extract_py_object_storage_options(self._read_options)
 
-            # The GFF/GTF reader can materialize EITHER the raw ``attributes``
-            # column (attr_fields=None) OR a set of parsed attribute fields
-            # (attr_fields=[...]), but never both in a single registration.
-            # ``scan_columns`` (projection + deferred-predicate roots) may
-            # require both at once when a query mixes the raw ``attributes``
-            # column with parsed fields, e.g.
+            # ``scan_columns`` (projection + deferred-predicate roots) may need
+            # both the raw nested ``attributes`` column and parsed attribute
+            # fields at once, e.g.
             #   scan_gff(...).filter(pl.col("attributes")...).select("ID")
             #   scan_gff(..., attr_fields=["ID"]).filter(pl.col("ID")...).select("attributes")
-            # Such a combination cannot be satisfied here, so fail with an
-            # actionable message instead of a cryptic "No field named ..." error
-            # from the column projection further down.
+            # The reader supports the "attributes" sentinel: including it in
+            # ``attr_fields`` emits the nested ``attributes`` column alongside
+            # the flattened fields in a single registration.
             needs_raw_attributes = "attributes" in scan_columns
             if needs_raw_attributes and attr_cols:
-                raise NotImplementedError(
-                    "Combining the raw 'attributes' column with parsed "
-                    f"attribute field(s) {attr_cols} in a single "
-                    "filter()/select() is not supported: the GFF/GTF reader "
-                    "can expose either the raw 'attributes' column or parsed "
-                    "attribute fields, but not both at once. Work around this "
-                    "by collect()-ing before mixing them, or by handling the "
-                    "raw 'attributes' column and parsed fields in separate "
-                    "operations."
-                )
-
-            if needs_raw_attributes:
+                _attr = attr_cols + ["attributes"]
+            elif needs_raw_attributes:
                 _attr = None
             elif attr_cols:
                 _attr = attr_cols
