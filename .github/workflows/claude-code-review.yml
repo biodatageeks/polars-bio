@@ -12,11 +12,12 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Auto-review only runs for PRs from the same repository. Pull requests from
+    # forks do not receive repository secrets or an OIDC token, so the action
+    # cannot authenticate (CLAUDE_CODE_OAUTH_TOKEN is empty and `id-token` cannot
+    # be elevated). Fork PRs are instead reviewed on demand via `claude.yml`
+    # by commenting `@claude review this PR`.
+    if: github.event.pull_request.head.repo.full_name == github.repository
 
     runs-on: ubuntu-latest
     permissions:
