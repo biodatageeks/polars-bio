@@ -2506,7 +2506,7 @@ def _write_file(
     Parameters:
         df: The DataFrame or LazyFrame to write.
         path: The output file path.
-        output_format: The output format (Vcf or Fastq).
+        output_format: The output format.
 
     Returns:
         The number of rows written.

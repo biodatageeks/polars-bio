@@ -85,6 +85,28 @@ class TestFastqWriteBasic:
         assert df2["sequence"].to_list() == [sequence]
         assert df2["quality_scores"].to_list() == [quality_scores]
 
+    def test_write_fastq_shuffled_columns(self, tmp_path):
+        """Test writing FASTQ data when columns are not in writer order."""
+        output_path = tmp_path / "shuffled.fastq"
+        sequence = "ACGT"
+        quality_scores = "IIII"
+        df = pl.DataFrame(
+            {
+                "quality_scores": [quality_scores],
+                "sequence": [sequence],
+                "name": ["read1"],
+            }
+        )
+
+        row_count = pb.write_fastq(df, str(output_path))
+
+        assert row_count == 1
+        df2 = pb.read_fastq(str(output_path))
+        assert df2["name"].to_list() == ["read1"]
+        assert df2["description"].to_list() == [None]
+        assert df2["sequence"].to_list() == [sequence]
+        assert df2["quality_scores"].to_list() == [quality_scores]
+
     def test_write_auto_compression_detection(self, tmp_path):
         """Test that compression is auto-detected from extension."""
         input_path = f"{DATA_DIR}/io/fastq/example.fastq"
@@ -228,6 +250,29 @@ class TestFastqSink:
         pb.sink_fastq(df.lazy(), str(output_path))
 
         df2 = pb.read_fastq(str(output_path))
+        assert df2["sequence"].to_list() == [sequence]
+        assert df2["quality_scores"].to_list() == [quality_scores]
+
+    def test_sink_fastq_from_parquet_shuffled_columns(self, tmp_path):
+        """Test streaming FASTQ data from parquet with columns in source order."""
+        parquet_path = tmp_path / "shuffled.parquet"
+        output_path = tmp_path / "sink_shuffled.fastq"
+        sequence = "ACGT"
+        quality_scores = "IIII"
+        df = pl.DataFrame(
+            {
+                "quality_scores": [quality_scores],
+                "sequence": [sequence],
+                "name": ["read1"],
+            }
+        )
+        df.write_parquet(parquet_path)
+
+        pb.sink_fastq(pl.scan_parquet(parquet_path), str(output_path))
+
+        df2 = pb.read_fastq(str(output_path))
+        assert df2["name"].to_list() == ["read1"]
+        assert df2["description"].to_list() == [None]
         assert df2["sequence"].to_list() == [sequence]
         assert df2["quality_scores"].to_list() == [quality_scores]
 
