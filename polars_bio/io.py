@@ -3701,7 +3701,31 @@ class AnnotationLazyFrameWrapper:
 
             obj = _extract_py_object_storage_options(self._read_options)
 
-            if "attributes" in columns:
+            # The GFF/GTF reader can materialize EITHER the raw ``attributes``
+            # column (attr_fields=None) OR a set of parsed attribute fields
+            # (attr_fields=[...]), but never both in a single registration.
+            # ``scan_columns`` (projection + deferred-predicate roots) may
+            # require both at once when a query mixes the raw ``attributes``
+            # column with parsed fields, e.g.
+            #   scan_gff(...).filter(pl.col("attributes")...).select("ID")
+            #   scan_gff(..., attr_fields=["ID"]).filter(pl.col("ID")...).select("attributes")
+            # Such a combination cannot be satisfied here, so fail with an
+            # actionable message instead of a cryptic "No field named ..." error
+            # from the column projection further down.
+            needs_raw_attributes = "attributes" in scan_columns
+            if needs_raw_attributes and attr_cols:
+                raise NotImplementedError(
+                    "Combining the raw 'attributes' column with parsed "
+                    f"attribute field(s) {attr_cols} in a single "
+                    "filter()/select() is not supported: the GFF/GTF reader "
+                    "can expose either the raw 'attributes' column or parsed "
+                    "attribute fields, but not both at once. Work around this "
+                    "by collect()-ing before mixing them, or by handling the "
+                    "raw 'attributes' column and parsed fields in separate "
+                    "operations."
+                )
+
+            if needs_raw_attributes:
                 _attr = None
             elif attr_cols:
                 _attr = attr_cols
@@ -3808,87 +3832,6 @@ class AnnotationLazyFrameWrapper:
             return list(self._deferred_predicate.meta.root_names())
         except Exception:
             return []
-
-    def _extract_sql_where_clause(self, logical_plan_str):
-        """Extract SQL WHERE clause from Polars logical plan string."""
-        import re
-
-        selection_match = re.search(r"SELECTION:\s*(.+)", logical_plan_str)
-        if selection_match:
-            selection_expr = selection_match.group(1).strip()
-            try:
-                return _build_sql_where_from_predicate_safe(selection_expr)
-            except Exception:
-                pass
-
-        filter_lines = []
-        for line in logical_plan_str.split("\n"):
-            if "FILTER" in line and "[" in line:
-                filter_lines.append(line.strip())
-
-        if not filter_lines:
-            return ""
-
-        all_conditions = []
-        for line in filter_lines:
-            match = re.search(r"FILTER\s+\[(.+?)\]", line)
-            if match:
-                condition = match.group(1)
-                try:
-                    sql_condition = _build_sql_where_from_predicate_safe(condition)
-                    if sql_condition:
-                        all_conditions.append(sql_condition)
-                except Exception:
-                    continue
-
-        if all_conditions:
-            return " AND ".join(all_conditions)
-
-        return ""
-
-    def _parse_filter_expression(self, filter_expr):
-        """Parse filter expression string to SQL WHERE clause."""
-        import re
-
-        conditions = []
-
-        str_patterns = [
-            r'col\("([^"]+)"\)\.eq\(lit\("([^"]*)"\)\)',
-            r'col\("([^"]+)"\)\s*==\s*"([^"]*)"',
-        ]
-        for pat in str_patterns:
-            for column, value in re.findall(pat, filter_expr):
-                conditions.append(f"\"{column}\" = '{value}'")
-
-        numeric_patterns = [
-            (r'col\("([^"]+)"\)\.gt\(lit\((\d+)\)\)', ">"),
-            (r'col\("([^"]+)"\)\.lt\(lit\((\d+)\)\)', "<"),
-            (r'col\("([^"]+)"\)\.gt_eq\(lit\((\d+)\)\)', ">="),
-            (r'col\("([^"]+)"\)\.lt_eq\(lit\((\d+)\)\)', "<="),
-            (r'col\("([^"]+)"\)\.neq\(lit\((\d+)\)\)', "!="),
-            (r'col\("([^"]+)"\)\.eq\(lit\((\d+)\)\)', "="),
-            (r'col\("([^"]+)"\)\s*>\s*(\d+)', ">"),
-            (r'col\("([^"]+)"\)\s*<\s*(\d+)', "<"),
-            (r'col\("([^"]+)"\)\s*>=\s*(\d+)', ">="),
-            (r'col\("([^"]+)"\)\s*<=\s*(\d+)', "<="),
-            (r'col\("([^"]+)"\)\s*!=\s*(\d+)', "!="),
-            (r'col\("([^"]+)"\)\s*==\s*(\d+)', "="),
-        ]
-
-        for pattern, op in numeric_patterns:
-            matches = re.findall(pattern, filter_expr)
-            for column, value in matches:
-                conditions.append(f'"{column}" {op} {value}')
-
-        if conditions:
-            return " AND ".join(conditions)
-
-        try:
-            return _build_sql_where_from_predicate_safe(filter_expr)
-        except Exception:
-            pass
-
-        return ""
 
     def __getattr__(self, name):
         return getattr(self._base_lf, name)
