@@ -75,3 +75,44 @@ def test_string_column_ordering_is_unsupported():
 def test_unknown_node_raises():
     with pytest.raises(UnsupportedPredicate):
         _emit_sql({"NoSuchNode": 1}, GFF_STR, GFF_U32, GFF_F32)
+
+
+from polars_bio.predicate_translator import PushdownPlan, plan_predicate_pushdown
+
+
+def plan(expr):
+    return plan_predicate_pushdown(
+        expr, string_cols=GFF_STR, uint32_cols=GFF_U32, float32_cols=GFF_F32
+    )
+
+
+def test_plan_full_translation_certified():
+    p = plan((pl.col("type") == "transcript") & (pl.col("start") >= 10))
+    assert p.fully_translated is True
+    assert p.pushdown_sql == '("type" = \'transcript\') AND ("start" >= 10)'
+
+
+def test_plan_partial_pushes_translatable_conjunct_only():
+    # str.contains is unsupported -> only the type== conjunct is pushed,
+    # and fully_translated must be False so callers reapply the full predicate.
+    p = plan(
+        (pl.col("type") == "transcript")
+        & pl.col("gene_biotype").str.contains("pseudogene")
+    )
+    assert p.pushdown_sql == "(\"type\" = 'transcript')"
+    assert p.fully_translated is False
+
+
+def test_plan_nothing_translatable():
+    p = plan(pl.col("gene_biotype").str.contains("pseudogene"))
+    assert p.pushdown_sql is None
+    assert p.fully_translated is False
+
+
+def test_plan_or_is_atomic_not_split():
+    # An OR with one unsupported side must push NOTHING (can't split an OR).
+    p = plan(
+        (pl.col("type") == "exon") | pl.col("gene_biotype").str.contains("pseudogene")
+    )
+    assert p.pushdown_sql is None
+    assert p.fully_translated is False

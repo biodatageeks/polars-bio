@@ -10,6 +10,7 @@ allowing all operators and letting DataFusion type-check at execution time.
 """
 
 import re
+from dataclasses import dataclass
 from typing import Any, List, Optional, Set, Union
 
 import polars as pl
@@ -229,6 +230,52 @@ def _emit_sql(node: dict, string_cols, uint32_cols, float32_cols) -> str:
     if key == "Function":
         return _emit_function(body, string_cols, uint32_cols, float32_cols)
     raise UnsupportedPredicate(f"unsupported node type: {key}")
+
+
+@dataclass
+class PushdownPlan:
+    pushdown_sql: Optional[str]
+    fully_translated: bool
+
+
+def _flatten_and(node: dict) -> list:
+    if (
+        isinstance(node, dict)
+        and "BinaryExpr" in node
+        and node["BinaryExpr"].get("op") == "And"
+    ):
+        body = node["BinaryExpr"]
+        return _flatten_and(body["left"]) + _flatten_and(body["right"])
+    return [node]
+
+
+def plan_predicate_pushdown(
+    predicate,
+    *,
+    string_cols=None,
+    uint32_cols=None,
+    float32_cols=None,
+) -> PushdownPlan:
+    try:
+        ast = _json.loads(predicate.meta.serialize(format="json"))
+    except Exception as exc:  # serialization itself failed -> caller falls back
+        raise PredicateTranslationError(
+            f"could not serialize predicate: {exc}"
+        ) from exc
+
+    conjuncts = _flatten_and(ast)
+    translated = []
+    all_ok = True
+    for conjunct in conjuncts:
+        try:
+            translated.append(
+                _emit_sql(conjunct, string_cols, uint32_cols, float32_cols)
+            )
+        except UnsupportedPredicate:
+            all_ok = False
+
+    pushdown_sql = " AND ".join(translated) if translated else None
+    return PushdownPlan(pushdown_sql=pushdown_sql, fully_translated=all_ok)
 
 
 def translate_predicate(
