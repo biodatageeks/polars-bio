@@ -1339,9 +1339,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93db0e623840612f7f2cd757f7e8a8922064192363732c88692e0870016e141b"
+checksum = "de9f8117889ba9503440f1dd79ebab32ba52ccf1720bb83cd718a29d4edc0d16"
 dependencies = [
  "arrow",
  "arrow-schema",
@@ -1395,8 +1395,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-bam"
-version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=78f776fbbe0f92215de6700407fc8b9a93acdb13#78f776fbbe0f92215de6700407fc8b9a93acdb13"
+version = "1.8.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.1#11df16f43098270bbc2954d43aa850052aa95536"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1421,8 +1421,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-bed"
-version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=78f776fbbe0f92215de6700407fc8b9a93acdb13#78f776fbbe0f92215de6700407fc8b9a93acdb13"
+version = "1.8.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.1#11df16f43098270bbc2954d43aa850052aa95536"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1444,8 +1444,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-core"
-version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=78f776fbbe0f92215de6700407fc8b9a93acdb13#78f776fbbe0f92215de6700407fc8b9a93acdb13"
+version = "1.8.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.1#11df16f43098270bbc2954d43aa850052aa95536"
 dependencies = [
  "async-compression",
  "bytes",
@@ -1466,8 +1466,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-cram"
-version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=78f776fbbe0f92215de6700407fc8b9a93acdb13#78f776fbbe0f92215de6700407fc8b9a93acdb13"
+version = "1.8.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.1#11df16f43098270bbc2954d43aa850052aa95536"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1492,8 +1492,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-fasta"
-version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=78f776fbbe0f92215de6700407fc8b9a93acdb13#78f776fbbe0f92215de6700407fc8b9a93acdb13"
+version = "1.8.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.1#11df16f43098270bbc2954d43aa850052aa95536"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1515,8 +1515,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-fastq"
-version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=78f776fbbe0f92215de6700407fc8b9a93acdb13#78f776fbbe0f92215de6700407fc8b9a93acdb13"
+version = "1.8.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.1#11df16f43098270bbc2954d43aa850052aa95536"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1539,8 +1539,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-gff"
-version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=78f776fbbe0f92215de6700407fc8b9a93acdb13#78f776fbbe0f92215de6700407fc8b9a93acdb13"
+version = "1.8.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.1#11df16f43098270bbc2954d43aa850052aa95536"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1567,8 +1567,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-gtf"
-version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=78f776fbbe0f92215de6700407fc8b9a93acdb13#78f776fbbe0f92215de6700407fc8b9a93acdb13"
+version = "1.8.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.1#11df16f43098270bbc2954d43aa850052aa95536"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1592,8 +1592,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-pairs"
-version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=78f776fbbe0f92215de6700407fc8b9a93acdb13#78f776fbbe0f92215de6700407fc8b9a93acdb13"
+version = "1.8.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.1#11df16f43098270bbc2954d43aa850052aa95536"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1620,8 +1620,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-vcf"
-version = "1.6.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=78f776fbbe0f92215de6700407fc8b9a93acdb13#78f776fbbe0f92215de6700407fc8b9a93acdb13"
+version = "1.8.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.1#11df16f43098270bbc2954d43aa850052aa95536"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1650,8 +1650,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-pileup"
-version = "0.8.4"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=35a6a6e41c6212c8e031d3beb7f917591e589475#35a6a6e41c6212c8e031d3beb7f917591e589475"
+version = "0.11.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.11.0#1ad88df646e8db634a95822f77edaf0123e1b75b"
 dependencies = [
  "async-trait",
  "datafusion",
@@ -1664,8 +1664,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-ranges"
-version = "0.8.4"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=35a6a6e41c6212c8e031d3beb7f917591e589475#35a6a6e41c6212c8e031d3beb7f917591e589475"
+version = "0.11.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.11.0#1ad88df646e8db634a95822f77edaf0123e1b75b"
 dependencies = [
  "ahash",
  "async-trait",
@@ -1682,9 +1682,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-catalog"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37cefde60b26a7f4ff61e9d2ff2833322f91df2b568d7238afe67bde5bdffb66"
+checksum = "be893b73a13671f310ffcc8da2c546b81efcc54c22e0382c0a28aa3537017137"
 dependencies = [
  "arrow",
  "async-trait",
@@ -1707,9 +1707,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-catalog-listing"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17e112307715d6a7a331111a4c2330ff54bc237183511c319e3708a4cff431fb"
+checksum = "830487b51ed83807d6b32d6325f349c3144ae0c9bf772cf2a712db180c31d5e6"
 dependencies = [
  "arrow",
  "async-trait",
@@ -1767,9 +1767,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-datasource"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9fb386e1691355355a96419978a0022b7947b44d4a24a6ea99f00b6b485cbb6"
+checksum = "fde1e030a9dc87b743c806fbd631f5ecfa2ccaa4ffb61fa19144a07fea406b79"
 dependencies = [
  "arrow",
  "async-compression",
@@ -1802,9 +1802,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-datasource-arrow"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffa6c52cfed0734c5f93754d1c0175f558175248bf686c944fb05c373e5fc096"
+checksum = "331ebae7055dc108f9b54994b93dff91f3a17445539efe5b74e89264f7b36e15"
 dependencies = [
  "arrow",
  "arrow-ipc",
@@ -1826,9 +1826,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-datasource-avro"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a579c3bd290c66ea4b269493e75e8a3ed42c9c895a651f10210a29538aee50c4"
+checksum = "49dda81c79b6ba57b1853a9158abc66eb85a3aa1cede0c517dabec6d8a4ed3aa"
 dependencies = [
  "apache-avro",
  "arrow",
@@ -1846,9 +1846,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-datasource-csv"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "503f29e0582c1fc189578d665ff57d9300da1f80c282777d7eb67bb79fb8cdca"
+checksum = "9e0d475088325e2986876aa27bb30d0574f72a22955a527d202f454681d55c5c"
 dependencies = [
  "arrow",
  "async-trait",
@@ -1869,9 +1869,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-datasource-json"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e33804749abc8d0c8cb7473228483cb8070e524c6f6086ee1b85a64debe2b3d2"
+checksum = "ea1520d81f31770f3ad6ee98b391e75e87a68a5bb90de70064ace5e0a7182fe8"
 dependencies = [
  "arrow",
  "async-trait",
@@ -1893,9 +1893,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-datasource-parquet"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32a8e0365e0e08e8ff94d912f0ababcf9065a1a304018ba90b1fc83c855b4997"
+checksum = "95be805d0742ab129720f4c51ad9242cd872599cdb076098b03f061fcdc7f946"
 dependencies = [
  "arrow",
  "async-trait",
@@ -1929,9 +1929,9 @@ checksum = "8de6ac0df1662b9148ad3c987978b32cbec7c772f199b1d53520c8fa764a87ee"
 
 [[package]]
 name = "datafusion-execution"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c03c7fbdaefcca4ef6ffe425a5fc2325763bfb426599bb0bf4536466efabe709"
+checksum = "9437d3cd5d363f9319f8122182d4d233427de79c7eb748f23054c9aaa0fdd8df"
 dependencies = [
  "arrow",
  "arrow-buffer",
@@ -1988,9 +1988,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-ffi"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b95173344d04ba62755c949bf44f8d1a6e4414cf6392a635db96c07e711b9a3c"
+checksum = "4b8250f7cdf463a0ad145f41d7508bcfa54c9b9f027317e599f0331097e3cc38"
 dependencies = [
  "abi_stable",
  "arrow",
@@ -2018,9 +2018,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-functions"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f28aa4e10384e782774b10e72aca4d93ef7b31aa653095d9d4536b0a3dbc51b6"
+checksum = "04fb863482d987cf938db2079e07ab0d3bb64595f28907a6c2f8671ad71cca7e"
 dependencies = [
  "arrow",
  "arrow-buffer",
@@ -2050,9 +2050,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-functions-aggregate"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "00aa6217e56098ba84e0a338176fe52f0a84cca398021512c6c8c5eff806d0ad"
+checksum = "829856f4e14275fb376c104f27cbf3c3b57a9cfe24885d98677525f5e43ce8d6"
 dependencies = [
  "ahash",
  "arrow",
@@ -2085,9 +2085,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-functions-nested"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef13a858e20d50f0a9bb5e96e7ac82b4e7597f247515bccca4fdd2992df0212a"
+checksum = "465ae3368146d49c2eda3e2c0ef114424c87e8a6b509ab34c1026ace6497e790"
 dependencies = [
  "arrow",
  "arrow-ord",
@@ -2110,9 +2110,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-functions-table"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b40d3f5bbb3905f9ccb1ce9485a9595c77b69758a7c24d3ba79e334ff51e7e"
+checksum = "6156e6b22fcf1784112fc0173f3ae6e78c8fdb4d3ed0eace9543873b437e2af6"
 dependencies = [
  "arrow",
  "async-trait",
@@ -2209,9 +2209,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-physical-expr-adapter"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea22315f33cf2e0adc104e8ec42e285f6ed93998d565c65e82fec6a9ee9f9db4"
+checksum = "40838625d63d9c12549d81979db3dd675d159055eb9135009ba272ab0e8d0f64"
 dependencies = [
  "arrow",
  "datafusion-common",
@@ -2241,9 +2241,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-physical-optimizer"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cb13397809a425918f608dfe8653f332015a3e330004ab191b4404187238b95"
+checksum = "d501d0e1d0910f015677121601ac177ec59272ef5c9324d1147b394988f40941"
 dependencies = [
  "arrow",
  "datafusion-common",
@@ -2260,9 +2260,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-physical-plan"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5edc023675791af9d5fb4cc4c24abf5f7bd3bd4dcf9e5bd90ea1eff6976dcc79"
+checksum = "463c88ad6f1ecab1810f4c9f046898bee035b370137eb79b2b2db925e270631d"
 dependencies = [
  "ahash",
  "arrow",
@@ -2292,9 +2292,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-proto"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a387aaef949dc16bb6abc81bd1af850ec7449183aef011214f9724957495738"
+checksum = "677ee4448a010ed5faeff8d73ff78972c2ace59eff3cd7bd15833a1dafa00492"
 dependencies = [
  "arrow",
  "chrono",
@@ -2331,9 +2331,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-pruning"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac8c76860e355616555081cab5968cec1af7a80701ff374510860bcd567e365a"
+checksum = "2857618a0ecbd8cd0cf29826889edd3a25774ec26b2995fc3862095c95d88fc6"
 dependencies = [
  "arrow",
  "datafusion-common",
@@ -2392,9 +2392,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-session"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5412111aa48e2424ba926112e192f7a6b7e4ccb450145d25ce5ede9f19dc491e"
+checksum = "ef8637e35022c5c775003b3ab1debc6b4a8f0eb41b069bdd5475dd3aa93f6eba"
 dependencies = [
  "async-trait",
  "datafusion-common",
@@ -2406,9 +2406,9 @@ dependencies = [
 
 [[package]]
 name = "datafusion-sql"
-version = "53.1.0"
+version = "53.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa0d133ddf8b9b3b872acac900157f783e7b879fe9a6bccf389abebbfac45ec1"
+checksum = "12d9e9f16a1692a11c94bcc418191fa15fd2b4d72a0c1a0c607db93c0b84dd81"
 dependencies = [
  "arrow",
  "bigdecimal",
@@ -6092,8 +6092,8 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "superintervals"
-version = "0.10.4"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=35a6a6e41c6212c8e031d3beb7f917591e589475#35a6a6e41c6212c8e031d3beb7f917591e589475"
+version = "0.13.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.11.0#1ad88df646e8db634a95822f77edaf0123e1b75b"
 dependencies = [
  "aligned-vec",
  "serde",
