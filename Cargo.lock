@@ -166,7 +166,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -177,7 +177,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -697,7 +697,7 @@ dependencies = [
  "enum-map",
  "fxhash",
  "getset",
- "itertools 0.10.5",
+ "itertools 0.14.0",
  "itertools-num",
  "multimap",
  "ndarray 0.16.1",
@@ -1466,7 +1466,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bam"
 version = "1.8.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.2#3ed823215366a350c3de05ec7036fd774e5c9178"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=b4d593b582e06ee19317a89302c475adb903ee88#b4d593b582e06ee19317a89302c475adb903ee88"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1492,7 +1492,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bbi"
 version = "1.6.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.2#3ed823215366a350c3de05ec7036fd774e5c9178"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=b4d593b582e06ee19317a89302c475adb903ee88#b4d593b582e06ee19317a89302c475adb903ee88"
 dependencies = [
  "async-trait",
  "bigtools",
@@ -1504,7 +1504,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-bed"
 version = "1.8.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.2#3ed823215366a350c3de05ec7036fd774e5c9178"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=b4d593b582e06ee19317a89302c475adb903ee88#b4d593b582e06ee19317a89302c475adb903ee88"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1527,7 +1527,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-core"
 version = "1.8.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.2#3ed823215366a350c3de05ec7036fd774e5c9178"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=b4d593b582e06ee19317a89302c475adb903ee88#b4d593b582e06ee19317a89302c475adb903ee88"
 dependencies = [
  "async-compression",
  "bytes",
@@ -1549,7 +1549,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-cram"
 version = "1.8.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.2#3ed823215366a350c3de05ec7036fd774e5c9178"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=b4d593b582e06ee19317a89302c475adb903ee88#b4d593b582e06ee19317a89302c475adb903ee88"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1575,7 +1575,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fasta"
 version = "1.8.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.2#3ed823215366a350c3de05ec7036fd774e5c9178"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=b4d593b582e06ee19317a89302c475adb903ee88#b4d593b582e06ee19317a89302c475adb903ee88"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1598,7 +1598,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-fastq"
 version = "1.8.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.2#3ed823215366a350c3de05ec7036fd774e5c9178"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=b4d593b582e06ee19317a89302c475adb903ee88#b4d593b582e06ee19317a89302c475adb903ee88"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1622,7 +1622,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-gff"
 version = "1.8.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.2#3ed823215366a350c3de05ec7036fd774e5c9178"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=b4d593b582e06ee19317a89302c475adb903ee88#b4d593b582e06ee19317a89302c475adb903ee88"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1650,7 +1650,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-gtf"
 version = "1.8.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.2#3ed823215366a350c3de05ec7036fd774e5c9178"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=b4d593b582e06ee19317a89302c475adb903ee88#b4d593b582e06ee19317a89302c475adb903ee88"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1675,7 +1675,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-pairs"
 version = "1.8.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.2#3ed823215366a350c3de05ec7036fd774e5c9178"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=b4d593b582e06ee19317a89302c475adb903ee88#b4d593b582e06ee19317a89302c475adb903ee88"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1703,7 +1703,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-vcf"
 version = "1.8.2"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.8.2#3ed823215366a350c3de05ec7036fd774e5c9178"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=b4d593b582e06ee19317a89302c475adb903ee88#b4d593b582e06ee19317a89302c475adb903ee88"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -2746,7 +2746,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4267,7 +4267,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4967,7 +4967,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools 0.10.5",
+ "itertools 0.14.0",
  "proc-macro2 1.0.106",
  "quote 1.0.46",
  "syn 2.0.118",
@@ -5668,7 +5668,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5726,7 +5726,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6074,7 +6074,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52d1cfed4120b4d927bf7c0f86d2087a4a7d6027c906d9f9d525a80573b9be51"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6131,7 +6131,7 @@ dependencies = [
  "cfg-if",
  "libc",
  "psm",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6279,7 +6279,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6880,7 +6880,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
