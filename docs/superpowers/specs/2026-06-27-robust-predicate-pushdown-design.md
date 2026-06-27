@@ -107,32 +107,47 @@ Input: a Polars `pl.Expr` plus the format's column-type sets (unchanged signatur
 intent). Output: a `PushdownPlan` (below).
 
 Mechanism: `json.loads(expr.meta.serialize(format="json"))` → recursive emitter
-over the AST. Confirmed node shapes in Polars 1.40.1:
+over the AST. **Exact** node shapes confirmed empirically in Polars 1.40.1 (these
+are not approximations — the emitter keys off them literally):
 
 ```
 BinaryExpr { left, op, right }      op ∈ {Eq, NotEq, Lt, LtEq, Gt, GtEq, And, Or}
-Column "<name>"
-Literal { Scalar { String|Int|Float|Boolean: <value> } }
-Function { input: [...], function: { StringExpr: { Contains|StartsWith|EndsWith } } }
-Function { input: [...], function: { Boolean: { IsIn ... } } }
+Column <name>                       # value is the bare string, e.g. {"Column": "start"}
+Literal { Scalar { String: <s> } }  # strings
+Literal { Scalar { Boolean: <b> } } # booleans
+Literal { Dyn { Int: <i> } }        # integers  — NOTE: "Dyn", not "Scalar"
+Literal { Dyn { Float: <f> } }      # floats    — NOTE: "Dyn", not "Scalar"
+Function { input:[col, listlit], function: { Boolean: { IsIn {nulls_equal} } } }
+Function { input:[expr],          function: { Boolean: "Not" } }
+Function { input:[col],           function: { Boolean: "IsNull" | "IsNotNull" } }
+Function { input:[col, lit],      function: { StringExpr: { Contains|StartsWith|EndsWith } } }
 ```
 
 Each node type has an explicit handler that emits a SQL fragment:
 
 - `Column` → quoted identifier (`"name"`), validated against the active column-type
   sets where types matter.
-- `Literal.Scalar.*` → correctly formatted SQL literal (string quoting/escaping,
-  numeric, boolean) — replacing the regex cleanup pass entirely.
+- `Literal` → correctly formatted SQL literal, handling **both** wrappers:
+  `Scalar.String` (quoted/escaped), `Scalar.Boolean` (`TRUE`/`FALSE`),
+  `Dyn.Int` (bare integer), `Dyn.Float` (bare float). Replaces the regex cleanup
+  pass entirely.
 - `BinaryExpr` comparison ops → `<left> <op> <right>`, with column-type checks
-  (e.g. string columns: equality/IN only, matching today's rules).
+  (string columns: equality/IN only, matching today's rules).
 - `BinaryExpr` And/Or → combine fragments; And participates in conjunct splitting,
   Or is atomic.
-- `Function.Boolean.IsIn` → `<col> IN (...)`.
+- `Function.Boolean.IsIn` → `<col> IN (v1, v2, ...)`. **The value list does not
+  appear as readable values in the JSON** — it is an Arrow IPC byte blob under
+  `Literal.Scalar.List`. The handler decodes it with `pyarrow.ipc.open_stream`
+  (verified: yields `['chr1','chr2',...]`). If decode fails for any reason, the
+  node is treated as unsupported → client-side. So `is_in` pushdown is preserved
+  but never at the cost of correctness.
+- `Function.Boolean.Not` → `NOT (<inner>)`; `IsNull`/`IsNotNull` → `<col> IS [NOT]
+  NULL`.
 - String functions (`Contains`, `StartsWith`, `EndsWith`) → **treated as
-  unsupported for pushdown by default** (the original failure was exactly
-  `str.contains` being unpushable in the bio-format provider). They are not
-  emitted; they fall to client-side filtering. This is correct under the invariant
-  and removes the temptation to emit a wrong `LIKE`/regex.
+  unsupported for pushdown** (the original failure was exactly `str.contains` being
+  unpushable in the bio-format provider). They are not emitted; they fall to
+  client-side filtering. This is correct under the invariant and removes the
+  temptation to emit a wrong `LIKE`/regex.
 
 Any unrecognized node type, or a recognized node in an unsupported position, raises
 `UnsupportedPredicate(node)` — caught locally during conjunct splitting, never
