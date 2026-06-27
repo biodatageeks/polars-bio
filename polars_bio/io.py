@@ -3722,31 +3722,23 @@ class AnnotationLazyFrameWrapper:
             query_df = py_read_table(ctx, table.name)
             datafusion_predicate_applied = False
             if self._predicate_pushdown and self._deferred_predicate is not None:
-                try:
-                    from .predicate_translator import (
-                        datafusion_expr_to_sql,
-                        translate_predicate,
-                    )
+                from .pushdown import apply_predicate_pushdown
 
-                    _fmt_key = str(input_fmt).rsplit(".", 1)[-1]
-                    string_cols, uint32_cols, float32_cols = _FORMAT_COLUMN_TYPES.get(
-                        _fmt_key, (None, None, None)
-                    )
-                    df_expr = translate_predicate(
-                        self._deferred_predicate,
-                        string_cols,
-                        uint32_cols,
-                        float32_cols,
-                    )
-                    sql_predicate = datafusion_expr_to_sql(df_expr)
-                    native_expr = query_df.parse_sql_expr(sql_predicate)
-                    query_df = query_df.filter(native_expr)
-                    datafusion_predicate_applied = True
-                except Exception as e:
-                    logger.warning(
-                        f"DataFusion predicate pushdown failed, will filter "
-                        f"client-side (this may cause a full scan): {e}"
-                    )
+                _fmt_key = str(input_fmt).rsplit(".", 1)[-1]
+                _scols, _ucols, _fcols = _FORMAT_COLUMN_TYPES.get(
+                    _fmt_key, (None, None, None)
+                )
+                query_df, _needs_client = apply_predicate_pushdown(
+                    query_df,
+                    self._deferred_predicate,
+                    {
+                        "string_cols": _scols,
+                        "uint32_cols": _ucols,
+                        "float32_cols": _fcols,
+                    },
+                    log=logger,
+                )
+                datafusion_predicate_applied = not _needs_client
 
             datafusion_columns = (
                 columns if datafusion_predicate_applied else scan_columns

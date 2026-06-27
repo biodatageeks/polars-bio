@@ -404,3 +404,27 @@ class TestFilterSelectPerformance:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_select_wrapper_str_contains_not_dropped(tmp_path):
+    import polars as pl
+
+    import polars_bio as pb
+
+    gtf = tmp_path / "mini2.gtf"
+    gtf.write_text(
+        "1\thavana\ttranscript\t1\t100\t.\t+\t.\t"
+        'gene_id "G1"; transcript_id "T1"; gene_biotype "TEC";\n'
+    )
+    annot = pb.scan_gtf(
+        str(gtf), attr_fields=["gene_id", "gene_biotype", "transcript_id"]
+    )
+    q = annot.filter(pl.col("gene_biotype").str.contains("pseudogene")).select(
+        "transcript_id"
+    )
+    assert q.collect().height == 0
+    assert q.collect().equals(
+        annot.collect()
+        .filter(pl.col("gene_biotype").str.contains("pseudogene"))
+        .select("transcript_id")
+    )
