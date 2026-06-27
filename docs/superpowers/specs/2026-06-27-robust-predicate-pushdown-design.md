@@ -43,15 +43,24 @@ symptoms but left both root causes in place.
 - Push down the translatable subset of a predicate even when the whole thing
   isn't translatable (partial pushdown), without sacrificing correctness.
 - Centralize the copy-pasted fallback logic into one audited helper used by all
-  scan paths.
-- Lock the eager-vs-lazy equivalence invariant with a property-based test that
-  mirrors the reviewer's fuzzer.
+  scan paths, covering **both** predicate and projection pushdown.
+- Bring projection pushdown under the same correctness invariant: a botched
+  projection must never silently change the output. (Projection keeps its existing
+  structured column-name extraction — it does **not** use the AST translator; see
+  §4.4.)
+- Lock the eager-vs-lazy equivalence invariant — for predicate **and** projection
+  — with a property-based test that mirrors the reviewer's fuzzer.
+- **Extensive unit-test coverage** as a first-class deliverable, not an
+  afterthought: every AST node type, every fallback branch, and every call site
+  is covered (see §7).
 
 **Non-goals**
 
-- Projection pushdown is *not* rewritten here. Over-selecting columns and
-  reapplying the client-side projection is already correctness-safe; only its
-  exception narrowing is folded into the shared helper opportunistically.
+- The **AST-to-SQL translator (§4.1) is not applied to projection.** Projection
+  only needs column *names*, which Polars already exposes structurally
+  (`meta.output_name()` / `meta.root_names()`); there is no boolean expression to
+  translate. Projection is in scope only for the correctness lever (§3) and the
+  centralized helper (§4.4).
 - No new operators or expanded predicate coverage beyond what is needed to keep
   parity with today's supported set. Coverage can grow later against the new
   structured translator.
@@ -80,6 +89,13 @@ top-level AND-conjuncts** of `P`, each of which must be **faithfully** translate
 When *every* conjunct of `P` translates faithfully, the translator certifies
 `fully_translated = True`, and the client-side reapply is skipped as an
 optimization. Otherwise the full `P` is reapplied client-side.
+
+**The same principle governs projection.** The requested column set `C` is the
+source of truth. Pushdown may select a *superset* of `C` from the source; the
+client-side `.select(with_columns)` then yields exactly `C`. The client reapply is
+skipped only when the extraction is certified complete (every requested column was
+recovered structurally with no swallowed error). A botched projection therefore
+costs at most an extra select, never a wrong/missing column.
 
 ## 4. Architecture
 
@@ -186,16 +202,56 @@ documented PyO3 binding mismatch (pip `datafusion` Expr is incompatible with the
 from the same compilation unit). The structured translator changes how the SQL is
 *built*, not how it is bound.
 
-### 4.4 Exception narrowing
+### 4.4 Centralized safe-projection helper (new, shared)
+
+A sibling helper applies the same source-of-truth discipline to projection. It does
+**not** use the AST translator — it relies on Polars' structured column-name API.
+
+```python
+def apply_projection_pushdown(query_df, with_columns, *, log) -> tuple[Any, bool]:
+    """Returns (query_df_with_projection, needs_client_select)."""
+    if with_columns is None:
+        return query_df, False
+    cols, complete = extract_source_columns(with_columns)   # structured, no silent skips
+    if not cols:
+        return query_df, True                               # couldn't determine → client select
+    try:
+        query_df = query_df.select(*[query_df.parse_sql_expr(f'"{c}"') for c in cols])
+    except Exception as e:                                   # parse_sql_expr / select binding failure
+        log.warning("projection pushdown skipped (bind): %s", e)
+        return query_df, True
+    return query_df, not complete
+```
+
+`extract_source_columns` replaces `_extract_column_names_from_expr`. It uses
+`expr.meta.root_names()` to determine which **source** columns must be requested
+(so a computed/aliased projection like `(col("c")+1).alias("y")` correctly requests
+`c`, not `y`), and returns a `complete` flag that is `False` if *any* element's
+names could not be recovered. The current `except Exception: pass` that silently
+drops a column is removed — an unrecoverable element flips `complete=False` so the
+full client-side `.select(with_columns)` runs.
+
+Callers then do, in the stream loop:
+
+```python
+if with_columns is not None and needs_client_select:
+    out = out.select(with_columns)
+```
+
+### 4.5 Exception narrowing
 
 - Translation errors are typed (`PredicateTranslationError` / `UnsupportedPredicate`)
   and caught specifically.
-- The only remaining broad catch is around `parse_sql_expr`/`filter` binding, which
-  is a genuine "couldn't push, fall back safely" boundary and **always** returns
-  `needs_client_filter=True`.
+- The only remaining broad catches are around `parse_sql_expr`/`filter` and
+  `parse_sql_expr`/`select` *binding*, which are genuine "couldn't push, fall back
+  safely" boundaries and **always** return `needs_client_filter=True` /
+  `needs_client_select=True` respectively.
 - Genuine programming errors in the translator surface as `PredicateTranslationError`
   with the original cause chained (`raise ... from e`) and are logged — never
   silently swallowed into a dropped filter.
+- Projection's previous `except Exception: pass` (silently dropping a column from
+  the requested set) is **removed**; an unrecoverable element flips the
+  `complete` flag instead, forcing a correct client-side select.
 
 ## 5. Data flow
 
@@ -212,9 +268,19 @@ plan_predicate_pushdown: split top-level ANDs, keep faithful conjuncts
    └─ PushdownPlan.fully_translated ──► needs_client_filter
                                           │
    stream batches ──► if needs_client_filter: out.filter(P)   [correctness, source of truth]
+
+with_columns C
+   │  extract_source_columns (meta.root_names(), structured, no silent skips)
+   ▼
+source column set ──► query_df.parse_sql_expr('"col"') ──► query_df.select()        [optimization]
+   │  complete? ──► needs_client_select
+   ▼
+   stream batches ──► if needs_client_select: out.select(C)   [correctness, source of truth]
 ```
 
 ## 6. Error handling
+
+**Predicate**
 
 | Situation | Behavior |
 |---|---|
@@ -225,35 +291,67 @@ plan_predicate_pushdown: split top-level ANDs, keep faithful conjuncts
 | `parse_sql_expr`/`filter` raises | skip pushdown entirely, `needs_client_filter=True` (logged) |
 | Translator internal bug | `PredicateTranslationError` (chained cause), safe fallback, logged — not silent |
 
-In every row-returning path, the result is exactly `P`'s rows.
+**Projection**
+
+| Situation | Behavior |
+|---|---|
+| All source columns recovered | push select, skip client reapply (`complete=True`) |
+| Some element's names unrecoverable | `complete=False`, push what's known, reapply full `C` client-side |
+| No columns determinable | `needs_client_select=True`, no pushdown, client select runs |
+| `parse_sql_expr`/`select` raises | skip pushdown entirely, `needs_client_select=True` (logged) |
+
+In every row-returning path, the result is exactly `P`'s rows over exactly `C`'s columns.
 
 ## 7. Testing
 
+**Extensive unit-test coverage is a first-class deliverable of this work, not an
+afterthought.** The fragility that caused #396 went undetected because the
+translator had no per-node tests; the rewrite must not repeat that. Every AST node
+type, every fallback branch, the certification flags, and every call site are
+covered. Concretely:
+
 1. **Property-based equivalence (the headline test).** Mirror the reviewer's
-   `hypothesis.stateful` fuzzer: generate predicates over GTF/GFF/VCF/BAM columns
-   (including `str.contains`, `is_in`, AND/OR nesting, mixed attribute + parsed
-   fields) and assert
-   `scan(...).filter(P).collect()  ==  scan(...).collect().filter(P)`
-   for every generated `P`. This is the invariant from §3 expressed as a test and
-   would have caught #396.
+   `hypothesis.stateful` fuzzer: generate predicates *and* column projections over
+   GTF/GFF/VCF/BAM columns (including `str.contains`, `is_in`, AND/OR nesting,
+   negation, mixed attribute + parsed fields, aliased/computed projections) and
+   assert, for every generated `(P, C)`:
+   - `scan(...).filter(P).select(C).collect() == scan(...).collect().filter(P).select(C)`.
+   This is the invariant from §3 expressed as a test and would have caught #396.
 2. **Regression test for #396** — the exact GTF snippet from the issue; the
    `type=='transcript' & gene_biotype.str.contains('pseudogene')` query must return
    0 rows in both lazy and eager forms.
-3. **Translator unit tests** — per node type: faithful SQL for supported nodes;
-   `UnsupportedPredicate` for unsupported nodes; conjunct splitting keeps the right
-   subset; `fully_translated` flag correctness; OR-atomicity (an OR with one
-   unsupported side pushes nothing).
-4. **All four call sites** exercised (io streaming, io second path, overlap/range
-   via `utils.py`, pileup) to confirm they route through the shared helper and
-   reapply correctly.
+3. **Translator unit tests — exhaustive, per node type.** For *each* AST node the
+   emitter claims to support (Column, every BinaryExpr comparison op, And/Or,
+   Literal of each scalar type, IsIn): assert the exact SQL emitted, including
+   literal quoting/escaping and identifier quoting. For *each* unsupported node
+   (string functions, arithmetic, unknown types): assert `UnsupportedPredicate` is
+   raised — never silent emission. Plus: conjunct splitting keeps the correct
+   subset; `fully_translated` is `True` only when every conjunct translated;
+   OR-atomicity (an OR with one unsupported side pushes nothing); literal-escaping
+   edge cases (quotes, unicode, empty string, negative/float/bool literals).
+4. **Projection extraction unit tests.** `extract_source_columns` returns the right
+   *source* names for plain, aliased, and computed projections (via `root_names`);
+   `complete=False` when an element's names can't be recovered; no column is ever
+   silently dropped.
+5. **Helper-level fallback tests.** Drive `apply_predicate_pushdown` /
+   `apply_projection_pushdown` directly with a stub `query_df` whose
+   `parse_sql_expr`/`filter`/`select` raise, and assert they return
+   `needs_client_filter=True` / `needs_client_select=True` and log — never propagate
+   or silently succeed.
+6. **All four call sites** exercised (io streaming, io second path, overlap/range
+   via `utils.py`, pileup) to confirm they route through the shared helpers and
+   reapply correctly for both predicate and projection.
 
 ## 8. Rollout
 
-- Land the **safety lever first** (§4.3 helper + unconditional reapply semantics +
-  exception narrowing) so the wrong-results class is closed immediately, even
-  before the translator rewrite. This is the cheap high-value piece.
+- Land the **safety lever first** (§4.3 + §4.4 helpers + unconditional reapply
+  semantics + exception narrowing, with their fallback unit tests) so the
+  wrong-results class is closed immediately for both predicate and projection,
+  even before the translator rewrite. This is the cheap high-value piece.
 - Land the **structured translator** (§4.1/§4.2) second, swapping the regex
-  internals behind the unchanged `plan_predicate_pushdown` surface.
+  internals behind the unchanged `plan_predicate_pushdown` surface, with its
+  exhaustive per-node unit tests.
+- Land the **property-based equivalence test** (§7.1) to lock the invariant.
 - Delete dead regex code (`_translate_polars_expr` chain, `datafusion_expr_to_sql`
   cleanup) once the structured translator is in.
 
@@ -272,5 +370,4 @@ In every row-returning path, the result is exactly `P`'s rows.
 
 - Expanding pushdown coverage (e.g. safe `str.contains` → provider-native regex)
   once the structured translator makes it safe to add.
-- Projection-pushdown rewrite.
 - Rust-side predicate support in the bio-format providers.
