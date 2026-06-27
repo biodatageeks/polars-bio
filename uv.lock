@@ -1114,6 +1114,18 @@ wheels = [
 ]
 
 [[package]]
+name = "hypothesis"
+version = "6.155.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sortedcontainers" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f2/55/983b6bc1b6b343a5ff6020388f9d0680ab477be59a731517e6c4a0387100/hypothesis-6.155.7.tar.gz", hash = "sha256:d8d6091753d0669db3c90c5e5b346cb37c72f3dd9378c8413acb1fd5da63f7ea", size = 478291, upload-time = "2026-06-21T05:54:31.573Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/01/f8/c151e196d4f397ed9436a071e52666c70a2f021138dea828b0a461e245db/hypothesis-6.155.7-py3-none-any.whl", hash = "sha256:9f634bdb1f9e9b8ab6ba09431cf2deedb750c96978125a6fb3c5a0f6c6db4131", size = 544762, upload-time = "2026-06-21T05:54:29.506Z" },
+]
+
+[[package]]
 name = "identify"
 version = "2.6.19"
 source = { registry = "https://pypi.org/simple" }
@@ -2908,6 +2920,7 @@ benchmark = [
     { name = "bioframe" },
     { name = "cairosvg" },
     { name = "genomicranges" },
+    { name = "hypothesis" },
     { name = "jupyter" },
     { name = "jupyter-client" },
     { name = "markdown-exec" },
@@ -2942,6 +2955,7 @@ benchmark = [
 dev = [
     { name = "bioframe" },
     { name = "cairosvg" },
+    { name = "hypothesis" },
     { name = "jupyter" },
     { name = "jupyter-client" },
     { name = "markdown-exec" },
@@ -2992,6 +3006,7 @@ benchmark = [
     { name = "bioframe", specifier = ">=0.8.0" },
     { name = "cairosvg", specifier = ">=2.8.2" },
     { name = "genomicranges", specifier = ">=0.8.4" },
+    { name = "hypothesis", specifier = ">=6.100.0" },
     { name = "jupyter", specifier = ">=1.1.0" },
     { name = "jupyter-client", specifier = ">=8.6.3" },
     { name = "markdown-exec", specifier = ">=1.10.0" },
@@ -3026,6 +3041,7 @@ benchmark = [
 dev = [
     { name = "bioframe", specifier = ">=0.8.0" },
     { name = "cairosvg", specifier = ">=2.8.2" },
+    { name = "hypothesis", specifier = ">=6.100.0" },
     { name = "jupyter", specifier = ">=1.1.0" },
     { name = "jupyter-client", specifier = ">=8.6.3" },
     { name = "markdown-exec", specifier = ">=1.10.0" },
@@ -3913,6 +3929,15 @@ dependencies = [
     { name = "numpy" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6b/a4/bd8ad7d1cf66268219f282d4268b6ba73f8ff51c5fba2c9663adab103615/sorted_nearest-0.0.41.tar.gz", hash = "sha256:bd3ce6cbbc1df9a00e0a8afafe00556f4eaa2499a37fc5901227d0beb10b7298", size = 1568705, upload-time = "2025-10-06T13:16:47.155Z" }
+
+[[package]]
+name = "sortedcontainers"
+version = "2.4.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e8/c4/ba2f8066cceb6f23394729afe52f3bf7adec04bf9ed2c820b39e19299111/sortedcontainers-2.4.0.tar.gz", hash = "sha256:25caa5a06cc30b6b83d11423433f65d1f9d76c4c6a0c90e3379eaa43b9bfdb88", size = 30594, upload-time = "2021-05-16T22:03:42.897Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/32/46/9cb0e58b2deb7f82b84065f37f3bffeb12413f947f9388e4cac22c4621ce/sortedcontainers-2.4.0-py2.py3-none-any.whl", hash = "sha256:a163dcaede0f1c021485e957a39245190e74249897e2ae4b2aa38595db237ee0", size = 29575, upload-time = "2021-05-16T22:03:41.177Z" },
+]
 
 [[package]]
 name = "soupsieve"
