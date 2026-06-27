@@ -16,6 +16,9 @@ pyo3 = { version = "0.28.3", features = ["extension-module", "abi3"] }
 pyo3-log = "0.13.3"
 
 
+# NOTE: temporarily pinned to 53.0.0 (down from 53.1.0) to match datafusion-bio-formats
+# v1.8.2 / datafusion-bio-functions v0.11.0, which pin datafusion to "=53.0.0". Restore
+# 53.1.0 once those crates publish releases built against datafusion 53.1.0.
 datafusion = { version = "53.0.0", default-features = false, features = ["nested_expressions", "crypto_expressions", "datetime_expressions", "encoding_expressions", "regex_expressions", "string_expressions", "unicode_expressions", "parquet", "recursive_protection", "sql"] }
 arrow = "58.3.0"
 arrow-schema = "58.3.0"

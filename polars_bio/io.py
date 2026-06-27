@@ -1830,7 +1830,7 @@ class IOOperations:
         use_zero_based: Optional[bool] = None,
     ) -> pl.DataFrame:
         """
-        Read a local BigWig file into a DataFrame.
+        Read a BigWig file into a DataFrame.
 
         BigWig rows are exposed as ``chrom``, ``start``, ``end``, and ``value``.
         """
@@ -1868,7 +1868,7 @@ class IOOperations:
         use_zero_based: Optional[bool] = None,
     ) -> pl.LazyFrame:
         """
-        Lazily read a local BigWig file into a LazyFrame.
+        Lazily read a BigWig file into a LazyFrame.
 
         BigWig is natively 0-based half-open. Set ``use_zero_based=False`` to emit
         1-based closed coordinates.
@@ -1914,7 +1914,7 @@ class IOOperations:
         schema: str = "auto",
     ) -> pl.DataFrame:
         """
-        Read a local BigBed file into a DataFrame.
+        Read a BigBed file into a DataFrame.
 
         ``schema="auto"`` uses supported autoSQL fields when available.
         ``schema="rest"`` exposes the raw trailing fields in ``rest``.
@@ -1955,7 +1955,7 @@ class IOOperations:
         schema: str = "auto",
     ) -> pl.LazyFrame:
         """
-        Lazily read a local BigBed file into a LazyFrame.
+        Lazily read a BigBed file into a LazyFrame.
 
         BigBed is natively 0-based half-open. Set ``use_zero_based=False`` to emit
         1-based closed coordinates.
@@ -3455,6 +3455,8 @@ def _format_to_string(input_format: InputFormat) -> str:
         return "gtf"
     elif "Gff" in format_str:
         return "gff"
+    # NOTE: BigWig/BigBed must be checked before Bed — "Bed" is a substring of
+    # "BigBed", so reordering these branches would silently misclassify BigBed as bed.
     elif "BigWig" in format_str:
         return "bigwig"
     elif "BigBed" in format_str:

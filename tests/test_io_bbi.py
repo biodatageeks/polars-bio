@@ -125,3 +125,43 @@ def test_bbi_predicate_pushdown_matches_client_side_filtering():
         .collect()
     )
     assert pushed.equals(client_side)
+
+
+def test_scan_bigbed_projection_and_coordinate_conversion():
+    df = (
+        pb.scan_bigbed(BIGBED, use_zero_based=False)
+        .select(["chrom", "start"])
+        .sort(["chrom", "start"])
+        .collect()
+    )
+
+    assert df.columns == ["chrom", "start"]
+    assert df.rows() == [("chr1", 1), ("chr1", 21), ("chr2", 6)]
+
+
+def test_register_bigwig_sql_path():
+    pb.register_bigwig(BIGWIG, "test_bigwig_reg", use_zero_based=True)
+    df = pb.sql(
+        "SELECT chrom, start, `end`, value FROM test_bigwig_reg ORDER BY chrom, start"
+    ).collect()
+
+    assert df.select(["chrom", "start", "end"]).rows() == [
+        ("chr1", 0, 10),
+        ("chr1", 20, 30),
+        ("chr2", 5, 12),
+    ]
+    assert df["value"].to_list() == [1.5, 2.5, 3.5]
+
+
+def test_register_bigbed_sql_path():
+    pb.register_bigbed(BIGBED, "test_bigbed_reg", use_zero_based=True)
+    df = pb.sql(
+        "SELECT chrom, start, `end`, name, score FROM test_bigbed_reg "
+        "ORDER BY chrom, start"
+    ).collect()
+
+    assert df.select(["chrom", "start", "end", "name", "score"]).rows() == [
+        ("chr1", 0, 10, "gene1", 42),
+        ("chr1", 20, 30, "gene2", 84),
+        ("chr2", 5, 12, "gene3", 126),
+    ]

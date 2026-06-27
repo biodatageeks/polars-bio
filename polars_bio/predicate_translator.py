@@ -61,6 +61,12 @@ BIGWIG_UINT32_COLUMNS = {"start", "end"}
 BIGWIG_FLOAT32_COLUMNS = {"value"}
 
 # BigBed
+# Only the universally-present columns are typed statically. BigBed autoSQL
+# schemas are dynamic — fields beyond the BED3 core (score, strand, thickStart,
+# blockCount, …) vary per file and may be redefined by a file's autoSQL, so they
+# are intentionally left out of these sets. Such columns fall through to the
+# permissive path in _validate_column_operator (all operators allowed, DataFusion
+# type-checks at execution), rather than risking incorrect static coercion.
 BIGBED_STRING_COLUMNS = {"chrom", "name", "rest"}
 BIGBED_UINT32_COLUMNS = {"start", "end"}
 BIGBED_FLOAT32_COLUMNS: set = set()

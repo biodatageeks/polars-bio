@@ -454,7 +454,7 @@ class SQL:
         use_zero_based: Union[bool, None] = None,
     ) -> None:
         """
-        Register a local BigWig file as a DataFusion table.
+        Register a BigWig file as a DataFusion table.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -488,7 +488,7 @@ class SQL:
         schema: str = "auto",
     ) -> None:
         """
-        Register a local BigBed file as a DataFusion table.
+        Register a BigBed file as a DataFusion table.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
