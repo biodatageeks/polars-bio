@@ -274,3 +274,26 @@ def test_gtf_parsed_predicate_with_raw_attributes_select(tmp_path):
         .alias("gene_id")
     )["gene_id"].to_list()
     assert recovered == ["ENSG1"]
+
+
+def test_gtf_str_contains_lazy_equals_eager(tmp_path):
+    """Regression for #396: a str.contains filter must not be silently dropped."""
+    import polars as pl
+
+    import polars_bio as pb
+
+    gtf = tmp_path / "mini.gtf"
+    gtf.write_text(
+        "1\thavana\ttranscript\t3073253\t3074322\t.\t+\t.\t"
+        'gene_id "ENSMUSG00000102693"; transcript_id "ENSMUST00000193812"; '
+        'gene_biotype "TEC";\n'
+    )
+    attr = ["gene_id", "gene_biotype", "transcript_id"]
+    annot = pb.scan_gtf(str(gtf), attr_fields=attr)
+    pseudo = annot.filter(pl.col("type") == "transcript").filter(
+        pl.col("gene_biotype").str.contains("pseudogene")
+    )
+    lazy = pseudo.select("transcript_id").collect()
+    eager = pseudo.collect().select("transcript_id")
+    assert lazy.equals(eager)
+    assert lazy.height == 0  # no pseudogenes in the fixture

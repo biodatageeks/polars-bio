@@ -3051,6 +3051,7 @@ def _lazy_scan(
         from polars_bio.polars_bio import py_read_table, py_register_table
 
         from .context import ctx as _ctx
+        from .pushdown import apply_predicate_pushdown, apply_projection_pushdown
 
         table_refreshed = False
 
@@ -3155,50 +3156,27 @@ def _lazy_scan(
                 )
             query_df = py_read_table(_ctx, table_to_query)
 
-        # 2. Predicate pushdown via DataFusion Expr API
-        #    Flow: Polars Expr → DataFusion Expr (validates types) → SQL string
-        #    → query_df.parse_sql_expr() → query_df.filter()
-        #    parse_sql_expr() creates a binding-compatible Expr from the same
-        #    PyO3 compilation unit, avoiding the type mismatch between the
-        #    polars_bio Rust extension and the pip datafusion package.
-        datafusion_predicate_applied = False
+        # 2. Predicate pushdown (optimization only; the client-side filter below
+        #    is the source of truth). The shared helper pushes the faithfully
+        #    translatable AND-conjuncts and reports whether the full predicate
+        #    must still be reapplied client-side.
+        _fmt_key = str(input_format).rsplit(".", 1)[-1]
+        _scols, _ucols, _fcols = _FORMAT_COLUMN_TYPES.get(_fmt_key, (None, None, None))
+        needs_client_filter = predicate is not None
         if predicate_pushdown and predicate is not None:
-            try:
-                from .predicate_translator import (
-                    datafusion_expr_to_sql,
-                    translate_predicate,
-                )
+            query_df, needs_client_filter = apply_predicate_pushdown(
+                query_df,
+                predicate,
+                {"string_cols": _scols, "uint32_cols": _ucols, "float32_cols": _fcols},
+                log=logger,
+            )
 
-                _fmt_key = str(input_format).rsplit(".", 1)[-1]
-                string_cols, uint32_cols, float32_cols = _FORMAT_COLUMN_TYPES.get(
-                    _fmt_key, (None, None, None)
-                )
-                df_expr = translate_predicate(
-                    predicate, string_cols, uint32_cols, float32_cols
-                )
-                sql_predicate = datafusion_expr_to_sql(df_expr)
-                native_expr = query_df.parse_sql_expr(sql_predicate)
-                query_df = query_df.filter(native_expr)
-                datafusion_predicate_applied = True
-            except Exception as e:
-                logger.warning(
-                    f"DataFusion predicate pushdown failed, will filter "
-                    f"client-side (this may cause a full scan): {e}"
-                )
-
-        # 3. Projection pushdown via DataFusion select
-        datafusion_projection_applied = False
+        # 3. Projection pushdown (optimization only; client-side select is truth)
+        needs_client_select = with_columns is not None
         if projection_pushdown and with_columns is not None:
-            requested_cols = _extract_column_names_from_expr(with_columns)
-            if requested_cols:
-                try:
-                    select_exprs = [
-                        query_df.parse_sql_expr(f'"{c}"') for c in requested_cols
-                    ]
-                    query_df = query_df.select(*select_exprs)
-                    datafusion_projection_applied = True
-                except Exception as e:
-                    logger.debug(f"DataFusion projection pushdown failed: {e}")
+            query_df, needs_client_select = apply_projection_pushdown(
+                query_df, with_columns, log=logger
+            )
 
         # 4. Limit
         if n_rows and n_rows > 0:
@@ -3210,11 +3188,11 @@ def _lazy_scan(
         remaining = int(n_rows) if n_rows is not None else None
         for r in df_stream:
             out = pl.DataFrame(r.to_pyarrow())
-            # Apply client-side predicate only when DataFusion pushdown failed
-            if predicate is not None and not datafusion_predicate_applied:
+            # Source of truth: reapply the full predicate/projection client-side
+            # unless the helper certified the pushdown was complete.
+            if predicate is not None and needs_client_filter:
                 out = out.filter(predicate)
-            # Apply client-side projection only when DataFusion pushdown failed
-            if with_columns is not None and not datafusion_projection_applied:
+            if with_columns is not None and needs_client_select:
                 out = out.select(with_columns)
 
             if remaining is not None:
