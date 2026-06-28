@@ -2,7 +2,7 @@ import os
 
 import polars_config_meta  # noqa: F401 - initializes DataFrame metadata support
 
-from polars_bio.polars_bio import InputFormat
+from polars_bio.polars_bio import BigBedReadOptions, BigWigReadOptions, InputFormat
 from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions, VcfZarrReadOptions
 
@@ -54,6 +54,8 @@ register_bam = data_processing.register_bam
 register_sam = data_processing.register_sam
 register_cram = data_processing.register_cram
 register_bed = data_processing.register_bed
+register_bigwig = data_processing.register_bigwig
+register_bigbed = data_processing.register_bigbed
 register_pairs = data_processing.register_pairs
 register_view = data_processing.register_view
 
@@ -76,12 +78,16 @@ read_vcf = data_input.read_vcf
 read_vcf_zarr = data_input.read_vcf_zarr
 read_fastq = data_input.read_fastq
 read_bed = data_input.read_bed
+read_bigwig = data_input.read_bigwig
+read_bigbed = data_input.read_bigbed
 read_fasta = data_input.read_fasta
 read_pairs = data_input.read_pairs
 scan_bam = data_input.scan_bam
 scan_sam = data_input.scan_sam
 scan_cram = data_input.scan_cram
 scan_bed = data_input.scan_bed
+scan_bigwig = data_input.scan_bigwig
+scan_bigbed = data_input.scan_bigbed
 scan_fasta = data_input.scan_fasta
 scan_fastq = data_input.scan_fastq
 scan_gff = data_input.scan_gff
@@ -130,6 +136,8 @@ __all__ = [
     "ReadOptions",
     "VcfReadOptions",
     "VcfZarrReadOptions",
+    "BigWigReadOptions",
+    "BigBedReadOptions",
     "ObjectStorageOptions",
     "POLARS_BIO_COORDINATE_SYSTEM_CHECK",
     "POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED",
@@ -155,6 +163,8 @@ __all__ = [
     "read_sam",
     "read_cram",
     "read_bed",
+    "read_bigwig",
+    "read_bigbed",
     "read_fasta",
     "read_fastq",
     "read_pairs",
@@ -167,6 +177,8 @@ __all__ = [
     "scan_sam",
     "scan_cram",
     "scan_bed",
+    "scan_bigwig",
+    "scan_bigbed",
     "scan_fasta",
     "scan_fastq",
     "scan_gff",
@@ -196,6 +208,8 @@ __all__ = [
     "register_sam",
     "register_cram",
     "register_bed",
+    "register_bigwig",
+    "register_bigbed",
     "register_pairs",
     "register_view",
     "sql",

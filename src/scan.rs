@@ -15,6 +15,10 @@ use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
 use datafusion::physical_plan::streaming::PartitionStream;
 use datafusion::prelude::{CsvReadOptions, ParquetReadOptions, SessionContext};
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
+use datafusion_bio_format_bbi::bigbed::{
+    BigBedSchemaMode as NativeBigBedSchemaMode, BigBedTableProvider,
+};
+use datafusion_bio_format_bbi::bigwig::BigWigTableProvider;
 use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
@@ -34,9 +38,9 @@ use tracing::debug;
 
 use crate::context::PyBioSessionContext;
 use crate::option::{
-    BamReadOptions, BedReadOptions, CramReadOptions, FastaReadOptions, FastqReadOptions,
-    GffReadOptions, GtfReadOptions, InputFormat, PairsReadOptions, ReadOptions, VcfReadOptions,
-    VcfZarrReadOptions,
+    BamReadOptions, BedReadOptions, BigBedReadOptions, BigWigReadOptions, CramReadOptions,
+    FastaReadOptions, FastqReadOptions, GffReadOptions, GtfReadOptions, InputFormat,
+    PairsReadOptions, ReadOptions, VcfReadOptions, VcfZarrReadOptions,
 };
 
 type BatchResultReceiver = Receiver<Result<RecordBatch, DataFusionError>>;
@@ -450,6 +454,10 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         InputFormat::Csv
     } else if path.ends_with(".bed") {
         InputFormat::Bed
+    } else if path.ends_with(".bw") || path.ends_with(".bigwig") {
+        InputFormat::BigWig
+    } else if path.ends_with(".bb") || path.ends_with(".bigbed") {
+        InputFormat::BigBed
     } else if path.ends_with(".vcf") || path.ends_with(".vcf.gz") || path.ends_with(".vcf.bgz") {
         InputFormat::Vcf
     } else if path.ends_with(".gff") || path.ends_with(".gff.gz") || path.ends_with(".gff.bgz") {
@@ -467,6 +475,16 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         InputFormat::Pairs
     } else {
         panic!("Unsupported format")
+    }
+}
+
+fn native_bigbed_schema_mode(mode: &str) -> datafusion::common::Result<NativeBigBedSchemaMode> {
+    match mode.to_ascii_lowercase().as_str() {
+        "auto" => Ok(NativeBigBedSchemaMode::Auto),
+        "rest" => Ok(NativeBigBedSchemaMode::Rest),
+        _ => Err(DataFusionError::Execution(format!(
+            "Unsupported BigBed schema mode '{mode}'. Expected 'auto' or 'rest'."
+        ))),
     }
 }
 
@@ -625,6 +643,41 @@ pub(crate) async fn register_table(
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register BED table");
+        },
+        InputFormat::BigWig => {
+            let bigwig_read_options = match &read_options {
+                Some(options) => match options.clone().bigwig_read_options {
+                    Some(bigwig_read_options) => bigwig_read_options,
+                    _ => BigWigReadOptions::default(),
+                },
+                _ => BigWigReadOptions::default(),
+            };
+            info!(
+                "Registering BigWig table {} with options: {:?}",
+                table_name, bigwig_read_options
+            );
+            let table_provider =
+                BigWigTableProvider::new(path.to_string(), bigwig_read_options.zero_based)?;
+            ctx.register_table(table_name, Arc::new(table_provider))?;
+        },
+        InputFormat::BigBed => {
+            let bigbed_read_options = match &read_options {
+                Some(options) => match options.clone().bigbed_read_options {
+                    Some(bigbed_read_options) => bigbed_read_options,
+                    _ => BigBedReadOptions::default(),
+                },
+                _ => BigBedReadOptions::default(),
+            };
+            info!(
+                "Registering BigBed table {} with options: {:?}",
+                table_name, bigbed_read_options
+            );
+            let table_provider = BigBedTableProvider::new(
+                path.to_string(),
+                bigbed_read_options.zero_based,
+                native_bigbed_schema_mode(&bigbed_read_options.schema)?,
+            )?;
+            ctx.register_table(table_name, Arc::new(table_provider))?;
         },
 
         InputFormat::Fasta => {

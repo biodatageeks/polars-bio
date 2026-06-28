@@ -2894,6 +2894,7 @@ pandas = [
     { name = "pandas" },
 ]
 test = [
+    { name = "pybigwig", marker = "python_full_version < '3.14'" },
     { name = "pyranges1", marker = "python_full_version >= '3.12' and python_full_version < '3.14'" },
     { name = "pysam" },
 ]
@@ -2979,6 +2980,7 @@ requires-dist = [
     { name = "polars", specifier = ">=1.37.1" },
     { name = "polars-config-meta", specifier = ">=0.3.0,<1" },
     { name = "pyarrow", specifier = ">=23.0.1,<25" },
+    { name = "pybigwig", marker = "python_full_version < '3.14' and extra == 'test'", specifier = ">=0.3.22" },
     { name = "pyranges1", marker = "python_full_version >= '3.12' and python_full_version < '3.14' and extra == 'test'", specifier = "==1.3.8" },
     { name = "pysam", marker = "extra == 'test'" },
     { name = "tqdm", specifier = ">=4.67.0,<5" },
@@ -3230,6 +3232,17 @@ dependencies = [
     { name = "pysam" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/89/93/5878b1eed2e0b6662002d069763025e4374c16ad3d18d8e10a9fefac7b16/pybedtools-0.12.0.tar.gz", hash = "sha256:8786ec9f6579c81363c00b437344438df79cf128860e5cae2466926181547249", size = 12608236, upload-time = "2025-03-16T14:03:43.216Z" }
+
+[[package]]
+name = "pybigwig"
+version = "0.3.25"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cf/f4/672930ad51bbc135f51cac89577155f1d0c2d120375fc77978d3aa071bb7/pybigwig-0.3.25.tar.gz", hash = "sha256:8c717b0222e6677956fd659c8a21650983679ffb3314427d7f68d2910fad202a", size = 75287, upload-time = "2026-01-14T15:00:01.986Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/11/d6cc872893faad265a1ab201bda92d8c79ca06558f36e431634beeccc51b/pybigwig-0.3.25-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c10381d784af6e2a8c1e5313548c2b23b46c0495eea33a5dff4ccb3e44c19cb1", size = 185835, upload-time = "2026-01-14T15:00:04.08Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/f6/51d8a97116de23c9280c1fa3b813bc088f8571ce5936ba84af1ecf13ed45/pybigwig-0.3.25-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:852c41f00afc610322eb3c5aba74068d05b340d09db4573db2deca330ad48f30", size = 187030, upload-time = "2026-01-14T15:00:05.322Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/e6/01ada46425bd120b36e7c2f6fe74a980de6912d416f07c9c85b22fadd515/pybigwig-0.3.25-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ba907b069ad498647661cc376ba79438728a321afb61a9eca333d60ca9c6d9a6", size = 186996, upload-time = "2026-01-14T15:00:06.704Z" },
+]
 
 [[package]]
 name = "pycparser"

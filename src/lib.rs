@@ -27,11 +27,11 @@ use crate::context::PyBioSessionContext;
 use crate::operation::do_range_operation;
 use crate::option::{
     pyobject_storage_options_to_object_storage_options, BamReadOptions, BamWriteOptions,
-    BedReadOptions, BioTable, CramReadOptions, CramWriteOptions, FastaReadOptions,
-    FastaWriteOptions, FastqReadOptions, FastqWriteOptions, FilterOp, GffReadOptions,
-    GtfReadOptions, InputFormat, OutputFormat, OverlapOutputMode, PairsReadOptions, PileupOptions,
-    PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions, VcfWriteOptions,
-    VcfZarrReadOptions, WriteOptions,
+    BedReadOptions, BigBedReadOptions, BigWigReadOptions, BioTable, CramReadOptions,
+    CramWriteOptions, FastaReadOptions, FastaWriteOptions, FastqReadOptions, FastqWriteOptions,
+    FilterOp, GffReadOptions, GtfReadOptions, InputFormat, OutputFormat, OverlapOutputMode,
+    PairsReadOptions, PileupOptions, PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions,
+    VcfReadOptions, VcfWriteOptions, VcfZarrReadOptions, WriteOptions,
 };
 use crate::scan::{
     maybe_register_table, register_frame, register_frame_from_arrow_stream,
@@ -854,6 +854,8 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<CramReadOptions>()?;
     m.add_class::<CramWriteOptions>()?;
     m.add_class::<BedReadOptions>()?;
+    m.add_class::<BigWigReadOptions>()?;
+    m.add_class::<BigBedReadOptions>()?;
     m.add_class::<FastaReadOptions>()?;
     m.add_class::<FastaWriteOptions>()?;
     m.add_class::<PairsReadOptions>()?;

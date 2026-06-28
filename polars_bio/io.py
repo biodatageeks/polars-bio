@@ -13,6 +13,8 @@ from polars_bio.polars_bio import (
     BamReadOptions,
     BamWriteOptions,
     BedReadOptions,
+    BigBedReadOptions,
+    BigWigReadOptions,
     CramReadOptions,
     CramWriteOptions,
     FastaReadOptions,
@@ -48,6 +50,12 @@ from .predicate_translator import (
     BAM_INT32_COLUMNS,
     BAM_STRING_COLUMNS,
     BAM_UINT32_COLUMNS,
+    BIGBED_FLOAT32_COLUMNS,
+    BIGBED_STRING_COLUMNS,
+    BIGBED_UINT32_COLUMNS,
+    BIGWIG_FLOAT32_COLUMNS,
+    BIGWIG_STRING_COLUMNS,
+    BIGWIG_UINT32_COLUMNS,
     GFF_FLOAT32_COLUMNS,
     GFF_STRING_COLUMNS,
     GFF_UINT32_COLUMNS,
@@ -69,6 +77,8 @@ _FORMAT_COLUMN_TYPES = {
     "Gff": (GFF_STRING_COLUMNS, GFF_UINT32_COLUMNS, GFF_FLOAT32_COLUMNS),
     "Gtf": (GFF_STRING_COLUMNS, GFF_UINT32_COLUMNS, GFF_FLOAT32_COLUMNS),
     "Pairs": (PAIRS_STRING_COLUMNS, PAIRS_UINT32_COLUMNS, PAIRS_FLOAT32_COLUMNS),
+    "BigWig": (BIGWIG_STRING_COLUMNS, BIGWIG_UINT32_COLUMNS, BIGWIG_FLOAT32_COLUMNS),
+    "BigBed": (BIGBED_STRING_COLUMNS, BIGBED_UINT32_COLUMNS, BIGBED_FLOAT32_COLUMNS),
 }
 
 _VALID_SAM_SCALAR_TYPE_CODES = {"A", "c", "C", "s", "S", "i", "I", "f", "Z", "H"}
@@ -218,6 +228,13 @@ def _quote_sql_identifier(identifier: str) -> str:
     """Quote a SQL identifier for DataFusion SQL text."""
     escaped = str(identifier).replace('"', '""')
     return f'"{escaped}"'
+
+
+def _normalize_bigbed_schema_mode(schema: str) -> str:
+    normalized = str(schema).lower()
+    if normalized not in {"auto", "rest"}:
+        raise ValueError("schema must be either 'auto' or 'rest'")
+    return normalized
 
 
 class IOOperations:
@@ -1799,6 +1816,177 @@ class IOOperations:
         )
 
     @staticmethod
+    def read_bigwig(
+        path: str,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Read a BigWig file into a DataFrame.
+
+        BigWig rows are exposed as ``chrom``, ``start``, ``end``, and ``value``.
+        """
+        lf = IOOperations.scan_bigwig(
+            path,
+            chunk_size,
+            concurrent_fetches,
+            allow_anonymous,
+            enable_request_payer,
+            max_retries,
+            timeout,
+            compression_type,
+            projection_pushdown,
+            predicate_pushdown,
+            use_zero_based,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_bigwig(
+        path: str,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read a BigWig file into a LazyFrame.
+
+        BigWig is natively 0-based half-open. Set ``use_zero_based=False`` to emit
+        1-based closed coordinates.
+        """
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        zero_based = _resolve_zero_based(use_zero_based)
+        bigwig_read_options = BigWigReadOptions(
+            object_storage_options=object_storage_options,
+            zero_based=zero_based,
+        )
+        read_options = ReadOptions(bigwig_read_options=bigwig_read_options)
+        return _read_file(
+            path,
+            InputFormat.BigWig,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
+        )
+
+    @staticmethod
+    def read_bigbed(
+        path: str,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+        schema: str = "auto",
+    ) -> pl.DataFrame:
+        """
+        Read a BigBed file into a DataFrame.
+
+        ``schema="auto"`` uses supported autoSQL fields when available.
+        ``schema="rest"`` exposes the raw trailing fields in ``rest``.
+        """
+        lf = IOOperations.scan_bigbed(
+            path,
+            chunk_size,
+            concurrent_fetches,
+            allow_anonymous,
+            enable_request_payer,
+            max_retries,
+            timeout,
+            compression_type,
+            projection_pushdown,
+            predicate_pushdown,
+            use_zero_based,
+            schema,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_bigbed(
+        path: str,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+        schema: str = "auto",
+    ) -> pl.LazyFrame:
+        """
+        Lazily read a BigBed file into a LazyFrame.
+
+        BigBed is natively 0-based half-open. Set ``use_zero_based=False`` to emit
+        1-based closed coordinates.
+        """
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        zero_based = _resolve_zero_based(use_zero_based)
+        bigbed_read_options = BigBedReadOptions(
+            object_storage_options=object_storage_options,
+            zero_based=zero_based,
+            schema=_normalize_bigbed_schema_mode(schema),
+        )
+        read_options = ReadOptions(bigbed_read_options=bigbed_read_options)
+        return _read_file(
+            path,
+            InputFormat.BigBed,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
+        )
+
+    @staticmethod
     def read_table(path: str, schema: Dict = None, **kwargs) -> pl.DataFrame:
         """
          Read a tab-delimited (i.e. BED) file into a Polars DataFrame.
@@ -1830,7 +2018,7 @@ class IOOperations:
                     f"Schema incompatible with the input. Expected {len(columns)} columns in a schema, got {len(df.collect_schema())} in the input data file. Please provide a valid schema."
                 )
             for i, c in enumerate(columns):
-                df = df.rename({f"column_{i+1}": c})
+                df = df.rename({f"column_{i + 1}": c})
         return df
 
     @staticmethod
@@ -3267,6 +3455,12 @@ def _format_to_string(input_format: InputFormat) -> str:
         return "gtf"
     elif "Gff" in format_str:
         return "gff"
+    # NOTE: BigWig/BigBed must be checked before Bed — "Bed" is a substring of
+    # "BigBed", so reordering these branches would silently misclassify BigBed as bed.
+    elif "BigWig" in format_str:
+        return "bigwig"
+    elif "BigBed" in format_str:
+        return "bigbed"
     elif "Bed" in format_str:
         return "bed"
     elif "Pairs" in format_str:
@@ -3320,7 +3514,17 @@ def _read_file(
                 "filters": vcf_meta.get("filters"),
                 "alt_definitions": vcf_meta.get("alt_definitions"),
             }
-        elif metadata_key in ["fastq", "bam", "gff", "gtf", "fasta", "bed", "cram"]:
+        elif metadata_key in [
+            "fastq",
+            "bam",
+            "gff",
+            "gtf",
+            "fasta",
+            "bed",
+            "cram",
+            "bigwig",
+            "bigbed",
+        ]:
             # For other formats (including SAM via "bam" key), include their specific metadata
             header_metadata = format_specific.get(metadata_key, {})
 
