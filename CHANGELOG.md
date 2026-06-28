@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `scan_fastq` / `read_fastq` now read **all** members of multi-member
+  (concatenated / block) gzip files (pigz, bgzip-as-gzip, fastp output).
+  Previously only the first gzip member was decoded, which silently dropped
+  reads or raised `DataFusion error: External(Kind(UnexpectedEof))` depending
+  on where the member boundary fell. Fixed via the upstream
+  datafusion-bio-formats bump.
+
 ## [0.26.0] - 2026-03-07
 
 ### Added

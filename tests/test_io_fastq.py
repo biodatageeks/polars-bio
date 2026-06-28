@@ -58,6 +58,23 @@ class TestFastq:
             == "GGGAGGCGCCCCGACCGGCCAGGGCGTGAGCCCCAGCCCCAGCGCCATCCTGGAGCGGCGCGACGTGAAGCCAGATGAGGACCTGGCGGGCAAGGCTGGCG"
         )
 
+    def test_multimember_gzip(self):
+        # Multi-member (concatenated/block) gzip must read ALL members.
+        # clean = boundary between records (pre-fix: silent truncation to 40)
+        # split = boundary mid-record    (pre-fix: UnexpectedEof crash)
+        # pigz  = 4 real pigz members concatenated (pre-fix: first member only, 500)
+        expected = {
+            "multimember_clean.fastq.gz": 100,
+            "multimember_split.fastq.gz": 100,
+            "multimember_pigz.fastq.gz": 2000,
+        }
+        for name, n in expected.items():
+            path = f"{DATA_DIR}/io/fastq/{name}"
+            assert (
+                pb.scan_fastq(path).count().collect()["name"][0] == n
+            ), f"{name}: expected all {n} reads across gzip members"
+            assert pb.scan_fastq(path).collect().shape[0] == n
+
 
 class TestParallelFastq:
     @pytest.mark.parametrize("partitions", [1, 2, 3, 4])
