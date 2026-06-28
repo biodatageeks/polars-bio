@@ -26,7 +26,13 @@ dependencies = [
 [project.optional-dependencies]
 pandas = ["pandas>=3.0.0"]
 viz = ["bioframe", "matplotlib"]
-test = ["pysam", "pyranges1==1.3.8; python_version >= '3.12' and python_version < '3.14'"]
+test = [
+  "pysam",
+  "pyranges1==1.3.8; python_version >= '3.12' and python_version < '3.14'",
+  # pyBigWig is the reference for the BBI parity tests; manylinux wheels exist
+  # for 3.11-3.13. On 3.14 the tests importorskip and are skipped.
+  "pyBigWig>=0.3.22; python_version < '3.14'",
+]
 
 [tool.maturin]
 module-name = "polars_bio"
