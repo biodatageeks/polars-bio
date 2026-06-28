@@ -294,7 +294,6 @@ class SQL:
         timeout: int = 300,
         enable_request_payer: bool = False,
         compression_type: str = "auto",
-        parallel: bool = False,
     ) -> None:
         """
         Register a FASTQ file as a Datafusion table.
@@ -309,7 +308,6 @@ class SQL:
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compression is supported ('bgz' and 'gz').
             max_retries:  The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
-            parallel: Whether to use the parallel reader for BGZF compressed files. Default is False. If a file ends with ".gz" but is actually BGZF, it will attempt the parallel path and fall back to standard if not BGZF.
 
         !!! Example
             ```python
@@ -351,7 +349,7 @@ class SQL:
         )
 
         fastq_read_options = FastqReadOptions(
-            object_storage_options=object_storage_options, parallel=parallel
+            object_storage_options=object_storage_options,
         )
         read_options = ReadOptions(fastq_read_options=fastq_read_options)
         py_register_table(ctx, path, name, InputFormat.Fastq, read_options)

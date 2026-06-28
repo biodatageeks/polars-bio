@@ -36,6 +36,12 @@ class TestFastq:
             == 200
         )
 
+    def test_register_fastq(self):
+        # Regression for #409: register_fastq must not pass an unsupported
+        # `parallel` kwarg to the FastqReadOptions binding.
+        pb.register_fastq(f"{DATA_DIR}/io/fastq/example.fastq.gz", "fq_409")
+        assert pb.sql("SELECT count(name) AS c FROM fq_409").collect()["c"][0] == 200
+
     def test_compression_override(self):
         assert (
             pb.scan_fastq(
