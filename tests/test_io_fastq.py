@@ -42,6 +42,14 @@ class TestFastq:
         pb.register_fastq(f"{DATA_DIR}/io/fastq/example.fastq.gz", "fq_409")
         assert pb.sql("SELECT count(name) AS c FROM fq_409").collect()["c"][0] == 200
 
+    def test_register_fastq_count_star(self):
+        # Regression for #411: SELECT count(*) is an empty-projection query.
+        # On a plain-gzip FASTQ (Sequential strategy) this previously failed with
+        # an Arrow schema mismatch ("columns(0) must match fields(1)"). Distinct
+        # from #409's count(name), which does not hit the empty-projection path.
+        pb.register_fastq(f"{DATA_DIR}/io/fastq/example.fastq.gz", "fq_411")
+        assert pb.sql("SELECT count(*) AS c FROM fq_411").collect()["c"][0] == 200
+
     def test_compression_override(self):
         assert (
             pb.scan_fastq(
