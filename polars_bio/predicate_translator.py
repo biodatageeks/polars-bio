@@ -159,7 +159,12 @@ def _emit_is_in(inputs: list) -> str:
     col_sql = _quote_ident(_column_name(inputs[0]))
     values = _decode_is_in_list(inputs[1])
     if not values:
+        # Polars is_in([]) is uniformly False; SQL FALSE matches it faithfully.
         return "FALSE"
+    if any(v is None for v in values):
+        # SQL `IN (..., NULL)` yields UNKNOWN (not FALSE) for non-matching rows,
+        # which diverges from Polars' null-aware is_in. Keep it client-side.
+        raise UnsupportedPredicate("is_in list contains NULL; pushdown unsafe")
     items = ", ".join(_sql_scalar(v) for v in values)
     return f"({col_sql} IN ({items}))"
 
@@ -171,6 +176,8 @@ def _emit_function(body: dict, string_cols, uint32_cols, float32_cols) -> str:
         boolean = fn["Boolean"]
         if isinstance(boolean, dict) and "IsIn" in boolean:
             return _emit_is_in(inputs)
+        if boolean in ("Not", "IsNull", "IsNotNull") and not inputs:
+            raise UnsupportedPredicate(f"{boolean} with no input")
         if boolean == "Not":
             inner = _emit_sql(inputs[0], string_cols, uint32_cols, float32_cols)
             return f"(NOT {inner})"
@@ -209,7 +216,10 @@ def _emit_sql(node: dict, string_cols, uint32_cols, float32_cols) -> str:
             joiner = "AND" if op == "And" else "OR"
             return f"({left} {joiner} {right})"
         if op in _COMPARISON_SQL:
+            # Guard both operands: a string column may sit on either side
+            # (e.g. pl.lit("a") > pl.col("chrom")).
             _validate_comparison(body["left"], op, string_cols)
+            _validate_comparison(body["right"], op, string_cols)
             left = _emit_sql(body["left"], string_cols, uint32_cols, float32_cols)
             right = _emit_sql(body["right"], string_cols, uint32_cols, float32_cols)
             return f"({left} {_COMPARISON_SQL[op]} {right})"
@@ -225,15 +235,28 @@ class PushdownPlan:
     fully_translated: bool
 
 
-def _flatten_and(node: dict) -> list:
-    if (
+def _is_and(node) -> bool:
+    return (
         isinstance(node, dict)
         and "BinaryExpr" in node
         and node["BinaryExpr"].get("op") == "And"
-    ):
-        body = node["BinaryExpr"]
-        return _flatten_and(body["left"]) + _flatten_and(body["right"])
-    return [node]
+    )
+
+
+def _flatten_and(node: dict) -> list:
+    # Iterative (not recursive): deep `&` chains can exceed Python's recursion
+    # limit. Left-to-right order is preserved via the explicit stack.
+    conjuncts = []
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        if _is_and(current):
+            body = current["BinaryExpr"]
+            stack.append(body["right"])
+            stack.append(body["left"])
+        else:
+            conjuncts.append(current)
+    return conjuncts
 
 
 def plan_predicate_pushdown(

@@ -72,6 +72,48 @@ def test_string_column_ordering_is_unsupported():
         emit(pl.col("type") < "exon")
 
 
+def test_string_column_ordering_on_right_operand_is_unsupported():
+    # Regression: the string-column ordering guard must apply regardless of
+    # which side the column lands on (pl.lit("exon") > pl.col("type")).
+    with pytest.raises(UnsupportedPredicate):
+        emit(pl.lit("exon") > pl.col("type"))
+
+
+def test_is_in_with_null_is_unsupported():
+    # Regression (Codex P2): SQL `IN (NULL)` does not match Polars' null-aware
+    # is_in semantics, so a list containing None must stay client-side.
+    with pytest.raises(UnsupportedPredicate):
+        emit(pl.col("type").is_in(["chr1", None]))
+    with pytest.raises(UnsupportedPredicate):
+        emit(pl.col("type").is_in([None]))
+
+
+def test_is_in_empty_list_is_false():
+    # Empty is_in is all-False in Polars, which SQL FALSE matches faithfully.
+    assert emit(pl.col("type").is_in([])) == "FALSE"
+
+
+def test_not_with_empty_inputs_raises():
+    with pytest.raises(UnsupportedPredicate):
+        _emit_sql(
+            {"Function": {"function": {"Boolean": "Not"}, "input": []}},
+            GFF_STR,
+            GFF_U32,
+            GFF_F32,
+        )
+
+
+def test_deeply_nested_and_does_not_overflow():
+    # _flatten_and must not recurse per-conjunct (Python recursion limit ~1000).
+    expr = pl.col("start") >= 0
+    for i in range(2000):
+        expr = expr & (pl.col("start") >= i)
+    p = plan_predicate_pushdown(
+        expr, string_cols=GFF_STR, uint32_cols=GFF_U32, float32_cols=GFF_F32
+    )
+    assert p.fully_translated is True
+
+
 def test_unknown_node_raises():
     with pytest.raises(UnsupportedPredicate):
         _emit_sql({"NoSuchNode": 1}, GFF_STR, GFF_U32, GFF_F32)
