@@ -103,14 +103,39 @@ def test_not_with_empty_inputs_raises():
         )
 
 
-def test_deeply_nested_and_does_not_overflow():
-    # _flatten_and must not recurse per-conjunct (Python recursion limit ~1000).
+def test_flatten_and_handles_depth_beyond_recursion_limit():
+    # _flatten_and must be iterative: a synthetic AST nested far deeper than
+    # Python's recursion limit must flatten without RecursionError. Build the
+    # dict directly (constructing it is not recursive) to isolate _flatten_and
+    # from json.loads' own depth limit.
+    from polars_bio.predicate_translator import _flatten_and
+
+    leaf = {"Column": "start"}
+    node = leaf
+    depth = 5000
+    for _ in range(depth):
+        node = {"BinaryExpr": {"left": node, "op": "And", "right": leaf}}
+
+    conjuncts = _flatten_and(node)
+    assert len(conjuncts) == depth + 1
+    assert all(c == leaf for c in conjuncts)
+
+
+def test_deeply_nested_and_degrades_gracefully():
+    # An end-to-end chain deep enough that json.loads itself may exceed the
+    # interpreter's recursion limit must never leak a RecursionError: the
+    # planner converts any serialize/decode failure into a safe client-side
+    # fallback (PredicateTranslationError), and a translatable depth is fully
+    # pushed. Either outcome is correct; a crash is not.
     expr = pl.col("start") >= 0
     for i in range(2000):
         expr = expr & (pl.col("start") >= i)
-    p = plan_predicate_pushdown(
-        expr, string_cols=GFF_STR, uint32_cols=GFF_U32, float32_cols=GFF_F32
-    )
+    try:
+        p = plan_predicate_pushdown(
+            expr, string_cols=GFF_STR, uint32_cols=GFF_U32, float32_cols=GFF_F32
+        )
+    except PredicateTranslationError:
+        return  # serialize/json.loads hit the limit -> safe fallback path
     assert p.fully_translated is True
 
 
@@ -119,7 +144,11 @@ def test_unknown_node_raises():
         _emit_sql({"NoSuchNode": 1}, GFF_STR, GFF_U32, GFF_F32)
 
 
-from polars_bio.predicate_translator import PushdownPlan, plan_predicate_pushdown
+from polars_bio.predicate_translator import (
+    PredicateTranslationError,
+    PushdownPlan,
+    plan_predicate_pushdown,
+)
 
 
 def plan(expr):
