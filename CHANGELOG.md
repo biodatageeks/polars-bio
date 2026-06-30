@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-06-30
+
 ### Added
 - BigWig and BigBed I/O APIs (#393)
   - `read_bigwig()`, `scan_bigwig()`, `register_bigwig()` and
@@ -32,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `SELECT count(*)` on a FASTQ table registered via `register_fastq()` (#412)
 - Removed the unsupported `parallel` kwarg from `register_fastq` (#409, #410)
 - Normalize FASTQ columns before writing (#401)
+- `read_bed` / `scan_bed` now emit correct 0-based half-open coordinates
+  (#413, #415)
 - Consume the upstream bare VCF INFO key parser fix (#389)
 
 ## [0.31.0] - 2026-05-13

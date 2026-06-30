@@ -123,7 +123,7 @@ subtract = range_operations.subtract
 
 POLARS_BIO_MAX_THREADS = "datafusion.execution.target_partitions"
 
-__version__ = "0.31.0"
+__version__ = "0.32.0"
 __all__ = [
     "ctx",
     "FilterOp",
