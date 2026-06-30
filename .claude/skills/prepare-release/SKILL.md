@@ -28,7 +28,14 @@ verified sequence so a release is complete and consistent every time.
 | `Cargo.toml` | `version = "X.Y.Z"` under `[package]` |
 | `pyproject.toml` | `version = "X.Y.Z"` under `[project]` |
 | `polars_bio/__init__.py` | `__version__ = "X.Y.Z"` |
-| `Cargo.lock` | auto-updates for the `polars_bio` package on the next `cargo` run |
+| `Cargo.lock` | regenerate via `cargo check`; stage it |
+| `uv.lock` | regenerate via `uv lock`; stage it |
+
+> ⚠️ **Both lockfiles pin the project version.** CI's `linux_tests` job runs
+> `uv lock --check` and **fails the build** if `uv.lock` still shows the old
+> version. Always run `uv lock` after bumping `pyproject.toml`. Likewise
+> `cargo check` updates `Cargo.lock`. Forgetting either is the #1 way a release
+> PR goes red.
 
 ## Workflow
 
@@ -84,15 +91,16 @@ Use today's date (it's in the session context — do not invent one). Keep the
   grep -n "<NEW>" Cargo.toml pyproject.toml polars_bio/__init__.py CHANGELOG.md
   ```
 - **Compile** — `cargo check` (run in background; the workspace is large). Must exit 0.
-- **Lockfile** — confirm `Cargo.lock` now shows the new version for `polars_bio`
-  (`cargo check` regenerates it). Stage it.
+- **Lockfiles** — regenerate and stage BOTH:
+  - `cargo check` updates `Cargo.lock`; confirm `polars_bio` shows the new version.
+  - `uv lock` updates `uv.lock`; then `uv lock --check` must pass (CI runs this).
 - Report the readiness results plainly (pass/fail with evidence), per
   verification-before-completion.
 
 ### 6. Commit, push, open the PR
 
 ```bash
-git add CHANGELOG.md Cargo.toml Cargo.lock pyproject.toml polars_bio/__init__.py
+git add CHANGELOG.md Cargo.toml Cargo.lock pyproject.toml uv.lock polars_bio/__init__.py
 git commit   # message: "chore: release X.Y.Z"  (pre-commit hooks run black/isort)
 git push -u origin release/X.Y.Z
 gh pr create --title "chore: release X.Y.Z" --body "..."
