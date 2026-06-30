@@ -7,13 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- BigWig and BigBed I/O APIs (#393)
+  - `read_bigwig()`, `scan_bigwig()`, `register_bigwig()` and
+    `read_bigbed()`, `scan_bigbed()`, `register_bigbed()`
+  - Local and cloud storage input, eager/lazy/register access patterns
+- VCF Zarr `describe` and registration APIs (#391)
+  - `describe_vcf_zarr()` to introspect the logical VCF schema of a store
+  - `register_vcf_zarr()` to register a VCF Zarr store as a DataFusion table
+- `register_fasta()` to register a FASTA file as a DataFusion table, completing
+  the eager/lazy/register triad for FASTA
+
+### Changed
+- Robust predicate & projection pushdown across formats (#407, fixes #396)
+- Bumped the DataFusion stack to 53 and raised the pyarrow floor (#392)
+
 ### Fixed
 - `scan_fastq` / `read_fastq` now read **all** members of multi-member
   (concatenated / block) gzip files (pigz, bgzip-as-gzip, fastp output).
   Previously only the first gzip member was decoded, which silently dropped
   reads or raised `DataFusion error: External(Kind(UnexpectedEof))` depending
   on where the member boundary fell. Fixed via the upstream
-  datafusion-bio-formats bump.
+  datafusion-bio-formats bump (#408)
+- `SELECT count(*)` on a FASTQ table registered via `register_fastq()` (#412)
+- Removed the unsupported `parallel` kwarg from `register_fastq` (#409, #410)
+- Normalize FASTQ columns before writing (#401)
+- Consume the upstream bare VCF INFO key parser fix (#389)
+
+## [0.31.0] - 2026-05-13
+
+### Added
+- VCF Zarr read support (#382)
+  - `read_vcf_zarr()` and `scan_vcf_zarr()` for array-native variant analytics
+  - Lazy scans, eager reads, projection pushdown, INFO/FORMAT field selection,
+    sample selection, raw typed genotype values, and genomic predicate pruning
+    via the VCZ region index
+  - Backed by a new `datafusion-bio-formats` VCF Zarr provider using the Rust
+    `zarrs` crate
+
+## [0.30.0] - 2026-04-29
+
+### Added
+- Overlap `left` output mode (#377)
+
+### Changed
+- Optimized range operations (#378)
+
+## [0.29.0] - 2026-04-24
+
+### Changed
+- Improved eager partitioning (#374)
+
+### Fixed
+- Parallelize LazyFrame Arrow C stream inputs (#371)
+
+## [0.28.0] - 2026-04-09
+
+### Added
+- Typed BAM/SAM tag roundtrip support (#366)
+
+## [0.27.1] - 2026-04-05
+
+### Fixed
+- GTF `attr_fields` now returns all values for duplicate keys (#358, #359)
+- BAM/CRAM write position off-by-one (#356, #357)
+
+## [0.27.0] - 2026-04-03
+
+### Added
+- FASTA write and sink support (#353)
+  - `write_fasta()` and `sink_fasta()`
+
+### Fixed
+- Handle INFO/FORMAT column name collision in single-sample VCFs (#354)
 
 ## [0.26.0] - 2026-03-07
 
