@@ -88,6 +88,25 @@ def test_is_in_with_null_is_unsupported():
         emit(pl.col("type").is_in([None]))
 
 
+def test_is_in_nulls_equal_true_is_unsupported():
+    # Regression (Codex P2): is_in(..., nulls_equal=True) has null-matching
+    # semantics SQL `IN` does not share (observable under negation on nullable
+    # columns), so it must stay client-side instead of being certified pushable.
+    with pytest.raises(UnsupportedPredicate):
+        emit(pl.col("chrom").is_in(["chr1"], nulls_equal=True))
+
+
+def test_plan_negated_is_in_nulls_equal_not_pushed():
+    p = plan_predicate_pushdown(
+        ~pl.col("chrom").is_in(["chr1"], nulls_equal=True),
+        string_cols=GFF_STR,
+        uint32_cols=GFF_U32,
+        float32_cols=GFF_F32,
+    )
+    assert p.pushdown_sql is None
+    assert p.fully_translated is False
+
+
 def test_is_in_empty_list_is_false():
     # Empty is_in is all-False in Polars, which SQL FALSE matches faithfully.
     assert emit(pl.col("type").is_in([])) == "FALSE"

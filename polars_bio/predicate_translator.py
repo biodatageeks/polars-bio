@@ -183,6 +183,12 @@ def _emit_function(body: dict, string_cols, uint32_cols, float32_cols, depth) ->
     if isinstance(fn, dict) and "Boolean" in fn:
         boolean = fn["Boolean"]
         if isinstance(boolean, dict) and "IsIn" in boolean:
+            opts = boolean["IsIn"]
+            if isinstance(opts, dict) and opts.get("nulls_equal"):
+                # nulls_equal=True matches nulls as a value; SQL `IN` does not
+                # (observable under negation on nullable columns). Keep it
+                # client-side so the result stays correct.
+                raise UnsupportedPredicate("is_in(nulls_equal=True); pushdown unsafe")
             return _emit_is_in(inputs)
         if boolean in ("Not", "IsNull", "IsNotNull") and not inputs:
             raise UnsupportedPredicate(f"{boolean} with no input")
