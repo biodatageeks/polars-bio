@@ -121,6 +121,43 @@ def test_projection_bind_failure_forces_client_select():
     assert needs_select is True
 
 
+def test_projection_string_names_skip_client_select():
+    df = _StubDF()
+    out, needs_select = apply_projection_pushdown(df, ["chrom", "start"], log=LOG)
+    assert needs_select is False
+
+
+def test_projection_aliased_forces_client_select():
+    # Regression (Codex P1): an alias is not an identity projection. The source
+    # column must still be pushed, but the client select must run to apply the
+    # rename, so the output column is `c`, not `chrom`.
+    df = _StubDF()
+    out, needs_select = apply_projection_pushdown(
+        df, [pl.col("chrom").alias("c")], log=LOG
+    )
+    assert needs_select is True
+    assert df.selected is not None  # source column still pushed
+
+
+def test_projection_computed_forces_client_select():
+    # Regression (Codex P1): a computed expression must be reapplied client-side
+    # so the computation actually happens (start+1), not silently dropped.
+    df = _StubDF()
+    out, needs_select = apply_projection_pushdown(
+        df, [(pl.col("start") + 1).alias("s1")], log=LOG
+    )
+    assert needs_select is True
+    assert df.selected is not None
+
+
+def test_projection_mixed_identity_and_computed_forces_client_select():
+    df = _StubDF()
+    out, needs_select = apply_projection_pushdown(
+        df, [pl.col("chrom"), (pl.col("start") + 1).alias("s1")], log=LOG
+    )
+    assert needs_select is True
+
+
 def test_projection_none_is_noop():
     df = _StubDF()
     out, needs_select = apply_projection_pushdown(df, None, log=LOG)

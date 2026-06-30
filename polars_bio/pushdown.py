@@ -76,8 +76,37 @@ def apply_predicate_pushdown(
     return query_df, not plan.fully_translated
 
 
+def _is_identity_projection(with_columns) -> bool:
+    """True only if every projection item is a bare source column (a plain string
+    or an unaliased ``pl.col``). Aliases and computed expressions are NOT identity:
+    pushing only their source columns would drop the rename/computation, so the
+    client-side select must reapply them."""
+    if isinstance(with_columns, (list, tuple)):
+        items = list(with_columns)
+    else:
+        items = [with_columns]
+    for item in items:
+        if isinstance(item, str):
+            continue
+        meta = getattr(item, "meta", None)
+        if meta is None or not hasattr(meta, "is_column"):
+            return False
+        try:
+            if not meta.is_column():
+                return False
+        except Exception:
+            return False
+    return True
+
+
 def apply_projection_pushdown(query_df, with_columns, *, log) -> Tuple[Any, bool]:
-    """Push down the source-column projection. Returns (query_df, needs_client_select)."""
+    """Push down the source-column projection. Returns (query_df, needs_client_select).
+
+    The pushed-down select reads only the needed *source* columns. The client-side
+    select is skipped only when the projection is a complete identity projection
+    (plain columns, fully resolvable); any alias or computed expression forces the
+    client reapply so the output names/values are correct.
+    """
     if with_columns is None:
         return query_df, False
     cols, complete = extract_source_columns(with_columns)
@@ -89,4 +118,5 @@ def apply_projection_pushdown(query_df, with_columns, *, log) -> Tuple[Any, bool
     except Exception as exc:  # parse_sql_expr / select binding failure
         log.warning("projection pushdown skipped (bind): %s", exc)
         return query_df, True
-    return query_df, not complete
+    identity = _is_identity_projection(with_columns)
+    return query_df, not (complete and identity)

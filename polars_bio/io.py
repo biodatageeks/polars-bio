@@ -3626,22 +3626,14 @@ class AnnotationLazyFrameWrapper:
         )
 
     def select(self, exprs):
-        # Extract requested column names
-        columns = []
-        try:
-            if isinstance(exprs, (list, tuple)):
-                for e in exprs:
-                    if isinstance(e, str):
-                        columns.append(e)
-                    elif hasattr(e, "meta") and hasattr(e.meta, "output_name"):
-                        columns.append(e.meta.output_name())
-            else:
-                if isinstance(exprs, str):
-                    columns = [exprs]
-                elif hasattr(exprs, "meta") and hasattr(exprs.meta, "output_name"):
-                    columns = [exprs.meta.output_name()]
-        except Exception:
-            columns = []
+        # Source columns the projection needs (root names, NOT output names).
+        # An aliased/computed expression like (pl.col("start") + 1).alias("s1")
+        # needs the SOURCE column "start"; the alias/computation is applied
+        # client-side over the original ``exprs`` and must never be mistaken for
+        # a (here: attribute) column name to re-register the reader with.
+        from .pushdown import extract_source_columns
+
+        columns, _proj_complete = extract_source_columns(exprs)
 
         STATIC = {
             "chrom",
@@ -3740,6 +3732,8 @@ class AnnotationLazyFrameWrapper:
                 )
                 datafusion_predicate_applied = not _needs_client
 
+            # SQL-level column pruning: keep the projection's source columns,
+            # plus the predicate roots when the filter is reapplied client-side.
             datafusion_columns = (
                 columns if datafusion_predicate_applied else scan_columns
             )
@@ -3763,8 +3757,9 @@ class AnnotationLazyFrameWrapper:
                 and not datafusion_predicate_applied
             ):
                 new_lf = new_lf.filter(self._deferred_predicate)
-            if datafusion_columns != columns:
-                new_lf = new_lf.select(columns)
+            # Apply the ORIGINAL projection client-side so aliases and computed
+            # expressions resolve correctly (the scan above only pruned columns).
+            new_lf = new_lf.select(exprs)
             return self._make_wrapper(
                 new_lf, projection_pushdown=False, deferred_predicate=None
             )
