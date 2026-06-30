@@ -238,3 +238,71 @@ class TestVCFWrite:
 
         df_back = pb.read_vcf(out_path)
         assert len(df_back) == 2
+
+
+class TestSplitSamples:
+    """Tests for read_vcf / scan_vcf split_samples feature (issue #394)."""
+
+    vcf = f"{DATA_DIR}/io/vcf/multisample.vcf"
+    single = f"{DATA_DIR}/io/vcf/single_sample_collision.vcf"
+
+    def test_split_samples_explicit_produces_flat_columns(self):
+        df = pb.read_vcf(
+            self.vcf,
+            samples=["NA12878", "NA12879", "NA12880"],
+            split_samples=True,
+        )
+        assert "genotypes" not in df.columns
+        for sample in ("NA12878", "NA12879", "NA12880"):
+            for field in ("GT", "DP", "GQ"):
+                assert f"{sample}_{field}" in df.columns
+
+    def test_split_samples_auto_detect_all_samples(self):
+        """Without explicit samples=, names are read from the VCF header."""
+        df = pb.read_vcf(self.vcf, split_samples=True)
+        assert "genotypes" not in df.columns
+        assert "NA12878_GT" in df.columns
+        assert "NA12879_DP" in df.columns
+        assert "NA12880_GQ" in df.columns
+
+    def test_split_samples_subset(self):
+        df = pb.read_vcf(self.vcf, samples=["NA12878", "NA12880"], split_samples=True)
+        assert "NA12878_GT" in df.columns
+        assert "NA12880_DP" in df.columns
+        assert "NA12879_GT" not in df.columns
+
+    def test_split_samples_values_correct(self):
+        df = pb.read_vcf(
+            self.vcf,
+            samples=["NA12878", "NA12879", "NA12880"],
+            format_fields=["GT", "DP"],
+            split_samples=True,
+        )
+        row = df.row(0, named=True)
+        assert row["NA12878_GT"] == "0/1"
+        assert row["NA12878_DP"] == 25
+        assert row["NA12879_GT"] == "1/1"
+        assert row["NA12879_DP"] == 30
+        assert row["NA12880_GT"] == "0/0"
+        assert row["NA12880_DP"] == 20
+
+    def test_split_samples_default_false_unchanged(self):
+        df = pb.read_vcf(self.vcf)
+        assert "genotypes" in df.columns
+        assert "NA12878_GT" not in df.columns
+
+    def test_split_samples_single_sample_noop(self):
+        """split_samples=True on a single-sample VCF is a no-op."""
+        df = pb.read_vcf(self.single, split_samples=True)
+        assert "genotypes" not in df.columns
+        assert "GT" in df.columns
+
+    def test_scan_vcf_split_samples_lazy_filter(self):
+        """split_samples works lazily; per-sample columns usable in filter."""
+        import polars as pl
+
+        lf = pb.scan_vcf(self.vcf, split_samples=True)
+        assert "NA12878_GT" in lf.collect_schema().names()
+        df = lf.filter(pl.col("NA12878_DP") > 20).collect()
+        assert len(df) == 2
+        assert all(dp > 20 for dp in df["NA12878_DP"].to_list())
