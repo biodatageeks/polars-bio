@@ -78,6 +78,7 @@ class PredicateTranslationError(Exception):
 # node-by-node. Unsupported nodes raise loudly instead of silently vanishing.
 # ---------------------------------------------------------------------------
 import json as _json
+import math as _math
 
 _COMPARISON_SQL = {
     "Eq": "=",
@@ -132,8 +133,15 @@ def _emit_literal(body: dict) -> str:
     if kind == "Boolean":
         return "TRUE" if value else "FALSE"
     if kind == "Int":
+        if value is None:
+            raise UnsupportedPredicate("null int literal; pushdown unsafe")
         return str(int(value))
     if kind == "Float":
+        # Polars serializes nan/inf/-inf as a JSON null float; non-finite float
+        # comparisons also have IEEE semantics SQL won't faithfully reproduce, so
+        # keep them client-side rather than emitting a bogus literal.
+        if value is None or not _math.isfinite(float(value)):
+            raise UnsupportedPredicate("non-finite float literal; pushdown unsafe")
         return repr(float(value))
     raise UnsupportedPredicate(f"unsupported literal kind: {kind}")
 
@@ -292,9 +300,10 @@ def plan_predicate_pushdown(
             translated.append(
                 _emit_sql(conjunct, string_cols, uint32_cols, float32_cols)
             )
-        except (UnsupportedPredicate, RecursionError):
-            # Untranslatable (or pathologically deep): skip pushing this conjunct
-            # and force the client-side reapply. Never let it crash collect().
+        except (UnsupportedPredicate, RecursionError, TypeError, ValueError):
+            # Untranslatable, pathologically deep, or a malformed/edge literal:
+            # skip pushing this conjunct and force the client-side reapply.
+            # Never let it crash collect().
             all_ok = False
 
     pushdown_sql = " AND ".join(translated) if translated else None

@@ -121,6 +121,26 @@ def test_flatten_and_handles_depth_beyond_recursion_limit():
     assert all(c == leaf for c in conjuncts)
 
 
+def test_nan_inf_float_literal_is_unsupported():
+    # Regression (Codex P2): nan/inf serialize as {"Float": null}; float(None)
+    # would raise TypeError. These must raise UnsupportedPredicate so the
+    # predicate falls back to the client-side filter rather than crashing.
+    for lit in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(UnsupportedPredicate):
+            emit(pl.col("score") > lit)
+
+
+def test_plan_nan_float_degrades_gracefully():
+    p = plan_predicate_pushdown(
+        pl.col("score") > float("nan"),
+        string_cols=GFF_STR,
+        uint32_cols=GFF_U32,
+        float32_cols=GFF_F32,
+    )
+    assert p.pushdown_sql is None
+    assert p.fully_translated is False
+
+
 def test_emit_sql_deep_or_raises_unsupported_not_recursionerror():
     # Regression (Codex P2): a very deep OR tree must degrade to UnsupportedPredicate
     # (-> client-side fallback), never leak a RecursionError that crashes collect().
