@@ -587,6 +587,7 @@ For bioinformatic format there are always three methods available: `read_*` (eag
 |--------------------------------------------------|--------------------|--------------------|--------------------|--------------------|---------------------|
 | [BED](api.md#polars_bio.data_input.read_bed)     | :white_check_mark: | ❌                  | :white_check_mark: | ❌                  | ❌                   |
 | [VCF](api.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [VCF Zarr](api.md#polars_bio.data_input.read_vcf_zarr) | :white_check_mark: | :white_check_mark: (region index) | ❌ | :white_check_mark: | :white_check_mark: |
 | [BAM](api.md#polars_bio.data_input.read_bam)     | :white_check_mark: | :white_check_mark: (BAI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | [CRAM](api.md#polars_bio.data_input.read_cram)   | :white_check_mark: | :white_check_mark: (CRAI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | [FASTQ](api.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: (GZI) | :white_check_mark: |  ❌  |  ❌   |
@@ -594,6 +595,35 @@ For bioinformatic format there are always three methods available: `read_*` (eag
 | [GFF3](api.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [GTF](api.md#polars_bio.data_input.read_gtf)     | :white_check_mark: | ❌                  | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [Pairs](api.md#polars_bio.data_input.read_pairs) | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
+| [BigWig](api.md#polars_bio.data_input.read_bigwig) | :white_check_mark: | ❌ | ❌ | :white_check_mark: | :white_check_mark: |
+| [BigBed](api.md#polars_bio.data_input.read_bigbed) | :white_check_mark: | ❌ | ❌ | :white_check_mark: | :white_check_mark: |
+
+
+### BigWig and BigBed
+
+[BigWig](https://genome.ucsc.edu/goldenPath/help/bigWig.html) (continuous signal) and
+[BigBed](https://genome.ucsc.edu/goldenPath/help/bigBed.html) (feature intervals) are
+supported through the same eager/lazy/register access patterns. Predicate pushdown on the
+genomic coordinate columns and projection pushdown are enabled by default.
+
+```python
+import polars as pl
+import polars_bio as pb
+
+# Lazy scan with a genomic range filter (predicate pushdown)
+signal = (
+    pb.scan_bigwig("signal.bw")
+    .filter(pl.col("chrom") == "chr1")
+    .collect()
+)
+
+# Eager read
+features = pb.read_bigbed("features.bb")
+
+# Register as a DataFusion table for SQL
+pb.register_bigwig("signal.bw", "signal")
+pb.sql("SELECT chrom, start, `end`, value FROM signal WHERE chrom = 'chr1'").collect()
+```
 
 
 ### Indexed reads & predicate pushdown

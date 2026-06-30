@@ -8,6 +8,7 @@ from polars_bio.polars_bio import (
     BigBedReadOptions,
     BigWigReadOptions,
     CramReadOptions,
+    FastaReadOptions,
     FastqReadOptions,
     GffReadOptions,
     GtfReadOptions,
@@ -437,6 +438,60 @@ class SQL:
         )
         read_options = ReadOptions(bed_read_options=bed_read_options)
         py_register_table(ctx, path, name, InputFormat.Bed, read_options)
+
+    @staticmethod
+    def register_fasta(
+        path: str,
+        name: Union[str, None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+    ) -> None:
+        """
+        Register a FASTA file as a Datafusion table.
+
+        Parameters:
+            path: The path to the FASTA file.
+            name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            compression_type: The compression type of the FASTA file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+
+        !!! Example
+            ```shell
+            wget https://www.ebi.ac.uk/ena/browser/api/fasta/BK006935.2?download=true -O /tmp/test.fasta
+            ```
+
+            ```python
+            import polars_bio as pb
+            pb.register_fasta("/tmp/test.fasta", "test_fasta")
+            pb.sql("select name, description from test_fasta limit 1").collect()
+            ```
+        """
+
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        fasta_read_options = FastaReadOptions(
+            object_storage_options=object_storage_options,
+        )
+        read_options = ReadOptions(fasta_read_options=fasta_read_options)
+        py_register_table(ctx, path, name, InputFormat.Fasta, read_options)
 
     @staticmethod
     def register_bigwig(

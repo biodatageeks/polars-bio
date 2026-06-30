@@ -29,3 +29,10 @@ class TestFasta:
         )
 
         pl_testing.assert_frame_equal(df, expected_df)
+
+    def test_register_table(self):
+        pb.register_fasta(self.fasta_path, "test_fasta")
+        count = pb.sql("select count(*) as cnt from test_fasta").collect()
+        assert count["cnt"][0] == 2
+        names = pb.sql("select name from test_fasta order by name").collect()
+        assert names["name"].to_list() == ["seq1", "seq2"]

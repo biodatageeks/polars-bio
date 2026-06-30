@@ -50,6 +50,7 @@ register_gtf = data_processing.register_gtf
 register_vcf = data_processing.register_vcf
 register_vcf_zarr = data_processing.register_vcf_zarr
 register_fastq = data_processing.register_fastq
+register_fasta = data_processing.register_fasta
 register_bam = data_processing.register_bam
 register_sam = data_processing.register_sam
 register_cram = data_processing.register_cram
@@ -204,6 +205,7 @@ __all__ = [
     "register_vcf",
     "register_vcf_zarr",
     "register_fastq",
+    "register_fasta",
     "register_bam",
     "register_sam",
     "register_cram",

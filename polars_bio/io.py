@@ -401,6 +401,7 @@ class IOOperations:
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
             predicate_pushdown: Enable predicate pushdown using index files (TBI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.vcf.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
+            genotype_encoding_raw: If True, output GT as raw typed allele calls. If False, output VCF-style GT strings.
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
@@ -1833,6 +1834,19 @@ class IOOperations:
         Read a BigWig file into a DataFrame.
 
         BigWig rows are exposed as ``chrom``, ``start``, ``end``, and ``value``.
+
+        Parameters:
+            path: The path to the BigWig file.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the BigWig file. If not specified, it will be detected automatically based on the file extension.
+            projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
+            predicate_pushdown: Enable predicate pushdown on the genomic coordinate columns so range filters are evaluated at the DataFusion execution level.
+            use_zero_based: Coordinate system override. BigWig is natively 0-based half-open; set to *False* to emit 1-based closed coordinates, or *None* to use the global default.
         """
         lf = IOOperations.scan_bigwig(
             path,
@@ -1872,6 +1886,19 @@ class IOOperations:
 
         BigWig is natively 0-based half-open. Set ``use_zero_based=False`` to emit
         1-based closed coordinates.
+
+        Parameters:
+            path: The path to the BigWig file.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the BigWig file. If not specified, it will be detected automatically based on the file extension.
+            projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
+            predicate_pushdown: Enable predicate pushdown on the genomic coordinate columns so range filters are evaluated at the DataFusion execution level.
+            use_zero_based: Coordinate system override. BigWig is natively 0-based half-open; set to *False* to emit 1-based closed coordinates, or *None* to use the global default.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -1918,6 +1945,20 @@ class IOOperations:
 
         ``schema="auto"`` uses supported autoSQL fields when available.
         ``schema="rest"`` exposes the raw trailing fields in ``rest``.
+
+        Parameters:
+            path: The path to the BigBed file.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the BigBed file. If not specified, it will be detected automatically based on the file extension.
+            projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
+            predicate_pushdown: Enable predicate pushdown on the genomic coordinate columns so range filters are evaluated at the DataFusion execution level.
+            use_zero_based: Coordinate system override. BigBed is natively 0-based half-open; set to *False* to emit 1-based closed coordinates, or *None* to use the global default.
+            schema: Schema mode. ``"auto"`` exposes the supported autoSQL fields when available; ``"rest"`` exposes the raw trailing fields in a single ``rest`` column.
         """
         lf = IOOperations.scan_bigbed(
             path,
@@ -1959,6 +2000,20 @@ class IOOperations:
 
         BigBed is natively 0-based half-open. Set ``use_zero_based=False`` to emit
         1-based closed coordinates.
+
+        Parameters:
+            path: The path to the BigBed file.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the BigBed file. If not specified, it will be detected automatically based on the file extension.
+            projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level, improving performance and reducing memory usage.
+            predicate_pushdown: Enable predicate pushdown on the genomic coordinate columns so range filters are evaluated at the DataFusion execution level.
+            use_zero_based: Coordinate system override. BigBed is natively 0-based half-open; set to *False* to emit 1-based closed coordinates, or *None* to use the global default.
+            schema: Schema mode. ``"auto"`` exposes the supported autoSQL fields when available; ``"rest"`` exposes the raw trailing fields in a single ``rest`` column.
         """
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
