@@ -121,6 +121,43 @@ def test_flatten_and_handles_depth_beyond_recursion_limit():
     assert all(c == leaf for c in conjuncts)
 
 
+def test_emit_sql_deep_or_raises_unsupported_not_recursionerror():
+    # Regression (Codex P2): a very deep OR tree must degrade to UnsupportedPredicate
+    # (-> client-side fallback), never leak a RecursionError that crashes collect().
+    from polars_bio.predicate_translator import _emit_sql
+
+    leaf = {
+        "BinaryExpr": {
+            "left": {"Column": "start"},
+            "op": "Eq",
+            "right": {"Literal": {"Dyn": {"Int": 0}}},
+        }
+    }
+    node = leaf
+    for _ in range(1500):
+        node = {"BinaryExpr": {"left": node, "op": "Or", "right": leaf}}
+    with pytest.raises(UnsupportedPredicate):
+        _emit_sql(node, GFF_STR, GFF_U32, GFF_F32)
+
+
+def test_plan_deep_or_degrades_gracefully():
+    # End-to-end: a deep OR predicate must not raise RecursionError out of the
+    # planner; it either returns (pushdown skipped) or raises the wrapped
+    # PredicateTranslationError, both of which the caller handles as a fallback.
+    import functools
+
+    expr = functools.reduce(
+        lambda a, b: a | b, [pl.col("start") == i for i in range(1500)]
+    )
+    try:
+        p = plan_predicate_pushdown(
+            expr, string_cols=GFF_STR, uint32_cols=GFF_U32, float32_cols=GFF_F32
+        )
+    except PredicateTranslationError:
+        return
+    assert p.fully_translated is False
+
+
 def test_deeply_nested_and_degrades_gracefully():
     # An end-to-end chain deep enough that json.loads itself may exceed the
     # interpreter's recursion limit must never leak a RecursionError: the

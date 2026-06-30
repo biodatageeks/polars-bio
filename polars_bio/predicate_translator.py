@@ -169,7 +169,7 @@ def _emit_is_in(inputs: list) -> str:
     return f"({col_sql} IN ({items}))"
 
 
-def _emit_function(body: dict, string_cols, uint32_cols, float32_cols) -> str:
+def _emit_function(body: dict, string_cols, uint32_cols, float32_cols, depth) -> str:
     fn = body.get("function")
     inputs = body.get("input", [])
     if isinstance(fn, dict) and "Boolean" in fn:
@@ -179,7 +179,7 @@ def _emit_function(body: dict, string_cols, uint32_cols, float32_cols) -> str:
         if boolean in ("Not", "IsNull", "IsNotNull") and not inputs:
             raise UnsupportedPredicate(f"{boolean} with no input")
         if boolean == "Not":
-            inner = _emit_sql(inputs[0], string_cols, uint32_cols, float32_cols)
+            inner = _emit_sql(inputs[0], string_cols, uint32_cols, float32_cols, depth)
             return f"(NOT {inner})"
         if boolean == "IsNull":
             return f"({_quote_ident(_column_name(inputs[0]))} IS NULL)"
@@ -200,7 +200,17 @@ def _validate_comparison(left: dict, op: str, string_cols) -> None:
         )
 
 
-def _emit_sql(node: dict, string_cols, uint32_cols, float32_cols) -> str:
+# Cap recursion depth well below Python's default limit (~1000): a deeply
+# nested OR/comparison tree (which _flatten_and cannot split) would otherwise
+# recurse here until RecursionError, which escapes the planner and crashes
+# collect(). Past the cap we raise UnsupportedPredicate so the predicate cleanly
+# falls back to the client-side filter instead.
+_MAX_EMIT_DEPTH = 200
+
+
+def _emit_sql(node: dict, string_cols, uint32_cols, float32_cols, depth=0) -> str:
+    if depth > _MAX_EMIT_DEPTH:
+        raise UnsupportedPredicate("predicate nesting too deep for pushdown")
     if not isinstance(node, dict) or len(node) != 1:
         raise UnsupportedPredicate(f"unexpected node: {node!r}")
     key, body = next(iter(node.items()))
@@ -210,9 +220,10 @@ def _emit_sql(node: dict, string_cols, uint32_cols, float32_cols) -> str:
         return _emit_literal(body)
     if key == "BinaryExpr":
         op = body["op"]
+        d = depth + 1
         if op in ("And", "Or"):
-            left = _emit_sql(body["left"], string_cols, uint32_cols, float32_cols)
-            right = _emit_sql(body["right"], string_cols, uint32_cols, float32_cols)
+            left = _emit_sql(body["left"], string_cols, uint32_cols, float32_cols, d)
+            right = _emit_sql(body["right"], string_cols, uint32_cols, float32_cols, d)
             joiner = "AND" if op == "And" else "OR"
             return f"({left} {joiner} {right})"
         if op in _COMPARISON_SQL:
@@ -220,12 +231,12 @@ def _emit_sql(node: dict, string_cols, uint32_cols, float32_cols) -> str:
             # (e.g. pl.lit("a") > pl.col("chrom")).
             _validate_comparison(body["left"], op, string_cols)
             _validate_comparison(body["right"], op, string_cols)
-            left = _emit_sql(body["left"], string_cols, uint32_cols, float32_cols)
-            right = _emit_sql(body["right"], string_cols, uint32_cols, float32_cols)
+            left = _emit_sql(body["left"], string_cols, uint32_cols, float32_cols, d)
+            right = _emit_sql(body["right"], string_cols, uint32_cols, float32_cols, d)
             return f"({left} {_COMPARISON_SQL[op]} {right})"
         raise UnsupportedPredicate(f"unsupported binary op: {op}")
     if key == "Function":
-        return _emit_function(body, string_cols, uint32_cols, float32_cols)
+        return _emit_function(body, string_cols, uint32_cols, float32_cols, depth + 1)
     raise UnsupportedPredicate(f"unsupported node type: {key}")
 
 
@@ -281,7 +292,9 @@ def plan_predicate_pushdown(
             translated.append(
                 _emit_sql(conjunct, string_cols, uint32_cols, float32_cols)
             )
-        except UnsupportedPredicate:
+        except (UnsupportedPredicate, RecursionError):
+            # Untranslatable (or pathologically deep): skip pushing this conjunct
+            # and force the client-side reapply. Never let it crash collect().
             all_ok = False
 
     pushdown_sql = " AND ".join(translated) if translated else None
