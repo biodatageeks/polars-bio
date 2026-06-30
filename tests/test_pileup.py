@@ -131,3 +131,15 @@ def test_depth_per_base_more_rows_than_blocks():
     blocks = pb.depth(BAM_PATH).collect()
     per_base = pb.depth(BAM_PATH, per_base=True).collect()
     assert per_base.height >= blocks.height
+
+
+def test_pileup_predicate_lazy_equals_eager():
+    """Pileup predicate pushdown must match client-side filtering."""
+    import polars as pl
+
+    import polars_bio as pb
+
+    lf = pb.depth(BAM_PATH).filter(pl.col("coverage") >= 1)
+    eager = pb.depth(BAM_PATH).collect().filter(pl.col("coverage") >= 1)
+    lazy_df = lf.collect()
+    assert lazy_df.sort(by=lazy_df.columns).equals(eager.sort(by=eager.columns))

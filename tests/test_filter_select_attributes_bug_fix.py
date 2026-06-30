@@ -272,6 +272,104 @@ class TestFilterSelectAttributesBug:
         assert all(result["chrom"] == "chr1"), "All results should be from chr1"
         assert "attributes" in result.columns, "Should include attributes column"
 
+    def test_filter_with_unsupported_attribute_predicate_selects_attribute(
+        self, test_gff_file
+    ):
+        """Unsupported attribute predicates must not be dropped before attr selection."""
+        lf = (
+            pb.scan_gff(
+                test_gff_file,
+                attr_fields=["ID", "Type"],
+                predicate_pushdown=True,
+                projection_pushdown=True,
+            )
+            .filter(pl.col("type") == "transcript")
+            .filter(pl.col("Type").str.contains("pseudogene"))
+        )
+
+        projected = lf.select("ID").collect()
+        collected_first = lf.collect().select("ID")
+
+        pl.testing.assert_frame_equal(projected, collected_first)
+        assert projected.height == 0
+
+    def test_raw_attributes_predicate_with_parsed_select(self, test_gff_file):
+        """Predicate on raw nested ``attributes`` + select a parsed field returns correct rows.
+
+        A single registration now exposes both the raw ``attributes`` column
+        and parsed attribute fields (via the reader's "attributes" sentinel),
+        so this no longer raises.
+        """
+        # Select rows that carry a "Type" attribute (only gene rows do in the fixture).
+        has_type = (
+            pl.col("attributes")
+            .list.eval(pl.element().struct.field("tag"))
+            .list.contains("Type")
+        )
+        extract_id = (
+            pl.col("attributes")
+            .list.eval(
+                pl.element()
+                .filter(pl.element().struct.field("tag") == "ID")
+                .struct.field("value")
+            )
+            .list.first()
+            .alias("ID")
+        )
+
+        projected = pb.scan_gff(test_gff_file).filter(has_type).select("ID").collect()
+        # Independent oracle: extract ID from the nested attributes via eager Polars.
+        oracle = (
+            pb.scan_gff(test_gff_file).filter(has_type).collect().select(extract_id)
+        )
+
+        pl.testing.assert_frame_equal(projected, oracle)
+        assert projected.height > 0
+        assert projected["ID"].null_count() == 0
+
+    def test_parsed_predicate_with_raw_attributes_select(self, test_gff_file):
+        """Predicate on a parsed field + select the raw nested ``attributes`` returns correct rows."""
+        flt = pl.col("ID").str.contains("GENE")
+        got = (
+            pb.scan_gff(test_gff_file, attr_fields=["ID"])
+            .filter(flt)
+            .select("attributes")
+            .collect()
+        )
+        expected_ids = (
+            pb.scan_gff(test_gff_file, attr_fields=["ID"])
+            .filter(flt)
+            .select("ID")
+            .collect()["ID"]
+            .to_list()
+        )
+
+        assert got.height == len(expected_ids)
+        assert got.height > 0
+        # Each returned nested attributes row contains its matching ID value.
+        recovered = got.select(
+            pl.col("attributes")
+            .list.eval(
+                pl.element()
+                .filter(pl.element().struct.field("tag") == "ID")
+                .struct.field("value")
+            )
+            .list.first()
+            .alias("ID")
+        )["ID"].to_list()
+        assert recovered == expected_ids
+
+    def test_select_raw_attributes_and_parsed_field_together(self, test_gff_file):
+        """Selecting raw ``attributes`` and a parsed field together (no predicate) works."""
+        out = pb.scan_gff(test_gff_file).select(["attributes", "ID"]).collect()
+        assert set(out.columns) == {"attributes", "ID"}
+        assert out.height > 0
+        assert out["ID"].null_count() == 0
+        # attributes is the nested List<Struct> representation
+        assert out.schema["attributes"] == pl.List(
+            pl.Struct({"tag": pl.String, "value": pl.String})
+        )
+
 
 class TestFilterSelectPerformance:
     """Performance-related tests for the filter().select() fix."""
@@ -306,3 +404,27 @@ class TestFilterSelectPerformance:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_select_wrapper_str_contains_not_dropped(tmp_path):
+    import polars as pl
+
+    import polars_bio as pb
+
+    gtf = tmp_path / "mini2.gtf"
+    gtf.write_text(
+        "1\thavana\ttranscript\t1\t100\t.\t+\t.\t"
+        'gene_id "G1"; transcript_id "T1"; gene_biotype "TEC";\n'
+    )
+    annot = pb.scan_gtf(
+        str(gtf), attr_fields=["gene_id", "gene_biotype", "transcript_id"]
+    )
+    q = annot.filter(pl.col("gene_biotype").str.contains("pseudogene")).select(
+        "transcript_id"
+    )
+    assert q.collect().height == 0
+    assert q.collect().equals(
+        annot.collect()
+        .filter(pl.col("gene_biotype").str.contains("pseudogene"))
+        .select("transcript_id")
+    )

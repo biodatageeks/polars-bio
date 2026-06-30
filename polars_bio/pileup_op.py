@@ -170,26 +170,21 @@ class PileupOperations:
                     except Exception as e:
                         logger.debug("Projection pushdown failed: %s", e)
 
-            # Predicate pushdown (reuses pattern from _overlap_source in io.py)
-            predicate_pushed_down = False
+            # Predicate pushdown (optimization only; client-side filter is truth)
+            needs_client_filter = predicate is not None
             if predicate is not None:
-                try:
-                    from .predicate_translator import (
-                        datafusion_expr_to_sql,
-                        translate_predicate,
-                    )
+                from .pushdown import apply_predicate_pushdown
 
-                    df_expr = translate_predicate(
-                        predicate,
-                        string_cols={"contig"},
-                        uint32_cols={"pos", "pos_start", "pos_end", "coverage"},
-                    )
-                    sql_predicate = datafusion_expr_to_sql(df_expr)
-                    native_expr = query_df.parse_sql_expr(sql_predicate)
-                    query_df = query_df.filter(native_expr)
-                    predicate_pushed_down = True
-                except Exception as e:
-                    logger.debug("Pileup predicate pushdown failed: %s", e)
+                query_df, needs_client_filter = apply_predicate_pushdown(
+                    query_df,
+                    predicate,
+                    {
+                        "string_cols": {"contig"},
+                        "uint32_cols": {"pos", "pos_start", "pos_end", "coverage"},
+                        "float32_cols": None,
+                    },
+                    log=logger,
+                )
 
             # Limit pushdown
             if n_rows and n_rows > 0:
@@ -203,8 +198,8 @@ class PileupOperations:
             for batch in df_stream:
                 out = pl.DataFrame(batch.to_pyarrow())
 
-                # Client-side predicate filtering (fallback)
-                if predicate is not None and not predicate_pushed_down:
+                # Client-side predicate filtering (source of truth)
+                if predicate is not None and needs_client_filter:
                     out = out.filter(predicate)
 
                 # Client-side projection fallback

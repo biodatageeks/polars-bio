@@ -1,9 +1,12 @@
+import logging
 from typing import Iterator, Union
 
 import polars as pl
 from datafusion import DataFrame
 from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
+
+logger = logging.getLogger(__name__)
 
 
 def _cleanse_fields(t: Union[list[str], None]) -> Union[list[str], None]:
@@ -37,24 +40,19 @@ def _lazy_scan(
         # Apply column projection and predicate pushdown to DataFusion query if enabled
         query_df = df_lazy
         datafusion_projection_applied = False
-        datafusion_predicate_applied = False
-
-        # Handle predicate pushdown first
+        # Predicate pushdown (optimization only; the client-side filter below is
+        # the source of truth). Overlap/range results carry arbitrary user columns,
+        # so use permissive column-type sets and let DataFusion type-check.
+        needs_client_filter = predicate is not None
         if predicate_pushdown and predicate is not None:
-            try:
-                from .predicate_translator import (
-                    translate_polars_predicate_to_datafusion,
-                )
+            from .pushdown import apply_predicate_pushdown
 
-                datafusion_predicate = translate_polars_predicate_to_datafusion(
-                    predicate
-                )
-                query_df = query_df.filter(datafusion_predicate)
-                datafusion_predicate_applied = True
-            except Exception as e:
-                # Fallback to Python-level filtering if predicate pushdown fails
-                datafusion_predicate_applied = False
-                # Note: error handling for debugging could be added here if needed
+            query_df, needs_client_filter = apply_predicate_pushdown(
+                query_df,
+                predicate,
+                {"string_cols": None, "uint32_cols": None, "float32_cols": None},
+                log=logger,
+            )
         if projection_pushdown and projected_columns:
             try:
                 query_df = df_lazy.select(projected_columns)
@@ -89,7 +87,7 @@ def _lazy_scan(
             df = query_df.limit(n_rows).execute_stream().next().to_pyarrow()
             df = pl.DataFrame(df).limit(n_rows)
             # Apply Python-level predicate only if DataFusion predicate pushdown failed
-            if predicate is not None and not datafusion_predicate_applied:
+            if predicate is not None and needs_client_filter:
                 df = df.filter(predicate)
             # Apply Python-level projection if DataFusion projection failed or projection pushdown is disabled
             if with_columns is not None and (
@@ -105,7 +103,7 @@ def _lazy_scan(
             py_df = r.to_pyarrow()
             df = pl.DataFrame(py_df)
             # Apply Python-level predicate only if DataFusion predicate pushdown failed
-            if predicate is not None and not datafusion_predicate_applied:
+            if predicate is not None and needs_client_filter:
                 df = df.filter(predicate)
             # Apply Python-level projection if DataFusion projection failed or projection pushdown is disabled
             if with_columns is not None and (

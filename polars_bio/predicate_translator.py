@@ -9,13 +9,8 @@ unknown columns (BAM tags, VCF INFO/FORMAT fields, GFF attribute fields) are han
 allowing all operators and letting DataFusion type-check at execution time.
 """
 
-import re
-from typing import Any, List, Optional, Set, Union
-
-import polars as pl
-from datafusion import col
-from datafusion import functions as F
-from datafusion import lit
+from dataclasses import dataclass
+from typing import Optional
 
 # ---------------------------------------------------------------------------
 # Per-format column type definitions
@@ -65,18 +60,11 @@ BIGWIG_FLOAT32_COLUMNS = {"value"}
 # schemas are dynamic — fields beyond the BED3 core (score, strand, thickStart,
 # blockCount, …) vary per file and may be redefined by a file's autoSQL, so they
 # are intentionally left out of these sets. Such columns fall through to the
-# permissive path in _validate_column_operator (all operators allowed, DataFusion
-# type-checks at execution), rather than risking incorrect static coercion.
+# permissive path (all operators allowed, DataFusion type-checks at execution),
+# rather than risking incorrect static coercion.
 BIGBED_STRING_COLUMNS = {"chrom", "name", "rest"}
 BIGBED_UINT32_COLUMNS = {"start", "end"}
 BIGBED_FLOAT32_COLUMNS: set = set()
-
-# ---------------------------------------------------------------------------
-# Module-level context for the current translation (set by translate_predicate)
-# ---------------------------------------------------------------------------
-_ACTIVE_STRING_COLS: Optional[Set[str]] = None
-_ACTIVE_UINT32_COLS: Optional[Set[str]] = None
-_ACTIVE_FLOAT32_COLS: Optional[Set[str]] = None
 
 
 class PredicateTranslationError(Exception):
@@ -85,599 +73,244 @@ class PredicateTranslationError(Exception):
     pass
 
 
-def translate_predicate(
-    predicate: pl.Expr,
-    string_cols: Optional[Set[str]] = None,
-    uint32_cols: Optional[Set[str]] = None,
-    float32_cols: Optional[Set[str]] = None,
-):
-    """
-    Convert a Polars predicate to a DataFusion expression, with format-aware validation.
+# ---------------------------------------------------------------------------
+# Structured AST emitter (issue #396): walks expr.meta.serialize(format="json")
+# node-by-node. Unsupported nodes raise loudly instead of silently vanishing.
+# ---------------------------------------------------------------------------
+import json as _json
+import math as _math
 
-    When *no* column sets are provided the translator is **permissive**: every
-    operator is accepted for every column and DataFusion's type system will
-    catch mismatches at execution time.
+_COMPARISON_SQL = {
+    "Eq": "=",
+    "NotEq": "!=",
+    "Lt": "<",
+    "LtEq": "<=",
+    "Gt": ">",
+    "GtEq": ">=",
+}
+_STRING_ALLOWED_OPS = {"Eq", "NotEq"}
 
-    Args:
-        predicate: Polars expression representing filter conditions.
-        string_cols: Column names known to be strings (equality/IN only).
-        uint32_cols: Column names known to be UInt32 (all comparison ops).
-        float32_cols: Column names known to be Float32 (all comparison ops).
 
-    Returns:
-        DataFusion ``Expr`` suitable for ``DataFrame.filter()``.
+class UnsupportedPredicate(Exception):
+    """A node that cannot be faithfully translated to SQL for pushdown."""
 
-    Raises:
-        PredicateTranslationError: If the predicate cannot be translated.
-    """
-    global _ACTIVE_STRING_COLS, _ACTIVE_UINT32_COLS, _ACTIVE_FLOAT32_COLS
-    _ACTIVE_STRING_COLS = string_cols
-    _ACTIVE_UINT32_COLS = uint32_cols
-    _ACTIVE_FLOAT32_COLS = float32_cols
+
+def _quote_ident(name: str) -> str:
+    return '"' + str(name).replace('"', '""') + '"'
+
+
+def _sql_string(s) -> str:
+    return "'" + str(s).replace("'", "''") + "'"
+
+
+def _sql_scalar(value) -> str:
+    if isinstance(value, bool):
+        return "TRUE" if value else "FALSE"
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return repr(value)
+    if value is None:
+        return "NULL"
+    return _sql_string(value)
+
+
+def _column_name(node: dict) -> str:
+    if isinstance(node, dict) and "Column" in node:
+        return str(node["Column"])
+    raise UnsupportedPredicate(f"expected a column, got: {node!r}")
+
+
+def _emit_literal(body: dict) -> str:
+    wrapper = body.get("Scalar")
+    if wrapper is None:
+        wrapper = body.get("Dyn")
+    if not isinstance(wrapper, dict) or len(wrapper) != 1:
+        raise UnsupportedPredicate(f"unsupported literal: {body!r}")
+    kind, value = next(iter(wrapper.items()))
+    if kind == "String":
+        return _sql_string(value)
+    if kind == "Boolean":
+        return "TRUE" if value else "FALSE"
+    if kind == "Int":
+        if value is None:
+            raise UnsupportedPredicate("null int literal; pushdown unsafe")
+        return str(int(value))
+    if kind == "Float":
+        # Polars serializes nan/inf/-inf as a JSON null float; non-finite float
+        # comparisons also have IEEE semantics SQL won't faithfully reproduce, so
+        # keep them client-side rather than emitting a bogus literal.
+        if value is None or not _math.isfinite(float(value)):
+            raise UnsupportedPredicate("non-finite float literal; pushdown unsafe")
+        return repr(float(value))
+    raise UnsupportedPredicate(f"unsupported literal kind: {kind}")
+
+
+def _decode_is_in_list(list_node: dict) -> list:
     try:
-        return _translate_polars_expr(predicate)
-    except Exception as e:
-        raise PredicateTranslationError(
-            f"Cannot translate predicate to DataFusion: {e}"
-        ) from e
-    finally:
-        _ACTIVE_STRING_COLS = None
-        _ACTIVE_UINT32_COLS = None
-        _ACTIVE_FLOAT32_COLS = None
-
-
-def translate_polars_predicate_to_datafusion(predicate: pl.Expr):
-    """
-    Convert Polars predicate expressions to DataFusion expressions (GFF defaults).
-
-    Thin wrapper around :func:`translate_predicate` that uses GFF column types
-    for backward compatibility.
-
-    Args:
-        predicate: Polars expression representing filter conditions
-
-    Returns:
-        DataFusion Expr object that can be used with DataFrame.filter()
-
-    Raises:
-        PredicateTranslationError: If predicate cannot be translated
-    """
-    return translate_predicate(
-        predicate,
-        string_cols=GFF_STRING_COLUMNS,
-        uint32_cols=GFF_UINT32_COLUMNS,
-        float32_cols=GFF_FLOAT32_COLUMNS,
-    )
-
-
-def _strip_polars_wrapping(s: str) -> str:
-    """Strip outermost ``[…]`` wrapper that Polars adds around expression reprs.
-
-    Examples::
-
-        [(col("chrom")) == ("chr1")]  →  (col("chrom")) == ("chr1")
-        [(…) & (…)]                   →  (…) & (…)
-
-    Only strips when the outermost ``[`` and ``]`` are a matching pair that
-    wraps the entire string (i.e. nothing follows the closing ``]``).
-    """
-    s = s.strip()
-    if s.startswith("[") and s.endswith("]"):
-        s = s[1:-1]
-    return s
-
-
-def _translate_polars_expr(expr: pl.Expr):
-    """Recursively translate Polars expression to DataFusion expression."""
-
-    expr_str = _strip_polars_wrapping(str(expr))
-
-    # NOTE: check order matters!  AND / BETWEEN must come before binary,
-    # because compound expressions like (col == "x") & (col > 1) also
-    # match the binary detector (it sees "==" in the string).
-
-    # Handle logical AND operations (must be before binary!)
-    if _is_and_expr(expr_str):
-        return _translate_and_expr(expr_str)
-
-    # Handle NOT IN operations (negated IN) — before plain IN
-    if _is_not_in_expr(expr_str):
-        return _translate_not_in_expr(expr_str)
-
-    # Handle IN operations
-    if _is_in_expr(expr_str):
-        return _translate_in_expr(expr_str)
-
-    # Handle IS NOT NULL — before IS NULL
-    if _is_not_null_expr(expr_str):
-        return _translate_not_null_expr(expr_str)
-
-    # Handle IS NULL
-    if _is_null_expr(expr_str):
-        return _translate_null_expr(expr_str)
-
-    # Handle binary operations (col op literal) — simple, single comparison
-    if _is_binary_expr(expr_str):
-        return _translate_binary_expr(expr_str)
-
-    raise PredicateTranslationError(f"Unsupported expression type: {expr_str}")
-
-
-def _is_binary_expr(expr_str: str) -> bool:
-    """Check if expression is a binary operation (col op literal)."""
-    binary_patterns = [r"\s==\s", r"\s!=\s", r"\s<\s", r"\s<=\s", r"\s>\s", r"\s>=\s"]
-    return any(re.search(pattern, expr_str) for pattern in binary_patterns)
-
-
-def _translate_binary_expr(expr_str: str):
-    """Translate binary expressions like col == value, col > value, etc."""
-
-    # Parse binary operations with regex to handle complex expressions
-    binary_ops = [
-        (r"(.+?)\s==\s(.+)", lambda l, r: col(l) == lit(r)),
-        (r"(.+?)\s!=\s(.+)", lambda l, r: col(l) != lit(r)),
-        (r"(.+?)\s<=\s(.+)", lambda l, r: col(l) <= lit(r)),
-        (r"(.+?)\s>=\s(.+)", lambda l, r: col(l) >= lit(r)),
-        (r"(.+?)\s<\s(.+)", lambda l, r: col(l) < lit(r)),
-        (r"(.+?)\s>\s(.+)", lambda l, r: col(l) > lit(r)),
-    ]
-
-    for pattern, op_func in binary_ops:
-        match = re.search(pattern, expr_str)
-        if match:
-            left_part = match.group(1).strip()
-            right_part = match.group(2).strip()
-
-            # Extract column name and literal value
-            column = _extract_column_name(left_part)
-            value = _extract_literal_value(right_part)
-
-            # Validate column and operator combination
-            op_symbol = pattern.split(r"\s")[1].replace("\\", "")
-            _validate_column_operator(column, op_symbol)
-
-            return op_func(column, value)
-
-    raise PredicateTranslationError(f"Cannot parse binary expression: {expr_str}")
-
-
-def _is_and_expr(expr_str: str) -> bool:
-    """Check if expression is an AND operation."""
-    return " & " in expr_str or ".and(" in expr_str
-
-
-def _translate_and_expr(expr_str: str):
-    """Translate AND expressions (supports 2+ conjuncts via left-fold)."""
-
-    if " & " in expr_str:
-        parts = _split_on_main_operator(expr_str, " & ")
-        if len(parts) >= 2:
-            # Left-fold: ((a & b) & c) & d …
-            result = _translate_polars_expr(
-                _create_mock_expr(_strip_polars_wrapping(parts[0].strip().strip("()")))
-            )
-            for part in parts[1:]:
-                right_expr = _translate_polars_expr(
-                    _create_mock_expr(_strip_polars_wrapping(part.strip().strip("()")))
-                )
-                result = result & right_expr
-            return result
-
-    raise PredicateTranslationError(f"Cannot parse AND expression: {expr_str}")
-
-
-def _is_in_expr(expr_str: str) -> bool:
-    """Check if expression is an IN operation."""
-    return ".is_in(" in expr_str
-
-
-def _translate_in_expr(expr_str: str):
-    """Translate IN expressions like col.is_in([val1, val2])."""
-
-    # Parse col("column").is_in([values]) pattern
-    # Polars repr uses double brackets: is_in([["v1", "v2"]]) — strip inner []
-    match = re.search(r"(.+?)\.is_in\(\[(.+?)\]\)", expr_str)
-    if match:
-        col_part = match.group(1).strip()
-        values_part = match.group(2).strip().strip("[]")
-
-        column = _extract_column_name(col_part)
-        values = _parse_list_values(values_part)
-
-        # Validate column supports IN operation
-        _validate_column_operator(column, "IN")
-
-        # Convert values to DataFusion literals
-        df_values = [lit(value) for value in values]
-
-    return F.in_list(col(column), df_values)
-
-
-def _is_not_in_expr(expr_str: str) -> bool:
-    """Check if expression is a NOT IN operation (negated is_in)."""
-    # Common patterns from Polars repr:
-    # 1) ~(col("x").is_in([..]))
-    # 2) col("x").is_in([..]).not()
-    s = expr_str.replace(" ", "")
-    return (
-        (s.startswith("~(") and ".is_in([" in s and s.endswith(")"))
-        or ".is_in([" in s
-        and ").not()" in s
-    )
-
-
-def _translate_not_in_expr(expr_str: str):
-    """Translate NOT IN expressions as negated in_list."""
-    s = expr_str.strip()
-    # Normalize to extract inner is_in([...]) part
-    inner = s
-    if s.startswith("~(") and s.endswith(")"):
-        inner = s[2:-1]
-    # Reuse IN translator on inner and negate
-    in_expr = _translate_in_expr(inner)
-    return ~in_expr
-
-    raise PredicateTranslationError(f"Cannot parse IN expression: {expr_str}")
-
-
-def _is_between_expr(expr_str: str) -> bool:
-    """Check if expression represents a BETWEEN operation."""
-    # Look for patterns like (col >= val1) & (col <= val2)
-    return (" >= " in expr_str and " <= " in expr_str and " & " in expr_str) or (
-        " > " in expr_str and " < " in expr_str and " & " in expr_str
-    )
-
-
-def _translate_between_expr(expr_str: str):
-    """Translate BETWEEN expressions from range conditions."""
-
-    # Parse (col >= min_val) & (col <= max_val) pattern
-    if " & " in expr_str:
-        parts = _split_on_main_operator(expr_str, " & ")
-        if len(parts) == 2:
-            left_part = parts[0].strip().strip("()")
-            right_part = parts[1].strip().strip("()")
-
-            # Extract column and values from both parts
-            left_col, left_op, left_val = _parse_comparison(left_part)
-            right_col, right_op, right_val = _parse_comparison(right_part)
-
-            # Verify same column in both parts
-            if left_col == right_col:
-                column = left_col
-
-                # Determine BETWEEN bounds
-                if left_op in [">", ">="] and right_op in ["<", "<="]:
-                    min_val = left_val
-                    max_val = right_val
-                elif left_op in ["<", "<="] and right_op in [">", ">="]:
-                    min_val = right_val
-                    max_val = left_val
-                else:
-                    raise PredicateTranslationError("Invalid BETWEEN pattern")
-
-                # Validate column supports BETWEEN
-                _validate_column_operator(column, "BETWEEN")
-
-                return col(column).between(lit(min_val), lit(max_val))
-
-    raise PredicateTranslationError(f"Cannot parse BETWEEN expression: {expr_str}")
-
-
-def _is_not_null_expr(expr_str: str) -> bool:
-    """Check if expression is IS NOT NULL."""
-    return ".is_not_null()" in expr_str
-
-
-def _translate_not_null_expr(expr_str: str):
-    """Translate IS NOT NULL expressions."""
-    col_part = expr_str.split(".is_not_null()")[0]
-    column = _extract_column_name(col_part)
-    return col(column).is_not_null()
-
-
-def _is_null_expr(expr_str: str) -> bool:
-    """Check if expression is IS NULL."""
-    return ".is_null()" in expr_str
-
-
-def _translate_null_expr(expr_str: str):
-    """Translate IS NULL expressions."""
-    col_part = expr_str.split(".is_null()")[0]
-    column = _extract_column_name(col_part)
-    return col(column).is_null()
-
-
-# Helper functions
-
-
-def _extract_column_name(col_expr: str) -> str:
-    """Extract column name from col() expression."""
-    col_expr = col_expr.strip()
-
-    # Handle col("name") or col('name')
-    patterns = [r'col\("([^"]+)"\)', r"col\('([^']+)'\)"]
-
-    for pattern in patterns:
-        match = re.search(pattern, col_expr)
-        if match:
-            return match.group(1)
-
-    # Handle parentheses around the whole expression
-    col_expr = col_expr.strip("()")
-    for pattern in patterns:
-        match = re.search(pattern, col_expr)
-        if match:
-            return match.group(1)
-
-    raise PredicateTranslationError(f"Cannot extract column name from: {col_expr}")
-
-
-def _extract_literal_value(literal_expr: str) -> Any:
-    """Extract literal value from expression.
-
-    Handles Polars repr formats such as::
-
-        ("chr1")        → chr1
-        (dyn int: 1000) → 1000
-        (dyn float: 1.5)→ 1.5
-        "chr1"          → chr1
-        1000            → 1000
-    """
-    literal_expr = literal_expr.strip()
-
-    # Unwrap Polars-style parenthesised literal: ("value") or (dyn int: 123)
-    if literal_expr.startswith("(") and literal_expr.endswith(")"):
-        literal_expr = literal_expr[1:-1].strip()
-
-    # Strip Polars "dyn int:" / "dyn float:" type prefixes
-    for prefix in ("dyn int: ", "dyn float: "):
-        if literal_expr.startswith(prefix):
-            literal_expr = literal_expr[len(prefix) :]
-            break
-
-    # Handle string literals
-    if (literal_expr.startswith('"') and literal_expr.endswith('"')) or (
-        literal_expr.startswith("'") and literal_expr.endswith("'")
+        blob = list_node["Literal"]["Scalar"]["List"]
+    except (KeyError, TypeError):
+        raise UnsupportedPredicate("is_in value is not a list literal")
+    import pyarrow as pa
+
+    raw = bytes(b & 0xFF for b in blob)
+    try:
+        table = pa.ipc.open_stream(raw).read_all()
+    except Exception as exc:  # decode failure -> safe client-side fallback
+        raise UnsupportedPredicate(f"could not decode is_in list: {exc}")
+    return table.column(0).to_pylist()
+
+
+def _emit_is_in(inputs: list) -> str:
+    if len(inputs) != 2:
+        raise UnsupportedPredicate("is_in expects exactly two inputs")
+    col_sql = _quote_ident(_column_name(inputs[0]))
+    values = _decode_is_in_list(inputs[1])
+    if not values:
+        # Polars is_in([]) is uniformly False; SQL FALSE matches it faithfully.
+        return "FALSE"
+    if any(v is None for v in values):
+        # SQL `IN (..., NULL)` yields UNKNOWN (not FALSE) for non-matching rows,
+        # which diverges from Polars' null-aware is_in. Keep it client-side.
+        raise UnsupportedPredicate("is_in list contains NULL; pushdown unsafe")
+    items = ", ".join(_sql_scalar(v) for v in values)
+    return f"({col_sql} IN ({items}))"
+
+
+def _emit_function(body: dict, string_cols, uint32_cols, float32_cols, depth) -> str:
+    fn = body.get("function")
+    inputs = body.get("input", [])
+    if isinstance(fn, dict) and "Boolean" in fn:
+        boolean = fn["Boolean"]
+        if isinstance(boolean, dict) and "IsIn" in boolean:
+            opts = boolean["IsIn"]
+            if isinstance(opts, dict) and opts.get("nulls_equal"):
+                # nulls_equal=True matches nulls as a value; SQL `IN` does not
+                # (observable under negation on nullable columns). Keep it
+                # client-side so the result stays correct.
+                raise UnsupportedPredicate("is_in(nulls_equal=True); pushdown unsafe")
+            return _emit_is_in(inputs)
+        if boolean in ("Not", "IsNull", "IsNotNull") and not inputs:
+            raise UnsupportedPredicate(f"{boolean} with no input")
+        if boolean == "Not":
+            inner = _emit_sql(inputs[0], string_cols, uint32_cols, float32_cols, depth)
+            return f"(NOT {inner})"
+        if boolean == "IsNull":
+            return f"({_quote_ident(_column_name(inputs[0]))} IS NULL)"
+        if boolean == "IsNotNull":
+            return f"({_quote_ident(_column_name(inputs[0]))} IS NOT NULL)"
+    raise UnsupportedPredicate(f"unsupported function: {fn!r}")
+
+
+def _validate_comparison(left: dict, op: str, string_cols) -> None:
+    if (
+        string_cols
+        and isinstance(left, dict)
+        and left.get("Column") in string_cols
+        and op not in _STRING_ALLOWED_OPS
     ):
-        return literal_expr[1:-1]
-
-    # Handle numeric literals
-    try:
-        if "." in literal_expr:
-            return float(literal_expr)
-        else:
-            return int(literal_expr)
-    except ValueError:
-        pass
-
-    # Handle boolean literals
-    if literal_expr.lower() == "true":
-        return True
-    elif literal_expr.lower() == "false":
-        return False
-
-    return literal_expr
+        raise UnsupportedPredicate(
+            f"ordering op {op} not allowed on string column {left.get('Column')!r}"
+        )
 
 
-def _validate_column_operator(column: str, operator: str) -> None:
-    """Validate that column supports the given operator.
+# Cap recursion depth well below Python's default limit (~1000): a deeply
+# nested OR/comparison tree (which _flatten_and cannot split) would otherwise
+# recurse here until RecursionError, which escapes the planner and crashes
+# collect(). Past the cap we raise UnsupportedPredicate so the predicate cleanly
+# falls back to the client-side filter instead.
+_MAX_EMIT_DEPTH = 200
 
-    Uses the module-level context (_ACTIVE_*_COLS) set by translate_predicate().
-    When no context is set (all None), validation is **permissive** — all
-    operators are allowed and DataFusion will type-check at execution.
-    """
-    string_cols = _ACTIVE_STRING_COLS
-    uint32_cols = _ACTIVE_UINT32_COLS
-    float32_cols = _ACTIVE_FLOAT32_COLS
 
-    # Permissive mode: no column type info available — allow everything
-    if string_cols is None and uint32_cols is None and float32_cols is None:
-        return
+def _emit_sql(node: dict, string_cols, uint32_cols, float32_cols, depth=0) -> str:
+    if depth > _MAX_EMIT_DEPTH:
+        raise UnsupportedPredicate("predicate nesting too deep for pushdown")
+    if not isinstance(node, dict) or len(node) != 1:
+        raise UnsupportedPredicate(f"unexpected node: {node!r}")
+    key, body = next(iter(node.items()))
+    if key == "Column":
+        return _quote_ident(body)
+    if key == "Literal":
+        return _emit_literal(body)
+    if key == "BinaryExpr":
+        op = body["op"]
+        d = depth + 1
+        if op in ("And", "Or"):
+            left = _emit_sql(body["left"], string_cols, uint32_cols, float32_cols, d)
+            right = _emit_sql(body["right"], string_cols, uint32_cols, float32_cols, d)
+            joiner = "AND" if op == "And" else "OR"
+            return f"({left} {joiner} {right})"
+        if op in _COMPARISON_SQL:
+            # Guard both operands: a string column may sit on either side
+            # (e.g. pl.lit("a") > pl.col("chrom")).
+            _validate_comparison(body["left"], op, string_cols)
+            _validate_comparison(body["right"], op, string_cols)
+            left = _emit_sql(body["left"], string_cols, uint32_cols, float32_cols, d)
+            right = _emit_sql(body["right"], string_cols, uint32_cols, float32_cols, d)
+            return f"({left} {_COMPARISON_SQL[op]} {right})"
+        raise UnsupportedPredicate(f"unsupported binary op: {op}")
+    if key == "Function":
+        return _emit_function(body, string_cols, uint32_cols, float32_cols, depth + 1)
+    raise UnsupportedPredicate(f"unsupported node type: {key}")
 
-    known_cols = (
-        (string_cols or set()) | (uint32_cols or set()) | (float32_cols or set())
+
+@dataclass
+class PushdownPlan:
+    pushdown_sql: Optional[str]
+    fully_translated: bool
+
+
+def _is_and(node) -> bool:
+    return (
+        isinstance(node, dict)
+        and "BinaryExpr" in node
+        and node["BinaryExpr"].get("op") == "And"
     )
 
-    # String columns: =, !=, IN, NOT IN
-    if column in (string_cols or set()):
-        if operator not in ["==", "!=", "IN", "NOT IN"]:
-            raise PredicateTranslationError(
-                f"Column '{column}' (String) does not support operator '{operator}'. "
-                f"Supported: ==, !=, IN, NOT IN"
-            )
 
-    # Numeric columns: =, !=, <, <=, >, >=, BETWEEN, IN, NOT IN
-    elif column in (uint32_cols or set()) or column in (float32_cols or set()):
-        if operator not in [
-            "==",
-            "!=",
-            "<",
-            "<=",
-            ">",
-            ">=",
-            "BETWEEN",
-            "IN",
-            "NOT IN",
-        ]:
-            raise PredicateTranslationError(
-                f"Column '{column}' (Numeric) does not support operator '{operator}'. "
-                f"Supported: ==, !=, <, <=, >, >=, BETWEEN, IN, NOT IN"
-            )
-
-    # Unknown column (BAM tags, VCF INFO/FORMAT, GFF attributes): permissive
-    elif column not in known_cols:
-        pass  # Allow all operators; DataFusion will type-check at execution
-
-
-def _parse_list_values(values_str: str) -> List[Any]:
-    """Parse list of values from string."""
-    if not values_str.strip():
-        return []
-
-    items = [item.strip() for item in values_str.split(",")]
-    return [_extract_literal_value(item) for item in items if item.strip()]
-
-
-def _split_on_main_operator(expr_str: str, operator: str) -> List[str]:
-    """Split expression on main operator, respecting parentheses.
-
-    Parentheses ``(`` / ``)`` are tracked for depth but **preserved** in the
-    output parts so that downstream parsers receive the original text.
-    """
-    parts = []
-    current = ""
-    paren_depth = 0
-    i = 0
-
-    while i < len(expr_str):
-        ch = expr_str[i]
-        if ch == "(":
-            paren_depth += 1
-            current += ch
-        elif ch == ")":
-            paren_depth -= 1
-            current += ch
-        elif paren_depth == 0 and expr_str[i : i + len(operator)] == operator:
-            parts.append(current)
-            current = ""
-            i += len(operator) - 1
+def _flatten_and(node: dict) -> list:
+    # Iterative (not recursive): deep `&` chains can exceed Python's recursion
+    # limit. Left-to-right order is preserved via the explicit stack.
+    conjuncts = []
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        if _is_and(current):
+            body = current["BinaryExpr"]
+            stack.append(body["right"])
+            stack.append(body["left"])
         else:
-            current += ch
-        i += 1
-
-    parts.append(current)
-    return parts
+            conjuncts.append(current)
+    return conjuncts
 
 
-def _parse_comparison(comp_str: str) -> tuple:
-    """Parse comparison string into (column, operator, value)."""
-    comp_str = comp_str.strip("()")
-
-    for op in [" >= ", " <= ", " > ", " < ", " == ", " != "]:
-        if op in comp_str:
-            parts = comp_str.split(op, 1)
-            if len(parts) == 2:
-                col_part = parts[0].strip()
-                val_part = parts[1].strip()
-                column = _extract_column_name(col_part)
-                value = _extract_literal_value(val_part)
-                return column, op.strip(), value
-
-    raise PredicateTranslationError(f"Cannot parse comparison: {comp_str}")
-
-
-def _create_mock_expr(expr_str: str) -> pl.Expr:
-    """Create a mock Polars expression from string for recursive parsing."""
-
-    class MockExpr:
-        def __init__(self, expr_str):
-            self.expr_str = expr_str
-
-        def __str__(self):
-            return self.expr_str
-
-    return MockExpr(expr_str.strip())
-
-
-def is_predicate_pushdown_supported(predicate: pl.Expr) -> bool:
-    """
-    Check if a Polars predicate can be pushed down to DataFusion.
-
-    Args:
-        predicate: Polars expression to check
-
-    Returns:
-        True if predicate can be translated and pushed down
-    """
+def plan_predicate_pushdown(
+    predicate,
+    *,
+    string_cols=None,
+    uint32_cols=None,
+    float32_cols=None,
+) -> PushdownPlan:
     try:
-        translate_polars_predicate_to_datafusion(predicate)
-        return True
-    except PredicateTranslationError:
-        return False
+        ast = _json.loads(predicate.meta.serialize(format="json"))
+    except Exception as exc:  # serialization itself failed -> caller falls back
+        raise PredicateTranslationError(
+            f"could not serialize predicate: {exc}"
+        ) from exc
 
+    conjuncts = _flatten_and(ast)
+    translated = []
+    all_ok = True
+    for conjunct in conjuncts:
+        try:
+            translated.append(
+                _emit_sql(conjunct, string_cols, uint32_cols, float32_cols)
+            )
+        except (UnsupportedPredicate, RecursionError, TypeError, ValueError):
+            # Untranslatable, pathologically deep, or a malformed/edge literal:
+            # skip pushing this conjunct and force the client-side reapply.
+            # Never let it crash collect().
+            all_ok = False
 
-def get_supported_predicates_info() -> str:
-    """Return information about supported predicate types."""
-    return """
-Supported Predicate Pushdown Operations (all formats):
-
-| Format    | Column                                        | Data Type | Supported Operators          |
-|-----------|-----------------------------------------------|-----------|------------------------------|
-| GFF       | chrom, source, type, strand                   | String    | =, !=, IN, NOT IN           |
-| GFF       | start, end, phase                             | UInt32    | =, !=, <, <=, >, >=, BETWEEN, IN, NOT IN|
-| GFF       | score                                         | Float32   | =, !=, <, <=, >, >=, BETWEEN, IN, NOT IN|
-| GFF       | Attribute fields                              | String    | =, !=, IN, NOT IN           |
-| BAM/CRAM  | name, chrom, cigar, mate_chrom, ...           | String    | =, !=, IN, NOT IN           |
-| BAM/CRAM  | start, end, flags, mapping_quality, ...       | UInt32    | =, !=, <, <=, >, >=, BETWEEN, IN, NOT IN|
-| VCF       | chrom, ref, alt                               | String    | =, !=, IN, NOT IN           |
-| VCF       | start                                         | UInt32    | =, !=, <, <=, >, >=, BETWEEN, IN, NOT IN|
-| All       | Unknown/dynamic columns                       | Any       | All (DataFusion type-checks) |
-| All       | Complex                                       | -         | AND combinations             |
-
-Examples:
-- pl.col("chrom") == "chr1"
-- pl.col("start") > 1000
-- pl.col("chrom").is_in(["chr1", "chr2"])
-- (pl.col("chrom") == "chr1") & (pl.col("start") > 1000)
-- (pl.col("start") >= 1000) & (pl.col("start") <= 2000)  # BETWEEN
-"""
-
-
-def datafusion_expr_to_sql(expr) -> str:
-    """Convert a DataFusion Expr to a SQL WHERE clause string.
-
-    The DataFusion Python ``Expr`` has a predictable ``str()`` format::
-
-        Expr(chrom = Utf8View("1") AND start > Int64(10000))
-
-    This function extracts the inner text and converts DataFusion type
-    wrappers to SQL literals.
-
-    Args:
-        expr: DataFusion ``Expr`` object (from :func:`translate_predicate`).
-
-    Returns:
-        SQL WHERE clause string (without the ``WHERE`` keyword).
-
-    Raises:
-        PredicateTranslationError: If the expression cannot be converted.
-    """
-    s = str(expr)
-
-    # Unwrap Expr(…)
-    if s.startswith("Expr(") and s.endswith(")"):
-        s = s[5:-1]
-
-    # Utf8View("value") → 'value'   (quote single-quotes inside)
-    s = re.sub(
-        r'Utf8View\("([^"]*)"\)',
-        lambda m: "'" + m.group(1).replace("'", "''") + "'",
-        s,
-    )
-
-    # Int64(N) → N
-    s = re.sub(r"Int64\((-?\d+)\)", r"\1", s)
-
-    # Float64(N) → N
-    s = re.sub(r"Float64\((-?[\d.]+(?:e[+-]?\d+)?)\)", r"\1", s)
-
-    # UInt32(N) → N
-    s = re.sub(r"UInt32\((\d+)\)", r"\1", s)
-
-    # Boolean(true/false) → TRUE/FALSE
-    s = re.sub(r"Boolean\(true\)", "TRUE", s)
-    s = re.sub(r"Boolean\(false\)", "FALSE", s)
-
-    # IN ([val, val, …]) → IN (val, val, …)  — remove square brackets
-    s = re.sub(r"IN \(\[", "IN (", s)
-    s = re.sub(r"\]\)", ")", s)
-
-    # Quote bare column names: word tokens before operators
-    # This is already handled because DataFusion Expr uses bare names
-    # and SQL engines accept unquoted identifiers for simple names.
-
-    if not s.strip():
-        raise PredicateTranslationError("Empty expression after conversion")
-
-    return s
+    pushdown_sql = " AND ".join(translated) if translated else None
+    return PushdownPlan(pushdown_sql=pushdown_sql, fully_translated=all_ok)

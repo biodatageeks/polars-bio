@@ -219,6 +219,25 @@ class TestIOGTF:
         assert df["tag"][0] == "basic,TAGENE,appris_principal_3,CCDS"
         assert df["gene_name"][0] == "GAPDH"
 
+    def test_filter_with_unsupported_attribute_predicate_selects_attribute(self):
+        """Unsupported attribute predicates must not be dropped before attr selection."""
+        lf = (
+            pb.scan_gtf(
+                GTF_PATH,
+                attr_fields=["gene_type", "transcript_id"],
+                predicate_pushdown=True,
+                projection_pushdown=True,
+            )
+            .filter(pl.col("type") == "transcript")
+            .filter(pl.col("gene_type").str.contains("pseudogene"))
+        )
+
+        projected = lf.select("transcript_id").collect()
+        collected_first = lf.collect().select("transcript_id")
+
+        pl.testing.assert_frame_equal(projected, collected_first)
+        assert projected.height == 0
+
     def test_compression_type_override(self, tmp_path):
         """Explicit compression_type overrides auto-detection."""
         # Create a gzip file with .gtf.gz extension but read with explicit compression_type
@@ -228,3 +247,53 @@ class TestIOGTF:
                 shutil.copyfileobj(f_in, f_out)
         df = pb.read_gtf(str(gz_path), compression_type="gz")
         assert len(df) == 23
+
+
+def test_gtf_parsed_predicate_with_raw_attributes_select(tmp_path):
+    """GTF: predicate on a parsed field + select the raw nested ``attributes``."""
+    gtf = tmp_path / "t.gtf"
+    gtf.write_text(
+        'chr1\ttest\tgene\t1\t9\t.\t+\t.\tgene_id "ENSG1"; gene_name "A";\n'
+        'chr1\ttest\tgene\t10\t19\t.\t+\t.\tgene_id "ENSG2"; gene_name "B";\n'
+    )
+    got = (
+        pb.scan_gtf(str(gtf), attr_fields=["gene_id"])
+        .filter(pl.col("gene_id") == "ENSG1")
+        .select("attributes")
+        .collect()
+    )
+    assert got.height == 1
+    recovered = got.select(
+        pl.col("attributes")
+        .list.eval(
+            pl.element()
+            .filter(pl.element().struct.field("tag") == "gene_id")
+            .struct.field("value")
+        )
+        .list.first()
+        .alias("gene_id")
+    )["gene_id"].to_list()
+    assert recovered == ["ENSG1"]
+
+
+def test_gtf_str_contains_lazy_equals_eager(tmp_path):
+    """Regression for #396: a str.contains filter must not be silently dropped."""
+    import polars as pl
+
+    import polars_bio as pb
+
+    gtf = tmp_path / "mini.gtf"
+    gtf.write_text(
+        "1\thavana\ttranscript\t3073253\t3074322\t.\t+\t.\t"
+        'gene_id "ENSMUSG00000102693"; transcript_id "ENSMUST00000193812"; '
+        'gene_biotype "TEC";\n'
+    )
+    attr = ["gene_id", "gene_biotype", "transcript_id"]
+    annot = pb.scan_gtf(str(gtf), attr_fields=attr)
+    pseudo = annot.filter(pl.col("type") == "transcript").filter(
+        pl.col("gene_biotype").str.contains("pseudogene")
+    )
+    lazy = pseudo.select("transcript_id").collect()
+    eager = pseudo.collect().select("transcript_id")
+    assert lazy.equals(eager)
+    assert lazy.height == 0  # no pseudogenes in the fixture

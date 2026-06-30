@@ -3051,6 +3051,7 @@ def _lazy_scan(
         from polars_bio.polars_bio import py_read_table, py_register_table
 
         from .context import ctx as _ctx
+        from .pushdown import apply_predicate_pushdown, apply_projection_pushdown
 
         table_refreshed = False
 
@@ -3103,7 +3104,12 @@ def _lazy_scan(
 
             obj = _extract_py_object_storage_options(read_options)
 
-            if "attributes" in requested_cols:
+            # When both the raw nested ``attributes`` column and parsed fields
+            # are requested, use the reader's "attributes" sentinel to emit both
+            # from a single registration.
+            if "attributes" in requested_cols and attr_fields:
+                _attr = attr_fields + ["attributes"]
+            elif "attributes" in requested_cols:
                 _attr = None
             elif attr_fields:
                 _attr = attr_fields
@@ -3150,50 +3156,27 @@ def _lazy_scan(
                 )
             query_df = py_read_table(_ctx, table_to_query)
 
-        # 2. Predicate pushdown via DataFusion Expr API
-        #    Flow: Polars Expr → DataFusion Expr (validates types) → SQL string
-        #    → query_df.parse_sql_expr() → query_df.filter()
-        #    parse_sql_expr() creates a binding-compatible Expr from the same
-        #    PyO3 compilation unit, avoiding the type mismatch between the
-        #    polars_bio Rust extension and the pip datafusion package.
-        datafusion_predicate_applied = False
+        # 2. Predicate pushdown (optimization only; the client-side filter below
+        #    is the source of truth). The shared helper pushes the faithfully
+        #    translatable AND-conjuncts and reports whether the full predicate
+        #    must still be reapplied client-side.
+        _fmt_key = str(input_format).rsplit(".", 1)[-1]
+        _scols, _ucols, _fcols = _FORMAT_COLUMN_TYPES.get(_fmt_key, (None, None, None))
+        needs_client_filter = predicate is not None
         if predicate_pushdown and predicate is not None:
-            try:
-                from .predicate_translator import (
-                    datafusion_expr_to_sql,
-                    translate_predicate,
-                )
+            query_df, needs_client_filter = apply_predicate_pushdown(
+                query_df,
+                predicate,
+                {"string_cols": _scols, "uint32_cols": _ucols, "float32_cols": _fcols},
+                log=logger,
+            )
 
-                _fmt_key = str(input_format).rsplit(".", 1)[-1]
-                string_cols, uint32_cols, float32_cols = _FORMAT_COLUMN_TYPES.get(
-                    _fmt_key, (None, None, None)
-                )
-                df_expr = translate_predicate(
-                    predicate, string_cols, uint32_cols, float32_cols
-                )
-                sql_predicate = datafusion_expr_to_sql(df_expr)
-                native_expr = query_df.parse_sql_expr(sql_predicate)
-                query_df = query_df.filter(native_expr)
-                datafusion_predicate_applied = True
-            except Exception as e:
-                logger.warning(
-                    f"DataFusion predicate pushdown failed, will filter "
-                    f"client-side (this may cause a full scan): {e}"
-                )
-
-        # 3. Projection pushdown via DataFusion select
-        datafusion_projection_applied = False
+        # 3. Projection pushdown (optimization only; client-side select is truth)
+        needs_client_select = with_columns is not None
         if projection_pushdown and with_columns is not None:
-            requested_cols = _extract_column_names_from_expr(with_columns)
-            if requested_cols:
-                try:
-                    select_exprs = [
-                        query_df.parse_sql_expr(f'"{c}"') for c in requested_cols
-                    ]
-                    query_df = query_df.select(*select_exprs)
-                    datafusion_projection_applied = True
-                except Exception as e:
-                    logger.debug(f"DataFusion projection pushdown failed: {e}")
+            query_df, needs_client_select = apply_projection_pushdown(
+                query_df, with_columns, log=logger
+            )
 
         # 4. Limit
         if n_rows and n_rows > 0:
@@ -3205,11 +3188,11 @@ def _lazy_scan(
         remaining = int(n_rows) if n_rows is not None else None
         for r in df_stream:
             out = pl.DataFrame(r.to_pyarrow())
-            # Apply client-side predicate only when DataFusion pushdown failed
-            if predicate is not None and not datafusion_predicate_applied:
+            # Source of truth: reapply the full predicate/projection client-side
+            # unless the helper certified the pushdown was complete.
+            if predicate is not None and needs_client_filter:
                 out = out.filter(predicate)
-            # Apply client-side projection only when DataFusion pushdown failed
-            if with_columns is not None and not datafusion_projection_applied:
+            if with_columns is not None and needs_client_select:
                 out = out.select(with_columns)
 
             if remaining is not None:
@@ -3592,6 +3575,7 @@ class AnnotationLazyFrameWrapper:
             "view_prefix": "_pb_gtf_proj_",
         },
     }
+    _PRESERVE_DEFERRED_PREDICATE = object()
 
     def __init__(
         self,
@@ -3601,6 +3585,7 @@ class AnnotationLazyFrameWrapper:
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         format_type: str = "gff",
+        deferred_predicate: Optional[pl.Expr] = None,
     ):
         self._base_lf = base_lf
         self._file_path = file_path
@@ -3609,8 +3594,15 @@ class AnnotationLazyFrameWrapper:
         self._predicate_pushdown = predicate_pushdown
         self._format_type = format_type
         self._config = self._FORMAT_CONFIG[format_type]
+        self._deferred_predicate = deferred_predicate
 
-    def _make_wrapper(self, base_lf, projection_pushdown=None, predicate_pushdown=None):
+    def _make_wrapper(
+        self,
+        base_lf,
+        projection_pushdown=None,
+        predicate_pushdown=None,
+        deferred_predicate=_PRESERVE_DEFERRED_PREDICATE,
+    ):
         """Create a new wrapper of the same concrete type."""
         return type(self)(
             base_lf,
@@ -3626,25 +3618,22 @@ class AnnotationLazyFrameWrapper:
                 if predicate_pushdown is not None
                 else self._predicate_pushdown
             ),
+            (
+                self._deferred_predicate
+                if deferred_predicate is self._PRESERVE_DEFERRED_PREDICATE
+                else deferred_predicate
+            ),
         )
 
     def select(self, exprs):
-        # Extract requested column names
-        columns = []
-        try:
-            if isinstance(exprs, (list, tuple)):
-                for e in exprs:
-                    if isinstance(e, str):
-                        columns.append(e)
-                    elif hasattr(e, "meta") and hasattr(e.meta, "output_name"):
-                        columns.append(e.meta.output_name())
-            else:
-                if isinstance(exprs, str):
-                    columns = [exprs]
-                elif hasattr(exprs, "meta") and hasattr(exprs.meta, "output_name"):
-                    columns = [exprs.meta.output_name()]
-        except Exception:
-            columns = []
+        # Source columns the projection needs (root names, NOT output names).
+        # An aliased/computed expression like (pl.col("start") + 1).alias("s1")
+        # needs the SOURCE column "start"; the alias/computation is applied
+        # client-side over the original ``exprs`` and must never be mistaken for
+        # a (here: attribute) column name to re-register the reader with.
+        from .pushdown import extract_source_columns
+
+        columns, _proj_complete = extract_source_columns(exprs)
 
         STATIC = {
             "chrom",
@@ -3657,7 +3646,9 @@ class AnnotationLazyFrameWrapper:
             "phase",
             "attributes",
         }
-        attr_cols = [c for c in columns if c not in STATIC]
+        predicate_columns = self._extract_predicate_column_names()
+        scan_columns = list(dict.fromkeys(columns + predicate_columns))
+        attr_cols = [c for c in scan_columns if c not in STATIC]
 
         # If selecting attribute fields, run one-shot SQL projection with proper attr_fields
         if columns and (attr_cols or "attributes" in columns):
@@ -3665,11 +3656,7 @@ class AnnotationLazyFrameWrapper:
             from polars_bio.polars_bio import GtfReadOptions as _GtfReadOptions
             from polars_bio.polars_bio import InputFormat as _InputFormat
             from polars_bio.polars_bio import ReadOptions as _ReadOptions
-            from polars_bio.polars_bio import (
-                py_read_table,
-                py_register_table,
-                py_register_view,
-            )
+            from polars_bio.polars_bio import py_read_table, py_register_table
 
             from .context import ctx
 
@@ -3689,7 +3676,18 @@ class AnnotationLazyFrameWrapper:
 
             obj = _extract_py_object_storage_options(self._read_options)
 
-            if "attributes" in columns:
+            # ``scan_columns`` (projection + deferred-predicate roots) may need
+            # both the raw nested ``attributes`` column and parsed attribute
+            # fields at once, e.g.
+            #   scan_gff(...).filter(pl.col("attributes")...).select("ID")
+            #   scan_gff(..., attr_fields=["ID"]).filter(pl.col("ID")...).select("attributes")
+            # The reader supports the "attributes" sentinel: including it in
+            # ``attr_fields`` emits the nested ``attributes`` column alongside
+            # the flattened fields in a single registration.
+            needs_raw_attributes = "attributes" in scan_columns
+            if needs_raw_attributes and attr_cols:
+                _attr = attr_cols + ["attributes"]
+            elif needs_raw_attributes:
                 _attr = None
             elif attr_cols:
                 _attr = attr_cols
@@ -3713,38 +3711,58 @@ class AnnotationLazyFrameWrapper:
 
             table = py_register_table(ctx, self._file_path, None, input_fmt, ropts)
 
-            # Extract WHERE clause from existing LazyFrame if it has filters applied
-            where_clause = ""
-            try:
-                logical_plan_str = str(self._base_lf.explain(optimized=False))
-                if "FILTER" in logical_plan_str:
-                    where_clause = self._extract_sql_where_clause(logical_plan_str)
-            except Exception:
-                pass
+            query_df = py_read_table(ctx, table.name)
+            datafusion_predicate_applied = False
+            if self._predicate_pushdown and self._deferred_predicate is not None:
+                from .pushdown import apply_predicate_pushdown
 
-            import uuid
+                _fmt_key = str(input_fmt).rsplit(".", 1)[-1]
+                _scols, _ucols, _fcols = _FORMAT_COLUMN_TYPES.get(
+                    _fmt_key, (None, None, None)
+                )
+                query_df, _needs_client = apply_predicate_pushdown(
+                    query_df,
+                    self._deferred_predicate,
+                    {
+                        "string_cols": _scols,
+                        "uint32_cols": _ucols,
+                        "float32_cols": _fcols,
+                    },
+                    log=logger,
+                )
+                datafusion_predicate_applied = not _needs_client
 
-            select_clause = ", ".join([f'"{c}"' for c in columns])
-            view_name = f"{self._config['view_prefix']}{uuid.uuid4().hex}"
-            quoted_table = _quote_sql_identifier(table.name)
-            sql_query = f"SELECT {select_clause} FROM {quoted_table}"
-
-            if where_clause:
-                sql_query += f" WHERE {where_clause}"
-
-            py_register_view(ctx, view_name, sql_query)
-            df_view = py_read_table(ctx, view_name)
+            # SQL-level column pruning: keep the projection's source columns,
+            # plus the predicate roots when the filter is reapplied client-side.
+            datafusion_columns = (
+                columns if datafusion_predicate_applied else scan_columns
+            )
+            if datafusion_columns:
+                select_exprs = [
+                    query_df.parse_sql_expr(f'"{c}"') for c in datafusion_columns
+                ]
+                query_df = query_df.select(*select_exprs)
 
             new_lf = _lazy_scan(
-                df_view,
+                query_df,
                 False,
-                self._predicate_pushdown,
-                view_name,
+                False,
+                table.name,
                 input_fmt,
                 self._file_path,
                 self._read_options,
             )
-            return self._make_wrapper(new_lf, projection_pushdown=False)
+            if (
+                self._deferred_predicate is not None
+                and not datafusion_predicate_applied
+            ):
+                new_lf = new_lf.filter(self._deferred_predicate)
+            # Apply the ORIGINAL projection client-side so aliases and computed
+            # expressions resolve correctly (the scan above only pruned columns).
+            new_lf = new_lf.select(exprs)
+            return self._make_wrapper(
+                new_lf, projection_pushdown=False, deferred_predicate=None
+            )
 
         # Otherwise delegate to Polars
         return self._make_wrapper(self._base_lf.select(exprs))
@@ -3755,88 +3773,22 @@ class AnnotationLazyFrameWrapper:
         pred = predicates[0]
         for p in predicates[1:]:
             pred = pred & p
-        return self._make_wrapper(self._base_lf.filter(pred))
+        deferred_predicate = (
+            pred
+            if self._deferred_predicate is None
+            else self._deferred_predicate & pred
+        )
+        return self._make_wrapper(
+            self._base_lf.filter(pred), deferred_predicate=deferred_predicate
+        )
 
-    def _extract_sql_where_clause(self, logical_plan_str):
-        """Extract SQL WHERE clause from Polars logical plan string."""
-        import re
-
-        selection_match = re.search(r"SELECTION:\s*(.+)", logical_plan_str)
-        if selection_match:
-            selection_expr = selection_match.group(1).strip()
-            try:
-                return _build_sql_where_from_predicate_safe(selection_expr)
-            except Exception:
-                pass
-
-        filter_lines = []
-        for line in logical_plan_str.split("\n"):
-            if "FILTER" in line and "[" in line:
-                filter_lines.append(line.strip())
-
-        if not filter_lines:
-            return ""
-
-        all_conditions = []
-        for line in filter_lines:
-            match = re.search(r"FILTER\s+\[(.+?)\]", line)
-            if match:
-                condition = match.group(1)
-                try:
-                    sql_condition = _build_sql_where_from_predicate_safe(condition)
-                    if sql_condition:
-                        all_conditions.append(sql_condition)
-                except Exception:
-                    continue
-
-        if all_conditions:
-            return " AND ".join(all_conditions)
-
-        return ""
-
-    def _parse_filter_expression(self, filter_expr):
-        """Parse filter expression string to SQL WHERE clause."""
-        import re
-
-        conditions = []
-
-        str_patterns = [
-            r'col\("([^"]+)"\)\.eq\(lit\("([^"]*)"\)\)',
-            r'col\("([^"]+)"\)\s*==\s*"([^"]*)"',
-        ]
-        for pat in str_patterns:
-            for column, value in re.findall(pat, filter_expr):
-                conditions.append(f"\"{column}\" = '{value}'")
-
-        numeric_patterns = [
-            (r'col\("([^"]+)"\)\.gt\(lit\((\d+)\)\)', ">"),
-            (r'col\("([^"]+)"\)\.lt\(lit\((\d+)\)\)', "<"),
-            (r'col\("([^"]+)"\)\.gt_eq\(lit\((\d+)\)\)', ">="),
-            (r'col\("([^"]+)"\)\.lt_eq\(lit\((\d+)\)\)', "<="),
-            (r'col\("([^"]+)"\)\.neq\(lit\((\d+)\)\)', "!="),
-            (r'col\("([^"]+)"\)\.eq\(lit\((\d+)\)\)', "="),
-            (r'col\("([^"]+)"\)\s*>\s*(\d+)', ">"),
-            (r'col\("([^"]+)"\)\s*<\s*(\d+)', "<"),
-            (r'col\("([^"]+)"\)\s*>=\s*(\d+)', ">="),
-            (r'col\("([^"]+)"\)\s*<=\s*(\d+)', "<="),
-            (r'col\("([^"]+)"\)\s*!=\s*(\d+)', "!="),
-            (r'col\("([^"]+)"\)\s*==\s*(\d+)', "="),
-        ]
-
-        for pattern, op in numeric_patterns:
-            matches = re.findall(pattern, filter_expr)
-            for column, value in matches:
-                conditions.append(f'"{column}" {op} {value}')
-
-        if conditions:
-            return " AND ".join(conditions)
-
+    def _extract_predicate_column_names(self):
+        if self._deferred_predicate is None:
+            return []
         try:
-            return _build_sql_where_from_predicate_safe(filter_expr)
+            return list(self._deferred_predicate.meta.root_names())
         except Exception:
-            pass
-
-        return ""
+            return []
 
     def __getattr__(self, name):
         return getattr(self._base_lf, name)
@@ -3850,6 +3802,7 @@ class GffLazyFrameWrapper(AnnotationLazyFrameWrapper):
         read_options,
         projection_pushdown=True,
         predicate_pushdown=True,
+        deferred_predicate=None,
     ):
         super().__init__(
             base_lf,
@@ -3858,6 +3811,7 @@ class GffLazyFrameWrapper(AnnotationLazyFrameWrapper):
             projection_pushdown,
             predicate_pushdown,
             "gff",
+            deferred_predicate,
         )
 
 
@@ -3869,6 +3823,7 @@ class GtfLazyFrameWrapper(AnnotationLazyFrameWrapper):
         read_options,
         projection_pushdown=True,
         predicate_pushdown=True,
+        deferred_predicate=None,
     ):
         super().__init__(
             base_lf,
@@ -3877,4 +3832,5 @@ class GtfLazyFrameWrapper(AnnotationLazyFrameWrapper):
             projection_pushdown,
             predicate_pushdown,
             "gtf",
+            deferred_predicate,
         )
