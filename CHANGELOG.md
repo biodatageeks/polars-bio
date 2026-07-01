@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Optional **jemalloc** global allocator behind the `jemalloc` Cargo feature (#402).
+  Off by default; enable with `maturin build --features jemalloc` on Linux/macOS
+  (no-op on Windows/MSVC, which keeps the system allocator). On the single-thread
+  interval-operation benchmark suite jemalloc was ~12% faster with equal-or-lower
+  peak memory than the default system allocator.
+
 ## [0.32.0] - 2026-06-30
 
 ### Added
