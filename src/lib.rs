@@ -6,6 +6,13 @@ mod scan;
 mod utils;
 mod write;
 
+// Opt-in jemalloc global allocator (issue #402), enabled with `--features jemalloc`.
+// Excluded on Windows/MSVC, where tikv-jemallocator is unsupported; that target keeps
+// the system allocator.
+#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 use std::string::ToString;
 use std::sync::Arc;
 
