@@ -2,82 +2,171 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a streaming `fastqc(path, modules?)` DataFusion table function computing four FastQC modules (Basic Statistics, Per-Base Sequence Quality, Per-Sequence GC Content, Sequence Duplication Levels) over the existing FASTQ `TableProvider`, exposed as a tidy Arrow stream in SQL and as `pb.fastqc(...)` in Python, plus a parity harness (vs FastQC) and a benchmark harness (vs RastQC).
+**Goal:** Ship a streaming `fastqc(path, modules?)` DataFusion table function computing four FastQC modules (Basic Statistics, Per-Base Sequence Quality, Per-Sequence GC Content, Sequence Duplication Levels), exposed as a tidy Arrow stream in SQL and as `pb.fastqc(...)` in Python, plus a parity harness (vs FastQC) and a benchmark harness (vs RastQC).
 
-**Architecture:** New in-repo Rust module tree `src/fastqc/` holds per-module accumulators implementing a `QcModule` trait (`update`/`merge`/`finalize`, mirroring RastQC's `process_sequence`/`merge_from`/`calculate_results`). A `FastqcExec` `ExecutionPlan` accumulates each input partition independently, merges the partition states, and finalizes one **tidy** `RecordBatch` (`module,label,position,metric,value,value_str`). A `FastqcTableProvider` wraps the datafusion-bio-format-fastq `FastqTableProvider` and projects only `sequence,quality_scores`; a `FastqcFunction` UDTF registers it as `fastqc(...)`. A PyO3 `py_register_fastqc_table` + a `FastQCResult` Python wrapper pivot the tidy stream into typed per-module LazyFrames.
+**Architecture:** Follows the **pileup precedent** exactly. The algorithm + physical operator live **upstream** in a new `datafusion-bio-function-fastqc` crate (parallel to `datafusion-bio-function-pileup`): per-module accumulators implement a `QcModule` trait (`update`/`merge`/`finalize`, mirroring RastQC's `process_sequence`/`merge_from`/`calculate_results`), and a `FastqcExec` `ExecutionPlan` accumulates each input partition independently, merges the partition states, and finalizes one **tidy** `RecordBatch` (`module,label,position,metric,value,value_str`). polars-bio holds only the thin glue (like `src/pileup.rs`): a `FastqcTableProvider` + `FastqcFunction` UDTF reusing polars-bio's own `FastqTableProvider`, a PyO3 binding, and the `FastQCResult` Python wrapper.
 
-**Tech Stack:** Rust (DataFusion 53.0.0, arrow 58.3.0, PyO3/maturin), `datafusion-bio-format-fastq` v1.8.6, Python 3.12, Polars, PyArrow, pytest.
+**Tech Stack:** Rust (DataFusion `=53.0.0`, edition 2024, PyO3/maturin), `datafusion-bio-format-fastq` v1.8.6, Python 3.12, Polars, PyArrow, pytest.
+
+**Repos (two working trees):**
+- **polars-bio** (this repo): `/Users/mwiewior/research/git/polars-bio` — branch `feat/fastqc-phase1`.
+- **bio-functions** (upstream): `/Users/mwiewior/research/git/datafusion-bio-functions` — referred to below as `<BF>`. Create a matching branch there.
 
 ## Global Constraints
 
-- DataFusion pinned to `=53.0.0`; arrow/arrow-schema/arrow-array `58.3.0`. Do not bump.
-- Rust accumulator logic lives **in-repo** under `src/fastqc/` for Phase 1 (extraction to an upstream `datafusion-bio-function-fastqc` crate is a later refactor, out of scope here).
+- DataFusion pinned to `=53.0.0` in both repos. Do not bump. arrow is consumed via `datafusion::arrow::{array,datatypes,error}` re-exports (NOT standalone `arrow_*` crates) inside the upstream crate — matches `datafusion-bio-function-pileup`.
+- Upstream crate edition is `2024` (workspace default). polars-bio glue stays edition-consistent with its existing crate.
 - FASTQ input only. Input provider is `datafusion_bio_format_fastq::table_provider::FastqTableProvider`; its schema exposes `name`, `sequence`, `quality_scores` (all Utf8). The QC operator consumes only `sequence` and `quality_scores`.
 - Tidy output schema is FIXED regardless of `modules`: `module: Utf8`, `label: Utf8 (nullable)`, `position: Int32 (nullable)`, `metric: Utf8`, `value: Float64 (nullable)`, `value_str: Utf8 (nullable)`.
 - Phred offset is 33 (Sanger/Illumina 1.8+); Phase 1 assumes offset 33.
 - Module names (exact string keys): `basic_stats`, `per_base_quality`, `per_seq_gc`, `dup_levels`.
 - `modules=None` → all modules; a list → that subset. Accessing a non-computed module in Python **raises `KeyError`**.
-- Build the Python wheel with `maturin develop --release`; Rust-only checks with `cargo check` / `cargo test`.
-- Match FastQC defaults in the harness (`--nogroup` for exact per-position parity; k-mer size irrelevant for Phase 1 modules).
+- **Local dev vs release:** during Phase 1 polars-bio depends on the upstream crate via a **local path dependency** for fast iteration (no tag-cutting). This is a DEV-ONLY state — before the branch merges, the crate must be tagged upstream and the dep switched to `git = ".../datafusion-bio-functions.git", tag = "vX.Y.Z"`. Flagged again in the Self-Review.
+- Build the Python wheel with `maturin develop --release`; Rust-only checks with `cargo test`/`cargo check`.
+- Match FastQC defaults in the harness (`--nogroup` for exact per-position parity).
 
 ---
 
 ## File Structure
 
-**Rust (create):**
-- `src/fastqc/mod.rs` — module exports, `QcModule` trait, `TidyRow`, tidy schema, `ModuleSet`, module registry/selection.
-- `src/fastqc/basic_stats.rs` — `BasicStats` accumulator.
-- `src/fastqc/per_base_quality.rs` — `PerBaseQuality` accumulator.
-- `src/fastqc/per_seq_gc.rs` — `PerSeqGc` accumulator.
-- `src/fastqc/dup_levels.rs` — `DuplicationLevels` accumulator.
-- `src/fastqc/exec.rs` — `FastqcExec` (`ExecutionPlan`).
-- `src/fastqc/provider.rs` — `FastqcTableProvider` + `FastqcFunction` (UDTF).
+**Upstream crate — create under `<BF>/datafusion/bio-function-fastqc/`:**
+- `Cargo.toml` — new workspace member.
+- `src/lib.rs` — `QcModule` trait, `TidyRow`, `tidy_schema`, `ModuleSet`, `ALL_MODULES`, module registry/selection, module declarations, `pub use physical_exec::FastqcExec`.
+- `src/basic_stats.rs` — `BasicStats`.
+- `src/per_base_quality.rs` — `PerBaseQuality`.
+- `src/per_seq_gc.rs` — `PerSeqGc`.
+- `src/dup_levels.rs` — `DuplicationLevels`.
+- `src/physical_exec.rs` — `FastqcExec` (`ExecutionPlan`).
 
-**Rust (modify):**
-- `src/lib.rs` — add `mod fastqc;`, add `py_register_fastqc_table` pyfunction to the module.
+**Upstream — modify:**
+- `<BF>/Cargo.toml` — add `"datafusion/bio-function-fastqc"` to `members`.
+
+**polars-bio — create:**
+- `src/fastqc.rs` — `FastqcTableProvider` + `FastqcFunction` (UDTF glue; mirrors `src/pileup.rs`).
+- `polars_bio/fastqc_op.py` — `FastQCOperations` + `FastQCResult`.
+
+**polars-bio — modify:**
+- `Cargo.toml` — add local path dep on `datafusion-bio-function-fastqc`.
+- `src/lib.rs` — add `mod fastqc;` + `py_register_fastqc_table` pyfunction + module registration.
 - `src/context.rs` — register the `fastqc` UDTF.
-
-**Python (create):**
-- `polars_bio/fastqc_op.py` — `FastQCOperations` (`fastqc(...)`) + `FastQCResult`.
-
-**Python (modify):**
 - `polars_bio/__init__.py` — expose `fastqc`.
 
-**Tests (create):**
+**Tests — create (polars-bio):**
 - `tests/test_fastqc.py` — Python integration tests.
-- `benchmarks/fastqc/parity.py` — three-way parity harness (vs FastQC / RastQC).
+- `benchmarks/fastqc/parity.py` — parity harness (vs FastQC/RastQC).
 - `benchmarks/fastqc/bench.py` — benchmark harness (vs RastQC).
-- `tests/test_fastqc_parity.py` — opt-in parity test (skips if `fastqc`/`rastqc` binaries absent).
+- `tests/test_fastqc_parity.py` — opt-in parity test.
 
-Rust unit tests live inline (`#[cfg(test)]`) in each accumulator file.
+Rust unit tests live inline (`#[cfg(test)]`) in each crate source file.
+
+---
+
+### Task 0: Scaffold the `datafusion-bio-function-fastqc` crate + wire the local dep
+
+**Files:**
+- Create: `<BF>/datafusion/bio-function-fastqc/Cargo.toml`, `<BF>/datafusion/bio-function-fastqc/src/lib.rs`
+- Modify: `<BF>/Cargo.toml` (workspace members), polars-bio `Cargo.toml` (path dep)
+
+**Interfaces:**
+- Produces: an empty but compiling `datafusion_bio_function_fastqc` crate, reachable from polars-bio as a path dependency.
+
+- [ ] **Step 1: Create a branch upstream**
+
+Run:
+```bash
+git -C /Users/mwiewior/research/git/datafusion-bio-functions checkout -b feat/fastqc-phase1
+```
+Expected: `Switched to a new branch 'feat/fastqc-phase1'`.
+
+- [ ] **Step 2: Add the workspace member**
+
+In `/Users/mwiewior/research/git/datafusion-bio-functions/Cargo.toml`, change the `members` line to include the new crate:
+
+```toml
+members = ["datafusion/bio-function-pileup", "datafusion/bio-function-ranges", "datafusion/bio-function-vep", "datafusion/bio-function-fastqc"]
+```
+
+- [ ] **Step 3: Create the crate `Cargo.toml`**
+
+Write `/Users/mwiewior/research/git/datafusion-bio-functions/datafusion/bio-function-fastqc/Cargo.toml`:
+
+```toml
+[package]
+name = "datafusion-bio-function-fastqc"
+version = "0.11.0"
+description = "Streaming FastQC quality-control modules for Apache DataFusion"
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+edition.workspace = true
+
+[dependencies]
+datafusion.workspace = true
+futures.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+```
+
+- [ ] **Step 4: Create a placeholder `src/lib.rs`**
+
+Write `/Users/mwiewior/research/git/datafusion-bio-functions/datafusion/bio-function-fastqc/src/lib.rs`:
+
+```rust
+//! Streaming FastQC quality-control modules for Apache DataFusion.
+```
+
+- [ ] **Step 5: Verify the empty crate compiles**
+
+Run: `cargo build -p datafusion-bio-function-fastqc --manifest-path /Users/mwiewior/research/git/datafusion-bio-functions/Cargo.toml 2>&1 | tail -10`
+Expected: `Finished` (no errors).
+
+- [ ] **Step 6: Add the local path dependency in polars-bio**
+
+In `/Users/mwiewior/research/git/polars-bio/Cargo.toml`, next to the other `datafusion-bio-function-*` deps (~line 43-44), add:
+
+```toml
+# DEV-ONLY local path dep for Phase 1. Switch to git tag before merge.
+datafusion-bio-function-fastqc = { path = "../datafusion-bio-functions/datafusion/bio-function-fastqc" }
+```
+
+- [ ] **Step 7: Verify polars-bio still resolves the dep graph**
+
+Run: `cargo check 2>&1 | tail -15`
+Expected: `Finished` (the new path dep resolves; nothing uses it yet).
+
+- [ ] **Step 8: Commit (both repos)**
+
+```bash
+git -C /Users/mwiewior/research/git/datafusion-bio-functions add Cargo.toml datafusion/bio-function-fastqc
+git -C /Users/mwiewior/research/git/datafusion-bio-functions commit -m "feat(fastqc): scaffold datafusion-bio-function-fastqc crate"
+git add Cargo.toml
+git commit -m "build(fastqc): add local path dep on datafusion-bio-function-fastqc (dev-only)"
+```
 
 ---
 
 ### Task 1: `QcModule` trait, `TidyRow`, and `BasicStats` accumulator
 
-**Files:**
-- Create: `src/fastqc/mod.rs`, `src/fastqc/basic_stats.rs`
-- Modify: `src/lib.rs:1-7` (add `mod fastqc;`)
-- Test: inline `#[cfg(test)]` in `src/fastqc/basic_stats.rs`
+**Files (upstream crate):**
+- Modify: `<BF>/datafusion/bio-function-fastqc/src/lib.rs`
+- Create: `<BF>/datafusion/bio-function-fastqc/src/basic_stats.rs`
+- Test: inline `#[cfg(test)]` in `basic_stats.rs`
 
 **Interfaces:**
 - Produces:
   - `pub struct TidyRow { pub module: &'static str, pub label: Option<String>, pub position: Option<i32>, pub metric: String, pub value: Option<f64>, pub value_str: Option<String> }`
   - `pub trait QcModule: Send { fn name(&self) -> &'static str; fn update(&mut self, seq: &[u8], qual: &[u8]); fn merge(&mut self, other: &dyn QcModule); fn finalize(&self, out: &mut Vec<TidyRow>); fn as_any(&self) -> &dyn std::any::Any; }`
-  - `pub struct BasicStats { … }` implementing `QcModule` with `pub fn new() -> Self`.
+  - `pub struct BasicStats` implementing `QcModule`, `pub fn new() -> Self`.
 
-- [ ] **Step 1: Add the module tree to the crate**
+- [ ] **Step 1: Write the trait + TidyRow into `src/lib.rs`**
 
-In `src/lib.rs`, add after `mod context;` (line 1 region):
-
-```rust
-mod fastqc;
-```
-
-- [ ] **Step 2: Write `src/fastqc/mod.rs` (trait + TidyRow only for now)**
+Replace the placeholder `src/lib.rs` content with:
 
 ```rust
-//! Streaming FastQC modules computed over the FASTQ TableProvider stream.
+//! Streaming FastQC quality-control modules for Apache DataFusion.
+//!
 //! Each module implements `QcModule` (update/merge/finalize), mirroring
 //! RastQC's process_sequence/merge_from/calculate_results.
 
@@ -120,12 +209,12 @@ pub trait QcModule: Send {
 }
 ```
 
-- [ ] **Step 3: Write the failing test in `src/fastqc/basic_stats.rs`**
+- [ ] **Step 2: Write the failing test in `src/basic_stats.rs`**
 
 ```rust
 use std::any::Any;
 
-use super::{QcModule, TidyRow};
+use crate::{QcModule, TidyRow};
 
 #[cfg(test)]
 mod tests {
@@ -144,19 +233,18 @@ mod tests {
         assert_eq!(get("min_len"), 4.0);
         assert_eq!(get("max_len"), 6.0);
         assert_eq!(get("total_bases"), 10.0);
-        // GC% = (2 + 5) / 10 * 100 = 70.0
-        assert!((get("gc_pct") - 70.0).abs() < 1e-9);
+        assert!((get("gc_pct") - 70.0).abs() < 1e-9); // (2+5)/10*100
         assert!(rows.iter().any(|r| r.metric == "status" && r.value_str.as_deref() == Some("PASS")));
     }
 }
 ```
 
-- [ ] **Step 4: Run it and confirm it fails to compile (BasicStats missing)**
+- [ ] **Step 3: Run it and confirm it fails to compile (BasicStats missing)**
 
-Run: `cargo test --lib fastqc::basic_stats 2>&1 | head -20`
+Run: `cargo test -p datafusion-bio-function-fastqc --manifest-path /Users/mwiewior/research/git/datafusion-bio-functions/Cargo.toml basic_stats 2>&1 | head -20`
 Expected: FAIL — `cannot find type BasicStats`.
 
-- [ ] **Step 5: Implement `BasicStats` above the test module in `src/fastqc/basic_stats.rs`**
+- [ ] **Step 4: Implement `BasicStats` above the test module in `src/basic_stats.rs`**
 
 ```rust
 /// FastQC "Basic Statistics": read count, length range, total bases, GC%.
@@ -231,42 +319,42 @@ impl QcModule for BasicStats {
 }
 ```
 
-- [ ] **Step 6: Run the test and confirm it passes**
+- [ ] **Step 5: Run the test and confirm it passes**
 
-Run: `cargo test --lib fastqc::basic_stats 2>&1 | tail -20`
+Run: `cargo test -p datafusion-bio-function-fastqc --manifest-path /Users/mwiewior/research/git/datafusion-bio-functions/Cargo.toml basic_stats 2>&1 | tail -20`
 Expected: PASS (1 test).
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit (upstream)**
 
 ```bash
-git add src/lib.rs src/fastqc/mod.rs src/fastqc/basic_stats.rs
-git commit -m "feat(fastqc): QcModule trait + BasicStats accumulator"
+git -C /Users/mwiewior/research/git/datafusion-bio-functions add datafusion/bio-function-fastqc/src
+git -C /Users/mwiewior/research/git/datafusion-bio-functions commit -m "feat(fastqc): QcModule trait + BasicStats accumulator"
 ```
 
 ---
 
 ### Task 2: `PerBaseQuality` accumulator
 
-**Files:**
-- Create: `src/fastqc/per_base_quality.rs`
-- Modify: `src/fastqc/mod.rs` (add `pub mod per_base_quality;`)
-- Test: inline in `src/fastqc/per_base_quality.rs`
+**Files (upstream crate):**
+- Create: `<BF>/datafusion/bio-function-fastqc/src/per_base_quality.rs`
+- Modify: `src/lib.rs` (add `pub mod per_base_quality;`)
+- Test: inline
 
 **Interfaces:**
-- Produces: `pub struct PerBaseQuality { … }` impl `QcModule`, `pub fn new() -> Self`. Emits, per 1-based `position`, six rows `metric ∈ {mean, median, q1, q3, p10, p90}`, plus one `status` row.
+- Produces: `pub struct PerBaseQuality` impl `QcModule`, `pub fn new() -> Self`. Emits per 1-based `position` six rows `metric ∈ {mean, median, q1, q3, p10, p90}`, plus one `status` row.
 
-- [ ] **Step 1: Register the submodule** in `src/fastqc/mod.rs`, after `pub mod basic_stats;`:
+- [ ] **Step 1: Register the submodule** in `src/lib.rs`, after `pub mod basic_stats;`:
 
 ```rust
 pub mod per_base_quality;
 ```
 
-- [ ] **Step 2: Write the failing test in `src/fastqc/per_base_quality.rs`**
+- [ ] **Step 2: Write the failing test in `src/per_base_quality.rs`**
 
 ```rust
 use std::any::Any;
 
-use super::{QcModule, TidyRow};
+use crate::{QcModule, TidyRow};
 
 #[cfg(test)]
 mod tests {
@@ -275,26 +363,23 @@ mod tests {
     #[test]
     fn per_base_quality_mean_per_position() {
         let mut m = PerBaseQuality::new();
-        // qualities '!' = phred 0, 'I' = phred 40, '5' = phred 20
+        // '!' = phred 0, 'I' = phred 40, '5' = phred 20
         m.update(b"AA", b"!I"); // pos1 -> 0, pos2 -> 40
         m.update(b"AA", b"I5"); // pos1 -> 40, pos2 -> 20
         let mut rows = Vec::new();
         m.finalize(&mut rows);
         let mean_at = |pos: i32| {
-            rows.iter()
-                .find(|r| r.position == Some(pos) && r.metric == "mean")
-                .and_then(|r| r.value)
-                .unwrap()
+            rows.iter().find(|r| r.position == Some(pos) && r.metric == "mean").and_then(|r| r.value).unwrap()
         };
-        assert!((mean_at(1) - 20.0).abs() < 1e-9); // (0+40)/2
-        assert!((mean_at(2) - 30.0).abs() < 1e-9); // (40+20)/2
+        assert!((mean_at(1) - 20.0).abs() < 1e-9);
+        assert!((mean_at(2) - 30.0).abs() < 1e-9);
     }
 }
 ```
 
 - [ ] **Step 3: Confirm it fails**
 
-Run: `cargo test --lib fastqc::per_base_quality 2>&1 | head -20`
+Run: `cargo test -p datafusion-bio-function-fastqc --manifest-path /Users/mwiewior/research/git/datafusion-bio-functions/Cargo.toml per_base_quality 2>&1 | head -20`
 Expected: FAIL — `cannot find type PerBaseQuality`.
 
 - [ ] **Step 4: Implement `PerBaseQuality`**
@@ -323,8 +408,7 @@ impl PerBaseQuality {
     }
 }
 
-/// Linear-interpolation-free percentile over an integer histogram, matching
-/// FastQC's "nth value" convention (the value at the ceil(p*N)-th observation).
+/// FastQC "nth value" percentile over an integer histogram.
 fn percentile(hist: &[u64; QUAL_MAX], total: u64, p: f64) -> f64 {
     if total == 0 {
         return 0.0;
@@ -387,7 +471,6 @@ impl QcModule for PerBaseQuality {
                 out.push(TidyRow { module: m, label: None, position: Some(pos), metric: metric.to_string(), value: Some(v), value_str: None });
             }
         }
-        // FastQC status: fail if any lower-quartile<5 or median<20; warn if <10 or <25.
         let status = if worst_q1 < 5.0 || worst_median < 20.0 {
             "FAIL"
         } else if worst_q1 < 10.0 || worst_median < 25.0 {
@@ -404,38 +487,38 @@ impl QcModule for PerBaseQuality {
 }
 ```
 
-- [ ] **Step 5: Run the test and confirm it passes**
+- [ ] **Step 5: Run and confirm pass**
 
-Run: `cargo test --lib fastqc::per_base_quality 2>&1 | tail -20`
+Run: `cargo test -p datafusion-bio-function-fastqc --manifest-path /Users/mwiewior/research/git/datafusion-bio-functions/Cargo.toml per_base_quality 2>&1 | tail -20`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/fastqc/mod.rs src/fastqc/per_base_quality.rs
-git commit -m "feat(fastqc): PerBaseQuality accumulator"
+git -C /Users/mwiewior/research/git/datafusion-bio-functions add datafusion/bio-function-fastqc/src
+git -C /Users/mwiewior/research/git/datafusion-bio-functions commit -m "feat(fastqc): PerBaseQuality accumulator"
 ```
 
 ---
 
 ### Task 3: `PerSeqGc` accumulator
 
-**Files:**
-- Create: `src/fastqc/per_seq_gc.rs`
-- Modify: `src/fastqc/mod.rs` (add `pub mod per_seq_gc;`)
+**Files (upstream crate):**
+- Create: `<BF>/datafusion/bio-function-fastqc/src/per_seq_gc.rs`
+- Modify: `src/lib.rs` (add `pub mod per_seq_gc;`)
 - Test: inline
 
 **Interfaces:**
-- Produces: `pub struct PerSeqGc { … }` impl `QcModule`, `pub fn new() -> Self`. Emits one row per GC% bin `0..=100` with `position = gc_bin`, `metric = "count"`, plus a `status` row.
+- Produces: `pub struct PerSeqGc` impl `QcModule`, `pub fn new() -> Self`. Emits one row per GC% bin `0..=100` with `position = gc_bin`, `metric = "count"`, plus a `status` row.
 
-- [ ] **Step 1: Register submodule** in `src/fastqc/mod.rs`: `pub mod per_seq_gc;`
+- [ ] **Step 1: Register submodule** in `src/lib.rs`: `pub mod per_seq_gc;`
 
-- [ ] **Step 2: Failing test in `src/fastqc/per_seq_gc.rs`**
+- [ ] **Step 2: Failing test in `src/per_seq_gc.rs`**
 
 ```rust
 use std::any::Any;
 
-use super::{QcModule, TidyRow};
+use crate::{QcModule, TidyRow};
 
 #[cfg(test)]
 mod tests {
@@ -444,16 +527,13 @@ mod tests {
     #[test]
     fn per_seq_gc_bins_reads() {
         let mut m = PerSeqGc::new();
-        m.update(b"GGCC", b"IIII"); // 100% GC -> bin 100
-        m.update(b"ATAT", b"IIII"); // 0% GC   -> bin 0
-        m.update(b"ATGC", b"IIII"); // 50% GC  -> bin 50
+        m.update(b"GGCC", b"IIII"); // 100% -> bin 100
+        m.update(b"ATAT", b"IIII"); // 0%   -> bin 0
+        m.update(b"ATGC", b"IIII"); // 50%  -> bin 50
         let mut rows = Vec::new();
         m.finalize(&mut rows);
         let count_at = |bin: i32| {
-            rows.iter()
-                .find(|r| r.position == Some(bin) && r.metric == "count")
-                .and_then(|r| r.value)
-                .unwrap_or(0.0)
+            rows.iter().find(|r| r.position == Some(bin) && r.metric == "count").and_then(|r| r.value).unwrap_or(0.0)
         };
         assert_eq!(count_at(0), 1.0);
         assert_eq!(count_at(50), 1.0);
@@ -464,7 +544,7 @@ mod tests {
 
 - [ ] **Step 3: Confirm it fails**
 
-Run: `cargo test --lib fastqc::per_seq_gc 2>&1 | head -20`
+Run: `cargo test -p datafusion-bio-function-fastqc --manifest-path /Users/mwiewior/research/git/datafusion-bio-functions/Cargo.toml per_seq_gc 2>&1 | head -20`
 Expected: FAIL — `cannot find type PerSeqGc`.
 
 - [ ] **Step 4: Implement `PerSeqGc`**
@@ -473,7 +553,6 @@ Expected: FAIL — `cannot find type PerSeqGc`.
 /// FastQC "Per Sequence GC Content": distribution of per-read GC% over 0..=100.
 #[derive(Debug)]
 pub struct PerSeqGc {
-    /// bins[g] = number of reads whose rounded GC% == g
     bins: [u64; 101],
 }
 
@@ -507,14 +586,14 @@ impl QcModule for PerSeqGc {
                     counted += 1;
                 },
                 b'A' | b'a' | b'T' | b't' | b'U' | b'u' => counted += 1,
-                _ => {}, // N and others excluded from the denominator, matching FastQC
+                _ => {}, // N excluded from denominator, matching FastQC
             }
         }
         if counted == 0 {
             return;
         }
         let pct = (gc as f64 / counted as f64) * 100.0;
-        let bin = pct.round() as usize; // 0..=100
+        let bin = pct.round() as usize;
         self.bins[bin.min(100)] += 1;
     }
 
@@ -531,8 +610,8 @@ impl QcModule for PerSeqGc {
             out.push(TidyRow { module: m, label: None, position: Some(g as i32), metric: "count".to_string(), value: Some(c as f64), value_str: None });
         }
         // Phase-1 status: PASS. Exact FastQC theoretical-distribution status
-        // (warn>15% / fail>30% deviation) is validated as a follow-up; the
-        // parity harness checks the count distribution, which is exact here.
+        // is a follow-up; the parity harness checks the count distribution,
+        // which is exact here.
         out.push(TidyRow::status(m, "PASS"));
     }
 
@@ -544,37 +623,37 @@ impl QcModule for PerSeqGc {
 
 - [ ] **Step 5: Run and confirm pass**
 
-Run: `cargo test --lib fastqc::per_seq_gc 2>&1 | tail -20`
+Run: `cargo test -p datafusion-bio-function-fastqc --manifest-path /Users/mwiewior/research/git/datafusion-bio-functions/Cargo.toml per_seq_gc 2>&1 | tail -20`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/fastqc/mod.rs src/fastqc/per_seq_gc.rs
-git commit -m "feat(fastqc): PerSeqGc accumulator"
+git -C /Users/mwiewior/research/git/datafusion-bio-functions add datafusion/bio-function-fastqc/src
+git -C /Users/mwiewior/research/git/datafusion-bio-functions commit -m "feat(fastqc): PerSeqGc accumulator"
 ```
 
 ---
 
 ### Task 4: `DuplicationLevels` accumulator (partition-merge stress)
 
-**Files:**
-- Create: `src/fastqc/dup_levels.rs`
-- Modify: `src/fastqc/mod.rs` (add `pub mod dup_levels;`)
+**Files (upstream crate):**
+- Create: `<BF>/datafusion/bio-function-fastqc/src/dup_levels.rs`
+- Modify: `src/lib.rs` (add `pub mod dup_levels;`)
 - Test: inline
 
 **Interfaces:**
-- Produces: `pub struct DuplicationLevels { … }` impl `QcModule`, `pub fn new() -> Self`. Emits per duplication-level bin (`label ∈ {"1","2",…,"9",">10",">50",">100",">500",">1k",">5k",">10k+"}`) a `metric="pct"` (% of total sequences at that level), plus a `metric="pct_dup"` total and a `status` row.
+- Produces: `pub struct DuplicationLevels` impl `QcModule`, `pub fn new() -> Self`. Emits per duplication-level bin (`label ∈ {"1",…,"9",">10",">50",">100",">500",">1k",">5k",">10k+"}`) a `metric="pct"`, plus `metric="pct_dup"` and a `status` row.
 
-- [ ] **Step 1: Register submodule** in `src/fastqc/mod.rs`: `pub mod dup_levels;`
+- [ ] **Step 1: Register submodule** in `src/lib.rs`: `pub mod dup_levels;`
 
-- [ ] **Step 2: Failing test in `src/fastqc/dup_levels.rs`**
+- [ ] **Step 2: Failing test in `src/dup_levels.rs`**
 
 ```rust
 use std::any::Any;
 use std::collections::HashMap;
 
-use super::{QcModule, TidyRow};
+use crate::{QcModule, TidyRow};
 
 #[cfg(test)]
 mod tests {
@@ -582,7 +661,6 @@ mod tests {
 
     #[test]
     fn dup_levels_and_merge() {
-        // Partition A sees "AAAA" twice; partition B sees "AAAA" once and "CCCC" once.
         let mut a = DuplicationLevels::new();
         a.update(b"AAAA", b"IIII");
         a.update(b"AAAA", b"IIII");
@@ -590,19 +668,18 @@ mod tests {
         b.update(b"AAAA", b"IIII");
         b.update(b"CCCC", b"IIII");
         a.merge(&b);
-        // After merge: AAAA x3, CCCC x1 -> 2 distinct, 4 observations.
+        // AAAA x3, CCCC x1 -> 2 distinct, 4 observations.
         let mut rows = Vec::new();
         a.finalize(&mut rows);
-        // %dup = (total - distinct) / total * 100 = (4 - 2) / 4 * 100 = 50.0
         let pct_dup = rows.iter().find(|r| r.metric == "pct_dup").and_then(|r| r.value).unwrap();
-        assert!((pct_dup - 50.0).abs() < 1e-9);
+        assert!((pct_dup - 50.0).abs() < 1e-9); // (4-2)/4*100
     }
 }
 ```
 
 - [ ] **Step 3: Confirm it fails**
 
-Run: `cargo test --lib fastqc::dup_levels 2>&1 | head -20`
+Run: `cargo test -p datafusion-bio-function-fastqc --manifest-path /Users/mwiewior/research/git/datafusion-bio-functions/Cargo.toml dup_levels 2>&1 | head -20`
 Expected: FAIL — `cannot find type DuplicationLevels`.
 
 - [ ] **Step 4: Implement `DuplicationLevels`**
@@ -613,13 +690,10 @@ const MAX_TRACKED: usize = 100_000;
 /// Only the first N bases are used as the dedup key (FastQC uses 50).
 const KEY_PREFIX: usize = 50;
 
-/// FastQC "Sequence Duplication Levels": counts how often each (prefix of a)
-/// sequence recurs, then bins recurrence counts into duplication levels.
+/// FastQC "Sequence Duplication Levels".
 #[derive(Debug, Default)]
 pub struct DuplicationLevels {
     counts: HashMap<Vec<u8>, u64>,
-    /// Observations dropped because the tracking table was full (still counted
-    /// toward totals via `overflow_obs`).
     overflow_obs: u64,
 }
 
@@ -692,8 +766,7 @@ impl QcModule for DuplicationLevels {
         let tracked_obs: u64 = self.counts.values().sum();
         let total_obs = tracked_obs + self.overflow_obs;
 
-        // Duplication-level histogram over tracked sequences.
-        let mut level_counts: std::collections::HashMap<&'static str, u64> = std::collections::HashMap::new();
+        let mut level_counts: HashMap<&'static str, u64> = HashMap::new();
         for &c in self.counts.values() {
             *level_counts.entry(Self::level_bin(c)).or_insert(0) += 1;
         }
@@ -703,7 +776,6 @@ impl QcModule for DuplicationLevels {
             out.push(TidyRow { module: m, label: Some(bin.to_string()), position: None, metric: "pct".to_string(), value: Some(pct), value_str: None });
         }
 
-        // Overall % duplication over observations.
         let pct_dup = if total_obs > 0 {
             (total_obs - distinct.min(total_obs)) as f64 / total_obs as f64 * 100.0
         } else {
@@ -711,7 +783,6 @@ impl QcModule for DuplicationLevels {
         };
         out.push(TidyRow::num(m, "pct_dup", pct_dup));
 
-        // FastQC status: warn if >20% non-unique, fail if >50%.
         let status = if pct_dup > 50.0 { "FAIL" } else if pct_dup > 20.0 { "WARN" } else { "PASS" };
         out.push(TidyRow::status(m, status));
     }
@@ -724,43 +795,39 @@ impl QcModule for DuplicationLevels {
 
 - [ ] **Step 5: Run and confirm pass**
 
-Run: `cargo test --lib fastqc::dup_levels 2>&1 | tail -20`
+Run: `cargo test -p datafusion-bio-function-fastqc --manifest-path /Users/mwiewior/research/git/datafusion-bio-functions/Cargo.toml dup_levels 2>&1 | tail -20`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/fastqc/mod.rs src/fastqc/dup_levels.rs
-git commit -m "feat(fastqc): DuplicationLevels accumulator with partition merge"
+git -C /Users/mwiewior/research/git/datafusion-bio-functions add datafusion/bio-function-fastqc/src
+git -C /Users/mwiewior/research/git/datafusion-bio-functions commit -m "feat(fastqc): DuplicationLevels accumulator with partition merge"
 ```
 
 ---
 
 ### Task 5: `ModuleSet` (selection, batch update, merge, tidy `RecordBatch`)
 
-**Files:**
-- Modify: `src/fastqc/mod.rs`
-- Test: inline in `src/fastqc/mod.rs`
+**Files (upstream crate):**
+- Modify: `<BF>/datafusion/bio-function-fastqc/src/lib.rs`
+- Test: inline in `src/lib.rs`
 
 **Interfaces:**
-- Consumes: `QcModule`, `TidyRow`, and the four accumulator structs from Tasks 1–4.
+- Consumes: `QcModule`, `TidyRow`, and the four accumulator structs (Tasks 1–4).
 - Produces:
-  - `pub fn tidy_schema() -> arrow_schema::SchemaRef`
-  - `pub struct ModuleSet { modules: Vec<Box<dyn QcModule>> }`
-  - `pub fn build(selection: Option<&[String]>) -> datafusion::common::Result<ModuleSet>`
-  - `impl ModuleSet { pub fn update_batch(&mut self, batch: &arrow_array::RecordBatch) -> datafusion::common::Result<()>; pub fn merge(&mut self, other: ModuleSet); pub fn finalize(self) -> datafusion::common::Result<arrow_array::RecordBatch>; }`
-  - `pub const ALL_MODULES: [&str; 4] = ["basic_stats", "per_base_quality", "per_seq_gc", "dup_levels"];`
+  - `pub fn tidy_schema() -> datafusion::arrow::datatypes::SchemaRef`
+  - `pub struct ModuleSet` with `pub fn build(selection: Option<&[String]>) -> datafusion::common::Result<ModuleSet>`, `pub fn update_batch(&mut self, batch: &RecordBatch) -> Result<()>`, `pub fn merge(&mut self, other: ModuleSet)`, `pub fn finalize(self) -> Result<RecordBatch>`.
+  - `pub const ALL_MODULES: [&str; 4]`.
 
-- [ ] **Step 1: Add imports + schema + selection to `src/fastqc/mod.rs`**
-
-Append to `src/fastqc/mod.rs`:
+- [ ] **Step 1: Append the schema + ModuleSet to `src/lib.rs`**
 
 ```rust
 use std::sync::Arc;
 
-use arrow_array::builder::{Float64Builder, Int32Builder, StringBuilder};
-use arrow_array::RecordBatch;
-use arrow_schema::{DataType, Field, Schema, SchemaRef};
+use datafusion::arrow::array::builder::{Float64Builder, Int32Builder, StringBuilder};
+use datafusion::arrow::array::{Array, AsArray, RecordBatch};
+use datafusion::arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use datafusion::common::{DataFusionError, Result};
 
 use basic_stats::BasicStats;
@@ -807,7 +874,6 @@ impl ModuleSet {
         let names: Vec<&str> = match selection {
             None => ALL_MODULES.to_vec(),
             Some(sel) => {
-                // Validate + order by ALL_MODULES so output is deterministic.
                 for s in sel {
                     if !ALL_MODULES.contains(&s.as_str()) {
                         return Err(DataFusionError::Plan(format!(
@@ -824,7 +890,6 @@ impl ModuleSet {
     }
 
     pub fn update_batch(&mut self, batch: &RecordBatch) -> Result<()> {
-        use arrow_array::{cast::AsArray, Array};
         let seq = batch
             .column_by_name("sequence")
             .ok_or_else(|| DataFusionError::Execution("fastqc input missing 'sequence'".into()))?
@@ -900,13 +965,14 @@ impl ModuleSet {
 }
 ```
 
-- [ ] **Step 2: Write the failing test** at the bottom of `src/fastqc/mod.rs`
+- [ ] **Step 2: Write the failing test** at the bottom of `src/lib.rs`
 
 ```rust
 #[cfg(test)]
 mod set_tests {
+    use datafusion::arrow::array::StringArray;
+
     use super::*;
-    use arrow_array::StringArray;
 
     fn batch(seqs: &[&str], quals: &[&str]) -> RecordBatch {
         RecordBatch::try_new(
@@ -927,7 +993,6 @@ mod set_tests {
         assert!(ModuleSet::build(Some(&["bogus".to_string()])).is_err());
         let set = ModuleSet::build(Some(&["per_seq_gc".to_string(), "basic_stats".to_string()])).unwrap();
         assert_eq!(set.modules.len(), 2);
-        // Order follows ALL_MODULES: basic_stats before per_seq_gc.
         assert_eq!(set.modules[0].name(), "basic_stats");
         assert_eq!(set.modules[1].name(), "per_seq_gc");
     }
@@ -943,53 +1008,56 @@ mod set_tests {
 }
 ```
 
-- [ ] **Step 3: Confirm it fails, then passes**
+- [ ] **Step 3: Run all crate tests; confirm pass**
 
-Run: `cargo test --lib fastqc:: 2>&1 | tail -30`
-Expected: after implementing Step 1, all fastqc unit tests PASS.
+Run: `cargo test -p datafusion-bio-function-fastqc --manifest-path /Users/mwiewior/research/git/datafusion-bio-functions/Cargo.toml 2>&1 | tail -30`
+Expected: all fastqc unit tests PASS. (If `AsArray`/`as_string` is not in scope, import `datafusion::arrow::array::cast::AsArray` — the trait path may be `cast::AsArray` in arrow 58; adjust per `cargo`’s suggestion.)
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/fastqc/mod.rs
-git commit -m "feat(fastqc): ModuleSet selection, batch update, merge, tidy RecordBatch"
+git -C /Users/mwiewior/research/git/datafusion-bio-functions add datafusion/bio-function-fastqc/src/lib.rs
+git -C /Users/mwiewior/research/git/datafusion-bio-functions commit -m "feat(fastqc): ModuleSet selection, batch update, merge, tidy RecordBatch"
 ```
 
 ---
 
 ### Task 6: `FastqcExec` ExecutionPlan (per-partition accumulate + merge)
 
-**Files:**
-- Create: `src/fastqc/exec.rs`
-- Modify: `src/fastqc/mod.rs` (add `pub mod exec;`)
-- Test: inline in `src/fastqc/exec.rs` (via an in-memory input plan)
+**Files (upstream crate):**
+- Create: `<BF>/datafusion/bio-function-fastqc/src/physical_exec.rs`
+- Modify: `src/lib.rs` (add `pub mod physical_exec;` and `pub use physical_exec::FastqcExec;`)
+- Test: inline in `physical_exec.rs`
 
 **Interfaces:**
 - Consumes: `ModuleSet`, `tidy_schema` (Task 5).
-- Produces: `pub struct FastqcExec { … }` with `pub fn new(input: Arc<dyn ExecutionPlan>, selection: Option<Vec<String>>) -> Self`, implementing `ExecutionPlan`. Output partitioning is a single partition; `execute(0, …)` drains every input partition, builds one `ModuleSet` per partition, merges them, and yields one tidy `RecordBatch`.
+- Produces: `pub struct FastqcExec` with `pub fn new(input: Arc<dyn ExecutionPlan>, selection: Option<Vec<String>>) -> Self`, implementing `ExecutionPlan`. Single output partition; `execute(0, …)` drains every input partition, builds one `ModuleSet` per partition, merges, and yields one tidy `RecordBatch`. Re-exported at crate root as `FastqcExec`.
 
-- [ ] **Step 1: Register submodule** in `src/fastqc/mod.rs`: `pub mod exec;`
+- [ ] **Step 1: Register + re-export** in `src/lib.rs`:
 
-- [ ] **Step 2: Write `src/fastqc/exec.rs`**
+```rust
+pub mod physical_exec;
+pub use physical_exec::FastqcExec;
+```
+
+- [ ] **Step 2: Write `src/physical_exec.rs`**
 
 ```rust
 use std::any::Any;
 use std::fmt;
 use std::sync::Arc;
 
-use arrow_array::RecordBatch;
-use arrow_schema::SchemaRef;
-use datafusion::common::Result;
+use datafusion::arrow::array::RecordBatch;
+use datafusion::arrow::datatypes::SchemaRef;
+use datafusion::common::{DataFusionError, Result};
 use datafusion::execution::{SendableRecordBatchStream, TaskContext};
 use datafusion::physical_expr::{EquivalenceProperties, Partitioning};
+use datafusion::physical_plan::execution_plan::{Boundedness, EmissionType};
 use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
-use datafusion::physical_plan::{
-    execution_plan::{Boundedness, EmissionType},
-    DisplayAs, DisplayFormatType, ExecutionPlan, PlanProperties,
-};
+use datafusion::physical_plan::{DisplayAs, DisplayFormatType, ExecutionPlan, PlanProperties};
 use futures::StreamExt;
 
-use super::{tidy_schema, ModuleSet};
+use crate::{tidy_schema, ModuleSet};
 
 /// Physical operator: fold FASTQ (sequence, quality_scores) batches through the
 /// selected QC modules and emit a single tidy RecordBatch.
@@ -1048,7 +1116,6 @@ impl ExecutionPlan for FastqcExec {
         let schema = tidy_schema();
 
         let fut = async move {
-            // Accumulate every input partition concurrently, then merge.
             let mut tasks = Vec::with_capacity(n_parts);
             for p in 0..n_parts {
                 let input = input.clone();
@@ -1060,7 +1127,7 @@ impl ExecutionPlan for FastqcExec {
                     while let Some(batch) = stream.next().await {
                         set.update_batch(&batch?)?;
                     }
-                    Ok::<ModuleSet, datafusion::common::DataFusionError>(set)
+                    Ok::<ModuleSet, DataFusionError>(set)
                 });
             }
             let sets = futures::future::try_join_all(tasks).await?;
@@ -1069,7 +1136,7 @@ impl ExecutionPlan for FastqcExec {
                 merged.merge(s);
             }
             let batch = merged.finalize()?;
-            Ok::<RecordBatch, datafusion::common::DataFusionError>(batch)
+            Ok::<RecordBatch, DataFusionError>(batch)
         };
 
         let stream = futures::stream::once(fut);
@@ -1079,10 +1146,11 @@ impl ExecutionPlan for FastqcExec {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use arrow_array::StringArray;
-    use arrow_schema::{DataType, Field, Schema};
+    use datafusion::arrow::array::{Float64Array, StringArray};
+    use datafusion::arrow::datatypes::{DataType, Field, Schema};
     use datafusion::physical_plan::memory::MemoryExec;
+
+    use super::*;
 
     fn input_plan(n_parts: usize) -> Arc<dyn ExecutionPlan> {
         let schema = Arc::new(Schema::new(vec![
@@ -1104,59 +1172,56 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn same_result_1_vs_n_partitions() {
         let ctx = Arc::new(TaskContext::default());
-        let run = |n: usize| {
-            let ctx = ctx.clone();
-            async move {
-                let exec = FastqcExec::new(input_plan(n), Some(vec!["basic_stats".to_string()]));
-                let mut s = exec.execute(0, ctx).unwrap();
-                let b = s.next().await.unwrap().unwrap();
-                // n_seq scales with partition count (2 reads per partition).
-                let idx = (0..b.num_rows())
-                    .find(|&i| {
-                        b.column_by_name("metric").unwrap().as_any()
-                            .downcast_ref::<StringArray>().unwrap().value(i) == "n_seq"
-                    })
-                    .unwrap();
-                b.column_by_name("value").unwrap().as_any()
-                    .downcast_ref::<arrow_array::Float64Array>().unwrap().value(idx)
-            }
-        };
-        assert_eq!(run(1).await, 2.0);
-        assert_eq!(run(4).await, 8.0);
+        async fn n_seq(exec: FastqcExec, ctx: Arc<TaskContext>) -> f64 {
+            let mut s = exec.execute(0, ctx).unwrap();
+            let b = s.next().await.unwrap().unwrap();
+            let metric = b.column_by_name("metric").unwrap().as_any().downcast_ref::<StringArray>().unwrap();
+            let value = b.column_by_name("value").unwrap().as_any().downcast_ref::<Float64Array>().unwrap();
+            let idx = (0..b.num_rows()).find(|&i| metric.value(i) == "n_seq").unwrap();
+            value.value(idx)
+        }
+        let one = n_seq(FastqcExec::new(input_plan(1), Some(vec!["basic_stats".into()])), ctx.clone()).await;
+        let four = n_seq(FastqcExec::new(input_plan(4), Some(vec!["basic_stats".into()])), ctx.clone()).await;
+        assert_eq!(one, 2.0);
+        assert_eq!(four, 8.0);
     }
 }
 ```
 
 - [ ] **Step 3: Run the test**
 
-Run: `cargo test --lib fastqc::exec 2>&1 | tail -30`
-Expected: PASS. (If `MemoryExec` import path differs on DF 53, use `datafusion::physical_plan::memory::MemoryExec`; adjust `PlanProperties`/`Boundedness` imports to whatever `cargo check` reports — the API is stable in 53.0.0.)
+Run: `cargo test -p datafusion-bio-function-fastqc --manifest-path /Users/mwiewior/research/git/datafusion-bio-functions/Cargo.toml physical_exec 2>&1 | tail -30`
+Expected: PASS. (API-drift fallbacks for DF 53: `MemoryExec` at `datafusion::physical_plan::memory::MemoryExec`; if `Partitioning` is not re-exported from `physical_expr`, import `datafusion::physical_plan::Partitioning`. Match `cargo`’s suggestion — `datafusion-bio-function-pileup/src/physical_exec.rs` is the in-tree reference for these exact paths.)
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/fastqc/mod.rs src/fastqc/exec.rs
-git commit -m "feat(fastqc): FastqcExec ExecutionPlan with per-partition merge"
+git -C /Users/mwiewior/research/git/datafusion-bio-functions add datafusion/bio-function-fastqc/src
+git -C /Users/mwiewior/research/git/datafusion-bio-functions commit -m "feat(fastqc): FastqcExec ExecutionPlan with per-partition merge"
 ```
 
 ---
 
-### Task 7: `FastqcTableProvider` + `FastqcFunction` UDTF + SQL registration
+### Task 7: `FastqcTableProvider` + `FastqcFunction` UDTF + SQL registration (polars-bio)
 
-**Files:**
-- Create: `src/fastqc/provider.rs`
-- Modify: `src/fastqc/mod.rs` (add `pub mod provider;`), `src/context.rs` (register UDTF)
-- Test: `tests/test_fastqc.py::test_sql_udtf` (deferred to Task 10; here confirm build)
+**Files (polars-bio):**
+- Create: `src/fastqc.rs`
+- Modify: `src/lib.rs` (add `mod fastqc;`), `src/context.rs` (register UDTF)
+- Test: `tests/test_fastqc.py::test_sql_udtf` (Task 10); here confirm build.
 
 **Interfaces:**
-- Consumes: `FastqcExec`, `tidy_schema` (Tasks 5–6); `FastqTableProvider` from `datafusion_bio_format_fastq::table_provider`.
+- Consumes: `datafusion_bio_function_fastqc::{FastqcExec, ModuleSet, tidy_schema}` (Tasks 5–6); `FastqTableProvider` from `datafusion_bio_format_fastq::table_provider`.
 - Produces:
-  - `pub struct FastqcTableProvider { input: Arc<dyn TableProvider>, selection: Option<Vec<String>> }` impl `TableProvider`, `pub fn new(input, selection) -> Self`.
-  - `pub struct FastqcFunction;` impl `TableFunctionImpl` (`fastqc('path'[, ['mod', …]])`).
+  - `pub struct FastqcTableProvider` impl `TableProvider`, `pub fn new(input: Arc<dyn TableProvider>, selection: Option<Vec<String>>) -> Self`.
+  - `pub struct FastqcFunction` impl `TableFunctionImpl` (`fastqc('path'[, ['mod', …]])`).
 
-- [ ] **Step 1: Register submodule** in `src/fastqc/mod.rs`: `pub mod provider;`
+- [ ] **Step 1: Add `mod fastqc;` to polars-bio `src/lib.rs`** (next to `mod pileup;`):
 
-- [ ] **Step 2: Write `src/fastqc/provider.rs`** (mirrors `src/pileup.rs` `DepthTableProvider`/`DepthFunction`)
+```rust
+mod fastqc;
+```
+
+- [ ] **Step 2: Write `src/fastqc.rs`** (mirrors `src/pileup.rs`)
 
 ```rust
 use std::any::Any;
@@ -1171,10 +1236,8 @@ use datafusion::logical_expr::Expr;
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion::scalar::ScalarValue;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
+use datafusion_bio_function_fastqc::{tidy_schema, FastqcExec, ModuleSet};
 use log::info;
-
-use super::exec::FastqcExec;
-use super::tidy_schema;
 
 pub struct FastqcTableProvider {
     input: Arc<dyn TableProvider>,
@@ -1211,7 +1274,6 @@ impl TableProvider for FastqcTableProvider {
         _filters: &[Expr],
         _limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        // Only sequence + quality_scores are needed.
         let input_schema = self.input.schema();
         let needed = ["sequence", "quality_scores"];
         let projection: Vec<usize> = needed.iter().filter_map(|n| input_schema.index_of(n).ok()).collect();
@@ -1230,16 +1292,15 @@ impl TableFunctionImpl for FastqcFunction {
             Some(Expr::Literal(ScalarValue::Utf8(Some(s)), _)) => s.clone(),
             _ => return Err(DataFusionError::Plan("fastqc() requires a string literal path as first argument".into())),
         };
-        // Optional second arg: a list of module names.
         let selection: Option<Vec<String>> = match args.get(1) {
             None => None,
             Some(Expr::Literal(ScalarValue::List(arr), _)) => {
-                let mut out = Vec::new();
                 let values = arr.values();
                 let strs = values
                     .as_any()
                     .downcast_ref::<arrow_array::StringArray>()
                     .ok_or_else(|| DataFusionError::Plan("fastqc() modules list must be strings".into()))?;
+                let mut out = Vec::new();
                 for i in 0..strs.len() {
                     if !strs.is_null(i) {
                         out.push(strs.value(i).to_string());
@@ -1253,7 +1314,7 @@ impl TableFunctionImpl for FastqcFunction {
         info!("fastqc() UDTF: path={path}, modules={selection:?}");
 
         // Validate selection early (surfaces bad module names at plan time).
-        super::ModuleSet::build(selection.as_deref())?;
+        ModuleSet::build(selection.as_deref())?;
 
         let provider: Arc<dyn TableProvider> = tokio::task::block_in_place(|| {
             let handle = tokio::runtime::Handle::current();
@@ -1275,39 +1336,39 @@ After the depth registration (`ctx.register_udtf("depth", …)`, ~line 124), add
 
 ```rust
     // Register fastqc UDTF for SQL: SELECT * FROM fastqc('file.fastq')
-    ctx.register_udtf("fastqc", std::sync::Arc::new(crate::fastqc::provider::FastqcFunction));
+    ctx.register_udtf("fastqc", std::sync::Arc::new(crate::fastqc::FastqcFunction));
 ```
 
 - [ ] **Step 4: Confirm the crate builds**
 
 Run: `cargo check 2>&1 | tail -30`
-Expected: no errors. (If `ScalarValue::List` field arity differs on DF 53, match the compiler's suggested pattern — the list is an `Arc<dyn Array>`/`ListArray` variant.)
+Expected: no errors. (If `ScalarValue::List` arity differs on DF 53, match the compiler’s suggested pattern; if `arrow_schema::SchemaRef` vs `datafusion::arrow::datatypes::SchemaRef` mismatch, use whichever `cargo` expects — they unify to arrow 58, as with `src/pileup.rs`.)
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/fastqc/mod.rs src/fastqc/provider.rs src/context.rs
-git commit -m "feat(fastqc): FastqcTableProvider + fastqc UDTF registration"
+git add src/lib.rs src/fastqc.rs src/context.rs
+git commit -m "feat(fastqc): FastqcTableProvider + fastqc UDTF (glue over upstream crate)"
 ```
 
 ---
 
-### Task 8: PyO3 binding `py_register_fastqc_table`
+### Task 8: PyO3 binding `py_register_fastqc_table` (polars-bio)
 
-**Files:**
+**Files (polars-bio):**
 - Modify: `src/lib.rs`
 - Test: exercised via Python in Task 10.
 
 **Interfaces:**
-- Consumes: the `fastqc` UDTF (Task 7); the existing `PyBioSessionContext` (`ctx`), `register_frame`-style helpers.
-- Produces: pyfunction `py_register_fastqc_table(py_ctx: &PyBioSessionContext, path: String, modules: Option<Vec<String>>) -> PyResult<String>` returning a registered table name whose scan yields the tidy schema.
+- Consumes: `crate::fastqc::FastqcTableProvider` (Task 7); `datafusion_bio_function_fastqc::ModuleSet`; the existing `context::PyBioSessionContext`.
+- Produces: pyfunction `py_register_fastqc_table(py_ctx, path: String, modules: Option<Vec<String>>) -> PyResult<String>` returning a registered table name whose scan yields the tidy schema.
 
 - [ ] **Step 1: Read the existing `py_register_pileup_table`** to copy its shape.
 
-Run: `grep -n "py_register_pileup_table" src/lib.rs`
-Then read ~40 lines around it. Replicate: build a unique table name, construct the provider via `FastqcFunction`-equivalent logic (call the UDTF path directly), and register it on `py_ctx.ctx`.
+Run: `grep -n "py_register_pileup_table\|uuid\|register_table" src/lib.rs | head`
+Read ~40 lines around it; match its context-locking / registration idiom (and confirm how a unique table name is generated — reuse the same mechanism, e.g. `uuid` if present, else the existing helper).
 
-- [ ] **Step 2: Add the pyfunction to `src/lib.rs`** (place next to `py_register_pileup_table`)
+- [ ] **Step 2: Add the pyfunction to `src/lib.rs`** (next to `py_register_pileup_table`)
 
 ```rust
 #[pyfunction]
@@ -1322,7 +1383,7 @@ fn py_register_fastqc_table(
     let ctx = &py_ctx.ctx;
 
     // Validate module selection eagerly for a clean Python error.
-    fastqc::ModuleSet::build(modules.as_deref())
+    datafusion_bio_function_fastqc::ModuleSet::build(modules.as_deref())
         .map_err(|e| PyValueError::new_err(format!("{e}")))?;
 
     let provider: std::sync::Arc<dyn datafusion::datasource::TableProvider> =
@@ -1331,13 +1392,13 @@ fn py_register_fastqc_table(
             handle.block_on(async {
                 let fq = datafusion_bio_format_fastq::table_provider::FastqTableProvider::new(path.clone(), None)
                     .map_err(|e| format!("Failed to create FASTQ provider: {e}"))?;
-                Ok::<_, String>(std::sync::Arc::new(fastqc::provider::FastqcTableProvider::new(
+                Ok::<_, String>(std::sync::Arc::new(crate::fastqc::FastqcTableProvider::new(
                     std::sync::Arc::new(fq),
                     modules,
                 )) as std::sync::Arc<dyn datafusion::datasource::TableProvider>)
             })
         })
-        .map_err(|e| PyValueError::new_err(e))?;
+        .map_err(PyValueError::new_err)?;
 
     ctx.register_table(&table_name, provider)
         .map_err(|e| PyValueError::new_err(format!("Failed to register fastqc table: {e}")))?;
@@ -1345,9 +1406,11 @@ fn py_register_fastqc_table(
 }
 ```
 
+(If `uuid` is not already a dependency used by `py_register_pileup_table`, reuse whatever unique-name mechanism that function uses instead of `uuid::Uuid`.)
+
 - [ ] **Step 3: Add it to the `#[pymodule]` registration**
 
-Find the `m.add_function(wrap_pyfunction!(py_register_pileup_table, m)?)?;` line and add below it:
+Below `m.add_function(wrap_pyfunction!(py_register_pileup_table, m)?)?;` add:
 
 ```rust
     m.add_function(wrap_pyfunction!(py_register_fastqc_table, m)?)?;
@@ -1356,20 +1419,17 @@ Find the `m.add_function(wrap_pyfunction!(py_register_pileup_table, m)?)?;` line
 - [ ] **Step 4: Build the wheel**
 
 Run: `maturin develop --release 2>&1 | tail -20`
-Expected: build succeeds; `import polars_bio` works.
+Expected: build succeeds; imports work.
 
-- [ ] **Step 5: Smoke-check the binding from Python**
+- [ ] **Step 5: Smoke-check the binding**
 
-Run:
-```bash
-python -c "from polars_bio.polars_bio import py_register_fastqc_table; print('ok')"
-```
+Run: `python -c "from polars_bio.polars_bio import py_register_fastqc_table; print('ok')"`
 Expected: `ok`.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/lib.rs
+git add src/lib.rs Cargo.lock
 git commit -m "feat(fastqc): py_register_fastqc_table PyO3 binding"
 ```
 
@@ -1377,15 +1437,15 @@ git commit -m "feat(fastqc): py_register_fastqc_table PyO3 binding"
 
 ### Task 9: Python `FastQCOperations` + `FastQCResult` wrapper
 
-**Files:**
+**Files (polars-bio):**
 - Create: `polars_bio/fastqc_op.py`
 - Modify: `polars_bio/__init__.py`
 - Test: Task 10.
 
 **Interfaces:**
-- Consumes: `py_register_fastqc_table`, `py_get_table_schema`, `py_read_table` (existing), `register_io_source` streaming pattern (copy from `polars_bio/pileup_op.py`).
+- Consumes: `py_register_fastqc_table`, `py_get_table_schema`, `py_read_table` (existing); `register_io_source` streaming pattern (from `polars_bio/pileup_op.py`).
 - Produces:
-  - `class FastQCResult` with `.tidy: pl.LazyFrame`, `.computed: set[str]`, properties `.basic_stats`, `.per_base_quality`, `.per_seq_gc`, `.dup_levels` (each `pl.LazyFrame`), `.summary() -> pl.LazyFrame`.
+  - `class FastQCResult` with `.tidy: pl.LazyFrame`, `.computed: set[str]`, properties `.basic_stats`, `.per_base_quality`, `.per_seq_gc`, `.dup_levels`, `.summary() -> pl.LazyFrame`.
   - `class FastQCOperations` with `@staticmethod fastqc(path, modules=None, group=True) -> FastQCResult`.
 
 - [ ] **Step 1: Write `polars_bio/fastqc_op.py`**
@@ -1405,10 +1465,7 @@ ALL_MODULES = ["basic_stats", "per_base_quality", "per_seq_gc", "dup_levels"]
 
 def _tidy_lazyframe(path: str, modules: Optional[List[str]]) -> pl.LazyFrame:
     """Single-pass fastqc run exposed as the raw tidy LazyFrame."""
-    from polars_bio.polars_bio import (
-        py_get_table_schema,
-        py_register_fastqc_table,
-    )
+    from polars_bio.polars_bio import py_get_table_schema, py_register_fastqc_table
 
     table_name = py_register_fastqc_table(ctx, path, modules)
     schema = py_get_table_schema(ctx, table_name)
@@ -1467,11 +1524,7 @@ class FastQCResult:
     @property
     def basic_stats(self) -> pl.LazyFrame:
         self._require("basic_stats")
-        return (
-            self._module_rows("basic_stats")
-            .filter(pl.col("metric") != "status")
-            .select("metric", "value")
-        )
+        return self._module_rows("basic_stats").filter(pl.col("metric") != "status").select("metric", "value")
 
     @property
     def per_base_quality(self) -> pl.LazyFrame:
@@ -1505,9 +1558,8 @@ class FastQCResult:
         )
 
     def summary(self) -> pl.LazyFrame:
-        return (
-            self.tidy.filter(pl.col("metric") == "status")
-            .select(pl.col("module"), pl.col("value_str").alias("status"))
+        return self.tidy.filter(pl.col("metric") == "status").select(
+            pl.col("module"), pl.col("value_str").alias("status")
         )
 
 
@@ -1544,13 +1596,13 @@ class FastQCOperations:
 
 - [ ] **Step 2: Expose it in `polars_bio/__init__.py`**
 
-After the pileup line (`from .pileup_op import PileupOperations as pileup_operations`), add:
+After `from .pileup_op import PileupOperations as pileup_operations`, add:
 
 ```python
 from .fastqc_op import FastQCOperations as fastqc_operations
 ```
 
-And after `depth = pileup_operations.depth`, add:
+After `depth = pileup_operations.depth`, add:
 
 ```python
 fastqc = fastqc_operations.fastqc
@@ -1572,17 +1624,13 @@ git commit -m "feat(fastqc): Python FastQCOperations + FastQCResult wrapper"
 
 ### Task 10: Python integration tests
 
-**Files:**
+**Files (polars-bio):**
 - Create: `tests/test_fastqc.py`
-- Uses fixture: `tests/data/io/fastq/example.fastq`
-
-**Interfaces:**
-- Consumes: `pb.fastqc`, `pb.sql`, `pb.set_option` (for partition count).
+- Fixture: `tests/data/io/fastq/example.fastq`
 
 - [ ] **Step 1: Write `tests/test_fastqc.py`**
 
 ```python
-import polars as pl
 import pytest
 
 import polars_bio as pb
@@ -1639,25 +1687,26 @@ def test_sql_udtf():
     assert df.height == 4
 
 
-@pytest.mark.parametrize("n_parts", [1, 4])
-def test_partition_merge_invariant(n_parts):
-    pb.set_option("datafusion.execution.target_partitions", str(n_parts))
-    qc = pb.fastqc(FASTQ, modules=["basic_stats", "dup_levels"])
-    bs = dict(zip(*qc.basic_stats.collect().to_dict(as_series=False).values()))
-    # n_seq must be identical regardless of partition count.
-    assert bs["n_seq"] == pytest.approx(_expected_n_seq())
-
-
 def _expected_n_seq() -> float:
     pb.set_option("datafusion.execution.target_partitions", "1")
     bs = pb.fastqc(FASTQ, modules=["basic_stats"]).basic_stats.collect()
     return float(dict(zip(bs["metric"], bs["value"]))["n_seq"])
+
+
+@pytest.mark.parametrize("n_parts", [1, 4])
+def test_partition_merge_invariant(n_parts):
+    expected = _expected_n_seq()
+    pb.set_option("datafusion.execution.target_partitions", str(n_parts))
+    qc = pb.fastqc(FASTQ, modules=["basic_stats", "dup_levels"])
+    bs = qc.basic_stats.collect()
+    n_seq = float(dict(zip(bs["metric"], bs["value"]))["n_seq"])
+    assert n_seq == pytest.approx(expected)
 ```
 
 - [ ] **Step 2: Run the tests**
 
 Run: `python -m pytest tests/test_fastqc.py -v 2>&1 | tail -30`
-Expected: all PASS. (If `pivot` on an empty group errors for a tiny fixture, confirm the fixture has ≥1 read with quality — `example.fastq` does.)
+Expected: all PASS.
 
 - [ ] **Step 3: Commit**
 
@@ -1668,16 +1717,14 @@ git commit -m "test(fastqc): Python integration tests (schema, modules, SQL, par
 
 ---
 
-### Task 11: Three-way parity harness (vs FastQC / RastQC)
+### Task 11: Parity harness (vs FastQC / RastQC)
 
-**Files:**
+**Files (polars-bio):**
 - Create: `benchmarks/fastqc/parity.py`, `tests/test_fastqc_parity.py`
 
 **Interfaces:**
-- Consumes: `pb.fastqc`; external binaries `fastqc` and `rastqc` (optional; test skips if absent).
-- Produces:
-  - `parse_fastqc_data(path) -> pl.DataFrame` (tidy schema) — parses `fastqc_data.txt`.
-  - `parity_report(pb_tidy, ref_tidy, tolerances) -> pl.DataFrame` — per `(module)` rows compared / exact / within-tol / mismatch.
+- Consumes: `pb.fastqc`; external binaries `fastqc`/`rastqc` (optional; test skips if absent).
+- Produces: `parse_fastqc_data(path) -> pl.DataFrame` (tidy), `run_fastqc(fastq, outdir) -> str`, `pb_tidy(fastq, modules) -> pl.DataFrame`, `parity_report(pb_df, ref_df) -> pl.DataFrame`.
 
 - [ ] **Step 1: Write `benchmarks/fastqc/parity.py`**
 
@@ -1693,7 +1740,6 @@ from pathlib import Path
 
 import polars as pl
 
-# Map FastQC fastqc_data.txt module headers -> polars-bio module ids.
 _FASTQC_MODULE = {
     "Basic Statistics": "basic_stats",
     "Per base sequence quality": "per_base_quality",
@@ -1701,7 +1747,6 @@ _FASTQC_MODULE = {
     "Sequence Duplication Levels": "dup_levels",
 }
 
-# Per-metric absolute tolerance (0 == exact match required).
 TOLERANCES = {
     ("basic_stats", "n_seq"): 0.0,
     ("basic_stats", "total_bases"): 0.0,
@@ -1728,7 +1773,6 @@ def run_fastqc(fastq: str, outdir: str) -> str:
 
 
 def parse_fastqc_data(path: str) -> pl.DataFrame:
-    """Parse fastqc_data.txt >>Module ... >>END_MODULE sections to tidy rows."""
     rows = []
     module = None
     header = None
@@ -1746,8 +1790,7 @@ def parse_fastqc_data(path: str) -> pl.DataFrame:
         if line.startswith("#"):
             header = line[1:].split("\t")
             continue
-        parts = line.split("\t")
-        _emit(rows, module, header, parts)
+        _emit(rows, module, header, line.split("\t"))
     return pl.DataFrame(rows, schema={
         "module": pl.Utf8, "label": pl.Utf8, "position": pl.Int32,
         "metric": pl.Utf8, "value": pl.Float64,
@@ -1755,22 +1798,19 @@ def parse_fastqc_data(path: str) -> pl.DataFrame:
 
 
 def _emit(rows, module, header, parts):
-    # Module-specific row shaping into (module, label, position, metric, value).
     if module == "basic_stats":
         key = {"Total Sequences": "n_seq", "%GC": "gc_pct"}.get(parts[0])
         if key:
             rows.append(dict(module=module, label=None, position=None, metric=key, value=float(parts[1])))
     elif module == "per_base_quality":
-        # header: Base, Mean, Median, Lower Quartile, Upper Quartile, 10th Percentile, 90th Percentile
         pos = int(parts[0].split("-")[0])
         for metric, idx in [("mean", 1), ("median", 2), ("q1", 3), ("q3", 4), ("p10", 5), ("p90", 6)]:
             rows.append(dict(module=module, label=None, position=pos, metric=metric, value=float(parts[idx])))
     elif module == "per_seq_gc":
         rows.append(dict(module=module, label=None, position=int(float(parts[0])), metric="count", value=float(parts[1])))
     elif module == "dup_levels":
-        if parts[0].startswith("#Total Deduplicated Percentage") or len(parts) < 3:
+        if parts[0].startswith("#Total") or len(parts) < 3:
             return
-        # columns: Duplication Level, Percentage of deduplicated, Percentage of total
         rows.append(dict(module=module, label=parts[0], position=None, metric="pct", value=float(parts[2])))
 
 
@@ -1785,10 +1825,12 @@ def pb_tidy(fastq: str, modules) -> pl.DataFrame:
 def parity_report(pb_df: pl.DataFrame, ref_df: pl.DataFrame) -> pl.DataFrame:
     keys = ["module", "label", "position", "metric"]
     joined = pb_df.join(ref_df, on=keys, how="inner", suffix="_ref")
+
     def verdict(row):
         tol = TOLERANCES.get((row["module"], row["metric"]), DEFAULT_TOL)
         diff = abs((row["value"] or 0.0) - (row["value_ref"] or 0.0))
         return "exact" if diff == 0 else ("within_tol" if diff <= tol else "mismatch")
+
     joined = joined.with_columns(
         pl.struct(["module", "metric", "value", "value_ref"])
         .map_elements(verdict, return_dtype=pl.Utf8).alias("verdict")
@@ -1800,8 +1842,7 @@ if __name__ == "__main__":
     import sys
     fastq = sys.argv[1]
     with tempfile.TemporaryDirectory() as d:
-        data = run_fastqc(fastq, d)
-        ref = parse_fastqc_data(data)
+        ref = parse_fastqc_data(run_fastqc(fastq, d))
         got = pb_tidy(fastq, None)
         print(parity_report(got, ref))
 ```
@@ -1835,24 +1876,21 @@ def test_parity_against_fastqc():
 - [ ] **Step 3: Run (skips cleanly if FastQC absent)**
 
 Run: `python -m pytest tests/test_fastqc_parity.py -v 2>&1 | tail -20`
-Expected: PASS or SKIPPED (if `fastqc` not on PATH).
+Expected: PASS or SKIPPED.
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add benchmarks/fastqc/parity.py tests/test_fastqc_parity.py
-git commit -m "test(fastqc): three-way parity harness vs FastQC (opt-in)"
+git commit -m "test(fastqc): parity harness vs FastQC (opt-in)"
 ```
 
 ---
 
 ### Task 12: Benchmark harness (vs RastQC)
 
-**Files:**
+**Files (polars-bio):**
 - Create: `benchmarks/fastqc/bench.py`
-
-**Interfaces:**
-- Consumes: `pb.fastqc`; external `rastqc` binary (optional); `pb.scan_fastq` for the scan-only baseline.
 
 - [ ] **Step 1: Write `benchmarks/fastqc/bench.py`**
 
@@ -1862,11 +1900,14 @@ git commit -m "test(fastqc): three-way parity harness vs FastQC (opt-in)"
 Reports per-run wall time, throughput, and a scan-only baseline so the QC
 math is isolated from FASTQ decode. Run 1-thread and all-core.
 """
+import os
 import shutil
 import subprocess
 import tempfile
 import time
 from pathlib import Path
+
+import polars as pl
 
 import polars_bio as pb
 
@@ -1878,13 +1919,7 @@ def _timed(fn):
 
 
 def scan_only(fastq: str) -> float:
-    # Force full materialization of the FASTQ scan with no QC.
-    return _timed(lambda: pb.scan_fastq(fastq).select(pl_len()).collect())
-
-
-def pl_len():
-    import polars as pl
-    return pl.len()
+    return _timed(lambda: pb.scan_fastq(fastq).select(pl.len()).collect())
 
 
 def pb_fastqc(fastq: str, threads: int) -> float:
@@ -1902,22 +1937,20 @@ def rastqc(fastq: str, threads: int) -> float:
         ))
 
 
+def _all_cores() -> int:
+    return os.cpu_count() or 1
+
+
 def main(fastq: str):
-    n_reads = pb.scan_fastq(fastq).select(pl_len()).collect().item()
+    n_reads = pb.scan_fastq(fastq).select(pl.len()).collect().item()
     size_mb = Path(fastq).stat().st_size / 1e6
     print(f"file={fastq} reads={n_reads} size={size_mb:.1f}MB")
-    for threads in (1, 0):  # 0 == all cores (DataFusion default)
-        t = threads or "all"
+    for label, threads in (("1", 1), ("all", _all_cores())):
         base = scan_only(fastq)
-        pbt = pb_fastqc(fastq, threads or _all_cores())
-        rqt = rastqc(fastq, threads or _all_cores())
-        print(f"[threads={t}] scan_only={base:.3f}s  pb.fastqc={pbt:.3f}s "
+        pbt = pb_fastqc(fastq, threads)
+        rqt = rastqc(fastq, threads)
+        print(f"[threads={label}] scan_only={base:.3f}s  pb.fastqc={pbt:.3f}s "
               f"(qc_only={pbt-base:.3f}s, {n_reads/pbt:,.0f} reads/s)  rastqc={rqt:.3f}s")
-
-
-def _all_cores() -> int:
-    import os
-    return os.cpu_count() or 1
 
 
 if __name__ == "__main__":
@@ -1928,7 +1961,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: Smoke-run against the fixture**
 
 Run: `python benchmarks/fastqc/bench.py tests/data/io/fastq/example.fastq 2>&1 | tail -10`
-Expected: prints timing lines; `rastqc=nan` if the binary is absent (acceptable — it still exercises the polars-bio path and scan baseline).
+Expected: prints timing lines; `rastqc=nan` if the binary is absent.
 
 - [ ] **Step 3: Commit**
 
@@ -1941,22 +1974,25 @@ git commit -m "bench(fastqc): benchmark harness vs RastQC with scan-only baselin
 
 ## Self-Review
 
-**Spec coverage (Phase 1 slice of the design):**
-- Streaming UDTF over existing FASTQ provider → Tasks 6–8. ✅
+**Spec coverage (Phase 1 slice):**
+- Upstream crate holds algorithm + operator (pileup precedent) → Tasks 0–6. ✅
+- Streaming UDTF glue over existing FASTQ provider → Tasks 7–8. ✅
 - Tidy Arrow schema (exact columns/types) → Task 5 `tidy_schema`. ✅
 - `modules` gates *computation* (unselected never allocated) → Task 5 `ModuleSet::build` + Task 6 per-partition build. ✅
 - Four vertical-slice modules (scalar/positional/histogram/hash) → Tasks 1–4. ✅
-- Python `pb.fastqc` + typed per-module frames + raise-on-non-computed + `summary()` + `.tidy` → Task 9; tests Task 10. ✅
+- Python `pb.fastqc` + typed frames + raise-on-non-computed + `summary()` + `.tidy` → Task 9; tests Task 10. ✅
 - Partition-merge correctness (1 vs N) → Task 6 Rust test + Task 10 Python test. ✅
-- Parity vs FastQC (ground truth, `--nogroup`) → Task 11. ✅
+- Parity vs FastQC (`--nogroup`) → Task 11. ✅
 - Benchmark vs RastQC (1-thread/all-core, scan-only baseline) → Task 12. ✅
-- SQL surface `SELECT * FROM fastqc(...)` incl. subset + status filter → Task 7 + Task 10 `test_sql_udtf`. ✅
-- `group` toggle placeholder → Task 9 (no-op for Phase 1 modules, documented). ✅ (Full binning lands with positional Phase 3 modules.)
+- SQL `SELECT * FROM fastqc(...)` incl. subset + status filter → Task 7 + Task 10 `test_sql_udtf`. ✅
+- `group` toggle placeholder → Task 9 (documented no-op for Phase 1). ✅
 
-**Deferred by design (not Phase 1):** exact FastQC theoretical-distribution status for `per_seq_gc` (Task 3 emits counts exactly + PASS status; noted); BAM/CRAM input; MultiQC JSON export; upstream crate extraction.
+**Release gate (MUST do before merge, not in Phase 1 dev):** the polars-bio → `datafusion-bio-function-fastqc` dependency is a **local path dep** (Task 0). Before merging `feat/fastqc-phase1`, cut a `datafusion-bio-functions` tag containing the crate and replace the path dep with `git = "...", tag = "vX.Y.Z"`, then re-run `cargo check` + `maturin develop --release`. Called out in Global Constraints and here.
 
-**Placeholder scan:** No TBD/TODO; every code step contains full code. The one intentional simplification (`per_seq_gc` status = PASS) is documented inline and excluded from parity assertions via `TOLERANCES` (no `status` tolerance key → status rows aren't numeric-compared).
+**Deferred by design (not Phase 1):** exact FastQC theoretical-distribution status for `per_seq_gc` (Task 3 emits counts exactly + PASS; noted); BAM/CRAM input; MultiQC JSON export.
 
-**Type consistency:** `QcModule`/`TidyRow` signatures (Task 1) are used unchanged in Tasks 2–6; `ModuleSet::build(Option<&[String]>)` is consumed identically in `FastqcExec` (Task 6), `FastqcFunction` (Task 7), and `py_register_fastqc_table` (Task 8); module id strings (`basic_stats`, `per_base_quality`, `per_seq_gc`, `dup_levels`) match across Rust `ALL_MODULES`, Python `ALL_MODULES`, tests, and the parity map.
+**Placeholder scan:** No TBD/TODO; every code step has full code. The one intentional simplification (`per_seq_gc` status = PASS) is documented inline and excluded from parity assertions (no `status` key in `TOLERANCES`; status rows aren’t numeric-compared).
 
-**Known API-drift risk (flagged, not blocking):** exact DataFusion 53 paths for `PlanProperties`/`Boundedness`/`EmissionType`/`MemoryExec` and the `ScalarValue::List` pattern may need a one-line adjustment against `cargo check` output — noted inline in Tasks 6–7. The pileup code (`src/pileup.rs`) is the in-repo reference for the stable subset of these APIs.
+**Type consistency:** `QcModule`/`TidyRow` (Task 1) unchanged through Tasks 2–6; submodule files reach crate-root items via `crate::{...}` (they are declared in `lib.rs`). `ModuleSet::build(Option<&[String]>)` consumed identically in `FastqcExec` (Task 6), `FastqcFunction` (Task 7), `py_register_fastqc_table` (Task 8). Module id strings match across Rust `ALL_MODULES`, Python `ALL_MODULES`, tests, and the parity map. `tidy_schema()` returns `datafusion::arrow::datatypes::SchemaRef`, consumed in polars-bio as `arrow_schema::SchemaRef` (unify to arrow 58, same as `src/pileup.rs`).
+
+**Known API-drift risk (flagged, non-blocking):** exact DataFusion 53 paths for `Partitioning`/`Boundedness`/`EmissionType`/`MemoryExec`, the `AsArray`/`as_string` trait import, and the `ScalarValue::List` pattern may need one-line adjustments against `cargo` output — noted inline in Tasks 5–7, with `datafusion-bio-function-pileup/src/physical_exec.rs` as the in-tree reference.
