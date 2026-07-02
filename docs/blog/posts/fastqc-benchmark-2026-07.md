@@ -209,20 +209,29 @@ prefetch SRR39421268
 fasterq-dump --split-spot SRR39421268 | bgzip > SRR39421268.fastq.gz
 ```
 
-**Correctness held on independent data.** polars-bio was again **bit-exact vs FastQC 0.12.1** on every deterministic module and **partition-invariant** across 1/2/4/8 cores. And RastQC's per-sequence-quality bug reproduced — this time misbinning **~24 million reads** (the Q36 peak wrongly shifted into Q37):
+**Correctness held on independent data.** polars-bio was again **bit-exact vs FastQC 0.12.1** on every deterministic module. Nine of the eleven are also **partition-invariant** across 1/2/4/8 cores; the two sequence-tracking modules (`duplication_levels`, `overrepresented`) reproduce FastQC exactly on a single partition and stay bounded/close in parallel, once the 100k cutoff below is applied. And RastQC's per-sequence-quality bug reproduced — this time misbinning **~24 million reads** (the Q36 peak wrongly shifted into Q37):
 
 | mean quality | FastQC | polars-bio | RastQC |
 |---|---:|---:|---:|
 | Q36 | 38,239,995 | 38,239,995 | 14,072,517 |
 | Q37 | 10,472,730 | 10,472,730 | 38,869,411 |
 
-!!! warning "Known limitation — memory on very large files"
-    On this 3.3 GB / 64M-read input, polars-bio's current FASTQ path uses **far more memory than it should** (tens of GB), which dominated wall-clock and is being fixed. Two causes, both independent of the correctness results above:
+**Fast and light — after a fix this benchmark surfaced.** The first run on this file exposed a memory-scaling bug: `duplication_levels` and `overrepresented` tracked *every* distinct sequence, ballooning to ~20 GB on 64M diverse reads and starving throughput. Adopting FastQC's own **100,000-unique observation cutoff** bounds them — and, as a bonus, makes them match FastQC's duplication *estimate* exactly (they previously diverged by being unbounded-exact). With that fix in place:
 
-    - the streaming reader does not yet bound in-flight decompressed data (no backpressure), so it buffers several GB on large files;
-    - `duplication_levels` and `overrepresented` intentionally track **every** distinct sequence to compute an *exact* duplication rate (rather than FastQC's 100k-sequence estimate), which costs multiple GB on high-diversity libraries.
+| cores / threads | polars-bio | RastQC | FastQC |
+|---:|---:|---:|---:|
+| 1 | 96.9 s | 223.8 s | 193.7 s (1 thr) |
+| 2 | 49.6 s | 115.5 s | — |
+| 4 | 25.1 s | 59.8 s | — |
+| 8 | **12.9 s** | 54.9 s | — |
 
-    Until the reader gains backpressure (and an optional capped mode for the duplication trackers), treat polars-bio's throughput/memory advantage as demonstrated on inputs that fit comfortably in cache; correctness is unaffected at any size.
+polars-bio scales **7.5×** to **12.9 s at 8 cores — 15× faster than FastQC and 4.3× faster than RastQC** — at bounded memory:
+
+| tool | peak footprint (8 cores) |
+|---|---:|
+| polars-bio | 382 MB |
+| RastQC | 399 MB |
+| FastQC | 674 MB (JVM RSS) |
 
 ## The takeaway
 
