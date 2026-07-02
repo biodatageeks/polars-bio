@@ -6,7 +6,16 @@ import pyarrow as pa
 from .context import ctx
 from .logging import logger
 
-ALL_MODULES = ["basic_stats", "per_base_quality", "per_seq_gc", "dup_levels"]
+ALL_MODULES = [
+    "basic_stats",
+    "per_base_quality",
+    "per_seq_quality",
+    "per_base_content",
+    "per_seq_gc",
+    "per_base_n",
+    "seq_length",
+    "dup_levels",
+]
 
 
 def _run_tidy(path: str, modules: Optional[List[str]]) -> pl.DataFrame:
@@ -100,6 +109,48 @@ class FastQCResult:
         )
 
     @property
+    def per_seq_quality(self) -> pl.LazyFrame:
+        self._require("per_seq_quality")
+        return (
+            self._module_rows("per_seq_quality")
+            .filter(pl.col("metric") == "count")
+            .select(pl.col("position").alias("quality"), pl.col("value").alias("count"))
+            .sort("quality")
+        )
+
+    @property
+    def per_base_content(self) -> pl.LazyFrame:
+        self._require("per_base_content")
+        return (
+            self._module_rows("per_base_content")
+            .filter(pl.col("position").is_not_null())
+            .collect()
+            .pivot(values="value", index="position", on="metric")
+            .lazy()
+            .sort("position")
+        )
+
+    @property
+    def per_base_n(self) -> pl.LazyFrame:
+        self._require("per_base_n")
+        return (
+            self._module_rows("per_base_n")
+            .filter(pl.col("metric") == "pct")
+            .select("position", pl.col("value").alias("n_pct"))
+            .sort("position")
+        )
+
+    @property
+    def seq_length(self) -> pl.LazyFrame:
+        self._require("seq_length")
+        return (
+            self._module_rows("seq_length")
+            .filter(pl.col("metric") == "count")
+            .select(pl.col("position").alias("length"), pl.col("value").alias("count"))
+            .sort("length")
+        )
+
+    @property
     def dup_levels(self) -> pl.LazyFrame:
         self._require("dup_levels")
         return (
@@ -127,10 +178,11 @@ class FastQCOperations:
 
         Args:
             path: Path to a FASTQ file (plain, .gz, or .bgz).
-            modules: Module names to compute; ``None`` computes all
-                (``basic_stats``, ``per_base_quality``, ``per_seq_gc``,
-                ``dup_levels``). Accessing a non-computed module on the result
-                raises ``KeyError``.
+            modules: Module names to compute; ``None`` computes all eight
+                (``basic_stats``, ``per_base_quality``, ``per_seq_quality``,
+                ``per_base_content``, ``per_seq_gc``, ``per_base_n``,
+                ``seq_length``, ``dup_levels``). Accessing a non-computed module
+                on the result raises ``KeyError``.
             group: Reserved for FastQC-style position binning of long reads
                 (``group=False`` == FastQC ``--nogroup``). No-op for Phase 1
                 modules.

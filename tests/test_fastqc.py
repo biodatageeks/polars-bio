@@ -15,6 +15,17 @@ PARALLEL_BGZ = f"{DATA}/sample_parallel.fastq.bgz"
 NOINDEX_BGZ = f"{DATA}/sample_no_index.fastq.bgz"
 MULTIMEMBER_GZ = f"{DATA}/multimember_pigz.fastq.gz"
 
+EXPECTED_MODULES = [
+    "basic_stats",
+    "per_base_quality",
+    "per_seq_quality",
+    "per_base_content",
+    "per_seq_gc",
+    "per_base_n",
+    "seq_length",
+    "dup_levels",
+]
+
 
 @pytest.fixture(autouse=True)
 def _restore_target_partitions():
@@ -40,12 +51,7 @@ def test_tidy_schema_and_all_modules():
         "value",
         "value_str",
     ]
-    assert set(tidy["module"].unique()) == {
-        "basic_stats",
-        "per_base_quality",
-        "per_seq_gc",
-        "dup_levels",
-    }
+    assert set(tidy["module"].unique()) == set(EXPECTED_MODULES)
 
 
 def test_basic_stats_values():
@@ -75,8 +81,20 @@ def test_multiple_property_access_single_pass():
     assert qc.per_base_quality.collect().height > 0
     assert qc.per_seq_gc.collect().height > 0
     assert qc.dup_levels.collect().height > 0
-    assert qc.summary().collect().height == 4
+    assert qc.summary().collect().height == len(EXPECTED_MODULES)
     assert qc.tidy.collect().height > 0
+
+
+def test_new_module_properties_shapes():
+    qc = pb.fastqc(FASTQ)
+    assert {"quality", "count"} == set(qc.per_seq_quality.collect().columns)
+    pbc = qc.per_base_content.collect()
+    assert {"position", "G", "A", "T", "C"}.issubset(pbc.columns)
+    assert pbc["position"].min() == 1
+    assert {"position", "n_pct"} == set(qc.per_base_n.collect().columns)
+    sl = qc.seq_length.collect()
+    assert {"length", "count"} == set(sl.columns)
+    assert sl["count"].sum() == 200  # all reads accounted for
 
 
 def test_non_computed_module_raises():
@@ -93,19 +111,14 @@ def test_unknown_module_raises():
 def test_summary_has_status_per_module():
     qc = pb.fastqc(FASTQ)
     summary = qc.summary().collect()
-    assert set(summary["module"]) == {
-        "basic_stats",
-        "per_base_quality",
-        "per_seq_gc",
-        "dup_levels",
-    }
+    assert set(summary["module"]) == set(EXPECTED_MODULES)
     assert summary["status"].is_in(["PASS", "WARN", "FAIL"]).all()
 
 
 def test_sql_udtf():
     df = pb.sql(f"SELECT * FROM fastqc('{FASTQ}') WHERE metric = 'status'").collect()
     assert "module" in df.columns
-    assert df.height == 4
+    assert df.height == len(EXPECTED_MODULES)
 
 
 def _n_seq_at(n_parts: int) -> float:
