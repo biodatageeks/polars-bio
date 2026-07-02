@@ -115,6 +115,41 @@ def test_per_tile_quality_matches_fastqc_exactly():
     assert worst <= 1e-6, f"max per_tile deviation diff vs FastQC = {worst}"
 
 
+KMER_GOLDEN = "tests/data/io/fastq/golden/kmer_mix.nogroup.kmers.fastqc_data.txt"
+KMER_FASTQ = "tests/data/io/fastq/kmer_mix.fastq"
+
+
+def test_kmer_content_matches_fastqc_exactly():
+    # FastQC's Kmer module samples every 50th read in file order, so exact parity
+    # requires a single-partition scan (batches arriving in file order). A
+    # multi-partition scan samples each partition independently and diverges.
+    import os
+
+    pb.set_option("datafusion.execution.target_partitions", "1")
+    try:
+        ref = _golden(KMER_GOLDEN).filter(pl.col("module") == "kmer_content")
+        got = _ours(KMER_FASTQ).filter(
+            (pl.col("module") == "kmer_content") & (pl.col("metric") != "status")
+        )
+    finally:
+        pb.set_option(
+            "datafusion.execution.target_partitions", str(os.cpu_count() or 1)
+        )
+    # Reported-set membership: our enriched k-mers must equal FastQC's.
+    ref_kmers = set(ref.select("label").to_series().to_list())
+    got_kmers = set(got.select("label").to_series().to_list())
+    assert got_kmers == ref_kmers and len(ref_kmers) > 0, (
+        f"kmer set mismatch: only-ours={got_kmers - ref_kmers}, "
+        f"only-fastqc={ref_kmers - got_kmers}"
+    )
+    joined = got.join(ref, on=["module", "label", "metric"], how="inner", suffix="_ref")
+    # Exact on count & max_position; tight tolerance on obs/exp (FastQC float32).
+    for metric, tol in [("count", 0.0), ("max_position", 0.0), ("obs_exp_max", 1e-2)]:
+        sub = joined.filter(pl.col("metric") == metric)
+        worst = sub.select((pl.col("value") - pl.col("value_ref")).abs().max()).item()
+        assert worst <= tol, f"kmer {metric} diff vs FastQC = {worst}"
+
+
 def test_dup_levels_match_fastqc_exactly():
     # On a file with real duplicates, every bin percentage must match FastQC.
     ref = _golden(DUP_GOLDEN).filter(pl.col("module") == "dup_levels")

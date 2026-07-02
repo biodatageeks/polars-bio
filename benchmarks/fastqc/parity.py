@@ -16,6 +16,7 @@ _FASTQC_MODULE = {
     "Per sequence GC content": "per_seq_gc",
     "Sequence Duplication Levels": "dup_levels",
     "Per tile sequence quality": "per_tile_quality",
+    "Kmer Content": "kmer_content",
 }
 
 # Per-metric absolute tolerance (0 == exact match required).
@@ -27,6 +28,10 @@ TOLERANCES = {
     ("per_base_quality", "median"): 0.0,
     ("per_seq_gc", "count"): 0.0,
     ("dup_levels", "pct_dup"): 0.5,
+    ("kmer_content", "count"): 0.0,
+    ("kmer_content", "max_position"): 0.0,
+    ("kmer_content", "obs_exp_max"): 1e-2,  # FastQC prints float32 obs/exp
+    ("kmer_content", "pvalue"): 1e-3,
 }
 DEFAULT_TOL = 0.1
 
@@ -147,6 +152,26 @@ def _emit(rows, module, header, parts):
                 value=float(parts[2]),
             )
         )
+    elif module == "kmer_content":
+        # FastQC 0.12.1: "#Sequence\tCount\tPValue\tObs/Exp Max\tMax Obs/Exp Position"
+        if len(parts) < 5:
+            return
+        kmer = parts[0]
+        for metric, idx in [
+            ("count", 1),
+            ("pvalue", 2),
+            ("obs_exp_max", 3),
+            ("max_position", 4),
+        ]:
+            rows.append(
+                dict(
+                    module=module,
+                    label=kmer,
+                    position=None,
+                    metric=metric,
+                    value=float(parts[idx]),
+                )
+            )
 
 
 def pb_tidy(fastq: str, modules) -> pl.DataFrame:

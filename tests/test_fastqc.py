@@ -27,6 +27,7 @@ EXPECTED_MODULES = [
     "adapter_content",
     "dup_levels",
     "per_tile_quality",
+    "kmer_content",
 ]
 
 

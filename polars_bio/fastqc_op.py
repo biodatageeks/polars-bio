@@ -18,6 +18,7 @@ ALL_MODULES = [
     "adapter_content",
     "dup_levels",
     "per_tile_quality",
+    "kmer_content",
 ]
 
 
@@ -211,6 +212,29 @@ class FastQCResult:
             .select(pl.col("label").alias("dup_level"), pl.col("value").alias("pct"))
         )
 
+    @property
+    def kmer_content(self) -> pl.LazyFrame:
+        self._require("kmer_content")
+        rows = (
+            self._module_rows("kmer_content")
+            .filter(pl.col("metric") != "status")
+            .collect()
+        )
+
+        def col(metric: str, name: str) -> pl.DataFrame:
+            return rows.filter(pl.col("metric") == metric).select(
+                pl.col("label").alias("kmer"), pl.col("value").alias(name)
+            )
+
+        return (
+            col("count", "count")
+            .join(col("obs_exp_max", "obs_exp_max"), on="kmer")
+            .join(col("max_position", "max_position"), on="kmer")
+            .join(col("pvalue", "pvalue"), on="kmer")
+            .sort("obs_exp_max", descending=True)
+            .lazy()
+        )
+
     def summary(self) -> pl.LazyFrame:
         return self.tidy.filter(pl.col("metric") == "status").select(
             pl.col("module"), pl.col("value_str").alias("status")
@@ -230,12 +254,12 @@ class FastQCOperations:
 
         Args:
             path: Path to a FASTQ file (plain, .gz, or .bgz).
-            modules: Module names to compute; ``None`` computes all eleven
+            modules: Module names to compute; ``None`` computes all twelve
                 (``basic_stats``, ``per_base_quality``, ``per_seq_quality``,
                 ``per_base_content``, ``per_seq_gc``, ``per_base_n``,
                 ``seq_length``, ``overrepresented``, ``adapter_content``,
-                ``dup_levels``, ``per_tile_quality``). Accessing a non-computed
-                module on the result raises ``KeyError``.
+                ``dup_levels``, ``per_tile_quality``, ``kmer_content``).
+                Accessing a non-computed module on the result raises ``KeyError``.
             group: Reserved for FastQC-style position binning of long reads
                 (``group=False`` == FastQC ``--nogroup``). No-op for Phase 1
                 modules.
