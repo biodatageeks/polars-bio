@@ -56,9 +56,11 @@ impl TableProvider for FastqcTableProvider {
         _filters: &[Expr],
         _limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        // Only sequence + quality_scores are needed by the QC modules.
+        // sequence + quality_scores feed all modules; name/description feed
+        // header-aware modules (per_tile_quality). filter_map below drops any
+        // the input schema lacks.
         let input_schema = self.input.schema();
-        let needed = ["sequence", "quality_scores"];
+        let needed = ["sequence", "quality_scores", "name", "description"];
         let projection: Vec<usize> = needed
             .iter()
             .filter_map(|n| input_schema.index_of(n).ok())
