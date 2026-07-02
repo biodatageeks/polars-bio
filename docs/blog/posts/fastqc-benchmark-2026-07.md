@@ -188,6 +188,42 @@ polars-bio's true allocation is **273 MB**; its 1119 MB RSS is ~450 MB of mmap'd
 | RastQC (8 threads) | 201 | 495 |
 | FastQC (JVM) | — | 680 |
 
+## Reproducing it on public SRA data
+
+The file above is a local sample. To make the correctness claim **reproducible on citable, real-world clinical data**, we reran the whole comparison on [**SRR39421268**](https://www.ncbi.nlm.nih.gov/sra/SRR39421268) — a *Homo sapiens* HER2 breast-cancer targeted-capture (exome) run, released July 2026.
+
+| Field | Value |
+|---|---|
+| Run | SRR39421268 (experiment SRX34138143) |
+| Study / BioProject | SRP714544 / [PRJNA1484801](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA1484801) |
+| BioSample | SAMN61257782 (`HER2_PT06_OP_N`) |
+| Organism | *Homo sapiens* |
+| Instrument | Illumina NovaSeq 6000 |
+| Library | Targeted-Capture (hybrid selection), genomic, paired |
+| Reads | 32,167,982 pairs → **64,335,964 reads @ 101 bp** (~6.5 Gbp) |
+| Size | 3.3 GB BGZF |
+| Center | Yonsei University College of Medicine |
+
+```bash
+prefetch SRR39421268
+fasterq-dump --split-spot SRR39421268 | bgzip > SRR39421268.fastq.gz
+```
+
+**Correctness held on independent data.** polars-bio was again **bit-exact vs FastQC 0.12.1** on every deterministic module and **partition-invariant** across 1/2/4/8 cores. And RastQC's per-sequence-quality bug reproduced — this time misbinning **~24 million reads** (the Q36 peak wrongly shifted into Q37):
+
+| mean quality | FastQC | polars-bio | RastQC |
+|---|---:|---:|---:|
+| Q36 | 38,239,995 | 38,239,995 | 14,072,517 |
+| Q37 | 10,472,730 | 10,472,730 | 38,869,411 |
+
+!!! warning "Known limitation — memory on very large files"
+    On this 3.3 GB / 64M-read input, polars-bio's current FASTQ path uses **far more memory than it should** (tens of GB), which dominated wall-clock and is being fixed. Two causes, both independent of the correctness results above:
+
+    - the streaming reader does not yet bound in-flight decompressed data (no backpressure), so it buffers several GB on large files;
+    - `duplication_levels` and `overrepresented` intentionally track **every** distinct sequence to compute an *exact* duplication rate (rather than FastQC's 100k-sequence estimate), which costs multiple GB on high-diversity libraries.
+
+    Until the reader gains backpressure (and an optional capped mode for the duplication trackers), treat polars-bio's throughput/memory advantage as demonstrated on inputs that fit comfortably in cache; correctness is unaffected at any size.
+
 ## The takeaway
 
 On a 26.5-million-read file, polars-bio is the only tool that is **both** exact against FastQC and genuinely fast: **~12× faster than FastQC**, **~3.4× faster than RastQC's best**, at ~270 MB of real memory — while RastQC, the other fast option, silently misbins half the reads in one module. And it is just another table in the engine: `SELECT * FROM fastqc('reads.fastq.gz')`.
