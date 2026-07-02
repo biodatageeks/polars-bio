@@ -1,8 +1,32 @@
+import os
+
 import pytest
 
 import polars_bio as pb
 
-FASTQ = "tests/data/io/fastq/example.fastq"
+DATA = "tests/data/io/fastq"
+FASTQ = f"{DATA}/example.fastq"
+# Same 200 reads in three encodings.
+FASTQ_GZ = f"{DATA}/example.fastq.gz"
+FASTQ_BGZ = f"{DATA}/example.fastq.bgz"
+# Splittable BGZF (has a .gzi index) — exercises real parallel accumulate+merge.
+PARALLEL_BGZ = f"{DATA}/sample_parallel.fastq.bgz"
+# Robustness fixtures (unindexed BGZF, multi-member gzip).
+NOINDEX_BGZ = f"{DATA}/sample_no_index.fastq.bgz"
+MULTIMEMBER_GZ = f"{DATA}/multimember_pigz.fastq.gz"
+
+
+@pytest.fixture(autouse=True)
+def _restore_target_partitions():
+    """Keep target_partitions changes from leaking into the wider suite."""
+    yield
+    pb.set_option("datafusion.execution.target_partitions", str(os.cpu_count() or 1))
+
+
+def _sorted_tidy(path: str) -> "pl.DataFrame":  # noqa: F821
+    return (
+        pb.fastqc(path).tidy.collect().sort(["module", "label", "position", "metric"])
+    )
 
 
 def test_tidy_schema_and_all_modules():
@@ -94,3 +118,39 @@ def _n_seq_at(n_parts: int) -> float:
 def test_partition_merge_invariant(n_parts):
     expected = _n_seq_at(1)
     assert _n_seq_at(n_parts) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("compressed", [FASTQ_GZ, FASTQ_BGZ])
+def test_format_invariance_plain_vs_compressed(compressed):
+    # gzip / BGZF decoding must yield byte-identical QC to the plain file
+    # (same 200 reads, same order -> identical integer histograms -> identical
+    # finalized floats).
+    assert _sorted_tidy(compressed).equals(_sorted_tidy(FASTQ))
+
+
+@pytest.mark.parametrize("n_parts", [1, 2, 4, 8])
+def test_bgzf_partition_invariance_full_tidy(n_parts):
+    # On a SPLITTABLE BGZF file the entire tidy result (histograms, quantiles,
+    # duplication levels, GC bins) must be identical regardless of partition
+    # count -- this is the real end-to-end parallel accumulate+merge path that
+    # the plain-FASTQ test cannot reach (plain FASTQ is single-partition).
+    pb.set_option("datafusion.execution.target_partitions", "1")
+    expected = _sorted_tidy(PARALLEL_BGZ)
+    pb.set_option("datafusion.execution.target_partitions", str(n_parts))
+    assert _sorted_tidy(PARALLEL_BGZ).equals(expected)
+
+
+@pytest.mark.parametrize(
+    "path,expected_n_seq",
+    [
+        (NOINDEX_BGZ, 2000),
+        (MULTIMEMBER_GZ, 2000),
+    ],
+)
+def test_reads_robust_compressed_inputs(path, expected_n_seq):
+    # Unindexed BGZF and multi-member gzip must parse cleanly (the class of
+    # inputs where other readers -- e.g. RastQC 0.1.0 -- fail on the header).
+    bs = pb.fastqc(path, modules=["basic_stats"]).basic_stats.collect()
+    metrics = dict(zip(bs["metric"], bs["value"]))
+    assert metrics["n_seq"] == expected_n_seq
+    assert metrics["min_len"] > 0
