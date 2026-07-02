@@ -15,6 +15,7 @@ _FASTQC_MODULE = {
     "Per base sequence quality": "per_base_quality",
     "Per sequence GC content": "per_seq_gc",
     "Sequence Duplication Levels": "dup_levels",
+    "Per tile sequence quality": "per_tile_quality",
 }
 
 # Per-metric absolute tolerance (0 == exact match required).
@@ -130,6 +131,20 @@ def _emit(rows, module, header, parts):
                 position=None,
                 metric="pct",
                 value=float(parts[1]),
+            )
+        )
+    elif module == "per_tile_quality":
+        # FastQC 0.12.1: "#Tile\tBase\tMean" (Mean is the deviation from the
+        # per-position average of tile means).
+        if len(parts) < 3:
+            return
+        rows.append(
+            dict(
+                module=module,
+                label=parts[0],  # tile as string
+                position=int(parts[1]),
+                metric="mean",
+                value=float(parts[2]),
             )
         )
 

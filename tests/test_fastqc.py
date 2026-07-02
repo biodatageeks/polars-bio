@@ -26,6 +26,7 @@ EXPECTED_MODULES = [
     "overrepresented",
     "adapter_content",
     "dup_levels",
+    "per_tile_quality",
 ]
 
 

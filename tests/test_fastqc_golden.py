@@ -96,6 +96,25 @@ def test_basic_stats_match_fastqc():
     assert math.floor(got["gc_pct"]) == ref["gc_pct"]
 
 
+PER_TILE_GOLDEN = "tests/data/io/fastq/golden/per_tile_mix.nogroup.fastqc_data.txt"
+PER_TILE_FASTQ = "tests/data/io/fastq/per_tile_mix.fastq"
+
+
+def test_per_tile_quality_matches_fastqc_exactly():
+    ref = _golden(PER_TILE_GOLDEN).filter(pl.col("module") == "per_tile_quality")
+    got = _ours(PER_TILE_FASTQ).filter(pl.col("module") == "per_tile_quality")
+    joined = got.join(
+        ref,
+        on=["module", "label", "position", "metric"],
+        how="inner",
+        suffix="_ref",
+        nulls_equal=True,
+    )
+    assert joined.height == ref.height > 0
+    worst = joined.select((pl.col("value") - pl.col("value_ref")).abs().max()).item()
+    assert worst <= 1e-6, f"max per_tile deviation diff vs FastQC = {worst}"
+
+
 def test_dup_levels_match_fastqc_exactly():
     # On a file with real duplicates, every bin percentage must match FastQC.
     ref = _golden(DUP_GOLDEN).filter(pl.col("module") == "dup_levels")

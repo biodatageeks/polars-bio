@@ -17,6 +17,7 @@ ALL_MODULES = [
     "overrepresented",
     "adapter_content",
     "dup_levels",
+    "per_tile_quality",
 ]
 
 
@@ -188,6 +189,20 @@ class FastQCResult:
         )
 
     @property
+    def per_tile_quality(self) -> pl.LazyFrame:
+        self._require("per_tile_quality")
+        return (
+            self._module_rows("per_tile_quality")
+            .filter(pl.col("metric") == "mean")
+            .select(
+                pl.col("label").alias("tile"),
+                pl.col("position"),
+                pl.col("value").alias("deviation"),
+            )
+            .sort("tile", "position")
+        )
+
+    @property
     def dup_levels(self) -> pl.LazyFrame:
         self._require("dup_levels")
         return (
@@ -215,11 +230,12 @@ class FastQCOperations:
 
         Args:
             path: Path to a FASTQ file (plain, .gz, or .bgz).
-            modules: Module names to compute; ``None`` computes all ten
+            modules: Module names to compute; ``None`` computes all eleven
                 (``basic_stats``, ``per_base_quality``, ``per_seq_quality``,
                 ``per_base_content``, ``per_seq_gc``, ``per_base_n``,
-                ``seq_length``, ``overrepresented``, ``adapter_content``, ``dup_levels``). Accessing a non-computed module
-                on the result raises ``KeyError``.
+                ``seq_length``, ``overrepresented``, ``adapter_content``,
+                ``dup_levels``, ``per_tile_quality``). Accessing a non-computed
+                module on the result raises ``KeyError``.
             group: Reserved for FastQC-style position binning of long reads
                 (``group=False`` == FastQC ``--nogroup``). No-op for Phase 1
                 modules.
