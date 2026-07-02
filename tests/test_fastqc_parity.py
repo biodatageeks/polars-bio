@@ -10,12 +10,10 @@ pytestmark = pytest.mark.skipif(
 
 FASTQ = "tests/data/io/fastq/example.fastq"
 
-# Modules FastQC computes bit-identically to us. per_seq_gc (FastQC's GCModel
-# display smoothing diverges even from its own published source in 0.12.1) and
-# dup_levels (different bin labels) are validated separately: per_seq_gc/dup by
-# test_fastqc_correctness.py, and per_base_quality/basic_stats also by the
-# committed golden in test_fastqc_golden.py.
-EXACT_MODULES = ["per_base_quality", "basic_stats"]
+# Modules we match FastQC on bit-for-bit. Only dup_levels is excluded (FastQC
+# uses different bin labels, e.g. "10-49" vs our ">10"); it is validated
+# arithmetically in test_fastqc_correctness.py.
+EXACT_MODULES = ["per_base_quality", "basic_stats", "per_seq_gc"]
 
 
 def test_parity_against_fastqc():

@@ -49,6 +49,23 @@ def test_per_base_quality_matches_fastqc_exactly():
     assert worst <= 1e-6, f"max per_base_quality diff vs FastQC = {worst}"
 
 
+def test_per_seq_gc_matches_fastqc_exactly():
+    # Exact after replicating FastQC's truncateSequence (101bp -> first 100bp)
+    # and GCModel interpolation.
+    ref = _golden().filter(pl.col("module") == "per_seq_gc")
+    got = _ours().filter(pl.col("module") == "per_seq_gc")
+    joined = got.join(
+        ref,
+        on=["module", "label", "position", "metric"],
+        how="inner",
+        suffix="_ref",
+        nulls_equal=True,
+    )
+    assert joined.height == ref.height > 0
+    worst = joined.select((pl.col("value") - pl.col("value_ref")).abs().max()).item()
+    assert worst <= 1e-9, f"max per_seq_gc diff vs FastQC = {worst}"
+
+
 def test_basic_stats_match_fastqc():
     ref = dict(
         zip(
