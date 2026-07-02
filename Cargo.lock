@@ -1736,6 +1736,7 @@ version = "0.11.0"
 dependencies = [
  "datafusion",
  "futures",
+ "tokio",
 ]
 
 [[package]]

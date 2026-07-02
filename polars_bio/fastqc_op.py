@@ -1,8 +1,7 @@
-from typing import Iterator, List, Optional, Union
+from typing import List, Optional
 
 import polars as pl
 import pyarrow as pa
-from polars.io.plugins import register_io_source
 
 from .context import ctx
 from .logging import logger
@@ -10,40 +9,36 @@ from .logging import logger
 ALL_MODULES = ["basic_stats", "per_base_quality", "per_seq_gc", "dup_levels"]
 
 
-def _tidy_lazyframe(path: str, modules: Optional[List[str]]) -> pl.LazyFrame:
-    """Single-pass fastqc run exposed as the raw tidy LazyFrame."""
-    from polars_bio.polars_bio import py_get_table_schema, py_register_fastqc_table
+def _run_tidy(path: str, modules: Optional[List[str]]) -> pl.DataFrame:
+    """Execute the single streaming fastqc pass and materialize the tidy result.
+
+    The FASTQ is streamed out-of-core in Rust; only the tiny *aggregated* tidy
+    output (a few hundred rows regardless of input size) is materialized here,
+    so every per-module view is a cheap in-memory operation over one pass.
+    """
+    from polars_bio.polars_bio import (
+        py_get_table_schema,
+        py_read_table,
+        py_register_fastqc_table,
+    )
 
     table_name = py_register_fastqc_table(ctx, path, modules)
-    schema = py_get_table_schema(ctx, table_name)
-    empty = pa.table({f.name: pa.array([], type=f.type) for f in schema})
-    polars_schema = dict(pl.from_arrow(empty).schema)
-
-    def _source(
-        with_columns: Union[pl.Expr, None],
-        predicate: Union[pl.Expr, None],
-        n_rows: Union[int, None],
-        _batch_size: Union[int, None],
-    ) -> Iterator[pl.DataFrame]:
-        from polars_bio.polars_bio import py_read_table
-
-        from .context import ctx as _ctx
-
-        query_df = py_read_table(_ctx, table_name)
-        stream = query_df.execute_stream()
-        for batch in stream:
-            out = pl.DataFrame(batch.to_pyarrow())
-            if predicate is not None:
-                out = out.filter(predicate)
-            if with_columns is not None:
-                out = out.select(with_columns)
-            yield out
+    try:
+        query_df = py_read_table(ctx, table_name)
+        frames = [
+            pl.DataFrame(batch.to_pyarrow()) for batch in query_df.execute_stream()
+        ]
+        if frames:
+            return pl.concat(frames) if len(frames) > 1 else frames[0]
+        # No rows (e.g. empty FASTQ): return an empty frame with the right schema.
+        schema = py_get_table_schema(ctx, table_name)
+        empty = pa.table({f.name: pa.array([], type=f.type) for f in schema})
+        return pl.from_arrow(empty)
+    finally:
         try:
-            _ctx.deregister_table(table_name)
+            ctx.deregister_table(table_name)
         except Exception:
             pass
-
-    return register_io_source(_source, schema=polars_schema)
 
 
 class FastQCResult:
@@ -53,9 +48,14 @@ class FastQCResult:
     stream. Accessing a module that was not computed raises ``KeyError``.
     """
 
-    def __init__(self, tidy: pl.LazyFrame, computed: List[str]):
-        self.tidy = tidy
+    def __init__(self, tidy: pl.DataFrame, computed: List[str]):
+        self._tidy_df = tidy
         self.computed = set(computed)
+
+    @property
+    def tidy(self) -> pl.LazyFrame:
+        """The raw tidy result as a LazyFrame (single pass already computed)."""
+        return self._tidy_df.lazy()
 
     def _require(self, module: str) -> None:
         if module not in self.computed:
@@ -155,7 +155,7 @@ class FastQCOperations:
                     f"unknown fastqc modules {unknown}; valid: {ALL_MODULES}"
                 )
         computed = list(modules) if modules is not None else list(ALL_MODULES)
-        tidy = _tidy_lazyframe(path, modules)
+        tidy = _run_tidy(path, modules)
         if not group:
             logger.debug("group=False has no effect for Phase 1 modules")
         return FastQCResult(tidy, computed)

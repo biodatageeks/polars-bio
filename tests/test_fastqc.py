@@ -42,6 +42,19 @@ def test_per_base_quality_shape():
     assert pbq["position"].min() == 1
 
 
+def test_multiple_property_access_single_pass():
+    # One fastqc() result must serve every per-module view without re-running
+    # (regression: the tidy table was previously deregistered after the first
+    # collect, breaking the second property access).
+    qc = pb.fastqc(FASTQ)
+    assert qc.basic_stats.collect().height > 0
+    assert qc.per_base_quality.collect().height > 0
+    assert qc.per_seq_gc.collect().height > 0
+    assert qc.dup_levels.collect().height > 0
+    assert qc.summary().collect().height == 4
+    assert qc.tidy.collect().height > 0
+
+
 def test_non_computed_module_raises():
     qc = pb.fastqc(FASTQ, modules=["basic_stats"])
     with pytest.raises(KeyError):

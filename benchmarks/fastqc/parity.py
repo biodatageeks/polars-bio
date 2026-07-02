@@ -145,7 +145,10 @@ def pb_tidy(fastq: str, modules) -> pl.DataFrame:
 
 def parity_report(pb_df: pl.DataFrame, ref_df: pl.DataFrame) -> pl.DataFrame:
     keys = ["module", "label", "position", "metric"]
-    joined = pb_df.join(ref_df, on=keys, how="inner", suffix="_ref")
+    # join_nulls=True: label/position are null for scalar & positional metrics;
+    # without it every such row would silently drop (null != null in joins),
+    # yielding a false "0 mismatches" pass.
+    joined = pb_df.join(ref_df, on=keys, how="inner", suffix="_ref", nulls_equal=True)
 
     def verdict(row):
         tol = TOLERANCES.get((row["module"], row["metric"]), DEFAULT_TOL)
