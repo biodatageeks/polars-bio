@@ -1731,6 +1731,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "datafusion-bio-function-fastqc"
+version = "0.11.0"
+dependencies = [
+ "datafusion",
+ "futures",
+]
+
+[[package]]
 name = "datafusion-bio-function-pileup"
 version = "0.11.0"
 source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.11.0#1ad88df646e8db634a95822f77edaf0123e1b75b"
@@ -4842,6 +4850,7 @@ dependencies = [
  "datafusion-bio-format-gtf",
  "datafusion-bio-format-pairs",
  "datafusion-bio-format-vcf",
+ "datafusion-bio-function-fastqc",
  "datafusion-bio-function-pileup",
  "datafusion-bio-function-ranges",
  "datafusion-python",
