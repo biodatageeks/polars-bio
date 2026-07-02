@@ -138,8 +138,25 @@ class IntervalOperations:
         DataFrame metadata set at I/O time. Both inputs must have the same coordinate
         system.
 
+        Output modes (`overlap_output`, `distinct_output`):
+
+        - `overlap_output="join"` (default): returns joined pairs, suffixing columns from both
+          inputs. This is the historical behavior.
+        - `overlap_output="left"`: returns only rows from `df1` that overlap at least one row in
+          `df2`, keeping `df1` columns with their original names. By default it preserves overlap
+          multiplicity — one `df1` row for each matching `df2` row.
+        - `overlap_output="left", distinct_output=True`: returns each overlapping `df1` row once by
+          row identity. Duplicate `df1` rows are preserved by identity; this does not apply
+          `DISTINCT` over projected values.
+
+        ```python
+        pb.overlap(df1, df2, overlap_output="join")                        # joined pairs (default)
+        pb.overlap(df1, df2, overlap_output="left")                        # df1 rows overlapping df2
+        pb.overlap(df1, df2, overlap_output="left", distinct_output=True)  # each df1 row once
+        ```
+
         Parameters:
-            df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
+            df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf][polars_bio.data_processing.register_vcf]). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
             cols1: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
@@ -262,7 +279,7 @@ class IntervalOperations:
         system.
 
         Parameters:
-            df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
+            df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf][polars_bio.data_processing.register_vcf]). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
             cols1: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
@@ -343,7 +360,7 @@ class IntervalOperations:
         system.
 
         Parameters:
-            df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
+            df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf][polars_bio.data_processing.register_vcf]). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
             cols1: The names of columns containing the chromosome, start and end of the
                 genomic intervals, provided separately for each set.
@@ -418,7 +435,7 @@ class IntervalOperations:
         system.
 
         Parameters:
-            df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf](api.md#polars_bio.register_vcf)). CSV with a header, BED and Parquet are supported.
+            df1: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table (see [register_vcf][polars_bio.data_processing.register_vcf]). CSV with a header, BED and Parquet are supported.
             df2: Can be a path to a file, a polars DataFrame, or a pandas DataFrame or a registered table. CSV with a header, BED  and Parquet are supported.
             suffixes: Suffixes for the columns of the two overlapped sets.
             cols1: The names of columns containing the chromosome, start and end of the

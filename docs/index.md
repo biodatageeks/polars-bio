@@ -1,32 +1,53 @@
 # Next-gen Python DataFrame operations for genomics!
 
-![logo](assets/logo-large.png){ align=center style="height:350px;width:350px" }
+<p style="text-align: center;"><img src="assets/logo-large.png#only-light" alt="logo" style="height:420px"/><img src="assets/logo-large-dark.png#only-dark" alt="logo" style="height:420px"/></p>
 
 
 polars-bio is a :rocket:blazing [fast](performance.md#results-summary-) Python DataFrame library for genomics🧬  built on top of [Apache DataFusion](https://datafusion.apache.org/), [Apache Arrow](https://arrow.apache.org/)
 and  [polars](https://pola.rs/).
 It is designed to be easy to use, fast and memory efficient with a focus on genomics data.
 
-![img.png](assets/ashg-2025.png/img.png)
+See [quick start](quickstart.md) for the installation options.
+
+## 🎉 Join us at ECCB 2026 in Geneva!
+
+We'll be presenting **polars-bio** at [ECCB 2026](https://eccb2026.org) — the 25th European Conference on Computational Biology, **31 August – 4 September 2026, Geneva, Switzerland**. Come and say hi!
+
+[![Join us at ECCB 2026 in Geneva](assets/eccb-2026.png)](https://eccb2026.org)
 
 
 ## Key Features
 * optimized for [performance](performance.md#results-summary-) and memory [efficiency](performance.md#memory-characteristics) for large-scale genomics datasets analyses both when reading input data and performing operations
-* popular genomics [operations](features.md#genomic-ranges-operations) with a DataFrame API (both [Pandas](https://pandas.pydata.org/) and [polars](https://pola.rs/))
-* [SQL](features.md#sql-powered-data-processing)-powered bioinformatic data querying or manipulation/pre-processing
+* popular genomics [operations](features/operations.md#genomic-ranges-operations) with a DataFrame API (both [Pandas](https://pandas.pydata.org/) and [polars](https://pola.rs/))
+* [SQL](features/sql.md#sql-processing)-powered bioinformatic data querying or manipulation/pre-processing
 * native parallel engine powered by Apache DataFusion and [datafusion-bio-functions](https://github.com/biodatageeks/datafusion-bio-functions)
-* [out-of-core/streaming](features.md#streaming) processing (for data too large to fit into a computer's main memory)  with [Apache DataFusion](https://datafusion.apache.org/) and [polars](https://pola.rs/)
-* support for *federated* and *streamed* reading data from [cloud storages](features.md/#cloud-storage) (e.g. S3, GCS) with [Apache OpenDAL](https://github.com/apache/opendal)  enabling processing large-scale genomics data without materializing in memory
+* [out-of-core/streaming](features/index.md) processing (for data too large to fit into a computer's main memory)  with [Apache DataFusion](https://datafusion.apache.org/) and [polars](https://pola.rs/)
+* support for *federated* and *streamed* reading data from [cloud storages](features/cloud.md#cloud-storage) (e.g. S3, GCS) with [Apache OpenDAL](https://github.com/apache/opendal)  enabling processing large-scale genomics data without materializing in memory
 * zero-copy data exchange with [Apache Arrow](https://arrow.apache.org/)
-* bioinformatics file [formats](features.md#file-formats-support) with [noodles](https://github.com/zaeleus/noodles)
+* bioinformatics file [formats](features/reading.md#file-formats-support) with [noodles](https://github.com/zaeleus/noodles)
+* VCF Zarr support built on [Analysis-ready VCF at Biobank scale using Zarr](https://doi.org/10.1093/gigascience/giaf049), the [VCF Zarr specification](https://github.com/sgkit-dev/vcf-zarr-spec) and the [zarrs](https://crates.io/crates/zarrs) Rust crate
 * fast overlap operations with [COITrees: Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees)
 * pre-built wheel packages for *Linux*, *Windows* and *MacOS* (*arm64* and *x86_64*) available on [PyPI](https://pypi.org/project/polars-bio/#files)
 
-## Performance benchmarks
-![summary-results.png](assets/summary-results.png)
+## Performance
 
+polars-bio is optimized for both **genomic interval operations** and **reading genomic file formats**. See the full [performance results](performance.md#results-summary-).
 
-See [quick start](quickstart.md) for the installation options.
+**Genomic interval operations** — speedups vs. other Python libraries:
+
+![Benchmark summary](assets/summary-results.png)
+
+**Genomic file format readers** — single-threaded throughput vs. other Python readers ([full benchmark](blog/posts/genomic-formats-benchmark-2026-02.md)):
+
+![FASTQ readers](assets/format-fastq.png)
+
+![BAM readers](assets/format-bam.png)
+
+![VCF readers](assets/format-vcf.png)
+
+**Multi-threaded scalability** of file-format reading (wall time & peak memory):
+
+![File-format thread scaling](assets/format-scaling.png)
 
 ## Citing
 
@@ -47,24 +68,3 @@ If you use **polars-bio** in your work, please cite:
     eprint = {https://academic.oup.com/bioinformatics/advance-article-pdf/doi/10.1093/bioinformatics/btaf640/65667510/btaf640.pdf},
 }
 ```
-## Performance benchmarks
-### Single-thread 🏃‍
-![overlap-single.png](assets/overlap-single.png)
-
-![overlap-single.png](assets/nearest-single.png)
-
-![count-overlaps-single.png](assets/count-overlaps-single.png)
-
-![coverage-single.png](assets/coverage-single.png)
-
-### Parallel 🏃‍🏃‍
-![overlap-parallel.png](assets/overlap-parallel.png)
-
-![overlap-parallel.png](assets/nearest-parallel.png)
-
-![count-overlaps-parallel.png](assets/count-overlaps-parallel.png)
-
-![coverage-parallel.png](assets/coverage-parallel.png)
-
-
-[//]: # (* support for common genomics file formats &#40;VCF, BAM and FASTQ&#41;)

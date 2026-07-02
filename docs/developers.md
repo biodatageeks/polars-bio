@@ -502,7 +502,7 @@ print(schema.metadata)  # {b'bio.coordinate_system_zero_based': b'false', ...}
 
 ## Coordinate System Internals
 
-polars-bio supports both **0-based half-open** `[start, end)` and **1-based closed** `[start, end]` coordinate systems. The user-facing API is documented in [Features — Coordinate systems support](features.md#coordinate-systems-support). This section describes how the coordinate system propagates through the internal pipeline and affects query semantics.
+polars-bio supports both **0-based half-open** `[start, end)` and **1-based closed** `[start, end]` coordinate systems. The user-facing API is documented in [Features — Coordinate systems support](features/reading.md#coordinate-systems-support). This section describes how the coordinate system propagates through the internal pipeline and affects query semantics.
 
 ### End-to-end flow
 
@@ -646,7 +646,7 @@ This algorithm allows you to process your results without requiring **all** your
     2. The **smaller** the *build* side and **larger** the number of overlaps are, the **higher** is the gain of memory efficiency. For instance, when we compare the real `8-7` (`10^7 vs. 1.2*10^6`) and synthetic (`10^7 vs. 10^7`) datasets, we can see that we benefit more from using streaming mode in the **former** benchmark.
 
 ### Parallelization
-In the current implementation, the **probe** side can be processed in parallel using multiple threads on partitioned (implicitly or explicitly partitioned inputs — see [parallel engine](features.md#parallel-engine)). The **build** side is predominantly single-threaded (with the notable exception of BGZF compressed or partitioned Parquet/CSV input data files reading, which can be parallelized).
+In the current implementation, the **probe** side can be processed in parallel using multiple threads on partitioned (implicitly or explicitly partitioned inputs — see [parallel engine](features/parallel.md#parallel-engine)). The **build** side is predominantly single-threaded (with the notable exception of BGZF compressed or partitioned Parquet/CSV input data files reading, which can be parallelized).
 
 
 ## Comparison with Existing Tools
