@@ -8,7 +8,7 @@
     - **GIL-free streaming**: The GIL is only acquired once when exporting the stream; all subsequent batch processing happens in pure Rust
     - **Reduced memory overhead**: No Python iterator objects or intermediate conversions
 
-    We recommend handling most of the heavy lifting on the DataFusion side (e.g., using SQL and views) and relying on Polars' streaming capabilities primarily for projection, filtering, and sinking results. See the [Polars Integration](features.md#polars-integration) section for more details on the architecture.
+    We recommend handling most of the heavy lifting on the DataFusion side (e.g., using SQL and views) and relying on Polars' streaming capabilities primarily for projection, filtering, and sinking results. See the [Polars Integration](developers.md#polars-integration) section for more details on the architecture.
 
 2. What to do if I get  `Illegal instruction (core dumped)` when using polars-bio?
 This error is likely due to the fact that the ABI of the polars-bio wheel package does not match the ABI of the Python interpreter.
