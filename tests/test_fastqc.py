@@ -24,6 +24,7 @@ EXPECTED_MODULES = [
     "per_base_n",
     "seq_length",
     "overrepresented",
+    "adapter_content",
     "dup_levels",
 ]
 
