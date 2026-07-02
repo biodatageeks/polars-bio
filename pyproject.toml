@@ -23,6 +23,13 @@ dependencies = [
   "polars-config-meta>=0.3.0,<1",
 ]
 
+[project.urls]
+Homepage = "https://biodatageeks.org/polars-bio/"
+Documentation = "https://biodatageeks.org/polars-bio/"
+Repository = "https://github.com/biodatageeks/polars-bio"
+Source = "https://github.com/biodatageeks/polars-bio"
+Issues = "https://github.com/biodatageeks/polars-bio/issues"
+
 [project.optional-dependencies]
 pandas = ["pandas>=3.0.0"]
 viz = ["bioframe", "matplotlib"]
