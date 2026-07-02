@@ -17,17 +17,20 @@ import polars_bio as pb
 
 GOLDEN = "tests/data/io/fastq/golden/example.nogroup.fastqc_data.txt"
 FASTQ = "tests/data/io/fastq/example.fastq"
+# A file with a known mix of duplication levels (1x/2x/3x/5x reads).
+DUP_GOLDEN = "tests/data/io/fastq/golden/dup_mix.nogroup.fastqc_data.txt"
+DUP_FASTQ = "tests/data/io/fastq/dup_mix.fastq"
 
 
-def _golden() -> pl.DataFrame:
+def _golden(path=GOLDEN) -> pl.DataFrame:
     from benchmarks.fastqc.parity import parse_fastqc_data
 
-    return parse_fastqc_data(GOLDEN)
+    return parse_fastqc_data(path)
 
 
-def _ours() -> pl.DataFrame:
+def _ours(path=FASTQ) -> pl.DataFrame:
     return (
-        pb.fastqc(FASTQ)
+        pb.fastqc(path)
         .tidy.collect()
         .select("module", "label", "position", "metric", "value")
     )
@@ -86,4 +89,26 @@ def test_basic_stats_match_fastqc():
         )
     )
     assert got["n_seq"] == ref["n_seq"]  # exact
-    assert abs(got["gc_pct"] - ref["gc_pct"]) <= 1.0  # FastQC rounds %GC to int
+    # FastQC prints %GC as an integer via truncation of (G+C)*100/(A+T+G+C);
+    # our full-precision value must floor to exactly that integer.
+    import math
+
+    assert math.floor(got["gc_pct"]) == ref["gc_pct"]
+
+
+def test_dup_levels_match_fastqc_exactly():
+    # On a file with real duplicates, every bin percentage must match FastQC.
+    ref = _golden(DUP_GOLDEN).filter(pl.col("module") == "dup_levels")
+    got = _ours(DUP_FASTQ).filter(
+        (pl.col("module") == "dup_levels") & (pl.col("metric") == "pct")
+    )
+    joined = got.join(
+        ref,
+        on=["module", "label", "position", "metric"],
+        how="inner",
+        suffix="_ref",
+        nulls_equal=True,
+    )
+    assert joined.height == ref.height == 16
+    worst = joined.select((pl.col("value") - pl.col("value_ref")).abs().max()).item()
+    assert worst <= 1e-9, f"max dup_levels diff vs FastQC = {worst}"

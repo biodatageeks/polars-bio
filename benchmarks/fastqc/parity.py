@@ -120,7 +120,8 @@ def _emit(rows, module, header, parts):
             )
         )
     elif module == "dup_levels":
-        if parts[0].startswith("#Total") or len(parts) < 3:
+        # FastQC 0.12.1: "<level>\t<percentage of total>" (2 columns).
+        if parts[0].startswith("#") or len(parts) < 2:
             return
         rows.append(
             dict(
@@ -128,7 +129,7 @@ def _emit(rows, module, header, parts):
                 label=parts[0],
                 position=None,
                 metric="pct",
-                value=float(parts[2]),
+                value=float(parts[1]),
             )
         )
 

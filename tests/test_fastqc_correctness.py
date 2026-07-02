@@ -23,14 +23,15 @@ def _reads():
 def test_basic_stats_exact():
     seqs, _ = _reads()
     gc = sum(c in "GCgc" for s in seqs for c in s)
+    atgc = sum(c in "ACGTacgt" for s in seqs for c in s)  # FastQC excludes N
     total = sum(len(s) for s in seqs)
     bs = pb.fastqc(FASTQ, modules=["basic_stats"]).basic_stats.collect()
     m = dict(zip(bs["metric"], bs["value"]))
     assert m["n_seq"] == len(seqs)
-    assert m["total_bases"] == total
+    assert m["total_bases"] == total  # full length, incl N
     assert m["min_len"] == min(len(s) for s in seqs)
     assert m["max_len"] == max(len(s) for s in seqs)
-    assert abs(m["gc_pct"] - gc / total * 100) < 1e-9
+    assert abs(m["gc_pct"] - gc / atgc * 100) < 1e-9  # %GC over A/T/G/C only
 
 
 def test_per_base_mean_exact():
@@ -49,16 +50,15 @@ def test_per_base_mean_exact():
         assert abs(got[i + 1] - expected) < 1e-9, f"pos {i + 1}"
 
 
-def test_duplication_pct_dup_exact():
+def test_duplication_dedup_pct_exact():
     seqs, _ = _reads()
-    # Our key is the first 50 bases, uppercased (KEY_PREFIX=50).
-    keys = [s[:50].upper() for s in seqs]
+    # FastQC keys on the first 50 bases; "Total Deduplicated Percentage" is the
+    # fraction of distinct sequences remaining (identity correction < 100k).
+    keys = [s[:50] for s in seqs]
     counts = Counter(keys)
-    distinct = len(counts)
-    total = len(keys)
-    expected_pct_dup = (total - distinct) / total * 100
+    expected_dedup_pct = len(counts) / len(keys) * 100
     tidy = pb.fastqc(FASTQ, modules=["dup_levels"]).tidy.collect()
-    pct_dup = tidy.filter(
-        (tidy["module"] == "dup_levels") & (tidy["metric"] == "pct_dup")
+    dedup = tidy.filter(
+        (tidy["module"] == "dup_levels") & (tidy["metric"] == "total_dedup_pct")
     )["value"][0]
-    assert abs(pct_dup - expected_pct_dup) < 1e-9
+    assert abs(dedup - expected_dedup_pct) < 1e-9

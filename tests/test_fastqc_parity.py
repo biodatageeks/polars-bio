@@ -10,10 +10,11 @@ pytestmark = pytest.mark.skipif(
 
 FASTQ = "tests/data/io/fastq/example.fastq"
 
-# Modules we match FastQC on bit-for-bit. Only dup_levels is excluded (FastQC
-# uses different bin labels, e.g. "10-49" vs our ">10"); it is validated
-# arithmetically in test_fastqc_correctness.py.
-EXACT_MODULES = ["per_base_quality", "basic_stats", "per_seq_gc"]
+# All four modules match FastQC 0.12.1. per_base_quality/per_seq_gc/dup_levels
+# are bit-exact; basic_stats n_seq is exact and %GC is within FastQC's integer
+# truncation (TOLERANCES allows 0.5; floor-exactness is asserted in the golden
+# test). dup_levels only compares per-bin "pct" rows (labels align incl ">10k+").
+EXACT_MODULES = ["per_base_quality", "per_seq_gc", "dup_levels", "basic_stats"]
 
 
 def test_parity_against_fastqc():
