@@ -41,9 +41,9 @@ polars-bio is optimized for both **genomic interval operations** and **reading g
 
 ![FASTQ readers](assets/format-fastq.png)
 
-![BAM readers](assets/format-bam.png)
+![BAM readers (with tags)](assets/format-bam.png)
 
-![VCF readers](assets/format-vcf.png)
+![VCF readers (with INFO)](assets/format-vcf.png)
 
 **Multi-threaded scalability** of file-format reading (wall time & peak memory):
 
