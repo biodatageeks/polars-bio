@@ -23,6 +23,7 @@ EXPECTED_MODULES = [
     "per_seq_gc",
     "per_base_n",
     "seq_length",
+    "overrepresented",
     "dup_levels",
 ]
 
@@ -95,6 +96,8 @@ def test_new_module_properties_shapes():
     sl = qc.seq_length.collect()
     assert {"length", "count"} == set(sl.columns)
     assert sl["count"].sum() == 200  # all reads accounted for
+    over = qc.overrepresented.collect()
+    assert {"sequence", "count", "pct", "possible_source"} == set(over.columns)
 
 
 def test_non_computed_module_raises():
