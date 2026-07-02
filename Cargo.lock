@@ -1733,7 +1733,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-function-fastqc"
 version = "0.11.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=592a69b7fcf6c4e07dfc0410f558551e6d89faf4#592a69b7fcf6c4e07dfc0410f558551e6d89faf4"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=a84ae12d8e9da26117eaae5fe832c3cc063ba20c#a84ae12d8e9da26117eaae5fe832c3cc063ba20c"
 dependencies = [
  "datafusion",
  "futures",
