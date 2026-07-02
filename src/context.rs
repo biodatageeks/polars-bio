@@ -123,5 +123,8 @@ fn create_context() -> SessionContext {
     // Register depth UDTF for SQL: SELECT * FROM depth('file.bam')
     ctx.register_udtf("depth", std::sync::Arc::new(crate::pileup::DepthFunction));
 
+    // Register fastqc UDTF for SQL: SELECT * FROM fastqc('file.fastq')
+    ctx.register_udtf("fastqc", std::sync::Arc::new(crate::fastqc::FastqcFunction));
+
     ctx
 }

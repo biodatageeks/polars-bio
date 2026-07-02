@@ -1,4 +1,5 @@
 mod context;
+mod fastqc;
 mod operation;
 mod option;
 mod pileup;
