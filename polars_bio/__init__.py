@@ -19,6 +19,7 @@ from .constants import (
 )
 from .context import ctx, get_option, set_option
 from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemError
+from .fastqc_op import FastQCOperations as fastqc_operations
 from .io import IOOperations as data_input
 from .logging import set_loglevel
 from .pileup_op import PileupOperations as pileup_operations
@@ -111,6 +112,7 @@ write_cram = data_input.write_cram
 sink_cram = data_input.sink_cram
 
 depth = pileup_operations.depth
+fastqc = fastqc_operations.fastqc
 
 overlap = range_operations.overlap
 nearest = range_operations.nearest
@@ -216,6 +218,8 @@ __all__ = [
     "register_view",
     "sql",
     "depth",
+    "fastqc",
+    "fastqc_operations",
     "overlap",
     "nearest",
     "count_overlaps",
