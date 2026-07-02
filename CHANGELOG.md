@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **FastQC quality control** (`pb.fastqc` / `SELECT * FROM fastqc(...)`): streaming FastQC over FASTQ files (plain, `.gz`, BGZF) in a single out-of-core pass. All 12 core modules implemented and bit-exact against FastQC 0.12.1 (`--nogroup`): `basic_stats`, `per_base_quality`, `per_seq_quality`, `per_base_content`, `per_seq_gc`, `per_base_n`, `seq_length`, `overrepresented`, `adapter_content`, `dup_levels`, `per_tile_quality`, `kmer_content`. Parallel accumulate-then-merge yields partition-invariant output; on a 26.5M-read BGZF it runs ~12× faster than FastQC at 8 cores.
+
 ## [0.32.0] - 2026-06-30
 
 ### Added
