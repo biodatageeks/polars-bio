@@ -238,9 +238,78 @@ polars-bio's true allocation is **382 MB** at 8 cores — in the same league as 
 | RastQC (8 threads) | 399 | 654 |
 | FastQC (JVM) | — | 674 |
 
+## It generalizes: the RastQC paper's own datasets
+
+The 64M-read exome above is a single run. To check the pattern holds across sizes, we repeated the matched comparison — all three tools, the same 11 default modules — on three short-read libraries taken from the [RastQC preprint](https://www.biorxiv.org/content/10.64898/2026.03.31.715630v2) itself: **0.72M**, **4.3M**, and **24.8M** reads, thread-scaled 1 → 8. (All fetched with `prefetch` + `fasterq-dump`, converted to indexed BGZF; FastQC single-threaded as it has no parallel mode.)
+
+The largest, **DRR013000** (24.8M reads), tells the whole story:
+
+<div markdown="0" style="background:#fff;border:1px solid #e4e7ec;border-radius:14px;padding:16px 18px;margin:1rem 0;overflow-x:auto"><div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem;color:#8b94a0;margin:.4rem 0 .6rem"><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#0072B2;display:inline-block"></span>polars-bio</span><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#009E73;display:inline-block"></span>RastQC</span><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#E69F00;display:inline-block"></span>FastQC (1 thread)</span></div><svg viewBox="0 0 900 330" style="width:100%;height:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Wall-clock time by core count">
+<line x1="50" y1="290.0" x2="878" y2="290.0" stroke="#eef1f4"/>
+<text x="42" y="293.0" font-size="11" fill="#8b94a0" text-anchor="end">0</text>
+<line x1="50" y1="252.3" x2="878" y2="252.3" stroke="#eef1f4"/>
+<text x="42" y="255.3" font-size="11" fill="#8b94a0" text-anchor="end">10</text>
+<line x1="50" y1="214.6" x2="878" y2="214.6" stroke="#eef1f4"/>
+<text x="42" y="217.6" font-size="11" fill="#8b94a0" text-anchor="end">20</text>
+<line x1="50" y1="176.9" x2="878" y2="176.9" stroke="#eef1f4"/>
+<text x="42" y="179.9" font-size="11" fill="#8b94a0" text-anchor="end">30</text>
+<line x1="50" y1="139.1" x2="878" y2="139.1" stroke="#eef1f4"/>
+<text x="42" y="142.1" font-size="11" fill="#8b94a0" text-anchor="end">40</text>
+<line x1="50" y1="101.4" x2="878" y2="101.4" stroke="#eef1f4"/>
+<text x="42" y="104.4" font-size="11" fill="#8b94a0" text-anchor="end">50</text>
+<line x1="50" y1="63.7" x2="878" y2="63.7" stroke="#eef1f4"/>
+<text x="42" y="66.7" font-size="11" fill="#8b94a0" text-anchor="end">60</text>
+<line x1="50" y1="26.0" x2="878" y2="26.0" stroke="#eef1f4"/>
+<text x="42" y="29.0" font-size="11" fill="#8b94a0" text-anchor="end">70</text>
+<text x="42" y="18" font-size="11" fill="#8b94a0" text-anchor="end">sec</text>
+<text x="50.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">1</text>
+<text x="326.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">2</text>
+<text x="602.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">4</text>
+<text x="878.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">8</text>
+<line x1="50" y1="49.2" x2="878" y2="49.2" stroke="#E69F00" stroke-width="2" stroke-dasharray="2 5"/>
+<text x="878" y="41.2" font-size="11.5" font-weight="600" fill="#E69F00" text-anchor="end">FastQC — 63.8s</text>
+<polyline points="50.0,182.0 326.0,235.1 602.0,262.0 878.0,274.5" fill="none" stroke="#0072B2" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="50.0" cy="182.0" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
+<text x="50.0" y="200.0" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">28.6</text>
+<circle cx="326.0" cy="235.1" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
+<text x="326.0" y="253.1" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">14.6</text>
+<circle cx="602.0" cy="262.0" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
+<text x="602.0" y="280.0" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">7.43</text>
+<circle cx="878.0" cy="274.5" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
+<text x="878.0" y="292.5" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">4.11</text>
+<polyline points="50.0,32.0 326.0,157.8 602.0,207.3 878.0,206.5" fill="none" stroke="#009E73" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="50.0" cy="32.0" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
+<text x="50.0" y="21.0" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">68.4</text>
+<circle cx="326.0" cy="157.8" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
+<text x="326.0" y="146.8" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">35.1</text>
+<circle cx="602.0" cy="207.3" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
+<text x="602.0" y="196.3" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">21.9</text>
+<circle cx="878.0" cy="206.5" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
+<text x="878.0" y="195.5" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">22.1</text>
+</svg></div>
+
+| cores / threads | polars-bio | RastQC | FastQC |
+|---:|---:|---:|---:|
+| 1 | 28.63 s | 68.42 s | 63.84 s (1 thr) |
+| 2 | 14.57 s | 35.06 s | — |
+| 4 | 7.43 s | 21.92 s | — |
+| 8 | **4.11 s** | 22.15 s | — |
+
+polars-bio scales ~7× to **4.1 s at 8 cores — 15.5× faster than FastQC** and **5.3× faster than RastQC's best** (21.9 s at 4 threads, after which RastQC plateaus). Even single-threaded, polars-bio (28.6 s) is more than 2× faster than FastQC.
+
+Across all three sizes the ranking never changes: polars-bio is fastest at every thread count, and its **single-threaded** time already beats FastQC on every run.
+
+| dataset | reads | FastQC (1t) | RastQC (best) | polars-bio (best) | pb vs FastQC |
+|---|---:|---:|---:|---:|---:|
+| DRR609229 R1 | 0.72M | 3.49 s | 2.29 s (1t) | **0.12 s** (8c) | 29.1× |
+| ERR5897746 R1 | 4.3M | 16.63 s | 4.81 s (8t) | **1.30 s** (8c) | 12.8× |
+| DRR013000 R1 | 24.8M | 63.84 s | 21.92 s (4t) | **4.11 s** (8c) | 15.5× |
+
+Paired R2 mates behave identically (full 1/2/4/8 grid in the repo). Two things stand out in RastQC: on the small 0.72M file it shows **no thread benefit at all** (~2.3 s flat, 1→8t), and its **single-threaded time is *slower* than FastQC** on both larger runs — whereas polars-bio scales cleanly and leads throughout.
+
 ## The takeaway
 
-On a 64-million-read clinical exome run, polars-bio is the only tool that is **both** exact against FastQC and genuinely fast: **15× faster than FastQC**, **4.3× faster than RastQC**, at ~380 MB of real memory — while RastQC, the other fast option, silently misbins a third of the reads in one module. And it is just another table in the engine: `SELECT * FROM fastqc('reads.fastq.gz')`.
+On a 64-million-read clinical exome run, polars-bio is the only tool that is **both** exact against FastQC and genuinely fast: **15× faster than FastQC**, **4.3× faster than RastQC**, at ~380 MB of real memory — while RastQC, the other fast option, silently misbins a third of the reads in one module. That lead is not an artefact of one file — it holds from 0.7M to 64M reads. And it is just another table in the engine: `SELECT * FROM fastqc('reads.fastq.gz')`.
 
 [^1]: FastQC ships Kmer Content disabled by default, so the cross-tool comparison covers the 11 default modules. polars-bio implements Kmer Content too (12/12), parity-tested separately; its FastQC-style top-20 output is inherently non-deterministic on real data — a known property of FastQC's Kmer module.
 [^2]: FastQC prints `%GC` as a truncated integer; our full-precision value floors to FastQC's. On this run all three report `%GC = 50`.
