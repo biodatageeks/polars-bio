@@ -50,6 +50,28 @@ fasterq-dump --split-spot SRR39421268 | bgzip -i > SRR39421268.fastq.gz  # BGZF 
 
 The `-i`/reindex step writes the BGZF **`.gzi` index** — that is what lets polars-bio split the file and scan it in parallel. All three tools are compared on the 11 modules FastQC runs by default.[^1]
 
+## Environment
+
+All three tools were run on the same laptop; wall-clock is best-of-two warm runs, memory via `/usr/bin/time -l` (footprint) with the FastQC JVM sampled separately.
+
+| | |
+|---|---|
+| Machine | Apple **M3 Max** — 16 cores (12 performance + 4 efficiency) |
+| Memory | 64 GB |
+| OS | macOS 15.6 (Darwin 24.6.0), arm64 |
+| polars-bio | 0.32.0 (FastQC Phase 1) · Python 3.12 |
+| FastQC | 0.12.1 (OpenJDK) |
+| RastQC | 0.1.0 |
+| Data prep | sra-tools 3.4.1 · htslib/bgzip 1.21 |
+
+**Tools compared**
+
+| Tool | Source | Reference |
+|---|---|---|
+| FastQC | [s-andrews/FastQC](https://github.com/s-andrews/FastQC) | Andrews S. (2010), [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/), Babraham Bioinformatics |
+| RastQC | [Huang-lab/RastQC](https://github.com/Huang-lab/RastQC) | Huang K-L, *RastQC: A fast, Rust-based quality control tool…*, [bioRxiv (2026)](https://www.biorxiv.org/content/10.64898/2026.03.31.715630v2) |
+| polars-bio | [biodatageeks/polars-bio](https://github.com/biodatageeks/polars-bio) | this post |
+
 ## Performance
 
 Lower is better.
