@@ -697,7 +697,7 @@ dependencies = [
  "enum-map",
  "fxhash",
  "getset",
- "itertools 0.14.0",
+ "itertools 0.10.5",
  "itertools-num",
  "multimap",
  "ndarray 0.16.1",
@@ -1733,7 +1733,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-function-fastqc"
 version = "0.11.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=a84ae12d8e9da26117eaae5fe832c3cc063ba20c#a84ae12d8e9da26117eaae5fe832c3cc063ba20c"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=86b906642287f8d34013e68f5fc220432b23f1c7#86b906642287f8d34013e68f5fc220432b23f1c7"
 dependencies = [
  "datafusion",
  "futures",
@@ -4978,7 +4978,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.10.5",
  "proc-macro2 1.0.106",
  "quote 1.0.46",
  "syn 2.0.118",
