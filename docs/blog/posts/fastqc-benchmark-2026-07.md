@@ -72,6 +72,28 @@ All three tools were run on the same laptop; wall-clock is best-of-two warm runs
 | RastQC | [Huang-lab/RastQC](https://github.com/Huang-lab/RastQC) | Huang K-L, *RastQC: A fast, Rust-based quality control tool…*, [bioRxiv (2026)](https://www.biorxiv.org/content/10.64898/2026.03.31.715630v2) |
 | polars-bio | [biodatageeks/polars-bio](https://github.com/biodatageeks/polars-bio) | this post |
 
+**How each tool was run** — all three compute the same **11 default FastQC modules** (Kmer Content off):
+
+```bash
+# Fetch + convert to an indexed BGZF (.gzi lets polars-bio split it for parallel scan)
+prefetch SRR39421268
+fasterq-dump --split-spot SRR39421268 | bgzip -i > reads.fastq.gz
+
+# FastQC — 11 default modules, single-threaded
+fastqc --nogroup reads.fastq.gz
+
+# RastQC — disable its default Kmer Content so it runs the same 11 modules
+printf 'kmer\tignore\t1\n' >> limits.txt
+rastqc -t 8 --limits limits.txt reads.fastq.gz          # -t 1/2/4/8
+
+# polars-bio — N partitions (target_partitions = 1/2/4/8)
+python - <<'PY'
+import polars_bio as pb
+pb.set_option("datafusion.execution.target_partitions", "8")
+pb.fastqc("reads.fastq.gz").tidy.collect()
+PY
+```
+
 ## Performance
 
 Lower is better.
