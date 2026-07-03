@@ -128,19 +128,23 @@ polars-bio scales **7.5×** to **12.9 s at 8 cores** — **15× faster than Fast
 
 ## Correctness
 
-Speed is easy; being *right* is the hard part. polars-bio is **bit-exact with FastQC** on every deterministic module, and its parallel output is byte-identical across core counts:
+Speed is easy; being *right* is the hard part. Measured against the FastQC 0.12.1 golden output, polars-bio is **bit-exact** on every deterministic module (and byte-identical across core counts); **RastQC** — the other fast tool — is close on most but not bit-exact, and one module is badly wrong:
 
-| Module | polars-bio vs FastQC 0.12.1 |
-|---|---|
-| per_base_quality · per_sequence_quality | ✅ **EXACT** |
-| per_base_content · per_sequence_gc | ✅ **EXACT** |
-| per_base_n · sequence_length | ✅ **EXACT** |
-| overrepresented · adapter_content | ✅ **EXACT** |
-| basic_statistics | ✅ **EXACT**[^2] |
-| duplication_levels | ✅ matches FastQC's 100k estimate |
-| per_tile_quality | ✅ exact* (\*FastQC subsamples 10% of reads) |
+| Module | polars-bio | RastQC |
+|---|---|---|
+| per_base_quality | ✅ **EXACT** | ≈ float tol (~5e-3)[^3] |
+| **per_sequence_quality** | ✅ **EXACT** | ❌ **~24M reads misbinned** |
+| per_base_content | ✅ **EXACT** | ≈ float tol |
+| per_sequence_gc | ✅ **EXACT** | ✅ EXACT |
+| per_base_n | ✅ **EXACT** | ≈ float tol |
+| sequence_length | ✅ **EXACT** | ✅ EXACT |
+| overrepresented | ✅ **EXACT** | ✅ EXACT |
+| adapter_content | ✅ **EXACT** | ≈ (different position grouping) |
+| basic_statistics | ✅ **EXACT**[^2] | ⚠️ %GC rounds vs truncates |
+| duplication_levels | ✅ matches FastQC's 100k estimate | ≈ float tol |
+| per_tile_quality | ✅ exact* (\*FastQC subsamples 10%) | ≈ float tol |
 
-The cautionary contrast is **RastQC**, the other fast tool. Its per-sequence-quality histogram is badly wrong — a mean-quality rounding error shifts the peak bin, misbinning **~24 million reads** (a third of the file). polars-bio reproduces FastQC exactly:
+RastQC's headline failure is **per-sequence quality**: a mean-quality rounding error shifts the peak bin, misbinning **~24 million reads** (a third of the file). polars-bio reproduces FastQC exactly:
 
 <div markdown="0" style="background:#fff;border:1px solid #e4e7ec;border-radius:14px;padding:16px 18px;margin:1rem 0;overflow-x:auto"><div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem;color:#8b94a0;margin:.4rem 0 .6rem"><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#E69F00;display:inline-block"></span>FastQC</span><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#0072B2;display:inline-block"></span>polars-bio</span><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#009E73;display:inline-block"></span>RastQC</span></div><svg viewBox="0 0 900 320" style="width:100%;height:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Per-sequence quality histogram">
 <line x1="52" y1="282.0" x2="884" y2="282.0" stroke="#eef1f4"/>
@@ -218,3 +222,4 @@ On a 64-million-read clinical exome run, polars-bio is the only tool that is **b
 
 [^1]: FastQC ships Kmer Content disabled by default, so the cross-tool comparison covers the 11 default modules. polars-bio implements Kmer Content too (12/12), parity-tested separately; its FastQC-style top-20 output is inherently non-deterministic on real data — a known property of FastQC's Kmer module.
 [^2]: FastQC prints `%GC` as a truncated integer; our full-precision value floors to FastQC's. On this run all three report `%GC = 50`.
+[^3]: RastQC uses float32 internally, so on the deterministic modules it agrees with FastQC only to ~1e-3, not bit-exactly. "≈ float tol" marks that; `per_sequence_quality` (verified on this run) and `%GC` are genuine algorithmic differences, not precision.
