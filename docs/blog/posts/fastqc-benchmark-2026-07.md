@@ -299,11 +299,11 @@ polars-bio scales ~7× to **4.1 s at 8 cores — 15.5× faster than FastQC** and
 
 Across all three sizes the ranking never changes: polars-bio is fastest at every thread count, and its **single-threaded** time already beats FastQC on every run.
 
-| dataset | reads | FastQC (1t) | RastQC (best) | polars-bio (best) | pb vs FastQC |
-|---|---:|---:|---:|---:|---:|
-| DRR609229 R1 | 0.72M | 3.49 s | 2.29 s (1t) | **0.12 s** (8c) | 29.1× |
-| ERR5897746 R1 | 4.3M | 16.63 s | 4.81 s (8t) | **1.30 s** (8c) | 12.8× |
-| DRR013000 R1 | 24.8M | 63.84 s | 21.92 s (4t) | **4.11 s** (8c) | 15.5× |
+| dataset | reads | FastQC (1t) | RastQC (best) | polars-bio (best) | pb vs FastQC | pb vs RastQC |
+|---|---:|---:|---:|---:|---:|---:|
+| DRR609229 R1 | 0.72M | 3.49 s | 2.29 s (1t) | **0.12 s** (8c) | 29.1× | 19.1× |
+| ERR5897746 R1 | 4.3M | 16.63 s | 4.81 s (8t) | **1.30 s** (8c) | 12.8× | 3.7× |
+| DRR013000 R1 | 24.8M | 63.84 s | 21.92 s (4t) | **4.11 s** (8c) | 15.5× | 5.3× |
 
 Paired R2 mates behave identically (full 1/2/4/8 grid in the repo). Two things stand out in RastQC: on the small 0.72M file it shows **no thread benefit at all** (~2.3 s flat, 1→8t), and its **single-threaded time is *slower* than FastQC** on both larger runs — whereas polars-bio scales cleanly and leads throughout.
 
