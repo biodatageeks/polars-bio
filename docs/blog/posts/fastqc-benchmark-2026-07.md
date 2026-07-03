@@ -7,7 +7,7 @@ categories:
   - benchmarks
 ---
 
-# Streaming FastQC in polars-bio: exact, and 12× faster
+# Streaming FastQC in polars-bio: exact, and 15× faster
 
 [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) is the de-facto first look at any sequencing run — but it is a single-threaded Java tool, and the fast Rust reimplementations tend to trade away correctness. polars-bio now runs the **full FastQC module suite as a single streaming pass** over FASTQ, computed on Apache DataFusion: **bit-exact against FastQC 0.12.1**, and a fraction of the time and memory.
 
@@ -28,17 +28,27 @@ qc.summary().collect()          # PASS / WARN / FAIL per module
 pb.sql("SELECT * FROM fastqc('reads_R1.fastq.gz')").collect()
 ```
 
-## Setup
+## The dataset
 
-One real file, three tools, same machine (Apple Silicon, arm64).
+We benchmark on a **real, citable clinical run** rather than a synthetic file: [**SRR39421268**](https://www.ncbi.nlm.nih.gov/sra/SRR39421268), a *Homo sapiens* HER2 breast-cancer targeted-capture (exome) library.
 
-| Item | Value |
+| Field | Value |
 |---|---|
-| Input | `partial_reads.fastq.gz` — 523 MB BGZF |
-| Reads | 26,527,426 @ 148 bp (Illumina NovaSeq) |
-| Oracle | FastQC 0.12.1 |
-| Baselines | RastQC 0.1.0, polars-bio (FastQC Phase 1) |
-| Modules compared | the 11 FastQC runs by default[^1] |
+| Run | SRR39421268 (experiment SRX34138143) |
+| Study / BioProject | SRP714544 / [PRJNA1484801](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA1484801) |
+| BioSample | SAMN61257782 (`HER2_PT06_OP_N`) |
+| Organism | *Homo sapiens* |
+| Instrument | Illumina NovaSeq 6000 |
+| Library | Targeted-Capture (hybrid selection), genomic, paired |
+| Reads | 32,167,982 pairs → **64,335,964 reads @ 101 bp** (~6.5 Gbp) |
+| Size | 3.3 GB BGZF |
+
+```bash
+prefetch SRR39421268
+fasterq-dump --split-spot SRR39421268 | bgzip -i > SRR39421268.fastq.gz  # BGZF + .gzi index
+```
+
+The `-i`/reindex step writes the BGZF **`.gzi` index** — that is what lets polars-bio split the file and scan it in parallel. All three tools are compared on the 11 modules FastQC runs by default.[^1]
 
 ## Performance
 
@@ -48,109 +58,101 @@ Lower is better.
 <line x1="50" y1="290.0" x2="878" y2="290.0" stroke="#eef1f4"/>
 <text x="42" y="293.0" font-size="11" fill="#8b94a0" text-anchor="end">0</text>
 <line x1="50" y1="224.0" x2="878" y2="224.0" stroke="#eef1f4"/>
-<text x="42" y="227.0" font-size="11" fill="#8b94a0" text-anchor="end">15</text>
+<text x="42" y="227.0" font-size="11" fill="#8b94a0" text-anchor="end">60</text>
 <line x1="50" y1="158.0" x2="878" y2="158.0" stroke="#eef1f4"/>
-<text x="42" y="161.0" font-size="11" fill="#8b94a0" text-anchor="end">30</text>
+<text x="42" y="161.0" font-size="11" fill="#8b94a0" text-anchor="end">120</text>
 <line x1="50" y1="92.0" x2="878" y2="92.0" stroke="#eef1f4"/>
-<text x="42" y="95.0" font-size="11" fill="#8b94a0" text-anchor="end">45</text>
+<text x="42" y="95.0" font-size="11" fill="#8b94a0" text-anchor="end">180</text>
 <line x1="50" y1="26.0" x2="878" y2="26.0" stroke="#eef1f4"/>
-<text x="42" y="29.0" font-size="11" fill="#8b94a0" text-anchor="end">60</text>
+<text x="42" y="29.0" font-size="11" fill="#8b94a0" text-anchor="end">240</text>
 <text x="42" y="18" font-size="11" fill="#8b94a0" text-anchor="end">sec</text>
 <text x="50.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">1</text>
 <text x="326.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">2</text>
 <text x="602.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">4</text>
 <text x="878.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">8</text>
-<line x1="50" y1="44.5" x2="878" y2="44.5" stroke="#E69F00" stroke-width="2" stroke-dasharray="2 5"/>
-<text x="878" y="36.5" font-size="11.5" font-weight="600" fill="#E69F00" text-anchor="end">FastQC — 55.8s</text>
-<polyline points="50.0,140.4 326.0,213.0 602.0,250.8 878.0,269.6" fill="none" stroke="#0072B2" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="50.0" cy="140.4" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
-<text x="50.0" y="158.4" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">34.0</text>
-<circle cx="326.0" cy="213.0" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
-<text x="326.0" y="231.0" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">17.5</text>
-<circle cx="602.0" cy="250.8" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
-<text x="602.0" y="268.8" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">8.90</text>
-<circle cx="878.0" cy="269.6" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
-<text x="878.0" y="287.6" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">4.64</text>
-<polyline points="50.0,51.5 326.0,169.4 602.0,221.4 878.0,220.9" fill="none" stroke="#009E73" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="50.0" cy="51.5" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
-<text x="50.0" y="40.5" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">54.2</text>
-<circle cx="326.0" cy="169.4" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
-<text x="326.0" y="158.4" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">27.4</text>
-<circle cx="602.0" cy="221.4" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
-<text x="602.0" y="210.4" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">15.6</text>
-<circle cx="878.0" cy="220.9" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
-<text x="878.0" y="209.9" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">15.7</text>
+<line x1="50" y1="76.9" x2="878" y2="76.9" stroke="#E69F00" stroke-width="2" stroke-dasharray="2 5"/>
+<text x="878" y="68.9" font-size="11.5" font-weight="600" fill="#E69F00" text-anchor="end">FastQC — 193.7s</text>
+<polyline points="50.0,183.4 326.0,235.4 602.0,262.4 878.0,275.8" fill="none" stroke="#0072B2" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="50.0" cy="183.4" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
+<text x="50.0" y="201.4" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">96.9</text>
+<circle cx="326.0" cy="235.4" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
+<text x="326.0" y="253.4" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">49.6</text>
+<circle cx="602.0" cy="262.4" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
+<text x="602.0" y="280.4" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">25.1</text>
+<circle cx="878.0" cy="275.8" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
+<text x="878.0" y="293.8" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">12.9</text>
+<polyline points="50.0,43.8 326.0,162.9 602.0,224.2 878.0,229.6" fill="none" stroke="#009E73" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="50.0" cy="43.8" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
+<text x="50.0" y="32.8" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">223.8</text>
+<circle cx="326.0" cy="162.9" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
+<text x="326.0" y="151.9" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">115.5</text>
+<circle cx="602.0" cy="224.2" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
+<text x="602.0" y="213.2" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">59.8</text>
+<circle cx="878.0" cy="229.6" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
+<text x="878.0" y="218.6" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">54.9</text>
 </svg></div>
 
-polars-bio scales near-linearly to **4.64 s at 8 cores** (7.3× over its 1-core time). RastQC plateaus at 4 threads (~15.6 s) — single-stream gzip decompression bounds it. FastQC is single-threaded at ~55.8 s.
+polars-bio scales **7.5×** to **12.9 s at 8 cores** — **15× faster than FastQC** (194 s, single-threaded) and **4.3× faster than RastQC's best** (54.9 s; RastQC plateaus at 4 threads). polars-bio is faster than both at every thread count here.
 
-| cores / threads | polars-bio (s) | RastQC (s) | FastQC (s) |
+| cores / threads | polars-bio | RastQC | FastQC |
 |---:|---:|---:|---:|
-| 1 | 34.0 | 54.2 | 55.8 |
-| 2 | 17.5 | 27.4 | — |
-| 4 | 8.9 | 15.6 | — |
-| 8 | **4.64** | 15.7 | — |
+| 1 | 96.9 s | 223.8 s | 193.7 s (1 thr) |
+| 2 | 49.6 s | 115.5 s | — |
+| 4 | 25.1 s | 59.8 s | — |
+| 8 | **12.9 s** | 54.9 s | — |
 
-## Correctness — and a cautionary tale
+!!! note "One bug this benchmark caught"
+    The first run on this 64M-read file used tens of GB of memory and ran slowly. The cause: `duplication_levels`/`overrepresented` tracked *every* distinct sequence. Adopting FastQC's own **100,000-unique observation cutoff** bounded them (**~20 GB → 382 MB**) and, as a bonus, made them match FastQC's duplication *estimate* exactly. The numbers above are post-fix.
 
-Speed is easy; being *right* is the hard part. polars-bio is **bit-exact with FastQC** on every deterministic module. The two starred rows are FastQC's *own* approximations (it estimates duplication from the first ~100k sequences, and subsamples 10% of reads for per-tile after the first 10k) — our all-reads results are the exact truth there.
+## Correctness
 
-| Module | polars-bio vs FastQC | RastQC vs FastQC |
-|---|---|---|
-| per_base_quality | ✅ **EXACT** | ~match (5e-3) |
-| per_sequence_quality | ✅ **EXACT** | ❌ **diverges · 13.4M misbinned** |
-| per_base_content | ✅ **EXACT** | ~match (5e-5) |
-| per_sequence_gc | ✅ **EXACT** | ✅ EXACT |
-| per_base_n | ✅ **EXACT** | ~match (5e-7) |
-| sequence_length | ✅ **EXACT** | ✅ EXACT |
-| overrepresented | ✅ **EXACT** | ✅ EXACT |
-| adapter_content | ✅ **EXACT** | ~match · groups differ |
-| basic_statistics (%GC) | ✅ **EXACT**[^2] | ❌ off by 1 (rounds vs truncates) |
-| duplication_levels | exact* | ~match (5e-3) |
-| per_tile_quality | exact* | ~match (6e-3) |
+Speed is easy; being *right* is the hard part. polars-bio is **bit-exact with FastQC** on every deterministic module, and its parallel output is byte-identical across core counts:
 
-The standout is **per-sequence quality**. RastQC gets the read-count histogram badly wrong — it shifts ~13.4 million reads (half the file) into the wrong quality bin via a mean-quality rounding error. polars-bio reproduces FastQC exactly:
+| Module | polars-bio vs FastQC 0.12.1 |
+|---|---|
+| per_base_quality · per_sequence_quality | ✅ **EXACT** |
+| per_base_content · per_sequence_gc | ✅ **EXACT** |
+| per_base_n · sequence_length | ✅ **EXACT** |
+| overrepresented · adapter_content | ✅ **EXACT** |
+| basic_statistics | ✅ **EXACT**[^2] |
+| duplication_levels | ✅ matches FastQC's 100k estimate |
+| per_tile_quality | ✅ exact* (\*FastQC subsamples 10% of reads) |
+
+The cautionary contrast is **RastQC**, the other fast tool. Its per-sequence-quality histogram is badly wrong — a mean-quality rounding error shifts the peak bin, misbinning **~24 million reads** (a third of the file). polars-bio reproduces FastQC exactly:
 
 <div markdown="0" style="background:#fff;border:1px solid #e4e7ec;border-radius:14px;padding:16px 18px;margin:1rem 0;overflow-x:auto"><div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem;color:#8b94a0;margin:.4rem 0 .6rem"><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#E69F00;display:inline-block"></span>FastQC</span><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#0072B2;display:inline-block"></span>polars-bio</span><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#009E73;display:inline-block"></span>RastQC</span></div><svg viewBox="0 0 900 320" style="width:100%;height:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Per-sequence quality histogram">
 <line x1="52" y1="282.0" x2="884" y2="282.0" stroke="#eef1f4"/>
 <text x="44" y="285.0" font-size="11" fill="#8b94a0" text-anchor="end">0M</text>
-<line x1="52" y1="216.5" x2="884" y2="216.5" stroke="#eef1f4"/>
-<text x="44" y="219.5" font-size="11" fill="#8b94a0" text-anchor="end">6M</text>
-<line x1="52" y1="151.0" x2="884" y2="151.0" stroke="#eef1f4"/>
-<text x="44" y="154.0" font-size="11" fill="#8b94a0" text-anchor="end">12M</text>
-<line x1="52" y1="85.5" x2="884" y2="85.5" stroke="#eef1f4"/>
-<text x="44" y="88.5" font-size="11" fill="#8b94a0" text-anchor="end">18M</text>
+<line x1="52" y1="194.7" x2="884" y2="194.7" stroke="#eef1f4"/>
+<text x="44" y="197.7" font-size="11" fill="#8b94a0" text-anchor="end">14M</text>
+<line x1="52" y1="107.3" x2="884" y2="107.3" stroke="#eef1f4"/>
+<text x="44" y="110.3" font-size="11" fill="#8b94a0" text-anchor="end">28M</text>
 <line x1="52" y1="20.0" x2="884" y2="20.0" stroke="#eef1f4"/>
-<text x="44" y="23.0" font-size="11" fill="#8b94a0" text-anchor="end">24M</text>
-<rect x="190.0" y="109.1" width="44.0" height="172.9" rx="4" fill="#E69F00"/>
-<text x="212.0" y="103.1" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">15.84M</text>
-<rect x="238.0" y="109.1" width="44.0" height="172.9" rx="4" fill="#0072B2"/>
-<text x="260.0" y="103.1" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">15.84M</text>
-<rect x="286.0" y="244.8" width="44.0" height="37.2" rx="4" fill="#009E73"/>
-<text x="308.0" y="238.8" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">3.41M</text>
-<text x="260.0" y="307" font-size="11" fill="#5b6470" text-anchor="middle">Q40 (mean quality 40)</text>
-<rect x="606.0" y="195.8" width="44.0" height="86.2" rx="4" fill="#E69F00"/>
-<text x="628.0" y="189.8" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">7.90M</text>
-<rect x="654.0" y="195.8" width="44.0" height="86.2" rx="4" fill="#0072B2"/>
-<text x="676.0" y="189.8" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">7.90M</text>
-<rect x="702.0" y="49.1" width="44.0" height="232.9" rx="4" fill="#009E73"/>
-<text x="724.0" y="43.1" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">21.33M</text>
-<text x="676.0" y="307" font-size="11" fill="#5b6470" text-anchor="middle">Q41 (mean quality 41)</text>
+<text x="44" y="23.0" font-size="11" fill="#8b94a0" text-anchor="end">42M</text>
+<rect x="190.0" y="43.5" width="44.0" height="238.5" rx="4" fill="#E69F00"/>
+<text x="212.0" y="37.5" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">38.24M</text>
+<rect x="238.0" y="43.5" width="44.0" height="238.5" rx="4" fill="#0072B2"/>
+<text x="260.0" y="37.5" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">38.24M</text>
+<rect x="286.0" y="194.2" width="44.0" height="87.8" rx="4" fill="#009E73"/>
+<text x="308.0" y="188.2" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">14.07M</text>
+<text x="260.0" y="307" font-size="11" fill="#5b6470" text-anchor="middle">Q36 (mean quality 36)</text>
+<rect x="606.0" y="216.7" width="44.0" height="65.3" rx="4" fill="#E69F00"/>
+<text x="628.0" y="210.7" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">10.47M</text>
+<rect x="654.0" y="216.7" width="44.0" height="65.3" rx="4" fill="#0072B2"/>
+<text x="676.0" y="210.7" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">10.47M</text>
+<rect x="702.0" y="39.5" width="44.0" height="242.5" rx="4" fill="#009E73"/>
+<text x="724.0" y="33.5" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">38.87M</text>
+<text x="676.0" y="307" font-size="11" fill="#5b6470" text-anchor="middle">Q37 (mean quality 37)</text>
 </svg></div>
-
-FastQC and polars-bio are **identical** (15.84M reads at Q40, 7.90M at Q41). RastQC inverts them — 21.3M reads pile into Q41.
 
 | mean quality | FastQC | polars-bio | RastQC |
 |---|---:|---:|---:|
-| Q40 | 15,842,020 | 15,842,020 | 3,408,573 |
-| Q41 | 7,902,229 | 7,902,229 | 21,334,982 |
-
-!!! note "Parallel, but never approximate"
-    Because each module merges order-independently, polars-bio's output is **bit-identical at 1, 2, 4, and 8 cores** for all 11 default modules. Splitting the file to go faster changes nothing about the result.
+| Q36 | 38,239,995 | 38,239,995 | 14,072,517 |
+| Q37 | 10,472,730 | 10,472,730 | 38,869,411 |
 
 ## Memory
 
-Being fast should not cost the machine. The fair metric is *private* memory (anonymous footprint); polars-bio's larger resident-set is mostly the memory-mapped file — reclaimable OS page cache, not pressure.
+The fair metric is *private* memory (anonymous footprint); polars-bio's larger resident-set is mostly the memory-mapped file — reclaimable OS page cache, not pressure.
 
 <div markdown="0" style="background:#fff;border:1px solid #e4e7ec;border-radius:14px;padding:16px 18px;margin:1rem 0;overflow-x:auto"><div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem;color:#8b94a0;margin:.4rem 0 .6rem"><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#0072B2;display:inline-block"></span>private footprint</span><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#b9c2cc;display:inline-block"></span>max RSS</span></div><svg viewBox="0 0 900 320" style="width:100%;height:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Peak memory by tool">
 <line x1="52" y1="282.0" x2="884" y2="282.0" stroke="#eef1f4"/>
@@ -163,79 +165,34 @@ Being fast should not cost the machine. The fair metric is *private* memory (ano
 <text x="44" y="88.5" font-size="11" fill="#8b94a0" text-anchor="end">900</text>
 <line x1="52" y1="20.0" x2="884" y2="20.0" stroke="#eef1f4"/>
 <text x="44" y="23.0" font-size="11" fill="#8b94a0" text-anchor="end">1200</text>
-<rect x="144.7" y="222.4" width="44.0" height="59.6" rx="4" fill="#0072B2"/>
-<text x="166.7" y="216.4" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">273</text>
-<rect x="192.7" y="37.7" width="44.0" height="244.3" rx="4" fill="#b9c2cc"/>
-<text x="214.7" y="31.7" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">1119</text>
+<rect x="144.7" y="198.6" width="44.0" height="83.4" rx="4" fill="#0072B2"/>
+<text x="166.7" y="192.6" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">382</text>
+<rect x="192.7" y="44.9" width="44.0" height="237.1" rx="4" fill="#b9c2cc"/>
+<text x="214.7" y="38.9" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">1086</text>
 <text x="190.7" y="307" font-size="11" fill="#5b6470" text-anchor="middle">polars-bio (8c)</text>
-<rect x="422.0" y="238.1" width="44.0" height="43.9" rx="4" fill="#009E73"/>
-<text x="444.0" y="232.1" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">201</text>
-<rect x="470.0" y="173.9" width="44.0" height="108.1" rx="4" fill="#b9c2cc"/>
-<text x="492.0" y="167.9" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">495</text>
+<rect x="422.0" y="194.9" width="44.0" height="87.1" rx="4" fill="#009E73"/>
+<text x="444.0" y="188.9" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">399</text>
+<rect x="470.0" y="139.2" width="44.0" height="142.8" rx="4" fill="#b9c2cc"/>
+<text x="492.0" y="133.2" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">654</text>
 <text x="468.0" y="307" font-size="11" fill="#5b6470" text-anchor="middle">RastQC (8t)</text>
-<rect x="723.3" y="133.5" width="44.0" height="148.5" rx="4" fill="#b9c2cc"/>
-<text x="745.3" y="127.5" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">680</text>
+<rect x="723.3" y="134.8" width="44.0" height="147.2" rx="4" fill="#b9c2cc"/>
+<text x="745.3" y="128.8" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">674</text>
 <text x="745.3" y="307" font-size="11" fill="#5b6470" text-anchor="middle">FastQC (JVM)</text>
 </svg></div>
 
-polars-bio's true allocation is **273 MB**; its 1119 MB RSS is ~450 MB of mmap'd file pages plus buffers. FastQC's ~680 MB is a genuine JVM allocation. RastQC is leanest in absolute terms.
+polars-bio's true allocation is **382 MB** at 8 cores — in the same league as RastQC (399 MB) and well under FastQC's ~674 MB JVM. Its higher RSS (1086 MB) is mmap'd file pages.
 
 | tool (config) | private footprint (MB) | max RSS (MB) |
 |---|---:|---:|
-| polars-bio (1 core) | 198 | 655 |
-| polars-bio (8 cores) | 273 | 1119 |
-| RastQC (1 thread) | 71 | 219 |
-| RastQC (8 threads) | 201 | 495 |
-| FastQC (JVM) | — | 680 |
-
-## Reproducing it on public SRA data
-
-The file above is a local sample. To make the correctness claim **reproducible on citable, real-world clinical data**, we reran the whole comparison on [**SRR39421268**](https://www.ncbi.nlm.nih.gov/sra/SRR39421268) — a *Homo sapiens* HER2 breast-cancer targeted-capture (exome) run, released July 2026.
-
-| Field | Value |
-|---|---|
-| Run | SRR39421268 (experiment SRX34138143) |
-| Study / BioProject | SRP714544 / [PRJNA1484801](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA1484801) |
-| BioSample | SAMN61257782 (`HER2_PT06_OP_N`) |
-| Organism | *Homo sapiens* |
-| Instrument | Illumina NovaSeq 6000 |
-| Library | Targeted-Capture (hybrid selection), genomic, paired |
-| Reads | 32,167,982 pairs → **64,335,964 reads @ 101 bp** (~6.5 Gbp) |
-| Size | 3.3 GB BGZF |
-| Center | Yonsei University College of Medicine |
-
-```bash
-prefetch SRR39421268
-fasterq-dump --split-spot SRR39421268 | bgzip > SRR39421268.fastq.gz
-```
-
-**Correctness held on independent data.** polars-bio was again **bit-exact vs FastQC 0.12.1** on every deterministic module. Nine of the eleven are also **partition-invariant** across 1/2/4/8 cores; the two sequence-tracking modules (`duplication_levels`, `overrepresented`) reproduce FastQC exactly on a single partition and stay bounded/close in parallel, once the 100k cutoff below is applied. And RastQC's per-sequence-quality bug reproduced — this time misbinning **~24 million reads** (the Q36 peak wrongly shifted into Q37):
-
-| mean quality | FastQC | polars-bio | RastQC |
-|---|---:|---:|---:|
-| Q36 | 38,239,995 | 38,239,995 | 14,072,517 |
-| Q37 | 10,472,730 | 10,472,730 | 38,869,411 |
-
-**Fast and light — after a fix this benchmark surfaced.** The first run on this file exposed a memory-scaling bug: `duplication_levels` and `overrepresented` tracked *every* distinct sequence, ballooning to ~20 GB on 64M diverse reads and starving throughput. Adopting FastQC's own **100,000-unique observation cutoff** bounds them — and, as a bonus, makes them match FastQC's duplication *estimate* exactly (they previously diverged by being unbounded-exact). With that fix in place:
-
-| cores / threads | polars-bio | RastQC | FastQC |
-|---:|---:|---:|---:|
-| 1 | 96.9 s | 223.8 s | 193.7 s (1 thr) |
-| 2 | 49.6 s | 115.5 s | — |
-| 4 | 25.1 s | 59.8 s | — |
-| 8 | **12.9 s** | 54.9 s | — |
-
-polars-bio scales **7.5×** to **12.9 s at 8 cores — 15× faster than FastQC and 4.3× faster than RastQC** — at bounded memory:
-
-| tool | peak footprint (8 cores) |
-|---|---:|
-| polars-bio | 382 MB |
-| RastQC | 399 MB |
-| FastQC | 674 MB (JVM RSS) |
+| polars-bio (1 core) | 173 | 517 |
+| polars-bio (8 cores) | 382 | 1086 |
+| RastQC (1 thread) | 58 | 156 |
+| RastQC (8 threads) | 399 | 654 |
+| FastQC (JVM) | — | 674 |
 
 ## The takeaway
 
-On a 26.5-million-read file, polars-bio is the only tool that is **both** exact against FastQC and genuinely fast: **~12× faster than FastQC**, **~3.4× faster than RastQC's best**, at ~270 MB of real memory — while RastQC, the other fast option, silently misbins half the reads in one module. And it is just another table in the engine: `SELECT * FROM fastqc('reads.fastq.gz')`.
+On a 64-million-read clinical exome run, polars-bio is the only tool that is **both** exact against FastQC and genuinely fast: **15× faster than FastQC**, **4.3× faster than RastQC**, at ~380 MB of real memory — while RastQC, the other fast option, silently misbins a third of the reads in one module. And it is just another table in the engine: `SELECT * FROM fastqc('reads.fastq.gz')`.
 
 [^1]: FastQC ships Kmer Content disabled by default, so the cross-tool comparison covers the 11 default modules. polars-bio implements Kmer Content too (12/12), parity-tested separately; its FastQC-style top-20 output is inherently non-deterministic on real data — a known property of FastQC's Kmer module.
-[^2]: FastQC prints `%GC` as a truncated integer; our full-precision `39.707` floors to FastQC's `39`. RastQC reports `40`.
+[^2]: FastQC prints `%GC` as a truncated integer; our full-precision value floors to FastQC's. On this run all three report `%GC = 50`.
