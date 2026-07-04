@@ -307,9 +307,37 @@ Across all three sizes the ranking never changes: polars-bio is fastest at every
 
 Paired R2 mates behave identically (full 1/2/4/8 grid in the repo). Two things stand out in RastQC: on the small 0.72M file it shows **no thread benefit at all** (~2.3 s flat, 1→8t), and its **single-threaded time is *slower* than FastQC** on both larger runs — whereas polars-bio scales cleanly and leads throughout.
 
+## Correct at *every* thread count
+
+FastQC is single-threaded, so "correct" is unambiguous. Both fast tools are multi-threaded, which raises a question the speed charts don't answer: **does the output change with the thread count?** We diffed every module at 1 vs *N* threads on a second run — [ERR5897746](https://www.ebi.ac.uk/ena/browser/view/ERR5897746), 4.25M reads:
+
+- **polars-bio is byte-identical** at 1 and 4 partitions — every value in the output matches, exactly.
+- **RastQC is not** — its duplication and k-mer modules return materially different numbers at `-t 1` vs `-t 4`.
+
+Here is the full per-module drift against the FastQC 0.12.1 golden. Each cell is the largest deviation across *every* data point in that module; the per-base rows are re-binned into RastQC's own position bins for a like-for-like comparison (RastQC has no `--nogroup`, so it always groups positions):
+
+| Module | polars-bio | RastQC `-t 1` | RastQC `-t 4` |
+|---|:--|:--|:--|
+| Total sequences | ✅ exact | ✅ exact | ✅ exact |
+| %GC | ✅ exact | ❌ off by 1 | ❌ off by 1 |
+| Per base quality | ✅ exact | ✅ ≈exact (0.005 phred) | ✅ ≈exact |
+| Per base content | ✅ exact | ✅ exact | ✅ exact |
+| Per base N | ✅ exact | ✅ exact | ✅ exact |
+| Per sequence GC | ✅ exact | ✅ exact | ✅ exact |
+| **Per sequence quality** | ✅ exact | ❌ **671k reads misbinned** | ❌ **671k reads misbinned** |
+| Sequence length | ✅ exact | ✅ exact | ✅ exact |
+| **Duplication levels** | ✅ exact | ❌ **9.7 pts off** | ❌ **14.2 pts off** |
+| **Kmer content** | ✅ exact | ✅ exact | ❌ **top k-mer wrong** |
+| Adapter content | ✅ exact | ⚠ diff panel | ⚠ diff panel |
+| Per tile / Overrepresented | \- no data on this run \- | | |
+
+RastQC's *per-base* plots are fine — the coarser look is just grouping, not error. But **per-sequence quality is badly wrong**: 671,121 reads land in a Q40 bin FastQC never emits (the same rounding defect that misbinned a third of the 64M run), **%GC is off by one**, and — uniquely — its **duplication percentage and top k-mer change with the thread count**: the dedup estimate drifts from 9.7 to 14.2 points off between one and four threads, and the most-enriched k-mer it reports is correct at `-t 1` but wrong at `-t 4`.
+
+polars-bio reproduces FastQC bit-for-bit on every comparable module, and — because every accumulator merges associatively — returns the **identical result at any partition count**. You never have to ask which thread setting gave you the trustworthy number.
+
 ## The takeaway
 
-On a 64-million-read clinical exome run, polars-bio is the only tool that is **both** exact against FastQC and genuinely fast: **15× faster than FastQC**, **4.3× faster than RastQC**, at ~380 MB of real memory — while RastQC, the other fast option, silently misbins a third of the reads in one module. That lead is not an artefact of one file — it holds from 0.7M to 64M reads. And it is just another table in the engine: `SELECT * FROM fastqc('reads.fastq.gz')`.
+On a 64-million-read clinical exome run, polars-bio is the only tool that is **both** exact against FastQC and genuinely fast: **15× faster than FastQC**, **4.3× faster than RastQC**, at ~380 MB of real memory — while RastQC, the other fast option, silently misbins a third of the reads in one module — and gives different duplication and k-mer numbers depending on the thread count. That lead is not an artefact of one file — it holds from 0.7M to 64M reads. And it is just another table in the engine: `SELECT * FROM fastqc('reads.fastq.gz')`.
 
 [^1]: FastQC ships Kmer Content disabled by default, so the cross-tool comparison covers the 11 default modules. polars-bio implements Kmer Content too (12/12), parity-tested separately; its FastQC-style top-20 output is inherently non-deterministic on real data — a known property of FastQC's Kmer module.
 [^2]: FastQC prints `%GC` as a truncated integer; our full-precision value floors to FastQC's. On this run all three report `%GC = 50`.
