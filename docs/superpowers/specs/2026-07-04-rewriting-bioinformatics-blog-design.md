@@ -30,7 +30,7 @@ TDD + golden tests; compose on Arrow/DataFusion).
 - **Tone:** technical, evidence-first, pointed but non-personal — matches the existing
   benchmark post. RastQC is named and critiqued with reproducible data; framed as a
   *symptom of skipping the principles*, not an attack on its authors.
-- **Length:** ~2,100 words (~8 min read).
+- **Length:** ~2,250 words (~9 min read).
 
 ## The three take-home messages
 
@@ -90,6 +90,20 @@ scarce and valuable is engineering judgment — architecture, quality, and disci
 - polars-bio: 12/12 modules bit-exact vs FastQC 0.12.1 (dedicated golden tests), byte-identical
   across partition counts, kmer partition-invariance test.
 
+**The performance claim is also parallelism, not code (for beat 5):**
+- The RastQC preprint claims its *"streaming parallel pipeline with adaptive batch sizing delivers
+  1.8–3.2× speedup on short-read Illumina data and 4.7–6.5× speedup on long-read ONT/PacBio data."*
+  By its own wording the speedup is **parallelism** — comparing multi-thread RastQC against
+  single-threaded FastQC (FastQC is single-threaded per file). The rewrite-vs-original attribution
+  is never isolated.
+- Our matched 1-vs-1 (single-thread) numbers show the rewrite is *slower than the JVM at equal footing*:
+  ERR5897746 (4.3M) FastQC 16.63s vs **RastQC 18.10s**; DRR013000 (24.8M) FastQC 63.84s vs
+  **RastQC 68.42s**. A natively-compiled Rust tool losing to a JVM tool at 1 thread means the port
+  bought its "speedup" with cores, not better code or algorithms.
+- Contrast polars-bio single-thread: **6.46s** (4.3M) and **28.63s** (24.8M) — 2–2.6× *faster than
+  FastQC at one thread*, then scales further. The win survives at equal footing because it comes from
+  the architecture (an optimized engine), not core count.
+
 **RastQC test-gap evidence (the crux of beat 3 — why the bugs shipped):**
 
 *Why each bug we found slipped through:*
@@ -122,7 +136,7 @@ scarce and valuable is engineering judgment — architecture, quality, and disci
 (These are what polars-bio's approach inverts point-for-point: golden parity per module, real-data
 inputs, a partition-invariance test, and value assertions — not header greps.)
 
-## Structure (7 beats, ~2,100 words)
+## Structure (7 beats, ~2,250 words)
 
 1. **Hook — the wave is here (~200w).** AI made rewriting cheap; quote rewrites.bio. Thesis
    up front: generating code is cheap; the hard, valuable parts are architecture, quality, and
@@ -148,12 +162,19 @@ inputs, a partition-invariance test, and value assertions — not header greps.)
    versions** (§4.3). **superpowers is the concrete companion — it embodies both: brainstorming→spec→plan
    is SDD; the TDD skill is the red-green loop.** polars-bio got 12/12 bit-exact + a partition-invariance
    test this way — value assertions, not header greps.
-5. **Exact isn't enough — re-architect, don't reinvent (~400w).** rewrites.bio §3.1 Think Big.
-   RastQC re-implements a whole QC engine + FASTQ reader + thread pool + output from scratch,
-   in isolation. Composable manifesto: compose from open, battle-tested components. polars-bio:
-   express modules as streaming aggregations on DataFusion, read via Arrow, land in Polars/Pandas,
-   `SELECT * FROM fastqc()`. Thread-invariance is *inherited* from DataFusion's associative-merge
-   model, not hand-rolled — the exact property RastQC's own parallelism breaks.
+5. **Exact isn't enough — re-architect, don't reinvent (~550w).** *Open with the performance
+   tell:* the preprint's headline "1.8–3.2× / 4.7–6.5× speedup" is a **parallelism** result by its
+   own wording (multi-thread RastQC vs single-threaded FastQC; the rewrite-vs-original effect is never
+   isolated). Isolate it and the story flips — at **one thread** the Rust rewrite is *slower than the
+   JVM* on real files (16.6→18.1s; 63.8→68.4s). A natively-compiled tool losing to the JVM at equal
+   footing means the port bought its speedup with cores, not code — it *parallelized* rather than
+   *re-architected* (and its parallel sampling is exactly what breaks thread-invariance). Contrast:
+   polars-bio is 2–2.6× faster than FastQC *at a single thread*, then scales. *Then the principle:*
+   rewrites.bio §3.1 Think Big + the composable manifesto — the win comes from architecture, not core
+   count. RastQC re-implements a whole QC engine + FASTQ reader + thread pool + output from scratch,
+   in isolation. polars-bio instead composes: FastQC modules as streaming aggregations on **DataFusion**,
+   read via **Arrow**, landing in **Polars/Pandas**, `SELECT * FROM fastqc()`. Single-thread speed and
+   thread-invariance are both *inherited* from a battle-tested engine, not hand-rolled.
 6. **The three take-homes (~300w).** Crystallize quality (emulate exactly) · architecture
    (compose, don't reinvent) · discipline (SDD + TDD) + the meta-message.
 7. **Close (~150w).** The wave is coming regardless; do it well. Rewriting is translation only
@@ -177,6 +198,8 @@ inputs, a partition-invariance test, and value assertions — not header greps.)
   and each cited to its source.
 - Every RastQC claim is backed by a reproducible number already published in the benchmark post.
 - The postmortem reads as blameless root-cause (bug → test gap → systemic gap → fix), not a takedown.
+- The performance critique is fair: the preprint's speedup claim is quoted and attributed, and the
+  "parallelism not code" counter-argument rests on our reproducible 1-vs-1 (single-thread) numbers.
 - rewrites.bio and the composable manifesto are quoted accurately and linked.
 - Spec-driven + test-driven development (superpowers as the companion) appears as the concrete
   *how* behind quality — the discipline that produces "emulate exactly."
