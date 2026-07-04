@@ -1,30 +1,27 @@
-# Design: Follow-up blog post — "Rewriting bioinformatics software, fairly"
+# Design: Follow-up blog post — "Rewriting bioinformatics software, done right"
 
 **Date:** 2026-07-04
 **Type:** Blog post (opinion + postmortem case study + how-to, combined)
 **Branch:** `feat/fastqc-phase1`
 **Status:** Approved outline; drafting pending user review of this spec.
 
-**Working title (recommended):** *Cheap to rewrite, expensive to be fair: the "FastQC-compatible" trap*
-("fair" is the organizing frame — fair code and fair results.)
-Alternatives: "A fair rewrite: honest code, honest benchmarks" · "AI made code cheap. It didn't make fairness cheap."
+**Working title (recommended):** *Cheap to rewrite, expensive to get right: the "FastQC-compatible" trap*
+("get right" spans the technical story — architecture, quality, discipline.)
+Alternatives: "A rewrite is a validation contract, not a translation" · "Emulate exactly, compose everything: how to rewrite a bioinformatics tool right"
 
 ## Purpose
 
-A follow-up to the FastQC benchmark post that argues a single thesis: **doing a rewrite well
-is, at bottom, a question of fairness — fairness in the *code* (does the rewrite truly do what
-the original does, and can you prove it?) and fairness in the *results you present* (is the
-comparison honest and like-for-like, or a favorable framing?). AI made writing the code cheap;
-it did not make fairness cheap — that still takes architecture, quality, and the discipline of
-spec- and test-driven development.** Rewriting a bioinformatics tool well is an act of
-re-architecture under a validation contract, not a lift-and-shift to a new language. The post
-uses RastQC as a named, fair, evidence-first cautionary example of a rewrite that was unfair on
-both axes, and polars-bio as the counter-example.
+A follow-up to the FastQC benchmark post that argues a single thesis: **in the age of cheap
+AI-assisted rewrites, writing the code is no longer the hard part — the engineering judgment
+around it is: sound architecture, verified quality, and the discipline of spec- and test-driven
+development.** Rewriting a bioinformatics tool well is an act of re-architecture under a validation
+contract, not a lift-and-shift to a new language. The post uses RastQC as a named, evidence-first
+cautionary example of a rewrite that skipped the principles, and polars-bio as the counter-example.
 
-**The organizing frame is fairness, on two axes**, and every beat is an instance of it:
-"compatible" that isn't → unfair to the scientists who trust the output; tests that grep for
-headers → unfair validation; 4-thread-vs-1-thread → unfair benchmark; "15 modules" with 3 wrong
-→ unfair claim.
+One of the technical points along the way is about **presenting results fairly** — the preprint's
+headline speedup is a multi-thread-vs-single-thread comparison (parallelism, not better code), and
+at one thread the Rust rewrite is slower than the JVM. That's a distinct point in the piece (in the
+"re-architect" beat and one take-home), not the organizing frame.
 
 Combines three genres in one piece: an opinion/manifesto argument, a data-backed case
 study (our reproducible RastQC findings), and a practical how-to (emulate-exactly via
@@ -39,30 +36,33 @@ TDD + golden tests; compose on Arrow/DataFusion).
   *symptom of skipping the principles*, not an attack on its authors.
 - **Length:** ~2,250 words (~9 min read).
 
-## The three take-home messages
+## The take-home messages
 
-The two fairnesses — **fair code** and **fair results** — plus the enabler that makes a fair win possible:
+Three for building the rewrite (quality · architecture · discipline), and one for how you talk
+about it:
 
-1. **Be fair to the original — emulate exactly** (per
-   [rewrites.bio](https://rewrites.bio/#philosophy)): the rewrite must do what the original does,
-   byte-for-byte / to scientist-defined precision, *proven with golden tests, not asserted*. **(fair code)**
-2. **Be fair in what you present** — benchmark like-for-like and claim only what you validated:
-   don't sell multi-thread-vs-single-thread parallelism as a rewrite "speedup," and don't call a
-   tool "compatible" without the golden-test proof. **(fair results)**
-3. **Earn a fair win by composing, not reinventing** (per the
+1. **Emulate exactly — quality is validated, not asserted** (per
+   [rewrites.bio](https://rewrites.bio/#philosophy)): byte-for-byte / defined numerical precision,
+   proven with golden tests — not vibes.
+2. **Compose, don't reinvent — architecture on open, battle-tested components** (per the
    [Composable Data Management System Manifesto](https://www.vldb.org/pvldb/vol16/p2679-pedreira.pdf),
    Pedreira, Erling, Karanasos, Schneider, **McKinney**, Valluri, Zait, Nadeau, VLDB 2023):
-   build on open, battle-tested components — Arrow · Parquet · DataFusion; be a citizen of the
-   Python DataFrame ecosystem (Polars/Pandas) — so your advantage is real (architecture), not a
-   JVM-vs-native or core-count artifact. **(the enabler)**
+   build on Arrow · Parquet · DataFusion; be a citizen of the Python DataFrame ecosystem
+   (Polars/Pandas). The durable value is the architecture, not the port.
+3. **Practice the discipline — spec-driven + test-driven development**: SDD (specify the
+   equivalence contract before coding) and TDD (golden-test-first) are the *how* that makes the
+   first two real and repeatable. **superpowers** is the concrete companion — it embodies both
+   (brainstorming→spec→plan is SDD; the TDD skill is the red-green loop).
 
-The discipline that *makes* fair code fair: **SDD + TDD**. SDD (specify the equivalence contract
-before coding) and TDD (golden-test-first) are the *how*; **superpowers** is the concrete companion
-— it embodies both (brainstorming→spec→plan is SDD; the TDD skill is the red-green loop).
+Plus one point about how you *present* the work:
 
-Meta-message threaded throughout: **AI made code cheap; it did not make fairness cheap. Honest
-engineering and honest benchmarking — the scarce, valued skills — are what turn a fast rewrite into
-a trustworthy one.**
+4. **Benchmark and claim honestly** — compare like-for-like and claim only what you validated:
+   don't sell multi-thread-vs-single-thread parallelism as a rewrite "speedup," and don't call a
+   tool "compatible" without the golden-test proof.
+
+Meta-message threaded throughout: **generating and migrating code is cheap now; what stays scarce
+and valuable is engineering judgment — architecture, quality, disciplined process, and honest
+reporting of what you built.**
 
 ## Source grounding (quotes to weave in, verbatim)
 
@@ -151,10 +151,9 @@ inputs, a partition-invariance test, and value assertions — not header greps.)
 ## Structure (7 beats, ~2,250 words)
 
 1. **Hook — the wave is here (~200w).** AI made rewriting cheap; quote rewrites.bio (*"Cheap code
-   is not the same as correct code."*). Thesis up front: a rewrite is a *promise* — to the original
-   authors whose validation you inherit, to the scientists who trust your numbers, to the readers of
-   your benchmarks. Doing it well is about **fairness on two axes: fair code and fair results.**
-   AI made the code cheap; it did not make fairness cheap.
+   is not the same as correct code."*). Thesis up front: generating code is cheap; the hard, valuable
+   parts are architecture, quality, and the discipline (SDD + TDD) that binds them — plus the honesty
+   to report what you actually built. A rewrite is a validation contract, not a translation.
 2. **The false promise: what "FastQC-compatible" must mean — and the symptoms (~350w).** Define
    *compatible* via §2.2 Emulate Exactly (byte-for-byte / scientist-defined precision / "everything
    counts"). Then the symptoms from our runs: per-seq-quality misbins 671k reads into a phantom Q40
@@ -189,11 +188,12 @@ inputs, a partition-invariance test, and value assertions — not header greps.)
    in isolation. polars-bio instead composes: FastQC modules as streaming aggregations on **DataFusion**,
    read via **Arrow**, landing in **Polars/Pandas**, `SELECT * FROM fastqc()`. Single-thread speed and
    thread-invariance are both *inherited* from a battle-tested engine, not hand-rolled.
-6. **The three take-homes (~300w).** Crystallize fair code (emulate exactly, proven) · fair results
-   (honest benchmarks and claims) · the enabler (compose on battle-tested components) + the meta-message.
-7. **Close (~150w).** The wave is coming regardless; do it well. A rewrite is a promise to everyone
-   downstream — the honest version of "faster" and "compatible" is the one you can *prove*. AI made
-   the code cheap; fairness is still the work.
+6. **The take-homes (~300w).** Crystallize the three build principles — quality (emulate exactly) ·
+   architecture (compose, don't reinvent) · discipline (SDD + TDD) — plus the one about presentation
+   (benchmark and claim honestly) + the meta-message.
+7. **Close (~150w).** The wave is coming regardless; do it well. Rewriting is translation only in the
+   trivial sense; it is fundamentally an act of architecture, quality, and discipline — and the honest
+   version of "faster" and "compatible" is the one you can *prove*.
 
 ## Placement & format
 
@@ -211,8 +211,8 @@ inputs, a partition-invariance test, and value assertions — not header greps.)
 
 - Reads as one coherent argument (not three stapled genres); the three take-homes are explicit
   and each cited to its source.
-- **Fairness is the visible through-line** — each beat is legibly an instance of fair code or fair
-  results, and the two axes are named up front and paid off in the close.
+- The story stays technical (architecture · quality · discipline); **honest results presentation is
+  one clearly-scoped point** (beat 5 + take-home #4), not the organizing frame.
 - Every RastQC claim is backed by a reproducible number already published in the benchmark post.
 - The postmortem reads as blameless root-cause (bug → test gap → systemic gap → fix), not a takedown.
 - The performance critique is fair: the preprint's speedup claim is quoted and attributed, and the
