@@ -1,20 +1,23 @@
 # Design: Follow-up blog post — "Rewriting bioinformatics software, done right"
 
 **Date:** 2026-07-04
-**Type:** Blog post (opinion + case study + how-to, combined)
+**Type:** Blog post (opinion + postmortem case study + how-to, combined)
 **Branch:** `feat/fastqc-phase1`
 **Status:** Approved outline; drafting pending user review of this spec.
 
-**Working title (recommended):** *Cheap to rewrite, expensive to architect: the "FastQC-compatible" trap*
-Alternatives: "A rewrite is an architecture decision, not a translation" · "Emulate exactly, compose everything: how to rewrite a bioinformatics tool"
+**Working title (recommended):** *Cheap to rewrite, expensive to get right: the "FastQC-compatible" trap*
+("get right" spans the broadened thesis — architecture, quality, and discipline.)
+Alternatives: "A rewrite is a validation contract, not a translation" · "Emulate exactly, compose everything: how to rewrite a bioinformatics tool right"
 
 ## Purpose
 
 A follow-up to the FastQC benchmark post that argues a single thesis: **in the age of
-cheap AI-assisted rewrites, the code is no longer the hard part — the architecture is.**
-Rewriting a bioinformatics tool well is an act of *re-architecture*, not a lift-and-shift
-to a new language. The post uses RastQC as a named, fair, evidence-first cautionary
-example of a rewrite that skipped the principles, and polars-bio as the counter-example.
+cheap AI-assisted rewrites, writing the code is no longer the hard part — the engineering
+judgment around it is: sound architecture, verified quality, and the discipline of spec-
+and test-driven development.** Rewriting a bioinformatics tool well is an act of
+*re-architecture under a validation contract*, not a lift-and-shift to a new language.
+The post uses RastQC as a named, fair, evidence-first cautionary example of a rewrite that
+skipped the principles, and polars-bio as the counter-example.
 
 Combines three genres in one piece: an opinion/manifesto argument, a data-backed case
 study (our reproducible RastQC findings), and a practical how-to (emulate-exactly via
@@ -27,20 +30,27 @@ TDD + golden tests; compose on Arrow/DataFusion).
 - **Tone:** technical, evidence-first, pointed but non-personal — matches the existing
   benchmark post. RastQC is named and critiqued with reproducible data; framed as a
   *symptom of skipping the principles*, not an attack on its authors.
-- **Length:** ~1,800 words (~7 min read).
+- **Length:** ~2,100 words (~8 min read).
 
 ## The three take-home messages
 
-1. **Emulate exactly** (per [rewrites.bio](https://rewrites.bio/#philosophy)) — parity is
-   *validated, not asserted*.
-2. **Compose, don't reinvent** (per the [Composable Data Management System Manifesto](https://www.vldb.org/pvldb/vol16/p2679-pedreira.pdf),
-   Pedreira, Erling, Karanasos, Schneider, **McKinney**, Valluri, Zait, Nadeau, VLDB 2023) —
-   build on Arrow · Parquet · DataFusion; be a citizen of the Python DataFrame ecosystem.
-3. **Open & interoperable on battle-tested components** — the durable value is the
-   architecture, not the port.
+Mapped to the three things that are *now* the hard part — **quality, architecture, discipline**:
 
-Meta-message threaded throughout: **programming and migration are cheap now; architecting
-data systems is what remains highly valued.**
+1. **Emulate exactly — quality is validated, not asserted** (per
+   [rewrites.bio](https://rewrites.bio/#philosophy)): byte-for-byte / defined numerical
+   precision, proven with golden tests — not vibes.
+2. **Compose, don't reinvent — architecture on open, battle-tested components** (per the
+   [Composable Data Management System Manifesto](https://www.vldb.org/pvldb/vol16/p2679-pedreira.pdf),
+   Pedreira, Erling, Karanasos, Schneider, **McKinney**, Valluri, Zait, Nadeau, VLDB 2023):
+   build on Arrow · Parquet · DataFusion; be a citizen of the Python DataFrame ecosystem
+   (Polars/Pandas). The durable value is the architecture, not the port.
+3. **Practice the discipline — spec-driven + test-driven development**: SDD (specify the
+   equivalence contract before coding) and TDD (golden-test-first) are the *how* that makes
+   the first two real and repeatable. **superpowers** is the concrete companion — it embodies
+   both (brainstorming→spec→plan is SDD; the TDD skill is the red-green loop).
+
+Meta-message threaded throughout: **generating and migrating code is cheap now; what stays
+scarce and valuable is engineering judgment — architecture, quality, and disciplined process.**
 
 ## Source grounding (quotes to weave in, verbatim)
 
@@ -77,43 +87,87 @@ data systems is what remains highly valued.**
 - %GC off by one (rounds vs truncates).
 - **Not thread-invariant:** dedup 89.48% (`-t 1`) → 95.65% (`-t 4`); top k-mer flips
   GTATAAG → TACACAG with `-t`.
-- Test-gap analysis: RastQC's suite is plumbing-only; per_sequence_quality / duplication /
-  kmer_content have **zero unit tests**; no golden/oracle comparison anywhere; inputs are 1–3
-  synthetic reads that never reach the parallel path.
 - polars-bio: 12/12 modules bit-exact vs FastQC 0.12.1 (dedicated golden tests), byte-identical
   across partition counts, kmer partition-invariance test.
 
-## Structure (6 beats, ~1,800 words)
+**RastQC test-gap evidence (the crux of beat 3 — why the bugs shipped):**
+
+*Why each bug we found slipped through:*
+- **per_seq_quality misbinning (671k reads → phantom Q40):** `per_sequence_quality.rs` has
+  **0 unit tests**; the only test that touches it greps for the header string
+  `>>Per sequence quality scores`. Nothing inspects a bin count — a module could emit pure noise
+  and every test still passes.
+- **%GC off-by-one (rounds vs truncates):** `basic_stats.rs` *does* have a GC test, but it asserts
+  `(gc_percent - 50.0).abs() < 0.01` on a synthetic exactly-50%-GC input. 50.0 rounds *and*
+  truncates to 50, so the divergence is structurally invisible; it also checks the internal float,
+  not the displayed integer where the rounding happens, and never compares to FastQC's convention.
+- **Thread-dependent duplication & k-mer:** `duplication.rs` and `kmer_content.rs` have **0 unit
+  tests**, and nothing anywhere runs the same input at `-t 1` vs `-t N` and compares. Worse, every
+  test input is 1–3 reads and RastQC only engages its parallel path on files >50 MB (per its own
+  `--no-parallel` help) — so the multi-worker sampling code that causes the drift is *never executed
+  by the test suite*.
+
+*The systemic gaps:*
+1. **No golden/oracle parity** — the "FastQC-compatible" promise has zero verification against FastQC output.
+2. **No per-module value tests** on 12 of 13 modules — all the statistical logic (binning, rounding,
+   per-worker sampling, the 100k-unique freeze) is untested.
+3. **No determinism / thread-invariance tests** — nothing asserts output is stable across `-t`,
+   despite parallelism being the product's differentiator.
+4. **Inputs too small and too uniform** — 1–3 reads of `IIII…`/`BBBB…` never reach the parallel path,
+   the duplication freeze, k-mer enrichment (needs thousands of reads for 2% sampling), or a realistic
+   mean-quality distribution where the rounding bug bites.
+5. **Presence-only assertions** (`contains(">>Module")`) give a false "all 15 modules work" signal
+   while guaranteeing nothing about correctness.
+
+(These are what polars-bio's approach inverts point-for-point: golden parity per module, real-data
+inputs, a partition-invariance test, and value assertions — not header greps.)
+
+## Structure (7 beats, ~2,100 words)
 
 1. **Hook — the wave is here (~200w).** AI made rewriting cheap; quote rewrites.bio. Thesis
-   up front: migration is cheap, architecture is the moat. A rewrite is an architectural act.
-2. **The false promise: "FastQC-compatible" (~350w).** Define *compatible* via §2.2 Emulate
-   Exactly. Present the RastQC evidence (misbinning, %GC, thread-drift). Link the drift table
-   in the benchmark post. Name the root cause: the time-to-market fallacy + "claims fifteen,
-   does twelve right."
-3. **Emulate exactly is a discipline → TDD + golden tests (~300w).** Parity is tested, not
-   hoped for. Golden-test-first (write the FastQC assertion, watch it fail, implement to green)
-   — the **TDD-with-superpowers** companion. polars-bio's 12/12 golden tests + partition-invariance
-   test vs RastQC's plumbing-only suite on synthetic reads. §4.1 real data, §4.3 pin versions.
-4. **Exact isn't enough — re-architect, don't reinvent (~400w).** rewrites.bio §3.1 Think Big.
+   up front: generating code is cheap; the hard, valuable parts are architecture, quality, and
+   the discipline (SDD + TDD) that binds them. A rewrite is a validation contract, not a translation.
+2. **The false promise: what "FastQC-compatible" must mean — and the symptoms (~350w).** Define
+   *compatible* via §2.2 Emulate Exactly (byte-for-byte / scientist-defined precision / "everything
+   counts"). Then the symptoms from our runs: per-seq-quality misbins 671k reads into a phantom Q40
+   bin, %GC off-by-one, and — the deeper tell — not self-consistent across thread counts (dedup
+   89→96%, top k-mer flips with `-t`). Link the full 12-module drift table in the benchmark post.
+3. **Postmortem: how a "FastQC-compatible" tool shipped incompatible (~450w).** Blameless,
+   root-cause — framed explicitly as a postmortem. *Why each bug slipped through* (compact 3-row
+   table: bug → the test gap that let it pass): the two worst modules have **0 unit tests**; the one
+   GC test uses a 50%-GC input where round==truncate; nothing runs `-t 1` vs `-t N`, and the parallel
+   path (>50 MB) is never exercised by 1–3-read fixtures. Then *the systemic gaps* (5 bullets): no
+   golden/oracle parity, no per-module value tests on 12/13 modules, no determinism tests,
+   too-small/too-uniform inputs, presence-only `contains(">>Module")` assertions. Diagnosis: the
+   composable manifesto's **time-to-market fallacy** + rewrites.bio §4.2 made literal — *"claims
+   fifteen and does twelve right."*
+4. **The fix — spec-driven + test-driven development (~300w).** The discipline that inverts every
+   gap. Emulate-exactly is a contract you *specify* then *verify*: spec first (rewrites.bio Planning:
+   Think Big / Work Small — pin the equivalence contract before code), then golden-test-first (write
+   the FastQC assertion, watch it fail, implement to green), on **real data** (§4.1) with **pinned
+   versions** (§4.3). **superpowers is the concrete companion — it embodies both: brainstorming→spec→plan
+   is SDD; the TDD skill is the red-green loop.** polars-bio got 12/12 bit-exact + a partition-invariance
+   test this way — value assertions, not header greps.
+5. **Exact isn't enough — re-architect, don't reinvent (~400w).** rewrites.bio §3.1 Think Big.
    RastQC re-implements a whole QC engine + FASTQ reader + thread pool + output from scratch,
    in isolation. Composable manifesto: compose from open, battle-tested components. polars-bio:
    express modules as streaming aggregations on DataFusion, read via Arrow, land in Polars/Pandas,
    `SELECT * FROM fastqc()`. Thread-invariance is *inherited* from DataFusion's associative-merge
-   model, not hand-rolled.
-5. **The three take-homes (~300w).** Crystallize the three messages above + the meta-message.
-6. **Close (~150w).** The wave is coming regardless; do it well. Rewriting is translation only
-   in the trivial sense; it is fundamentally an architecture decision.
+   model, not hand-rolled — the exact property RastQC's own parallelism breaks.
+6. **The three take-homes (~300w).** Crystallize quality (emulate exactly) · architecture
+   (compose, don't reinvent) · discipline (SDD + TDD) + the meta-message.
+7. **Close (~150w).** The wave is coming regardless; do it well. Rewriting is translation only
+   in the trivial sense; it is fundamentally an act of architecture, quality, and discipline.
 
 ## Placement & format
 
 - New post: `docs/blog/posts/rewriting-bioinformatics-2026-07.md` (mkdocs blog).
-- Front-matter: `date.created: 2026-07-04`, `categories: [opinion, architecture]`, `draft: false`.
+- Front-matter: `date.created: 2026-07-04`, `categories: [opinion, architecture, postmortem]`, `draft: false`.
 - **Prose-heavy → written directly as Markdown** (no SVG generator; unlike the benchmark post,
   no charts are needed).
-- One compact inline table: the 4 headline RastQC drifts (per-seq quality, %GC, dedup thread-drift,
-  kmer thread-drift). Link the full 12-module drift table in the benchmark post rather than
-  reproduce it.
+- Two compact inline tables: (a) beat 2 — the 4 headline RastQC drifts (per-seq quality, %GC,
+  dedup thread-drift, kmer thread-drift); (b) beat 3 postmortem — a 3-row "bug → the test gap that
+  let it pass" table. Link the full 12-module drift table in the benchmark post rather than reproduce it.
 - Cross-link the benchmark post (and it can later link back).
 - Commit to `feat/fastqc-phase1`; verify with `mkdocs build`.
 
@@ -122,8 +176,12 @@ data systems is what remains highly valued.**
 - Reads as one coherent argument (not three stapled genres); the three take-homes are explicit
   and each cited to its source.
 - Every RastQC claim is backed by a reproducible number already published in the benchmark post.
+- The postmortem reads as blameless root-cause (bug → test gap → systemic gap → fix), not a takedown.
 - rewrites.bio and the composable manifesto are quoted accurately and linked.
-- TDD-with-superpowers appears as the concrete *how* behind "emulate exactly."
+- Spec-driven + test-driven development (superpowers as the companion) appears as the concrete
+  *how* behind quality — the discipline that produces "emulate exactly."
+- The broadened thesis is explicit: the hard part is architecture **and** quality **and** discipline,
+  not architecture alone.
 - `mkdocs build` clean (no new post-specific warnings).
 
 ## Out of scope (YAGNI)
