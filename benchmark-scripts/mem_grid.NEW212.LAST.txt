@@ -1,0 +1,39 @@
+(eval):1: no matches found: T.*
+(eval):1: no matches found: O.*
+GRID (footprint/maxRSS MB, /usr/bin/time -l, kmer OFF unless noted)
+### DRR609229 (DRR609229.fastq.gz)
+  pb        t1=137/268  t4=142/266  t8=151/287
+  RastQCoff t1=24/27  t4=24/27  t8=25/27
+  RastQCon  t4=49/52   (default kmer-on, paper-style)
+  FastQC    t1=402/466
+### ERR5897746 (f.fastq.gz)
+  pb        t1=161/292  t4=233/433  t8=342/620
+  RastQCoff t1=74/144  t4=168/360  t8=280/518
+  RastQCon  t4=199/358   (default kmer-on, paper-style)
+  FastQC    t1=476/559
+### DRR013000 (DRR013000.fastq.gz)
+  pb        t1=160/302  t4=233/466  t8=337/630
+  RastQCoff t1=269/367  t4=387/687  t8=441/858
+  RastQCon  t4=178/344   (default kmer-on, paper-style)
+  FastQC    t1=458/528
+### SRR39421268 (SRR39421268.fastq.gz)
+  pb        t1=171/330  t4=247/497  t8=356/683
+  RastQCoff t1=644/757  t4=1048/1483  t8=951/1535
+  RastQCon  t4=201/419   (default kmer-on, paper-style)
+  FastQC    t1=582/636
+GRID_DONE
+# RastQC kmer-on t=1/t=8 (footprint/maxRSS):
+RastQC DEFAULT kmer-on, t=1 and t=8 (footprint/maxRSS):
+  DRR609229: t1=50/52  t8=51/52
+  ERR5897746: t1=69/122  t8=373/590
+  DRR013000: t1=63/146  t8=372/622
+  SRR39421268: t1=77/167  t8=385/651
+RQON_T18_DONE
+# kmer isolation (disabling kmer via --limits inflates RastQC memory 2-3x on large files):
+DRR013000 t=4 (kmer-on default=344, full-limits=687 earlier):
+  default(kmer-on): 181/359
+  kmer-only limits: 424/700
+  full FastQC limits: 409/689
+flagship t=4 (kmer-on default=419, full-limits=1483 earlier):
+  kmer-only limits: 1063/1154
+ISODONE

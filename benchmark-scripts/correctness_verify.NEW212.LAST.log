@@ -1,0 +1,26 @@
+FastQC golden...
+RastQC t1/t4...
+polars-bio p1/p4 dumps (full 12-module default incl. kmer)...
+pb dumps written
+=== DRIFT TABLE (max |tool - FastQC golden|; 0 = bit-exact) ===
+polars-bio p1==p4 : True
+RastQC    t1==t4  : False
+
+module               | #pts |   polars-bio |             RastQC t=1 |             RastQC t=4
+--------------------------------------------------------------------------------------------
+basic_stats          |    2 |            0 |                      1 |                      1
+per_base_quality     |  756 |            0 |      6 [Δkeys +0/-558] |      6 [Δkeys +0/-558]
+per_tile_quality     |    0 |          n/a |                    n/a |                    n/a
+per_seq_quality      |   26 |            0 | 4.996e+05 [Δkeys +1/-0] | 4.996e+05 [Δkeys +1/-0]
+per_base_content     |  504 |            0 |  9.593 [Δkeys +0/-372] |  9.593 [Δkeys +0/-372]
+per_seq_gc           |  101 |            0 |                      0 |                      0
+per_base_n           |  126 |            0 | 0.002135 [Δkeys +0/-93] | 0.002135 [Δkeys +0/-93]
+seq_length           |    1 |            0 |                      0 |                      0
+dup_levels           |   17 |            0 |    9.735 [Δkeys +1/-1] |    14.19 [Δkeys +1/-1]
+overrepresented      |    0 |          n/a |                    n/a |                    n/a
+adapter_content      |  690 |    3.553e-15 | 1.339 [Δkeys +12/-504] | 1.339 [Δkeys +12/-504]
+kmer_content         |   20 |     0.001867 | 0.001755 [Δkeys +18/-18] | 0.8864 [Δkeys +19/-19]
+
+(value = max |tool - FastQC golden| over all data points in the module;
+ 0 = bit-exact. [Δkeys +x/-y] = x rows the tool reports that FastQC doesn't, y it omits.)
+CORRECTNESS_DONE

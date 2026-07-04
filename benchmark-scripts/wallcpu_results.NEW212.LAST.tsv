@@ -1,0 +1,48 @@
+# DRR013000  file=DRR013000.fastq.gz  1630774016 bytes  reads=24778423
+# cores=16  PB_REPS=3 RQ_RUNS=2 FQC_RUNS=2
+tool	threads	wall_s	cpu_s
+FastQC	1	68.350	68.350
+RastQC	1	70.34	92.31
+RastQC	2	35.53	92.61
+RastQC	4	22.40	93.18
+RastQC	8	22.56	93.66
+polars-bio	1	38.094	38.069
+polars-bio	2	19.400	38.540
+polars-bio	4	9.884	38.764
+polars-bio	8	5.338	39.241
+# DRR609229  file=DRR609229.fastq.gz  29039060 bytes  reads=0
+# cores=16  PB_REPS=3 RQ_RUNS=2 FQC_RUNS=2
+tool	threads	wall_s	cpu_s
+FastQC	1	4.560	4.560
+RastQC	1	2.42	2.40
+RastQC	2	2.38	2.38
+RastQC	4	2.39	2.38
+RastQC	8	2.41	2.39
+polars-bio	1	0.983	0.983
+polars-bio	2	0.494	0.970
+polars-bio	4	0.258	0.978
+polars-bio	8	0.143	0.971
+# ERR5897746  file=f.fastq.gz  330162447 bytes  reads=4252217
+# cores=16  PB_REPS=3 RQ_RUNS=2 FQC_RUNS=2
+tool	threads	wall_s	cpu_s
+FastQC	1	17.590	17.590
+RastQC	1	18.57	22.87
+RastQC	2	9.52	23.29
+RastQC	4	5.03	23.66
+RastQC	8	5.13	24.93
+polars-bio	1	8.632	8.614
+polars-bio	2	4.299	8.495
+polars-bio	4	2.355	8.666
+polars-bio	8	1.581	9.068
+# SRR39421268  file=SRR39421268.fastq.gz  3714267462 bytes  reads=64335964
+# cores=16  PB_REPS=2 RQ_RUNS=2 FQC_RUNS=1
+tool	threads	wall_s	cpu_s
+FastQC	1	212.51	212.51
+RastQC	1	243.55	298.11
+RastQC	2	124.56	303.12
+RastQC	4	61.77	302.53
+RastQC	8	57.11	302.57
+polars-bio	1	117.688	117.671
+polars-bio	2	60.085	119.886
+polars-bio	4	30.209	120.288
+polars-bio	8	15.455	120.772

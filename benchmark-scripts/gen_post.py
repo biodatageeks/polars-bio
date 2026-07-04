@@ -1,4 +1,185 @@
----
+#!/usr/bin/env python3
+"""Generate the mkdocs FastQC benchmark blog post (SRR39421268) with inline SVG."""
+
+PB, FQ, RQ, RSSC = "#0072B2", "#E69F00", "#009E73", "#b9c2cc"
+INK, MUT, GRID, AX = "#14181d", "#8b94a0", "#eef1f4", "#5b6470"
+MONO = "ui-monospace,SFMono-Regular,Menlo,Consolas,monospace"
+
+
+def line_chart(W, H, x, series, baseline, ymax, ticks, yunit):
+    m = dict(t=26, r=22, b=40, l=50)
+    pw, ph = W - m["l"] - m["r"], H - m["t"] - m["b"]
+    xmax = len(x) - 1
+
+    def X(i):
+        return m["l"] + (i / xmax) * pw
+
+    def Y(v):
+        return m["t"] + ph - (v / ymax) * ph
+
+    p = [
+        f'<svg viewBox="0 0 {W} {H}" style="width:100%;height:auto;font-family:{MONO}" '
+        f'xmlns="http://www.w3.org/2000/svg" role="img" '
+        f'aria-label="Wall-clock time by core count">'
+    ]
+    for i in range(ticks + 1):
+        v = ymax * i / ticks
+        y = Y(v)
+        p.append(
+            f'<line x1="{m["l"]}" y1="{y:.1f}" x2="{W-m["r"]}" y2="{y:.1f}" stroke="{GRID}"/>'
+        )
+        p.append(
+            f'<text x="{m["l"]-8}" y="{y+3:.1f}" font-size="11" fill="{MUT}" text-anchor="end">{v:.0f}</text>'
+        )
+    p.append(
+        f'<text x="{m["l"]-8}" y="{m["t"]-8}" font-size="11" fill="{MUT}" text-anchor="end">{yunit}</text>'
+    )
+    for i, xv in enumerate(x):
+        p.append(
+            f'<text x="{X(i):.1f}" y="{H-14}" font-size="11" fill="{MUT}" text-anchor="middle">{xv}</text>'
+        )
+    by = Y(baseline[0])
+    p.append(
+        f'<line x1="{m["l"]}" y1="{by:.1f}" x2="{W-m["r"]}" y2="{by:.1f}" stroke="{FQ}" stroke-width="2" stroke-dasharray="2 5"/>'
+    )
+    p.append(
+        f'<text x="{W-m["r"]}" y="{by-8:.1f}" font-size="11.5" font-weight="600" fill="{FQ}" text-anchor="end">{baseline[1]}</text>'
+    )
+    for s in series:
+        pts = " ".join(f"{X(i):.1f},{Y(v):.1f}" for i, v in enumerate(s["v"]))
+        p.append(
+            f'<polyline points="{pts}" fill="none" stroke="{s["color"]}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>'
+        )
+        for i, v in enumerate(s["v"]):
+            p.append(
+                f'<circle cx="{X(i):.1f}" cy="{Y(v):.1f}" r="5" fill="#fff" stroke="{s["color"]}" stroke-width="2.5"/>'
+            )
+            dy = 18 if s["name"] == "polars-bio" else -11
+            lab = f"{v:.2f}" if v < 10 else f"{v:.1f}"
+            p.append(
+                f'<text x="{X(i):.1f}" y="{Y(v)+dy:.1f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{lab}</text>'
+            )
+    p.append("</svg>")
+    return "\n".join(p)
+
+
+def grouped_bar(W, H, groups, ymax, ticks, yfmt, label):
+    m = dict(t=20, r=16, b=38, l=52)
+    pw, ph = W - m["l"] - m["r"], H - m["t"] - m["b"]
+    p = [
+        f'<svg viewBox="0 0 {W} {H}" style="width:100%;height:auto;font-family:{MONO}" '
+        f'xmlns="http://www.w3.org/2000/svg" role="img" aria-label="{label}">'
+    ]
+    for i in range(ticks + 1):
+        v = ymax * i / ticks
+        y = m["t"] + ph - (v / ymax) * ph
+        p.append(
+            f'<line x1="{m["l"]}" y1="{y:.1f}" x2="{W-m["r"]}" y2="{y:.1f}" stroke="{GRID}"/>'
+        )
+        p.append(
+            f'<text x="{m["l"]-8}" y="{y+3:.1f}" font-size="11" fill="{MUT}" text-anchor="end">{yfmt(v)}</text>'
+        )
+    gw = pw / len(groups)
+    for gi, g in enumerate(groups):
+        gx = m["l"] + gi * gw
+        n = len(g["bars"])
+        bw = min(48, (gw * 0.7) / n)
+        gap = (gw - bw * n) / 2
+        for bi, b in enumerate(g["bars"]):
+            x = gx + gap + bi * bw
+            bh = (b["v"] / ymax) * ph
+            y = m["t"] + ph - bh
+            p.append(
+                f'<rect x="{x+2:.1f}" y="{y:.1f}" width="{bw-4:.1f}" height="{max(bh,1):.1f}" rx="4" fill="{b["color"]}"/>'
+            )
+            p.append(
+                f'<text x="{x+bw/2:.1f}" y="{y-6:.1f}" font-size="11.5" font-weight="600" fill="{INK}" text-anchor="middle">{b["fmt"]}</text>'
+            )
+        p.append(
+            f'<text x="{gx+gw/2:.1f}" y="{H-13}" font-size="11" fill="{AX}" text-anchor="middle">{g["label"]}</text>'
+        )
+    p.append("</svg>")
+    return "\n".join(p)
+
+
+def legend(items):
+    sp = "".join(
+        f'<span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px">'
+        f'<span style="width:11px;height:11px;border-radius:3px;background:{c};display:inline-block"></span>{n}</span>'
+        for n, c in items
+    )
+    return f'<div style="font-family:{MONO};font-size:.78rem;color:{MUT};margin:.4rem 0 .6rem">{sp}</div>'
+
+
+def card(inner):
+    return (
+        f'<div markdown="0" style="background:#fff;border:1px solid #e4e7ec;border-radius:14px;'
+        f'padding:16px 18px;margin:1rem 0;overflow-x:auto">{inner}</div>'
+    )
+
+
+speed = card(
+    legend([("polars-bio", PB), ("RastQC", RQ), ("FastQC (1 thread)", FQ)])
+    + line_chart(
+        900,
+        330,
+        [1, 2, 4, 8],
+        [
+            {"name": "polars-bio", "color": PB, "v": [117.69, 60.09, 30.21, 15.46]},
+            {"name": "RastQC", "color": RQ, "v": [243.55, 124.56, 61.77, 57.11]},
+        ],
+        (212.51, "FastQC — 212.5s"),
+        250,
+        5,
+        "sec",
+    )
+)
+
+mem = card(
+    legend([("polars-bio", PB), ("RastQC", RQ), ("FastQC", FQ)])
+    + grouped_bar(
+        900,
+        300,
+        [
+            {
+                "label": "polars-bio (8t)",
+                "bars": [{"v": 683, "color": PB, "fmt": "683"}],
+            },
+            {
+                "label": "RastQC kmer-on (8t)",
+                "bars": [{"v": 651, "color": RQ, "fmt": "651"}],
+            },
+            {
+                "label": "RastQC kmer-off (8t)",
+                "bars": [{"v": 1535, "color": RQ, "fmt": "1535"}],
+            },
+            {"label": "FastQC (1t)", "bars": [{"v": 636, "color": FQ, "fmt": "636"}]},
+        ],
+        1600,
+        4,
+        lambda v: f"{v:.0f}",
+        "Peak RSS on the 64M flagship",
+    )
+)
+
+scaling = card(
+    legend([("polars-bio", PB), ("RastQC", RQ), ("FastQC (1 thread)", FQ)])
+    + line_chart(
+        900,
+        330,
+        [1, 2, 4, 8],
+        [
+            {"name": "polars-bio", "color": PB, "v": [38.09, 19.40, 9.88, 5.34]},
+            {"name": "RastQC", "color": RQ, "v": [70.34, 35.53, 22.40, 22.56]},
+        ],
+        (68.35, "FastQC — 68.4s"),
+        80,
+        8,
+        "sec",
+    )
+)
+
+POST = f"""---
 draft: false
 date:
   created: 2026-07-02
@@ -85,7 +266,7 @@ bgzip -r reads.fastq.gz                                               # write th
 fastqc --nogroup reads.fastq.gz
 
 # RastQC — disable its default Kmer Content so it runs the same 11 modules
-printf 'kmer\tignore\t1\n' >> limits.txt
+printf 'kmer\\tignore\\t1\\n' >> limits.txt
 rastqc -t 8 --limits limits.txt reads.fastq.gz          # -t 1/2/4/8
 
 # polars-bio — N partitions (target_partitions = 1/2/4/8)
@@ -102,45 +283,7 @@ We benchmark on **four** real, citable libraries: our flagship 64M-read clinical
 
 ### Our flagship: the 64M-read clinical exome
 
-<div markdown="0" style="background:#fff;border:1px solid #e4e7ec;border-radius:14px;padding:16px 18px;margin:1rem 0;overflow-x:auto"><div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem;color:#8b94a0;margin:.4rem 0 .6rem"><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#0072B2;display:inline-block"></span>polars-bio</span><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#009E73;display:inline-block"></span>RastQC</span><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#E69F00;display:inline-block"></span>FastQC (1 thread)</span></div><svg viewBox="0 0 900 330" style="width:100%;height:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Wall-clock time by core count">
-<line x1="50" y1="290.0" x2="878" y2="290.0" stroke="#eef1f4"/>
-<text x="42" y="293.0" font-size="11" fill="#8b94a0" text-anchor="end">0</text>
-<line x1="50" y1="237.2" x2="878" y2="237.2" stroke="#eef1f4"/>
-<text x="42" y="240.2" font-size="11" fill="#8b94a0" text-anchor="end">50</text>
-<line x1="50" y1="184.4" x2="878" y2="184.4" stroke="#eef1f4"/>
-<text x="42" y="187.4" font-size="11" fill="#8b94a0" text-anchor="end">100</text>
-<line x1="50" y1="131.6" x2="878" y2="131.6" stroke="#eef1f4"/>
-<text x="42" y="134.6" font-size="11" fill="#8b94a0" text-anchor="end">150</text>
-<line x1="50" y1="78.8" x2="878" y2="78.8" stroke="#eef1f4"/>
-<text x="42" y="81.8" font-size="11" fill="#8b94a0" text-anchor="end">200</text>
-<line x1="50" y1="26.0" x2="878" y2="26.0" stroke="#eef1f4"/>
-<text x="42" y="29.0" font-size="11" fill="#8b94a0" text-anchor="end">250</text>
-<text x="42" y="18" font-size="11" fill="#8b94a0" text-anchor="end">sec</text>
-<text x="50.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">1</text>
-<text x="326.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">2</text>
-<text x="602.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">4</text>
-<text x="878.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">8</text>
-<line x1="50" y1="65.6" x2="878" y2="65.6" stroke="#E69F00" stroke-width="2" stroke-dasharray="2 5"/>
-<text x="878" y="57.6" font-size="11.5" font-weight="600" fill="#E69F00" text-anchor="end">FastQC — 212.5s</text>
-<polyline points="50.0,165.7 326.0,226.5 602.0,258.1 878.0,273.7" fill="none" stroke="#0072B2" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="50.0" cy="165.7" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
-<text x="50.0" y="183.7" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">117.7</text>
-<circle cx="326.0" cy="226.5" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
-<text x="326.0" y="244.5" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">60.1</text>
-<circle cx="602.0" cy="258.1" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
-<text x="602.0" y="276.1" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">30.2</text>
-<circle cx="878.0" cy="273.7" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
-<text x="878.0" y="291.7" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">15.5</text>
-<polyline points="50.0,32.8 326.0,158.5 602.0,224.8 878.0,229.7" fill="none" stroke="#009E73" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="50.0" cy="32.8" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
-<text x="50.0" y="21.8" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">243.6</text>
-<circle cx="326.0" cy="158.5" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
-<text x="326.0" y="147.5" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">124.6</text>
-<circle cx="602.0" cy="224.8" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
-<text x="602.0" y="213.8" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">61.8</text>
-<circle cx="878.0" cy="229.7" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
-<text x="878.0" y="218.7" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">57.1</text>
-</svg></div>
+{speed}
 
 polars-bio scales **7.6×** to **15.5 s at 8 cores** — **13.8× faster than FastQC** (213 s, single-threaded) and **3.7× faster than RastQC's best** (57.1 s; RastQC barely improves past 4 threads). polars-bio is faster than both at every thread count — and does it at **~2.5× less total CPU** than RastQC.
 
@@ -161,51 +304,7 @@ The flagship is a single run. To check the pattern holds across sizes, we repeat
 
 The largest, **DRR013000** (24.8M reads), tells the whole story:
 
-<div markdown="0" style="background:#fff;border:1px solid #e4e7ec;border-radius:14px;padding:16px 18px;margin:1rem 0;overflow-x:auto"><div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem;color:#8b94a0;margin:.4rem 0 .6rem"><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#0072B2;display:inline-block"></span>polars-bio</span><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#009E73;display:inline-block"></span>RastQC</span><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#E69F00;display:inline-block"></span>FastQC (1 thread)</span></div><svg viewBox="0 0 900 330" style="width:100%;height:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Wall-clock time by core count">
-<line x1="50" y1="290.0" x2="878" y2="290.0" stroke="#eef1f4"/>
-<text x="42" y="293.0" font-size="11" fill="#8b94a0" text-anchor="end">0</text>
-<line x1="50" y1="257.0" x2="878" y2="257.0" stroke="#eef1f4"/>
-<text x="42" y="260.0" font-size="11" fill="#8b94a0" text-anchor="end">10</text>
-<line x1="50" y1="224.0" x2="878" y2="224.0" stroke="#eef1f4"/>
-<text x="42" y="227.0" font-size="11" fill="#8b94a0" text-anchor="end">20</text>
-<line x1="50" y1="191.0" x2="878" y2="191.0" stroke="#eef1f4"/>
-<text x="42" y="194.0" font-size="11" fill="#8b94a0" text-anchor="end">30</text>
-<line x1="50" y1="158.0" x2="878" y2="158.0" stroke="#eef1f4"/>
-<text x="42" y="161.0" font-size="11" fill="#8b94a0" text-anchor="end">40</text>
-<line x1="50" y1="125.0" x2="878" y2="125.0" stroke="#eef1f4"/>
-<text x="42" y="128.0" font-size="11" fill="#8b94a0" text-anchor="end">50</text>
-<line x1="50" y1="92.0" x2="878" y2="92.0" stroke="#eef1f4"/>
-<text x="42" y="95.0" font-size="11" fill="#8b94a0" text-anchor="end">60</text>
-<line x1="50" y1="59.0" x2="878" y2="59.0" stroke="#eef1f4"/>
-<text x="42" y="62.0" font-size="11" fill="#8b94a0" text-anchor="end">70</text>
-<line x1="50" y1="26.0" x2="878" y2="26.0" stroke="#eef1f4"/>
-<text x="42" y="29.0" font-size="11" fill="#8b94a0" text-anchor="end">80</text>
-<text x="42" y="18" font-size="11" fill="#8b94a0" text-anchor="end">sec</text>
-<text x="50.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">1</text>
-<text x="326.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">2</text>
-<text x="602.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">4</text>
-<text x="878.0" y="316" font-size="11" fill="#8b94a0" text-anchor="middle">8</text>
-<line x1="50" y1="64.4" x2="878" y2="64.4" stroke="#E69F00" stroke-width="2" stroke-dasharray="2 5"/>
-<text x="878" y="56.4" font-size="11.5" font-weight="600" fill="#E69F00" text-anchor="end">FastQC — 68.4s</text>
-<polyline points="50.0,164.3 326.0,226.0 602.0,257.4 878.0,272.4" fill="none" stroke="#0072B2" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="50.0" cy="164.3" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
-<text x="50.0" y="182.3" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">38.1</text>
-<circle cx="326.0" cy="226.0" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
-<text x="326.0" y="244.0" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">19.4</text>
-<circle cx="602.0" cy="257.4" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
-<text x="602.0" y="275.4" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">9.88</text>
-<circle cx="878.0" cy="272.4" r="5" fill="#fff" stroke="#0072B2" stroke-width="2.5"/>
-<text x="878.0" y="290.4" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">5.34</text>
-<polyline points="50.0,57.9 326.0,172.8 602.0,216.1 878.0,215.6" fill="none" stroke="#009E73" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="50.0" cy="57.9" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
-<text x="50.0" y="46.9" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">70.3</text>
-<circle cx="326.0" cy="172.8" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
-<text x="326.0" y="161.8" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">35.5</text>
-<circle cx="602.0" cy="216.1" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
-<text x="602.0" y="205.1" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">22.4</text>
-<circle cx="878.0" cy="215.6" r="5" fill="#fff" stroke="#009E73" stroke-width="2.5"/>
-<text x="878.0" y="204.6" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">22.6</text>
-</svg></div>
+{scaling}
 
 | cores / threads | pb wall | pb CPU-s | RastQC wall | RastQC CPU-s | FastQC |
 |---:|---:|---:|---:|---:|---:|
@@ -247,30 +346,7 @@ PY
 /usr/bin/time -l fastqc -t 1 --quiet              -o out reads.fastq.gz   # FastQC (single-threaded JVM)
 ```
 
-<div markdown="0" style="background:#fff;border:1px solid #e4e7ec;border-radius:14px;padding:16px 18px;margin:1rem 0;overflow-x:auto"><div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.78rem;color:#8b94a0;margin:.4rem 0 .6rem"><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#0072B2;display:inline-block"></span>polars-bio</span><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#009E73;display:inline-block"></span>RastQC</span><span style="display:inline-flex;align-items:center;gap:6px;margin-right:18px"><span style="width:11px;height:11px;border-radius:3px;background:#E69F00;display:inline-block"></span>FastQC</span></div><svg viewBox="0 0 900 300" style="width:100%;height:auto;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Peak RSS on the 64M flagship">
-<line x1="52" y1="262.0" x2="884" y2="262.0" stroke="#eef1f4"/>
-<text x="44" y="265.0" font-size="11" fill="#8b94a0" text-anchor="end">0</text>
-<line x1="52" y1="201.5" x2="884" y2="201.5" stroke="#eef1f4"/>
-<text x="44" y="204.5" font-size="11" fill="#8b94a0" text-anchor="end">400</text>
-<line x1="52" y1="141.0" x2="884" y2="141.0" stroke="#eef1f4"/>
-<text x="44" y="144.0" font-size="11" fill="#8b94a0" text-anchor="end">800</text>
-<line x1="52" y1="80.5" x2="884" y2="80.5" stroke="#eef1f4"/>
-<text x="44" y="83.5" font-size="11" fill="#8b94a0" text-anchor="end">1200</text>
-<line x1="52" y1="20.0" x2="884" y2="20.0" stroke="#eef1f4"/>
-<text x="44" y="23.0" font-size="11" fill="#8b94a0" text-anchor="end">1600</text>
-<rect x="134.0" y="158.7" width="44.0" height="103.3" rx="4" fill="#0072B2"/>
-<text x="156.0" y="152.7" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">683</text>
-<text x="156.0" y="287" font-size="11" fill="#5b6470" text-anchor="middle">polars-bio (8t)</text>
-<rect x="342.0" y="163.5" width="44.0" height="98.5" rx="4" fill="#009E73"/>
-<text x="364.0" y="157.5" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">651</text>
-<text x="364.0" y="287" font-size="11" fill="#5b6470" text-anchor="middle">RastQC kmer-on (8t)</text>
-<rect x="550.0" y="29.8" width="44.0" height="232.2" rx="4" fill="#009E73"/>
-<text x="572.0" y="23.8" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">1535</text>
-<text x="572.0" y="287" font-size="11" fill="#5b6470" text-anchor="middle">RastQC kmer-off (8t)</text>
-<rect x="758.0" y="165.8" width="44.0" height="96.2" rx="4" fill="#E69F00"/>
-<text x="780.0" y="159.8" font-size="11.5" font-weight="600" fill="#14181d" text-anchor="middle">636</text>
-<text x="780.0" y="287" font-size="11" fill="#5b6470" text-anchor="middle">FastQC (1t)</text>
-</svg></div>
+{mem}
 
 Peak RSS (MB) across all four datasets at **1 / 4 / 8 threads** (FastQC is single-threaded, so one value):
 
@@ -310,7 +386,7 @@ Here is the full per-module drift against the FastQC 0.12.1 golden. Each cell is
 | **Duplication levels** | ✅ exact | ❌ **9.7 pts off** | ❌ **14.2 pts off** |
 | **Kmer content** | ✅ exact | ✅ exact | ❌ **top k-mer wrong** |
 | Adapter content | ✅ exact | ⚠ diff panel | ⚠ diff panel |
-| Per tile / Overrepresented | \- no data on this run \- | | |
+| Per tile / Overrepresented | \\- no data on this run \\- | | |
 
 RastQC's *per-base* plots are fine — the coarser look is just grouping, not error. But **per-sequence quality is badly wrong**: 671,121 reads land in a Q40 bin FastQC never emits (the same rounding defect that misbinned a third of the 64M run), **%GC is off by one**, and — uniquely — its **duplication percentage and top k-mer change with the thread count**: the dedup estimate drifts from 9.7 to 14.2 points off between one and four threads, and the most-enriched k-mer it reports is correct at `-t 1` but wrong at `-t 4`.
 
@@ -321,3 +397,12 @@ polars-bio reproduces FastQC bit-for-bit on every deterministic module, and retu
 On a 64-million-read clinical exome run, polars-bio is the only tool that is **both** exact against FastQC and genuinely fast: **13.8× faster than FastQC**, **3.7× faster than RastQC**, at **~2.5× less total CPU** and with the steadiest memory of the three (~270–680 MB, never ballooning) — while RastQC, the other fast option, silently misbins a third of the reads in one module — and gives different duplication and k-mer numbers depending on the thread count. That lead is not an artefact of one file — it holds from 0.7M to 64M reads. And it is just another table in the engine: `SELECT * FROM fastqc('reads.fastq.gz')`.
 
 [^1]: FastQC ships Kmer Content disabled by default, so the cross-tool comparison covers the 11 default modules. polars-bio implements Kmer Content too (12/12), parity-tested separately; its FastQC-style top-20 output is inherently non-deterministic on real data — a known property of FastQC's Kmer module.
+"""
+
+import pathlib
+
+out = pathlib.Path(
+    "/Users/mwiewior/research/git/polars-bio/docs/blog/posts/fastqc-benchmark-2026-07.md"
+)
+out.write_text(POST)
+print("wrote", out, len(POST), "bytes")
