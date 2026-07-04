@@ -7,7 +7,7 @@ categories:
   - benchmarks
 ---
 
-# Streaming FastQC in polars-bio: exact, and 15× faster
+# Streaming FastQC in polars-bio: exact and scalable
 
 [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) is the de-facto first look at any sequencing run — but it is a single-threaded Java tool, and the fast Rust reimplementations tend to trade away correctness. polars-bio now runs the **full FastQC module suite as a single streaming pass** over FASTQ, computed on Apache DataFusion: **bit-exact against FastQC 0.12.1**, and a fraction of the time and memory.
 
@@ -305,7 +305,7 @@ Across all three sizes the ranking never changes: polars-bio is fastest at every
 | ERR5897746 R1 | 4.3M | 16.63 s | 4.81 s (8t) | **1.30 s** (8c) | 12.8× | 3.7× |
 | DRR013000 R1 | 24.8M | 63.84 s | 21.92 s (4t) | **4.11 s** (8c) | 15.5× | 5.3× |
 
-Paired R2 mates behave identically (full 1/2/4/8 grid in the repo). Two things stand out in RastQC: on the small 0.72M file it shows **no thread benefit at all** (~2.3 s flat, 1→8t), and its **single-threaded time is *slower* than FastQC** on both larger runs — whereas polars-bio scales cleanly and leads throughout.
+Paired R2 mates behave identically (full 1/2/4/8 grid in the repo). Two things stand out in RastQC. On the small 0.72M file it shows **no thread benefit at all** (~2.3 s flat, 1→8t) — but that is *by design*: its ~28 MB BGZF is below RastQC's 50 MB parallelism threshold, so `-t` is a no-op there (polars-bio parallelizes it anyway). On the two larger runs, which *do* clear the threshold, RastQC's **single-threaded time is still *slower* than FastQC** — whereas polars-bio scales cleanly and leads throughout.
 
 ## Correct at *every* thread count
 
