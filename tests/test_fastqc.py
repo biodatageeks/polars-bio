@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 import polars_bio as pb
@@ -34,8 +32,10 @@ EXPECTED_MODULES = [
 @pytest.fixture(autouse=True)
 def _restore_target_partitions():
     """Keep target_partitions changes from leaking into the wider suite."""
+    key = "datafusion.execution.target_partitions"
+    original = pb.get_option(key)
     yield
-    pb.set_option("datafusion.execution.target_partitions", str(os.cpu_count() or 1))
+    pb.set_option(key, original if original is not None else "1")
 
 
 def _sorted_tidy(path: str) -> "pl.DataFrame":  # noqa: F821

@@ -123,18 +123,16 @@ def test_kmer_content_matches_fastqc_exactly():
     # FastQC's Kmer module samples every 50th read in file order, so exact parity
     # requires a single-partition scan (batches arriving in file order). A
     # multi-partition scan samples each partition independently and diverges.
-    import os
-
-    pb.set_option("datafusion.execution.target_partitions", "1")
+    key = "datafusion.execution.target_partitions"
+    original = pb.get_option(key)
+    pb.set_option(key, "1")
     try:
         ref = _golden(KMER_GOLDEN).filter(pl.col("module") == "kmer_content")
         got = _ours(KMER_FASTQ).filter(
             (pl.col("module") == "kmer_content") & (pl.col("metric") != "status")
         )
     finally:
-        pb.set_option(
-            "datafusion.execution.target_partitions", str(os.cpu_count() or 1)
-        )
+        pb.set_option(key, original if original is not None else "1")
     # Reported-set membership: our enriched k-mers must equal FastQC's.
     ref_kmers = set(ref.select("label").to_series().to_list())
     got_kmers = set(got.select("label").to_series().to_list())
