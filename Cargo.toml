@@ -62,9 +62,9 @@ datafusion-bio-format-bbi = { git = "https://github.com/biodatageeks/datafusion-
 
 datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.11.0" }
 datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.11.0", default-features = false }
-# Phase-1 FastQC, released as part of datafusion-bio-functions v0.13.0
+# Phase-1 FastQC, released in datafusion-bio-functions v0.13.x
 # (merged biodatageeks/datafusion-bio-functions#182).
-datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.13.0" }
+datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.13.1" }
 
 async-trait = "0.1.86"
 futures = "0.3.31"
