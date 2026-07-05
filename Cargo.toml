@@ -64,7 +64,7 @@ datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafu
 datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.11.0", default-features = false }
 # Pinned to the Phase-1 FastQC branch head (biodatageeks/datafusion-bio-functions#182).
 # Switch to a git tag once that PR is tagged/released.
-datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "aa9d133b51495a3949095aa79eeca27f0757c088" }
+datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "d6463cf2ec970b8ed0890545bbf0c7129a60a42c" }
 
 async-trait = "0.1.86"
 futures = "0.3.31"
