@@ -58,6 +58,22 @@ const LEFT_TABLE: &str = "s1";
 const RIGHT_TABLE: &str = "s2";
 const DEFAULT_COLUMN_NAMES: [&str; 3] = ["contig", "start", "end"];
 
+/// Deregister the reusable `s1`/`s2` range-operation tables, dropping whatever
+/// was registered by a previous call.
+///
+/// MUST be called while the GIL is held. The dropped tables may hold Arrow
+/// batches whose buffers are owned by Python (imported over the Arrow C Data
+/// Interface from polars/pyarrow); their FFI release callback runs
+/// `_PyObject_Free`, which is only safe under the GIL. Doing this here — instead
+/// of letting the re-registration drop them inside a `py.detach` block on a
+/// GIL-free worker thread — is what prevents the issue #395 segfault, while
+/// keeping the batches themselves zero-copy.
+fn deregister_range_tables(py_ctx: &PyBioSessionContext) {
+    let ctx = &py_ctx.ctx;
+    let _ = ctx.deregister_table(LEFT_TABLE);
+    let _ = ctx.deregister_table(RIGHT_TABLE);
+}
+
 #[pyfunction]
 #[pyo3(signature = (py_ctx, df1, df2, range_options, limit=None))]
 fn range_operation_frame(
@@ -80,6 +96,17 @@ fn range_operation_frame(
         .0
         .collect::<Result<Vec<datafusion::arrow::array::RecordBatch>, datafusion::arrow::error::ArrowError>>()
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+    // Drop any previously-registered s1/s2 tables while the GIL is held (issue #395).
+    // The batches held by those tables keep their buffers alive through the Arrow
+    // C Data Interface, and for Python-exported inputs (polars/pyarrow) the FFI
+    // release callback runs `_PyObject_Free` — which corrupts memory unless the GIL
+    // is held. If the drop instead happened inside the `py.detach` below (on a
+    // GIL-free DataFusion worker thread) it segfaults non-deterministically. The
+    // registration inside `py.detach` then has nothing left to drop off-GIL. This
+    // keeps the imported batches zero-copy: the only unsafe moment is the *drop*,
+    // which we now always perform here under the GIL.
+    deregister_range_tables(py_ctx);
 
     // Now release GIL for the actual computation (registration and join)
     #[allow(clippy::useless_conversion)]
@@ -142,6 +169,13 @@ fn range_operation_lazy(
     let reader1 = stream1.0;
     let reader2 = stream2.0;
 
+    // Drop any previously-registered s1/s2 tables while the GIL is held (issue #395).
+    // A prior *eager* overlap leaves Python-owned Arrow batches under these names;
+    // dropping them inside the `py.detach` below (on a GIL-free worker thread) runs
+    // `_PyObject_Free` off-GIL and segfaults. Deregistering here removes them under
+    // the GIL, so the registration inside `py.detach` has nothing left to drop.
+    deregister_range_tables(py_ctx);
+
     // Release GIL for the actual computation (registration and join)
     // The Arrow C Streams have been extracted - no more Python interaction needed
     py.detach(|| {
@@ -190,6 +224,14 @@ fn range_operation_scan(
     read_options2: Option<ReadOptions>,
     limit: Option<usize>,
 ) -> PyResult<PyDataFrame> {
+    // Drop any previously-registered s1/s2 tables while the GIL is held (issue #395).
+    // File-path overlaps re-register s1/s2 inside the `py.detach` below (via
+    // `maybe_register_table` -> `register_table` -> `deregister_table`). If the
+    // previous call was an eager DataFrame overlap, those names still hold
+    // Python-owned Arrow batches, and dropping them off-GIL there hits the same
+    // `_PyObject_Free` hazard. Deregistering here under the GIL closes that path.
+    deregister_range_tables(py_ctx);
+
     #[allow(clippy::useless_conversion)]
     py.detach(|| {
         let rt = Runtime::new()?;
