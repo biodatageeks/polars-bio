@@ -3,6 +3,22 @@ name = "polars_bio"
 version = "0.32.0"
 edition = "2021"
 
+[features]
+# Global allocator selection (issue #402). Exactly one is compiled in.
+#
+# `mimalloc` is ON BY DEFAULT: it restores the allocator polars-bio <=0.31 got for
+# free via datafusion-python's default features, which 0.32 lost when it set
+# `default-features = false` on datafusion-python — regressing allocation-heavy
+# BAM/VCF reads by ~15-45% at one thread. mimalloc is pinned to v2 (v3 segfaults at
+# import on macOS arm64).
+#
+# To use jemalloc instead (faster on some interval-operation workloads):
+#   maturin build --release --no-default-features --features jemalloc
+# jemalloc is unsupported on Windows/MSVC; there the build falls back to mimalloc.
+default = ["mimalloc"]
+mimalloc = ["dep:mimalloc"]
+jemalloc = ["dep:tikv-jemallocator"]
+
 [lib]
 name = "polars_bio"
 crate-type= ["cdylib"]
@@ -12,6 +28,10 @@ crate-type= ["cdylib"]
 
 [dependencies]
 datafusion-python = { version = "53.0.0", default-features = false }
+# Global allocators, selected via the [features] above (mimalloc default-on).
+# Both optional so exactly one is linked; enabling neither keeps the system allocator.
+mimalloc = { version = "0.1", default-features = false, features = ["v2"], optional = true }
+tikv-jemallocator = { version = "0.6", optional = true }
 pyo3 = { version = "0.28.3", features = ["extension-module", "abi3"] }
 pyo3-log = "0.13.3"
 
@@ -28,22 +48,26 @@ log = "0.4.22"
 tracing = { version = "0.1.41", features = ["log"] }
 futures-util = "0.3.31"
 
-datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.6" }
-datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.6" }
-datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.6" }
-datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.6" }
-datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.6" }
-datafusion-bio-format-cram = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.6" }
-datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.6" }
-datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.6" }
-datafusion-bio-format-pairs = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.6" }
-datafusion-bio-format-gtf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.6" }
-datafusion-bio-format-bbi = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.6" }
+datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.7" }
+datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.7" }
+datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.7" }
+datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.7" }
+datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.7" }
+datafusion-bio-format-cram = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.7" }
+datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.7" }
+datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.7" }
+datafusion-bio-format-pairs = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.7" }
+datafusion-bio-format-gtf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.7" }
+datafusion-bio-format-bbi = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.7" }
 
 datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.11.0" }
 datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.11.0", default-features = false }
+# Phase-1 FastQC, released in datafusion-bio-functions v0.13.x
+# (merged biodatageeks/datafusion-bio-functions#182).
+datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.13.1" }
 
 async-trait = "0.1.86"
 futures = "0.3.31"
 rand = "0.8.5"
 serde_json = "1.0"
+
