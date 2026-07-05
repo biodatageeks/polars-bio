@@ -58,3 +58,38 @@ df = pb.depth("alignments.bam", min_mapping_quality=20).collect()
 df = pb.sql("SELECT * FROM depth('alignments.bam')").collect()
 ```
 
+## FastQC quality control
+
+Streaming FastQC quality-control modules over FASTQ files (plain, `.gz`, or BGZF) in a **single out-of-core pass**. All 12 core modules are implemented and **bit-exact against FastQC 0.12.1** (`--nogroup`), computed in parallel and merged, so results are identical regardless of the number of partitions.
+
+| Module | Module | Module |
+|--------|--------|--------|
+| `basic_stats` | `per_base_quality` | `per_seq_quality` |
+| `per_base_content` | `per_seq_gc` | `per_base_n` |
+| `seq_length` | `overrepresented` | `adapter_content` |
+| `dup_levels` | `per_tile_quality` | `kmer_content` |
+
+```python
+import polars_bio as pb
+
+# One streaming pass computes every module; access each as a LazyFrame.
+qc = pb.fastqc("reads_R1.fastq.gz")
+qc.per_base_quality.collect()
+qc.per_tile_quality.collect()
+qc.summary().collect()          # PASS/WARN/FAIL status per module
+
+# Compute only selected modules
+qc = pb.fastqc("reads_R1.fastq.gz", modules=["basic_stats", "adapter_content"])
+
+# Via SQL (tidy long-form output)
+df = pb.sql("SELECT * FROM fastqc('reads_R1.fastq.gz')").collect()
+```
+
+!!! note
+    `per_tile_quality` and `kmer_content` reproduce FastQC's own subsampling
+    (per-tile: 10% after the first 10k reads; kmer: 2% of reads, file-order
+    dependent). Exact k-mer parity therefore requires a single-partition scan;
+    the other ten modules are partition-invariant and exact on all reads.
+    `dup_levels`/`overrepresented` use FastQC's 100k-unique observation
+    cutoff, matching FastQC's estimate on high-diversity libraries.
+

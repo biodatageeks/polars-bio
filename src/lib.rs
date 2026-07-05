@@ -1,4 +1,20 @@
+// Global allocator (issue #402), selected by Cargo features; exactly one is linked.
+// mimalloc is the default (restores the pre-0.32 allocator lost via datafusion-python
+// default-features = false). jemalloc is opt-in and takes precedence when requested,
+// except on Windows/MSVC where tikv-jemallocator is unsupported and mimalloc is used.
+#[cfg(all(
+    feature = "mimalloc",
+    not(all(feature = "jemalloc", not(target_env = "msvc")))
+))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 mod context;
+mod fastqc;
 mod operation;
 mod option;
 mod pileup;
@@ -795,7 +811,7 @@ fn py_register_pileup_table(
                     };
 
                 let depth_provider = pileup::DepthTableProvider::new(provider, config);
-                let table_name = format!("_pileup_{}", rand::random::<u32>());
+                let table_name = format!("_pileup_{}", rand::random::<u64>());
                 ctx.register_table(&table_name, Arc::new(depth_provider))
                     .map_err(|e| format!("Failed to register depth table: {}", e))?;
                 // No execution — just register and return the name
@@ -807,6 +823,45 @@ fn py_register_pileup_table(
 
         info!(
             "Registered pileup depth table '{}' for path: {}",
+            table_name, path
+        );
+        Ok(table_name)
+    })
+}
+
+/// Register a fastqc tidy-output table for a FASTQ file and return its name.
+///
+/// The FASTQ provider is synchronous, so no tokio runtime is required here
+/// (unlike the alignment providers used by `py_register_pileup_table`).
+#[pyfunction]
+fn py_register_fastqc_table(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    path: String,
+    modules: Option<Vec<String>>,
+) -> PyResult<String> {
+    py.detach(|| {
+        let ctx = &py_ctx.ctx;
+
+        // Validate module selection eagerly for a clean Python error.
+        datafusion_bio_function_fastqc::ModuleSet::build(modules.as_deref())
+            .map_err(|e| PyValueError::new_err(format!("{e}")))?;
+
+        let fq = datafusion_bio_format_fastq::table_provider::FastqTableProvider::new(
+            path.clone(),
+            None,
+        )
+        .map_err(|e| PyRuntimeError::new_err(format!("Failed to create FASTQ provider: {e}")))?;
+
+        let provider = crate::fastqc::FastqcTableProvider::new(Arc::new(fq), modules);
+        let table_name = format!("_fastqc_{}", rand::random::<u64>());
+        ctx.register_table(&table_name, Arc::new(provider))
+            .map_err(|e| {
+                PyRuntimeError::new_err(format!("Failed to register fastqc table: {e}"))
+            })?;
+
+        info!(
+            "Registered fastqc table '{}' for path: {}",
             table_name, path
         );
         Ok(table_name)
@@ -833,6 +888,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(scan::py_describe_bam, m)?)?;
     m.add_function(wrap_pyfunction!(scan::py_describe_cram, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_pileup_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_register_fastqc_table, m)?)?;
     m.add_class::<PyBioSessionContext>()?;
     m.add_class::<FilterOp>()?;
     m.add_class::<RangeOp>()?;
