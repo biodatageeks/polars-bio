@@ -7,9 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-07-05
+
 ### Added
 
-- **FastQC quality control** (`pb.fastqc` / `SELECT * FROM fastqc(...)`): streaming FastQC over FASTQ files (plain, `.gz`, BGZF) in a single out-of-core pass. All 12 core modules implemented and bit-exact against FastQC 0.12.1 (`--nogroup`): `basic_stats`, `per_base_quality`, `per_seq_quality`, `per_base_content`, `per_seq_gc`, `per_base_n`, `seq_length`, `overrepresented`, `adapter_content`, `dup_levels`, `per_tile_quality`, `kmer_content`. Parallel accumulate-then-merge yields partition-invariant output; on a 26.5M-read BGZF it runs ~12× faster than FastQC at 8 cores.
+- **FastQC quality control** (`pb.fastqc` / `SELECT * FROM fastqc(...)`): streaming FastQC over FASTQ files (plain, `.gz`, BGZF) in a single out-of-core pass. All 12 core modules implemented and bit-exact against FastQC 0.12.1 (`--nogroup`): `basic_stats`, `per_base_quality`, `per_seq_quality`, `per_base_content`, `per_seq_gc`, `per_base_n`, `seq_length`, `overrepresented`, `adapter_content`, `dup_levels`, `per_tile_quality`, `kmer_content`. Parallel accumulate-then-merge yields partition-invariant output; on a 26.5M-read BGZF it runs ~12× faster than FastQC at 8 cores (#420).
+
+### Fixed
+
+- Prevent a Python 3.12/3.13 segfault when an eager `pb.overlap` is followed by
+  a lazy operation. Python-owned Arrow batches registered in the singleton
+  context were being freed off-GIL on a tokio worker; batches are now deep-copied
+  on registration (#395, #422)
 
 ## [0.32.0] - 2026-06-30
 
