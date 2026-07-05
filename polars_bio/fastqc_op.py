@@ -7,6 +7,11 @@ import pyarrow as pa
 from .context import ctx
 from .logging import logger
 
+# Must stay in sync with the Rust `ModuleSet` enum in the upstream
+# datafusion-bio-function-fastqc crate (the source of truth for which modules
+# `fastqc(modules=None)` computes). A module added upstream but missing here
+# would be computed by Rust yet excluded from `FastQCResult.computed`, so its
+# property access would raise KeyError.
 ALL_MODULES = [
     "basic_stats",
     "per_base_quality",

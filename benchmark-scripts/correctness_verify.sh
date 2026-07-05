@@ -1,7 +1,7 @@
 #!/bin/bash
-# Re-verify polars-bio FastQC correctness against the FastQC 0.12.1 golden on the
-# NEW local #212 build. 12-module drift + thread self-consistency (pb p1 vs p4,
-# RastQC t1 vs t4). Reuses an already-indexed ERR5897746 BGZF (no re-fetch).
+# Re-verify polars-bio FastQC correctness against the FastQC 0.12.1 golden.
+# 12-module drift + thread self-consistency (pb p1 vs p4, RastQC t1 vs t4).
+# Reuses an already-indexed ERR5897746 BGZF (no re-fetch).
 # Usage: correctness_verify.sh <file.fastq.gz>
 set -u
 FILE=${1:-f.fastq.gz}

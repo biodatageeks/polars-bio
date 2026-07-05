@@ -811,7 +811,7 @@ fn py_register_pileup_table(
                     };
 
                 let depth_provider = pileup::DepthTableProvider::new(provider, config);
-                let table_name = format!("_pileup_{}", rand::random::<u32>());
+                let table_name = format!("_pileup_{}", rand::random::<u64>());
                 ctx.register_table(&table_name, Arc::new(depth_provider))
                     .map_err(|e| format!("Failed to register depth table: {}", e))?;
                 // No execution — just register and return the name
@@ -854,7 +854,7 @@ fn py_register_fastqc_table(
         .map_err(|e| PyRuntimeError::new_err(format!("Failed to create FASTQ provider: {e}")))?;
 
         let provider = crate::fastqc::FastqcTableProvider::new(Arc::new(fq), modules);
-        let table_name = format!("_fastqc_{}", rand::random::<u32>());
+        let table_name = format!("_fastqc_{}", rand::random::<u64>());
         ctx.register_table(&table_name, Arc::new(provider))
             .map_err(|e| {
                 PyRuntimeError::new_err(format!("Failed to register fastqc table: {e}"))
