@@ -1,9 +1,0 @@
-# flagship SRR39421268 memory, /usr/bin/time -l (RastQC's method), private footprint / max RSS MB
-tool (config)          private footprint MB max RSS MB
-polars-bio (1 core)    175                  342
-polars-bio (8 core)    350                  728
-RastQC (1 thread)      773                  886
-RastQC (8 thread)      970                  1523
-FastQC (JVM)           —                  655
-MEM_DONE
-FastQC (JVM) direct: footprint=576 maxRSS=651

@@ -119,16 +119,13 @@ impl TableFunctionImpl for FastqcFunction {
         // Validate selection early (surfaces bad module names at plan time).
         ModuleSet::build(selection.as_deref())?;
 
-        let provider: Arc<dyn TableProvider> = tokio::task::block_in_place(|| {
-            let handle = tokio::runtime::Handle::current();
-            handle.block_on(async {
-                FastqTableProvider::new(path.clone(), None)
-                    .map(|p| Arc::new(p) as Arc<dyn TableProvider>)
-                    .map_err(|e| {
-                        DataFusionError::Execution(format!("Failed to create FASTQ provider: {e}"))
-                    })
-            })
-        })?;
+        // FastqTableProvider::new is synchronous (see py_register_fastqc_table in
+        // lib.rs, which calls it the same way), so no runtime bridging is needed.
+        let provider: Arc<dyn TableProvider> = FastqTableProvider::new(path.clone(), None)
+            .map(|p| Arc::new(p) as Arc<dyn TableProvider>)
+            .map_err(|e| {
+                DataFusionError::Execution(format!("Failed to create FASTQ provider: {e}"))
+            })?;
 
         Ok(Arc::new(FastqcTableProvider::new(provider, selection)))
     }

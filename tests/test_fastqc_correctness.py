@@ -14,7 +14,7 @@ FASTQ = "tests/data/io/fastq/example.fastq"
 
 
 def _reads():
-    lines = open(FASTQ).read().splitlines()
+    lines = open(FASTQ, encoding="ascii").read().splitlines()
     seqs = [lines[i] for i in range(1, len(lines), 4)]
     quals = [lines[i] for i in range(3, len(lines), 4)]
     return seqs, quals

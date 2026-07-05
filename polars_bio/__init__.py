@@ -20,6 +20,7 @@ from .constants import (
 from .context import ctx, get_option, set_option
 from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemError
 from .fastqc_op import FastQCOperations as fastqc_operations
+from .fastqc_op import FastQCResult
 from .io import IOOperations as data_input
 from .logging import set_loglevel
 from .pileup_op import PileupOperations as pileup_operations
@@ -220,6 +221,7 @@ __all__ = [
     "depth",
     "fastqc",
     "fastqc_operations",
+    "FastQCResult",
     "overlap",
     "nearest",
     "count_overlaps",

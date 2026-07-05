@@ -1,3 +1,4 @@
+import warnings
 from typing import List, Optional
 
 import polars as pl
@@ -50,8 +51,8 @@ def _run_tidy(path: str, modules: Optional[List[str]]) -> pl.DataFrame:
     finally:
         try:
             ctx.deregister_table(table_name)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to deregister fastqc table %s: %s", table_name, e)
 
 
 class FastQCResult:
@@ -284,7 +285,13 @@ class FastQCOperations:
                     f"unknown fastqc modules {unknown}; valid: {ALL_MODULES}"
                 )
         computed = list(modules) if modules is not None else list(ALL_MODULES)
-        tidy = _run_tidy(path, modules)
         if not group:
-            logger.debug("group=False has no effect for Phase 1 modules")
+            warnings.warn(
+                "group=False (FastQC --nogroup) is not yet implemented; all Phase 1 "
+                "modules are computed as if group=True. The parameter is reserved for "
+                "future position-binning support and currently has no effect.",
+                UserWarning,
+                stacklevel=2,
+            )
+        tidy = _run_tidy(path, modules)
         return FastQCResult(tidy, computed)

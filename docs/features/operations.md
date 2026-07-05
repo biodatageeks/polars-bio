@@ -90,6 +90,6 @@ df = pb.sql("SELECT * FROM fastqc('reads_R1.fastq.gz')").collect()
     (per-tile: 10% after the first 10k reads; kmer: 2% of reads, file-order
     dependent). Exact k-mer parity therefore requires a single-partition scan;
     the other ten modules are partition-invariant and exact on all reads.
-    `duplication_levels`/`overrepresented` use FastQC's 100k-unique observation
+    `dup_levels`/`overrepresented` use FastQC's 100k-unique observation
     cutoff, matching FastQC's estimate on high-diversity libraries.
 

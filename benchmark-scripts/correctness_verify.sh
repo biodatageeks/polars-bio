@@ -9,7 +9,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 
 # FastQC limits with Kmer ON (ignore=0) so all tools compute the same 12 modules
 curl -s "https://raw.githubusercontent.com/s-andrews/FastQC/v0.12.1/Configuration/limits.txt" > lim_kmer.txt
-sed -i '' 's/^kmer[[:space:]]*ignore[[:space:]]*1/kmer	ignore	0/' lim_kmer.txt
+sed -i.bak 's/^kmer[[:space:]]*ignore[[:space:]]*1/kmer	ignore	0/' lim_kmer.txt && rm -f lim_kmer.txt.bak
 
 rm -rf fqc_gold rq1 rq4; mkdir fqc_gold rq1 rq4
 echo "FastQC golden..."

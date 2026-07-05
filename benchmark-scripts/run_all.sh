@@ -1,6 +1,6 @@
 cd /private/tmp/claude-501/-Users-mwiewior-research-git-polars-bio/063ee24e-8412-45ca-b8d4-f77cb47b5147/scratchpad
 curl -s "https://raw.githubusercontent.com/s-andrews/FastQC/v0.12.1/Configuration/limits.txt" > lim_kmer.txt
-sed -i '' 's/^kmer[[:space:]]*ignore[[:space:]]*1/kmer	ignore	0/' lim_kmer.txt
+sed -i.bak 's/^kmer[[:space:]]*ignore[[:space:]]*1/kmer	ignore	0/' lim_kmer.txt && rm -f lim_kmer.txt.bak
 rm -rf sw; mkdir sw
 prefetch ERR5897746 -O sw >/dev/null 2>&1 || { echo PREFETCHFAIL; exit 1; }
 fasterq-dump sw/ERR5897746 -O sw --split-files -f -e 4 >/dev/null 2>&1 || { echo DUMPFAIL; exit 1; }
