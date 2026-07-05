@@ -7,7 +7,12 @@
 
 ![CI](https://github.com/biodatageeks/polars-bio/actions/workflows/publish_to_pypi.yml/badge.svg?branch=master)
 ![Docs](https://github.com/biodatageeks/polars-bio/actions/workflows/publish_documentation.yml/badge.svg?branch=master)
-![logo](docs/assets/logo-large.png)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/logo-large-dark.png">
+    <img alt="polars-bio logo" src="docs/assets/logo-large.png" width="320">
+  </picture>
+</p>
 
 
 
@@ -16,7 +21,11 @@
 It provides a DataFrame API for genomics data and is designed to be blazing fast, memory efficient and easy to use.
 
 
-![img.png](docs/assets/ashg-2025.png/img.png)
+## 🎉 Join us at ECCB 2026 in Geneva!
+
+We'll be presenting **polars-bio** at [ECCB 2026](https://eccb2026.org) — the 25th European Conference on Computational Biology, **31 August – 4 September 2026, Geneva, Switzerland**. Come and say hi!
+
+[![Join us at ECCB 2026 in Geneva](docs/assets/eccb-2026.png)](https://eccb2026.org)
 
 ## Key Features
 * optimized for [performance](https://biodatageeks.org/polars-bio/performance/) and memory [efficiency](https://biodatageeks.org/polars-bio/performance/#memory-characteristics) for large-scale genomics datasets analyses both when reading input data and performing operations
@@ -26,12 +35,30 @@ It provides a DataFrame API for genomics data and is designed to be blazing fast
 * [out-of-core/streaming](https://biodatageeks.org/polars-bio/features/#streaming) processing (for data too large to fit into a computer's main memory)  with [Apache DataFusion](https://datafusion.apache.org/) and [polars](https://pola.rs/)
 * support for *federated* and *streamed* reading data from [cloud storages](https://biodatageeks.org/polars-bio/features/#cloud-storage) (e.g. S3, GCS) with [Apache OpenDAL](https://github.com/apache/opendal) enabling processing large-scale genomics data without materializing in memory
 * zero-copy data exchange with [Apache Arrow](https://arrow.apache.org/)
-* bioinformatics file [formats](https://biodatageeks.org/polars-bio/features/#file-formats-support) with [noodles](https://github.com/zaeleus/noodles); VCF Zarr support is implemented as a `datafusion-bio-formats` bio-format provider using the Rust [zarrs](https://crates.io/crates/zarrs) crate
+* bioinformatics file [formats](https://biodatageeks.org/polars-bio/features/#file-formats-support) with [noodles](https://github.com/zaeleus/noodles)
+* VCF Zarr support built on [Analysis-ready VCF at Biobank scale using Zarr](https://doi.org/10.1093/gigascience/giaf049), the [VCF Zarr specification](https://github.com/sgkit-dev/vcf-zarr-spec) and the [zarrs](https://crates.io/crates/zarrs) Rust crate
 * fast overlap operations with [COITrees: Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees)
 * pre-built wheel packages for *Linux*, *Windows* and *MacOS* (*arm64* and *x86_64*) available on [PyPI](https://pypi.org/project/polars-bio/#files)
 
-## Performance benchmarks
-![summary-results.png](docs/assets/summary-results.png)
+## Performance
+
+polars-bio is optimized for both **genomic interval operations** and **reading genomic file formats**. See the full [performance results](https://biodatageeks.org/polars-bio/performance/#results-summary-).
+
+**Genomic interval operations** — speedups vs. other Python libraries:
+
+![Benchmark summary](docs/assets/summary-results.png)
+
+**Genomic file format readers** — single-threaded throughput vs. other Python readers ([full benchmark](https://biodatageeks.org/polars-bio/blog/2026/02/14/benchmarking-genomic-format-readers-in-python-with-polars/)):
+
+![FASTQ readers](docs/assets/format-fastq.png)
+
+![BAM readers (with tags)](docs/assets/format-bam.png)
+
+![VCF readers (with INFO)](docs/assets/format-vcf.png)
+
+**Multi-threaded scalability** of file-format reading (wall time & peak memory):
+
+![File-format thread scaling](docs/assets/format-scaling.png)
 
 For developers: See [`benchmarks/README_BENCHMARKS.md`](benchmarks/README_BENCHMARKS.md) for information about running performance benchmarks via GitHub Actions.
 
@@ -55,13 +82,5 @@ If you use **polars-bio** in your work, please cite:
     eprint = {https://academic.oup.com/bioinformatics/advance-article-pdf/doi/10.1093/bioinformatics/btaf640/65667510/btaf640.pdf},
 }
 ```
-
-## References
-
-VCF Zarr support in polars-bio builds on:
-
-* [Analysis-ready VCF at Biobank scale using Zarr](https://doi.org/10.1093/gigascience/giaf049)
-* [VCF Zarr specification](https://github.com/sgkit-dev/vcf-zarr-spec)
-* [zarrs Rust crate](https://crates.io/crates/zarrs)
 
 Read the [documentation](https://biodatageeks.github.io/polars-bio/)

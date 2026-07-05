@@ -7,26 +7,30 @@ repo_name: biodatageeks/polars-bio
 watch:
   - polars_bio
 nav:
-  - Home:
-      - polars-bio: index.md
-      - 🏃🏼‍♂️ Quick start: quickstart.md
-      - 🔨Features: features.md
-      - 📚Tutorial: notebooks/tutorial.ipynb
-      - ⚙️ API reference: api.md
-      - ❓ FAQ: faq.md
-      - 🚀 Performance: supplement.md
-      - 🛠️ Developers guide: developers.md
-      - 📡 Contact: contact.md
-
-
-  - Quick start: quickstart.md
-  - Features: features.md
-  - Tutorial: notebooks/tutorial.ipynb
-  - API reference: api.md
-  - FAQ: faq.md
+  - 🏠 Home: index.md
+  - 🏃🏼‍♂️ Quick start: quickstart.md
+  - 🔨 Features:
+      - Overview: features/index.md
+      - Genomic operations: features/operations.md
+      - Reading files: features/reading.md
+      - Writing files: features/writing.md
+      - SQL processing: features/sql.md
+      - DataFrames support: features/dataframes.md
+      - Cloud storage: features/cloud.md
+      - Parallel processing: features/parallel.md
+  - 📚 Tutorial: notebooks/tutorial.ipynb
+  - ⚙️ API reference:
+      - Overview: api/index.md
+      - Reading files: api/reading.md
+      - Genomic operations: api/operations.md
+      - Writing files: api/writing.md
+      - SQL interface: api/sql.md
+      - Auxiliary: api/auxiliary.md
+  - ❓ FAQ: faq.md
   - 🚀 Performance: supplement.md
   - 🛠️ Developers guide: developers.md
-  - Contact: contact.md
+  - 🎤 Talks & presentations: talks.md
+  - 📡 Contact: contact.md
   - 📖 Blog:
       - blog/index.md
 
@@ -70,8 +74,24 @@ plugins:
   - glightbox
 theme:
   name: material
+  custom_dir: overrides
   logo: assets/logo.png
   favicon: assets/logo.png
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
   features:
     - content.code.copy
     - content.code.select
@@ -97,13 +117,6 @@ extra:
   analytics:
     provider: google
     property: G-1M9PLLGBYS
-  social:
-    - icon: fontawesome/brands/discord
-      link: https://discord.gg/bpxQ4Yxhk5
-      name: Discord
-    - icon: material/email
-      link: mailto:marek.wiewiorka@pw.edu.pl
-      name: Email
 
 markdown_extensions:
   - admonition
