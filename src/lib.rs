@@ -1,3 +1,18 @@
+// Global allocator (issue #402), selected by Cargo features; exactly one is linked.
+// mimalloc is the default (restores the pre-0.32 allocator lost via datafusion-python
+// default-features = false). jemalloc is opt-in and takes precedence when requested,
+// except on Windows/MSVC where tikv-jemallocator is unsupported and mimalloc is used.
+#[cfg(all(
+    feature = "mimalloc",
+    not(all(feature = "jemalloc", not(target_env = "msvc")))
+))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+#[cfg(all(feature = "jemalloc", not(target_env = "msvc")))]
+#[global_allocator]
+static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
+
 mod context;
 mod fastqc;
 mod operation;

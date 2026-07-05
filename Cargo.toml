@@ -3,6 +3,22 @@ name = "polars_bio"
 version = "0.32.0"
 edition = "2021"
 
+[features]
+# Global allocator selection (issue #402). Exactly one is compiled in.
+#
+# `mimalloc` is ON BY DEFAULT: it restores the allocator polars-bio <=0.31 got for
+# free via datafusion-python's default features, which 0.32 lost when it set
+# `default-features = false` on datafusion-python — regressing allocation-heavy
+# BAM/VCF reads by ~15-45% at one thread. mimalloc is pinned to v2 (v3 segfaults at
+# import on macOS arm64).
+#
+# To use jemalloc instead (faster on some interval-operation workloads):
+#   maturin build --release --no-default-features --features jemalloc
+# jemalloc is unsupported on Windows/MSVC; there the build falls back to mimalloc.
+default = ["mimalloc"]
+mimalloc = ["dep:mimalloc"]
+jemalloc = ["dep:tikv-jemallocator"]
+
 [lib]
 name = "polars_bio"
 crate-type= ["cdylib"]
@@ -12,6 +28,10 @@ crate-type= ["cdylib"]
 
 [dependencies]
 datafusion-python = { version = "53.0.0", default-features = false }
+# Global allocators, selected via the [features] above (mimalloc default-on).
+# Both optional so exactly one is linked; enabling neither keeps the system allocator.
+mimalloc = { version = "0.1", default-features = false, features = ["v2"], optional = true }
+tikv-jemallocator = { version = "0.6", optional = true }
 pyo3 = { version = "0.28.3", features = ["extension-module", "abi3"] }
 pyo3-log = "0.13.3"
 
