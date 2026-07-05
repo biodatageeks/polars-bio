@@ -7,15 +7,15 @@ categories:
   - benchmarks
 ---
 
-# Streaming FastQC in polars-bio: exact and scalable
+# Streaming FastQC in polars-bio: compatible and scalable
 
-[FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) is the de-facto first look at any sequencing run — but it is a single-threaded Java tool, and the fast Rust reimplementations tend to trade away correctness. polars-bio now runs the **full FastQC module suite as a single streaming pass** over FASTQ, computed on Apache DataFusion: **bit-exact against FastQC 0.12.1**, and a fraction of the time and memory.
+[FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) is the de-facto first look at any sequencing run — but it is a single-threaded Java tool, and the fast Rust reimplementations tend to trade away correctness. polars-bio now runs the **full FastQC module suite as a single streaming pass** over FASTQ, computed on Apache DataFusion: **FastQC 0.12.1-compatible under explicit parity checks** (bit-exact for deterministic/count modules, tolerance-checked for floating metrics), and a fraction of the time and memory.
 
 <!-- more -->
 
 ## What shipped
 
-Each QC module is a streaming accumulator (`update` → `merge` → `finalize`) folded over Arrow batches, so the work parallelizes across partitions and merges **exactly**. All **12 core FastQC modules** are implemented and validated against FastQC 0.12.1 golden output — **bit-for-bit on the deterministic modules** (Kmer Content matches at single-partition parity; FastQC's top-20 k-mer list is inherently non-deterministic). One call computes them all in a single out-of-core pass:
+Each QC module is a streaming accumulator (`update` → `merge` → `finalize`) folded over Arrow batches, so the work parallelizes across partitions and merges deterministically. All **12 core FastQC modules** are implemented and validated against FastQC 0.12.1 golden output — **bit-for-bit on deterministic/count modules**, with floating metrics checked to tight tolerances (Kmer Content matches the FastQC top-20 set at single-partition parity; FastQC's top-20 k-mer list is inherently order-sensitive on real data). One call computes them all in a single out-of-core pass:
 
 ```python
 import polars_bio as pb
@@ -292,7 +292,7 @@ Four honest takeaways — no tool wins memory outright:
 
 FastQC is single-threaded, so "correct" is unambiguous. Both fast tools are multi-threaded, which raises a question the speed charts don't answer: **does the output change with the thread count?** We diffed every module at 1 vs *N* threads on a second run — [ERR5897746](https://www.ebi.ac.uk/ena/browser/view/ERR5897746), 4.25M reads:
 
-- **polars-bio is byte-identical** at 1 and 4 partitions — every value in the output matches, exactly.
+- **polars-bio is value-identical** at 1 and 4 partitions after parsing — the checked output values match exactly across partition counts.
 - **RastQC is not** — its duplication and k-mer modules return materially different numbers at `-t 1` vs `-t 4`.
 
 Here is the full per-module drift against the FastQC 0.12.1 golden. Each cell is the largest deviation across *every* data point in that module; the per-base rows are re-binned into RastQC's own position bins for a like-for-like comparison (RastQC has no `--nogroup`, so it always groups positions):
@@ -307,17 +307,17 @@ Here is the full per-module drift against the FastQC 0.12.1 golden. Each cell is
 | Per sequence GC | ✅ exact | ✅ exact | ✅ exact |
 | **Per sequence quality** | ✅ exact | ❌ **671k reads misbinned** | ❌ **671k reads misbinned** |
 | Sequence length | ✅ exact | ✅ exact | ✅ exact |
-| **Duplication levels** | ✅ exact | ❌ **9.7 pts off** | ❌ **14.2 pts off** |
-| **Kmer content** | ✅ exact | ✅ exact | ❌ **top k-mer wrong** |
-| Adapter content | ✅ exact | ⚠ diff panel | ⚠ diff panel |
+| **Duplication levels** | ✅ exact | ✅ ≈exact (0.005 pts) | ❌ **+6.16 pts total dedup** |
+| **Kmer content** | ✅ same top-20; Δobs/exp 0.0019 | ⚠ top k-mer correct; list differs | ❌ **top k-mer wrong** |
+| Adapter content | ✅ ≈exact (float eps) | ⚠ diff panel | ⚠ diff panel |
 | Per tile / Overrepresented | \- no data on this run \- | | |
 
-RastQC's *per-base* plots are fine — the coarser look is just grouping, not error. But **per-sequence quality is badly wrong**: 671,121 reads land in a Q40 bin FastQC never emits (the same rounding defect that misbinned a third of the 64M run), **%GC is off by one**, and — uniquely — its **duplication percentage and top k-mer change with the thread count**: the dedup estimate drifts from 9.7 to 14.2 points off between one and four threads, and the most-enriched k-mer it reports is correct at `-t 1` but wrong at `-t 4`.
+RastQC's *per-base* plots are fine — the coarser look is just grouping, not error — and its adapter-content values match after re-binning, although it emits two tail bins per adapter that FastQC does not. But **per-sequence quality is badly wrong**: 671,121 reads land in a Q40 bin FastQC never emits (the same rounding defect that misbinned a third of the 64M run), **%GC is off by one**, and — uniquely — its **duplication and k-mer outputs change with the thread count**. At `-t 1`, RastQC's FastQC-comparable duplication percentages match within rounding (Total Deduplicated Percentage is +0.002 points), but at `-t 4` total dedup jumps from 89.48% to 95.64% (+6.16 points) and the level-1 total bin is +9.95 points. Its most-enriched k-mer is correct at `-t 1` but the top-20 list already differs; at `-t 4`, even the top k-mer is wrong.
 
-polars-bio reproduces FastQC bit-for-bit on every deterministic module, and returns the **identical result at any partition count** — its per-partition accumulators merge associatively, and Kmer Content (the one non-associative module) is computed on a single partition, so it is partition-invariant too. You never have to ask which thread setting gave you the trustworthy number.
+polars-bio reproduces FastQC bit-for-bit on deterministic/count modules, stays within tight tolerances for floating metrics, and returns the **same parsed values at the checked partition counts** — its per-partition accumulators merge associatively, and Kmer Content (the one non-associative module) is computed on a single partition, so it is partition-invariant in this comparison too. You never have to ask which thread setting gave you the trustworthy number.
 
 ## The takeaway
 
-On a 64-million-read clinical exome run, polars-bio is the only tool that is **both** exact against FastQC and genuinely fast: **13.8× faster than FastQC**, **3.7× faster than RastQC**, at **~2.5× less total CPU** and with the steadiest memory of the three (~270–680 MB, never ballooning) — while RastQC, the other fast option, silently misbins a third of the reads in one module — and gives different duplication and k-mer numbers depending on the thread count. That lead is not an artefact of one file — it holds from 0.7M to 64M reads. And it is just another table in the engine: `SELECT * FROM fastqc('reads.fastq.gz')`.
+On a 64-million-read clinical exome run, polars-bio is the only tool that is **both** FastQC-compatible under these parity checks and genuinely fast: **13.8× faster than FastQC**, **3.7× faster than RastQC**, at **~2.5× less total CPU** and with the steadiest memory of the three (~270–680 MB, never ballooning) — while RastQC, the other fast option, silently misbins a third of the reads in one module — and gives different duplication and k-mer numbers depending on the thread count. That lead is not an artefact of one file — it holds from 0.7M to 64M reads. And it is just another table in the engine: `SELECT * FROM fastqc('reads.fastq.gz')`.
 
 [^1]: FastQC ships Kmer Content disabled by default, so the cross-tool comparison covers the 11 default modules. polars-bio implements Kmer Content too (12/12), parity-tested separately; its FastQC-style top-20 output is inherently non-deterministic on real data — a known property of FastQC's Kmer module.

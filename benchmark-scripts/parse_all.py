@@ -29,6 +29,18 @@ def _int0(s):
     return int(s.split("-")[0])
 
 
+def _dup_label(label):
+    return ">10k+" if label == ">10k" else label
+
+
+def _dup_total_col(header):
+    """Column index in a split data row for FastQC's 'Percentage of total'."""
+    try:
+        return 1 + header.index("Percentage of total")
+    except ValueError:
+        return 1
+
+
 def parse_fqc(path):
     """fastqc_data.txt (FastQC or RastQC) -> {module: {key: float}}."""
     out = defaultdict(dict)
@@ -76,7 +88,7 @@ def parse_fqc(path):
         elif mod == "seq_length":
             out[mod][(_int0(c[0]),)] = float(c[1])
         elif mod == "dup_levels":
-            out[mod][(c[0],)] = float(c[1])  # % of deduplicated
+            out[mod][(_dup_label(c[0]),)] = float(c[_dup_total_col(hdr.get(mod, []))])
         elif mod == "overrepresented":
             out[mod][(c[0],)] = float(c[1])  # count
         elif mod == "adapter_content":
@@ -126,7 +138,7 @@ def parse_pb(path):
             if me == "total_dedup_pct":
                 out[m][("__dedup__",)] = v
             elif me == "pct":
-                out[m][(lab,)] = v
+                out[m][(_dup_label(lab),)] = v
         elif m == "overrepresented" and me == "count":
             out[m][(lab,)] = v
         elif m == "adapter_content" and me == "pct":
