@@ -129,7 +129,9 @@ def test_sql_udtf():
 
 def _n_seq_at(n_parts: int) -> float:
     pb.set_option("datafusion.execution.target_partitions", str(n_parts))
-    bs = pb.fastqc(FASTQ, modules=["basic_stats"]).basic_stats.collect()
+    # PARALLEL_BGZ is a splittable BGZF (has a .gzi), so n_parts>1 genuinely
+    # fans the scan across partitions and exercises the accumulate+merge path.
+    bs = pb.fastqc(PARALLEL_BGZ, modules=["basic_stats"]).basic_stats.collect()
     return float(dict(zip(bs["metric"], bs["value"]))["n_seq"])
 
 

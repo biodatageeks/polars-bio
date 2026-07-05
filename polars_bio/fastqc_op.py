@@ -284,6 +284,10 @@ class FastQCOperations:
             ```
         """
         if modules is not None:
+            if not modules:
+                raise ValueError(
+                    "modules list must not be empty; pass None to compute all modules"
+                )
             unknown = [m for m in modules if m not in ALL_MODULES]
             if unknown:
                 raise ValueError(
