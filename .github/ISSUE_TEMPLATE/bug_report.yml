@@ -1,0 +1,99 @@
+name: 🐛 Bug report
+description: Report something that is broken or behaving unexpectedly
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report! Please fill in as much of the
+        information below as you can — a minimal, self-contained reproducer is the single
+        most helpful thing you can provide.
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preliminary checks
+      options:
+        - label: I searched [existing issues](https://github.com/biodatageeks/polars-bio/issues) and this has not been reported yet.
+          required: true
+        - label: I am using the latest released version of polars-bio (or the bug exists on `master`).
+          required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproducer
+    attributes:
+      label: Minimal reproducible example
+      description: >
+        Minimal code that reproduces the problem. If it depends on a data file, please
+        describe the format (VCF/BAM/CRAM/GFF/FASTQ/...) and, if possible, attach or link
+        a small sample.
+      render: python
+      placeholder: |
+        import polars_bio as pb
+        df = pb.scan_vcf("example.vcf.gz").collect()
+        ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior / traceback
+      description: What actually happened? Paste the full error message or traceback.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: pb-version
+    attributes:
+      label: polars-bio version
+      description: "Run: `python -c 'import polars_bio; print(polars_bio.__version__)'`"
+      placeholder: "0.33.0"
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.12.4 (CPython)"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux (x86_64)
+        - Linux (aarch64)
+        - macOS (Apple Silicon / arm64)
+        - macOS (Intel / x86_64)
+        - Windows
+        - Other (specify below)
+    validations:
+      required: true
+  - type: input
+    id: install
+    attributes:
+      label: How did you install polars-bio?
+      placeholder: "pip / uv / conda / built from source with maturin"
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else that might help — polars version, data size, environment, etc.
+    validations:
+      required: false

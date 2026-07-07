@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & discussions
+    url: https://github.com/biodatageeks/polars-bio/discussions
+    about: Have a usage question or an idea to discuss? Please open a discussion instead of an issue.
+  - name: 📚 Documentation
+    url: https://biodatageeks.org/polars-bio/
+    about: Check the documentation — it may already answer your question.
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/biodatageeks/polars-bio/security/advisories/new
+    about: Please report security issues privately via a GitHub security advisory, not a public issue.
