@@ -1,0 +1,26 @@
+name: 📖 Documentation
+description: Report a problem with the docs or suggest an improvement
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: location
+    attributes:
+      label: Affected page / section
+      description: Which page or section is affected? A link to https://biodatageeks.org/polars-bio/ helps.
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is wrong or missing?
+      description: Describe the problem — unclear, outdated, incorrect, or missing information.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      description: How could it be improved? A proposed wording is welcome.
+    validations:
+      required: false
