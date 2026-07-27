@@ -45,7 +45,16 @@ recipe uses a build script rather than an inline `script:` entry:
 
 The crate graph is large (662 crates) and six dependencies resolve from git
 tags, so the build environment needs `git` and network access. `Cargo.lock` is
-shipped in the sdist, so those revisions are pinned.
+shipped in the sdist, so those revisions are pinned. `cargo-bundle-licenses`
+records the licences of that crate graph into `THIRDPARTY.yml`, which is listed
+in `license_file` alongside `LICENSE`.
+
+One local-only gotcha: running `conda-build` without conda-forge's pinning lets
+it choose a macOS deployment target from the host SDK, which can exceed the
+running OS version. maturin then tags the wheel with that version and the test
+phase fails `pip check` with "not supported on this platform". Pass
+`--variants "{MACOSX_DEPLOYMENT_TARGET: ['11.0']}"` to reproduce what CI does.
+This does not affect bioconda, which pins the target well below the runner.
 
 ## Local verification
 

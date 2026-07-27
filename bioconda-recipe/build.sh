@@ -19,4 +19,7 @@ export CARGO_PROFILE_RELEASE_STRIP=symbols
 export CARGO_NET_GIT_FETCH_WITH_CLI=true
 export CARGO_NET_RETRY=5
 
+# Record the licences of the vendored crate graph; referenced by license_file.
+cargo-bundle-licenses --format yaml --output THIRDPARTY.yml
+
 $PYTHON -m pip install . -vv --no-deps --no-build-isolation

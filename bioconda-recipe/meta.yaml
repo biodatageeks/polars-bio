@@ -18,9 +18,12 @@ requirements:
   build:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
+    - {{ stdlib('c') }}
     - {{ compiler('rust') }}
+    - cargo-bundle-licenses
     - cmake
     - make
+    - pkg-config
     # The crate tree pulls several dependencies straight from git tags, so the
     # build environment needs a git client.
     - git
@@ -56,7 +59,9 @@ about:
   home: https://github.com/biodatageeks/polars-bio
   license: Apache-2.0
   license_family: Apache
-  license_file: LICENSE
+  license_file:
+    - LICENSE
+    - THIRDPARTY.yml
   summary: 'Blazing fast genomic operations on large Python dataframes'
   description: |
     polars-bio is a Python library for genomics built on top of Polars,
