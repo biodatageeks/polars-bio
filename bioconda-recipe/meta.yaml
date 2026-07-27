@@ -13,6 +13,10 @@ build:
   number: 0
   # polars-bio requires Python >=3.11,<3.15 (pyproject.toml).
   skip: true  # [py < 311]
+  run_exports:
+    # Still 0.x with an evolving API, so pin downstream consumers to the
+    # minor version rather than the major one.
+    - {{ pin_subpackage(name, max_pin="x.x") }}
 
 requirements:
   build:
