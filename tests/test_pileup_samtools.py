@@ -63,6 +63,24 @@ def _expand_blocks(blocks: pl.DataFrame) -> pl.DataFrame:
     )
 
 
+def _expand_blocks_zero_based(blocks: pl.DataFrame) -> pl.DataFrame:
+    """Expand 0-based half-open blocks into per-position rows.
+
+    pos_end is exclusive here, so the range runs to pos_end rather than
+    pos_end + 1. Positions are shifted to 1-based for comparison against the
+    samtools golden file.
+    """
+    return (
+        blocks.filter(pl.col("coverage") > 0)
+        .with_columns(
+            pl.int_ranges(pl.col("pos_start"), pl.col("pos_end")).alias("pos")
+        )
+        .explode("pos")
+        .select(["contig", (pl.col("pos") + 1).cast(pl.Int32), "coverage"])
+        .sort(["contig", "pos"])
+    )
+
+
 def _run_blocks(partitions: int) -> pl.DataFrame:
     """Run block-mode depth with given partition count, return expanded sorted rows."""
     key = ("blocks", partitions)
@@ -74,6 +92,22 @@ def _run_blocks(partitions: int) -> pl.DataFrame:
     finally:
         pb.set_option("datafusion.execution.target_partitions", "1")
     result = _expand_blocks(blocks)
+    _CACHE[key] = result
+    gc.collect()
+    return result
+
+
+def _run_blocks_zero_based(partitions: int) -> pl.DataFrame:
+    """Run 0-based block-mode depth, return expanded rows shifted to 1-based."""
+    key = ("blocks_zero_based", partitions)
+    if key in _CACHE:
+        return _CACHE[key]
+    pb.set_option("datafusion.execution.target_partitions", str(partitions))
+    try:
+        blocks = pb.depth(BAM_PATH, use_zero_based=True).collect()
+    finally:
+        pb.set_option("datafusion.execution.target_partitions", "1")
+    result = _expand_blocks_zero_based(blocks)
     _CACHE[key] = result
     gc.collect()
     return result
@@ -126,3 +160,35 @@ def test_blocks_vs_per_base(partitions):
 
     assert blocks_expanded.height == per_base.height
     assert blocks_expanded.equals(per_base)
+
+
+# ── 0-based half-open blocks vs samtools (issue #427) ─────────────────
+#
+# Everything above runs with use_zero_based=False, which is why the 0-based
+# off-by-one in #427 went unnoticed against this golden dataset.
+
+
+@pytest.mark.parametrize("partitions", [1, 2, 4])
+def test_zero_based_blocks_vs_samtools(samtools_golden, partitions):
+    """0-based half-open blocks, expanded with an exclusive end and shifted to
+    1-based, must exactly match samtools depth."""
+    result = _run_blocks_zero_based(partitions)
+
+    assert result.height == samtools_golden.height, (
+        f"Row count mismatch (partitions={partitions}): "
+        f"got {result.height}, expected {samtools_golden.height}. "
+        "A short count means 0-based ends are inclusive rather than exclusive."
+    )
+
+    assert result.equals(
+        samtools_golden
+    ), f"Coverage mismatch (partitions={partitions})"
+
+
+def test_zero_based_and_one_based_cover_the_same_bases(samtools_golden):
+    """Both coordinate systems must describe the same covered positions."""
+    zero_based = _run_blocks_zero_based(1)
+    one_based = _run_blocks(1)
+
+    assert zero_based.height == one_based.height == samtools_golden.height
+    assert zero_based.equals(one_based)

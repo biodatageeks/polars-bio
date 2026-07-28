@@ -1742,8 +1742,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-pileup"
-version = "0.11.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.11.0#1ad88df646e8db634a95822f77edaf0123e1b75b"
+version = "0.14.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=d8f48e07bf90faad54f4470433119a7d7f44af84#d8f48e07bf90faad54f4470433119a7d7f44af84"
 dependencies = [
  "async-trait",
  "datafusion",

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `pb.depth(..., use_zero_based=True)` returned 0-based **closed** coordinate
+  blocks instead of the documented 0-based half-open, so every block covered one
+  base fewer than its 1-based counterpart and summing block widths understated
+  coverage. `pos_end` is now exclusive in 0-based mode. Fixed upstream in
+  `datafusion-bio-function-pileup`
+  (biodatageeks/datafusion-bio-functions#204, #205); verified against
+  `mosdepth --fast-mode` and `samtools depth -a` (#427)
+
 ## [0.33.0] - 2026-07-05
 
 ### Added

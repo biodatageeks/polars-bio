@@ -91,6 +91,85 @@ def test_depth_one_based():
     assert get_coordinate_system(lf) is False
 
 
+# ── Coordinate values (issue #427) ─────────────────────────────────────
+#
+# These assert actual coordinates, not just the schema metadata flag.
+# use_zero_based=True used to emit 0-based *closed* blocks, so every block
+# covered one base fewer than documented; the metadata-only tests above
+# passed throughout.
+
+
+@pytest.mark.parametrize("path", [BAM_PATH, SAM_PATH, CRAM_PATH])
+def test_depth_zero_based_blocks_are_half_open(path):
+    """0-based output is half-open: pos_end is exclusive, so it equals the
+    1-based closed end while pos_start is one lower."""
+    one_based = pb.depth(path, use_zero_based=False).collect()
+    zero_based = pb.depth(path, use_zero_based=True).collect()
+
+    assert zero_based.height == one_based.height
+    assert zero_based.height > 0
+
+    assert (zero_based["pos_start"] == one_based["pos_start"] - 1).all()
+    assert (zero_based["pos_end"] == one_based["pos_end"]).all()
+    assert (zero_based["coverage"] == one_based["coverage"]).all()
+
+
+@pytest.mark.parametrize("path", [BAM_PATH, SAM_PATH, CRAM_PATH])
+def test_depth_coordinate_systems_cover_the_same_bases(path):
+    """Switching coordinate system must not change how many bases a block
+    covers: 1-based closed spans end - start + 1, 0-based half-open spans
+    end - start."""
+    one_based = pb.depth(path, use_zero_based=False).collect()
+    zero_based = pb.depth(path, use_zero_based=True).collect()
+
+    closed_widths = one_based["pos_end"] - one_based["pos_start"] + 1
+    half_open_widths = zero_based["pos_end"] - zero_based["pos_start"]
+
+    assert (closed_widths == half_open_widths).all()
+    assert closed_widths.sum() == half_open_widths.sum()
+    assert (half_open_widths > 0).all(), "half-open blocks must be non-empty"
+
+
+def test_depth_zero_based_blocks_chain_without_gaps_or_overlap():
+    """The defining property of half-open intervals: where two blocks abut,
+    one block's end *is* the next block's start. Under the old closed output
+    abutting blocks were off by one and could not be chained."""
+    df = (
+        pb.depth(CRAM_PATH, use_zero_based=True).collect().sort(["contig", "pos_start"])
+    )
+
+    starts = df["pos_start"].to_list()
+    ends = df["pos_end"].to_list()
+    contigs = df["contig"].to_list()
+
+    assert all(e > s for s, e in zip(starts, ends)), "every block must be non-empty"
+
+    abutting = 0
+    for i in range(len(df) - 1):
+        if contigs[i] != contigs[i + 1]:
+            continue
+        assert ends[i] <= starts[i + 1], (
+            f"blocks overlap: [{starts[i]}, {ends[i]}) then "
+            f"[{starts[i + 1]}, {ends[i + 1]})"
+        )
+        if ends[i] == starts[i + 1]:
+            abutting += 1
+
+    # This fixture is one continuous pileup, so consecutive blocks abut.
+    # With closed ends, ends[i] would be starts[i + 1] - 1 and this is 0.
+    assert abutting > 0, "no block chained into the next — ends are not exclusive"
+
+
+def test_depth_zero_based_first_block_can_start_at_zero():
+    """A read at the first base of a contig yields pos_start == 0 in 0-based
+    output, and its end is still exclusive."""
+    df = pb.depth(CRAM_PATH, use_zero_based=True).collect().sort("pos_start")
+
+    first = df.row(0, named=True)
+    assert first["pos_start"] == 0
+    assert first["pos_end"] > first["pos_start"]
+
+
 def test_depth_is_truly_lazy():
     """depth() returns LazyFrame with correct schema without executing pileup."""
     lf = pb.depth(BAM_PATH)
