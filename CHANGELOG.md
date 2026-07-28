@@ -16,6 +16,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `datafusion-bio-function-pileup`
   (biodatageeks/datafusion-bio-functions#204, #205); verified against
   `mosdepth --fast-mode` and `samtools depth -a` (#427)
+- Reading a CRAM whose bases series uses Huffman coding no longer aborts the query
+  with `not yet implemented`. The underlying `noodles` fork has been rebased onto
+  upstream master, which picks up the implementation of `Byte::decode_take` for
+  Huffman (zaeleus/noodles#393). This affected both `pb.scan_cram`/`pb.read_cram`
+  and `pb.depth` on such files (#429)
+- Reading a CRAM whose `.crai` holds more than one record no longer fails with
+  `invalid digit found in string`. The index reader was reusing its line buffer
+  without clearing it, concatenating each record onto the previous one
+
+### Changed
+
+- `datafusion-bio-formats` now points at the rebased `noodles` fork. All `noodles`
+  crates resolve to a single revision — previously two divergent revisions were
+  pinned at once, so duplicate copies of `noodles-core`, `noodles-csi` and
+  `noodles-bgzf` were built
+
+### Documentation
+
+- Document that an indexed CRAM scan silently omits unmapped reads, because a CRAI
+  index cannot address the unmapped tail, and how to read them (see
+  [Reading files](https://biodatageeks.github.io/polars-bio/features/reading/#cram-index-crai-limitations))
 
 ## [0.33.0] - 2026-07-05
 
