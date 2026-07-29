@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Indexed CRAM scans now return the unplaced, unmapped reads at the end of a file.
+  A whole-file `scan_cram`/`read_cram` returns the same records whether or not a
+  `.crai` is present; previously the indexed path dropped them silently, so a file
+  with 300 mapped and 200 unmapped reads yielded 300 rows with an index alongside
+  it and 500 without one. Region queries are unchanged — they ask for placed reads
+  by definition. BAM was never affected
+
 ### Fixed
 
 - `pb.depth(..., use_zero_based=True)` returned 0-based **closed** coordinate
@@ -34,9 +43,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
-- Document that an indexed CRAM scan silently omits unmapped reads, because a CRAI
-  index cannot address the unmapped tail, and how to read them (see
-  [Reading files](https://biodatageeks.github.io/polars-bio/features/reading/#cram-index-crai-limitations))
+- Document how unmapped reads behave across indexed and sequential scans (see
+  [Reading files](https://biodatageeks.github.io/polars-bio/features/reading/#unmapped-reads-and-indexed-scans))
 
 ## [0.33.0] - 2026-07-05
 

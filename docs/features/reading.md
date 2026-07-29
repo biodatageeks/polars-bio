@@ -23,7 +23,7 @@ The matrix below summarizes which [performance features](#performance-features) 
 | [VCF](../api/reading.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | [VCF Zarr](../api/reading.md#polars_bio.data_input.read_vcf_zarr) | :white_check_mark: | :white_check_mark: (region index) | ❌ | :white_check_mark: | :white_check_mark: |
 | [BAM](../api/reading.md#polars_bio.data_input.read_bam)     | :white_check_mark: | :white_check_mark: (BAI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| [CRAM](../api/reading.md#polars_bio.data_input.read_cram)   | :white_check_mark: | :white_check_mark: (CRAI[^crai]) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [CRAM](../api/reading.md#polars_bio.data_input.read_cram)   | :white_check_mark: | :white_check_mark: (CRAI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | [FASTQ](../api/reading.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: (GZI) | :white_check_mark: |  ❌  |  ❌   |
 | [FASTA](../api/reading.md#polars_bio.data_input.read_fasta) | :white_check_mark: |  ❌  | :white_check_mark: |  ❌  |  ❌   |
 | [GFF3](../api/reading.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
@@ -32,7 +32,6 @@ The matrix below summarizes which [performance features](#performance-features) 
 | [BigWig](../api/reading.md#polars_bio.data_input.read_bigwig) | :white_check_mark: | ❌ | ❌ | :white_check_mark: | :white_check_mark: |
 | [BigBed](../api/reading.md#polars_bio.data_input.read_bigbed) | :white_check_mark: | ❌ | ❌ | :white_check_mark: | :white_check_mark: |
 
-[^crai]: An indexed CRAM scan omits unmapped reads — see [CRAM index (CRAI) limitations](#cram-index-crai-limitations).
 
 ## Performance features
 
@@ -55,35 +54,42 @@ Index files are **auto-discovered** by convention. Predicate pushdown is **enabl
 | Pairs (bgzf) | TBI, CSI | `contacts.pairs.gz.tbi`, `contacts.pairs.gz.csi` |
 | FASTQ (bgzf) | GZI | `sample.fastq.bgz.gzi` |
 
-#### CRAM index (CRAI) limitations
+#### Unmapped reads and indexed scans
 
-!!! warning "An indexed CRAM scan does not return unmapped reads"
+A whole-file scan returns the same records whether or not an index is present,
+including the unplaced, unmapped reads at the end of a file. Those reads carry no
+reference, so they surface with a null `chrom`:
 
-    A CRAI index records only placed alignment slices — unlike BAI and CSI, it has
-    no way to address the block of unmapped reads at the end of a file. When a
-    `.crai` sits next to a CRAM, polars-bio reads through the index and those
-    unmapped reads are **skipped, without a warning**:
+```python
+import polars as pl
+import polars_bio as pb
 
-    ```python
-    import polars_bio as pb
+# sample.cram holds 300 mapped reads and 200 unmapped ones
+pb.scan_cram("sample.cram").collect().height    # 500, with or without sample.cram.crai
 
-    # sample.cram holds 300 mapped reads and 200 unmapped ones
+# the unmapped ones
+(
+    pb.scan_cram("sample.cram")
+    .filter(pl.col("chrom").is_null())
+    .collect()
+)                                               # 200
+```
 
-    # with sample.cram.crai present
-    pb.scan_cram("sample.cram").collect().height   # 300 — unmapped reads dropped
+A region query asks for placed reads by definition, so it never returns the
+unmapped tail:
 
-    # after moving sample.cram.crai out of the way
-    pb.scan_cram("sample.cram").collect().height   # 500 — every read
-    ```
+```python
+pb.scan_cram("sample.cram").filter(pl.col("chrom") == "chr1").collect().height   # 150
+```
 
-    To read every record, including the unmapped tail, scan a CRAM that has no
-    `.crai` beside it. BAM is not affected: an indexed `scan_bam` returns unmapped
-    reads as well, so this is a difference in behaviour between the two formats
-    rather than a general property of indexed reads.
+The same holds for BAM.
 
-    This only affects whole-file scans. A region query such as
-    `.filter(pl.col("chrom") == "chr1")` asks for placed reads by definition, so
-    the index is the right thing to use and loses nothing.
+!!! note "Versions before 0.34.0"
+
+    An indexed CRAM scan used to drop unmapped reads silently — the example above
+    returned 300 rows with a `.crai` alongside the file and 500 without one.
+    Working around it by removing the index is no longer necessary. BAM was never
+    affected.
 
 #### Region queries with the DataFrame API
 

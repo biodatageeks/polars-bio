@@ -16,9 +16,9 @@ regenerate it:
 1. The unmapped reads are required. The bases series is read only for unmapped
    records; mapped ones rebuild their sequence from features and never reach the
    Huffman path.
-2. The fixture ships **without** a ``.crai`` on purpose. An indexed CRAM scan
-   skips unmapped reads, so adding an index next to this file would stop these
-   tests from covering the bug.
+2. The fixture ships **without** a ``.crai``, which keeps these tests on the
+   sequential read path. ``TestCRAMIndexedUnmappedReads`` below covers the
+   indexed path over the same data.
 """
 
 import shutil
@@ -33,6 +33,7 @@ HUFFMAN_CRAM = f"{DATA_DIR}/io/cram/huffman_byte_encoding.cram"
 
 TOTAL_READS = 500
 MAPPED_READS = 300
+UNMAPPED_READS = 200
 MAPPED_PER_CHROM = 150
 READ_LENGTH = 60
 
@@ -69,23 +70,52 @@ class TestCRAMHuffmanByteEncoding:
         assert set(result["contig"].unique().to_list()) <= {"chr1", "chr2"}
 
 
-class TestCRAMIndexUnmappedReads:
-    """A CRAI cannot address the unmapped tail, so an indexed scan omits it.
+class TestCRAMIndexedUnmappedReads:
+    """A scan returns the same records with or without a CRAI.
 
-    Documented under "CRAM index (CRAI) limitations" in docs/features/reading.md.
-    This test pins the behaviour so the documented row counts stay true.
+    Region queries cover only placed reads, so an indexed full scan used to omit
+    the unplaced, unmapped tail — silently, and without an error. A CRAI does
+    describe the unmapped slice (reference sequence ID -1), so the reader now
+    seeks to it. Documented under "Unmapped reads and indexed scans" in
+    docs/features/reading.md; these tests pin the documented row counts.
     """
 
-    def test_indexed_scan_omits_unmapped_reads(self, tmp_path):
+    def test_indexed_and_unindexed_scans_agree(self, tmp_path):
+        unindexed = tmp_path / "unindexed.cram"
+        shutil.copy(HUFFMAN_CRAM, unindexed)
+
+        indexed = tmp_path / "indexed.cram"
+        shutil.copy(HUFFMAN_CRAM, indexed)
+        pysam.index(str(indexed))
+        assert (tmp_path / "indexed.cram.crai").exists()
+
+        assert pb.scan_cram(str(unindexed)).collect().height == TOTAL_READS
+        assert pb.scan_cram(str(indexed)).collect().height == TOTAL_READS
+
+    def test_indexed_scan_exposes_unmapped_reads_with_null_chrom(self, tmp_path):
         cram = tmp_path / "indexed.cram"
         shutil.copy(HUFFMAN_CRAM, cram)
         pysam.index(str(cram))
-        assert (tmp_path / "indexed.cram.crai").exists()
 
-        assert pb.scan_cram(str(cram)).collect().height == MAPPED_READS
+        df = pb.scan_cram(str(cram)).collect()
 
-    def test_unindexed_scan_returns_unmapped_reads(self, tmp_path):
-        cram = tmp_path / "unindexed.cram"
+        assert df.filter(pl.col("chrom").is_null()).height == UNMAPPED_READS
+        assert df.filter(pl.col("chrom").is_not_null()).height == MAPPED_READS
+
+    def test_indexed_scan_does_not_duplicate_records(self, tmp_path):
+        cram = tmp_path / "indexed.cram"
         shutil.copy(HUFFMAN_CRAM, cram)
+        pysam.index(str(cram))
 
-        assert pb.scan_cram(str(cram)).collect().height == TOTAL_READS
+        df = pb.scan_cram(str(cram)).collect()
+
+        assert df["name"].n_unique() == TOTAL_READS
+
+    def test_indexed_region_query_excludes_unmapped_reads(self, tmp_path):
+        cram = tmp_path / "indexed.cram"
+        shutil.copy(HUFFMAN_CRAM, cram)
+        pysam.index(str(cram))
+
+        result = pb.scan_cram(str(cram)).filter(pl.col("chrom") == "chr1").collect()
+
+        assert result.height == MAPPED_PER_CHROM
