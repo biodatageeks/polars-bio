@@ -61,7 +61,9 @@ datafusion-bio-format-gtf = { git = "https://github.com/biodatageeks/datafusion-
 datafusion-bio-format-bbi = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.8.7" }
 
 datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.11.0" }
-datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.11.0", default-features = false }
+# v0.14.1 carries the #427 half-open coordinate fix
+# (biodatageeks/datafusion-bio-functions#205).
+datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.14.1", default-features = false }
 # Phase-1 FastQC, released in datafusion-bio-functions v0.13.x
 # (merged biodatageeks/datafusion-bio-functions#182).
 datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.13.1" }
