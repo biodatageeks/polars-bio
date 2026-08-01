@@ -53,6 +53,43 @@ Index files are **auto-discovered** by convention. Predicate pushdown is **enabl
 | Pairs (bgzf) | TBI, CSI | `contacts.pairs.gz.tbi`, `contacts.pairs.gz.csi` |
 | FASTQ (bgzf) | GZI | `sample.fastq.bgz.gzi` |
 
+#### Unmapped reads and indexed scans
+
+A whole-file scan returns the same records whether or not an index is present,
+including the unplaced, unmapped reads at the end of a file. Those reads carry no
+reference, so they surface with a null `chrom`:
+
+```python
+import polars as pl
+import polars_bio as pb
+
+# sample.cram holds 300 mapped reads and 200 unmapped ones
+pb.scan_cram("sample.cram").collect().height    # 500, with or without sample.cram.crai
+
+# the unmapped ones
+(
+    pb.scan_cram("sample.cram")
+    .filter(pl.col("chrom").is_null())
+    .collect()
+)                                               # 200
+```
+
+A region query asks for placed reads by definition, so it never returns the
+unmapped tail:
+
+```python
+pb.scan_cram("sample.cram").filter(pl.col("chrom") == "chr1").collect().height   # 150
+```
+
+BAM behaves the same way, and always has.
+
+!!! note "Versions before 0.34.0"
+
+    An indexed CRAM scan used to drop unmapped reads silently — the example above
+    returned 300 rows with a `.crai` alongside the file and 500 without one.
+    Working around it by removing the index is no longer necessary. BAM was never
+    affected.
+
 #### Region queries with the DataFrame API
 
 Simply use `.filter()` — predicate pushdown is enabled by default for BAM, CRAM, VCF, GFF, and Pairs:

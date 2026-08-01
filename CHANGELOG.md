@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Indexed CRAM scans now return the unplaced, unmapped reads at the end of a file.
+  A whole-file `scan_cram`/`read_cram` returns the same records whether or not a
+  `.crai` is present; previously the indexed path dropped them silently, so a file
+  with 300 mapped and 200 unmapped reads yielded 300 rows with an index alongside
+  it and 500 without one. Region queries are unchanged — they ask for placed reads
+  by definition. BAM was never affected
+
 ### Fixed
 
 - `pb.depth(..., use_zero_based=True)` returned 0-based **closed** coordinate
@@ -16,6 +25,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `datafusion-bio-function-pileup`
   (biodatageeks/datafusion-bio-functions#204, #205); verified against
   `mosdepth --fast-mode` and `samtools depth -a` (#427)
+- Reading a CRAM whose bases series uses Huffman coding no longer aborts the query
+  with `not yet implemented`. The underlying `noodles` fork has been rebased onto
+  upstream master, which picks up the implementation of `Byte::decode_take` for
+  Huffman (zaeleus/noodles#393). This affected both `pb.scan_cram`/`pb.read_cram`
+  and `pb.depth` on such files (#429)
+- Reading a CRAM whose `.crai` holds more than one record no longer fails with
+  `invalid digit found in string`. The index reader was reusing its line buffer
+  without clearing it, concatenating each record onto the previous one
+
+### Changed
+
+- `datafusion-bio-formats` now points at the rebased `noodles` fork. All `noodles`
+  crates resolve to a single revision — previously two divergent revisions were
+  pinned at once, so duplicate copies of `noodles-core`, `noodles-csi` and
+  `noodles-bgzf` were built
+
+### Documentation
+
+- Document how unmapped reads behave across indexed and sequential scans (see
+  [Reading files](https://biodatageeks.github.io/polars-bio/features/reading/#unmapped-reads-and-indexed-scans))
 
 ## [0.33.0] - 2026-07-05
 
