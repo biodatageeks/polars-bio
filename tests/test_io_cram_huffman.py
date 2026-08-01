@@ -5,10 +5,12 @@ message "not yet implemented"``, raised from ``noodles``'s ``Byte::decode_take``
 whose Huffman arm was unimplemented for the bulk decode path.
 
 ``huffman_byte_encoding.cram`` is written by samtools in ``no_ref`` mode, so it
-needs no external reference. It holds 500 poly-N reads: 150 mapped to chr1, 150
-to chr2 and 200 unmapped. The constant sequence makes htslib encode the bases
-series as Huffman over a single-symbol alphabet, which is the shape seen in
-practice in the poly-N unmapped tail of a WGS file.
+needs no external reference. It holds 500 single-end poly-N reads: 150 mapped to
+chr1, 150 to chr2 and 200 unmapped. Single-end matters for one assertion below,
+which counts distinct read names — mates would share a name. The constant
+sequence makes htslib encode the bases series as Huffman over a single-symbol
+alphabet, which is the shape seen in practice in the poly-N unmapped tail of a
+WGS file.
 
 Two properties of the fixture are load-bearing, so please keep them if you ever
 regenerate it:
@@ -67,7 +69,9 @@ class TestCRAMHuffmanByteEncoding:
         result = pb.depth(HUFFMAN_CRAM, dense_mode="force", per_base=True).collect()
 
         assert result.height > 0
-        assert set(result["contig"].unique().to_list()) <= {"chr1", "chr2"}
+        # Equality, not a subset: the fixture has mapped reads on both contigs, so
+        # a result covering only one of them is a regression, not a pass.
+        assert set(result["contig"].unique().to_list()) == {"chr1", "chr2"}
 
 
 class TestCRAMIndexedUnmappedReads:

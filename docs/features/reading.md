@@ -32,7 +32,6 @@ The matrix below summarizes which [performance features](#performance-features) 
 | [BigWig](../api/reading.md#polars_bio.data_input.read_bigwig) | :white_check_mark: | ❌ | ❌ | :white_check_mark: | :white_check_mark: |
 | [BigBed](../api/reading.md#polars_bio.data_input.read_bigbed) | :white_check_mark: | ❌ | ❌ | :white_check_mark: | :white_check_mark: |
 
-
 ## Performance features
 
 polars-bio applies the same performance machinery — indexing, pushdown, and parallel reads — across most formats. The [capability matrix](#file-formats-support) above shows which format supports what; this section explains each feature and how to use it.
@@ -82,7 +81,7 @@ unmapped tail:
 pb.scan_cram("sample.cram").filter(pl.col("chrom") == "chr1").collect().height   # 150
 ```
 
-The same holds for BAM.
+BAM behaves the same way, and always has.
 
 !!! note "Versions before 0.34.0"
 
