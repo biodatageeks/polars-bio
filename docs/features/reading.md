@@ -36,6 +36,28 @@ The matrix below summarizes which [performance features](#performance-features) 
 
 polars-bio applies the same performance machinery — indexing, pushdown, and parallel reads — across most formats. The [capability matrix](#file-formats-support) above shows which format supports what; this section explains each feature and how to use it.
 
+### Progress output
+
+When polars-bio streams batches from DataFusion into Polars, it displays the
+number of processed rows and throughput on stderr. To suppress this progress
+output for the whole process, set `TQDM_DISABLE=1` when starting Python:
+
+```bash
+TQDM_DISABLE=1 python analysis.py
+```
+
+You can also set the environment variable in Python. Set it at the start of the
+process, before importing `polars_bio` or any other module that imports `tqdm`,
+because `tqdm` reads environment overrides when it is imported:
+
+```python
+import os
+
+os.environ["TQDM_DISABLE"] = "1"
+
+import polars_bio as pb
+```
+
 ### Indexed reads & random access
 
 When an index file is present alongside the data file (BAI/CSI for BAM, CRAI for CRAM, TBI/CSI for VCF, GFF, and Pairs), polars-bio can push genomic region filters down to the DataFusion execution layer. This enables **index-based random access** — only the relevant genomic regions are read from disk, dramatically improving performance for selective queries on large files.
