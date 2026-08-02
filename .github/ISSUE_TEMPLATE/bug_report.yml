@@ -60,7 +60,7 @@ body:
     attributes:
       label: polars-bio version
       description: "Run: `python -c 'import polars_bio; print(polars_bio.__version__)'`"
-      placeholder: "0.33.0"
+      placeholder: "0.33.1"
     validations:
       required: true
   - type: input
