@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-08-02
+
 ### Added
 
 - Indexed CRAM scans now return the unplaced, unmapped reads at the end of a file.
@@ -45,6 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Document how unmapped reads behave across indexed and sequential scans (see
   [Reading files](https://biodatageeks.github.io/polars-bio/features/reading/#unmapped-reads-and-indexed-scans))
+- Explain how to suppress processed-row progress output with `TQDM_DISABLE`
+  (#432)
 
 ## [0.33.0] - 2026-07-05
 
