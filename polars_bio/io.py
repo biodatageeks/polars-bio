@@ -86,6 +86,95 @@ _VALID_SAM_ARRAY_SUBTYPE_CODES = {"c", "C", "s", "S", "i", "I", "f"}
 _VALID_SAM_TYPE_CODES = _VALID_SAM_SCALAR_TYPE_CODES | {"B"}
 
 
+def _split_genotypes_to_per_sample(
+    lf: pl.LazyFrame, sample_names: list[str]
+) -> pl.LazyFrame:
+    """Explode the multi-sample `genotypes` struct into flat per-sample columns.
+
+    The ``genotypes`` column is a ``Struct{<field>: List[T], ...}`` where each
+    list holds one value per sample in declaration order.  This function converts
+    that layout into individual columns named ``<SAMPLE>_<FIELD>``
+    (e.g. ``TUMOR_GT``, ``TUMOR_DP``, ``NORMAL_GT``, …) and drops the original
+    ``genotypes`` column.
+
+    If the LazyFrame has no ``genotypes`` column (single-sample VCF) the frame
+    is returned unchanged.
+
+    Args:
+        lf: LazyFrame produced by :func:`scan_vcf`.
+        sample_names: Ordered list of sample names matching the list positions
+            inside ``genotypes`` fields.  Must equal the samples in the VCF
+            (or the subset requested via the ``samples`` parameter).
+
+    Returns:
+        LazyFrame with per-sample flat columns replacing ``genotypes``.
+    """
+    schema = lf.collect_schema()
+    if "genotypes" not in schema.names():
+        return lf
+
+    genotypes_dtype = schema["genotypes"]
+    if not isinstance(genotypes_dtype, pl.Struct):
+        return lf
+
+    format_fields = [f.name for f in genotypes_dtype.fields]
+    exprs = [
+        pl.col("genotypes").struct.field(fmt).list.get(i).alias(f"{sample}_{fmt}")
+        for i, sample in enumerate(sample_names)
+        for fmt in format_fields
+    ]
+    return lf.with_columns(exprs).drop("genotypes")
+
+
+def _resolve_sample_names_for_split(
+    lf: pl.LazyFrame, samples: list[str] | None, path: str | None = None
+) -> list[str]:
+    """Return the ordered sample names to use when splitting genotypes.
+
+    Prefers the caller-supplied *samples* list. Falls back to reading the
+    ``#CHROM`` header line from a local VCF file to extract sample names.
+
+    Args:
+        lf: LazyFrame from ``scan_vcf`` (used to verify genotypes column exists).
+        samples: The ``samples`` argument forwarded from ``read_vcf``/``scan_vcf``.
+        path: Path to the VCF file for header-based fallback.
+
+    Returns:
+        Ordered list of sample names.
+
+    Raises:
+        ValueError: If sample names cannot be determined.
+    """
+    if samples is not None:
+        return list(samples)
+
+    # Fallback: parse #CHROM line from local VCF header (lightweight, header-only read)
+    if path is not None and not path.startswith(("gs://", "s3://", "az://", "http")):
+        try:
+            import gzip
+
+            opener = (
+                gzip.open
+                if path.endswith(".gz") or path.endswith(".bgz")
+                else open
+            )
+            with opener(path, "rt") as fh:
+                for line in fh:
+                    if line.startswith("#CHROM"):
+                        parts = line.strip().split("\t")
+                        # Standard VCF columns: CHROM POS ID REF ALT QUAL FILTER INFO FORMAT …
+                        if len(parts) > 9:
+                            return parts[9:]
+                        break
+        except Exception:
+            pass
+
+    raise ValueError(
+        "split_samples=True requires sample names, but they could not be inferred. "
+        "Pass samples=[...] explicitly."
+    )
+
+
 def _supported_sam_type_message() -> str:
     return (
         "Supported scalar types: A, c, C, s, S, i, I, f, Z, H. "
@@ -375,6 +464,7 @@ class IOOperations:
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
         samples: Union[list[str], None] = None,
+        split_samples: bool = False,
         genotype_encoding_raw: bool = True,
     ) -> pl.DataFrame:
         """
@@ -391,6 +481,7 @@ class IOOperations:
             info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
             format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`) with sample names in `meta["header"]["sample_names"]`.
             samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
+            split_samples: If *True* and the VCF is multi-sample, explode the nested `genotypes` struct into individual flat columns named `<SAMPLE>_<FIELD>` (e.g. `NA12878_GT`, `NA12878_DP`). Has no effect on single-sample VCFs.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -429,9 +520,14 @@ class IOOperations:
             # │ 1     ┆ 10015 ┆ A   ┆ .   ┆ null ┆ 0/0 ┆ 17  ┆ 35  │
             # └───────┴───────┴─────┴─────┴──────┴─────┴─────┴─────┘
 
-            # Multi-sample VCF: FORMAT data is nested in "genotypes"
-            df = pb.read_vcf("multisample.vcf", format_fields=["GT", "DP"])
-            print(df.select(["chrom", "start", "genotypes"]))
+            # Multi-sample VCF: split into per-sample columns
+            df = pb.read_vcf(
+                "multisample.vcf",
+                samples=["TUMOR", "NORMAL"],
+                format_fields=["GT", "DP"],
+                split_samples=True,
+            )
+            print(df.select(["chrom", "start", "TUMOR_GT", "TUMOR_DP", "NORMAL_GT", "NORMAL_DP"]))
             ```
         """
         lf = IOOperations.scan_vcf(
@@ -449,6 +545,7 @@ class IOOperations:
             predicate_pushdown=predicate_pushdown,
             use_zero_based=use_zero_based,
             samples=samples,
+            split_samples=split_samples,
         )
         # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
         zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
@@ -474,6 +571,7 @@ class IOOperations:
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
         samples: Union[list[str], None] = None,
+        split_samples: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a VCF file into a LazyFrame.
@@ -489,6 +587,7 @@ class IOOperations:
             info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
             format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`) with sample names in `meta["header"]["sample_names"]`.
             samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
+            split_samples: If *True* and the VCF is multi-sample, explode the nested `genotypes` struct into individual flat columns named `<SAMPLE>_<FIELD>` (e.g. `NA12878_GT`, `NA12878_DP`). Has no effect on single-sample VCFs.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -545,7 +644,7 @@ class IOOperations:
             zero_based=zero_based,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
-        return _read_file(
+        lf = _read_file(
             path,
             InputFormat.Vcf,
             read_options,
@@ -553,6 +652,13 @@ class IOOperations:
             predicate_pushdown,
             zero_based=zero_based,
         )
+        if split_samples:
+            # Only apply if a "genotypes" struct column is actually present
+            # (multi-sample). Single-sample VCFs have no such column.
+            if "genotypes" in lf.collect_schema().names():
+                resolved_samples = _resolve_sample_names_for_split(lf, samples, path)
+                lf = _split_genotypes_to_per_sample(lf, resolved_samples)
+        return lf
 
     @staticmethod
     def read_vcf_zarr(
