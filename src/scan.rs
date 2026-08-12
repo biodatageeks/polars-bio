@@ -458,7 +458,11 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         InputFormat::BigWig
     } else if path.ends_with(".bb") || path.ends_with(".bigbed") {
         InputFormat::BigBed
-    } else if path.ends_with(".vcf") || path.ends_with(".vcf.gz") || path.ends_with(".vcf.bgz") {
+    } else if path.ends_with(".vcf")
+        || path.ends_with(".vcf.gz")
+        || path.ends_with(".vcf.bgz")
+        || path.ends_with(".bcf")
+    {
         InputFormat::Vcf
     } else if path.ends_with(".gff") || path.ends_with(".gff.gz") || path.ends_with(".gff.bgz") {
         InputFormat::Gff
@@ -966,8 +970,9 @@ mod tests {
     use arrow::array::{Int32Array, StringArray};
     use arrow_schema::{DataType, Field, Schema};
 
-    use super::partition_record_batches;
     use super::RecordBatch;
+    use super::{get_input_format, partition_record_batches};
+    use crate::option::InputFormat;
 
     fn make_batch(start: i32, len: usize) -> RecordBatch {
         let contigs = StringArray::from_iter_values((0..len).map(|_| "chr1"));
@@ -1054,5 +1059,11 @@ mod tests {
 
         assert_eq!(partitions.len(), 1);
         assert_eq!(partition_sizes(&partitions), vec![5]);
+    }
+
+    #[test]
+    fn bcf_paths_use_the_vcf_logical_input_format() {
+        assert_eq!(get_input_format("cohort.bcf"), InputFormat::Vcf);
+        assert_eq!(get_input_format("COHORT.BCF"), InputFormat::Vcf);
     }
 }

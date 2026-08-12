@@ -1,4 +1,5 @@
 import logging
+import warnings
 import weakref as _weakref
 from typing import Dict, Iterator, Optional, Union
 
@@ -402,7 +403,7 @@ class IOOperations:
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
             predicate_pushdown: Enable predicate pushdown using index files (VCF TBI/CSI or BCF CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.vcf.gz.tbi` or `file.bcf.csi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
-            genotype_encoding_raw: If True, output GT as raw typed allele calls. If False, output VCF-style GT strings.
+            genotype_encoding_raw: Deprecated for VCF/BCF input and ignored when True. Passing False emits a `FutureWarning`; this option remains functional only in `read_vcf_zarr`. Use `genotype_output` to select the BCF GT representation.
             genotype_output: Physical GT representation for BCF input. Use `"string"` (default) for VCF-compatible values or `"dosage"` for nullable Int8 counts of allele index 1. Dosage requires `format_fields=["GT"]` and biallelic records.
 
         !!! note
@@ -436,6 +437,14 @@ class IOOperations:
             print(df.select(["chrom", "start", "genotypes"]))
             ```
         """
+        if genotype_encoding_raw is not True:
+            warnings.warn(
+                "genotype_encoding_raw is not supported by read_vcf and will be "
+                "removed from this API; it applies only to read_vcf_zarr. Use "
+                "genotype_output to select the BCF GT representation.",
+                FutureWarning,
+                stacklevel=2,
+            )
         lf = IOOperations.scan_vcf(
             path=path,
             info_fields=info_fields,

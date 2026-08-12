@@ -69,7 +69,9 @@ def _target_partitions(partitions: int):
 
 
 def _find_bcf_exec(plan):
-    if str(plan).lstrip().startswith("BcfExec:"):
+    # datafusion.ExecutionPlan erases the native node class; `display()` is the
+    # stable Python API that exposes the underlying execution-plan node name.
+    if plan.display().lstrip().startswith("BcfExec:"):
         return plan
     for child in plan.children():
         result = _find_bcf_exec(child)
@@ -174,7 +176,7 @@ def test_bcf_csi_full_scan_uses_target_partitions_without_changing_rows(
         bcf_exec = _find_bcf_exec(plan)
         actual = _sorted(pb.read_vcf(str(INDEXED_BCF_PATH)))
 
-    assert bcf_exec is not None
+    assert bcf_exec is not None, "BcfExec node not found in execution plan"
     assert bcf_exec.partition_count == partitions
     assert_frame_equal(actual, expected)
 
@@ -193,7 +195,7 @@ def test_unindexed_bcf_scan_stays_single_partition():
         )
         bcf_exec = _find_bcf_exec(py_read_table(ctx, table.name).execution_plan())
 
-    assert bcf_exec is not None
+    assert bcf_exec is not None, "BcfExec node not found in execution plan"
     assert bcf_exec.partition_count == 1
 
 
@@ -236,6 +238,26 @@ def test_bcf_single_sample_typed_dosage_preserves_top_level_format_layout():
     assert "genotypes" not in eager.columns
     assert eager["GT"].dtype == pl.Int8
     assert eager["GT"].to_list() == [1, 2]
+
+
+def test_bcf_path_is_supported_by_range_operations():
+    vcf_path = str(VCF_DIR / "ensembl.vcf")
+    bcf_path = str(BCF_DIR / "ensembl.bcf")
+    with pytest.warns(UserWarning, match="Coordinate system metadata is missing"):
+        expected = pb.overlap(vcf_path, vcf_path).collect()
+    with pytest.warns(UserWarning, match="Coordinate system metadata is missing"):
+        actual = pb.overlap(bcf_path, bcf_path).collect()
+
+    assert_frame_equal(actual.sort(actual.columns), expected.sort(expected.columns))
+
+
+def test_read_vcf_warns_when_ignored_raw_encoding_option_is_changed():
+    with pytest.warns(FutureWarning, match="applies only to read_vcf_zarr"):
+        actual = pb.read_vcf(
+            str(VCF_DIR / "ensembl.vcf"), genotype_encoding_raw=False
+        )
+
+    assert actual.height > 0
 
 
 @pytest.mark.parametrize("use_zero_based", [False, True])

@@ -190,15 +190,15 @@ def range_operation(
             df2 = _lazyframe_to_dataframe(df2)
 
     if isinstance(df1, str) and isinstance(df2, str):
-        supported_exts = set([".parquet", ".csv", ".bed", ".vcf"])
+        supported_exts = {".parquet", ".csv", ".bed", ".vcf", ".bcf"}
         ext1 = set(Path(df1).suffixes)
         assert (
             len(supported_exts.intersection(ext1)) > 0 or len(ext1) == 0
-        ), "Dataframe1 must be a Parquet, BED, CSV or VCF file"
+        ), "Dataframe1 must be a Parquet, BED, CSV, VCF or BCF file"
         ext2 = set(Path(df2).suffixes)
         assert (
             len(supported_exts.intersection(ext2)) > 0 or len(ext2) == 0
-        ), "Dataframe2 must be a Parquet, BED, CSV or VCF file"
+        ), "Dataframe2 must be a Parquet, BED, CSV, VCF or BCF file"
         # use suffixes to avoid column name conflicts
 
         if range_options.range_op == RangeOp.CountOverlapsNaive:

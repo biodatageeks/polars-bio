@@ -358,7 +358,7 @@ def _get_schema(
         df = pl.read_parquet(path)
     elif ".csv" in ext:
         df = pl.read_csv(path)
-    elif ".vcf" in ext:
+    elif ".vcf" in ext or ".bcf" in ext:
         table = py_register_table(ctx, path, None, InputFormat.Vcf, read_options)
         df: DataFrame = py_read_table(ctx, table.name)
         arrow_schema = df.schema()
@@ -368,7 +368,7 @@ def _get_schema(
         )
         df = pl.from_arrow(empty_table)
     else:
-        raise ValueError("Only CSV and Parquet files are supported")
+        raise ValueError("Only CSV, Parquet, VCF, and BCF files are supported")
     if suffix is not None:
         df = _rename_columns(df, suffix)
     return df.schema
