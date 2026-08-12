@@ -31,6 +31,9 @@ PARITY_CASES = [
     pytest.param("ensembl-2.vcf", "ensembl-2.bcf", id="ensembl-2"),
     pytest.param("antku_small.vcf.gz", "antku_small.bcf", id="antku-small"),
     pytest.param("multisample.vcf", "multisample.bcf", id="multisample"),
+    pytest.param(
+        "genotype_missing.vcf", "genotype_missing.bcf", id="genotype-missing"
+    ),
     pytest.param("multisample.vcf.gz", "multisample_large.bcf", id="multisample-large"),
     pytest.param(
         "single_sample_collision.vcf",
@@ -225,6 +228,18 @@ def test_bcf_typed_genotype_dosage_values_and_schema():
 
     assert dosage.dtype == pl.List(pl.Int8)
     assert dosage.to_list() == [[1, 2, 0], [0, 1, 2], [2, 0, 1]]
+
+
+def test_bcf_typed_genotype_dosage_preserves_missingness_eager_and_lazy():
+    options = {"format_fields": ["GT"], "genotype_output": "dosage"}
+    path = str(BCF_DIR / "genotype_missing.bcf")
+    eager = pb.read_vcf(path, **options)
+    lazy = pb.scan_vcf(path, **options).collect()
+
+    assert_frame_equal(eager, lazy)
+    dosage = eager["genotypes"].struct.field("GT")
+    assert dosage.dtype == pl.List(pl.Int8)
+    assert dosage.to_list() == [[1, 2], [None, None], [None, None]]
 
 
 def test_bcf_single_sample_typed_dosage_preserves_top_level_format_layout():

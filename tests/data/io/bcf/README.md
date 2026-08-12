@@ -15,6 +15,7 @@ indexed with `bcftools index --csi`.
 | `antku_small.vcf.gz` | `antku_small.bcf` |
 | `ensembl.vcf` | `ensembl.bcf` |
 | `ensembl-2.vcf` | `ensembl-2.bcf` |
+| `genotype_missing.vcf` | `genotype_missing.bcf` |
 | `info_bare_key.vcf` | `info_bare_key.bcf` |
 | `info_bare_key_realdata.vcf` | `info_bare_key_realdata.bcf` |
 | `info_invalid_flag_value.vcf` | `info_invalid_flag_value.bcf` |

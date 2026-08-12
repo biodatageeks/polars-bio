@@ -6,7 +6,8 @@
 
 ## 2. Validation
 
-- [x] 2.1 Test typed schema, dosage values, missingness, and invalid options.
+- [x] 2.1 Test typed schema, called and phased dosage values, full and partial
+  missingness through eager/lazy integration, and invalid options.
 - [x] 2.2 Verify all normalized rows and cells against snputils.
 - [x] 2.3 Run release/native one-thread timing and peak-RSS repetitions until the
   polars-bio median is lower than snputils.
