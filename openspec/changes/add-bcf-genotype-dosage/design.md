@@ -29,8 +29,8 @@ RSS for both.
 ## Benchmark Evidence
 
 The immutable companion
-[benchmark report](https://github.com/biodatageeks/bioformats-benchmark/blob/06d5ffe75172a7a9687ae7f102385b29214f15af/BCF_BENCHMARK.md)
+[benchmark report](https://github.com/biodatageeks/bioformats-benchmark/blob/924ef37e3816681f82ce750d7ea9133fa819d2bb/BCF_BENCHMARK.md)
 records the exact inputs, revisions, release/native build flags, complete-output
 hashes, three raw rounds, wall-time medians, and peak RSS. At one thread,
-polars-bio took 4.837 s with 2,640.5 MB peak RSS versus 8.190 s and 10,068.2 MB
+polars-bio took 5.248 s with 2,658.7 MB peak RSS versus 8.513 s and 10,067.4 MB
 for pinned snputils; all 2,532,408,788 normalized dosage cells matched.

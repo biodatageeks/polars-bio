@@ -16,12 +16,12 @@
   projection, SQL registration, coordinates, samples, INFO, and FORMAT parity.
 
 Benchmark evidence for 2.2–2.3 is recorded in the immutable companion
-[BCF report](https://github.com/biodatageeks/bioformats-benchmark/blob/06d5ffe75172a7a9687ae7f102385b29214f15af/BCF_BENCHMARK.md).
-It benchmarks this repository at `dc4101fb5ba9231d4d1ef57df16651db20c84e0e`
-against datafusion-bio-formats `36dad82c09f7291c0147d8560117d8c242806f9b`:
+[BCF report](https://github.com/biodatageeks/bioformats-benchmark/blob/924ef37e3816681f82ce750d7ea9133fa819d2bb/BCF_BENCHMARK.md).
+It benchmarks this repository at `03eae0069cd245498fa416b4f42c541421d0cacc`
+against datafusion-bio-formats `5e47f8595037d6b03b784f8dec137d904cafae1d`:
 all 993,881 rows and 2,532,408,788 dosage cells matched, and the three-run
-single-thread medians were 4.837 s / 2,640.5 MB peak RSS for polars-bio versus
-8.190 s / 10,068.2 MB for pinned snputils. The report contains raw rounds,
+single-thread medians were 5.248 s / 2,658.7 MB peak RSS for polars-bio versus
+8.513 s / 10,067.4 MB for pinned snputils. The report contains raw rounds,
 hashes, build flags, environment metadata, and reproduction commands.
 
 ## 3. Documentation
