@@ -1,5 +1,5 @@
 ---
-draft: true
+draft: false
 date:
   created: 2026-08-12
 categories:
@@ -83,13 +83,34 @@ RUSTFLAGS="-C target-cpu=native" maturin develop --release --locked
 
 ### Wall time
 
-<!-- TIME_TABLE -->
+| Reader | VCF median | BCF median | BCF relative to polars-bio |
+|---|---:|---:|---:|
+| pysam | 29.181 s | 28.328 s | 179.291× |
+| PyVCF3 | 86.731 s | unsupported | — |
+| cyvcf2 | 3.906 s | 1.903 s | 12.044× |
+| Oxbow | 698.807 s | 13.465 s | 85.222× |
+| **polars-bio** | 7.936 s | **0.158 s** | **1.000×** |
+| snputils | **1.306 s** | 0.842 s | 5.329× |
+
+For BCF, polars-bio is 5.329× faster than snputils at one thread and reduces
+wall time by 81.2%. For VCF, snputils is fastest; its specialized text parser
+is 6.077× faster than polars-bio's current string-compatible path.
 
 ![VCF and BCF reader wall time](figures/vcf-bcf-readers/vcf-bcf-reader-time.png)
 
 ### Peak memory
 
-<!-- MEMORY_TABLE -->
+| Reader | VCF peak RSS | BCF peak RSS |
+|---|---:|---:|
+| pysam | 139.9 MB | 105.8 MB |
+| PyVCF3 | 122.3 MB | unsupported |
+| cyvcf2 | **93.4 MB** | **93.6 MB** |
+| Oxbow | 1,509.8 MB | 1,389.2 MB |
+| **polars-bio** | 790.4 MB | 321.5 MB |
+| snputils | 383.8 MB | 481.1 MB |
+
+cyvcf2 has the smallest peak RSS in both subset runs. For BCF, polars-bio uses
+33.2% less peak RSS than snputils while completing the workload 5.329× faster.
 
 ![VCF and BCF reader peak RSS](figures/vcf-bcf-readers/vcf-bcf-reader-memory.png)
 
@@ -200,7 +221,8 @@ region = (
 )
 ```
 
-- [Reproducible benchmark repository](https://github.com/biodatageeks/bioformats-benchmark/pull/3)
+- [Exact benchmark report and raw runs](https://github.com/biodatageeks/bioformats-benchmark/blob/5bef307f55ddfad0e9b14e565c0bdaded6765e9d/GENOTYPE_READER_BENCHMARK.md)
+- [Reproducible benchmark pull request](https://github.com/biodatageeks/bioformats-benchmark/pull/3)
 - [datafusion-bio-formats BCF pull request](https://github.com/biodatageeks/datafusion-bio-formats/pull/218)
 - [polars-bio BCF pull request](https://github.com/biodatageeks/polars-bio/pull/435)
-- [Earlier genomic-reader benchmark](../../2026/02/14/benchmarking-genomic-format-readers-in-python-with-polars/)
+- [Earlier genomic-reader benchmark](https://biodatageeks.org/polars-bio/blog/2026/02/14/benchmarking-genomic-format-readers-in-python-with-polars/)
