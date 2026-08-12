@@ -292,6 +292,7 @@ handling, and FORMAT layout as an equivalent VCF. Key behaviors:
 - **Multisample FORMAT** — exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`), where each FORMAT field is a list of values ordered by sample. Sample names are available via `meta["header"]["sample_names"]`.
 - **Sample subset selection** — pass `samples=[...]` to `read_vcf` / `scan_vcf` to keep only selected samples in the nested `genotypes` output. Missing sample names are skipped with a warning.
 - **FORMAT metadata fidelity** — `meta["header"]["format_fields"]` preserves each FORMAT field's `number` / `type` / `description`.
+- **Range operations** — `.bcf` paths are accepted anywhere the range APIs accept `.vcf` paths and use the same logical VCF schema.
 
 ```python
 import polars as pl
