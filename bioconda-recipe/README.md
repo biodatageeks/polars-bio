@@ -67,9 +67,13 @@ This does not affect bioconda, which pins the target well below the runner.
 conda create -n cbuild -c conda-forge conda-build rattler-build
 conda activate cbuild
 
-# polars-config-meta (noarch, v1 recipe -> rattler-build)
+# polars-config-meta (noarch, v1 recipe -> rattler-build).
+# python_min comes from conda-forge's global pinning on CI, so a local build
+# has to supply it or the recipe fails to render.
+printf 'python_min:\n  - "3.10"\n' > /tmp/variant-pymin.yaml
 rattler-build build \
   --recipe conda-forge-recipes/polars-config-meta/recipe.yaml \
+  --variant-config /tmp/variant-pymin.yaml \
   --output-dir ./output
 
 # polars-bio, picking the dependency up from rattler-build's output channel
