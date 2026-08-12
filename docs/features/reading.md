@@ -320,8 +320,9 @@ rare = (
     .collect()
 )
 
-# Optional typed biallelic dosage avoids materializing GT strings. The result
-# is nullable Int8 ALT-allele counts (0, 1, or 2) in genotypes.GT.
+# Optional typed biallelic dosage avoids materializing GT strings. Multisample
+# input returns nullable Int8 ALT-allele counts in genotypes.GT; single-sample
+# input preserves the FORMAT layout and returns a top-level nullable Int8 GT.
 dosage = pb.scan_vcf(
     "cohort.bcf",
     format_fields=["GT"],

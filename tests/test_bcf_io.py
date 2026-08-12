@@ -225,6 +225,19 @@ def test_bcf_typed_genotype_dosage_values_and_schema():
     assert dosage.to_list() == [[1, 2, 0], [0, 1, 2], [2, 0, 1]]
 
 
+def test_bcf_single_sample_typed_dosage_preserves_top_level_format_layout():
+    options = {"format_fields": ["GT"], "genotype_output": "dosage"}
+    eager = pb.read_vcf(str(BCF_DIR / "single_sample_collision.bcf"), **options)
+    lazy = pb.scan_vcf(
+        str(BCF_DIR / "single_sample_collision.bcf"), **options
+    ).collect()
+
+    assert_frame_equal(eager, lazy)
+    assert "genotypes" not in eager.columns
+    assert eager["GT"].dtype == pl.Int8
+    assert eager["GT"].to_list() == [1, 2]
+
+
 @pytest.mark.parametrize("use_zero_based", [False, True])
 def test_bcf_coordinate_modes_match_vcf(use_zero_based: bool):
     expected = pb.read_vcf(str(VCF_DIR / "ensembl.vcf"), use_zero_based=use_zero_based)

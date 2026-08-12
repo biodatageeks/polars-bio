@@ -8,8 +8,10 @@ to request nullable signed 8-bit biallelic dosage from BCF input.
 #### Scenario: Lazy dosage scan
 - **WHEN** a user scans BCF with `format_fields=["GT"]` and
   `genotype_output="dosage"`
-- **THEN** `genotypes.GT` contains the count of allele index 1 for each selected
-  sample
+- **THEN** for multisample input, `genotypes.GT` contains the count of allele
+  index 1 for each selected sample
+- **AND** for single-sample input, the top-level `GT` column contains that
+  sample's count, preserving the existing FORMAT layout
 - **AND** the scan remains lazy until collection.
 
 #### Scenario: Missing and phased genotype
