@@ -26,7 +26,7 @@ use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_gtf::table_provider::GtfTableProvider;
 use datafusion_bio_format_pairs::table_provider::PairsTableProvider;
-use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
+use datafusion_bio_format_vcf::table_provider::{GenotypeOutputMode, VcfTableProvider};
 use datafusion_bio_format_vcf::zarr::{
     VcfZarrReadOptions as NativeVcfZarrReadOptions, VcfZarrTableProvider,
 };
@@ -537,6 +537,15 @@ pub(crate) async fn register_table(
                 "Registering VCF table {} with options: {:?}",
                 table_name, vcf_read_options
             );
+            let genotype_output_mode = match vcf_read_options.genotype_output.as_str() {
+                "string" => GenotypeOutputMode::String,
+                "dosage" => GenotypeOutputMode::Dosage,
+                value => {
+                    return Err(DataFusionError::Plan(format!(
+                        "Unsupported VCF genotype_output '{value}'. Expected 'string' or 'dosage'."
+                    )));
+                },
+            };
             let table_provider = VcfTableProvider::new_with_samples(
                 path.to_string(),
                 vcf_read_options.info_fields,
@@ -544,8 +553,8 @@ pub(crate) async fn register_table(
                 vcf_read_options.samples,
                 vcf_read_options.object_storage_options.clone(),
                 vcf_read_options.zero_based,
-            )
-            .unwrap();
+            )?
+            .with_genotype_output_mode(genotype_output_mode)?;
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register VCF table");
         },

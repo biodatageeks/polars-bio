@@ -376,6 +376,7 @@ class IOOperations:
         use_zero_based: Optional[bool] = None,
         samples: Union[list[str], None] = None,
         genotype_encoding_raw: bool = True,
+        genotype_output: str = "string",
     ) -> pl.DataFrame:
         """
         Read a VCF file into a DataFrame.
@@ -402,6 +403,7 @@ class IOOperations:
             predicate_pushdown: Enable predicate pushdown using index files (TBI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.vcf.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
             genotype_encoding_raw: If True, output GT as raw typed allele calls. If False, output VCF-style GT strings.
+            genotype_output: Physical GT representation for BCF input. Use `"string"` (default) for VCF-compatible values or `"dosage"` for nullable Int8 counts of allele index 1. Dosage requires `format_fields=["GT"]` and biallelic records.
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
@@ -449,6 +451,7 @@ class IOOperations:
             predicate_pushdown=predicate_pushdown,
             use_zero_based=use_zero_based,
             samples=samples,
+            genotype_output=genotype_output,
         )
         # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
         zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
@@ -474,6 +477,7 @@ class IOOperations:
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
         samples: Union[list[str], None] = None,
+        genotype_output: str = "string",
     ) -> pl.LazyFrame:
         """
         Lazily read a VCF file into a LazyFrame.
@@ -499,6 +503,7 @@ class IOOperations:
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
             predicate_pushdown: Enable predicate pushdown using index files (TBI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.vcf.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
+            genotype_output: Physical GT representation for BCF input. Use `"string"` (default) or `"dosage"` for nullable Int8 biallelic ALT counts. Dosage requires `format_fields=["GT"]`.
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
@@ -533,6 +538,12 @@ class IOOperations:
             compression_type=compression_type,
         )
 
+        if genotype_output not in {"string", "dosage"}:
+            raise ValueError(
+                "genotype_output must be either 'string' or 'dosage', "
+                f"got {genotype_output!r}"
+            )
+
         # Upstream VCF reader projects all INFO fields by default when info_fields is None.
         initial_info_fields = info_fields
 
@@ -543,6 +554,7 @@ class IOOperations:
             samples=samples,
             object_storage_options=object_storage_options,
             zero_based=zero_based,
+            genotype_output=genotype_output,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
         return _read_file(
