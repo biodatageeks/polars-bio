@@ -9,7 +9,12 @@ before being copied there.
 | Path | Target repository | Purpose |
 | --- | --- | --- |
 | `meta.yaml`, `build.sh`, `test_overlap.py` | `bioconda/bioconda-recipes` → `recipes/polars-bio/` | The polars-bio package |
-| `conda-forge-recipes/polars-config-meta/meta.yaml` | `conda-forge/staged-recipes` → `recipes/polars-config-meta/` | A dependency that is not yet packaged for conda |
+| `conda-forge-recipes/polars-config-meta/recipe.yaml` | `conda-forge/staged-recipes` → `recipes/polars-config-meta/` | A dependency that is not yet packaged for conda |
+
+The two recipes deliberately use different formats. conda-forge deprecated the
+v0 `meta.yaml` format for new recipes, so `polars-config-meta` is a v1
+`recipe.yaml` built with `rattler-build`. Bioconda has not migrated, so the
+polars-bio recipe stays on v0.
 
 ## Ordering constraint
 
@@ -59,15 +64,16 @@ This does not affect bioconda, which pins the target well below the runner.
 ## Local verification
 
 ```bash
-conda create -n cbuild -c conda-forge conda-build
+conda create -n cbuild -c conda-forge conda-build rattler-build
 conda activate cbuild
 
-# polars-config-meta (noarch)
-conda-build conda-forge-recipes/polars-config-meta \
-  -c conda-forge --override-channels --variants "{python_min: ['3.10']}"
+# polars-config-meta (noarch, v1 recipe -> rattler-build)
+rattler-build build \
+  --recipe conda-forge-recipes/polars-config-meta/recipe.yaml \
+  --output-dir ./output
 
-# polars-bio, picking the dependency up from the local channel
-conda-build . -c local -c conda-forge --override-channels --python 3.12
+# polars-bio, picking the dependency up from rattler-build's output channel
+conda-build . -c ./output -c conda-forge --override-channels --python 3.12
 ```
 
 For a build that matches bioconda CI more closely:
