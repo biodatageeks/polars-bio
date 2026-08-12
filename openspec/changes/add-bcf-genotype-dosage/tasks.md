@@ -15,6 +15,15 @@
 - [x] 2.5 Test CSI range pushdown, 1/2/4/8 input partitions, unindexed fallback,
   projection, SQL registration, coordinates, samples, INFO, and FORMAT parity.
 
+Benchmark evidence for 2.2–2.3 is recorded in the immutable companion
+[BCF report](https://github.com/biodatageeks/bioformats-benchmark/blob/06d5ffe75172a7a9687ae7f102385b29214f15af/BCF_BENCHMARK.md).
+It benchmarks this repository at `dc4101fb5ba9231d4d1ef57df16651db20c84e0e`
+against datafusion-bio-formats `36dad82c09f7291c0147d8560117d8c242806f9b`:
+all 993,881 rows and 2,532,408,788 dosage cells matched, and the three-run
+single-thread medians were 4.837 s / 2,640.5 MB peak RSS for polars-bio versus
+8.190 s / 10,068.2 MB for pinned snputils. The report contains raw rounds,
+hashes, build flags, environment metadata, and reproduction commands.
+
 ## 3. Documentation
 
 - [x] 3.1 Document BCF auto-detection, lazy usage, CSI indexing, parallelism,
