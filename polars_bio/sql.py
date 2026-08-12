@@ -51,10 +51,10 @@ class SQL:
         compression_type: str = "auto",
     ) -> None:
         """
-        Register a VCF file as a Datafusion table.
+        Register a VCF or BCF file as a DataFusion table. The format is auto-detected.
 
         Parameters:
-            path: The path to the VCF file.
+            path: The path to the VCF or BCF file. BCF files use the `.bcf` extension and auto-discover a neighboring `.bcf.csi` index.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             info_fields: List of INFO field names to register. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit registration to specific fields for better performance.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.

@@ -379,16 +379,16 @@ class IOOperations:
         genotype_output: str = "string",
     ) -> pl.DataFrame:
         """
-        Read a VCF file into a DataFrame.
+        Read a VCF or BCF file into a DataFrame. The format is auto-detected.
 
         !!! hint "Parallelism & Indexed Reads"
-            Indexed parallel reads and predicate pushdown are automatic when a TBI/CSI index
-            is present. See [File formats support](/polars-bio/features/#file-formats-support),
+            Indexed parallel reads and predicate pushdown are automatic when a VCF TBI/CSI or
+            BCF CSI index is present. See [File formats support](/polars-bio/features/#file-formats-support),
             [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
             and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
 
         Parameters:
-            path: The path to the VCF file.
+            path: The path to the VCF or BCF file. BCF files use the `.bcf` extension.
             info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
             format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`) with sample names in `meta["header"]["sample_names"]`.
             samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
@@ -400,7 +400,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
-            predicate_pushdown: Enable predicate pushdown using index files (TBI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.vcf.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
+            predicate_pushdown: Enable predicate pushdown using index files (VCF TBI/CSI or BCF CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.vcf.gz.tbi` or `file.bcf.csi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
             genotype_encoding_raw: If True, output GT as raw typed allele calls. If False, output VCF-style GT strings.
             genotype_output: Physical GT representation for BCF input. Use `"string"` (default) for VCF-compatible values or `"dosage"` for nullable Int8 counts of allele index 1. Dosage requires `format_fields=["GT"]` and biallelic records.
@@ -480,16 +480,16 @@ class IOOperations:
         genotype_output: str = "string",
     ) -> pl.LazyFrame:
         """
-        Lazily read a VCF file into a LazyFrame.
+        Lazily read a VCF or BCF file into a LazyFrame. The format is auto-detected.
 
         !!! hint "Parallelism & Indexed Reads"
-            Indexed parallel reads and predicate pushdown are automatic when a TBI/CSI index
-            is present. See [File formats support](/polars-bio/features/#file-formats-support),
+            Indexed parallel reads and predicate pushdown are automatic when a VCF TBI/CSI or
+            BCF CSI index is present. See [File formats support](/polars-bio/features/#file-formats-support),
             [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
             and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
 
         Parameters:
-            path: The path to the VCF file.
+            path: The path to the VCF or BCF file. BCF files use the `.bcf` extension.
             info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
             format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`) with sample names in `meta["header"]["sample_names"]`.
             samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
@@ -501,7 +501,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
-            predicate_pushdown: Enable predicate pushdown using index files (TBI/CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.vcf.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
+            predicate_pushdown: Enable predicate pushdown using index files (VCF TBI/CSI or BCF CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.vcf.gz.tbi` or `file.bcf.csi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
             genotype_output: Physical GT representation for BCF input. Use `"string"` (default) or `"dosage"` for nullable Int8 biallelic ALT counts. Dosage requires `format_fields=["GT"]`.
 
@@ -2096,10 +2096,10 @@ class IOOperations:
         compression_type: str = "auto",
     ) -> pl.DataFrame:
         """
-        Describe VCF INFO schema.
+        Describe VCF or BCF INFO and FORMAT schema.
 
         Parameters:
-            path: The path to the VCF file.
+            path: The path to the VCF or BCF file. The format is auto-detected.
             allow_anonymous: Whether to allow anonymous access to object storage (GCS and S3 supported).
             enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..

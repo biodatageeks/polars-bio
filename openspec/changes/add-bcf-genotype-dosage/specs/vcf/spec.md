@@ -38,3 +38,24 @@ equivalent output and controlled one-thread optimized processes.
 - **THEN** every output row and cell matches
 - **AND** the polars-bio release/native median wall time is lower than snputils
 - **AND** median peak RSS is reported for both.
+
+### Requirement: VCF-Compatible BCF Input
+
+The system SHALL auto-detect BCF input through the VCF eager, lazy, SQL, and
+schema-description APIs and SHALL preserve the equivalent VCF result contract
+when string genotype output is used.
+
+#### Scenario: Converted fixture parity
+- **WHEN** equivalent valid VCF and BCF fixtures are read eagerly or lazily
+- **THEN** their sorted rows, column order, and data types match exactly
+- **AND** their INFO and FORMAT schema descriptions match.
+
+#### Scenario: CSI-backed BCF scan
+- **WHEN** a coordinate-sorted BCF has a neighboring `.bcf.csi`
+- **THEN** genomic predicates use CSI-backed range planning
+- **AND** a full scan exposes up to the configured target input partitions
+- **AND** changing the partition count does not change the result rows.
+
+#### Scenario: Unindexed BCF fallback
+- **WHEN** no CSI is available for a BCF input
+- **THEN** the scan remains correct with one sequential input partition.

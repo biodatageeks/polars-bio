@@ -21,6 +21,7 @@ The matrix below summarizes which [performance features](#performance-features) 
 |--------------------------------------------------|--------------------|--------------------|--------------------|--------------------|---------------------|
 | [BED](../api/reading.md#polars_bio.data_input.read_bed)     | :white_check_mark: | ❌                  | :white_check_mark: | ❌                  | ❌                   |
 | [VCF](../api/reading.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [BCF](../api/reading.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :white_check_mark: (CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | [VCF Zarr](../api/reading.md#polars_bio.data_input.read_vcf_zarr) | :white_check_mark: | :white_check_mark: (region index) | ❌ | :white_check_mark: | :white_check_mark: |
 | [BAM](../api/reading.md#polars_bio.data_input.read_bam)     | :white_check_mark: | :white_check_mark: (BAI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | [CRAM](../api/reading.md#polars_bio.data_input.read_cram)   | :white_check_mark: | :white_check_mark: (CRAI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
@@ -60,9 +61,9 @@ import polars_bio as pb
 
 ### Indexed reads & random access
 
-When an index file is present alongside the data file (BAI/CSI for BAM, CRAI for CRAM, TBI/CSI for VCF, GFF, and Pairs), polars-bio can push genomic region filters down to the DataFusion execution layer. This enables **index-based random access** — only the relevant genomic regions are read from disk, dramatically improving performance for selective queries on large files.
+When an index file is present alongside the data file (BAI/CSI for BAM, CRAI for CRAM, TBI/CSI for VCF, CSI for BCF, and TBI/CSI for GFF and Pairs), polars-bio can push genomic region filters down to the DataFusion execution layer. This enables **index-based random access** — only the relevant genomic regions are read from disk, dramatically improving performance for selective queries on large files.
 
-Index files are **auto-discovered** by convention. Predicate pushdown is **enabled by default** for BAM, CRAM, VCF, GFF, and Pairs formats — no extra configuration is needed.
+Index files are **auto-discovered** by convention. Predicate pushdown is **enabled by default** for BAM, CRAM, VCF, BCF, GFF, and Pairs formats — no extra configuration is needed.
 
 #### Supported index formats
 
@@ -71,6 +72,7 @@ Index files are **auto-discovered** by convention. Predicate pushdown is **enabl
 | BAM | BAI, CSI | `sample.bam.bai` or `sample.bai`, `sample.bam.csi` |
 | CRAM | CRAI | `sample.cram.crai` |
 | VCF (bgzf) | TBI, CSI | `sample.vcf.gz.tbi`, `sample.vcf.gz.csi` |
+| BCF | CSI | `sample.bcf.csi` |
 | GFF (bgzf) | TBI, CSI | `sample.gff.gz.tbi`, `sample.gff.gz.csi` |
 | Pairs (bgzf) | TBI, CSI | `contacts.pairs.gz.tbi`, `contacts.pairs.gz.csi` |
 | FASTQ (bgzf) | GZI | `sample.fastq.bgz.gzi` |
@@ -114,7 +116,7 @@ BAM behaves the same way, and always has.
 
 #### Region queries with the DataFrame API
 
-Simply use `.filter()` — predicate pushdown is enabled by default for BAM, CRAM, VCF, GFF, and Pairs:
+Simply use `.filter()` — predicate pushdown is enabled by default for BAM, CRAM, VCF, BCF, GFF, and Pairs:
 
 ```python
 import polars as pl
@@ -131,6 +133,17 @@ df = (
 df = (
     pb.scan_vcf("variants.vcf.gz")
     .filter(pl.col("chrom").is_in(["chr21", "chr22"]))
+    .collect()
+)
+
+# BCF uses the same lazy API; a neighboring variants.bcf.csi is automatic
+df = (
+    pb.scan_vcf("variants.bcf")
+    .filter(
+        (pl.col("chrom") == "chr21")
+        & (pl.col("start") >= 1_000_000)
+        & (pl.col("start") <= 2_000_000)
+    )
     .collect()
 )
 
@@ -187,7 +200,7 @@ See the [Developers Guide](../developers.md#predicate-pushdown) for the translat
 
 ### Projection pushdown
 
-BAM, CRAM, VCF, and Pairs formats support parsing-level projection pushdown — unprojected fields are skipped entirely during record parsing. Enabled by default (`projection_pushdown=True`). See the [Developers Guide](../developers.md#projection-pushdown) for internals and [execution plan inspection](../developers.md#inspecting-the-execution-plan).
+BAM, CRAM, VCF, BCF, and Pairs formats support parsing-level projection pushdown — unprojected fields are skipped entirely during record parsing. Enabled by default (`projection_pushdown=True`). See the [Developers Guide](../developers.md#projection-pushdown) for internals and [execution plan inspection](../developers.md#inspecting-the-execution-plan).
 
 ### Parallel reads & partitioning
 
@@ -206,7 +219,7 @@ df = pb.read_bam("large_file.bam")  # 8 partitions will be used for parallel exe
 df = pb.read_fastq("reads.fastq.bgz")  # parallel BGZF decoding when .gzi index is present
 ```
 
-**Partitioning behavior (BAM, CRAM, VCF, GFF):**
+**Partitioning behavior (BAM, CRAM, VCF, BCF, GFF):**
 
 | Index Available? | SQL Filters | Partitions |
 |-----------------|-------------|------------|
@@ -243,6 +256,10 @@ df = pb.read_fastq("reads.fastq.bgz")  # parallel BGZF decoding when .gzi index 
     bcftools sort input.vcf -Oz -o sorted.vcf.gz
     bcftools index -t sorted.vcf.gz          # creates sorted.vcf.gz.tbi
 
+    # BCF: coordinate-sort and create a CSI index
+    bcftools sort input.bcf -Ob -o sorted.bcf
+    bcftools index --csi sorted.bcf           # creates sorted.bcf.csi
+
     # GFF: sort, compress, and index
     (grep "^#" input.gff; grep -v "^#" input.gff | sort -k1,1 -k4,4n) | bgzip > sorted.gff.gz
     tabix -p gff sorted.gff.gz               # creates sorted.gff.gz.tbi
@@ -260,10 +277,16 @@ df = pb.read_fastq("reads.fastq.bgz")  # parallel BGZF decoding when .gzi index 
 
 Most formats work through the generic `read_*`/`scan_*`/`register_*` API with no extra options. The formats below expose additional capabilities or behaviors worth knowing about.
 
-### VCF and VCF Zarr
+### VCF, BCF, and VCF Zarr
 
-polars-bio reads VCF (plain and bgzf-compressed) and local VCF Zarr stores through `read_vcf`/`scan_vcf`/`register_vcf` and the corresponding `*_vcf_zarr` functions. Key behaviors:
+polars-bio auto-detects text VCF (plain or compressed) and binary BCF from the
+path and reads both through `read_vcf` / `scan_vcf` / `register_vcf` /
+`describe_vcf`. Local VCF Zarr stores use the corresponding `*_vcf_zarr`
+functions. Default BCF output has the same rows, columns, data types, INFO
+handling, and FORMAT layout as an equivalent VCF. Key behaviors:
 
+- **Lazy BCF scans** — use `scan_vcf("cohort.bcf")` to retain streaming execution, projection and predicate pushdown, and CSI-backed parallel partition processing. `read_vcf` is the eager convenience wrapper.
+- **BCF indexes** — `cohort.bcf.csi` is auto-discovered. Genomic filters use CSI byte-range reads; full scans use CSI regions to fill `datafusion.execution.target_partitions`. Without CSI, BCF falls back to one sequential input partition.
 - **INFO fields** — by default (`info_fields=None`) all header INFO fields are available in the schema. Pass an explicit list to select a subset, or `info_fields=[]` to exclude INFO columns entirely.
 - **Single-sample FORMAT** — FORMAT fields are exposed as top-level columns (`GT`, `DP`, `GQ`, ...).
 - **Multisample FORMAT** — exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`), where each FORMAT field is a list of values ordered by sample. Sample names are available via `meta["header"]["sample_names"]`.
@@ -271,6 +294,7 @@ polars-bio reads VCF (plain and bgzf-compressed) and local VCF Zarr stores throu
 - **FORMAT metadata fidelity** — `meta["header"]["format_fields"]` preserves each FORMAT field's `number` / `type` / `description`.
 
 ```python
+import polars as pl
 import polars_bio as pb
 
 # INFO selection: all fields (default) vs none
@@ -287,7 +311,33 @@ df_subset = pb.read_vcf(
     format_fields=["GT"],
     samples=["NA12880", "NA12878"],
 )
+
+# BCF is auto-detected and remains lazy until collect()
+rare = (
+    pb.scan_vcf("cohort.bcf", info_fields=["AF"], format_fields=["GT"])
+    .filter((pl.col("chrom") == "chr21") & (pl.col("AF").list.first() < 0.01))
+    .select(["chrom", "start", "ref", "alt", "AF", "genotypes"])
+    .collect()
+)
+
+# Optional typed biallelic dosage avoids materializing GT strings. The result
+# is nullable Int8 ALT-allele counts (0, 1, or 2) in genotypes.GT.
+dosage = pb.scan_vcf(
+    "cohort.bcf",
+    format_fields=["GT"],
+    genotype_output="dosage",
+)
 ```
+
+`genotype_output="string"` is the default and preserves VCF-compatible GT
+values. `genotype_output="dosage"` is BCF-only, requires
+`format_fields=["GT"]`, and rejects multiallelic records instead of silently
+collapsing non-reference alleles.
+
+BCF is currently an input format. `write_vcf` / `sink_vcf` still write text VCF
+(optionally gzip/BGZF compressed). Because BCF shares the logical VCF API and
+schema, its metadata reports `source_format="vcf"`; `source_path` retains the
+`.bcf` path.
 
 !!! note "Upgrading from polars-bio < 0.26.0"
     The multisample FORMAT layout changed in 0.26.0: FORMAT data moved from flattened per-sample
@@ -408,13 +458,14 @@ print(schema)  # Shows 14 columns including tags
 # CRAM schema
 schema = pb.describe_cram("file.cram")
 
-# VCF and local VCF Zarr describe output includes INFO and FORMAT rows.
+# VCF, BCF, and local VCF Zarr describe output includes INFO and FORMAT rows.
 # Nested FORMAT data is reported by its selectable column name, `genotypes`.
 vcf_schema = pb.describe_vcf("variants.vcf")
+bcf_schema = pb.describe_vcf("variants.bcf")
 vcz_schema = pb.describe_vcf_zarr("cohort.vcz")
 format_fields = vcf_schema.filter(pl.col("field_type") == "FORMAT")
 
-# VCF describe columns: name, field_type, data_type, description.
+# VCF/BCF describe columns: name, field_type, data_type, description.
 ```
 
 ## Coordinate systems support
