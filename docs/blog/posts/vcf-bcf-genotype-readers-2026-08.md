@@ -137,8 +137,12 @@ that gap.
 Oxbow also deserves a methodological note. Its normal row-count benchmarks are
 fast and memory-bounded, but this workload asks it to materialize a 2,548-wide
 nested genotype structure and then normalize all 63.7 million alleles. We use
-its bounded Arrow batch API, not an eager whole-file frame, but the wide FORMAT
-shape remains expensive. That is exactly why output-equivalent benchmarks are
+its compact field-oriented layout and bounded Arrow batch API, not an eager
+whole-file frame. A 1,000-row diagnostic measured 27.433 seconds in VCF source,
+schema, and first-batch construction, versus 0.060 seconds to normalize the
+already-materialized batch. Equivalent BCF stages took 0.499 and 0.067 seconds.
+The wide text-VCF batch construction, not the common dosage conversion,
+dominates Oxbow's result. That is exactly why output-equivalent benchmarks are
 more informative than parser-only counts.
 
 ## Full-cohort BCF scaling
@@ -221,7 +225,7 @@ region = (
 )
 ```
 
-- [Exact benchmark report and raw runs](https://github.com/biodatageeks/bioformats-benchmark/blob/5bef307f55ddfad0e9b14e565c0bdaded6765e9d/GENOTYPE_READER_BENCHMARK.md)
+- [Exact benchmark report and raw runs](https://github.com/biodatageeks/bioformats-benchmark/blob/5fa546e9212aaf49b985d53c0105153ae61eb917/GENOTYPE_READER_BENCHMARK.md)
 - [Reproducible benchmark pull request](https://github.com/biodatageeks/bioformats-benchmark/pull/3)
 - [datafusion-bio-formats BCF pull request](https://github.com/biodatageeks/datafusion-bio-formats/pull/218)
 - [polars-bio BCF pull request](https://github.com/biodatageeks/polars-bio/pull/435)
