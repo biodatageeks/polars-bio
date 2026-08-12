@@ -2,6 +2,7 @@
 
 from contextlib import contextmanager
 import json
+import shutil
 
 import polars as pl
 from polars.testing import assert_frame_equal
@@ -255,13 +256,15 @@ def test_bcf_single_sample_typed_dosage_preserves_top_level_format_layout():
     assert eager["GT"].to_list() == [1, 2]
 
 
-def test_bcf_path_is_supported_by_range_operations():
+@pytest.mark.parametrize("extension", [".bcf", ".BCF"])
+def test_bcf_path_is_supported_by_range_operations(tmp_path, extension: str):
     vcf_path = str(VCF_DIR / "ensembl.vcf")
-    bcf_path = str(BCF_DIR / "ensembl.bcf")
+    bcf_path = tmp_path / f"cohort{extension}"
+    shutil.copyfile(BCF_DIR / "ensembl.bcf", bcf_path)
     with pytest.warns(UserWarning, match="Coordinate system metadata is missing"):
         expected = pb.overlap(vcf_path, vcf_path).collect()
     with pytest.warns(UserWarning, match="Coordinate system metadata is missing"):
-        actual = pb.overlap(bcf_path, bcf_path).collect()
+        actual = pb.overlap(str(bcf_path), str(bcf_path)).collect()
 
     assert_frame_equal(actual.sort(actual.columns), expected.sort(expected.columns))
 

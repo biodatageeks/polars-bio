@@ -215,7 +215,7 @@ def _prepare_lazy_stream_input(
     """
     if isinstance(df, str):
         path = Path(df)
-        suffixes = path.suffixes
+        suffixes = [suffix.lower() for suffix in path.suffixes]
 
         if ".parquet" in suffixes:
             lazy_df = pl.scan_parquet(df)
@@ -344,7 +344,7 @@ def _get_schema(
             else schema
         )
 
-    ext = Path(path).suffixes
+    ext = [suffix.lower() for suffix in Path(path).suffixes]
     if len(ext) == 0:
         df: DataFrame = py_read_table(ctx, path)
         arrow_schema = df.schema()
