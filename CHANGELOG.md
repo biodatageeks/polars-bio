@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Dedicated `read_bcf()` and `scan_bcf()` APIs. BCF keeps
+  `genotype_output="string"|"dosage"`, CSI predicate pushdown, and parallel
+  partition processing.
+
+### Changed
+
+- **Breaking:** `read_vcf()` and `scan_vcf()` now accept text VCF only and no
+  longer expose `genotype_output` or the deprecated, ignored
+  `genotype_encoding_raw` argument. Use the BCF methods for `.bcf` input.
+- `genotype_encoding_raw` remains available on `read_vcf_zarr()` and
+  `scan_vcf_zarr()`, where it controls the returned genotype representation.
+
 ## [0.33.1] - 2026-08-02
 
 ### Added

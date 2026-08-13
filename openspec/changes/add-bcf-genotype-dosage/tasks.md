@@ -27,5 +27,16 @@ hashes, build flags, environment metadata, and reproduction commands.
 
 ## 3. Documentation
 
-- [x] 3.1 Document BCF auto-detection, lazy usage, CSI indexing, parallelism,
+- [x] 3.1 Document dedicated BCF reads, lazy usage, CSI indexing, parallelism,
   typed dosage constraints, schema compatibility, and input-only status.
+
+## 4. Dedicated VCF/BCF Python APIs
+
+- [x] 4.1 Add and export `read_bcf` and `scan_bcf`, preserving lazy execution
+  and BCF string/dosage output modes.
+- [x] 4.2 Remove `genotype_output` and deprecated `genotype_encoding_raw` from
+  `read_vcf`/`scan_vcf`, and omit raw encoding from the BCF signatures.
+- [x] 4.3 Migrate BCF tests, documentation, blog examples, and companion
+  benchmark call sites to the dedicated methods.
+- [x] 4.4 Test signatures, format routing, eager/lazy parity, metadata, CSI
+  pushdown, partition scaling, and typed genotype output through the new APIs.

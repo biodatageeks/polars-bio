@@ -3,10 +3,11 @@
 ### Requirement: Explicit BCF Genotype Dosage Output
 
 The system SHALL preserve string GT output by default and SHALL allow callers
-to request nullable signed 8-bit biallelic dosage from BCF input.
+to request nullable signed 8-bit biallelic dosage from dedicated BCF input
+methods.
 
 #### Scenario: Lazy dosage scan
-- **WHEN** a user scans BCF with `format_fields=["GT"]` and
+- **WHEN** a user calls `scan_bcf` with `format_fields=["GT"]` and
   `genotype_output="dosage"`
 - **THEN** for multisample input, `genotypes.GT` contains the count of allele
   index 1 for each selected sample
@@ -20,14 +21,36 @@ to request nullable signed 8-bit biallelic dosage from BCF input.
 - **AND** phase separators do not affect called-allele counts.
 
 #### Scenario: Compatibility default
-- **WHEN** genotype output is omitted or set to `"string"`
+- **WHEN** genotype output is omitted from a BCF call or set to `"string"`
 - **THEN** existing VCF-compatible GT strings and schema are preserved.
 
 #### Scenario: Unsupported dosage request
-- **WHEN** dosage is requested for text VCF, multiple selected FORMAT fields,
+- **WHEN** BCF dosage is requested for multiple selected FORMAT fields,
   multiallelic records, or unsupported ploidy
 - **THEN** the operation fails with a clear error instead of silently changing
   genotype meaning.
+
+### Requirement: Dedicated VCF and BCF Read APIs
+
+The system SHALL expose text VCF through `read_vcf` and `scan_vcf`, expose BCF
+through `read_bcf` and `scan_bcf`, and keep format-specific genotype controls
+off APIs where they have no effect.
+
+#### Scenario: Text VCF signatures
+- **WHEN** a caller inspects or invokes `read_vcf` or `scan_vcf`
+- **THEN** neither `genotype_output` nor `genotype_encoding_raw` is exposed
+- **AND** a BCF path is rejected with guidance to use the BCF methods.
+
+#### Scenario: BCF signatures
+- **WHEN** a caller inspects or invokes `read_bcf` or `scan_bcf`
+- **THEN** `genotype_output` is exposed with `"string"` as its default
+- **AND** `genotype_encoding_raw` is not exposed
+- **AND** a non-BCF path is rejected with a clear format error.
+
+#### Scenario: VCF Zarr raw encoding remains supported
+- **WHEN** a caller uses `read_vcf_zarr` or `scan_vcf_zarr`
+- **THEN** `genotype_encoding_raw` remains available because it controls the
+  VCF Zarr representation.
 
 ### Requirement: Comparable One-Thread BCF Benchmark
 
@@ -43,12 +66,13 @@ equivalent output and controlled one-thread optimized processes.
 
 ### Requirement: VCF-Compatible BCF Input
 
-The system SHALL auto-detect BCF input through the VCF eager, lazy, SQL, and
-schema-description APIs and SHALL preserve the equivalent VCF result contract
-when string genotype output is used.
+The system SHALL read BCF input through dedicated BCF eager and lazy APIs while
+retaining the shared SQL and schema-description integration, and SHALL preserve
+the equivalent VCF result contract when string genotype output is used.
 
 #### Scenario: Converted fixture parity
-- **WHEN** equivalent valid VCF and BCF fixtures are read eagerly or lazily
+- **WHEN** equivalent valid VCF and BCF fixtures are read through their
+  respective eager or lazy methods
 - **THEN** their sorted rows, column order, and data types match exactly
 - **AND** their INFO and FORMAT schema descriptions match.
 

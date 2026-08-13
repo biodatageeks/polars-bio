@@ -1,5 +1,4 @@
 import logging
-import warnings
 import weakref as _weakref
 from typing import Dict, Iterator, Optional, Union
 
@@ -238,6 +237,24 @@ def _normalize_bigbed_schema_mode(schema: str) -> str:
     return normalized
 
 
+def _validate_variant_input_path(path: str, expected_format: str) -> None:
+    """Keep the public VCF and BCF entry points format-specific.
+
+    The shared upstream provider selects its physical decoder from the path.
+    Query strings and fragments are ignored so signed object-store URLs work in
+    the same way as local paths.
+    """
+    normalized_path = str(path).split("#", 1)[0].split("?", 1)[0].lower()
+    is_bcf = normalized_path.endswith(".bcf")
+
+    if expected_format == "vcf" and is_bcf:
+        raise ValueError(
+            "BCF input must be read with read_bcf() or scan_bcf(), not the VCF APIs"
+        )
+    if expected_format == "bcf" and not is_bcf:
+        raise ValueError("read_bcf() and scan_bcf() require a path ending in '.bcf'")
+
+
 class IOOperations:
     @staticmethod
     def read_fasta(
@@ -376,20 +393,18 @@ class IOOperations:
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
         samples: Union[list[str], None] = None,
-        genotype_encoding_raw: bool = True,
-        genotype_output: str = "string",
     ) -> pl.DataFrame:
         """
-        Read a VCF or BCF file into a DataFrame. The format is auto-detected.
+        Read a text VCF file into a DataFrame.
 
         !!! hint "Parallelism & Indexed Reads"
-            Indexed parallel reads and predicate pushdown are automatic when a VCF TBI/CSI or
-            BCF CSI index is present. See [File formats support](/polars-bio/features/#file-formats-support),
+            Indexed parallel reads and predicate pushdown are automatic when a VCF TBI/CSI
+            index is present. See [File formats support](/polars-bio/features/#file-formats-support),
             [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
             and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
 
         Parameters:
-            path: The path to the VCF or BCF file. BCF files use the `.bcf` extension.
+            path: The path to the VCF file.
             info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
             format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`) with sample names in `meta["header"]["sample_names"]`.
             samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
@@ -401,10 +416,8 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
-            predicate_pushdown: Enable predicate pushdown using index files (VCF TBI/CSI or BCF CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.vcf.gz.tbi` or `file.bcf.csi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
+            predicate_pushdown: Enable predicate pushdown using VCF TBI/CSI index files for efficient region-based filtering. Index files are auto-discovered (for example, `file.vcf.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
-            genotype_encoding_raw: Deprecated for VCF/BCF input and ignored when True. Passing False emits a `FutureWarning`; this option remains functional only in `read_vcf_zarr`. Use `genotype_output` to select the BCF GT representation.
-            genotype_output: Physical GT representation for BCF input. Use `"string"` (default) for VCF-compatible values or `"dosage"` for nullable Int8 counts of allele index 1. Dosage requires `format_fields=["GT"]` and biallelic records.
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
@@ -437,14 +450,6 @@ class IOOperations:
             print(df.select(["chrom", "start", "genotypes"]))
             ```
         """
-        if genotype_encoding_raw is not True:
-            warnings.warn(
-                "genotype_encoding_raw is not supported by read_vcf and will be "
-                "removed from this API; it applies only to read_vcf_zarr. Use "
-                "genotype_output to select the BCF GT representation.",
-                FutureWarning,
-                stacklevel=2,
-            )
         lf = IOOperations.scan_vcf(
             path=path,
             info_fields=info_fields,
@@ -460,7 +465,6 @@ class IOOperations:
             predicate_pushdown=predicate_pushdown,
             use_zero_based=use_zero_based,
             samples=samples,
-            genotype_output=genotype_output,
         )
         # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
         zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
@@ -486,19 +490,18 @@ class IOOperations:
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
         samples: Union[list[str], None] = None,
-        genotype_output: str = "string",
     ) -> pl.LazyFrame:
         """
-        Lazily read a VCF or BCF file into a LazyFrame. The format is auto-detected.
+        Lazily read a text VCF file into a LazyFrame.
 
         !!! hint "Parallelism & Indexed Reads"
-            Indexed parallel reads and predicate pushdown are automatic when a VCF TBI/CSI or
-            BCF CSI index is present. See [File formats support](/polars-bio/features/#file-formats-support),
+            Indexed parallel reads and predicate pushdown are automatic when a VCF TBI/CSI
+            index is present. See [File formats support](/polars-bio/features/#file-formats-support),
             [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
             and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
 
         Parameters:
-            path: The path to the VCF or BCF file. BCF files use the `.bcf` extension.
+            path: The path to the VCF file.
             info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
             format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`) with sample names in `meta["header"]["sample_names"]`.
             samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
@@ -510,9 +513,8 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
-            predicate_pushdown: Enable predicate pushdown using index files (VCF TBI/CSI or BCF CSI) for efficient region-based filtering. Index files are auto-discovered (e.g., `file.vcf.gz.tbi` or `file.bcf.csi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
+            predicate_pushdown: Enable predicate pushdown using VCF TBI/CSI index files for efficient region-based filtering. Index files are auto-discovered (for example, `file.vcf.gz.tbi`). Only simple predicates are pushed down (equality, comparisons, IN); complex predicates like `.str.contains()` or OR logic are filtered client-side. Correctness is always guaranteed.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration `datafusion.bio.coordinate_system_zero_based`.
-            genotype_output: Physical GT representation for BCF input. Use `"string"` (default) or `"dosage"` for nullable Int8 biallelic ALT counts. Dosage requires `format_fields=["GT"]`.
 
         !!! note
             By default, coordinates are output in **1-based closed** format. Use `use_zero_based=True` or set `pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, True)` for 0-based half-open coordinates.
@@ -537,6 +539,158 @@ class IOOperations:
             # Multi-sample VCF: FORMAT data is nested in "genotypes"
             ```
         """
+        _validate_variant_input_path(path, "vcf")
+        return IOOperations._scan_variant(
+            path=path,
+            info_fields=info_fields,
+            format_fields=format_fields,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+            use_zero_based=use_zero_based,
+            samples=samples,
+            genotype_output="string",
+            source_format="vcf",
+        )
+
+    @staticmethod
+    def read_bcf(
+        path: str,
+        info_fields: Union[list[str], None] = None,
+        format_fields: Union[list[str], None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+        samples: Union[list[str], None] = None,
+        genotype_output: str = "string",
+    ) -> pl.DataFrame:
+        """Read a BCF file into a DataFrame.
+
+        Parameters:
+            path: The path to the BCF file. The path must end in `.bcf`.
+            info_fields: INFO fields to include. If *None*, all header-defined INFO fields are included.
+            format_fields: FORMAT fields to include. Single-sample fields are top-level columns; multisample fields are nested in `genotypes`.
+            samples: Optional sample names to include, in requested order.
+            chunk_size: Object-store chunk size in MB.
+            concurrent_fetches: Number of concurrent object-store fetches.
+            allow_anonymous: Allow anonymous object-store access.
+            enable_request_payer: Enable AWS request-payer access.
+            max_retries: Maximum number of object-store retries.
+            timeout: Object-store timeout in seconds.
+            compression_type: Compression override. The default detects BCF automatically.
+            projection_pushdown: Push column projection into the BCF reader.
+            predicate_pushdown: Use a neighboring `.bcf.csi` index for genomic predicate pushdown when available.
+            use_zero_based: Select 0-based half-open (`True`) or 1-based closed (`False`) coordinates. *None* uses global configuration.
+            genotype_output: GT representation: `"string"` (default) or nullable `Int8` biallelic ALT-count `"dosage"`. Dosage requires `format_fields=["GT"]`.
+
+        !!! note
+            BCF is input-only. Use `write_vcf` or `sink_vcf` to write text VCF.
+        """
+        lf = IOOperations.scan_bcf(
+            path=path,
+            info_fields=info_fields,
+            format_fields=format_fields,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+            use_zero_based=use_zero_based,
+            samples=samples,
+            genotype_output=genotype_output,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_bcf(
+        path: str,
+        info_fields: Union[list[str], None] = None,
+        format_fields: Union[list[str], None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+        samples: Union[list[str], None] = None,
+        genotype_output: str = "string",
+    ) -> pl.LazyFrame:
+        """Lazily read a BCF file into a LazyFrame.
+
+        BCF CSI range pushdown, projection pushdown, and configured input
+        partition parallelism are preserved. `genotype_output="dosage"` returns
+        nullable `Int8` biallelic ALT counts and requires
+        `format_fields=["GT"]`; string GT output remains the default.
+        """
+        if genotype_output not in {"string", "dosage"}:
+            raise ValueError(
+                "genotype_output must be either 'string' or 'dosage', "
+                f"got {genotype_output!r}"
+            )
+        _validate_variant_input_path(path, "bcf")
+        return IOOperations._scan_variant(
+            path=path,
+            info_fields=info_fields,
+            format_fields=format_fields,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+            use_zero_based=use_zero_based,
+            samples=samples,
+            genotype_output=genotype_output,
+            source_format="bcf",
+        )
+
+    @staticmethod
+    def _scan_variant(
+        path: str,
+        info_fields: Union[list[str], None],
+        format_fields: Union[list[str], None],
+        chunk_size: int,
+        concurrent_fetches: int,
+        allow_anonymous: bool,
+        enable_request_payer: bool,
+        max_retries: int,
+        timeout: int,
+        compression_type: str,
+        projection_pushdown: bool,
+        predicate_pushdown: bool,
+        use_zero_based: Optional[bool],
+        samples: Union[list[str], None],
+        genotype_output: str,
+        source_format: str,
+    ) -> pl.LazyFrame:
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
             enable_request_payer=enable_request_payer,
@@ -546,12 +700,6 @@ class IOOperations:
             timeout=timeout,
             compression_type=compression_type,
         )
-
-        if genotype_output not in {"string", "dosage"}:
-            raise ValueError(
-                "genotype_output must be either 'string' or 'dosage', "
-                f"got {genotype_output!r}"
-            )
 
         # Upstream VCF reader projects all INFO fields by default when info_fields is None.
         initial_info_fields = info_fields
@@ -566,7 +714,7 @@ class IOOperations:
             genotype_output=genotype_output,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
-        return _read_file(
+        lf = _read_file(
             path,
             InputFormat.Vcf,
             read_options,
@@ -574,6 +722,8 @@ class IOOperations:
             predicate_pushdown,
             zero_based=zero_based,
         )
+        lf.config_meta.set(source_format=source_format)
+        return lf
 
     @staticmethod
     def read_vcf_zarr(

@@ -5,18 +5,37 @@ now materialize biallelic GT dosage directly without genotype strings.
 
 ## Goals / Non-Goals
 
-- Goals: explicit typed dosage, lazy execution, bounded Arrow batches, output
-  equivalence with snputils, and lower one-thread median wall time.
+- Goals: dedicated VCF/BCF eager and lazy entry points, explicit typed BCF
+  dosage, lazy execution, bounded Arrow batches, output equivalence with
+  snputils, and lower one-thread median wall time.
 - Non-goals: changing default VCF/BCF schema, collapsing multiallelic alleles,
-  or materializing a whole-file dense matrix inside the reader.
+  materializing a whole-file dense matrix inside the reader, or splitting the
+  existing SQL registration and schema-description APIs.
 
 ## Decisions
 
-- `genotype_output` accepts `"string"` (default) or `"dosage"`.
+- `read_vcf` and `scan_vcf` accept text VCF only and expose neither
+  `genotype_output` nor `genotype_encoding_raw`.
+- `read_bcf` and `scan_bcf` accept BCF only; their `genotype_output` accepts
+  `"string"` (default) or `"dosage"`.
+- The VCF and BCF entry points continue to share the internal DataFusion table
+  provider; the public method validates the physical input format before using
+  that provider.
+- `genotype_encoding_raw` remains on `read_vcf_zarr` and `scan_vcf_zarr`, where
+  it is functional rather than a deprecated ignored compatibility argument.
 - Dosage requires BCF with only `GT` selected and counts allele index 1.
 - Missing GT is null; phase does not affect the count; output is `Int8`.
 - The benchmark consumes typed dosage directly and normalizes null to `-1` only
   for cross-tool equality checks.
+
+## Migration
+
+- Replace `read_vcf("input.bcf", ...)` with `read_bcf("input.bcf", ...)`.
+- Replace `scan_vcf("input.bcf", ...)` with `scan_bcf("input.bcf", ...)`.
+- Remove `genotype_encoding_raw` from VCF/BCF calls. VCF Zarr calls are
+  unchanged.
+- Move BCF `genotype_output` requests to the corresponding BCF method. Text VCF
+  continues to return its existing string genotype representation.
 
 ## Performance Gate
 

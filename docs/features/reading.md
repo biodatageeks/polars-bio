@@ -21,7 +21,7 @@ The matrix below summarizes which [performance features](#performance-features) 
 |--------------------------------------------------|--------------------|--------------------|--------------------|--------------------|---------------------|
 | [BED](../api/reading.md#polars_bio.data_input.read_bed)     | :white_check_mark: | ❌                  | :white_check_mark: | ❌                  | ❌                   |
 | [VCF](../api/reading.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| [BCF](../api/reading.md#polars_bio.data_input.read_vcf)     | :white_check_mark: | :white_check_mark: (CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [BCF](../api/reading.md#polars_bio.data_input.read_bcf)     | :white_check_mark: | :white_check_mark: (CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | [VCF Zarr](../api/reading.md#polars_bio.data_input.read_vcf_zarr) | :white_check_mark: | :white_check_mark: (region index) | ❌ | :white_check_mark: | :white_check_mark: |
 | [BAM](../api/reading.md#polars_bio.data_input.read_bam)     | :white_check_mark: | :white_check_mark: (BAI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | [CRAM](../api/reading.md#polars_bio.data_input.read_cram)   | :white_check_mark: | :white_check_mark: (CRAI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
@@ -136,9 +136,9 @@ df = (
     .collect()
 )
 
-# BCF uses the same lazy API; a neighboring variants.bcf.csi is automatic
+# BCF has a dedicated lazy API; a neighboring variants.bcf.csi is automatic
 df = (
-    pb.scan_vcf("variants.bcf")
+    pb.scan_bcf("variants.bcf")
     .filter(
         (pl.col("chrom") == "chr21")
         & (pl.col("start") >= 1_000_000)
@@ -279,18 +279,19 @@ Most formats work through the generic `read_*`/`scan_*`/`register_*` API with no
 
 ### VCF, BCF, and VCF Zarr
 
-polars-bio auto-detects text VCF (plain or compressed) and binary BCF from the
-path and reads both through `read_vcf` / `scan_vcf` / `register_vcf` /
+Text VCF (plain or compressed) uses `read_vcf` / `scan_vcf`, while binary BCF
+uses the dedicated `read_bcf` / `scan_bcf` methods. SQL registration and schema
+inspection continue to auto-detect both formats through `register_vcf` and
 `describe_vcf`. Local VCF Zarr stores use the corresponding `*_vcf_zarr`
 functions. Default BCF output has the same rows, columns, data types, INFO
 handling, and FORMAT layout as an equivalent VCF. Key behaviors:
 
-- **Lazy BCF scans** — use `scan_vcf("cohort.bcf")` to retain streaming execution, projection and predicate pushdown, and CSI-backed parallel partition processing. `read_vcf` is the eager convenience wrapper.
+- **Lazy BCF scans** — use `scan_bcf("cohort.bcf")` to retain streaming execution, projection and predicate pushdown, and CSI-backed parallel partition processing. `read_bcf` is the eager convenience wrapper.
 - **BCF indexes** — `cohort.bcf.csi` is auto-discovered. Genomic filters use CSI byte-range reads; full scans use CSI regions to fill `datafusion.execution.target_partitions`. Without CSI, BCF falls back to one sequential input partition.
 - **INFO fields** — by default (`info_fields=None`) all header INFO fields are available in the schema. Pass an explicit list to select a subset, or `info_fields=[]` to exclude INFO columns entirely.
 - **Single-sample FORMAT** — FORMAT fields are exposed as top-level columns (`GT`, `DP`, `GQ`, ...).
 - **Multisample FORMAT** — exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`), where each FORMAT field is a list of values ordered by sample. Sample names are available via `meta["header"]["sample_names"]`.
-- **Sample subset selection** — pass `samples=[...]` to `read_vcf` / `scan_vcf` to keep only selected samples in the nested `genotypes` output. Missing sample names are skipped with a warning.
+- **Sample subset selection** — pass `samples=[...]` to the corresponding VCF or BCF read/scan method to keep only selected samples in the nested `genotypes` output. Missing sample names are skipped with a warning.
 - **FORMAT metadata fidelity** — `meta["header"]["format_fields"]` preserves each FORMAT field's `number` / `type` / `description`.
 - **Range operations** — `.bcf` paths are accepted anywhere the range APIs accept `.vcf` paths and use the same logical VCF schema.
 
@@ -313,9 +314,9 @@ df_subset = pb.read_vcf(
     samples=["NA12880", "NA12878"],
 )
 
-# BCF is auto-detected and remains lazy until collect()
+# BCF remains lazy until collect()
 rare = (
-    pb.scan_vcf("cohort.bcf", info_fields=["AF"], format_fields=["GT"])
+    pb.scan_bcf("cohort.bcf", info_fields=["AF"], format_fields=["GT"])
     .filter((pl.col("chrom") == "chr21") & (pl.col("AF").list.first() < 0.01))
     .select(["chrom", "start", "ref", "alt", "AF", "genotypes"])
     .collect()
@@ -324,22 +325,24 @@ rare = (
 # Optional typed biallelic dosage avoids materializing GT strings. Multisample
 # input returns nullable Int8 ALT-allele counts in genotypes.GT; single-sample
 # input preserves the FORMAT layout and returns a top-level nullable Int8 GT.
-dosage = pb.scan_vcf(
+dosage = pb.scan_bcf(
     "cohort.bcf",
     format_fields=["GT"],
     genotype_output="dosage",
 )
 ```
 
-`genotype_output="string"` is the default and preserves VCF-compatible GT
-values. `genotype_output="dosage"` is BCF-only, requires
+On `read_bcf` and `scan_bcf`, `genotype_output="string"` is the default and
+preserves VCF-compatible GT values. `genotype_output="dosage"` requires
 `format_fields=["GT"]`, and rejects multiallelic records instead of silently
-collapsing non-reference alleles.
+collapsing non-reference alleles. Text VCF methods do not expose this BCF-only
+option. Neither the VCF nor BCF methods expose `genotype_encoding_raw`; that
+option remains specific to `read_vcf_zarr` and `scan_vcf_zarr`.
 
 BCF is currently an input format. `write_vcf` / `sink_vcf` still write text VCF
-(optionally gzip/BGZF compressed). Because BCF shares the logical VCF API and
-schema, its metadata reports `source_format="vcf"`; `source_path` retains the
-`.bcf` path.
+(optionally gzip/BGZF compressed). It shares the internal logical VCF schema,
+while BCF scan metadata reports `source_format="bcf"`; `source_path` retains
+the `.bcf` path.
 
 !!! note "Upgrading from polars-bio < 0.26.0"
     The multisample FORMAT layout changed in 0.26.0: FORMAT data moved from flattened per-sample
@@ -481,8 +484,8 @@ The coordinate system is managed through **DataFrame metadata** that is set at I
 ```mermaid
 flowchart TB
     subgraph IO["I/O Layer"]
-        scan["scan_vcf/gff/bam/cram/bed()"]
-        read["read_vcf/gff/bam/cram/bed()"]
+        scan["scan_vcf/bcf/gff/bam/cram/bed()"]
+        read["read_vcf/bcf/gff/bam/cram/bed()"]
     end
 
     subgraph Config["Session Configuration"]

@@ -211,14 +211,14 @@ so core columns, INFO, FORMAT strings, and typed GT dosage all benefit.
 
 ## Try it
 
-`scan_vcf` is polars-bio's public scan entry point for both formats and detects
-BCF from the input:
+BCF has its own public lazy entry point, `scan_bcf`; `scan_vcf` is reserved for
+text VCF:
 
 ```python
 import polars_bio as pb
 
 dosage = (
-    pb.scan_vcf(
+    pb.scan_bcf(
         "cohort.bcf",
         info_fields=[],
         format_fields=["GT"],
@@ -237,7 +237,7 @@ import polars as pl
 import polars_bio as pb
 
 region = (
-    pb.scan_vcf("cohort.bcf", info_fields=["AF"], format_fields=[])
+    pb.scan_bcf("cohort.bcf", info_fields=["AF"], format_fields=[])
     .filter(
         (pl.col("chrom") == "chr22")
         & (pl.col("start") >= 20_000_000)

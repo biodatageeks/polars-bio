@@ -33,6 +33,6 @@ def test_vcf_read_options_accepts_explicit_dosage_output():
     assert opts.genotype_output == "dosage"
 
 
-def test_scan_vcf_rejects_unknown_genotype_output_before_opening_source():
+def test_scan_bcf_rejects_unknown_genotype_output_before_opening_source():
     with pytest.raises(ValueError, match="genotype_output must be either"):
-        pb.scan_vcf("unused.bcf", genotype_output="alleles")
+        pb.scan_bcf("unused.bcf", genotype_output="alleles")

@@ -1,13 +1,14 @@
 """BCF integration and VCF/VCF-Zarr capability-parity tests."""
 
-from contextlib import contextmanager
+import inspect
 import json
 import shutil
+from contextlib import contextmanager
 
 import polars as pl
-from polars.testing import assert_frame_equal
 import pytest
 from _expected import DATA_DIR
+from polars.testing import assert_frame_equal
 
 import polars_bio as pb
 from polars_bio.context import ctx
@@ -32,9 +33,7 @@ PARITY_CASES = [
     pytest.param("ensembl-2.vcf", "ensembl-2.bcf", id="ensembl-2"),
     pytest.param("antku_small.vcf.gz", "antku_small.bcf", id="antku-small"),
     pytest.param("multisample.vcf", "multisample.bcf", id="multisample"),
-    pytest.param(
-        "genotype_missing.vcf", "genotype_missing.bcf", id="genotype-missing"
-    ),
+    pytest.param("genotype_missing.vcf", "genotype_missing.bcf", id="genotype-missing"),
     pytest.param("multisample.vcf.gz", "multisample_large.bcf", id="multisample-large"),
     pytest.param(
         "single_sample_collision.vcf",
@@ -90,8 +89,8 @@ def test_converted_bcf_matches_vcf_eager_and_lazy(vcf_name: str, bcf_name: str):
     bcf_path = str(BCF_DIR / bcf_name)
 
     expected = _sorted(pb.read_vcf(vcf_path, predicate_pushdown=False))
-    eager = _sorted(pb.read_vcf(bcf_path, predicate_pushdown=False))
-    lazy = _sorted(pb.scan_vcf(bcf_path, predicate_pushdown=False).collect())
+    eager = _sorted(pb.read_bcf(bcf_path, predicate_pushdown=False))
+    lazy = _sorted(pb.scan_bcf(bcf_path, predicate_pushdown=False).collect())
 
     assert_frame_equal(eager, expected)
     assert_frame_equal(lazy, expected)
@@ -110,7 +109,7 @@ def test_invalid_flag_value_is_rejected_in_both_encodings():
         pb.read_vcf(str(VCF_DIR / "info_invalid_flag_value.vcf"), info_fields=["DB"])
 
     with pytest.raises(Exception, match="Flag.*incompatible String encoding"):
-        pb.read_vcf(str(BCF_DIR / "info_invalid_flag_value.bcf"), info_fields=["DB"])
+        pb.read_bcf(str(BCF_DIR / "info_invalid_flag_value.bcf"), info_fields=["DB"])
 
 
 @pytest.mark.parametrize("projection_pushdown", [False, True])
@@ -122,7 +121,7 @@ def test_bcf_projection_pushdown_matches_vcf(projection_pushdown: bool):
         .collect()
     )
     actual = (
-        pb.scan_vcf(str(BCF_DIR / "vep.bcf"), projection_pushdown=projection_pushdown)
+        pb.scan_bcf(str(BCF_DIR / "vep.bcf"), projection_pushdown=projection_pushdown)
         .select(columns)
         .collect()
     )
@@ -144,13 +143,13 @@ def test_bcf_csi_range_pushdown_matches_vcf_and_unpushed_decode():
         .collect()
     )
     indexed = (
-        pb.scan_vcf(str(INDEXED_BCF_PATH), predicate_pushdown=True)
+        pb.scan_bcf(str(INDEXED_BCF_PATH), predicate_pushdown=True)
         .filter(predicate)
         .select(columns)
         .collect()
     )
     sequential = (
-        pb.scan_vcf(str(INDEXED_BCF_PATH), predicate_pushdown=False)
+        pb.scan_bcf(str(INDEXED_BCF_PATH), predicate_pushdown=False)
         .filter(predicate)
         .select(columns)
         .collect()
@@ -178,7 +177,7 @@ def test_bcf_csi_full_scan_uses_target_partitions_without_changing_rows(
         )
         plan = py_read_table(ctx, table.name).execution_plan()
         bcf_exec = _find_bcf_exec(plan)
-        actual = _sorted(pb.read_vcf(str(INDEXED_BCF_PATH)))
+        actual = _sorted(pb.read_bcf(str(INDEXED_BCF_PATH)))
 
     assert bcf_exec is not None, "BcfExec node not found in execution plan"
     assert bcf_exec.partition_count == partitions
@@ -210,7 +209,7 @@ def test_bcf_multisample_format_and_sample_order_match_vcf():
         "samples": ["NA12880", "NA12878"],
     }
     expected = pb.read_vcf(str(VCF_DIR / "multisample.vcf"), **options)
-    actual = pb.read_vcf(str(BCF_DIR / "multisample.bcf"), **options)
+    actual = pb.read_bcf(str(BCF_DIR / "multisample.bcf"), **options)
 
     assert_frame_equal(actual, expected)
     assert actual["genotypes"].to_list()[0] == {
@@ -220,7 +219,7 @@ def test_bcf_multisample_format_and_sample_order_match_vcf():
 
 
 def test_bcf_typed_genotype_dosage_values_and_schema():
-    actual = pb.read_vcf(
+    actual = pb.read_bcf(
         str(BCF_DIR / "multisample.bcf"),
         format_fields=["GT"],
         genotype_output="dosage",
@@ -234,8 +233,8 @@ def test_bcf_typed_genotype_dosage_values_and_schema():
 def test_bcf_typed_genotype_dosage_preserves_missingness_eager_and_lazy():
     options = {"format_fields": ["GT"], "genotype_output": "dosage"}
     path = str(BCF_DIR / "genotype_missing.bcf")
-    eager = pb.read_vcf(path, **options)
-    lazy = pb.scan_vcf(path, **options).collect()
+    eager = pb.read_bcf(path, **options)
+    lazy = pb.scan_bcf(path, **options).collect()
 
     assert_frame_equal(eager, lazy)
     dosage = eager["genotypes"].struct.field("GT")
@@ -245,8 +244,8 @@ def test_bcf_typed_genotype_dosage_preserves_missingness_eager_and_lazy():
 
 def test_bcf_single_sample_typed_dosage_preserves_top_level_format_layout():
     options = {"format_fields": ["GT"], "genotype_output": "dosage"}
-    eager = pb.read_vcf(str(BCF_DIR / "single_sample_collision.bcf"), **options)
-    lazy = pb.scan_vcf(
+    eager = pb.read_bcf(str(BCF_DIR / "single_sample_collision.bcf"), **options)
+    lazy = pb.scan_bcf(
         str(BCF_DIR / "single_sample_collision.bcf"), **options
     ).collect()
 
@@ -269,30 +268,67 @@ def test_bcf_path_is_supported_by_range_operations(tmp_path, extension: str):
     assert_frame_equal(actual.sort(actual.columns), expected.sort(expected.columns))
 
 
-def test_read_vcf_warns_when_ignored_raw_encoding_option_is_changed():
-    with pytest.warns(FutureWarning, match="applies only to read_vcf_zarr"):
-        actual = pb.read_vcf(
-            str(VCF_DIR / "ensembl.vcf"), genotype_encoding_raw=False
-        )
+def test_variant_api_signatures_only_expose_meaningful_genotype_options():
+    for reader in (pb.read_vcf, pb.scan_vcf):
+        parameters = inspect.signature(reader).parameters
+        assert "genotype_output" not in parameters
+        assert "genotype_encoding_raw" not in parameters
 
-    assert actual.height > 0
+    for reader in (pb.read_bcf, pb.scan_bcf):
+        parameters = inspect.signature(reader).parameters
+        assert parameters["genotype_output"].default == "string"
+        assert "genotype_encoding_raw" not in parameters
+
+    for reader in (pb.read_vcf_zarr, pb.scan_vcf_zarr):
+        assert "genotype_encoding_raw" in inspect.signature(reader).parameters
+
+
+@pytest.mark.parametrize("reader", [pb.read_vcf, pb.scan_vcf])
+def test_vcf_readers_reject_bcf_paths(reader):
+    with pytest.raises(ValueError, match="read_bcf.*scan_bcf"):
+        reader(str(BCF_DIR / "ensembl.bcf"))
+
+
+@pytest.mark.parametrize("reader", [pb.read_bcf, pb.scan_bcf])
+def test_bcf_readers_reject_non_bcf_paths(reader):
+    with pytest.raises(ValueError, match="path ending in '.bcf'"):
+        reader(str(VCF_DIR / "ensembl.vcf"))
+
+
+def test_removed_variant_arguments_raise_type_error():
+    with pytest.raises(TypeError, match="genotype_output"):
+        pb.scan_vcf("unused.vcf", genotype_output="dosage")
+    with pytest.raises(TypeError, match="genotype_encoding_raw"):
+        pb.read_vcf("unused.vcf", genotype_encoding_raw=False)
+    with pytest.raises(TypeError, match="genotype_encoding_raw"):
+        pb.scan_bcf("unused.bcf", genotype_encoding_raw=True)
+
+
+def test_scan_bcf_accepts_case_insensitive_extension(tmp_path):
+    uppercase_path = tmp_path / "cohort.BCF"
+    shutil.copyfile(BCF_DIR / "ensembl.bcf", uppercase_path)
+
+    expected = pb.read_bcf(str(BCF_DIR / "ensembl.bcf"))
+    actual = pb.scan_bcf(str(uppercase_path)).collect()
+
+    assert_frame_equal(actual, expected)
 
 
 @pytest.mark.parametrize("use_zero_based", [False, True])
 def test_bcf_coordinate_modes_match_vcf(use_zero_based: bool):
     expected = pb.read_vcf(str(VCF_DIR / "ensembl.vcf"), use_zero_based=use_zero_based)
-    actual = pb.read_vcf(str(BCF_DIR / "ensembl.bcf"), use_zero_based=use_zero_based)
+    actual = pb.read_bcf(str(BCF_DIR / "ensembl.bcf"), use_zero_based=use_zero_based)
 
     assert_frame_equal(actual, expected)
 
 
 def test_bcf_source_metadata_preserves_vcf_header_contract():
     vcf_metadata = pb.scan_vcf(str(INDEXED_VCF_PATH)).config_meta.get_metadata()
-    bcf_metadata = pb.scan_vcf(str(INDEXED_BCF_PATH)).config_meta.get_metadata()
+    bcf_metadata = pb.scan_bcf(str(INDEXED_BCF_PATH)).config_meta.get_metadata()
     vcf_header = json.loads(vcf_metadata["source_header"])
     bcf_header = json.loads(bcf_metadata["source_header"])
 
-    assert bcf_metadata["source_format"] == "vcf"
+    assert bcf_metadata["source_format"] == "bcf"
     assert bcf_metadata["source_path"] == str(INDEXED_BCF_PATH)
     for key in ("info_fields", "format_fields", "sample_names", "contigs"):
         assert bcf_header[key] == vcf_header[key]
@@ -318,9 +354,10 @@ def test_bcf_has_the_common_lazy_read_contract_of_vcf_and_vcf_zarr(
 ):
     if format_name == "vcf-zarr":
         lazy = pb.scan_vcf_zarr(str(VCF_ZARR_PATH), info_fields=["DP"])
+    elif format_name == "bcf":
+        lazy = pb.scan_bcf(str(INDEXED_BCF_PATH), info_fields=["DP"])
     else:
-        path = INDEXED_VCF_PATH if format_name == "vcf" else INDEXED_BCF_PATH
-        lazy = pb.scan_vcf(str(path), info_fields=["DP"])
+        lazy = pb.scan_vcf(str(INDEXED_VCF_PATH), info_fields=["DP"])
 
     result = (
         lazy.filter(pl.col("start") > 0)
