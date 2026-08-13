@@ -41,3 +41,6 @@ hashes, build flags, environment metadata, and reproduction commands.
 - [x] 4.4 Test signatures, local and signed-URL format routing, eager/lazy parity,
   metadata, CSI pushdown, partition scaling, and typed genotype output through
   the new APIs.
+- [x] 4.5 Add and export `describe_bcf` and `register_bcf`, restrict their VCF
+  counterparts to text VCF, and test schema/SQL parity, format routing, and
+  registered dosage output.

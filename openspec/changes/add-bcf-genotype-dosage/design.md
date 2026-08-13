@@ -5,12 +5,12 @@ now materialize biallelic GT dosage directly without genotype strings.
 
 ## Goals / Non-Goals
 
-- Goals: dedicated VCF/BCF eager and lazy entry points, explicit typed BCF
-  dosage, lazy execution, bounded Arrow batches, output equivalence with
-  snputils, and lower one-thread median wall time.
+- Goals: dedicated VCF/BCF eager, lazy, schema-description, and SQL-registration
+  entry points, explicit typed BCF dosage, lazy execution, bounded Arrow
+  batches, output equivalence with snputils, and lower one-thread median wall
+  time.
 - Non-goals: changing default VCF/BCF schema, collapsing multiallelic alleles,
-  materializing a whole-file dense matrix inside the reader, or splitting the
-  existing SQL registration and schema-description APIs.
+  or materializing a whole-file dense matrix inside the reader.
 
 ## Decisions
 
@@ -18,6 +18,9 @@ now materialize biallelic GT dosage directly without genotype strings.
   `genotype_output` nor `genotype_encoding_raw`.
 - `read_bcf` and `scan_bcf` accept BCF only; their `genotype_output` accepts
   `"string"` (default) or `"dosage"`.
+- `describe_vcf` and `register_vcf` accept text VCF only; `describe_bcf` and
+  `register_bcf` accept BCF only. Each pair shares its native implementation
+  internally, and BCF SQL registration exposes string or dosage GT output.
 - The VCF and BCF entry points continue to share the internal DataFusion table
   provider; the public method validates the physical input format before using
   that provider.
@@ -32,6 +35,8 @@ now materialize biallelic GT dosage directly without genotype strings.
 
 - Replace `read_vcf("input.bcf", ...)` with `read_bcf("input.bcf", ...)`.
 - Replace `scan_vcf("input.bcf", ...)` with `scan_bcf("input.bcf", ...)`.
+- Replace `describe_vcf("input.bcf")` with `describe_bcf("input.bcf")`.
+- Replace `register_vcf("input.bcf", ...)` with `register_bcf("input.bcf", ...)`.
 - Remove `genotype_encoding_raw` from VCF/BCF calls. VCF Zarr calls are
   unchanged.
 - Move BCF `genotype_output` requests to the corresponding BCF method. Text VCF

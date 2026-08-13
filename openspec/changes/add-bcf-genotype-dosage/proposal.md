@@ -7,11 +7,12 @@ Polars is much slower than decoding the native integer series directly.
 
 ## What Changes
 
-- Add dedicated `read_bcf` and `scan_bcf` APIs with an explicit
-  `genotype_output="dosage"` option.
+- Add dedicated `read_bcf`, `scan_bcf`, `describe_bcf`, and `register_bcf` APIs;
+  expose an explicit `genotype_output="dosage"` option where GT data is read.
 - Keep string output as the BCF compatibility default.
-- **BREAKING** Restrict `read_vcf` and `scan_vcf` to text VCF and remove their
-  `genotype_output` and deprecated `genotype_encoding_raw` parameters.
+- **BREAKING** Restrict `read_vcf`, `scan_vcf`, `describe_vcf`, and
+  `register_vcf` to text VCF; remove `genotype_output` and deprecated
+  `genotype_encoding_raw` from the VCF read/scan methods.
 - Do not expose `genotype_encoding_raw` from the new BCF APIs; that option
   remains available only on the VCF Zarr APIs where it still controls output.
 - Use the upstream streaming typed BCF sink and expose nullable `Int8` dosage.

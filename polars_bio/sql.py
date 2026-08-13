@@ -18,7 +18,6 @@ from polars_bio.polars_bio import (
     ReadOptions,
     VcfReadOptions,
     VcfZarrReadOptions,
-    py_describe_vcf,
     py_from_polars,
     py_read_sql,
     py_read_table,
@@ -32,7 +31,9 @@ from .io import (
     _lazy_scan,
     _normalize_bigbed_schema_mode,
     _normalize_read_tag_type_hints,
+    _validate_bcf_genotype_output,
     _validate_tag_type_hints,
+    _validate_variant_input_path,
 )
 
 
@@ -50,11 +51,10 @@ class SQL:
         enable_request_payer: bool = False,
         compression_type: str = "auto",
     ) -> None:
-        """
-        Register a VCF or BCF file as a DataFusion table. The format is auto-detected.
+        """Register a text VCF file as a DataFusion table.
 
         Parameters:
-            path: The path to the VCF or BCF file. BCF files use the `.bcf` extension and auto-discover a neighboring `.bcf.csi` index.
+            path: The path to the text VCF file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             info_fields: List of INFO field names to register. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit registration to specific fields for better performance.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
@@ -78,6 +78,90 @@ class SQL:
         !!! tip
             `chunk_size` and `concurrent_fetches` can be adjusted according to the network bandwidth and the size of the VCF file. As a rule of thumb for large scale operations (reading a whole VCF), it is recommended to the default values.
         """
+        _validate_variant_input_path(path, "vcf", operation="register")
+        SQL._register_variant(
+            path=path,
+            name=name,
+            info_fields=info_fields,
+            format_fields=None,
+            samples=None,
+            genotype_output="string",
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            max_retries=max_retries,
+            timeout=timeout,
+            enable_request_payer=enable_request_payer,
+            compression_type=compression_type,
+        )
+
+    @staticmethod
+    def register_bcf(
+        path: str,
+        name: Union[str, None] = None,
+        info_fields: Union[list[str], None] = None,
+        format_fields: Union[list[str], None] = None,
+        samples: Union[list[str], None] = None,
+        genotype_output: str = "string",
+        chunk_size: int = 64,
+        concurrent_fetches: int = 8,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+    ) -> None:
+        """Register a BCF file as a DataFusion table.
+
+        Parameters:
+            path: The path to the BCF file. A neighboring `.bcf.csi` index is auto-discovered.
+            name: The table name. If *None*, a name is generated from the path.
+            info_fields: INFO fields to register. If *None*, all header-defined INFO fields are registered.
+            format_fields: FORMAT fields to register. If *None*, all header-defined FORMAT fields are registered.
+            samples: Optional sample names to register, in requested order.
+            genotype_output: GT representation. `"string"` (default) returns VCF-style calls such as `"0/1"`. `"dosage"` returns the number of ALT alleles per sample as nullable `Int8` (normally 0, 1, or 2 for diploid calls); any missing allele yields null. Dosage requires exactly `format_fields=["GT"]` and biallelic records; multiallelic records are rejected.
+            chunk_size: Object-store chunk size in MB.
+            concurrent_fetches: Number of concurrent object-store fetches.
+            allow_anonymous: Allow anonymous object-store access.
+            max_retries: Maximum number of object-store retries.
+            timeout: Object-store timeout in seconds.
+            enable_request_payer: Enable AWS request-payer access.
+            compression_type: Compression override. The default detects BCF automatically.
+        """
+        _validate_bcf_genotype_output(genotype_output)
+        _validate_variant_input_path(path, "bcf", operation="register")
+        SQL._register_variant(
+            path=path,
+            name=name,
+            info_fields=info_fields,
+            format_fields=format_fields,
+            samples=samples,
+            genotype_output=genotype_output,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            max_retries=max_retries,
+            timeout=timeout,
+            enable_request_payer=enable_request_payer,
+            compression_type=compression_type,
+        )
+
+    @staticmethod
+    def _register_variant(
+        path: str,
+        name: Union[str, None],
+        info_fields: Union[list[str], None],
+        format_fields: Union[list[str], None],
+        samples: Union[list[str], None],
+        genotype_output: str,
+        chunk_size: int,
+        concurrent_fetches: int,
+        allow_anonymous: bool,
+        max_retries: int,
+        timeout: int,
+        enable_request_payer: bool,
+        compression_type: str,
+    ) -> None:
 
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -89,34 +173,34 @@ class SQL:
             compression_type=compression_type,
         )
 
-        # Use provided info_fields or autodetect from VCF header
         if info_fields is not None:
             all_info_fields = info_fields
         else:
-            # Get all info fields from VCF header for automatic field detection
             all_info_fields = None
             try:
                 from .io import IOOperations
 
-                vcf_schema_df = IOOperations.describe_vcf(
+                variant_schema_df = IOOperations._describe_variant(
                     path,
                     allow_anonymous=allow_anonymous,
                     enable_request_payer=enable_request_payer,
                     compression_type=compression_type,
                 )
                 all_info_fields = (
-                    vcf_schema_df.filter(pl.col("field_type") == "INFO")
+                    variant_schema_df.filter(pl.col("field_type") == "INFO")
                     .select("name")
                     .to_series()
                     .to_list()
                 )
             except Exception:
-                # Fallback to empty list if unable to get info fields
                 all_info_fields = []
 
         vcf_read_options = VcfReadOptions(
             info_fields=all_info_fields,
+            format_fields=format_fields,
+            samples=samples,
             object_storage_options=object_storage_options,
+            genotype_output=genotype_output,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
         py_register_table(ctx, path, name, InputFormat.Vcf, read_options)

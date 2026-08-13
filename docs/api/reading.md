@@ -38,6 +38,7 @@
             - scan_bigwig
             - scan_bigbed
             - scan_table
+            - describe_bcf
             - describe_vcf
             - describe_vcf_zarr
             - describe_bam

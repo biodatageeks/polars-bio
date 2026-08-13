@@ -100,9 +100,29 @@ def test_converted_bcf_matches_vcf_eager_and_lazy(vcf_name: str, bcf_name: str):
 @pytest.mark.parametrize(("vcf_name", "bcf_name"), PARITY_CASES)
 def test_converted_bcf_describe_matches_vcf(vcf_name: str, bcf_name: str):
     expected = pb.describe_vcf(str(VCF_DIR / vcf_name)).sort(["field_type", "name"])
-    actual = pb.describe_vcf(str(BCF_DIR / bcf_name)).sort(["field_type", "name"])
+    actual = pb.describe_bcf(str(BCF_DIR / bcf_name)).sort(["field_type", "name"])
 
     assert_frame_equal(actual, expected)
+
+
+def test_describe_bcf_includes_info_and_nested_format_column():
+    schema = pb.describe_bcf(str(BCF_DIR / "multisample.bcf"))
+
+    assert schema.columns == ["name", "field_type", "data_type", "description"]
+    rows = {
+        (row["field_type"], row["name"]): row["data_type"] for row in schema.to_dicts()
+    }
+    assert rows[("INFO", "AF")] == "Float"
+    assert rows[("FORMAT", "genotypes")] == "Struct"
+    assert ("FORMAT", "GT") not in rows
+
+
+def test_variant_describers_are_format_specific():
+    with pytest.raises(ValueError, match="describe_bcf.*describe_vcf"):
+        pb.describe_vcf(str(BCF_DIR / "ensembl.bcf"))
+
+    with pytest.raises(ValueError, match="describe_bcf.*path ending in '.bcf'"):
+        pb.describe_bcf(str(VCF_DIR / "ensembl.vcf"))
 
 
 def test_invalid_flag_value_is_rejected_in_both_encodings():
@@ -270,6 +290,14 @@ def test_bcf_path_is_supported_by_range_operations(tmp_path, extension: str):
 
 
 def test_variant_api_signatures_only_expose_meaningful_genotype_options():
+    for method_name in (
+        "read_bcf",
+        "scan_bcf",
+        "describe_bcf",
+        "register_bcf",
+    ):
+        assert method_name in pb.__all__
+
     for reader in (pb.read_vcf, pb.scan_vcf):
         parameters = inspect.signature(reader).parameters
         assert "genotype_output" not in parameters
@@ -282,6 +310,11 @@ def test_variant_api_signatures_only_expose_meaningful_genotype_options():
 
     for reader in (pb.read_vcf_zarr, pb.scan_vcf_zarr):
         assert "genotype_encoding_raw" in inspect.signature(reader).parameters
+
+    assert "genotype_output" not in inspect.signature(pb.register_vcf).parameters
+    register_bcf_parameters = inspect.signature(pb.register_bcf).parameters
+    assert register_bcf_parameters["genotype_output"].default == "string"
+    assert "genotype_encoding_raw" not in register_bcf_parameters
 
 
 @pytest.mark.parametrize("reader", [pb.read_vcf, pb.scan_vcf])
@@ -362,7 +395,7 @@ def test_bcf_source_metadata_preserves_vcf_header_contract():
 
 def test_register_bcf_sql_matches_registered_vcf():
     pb.register_vcf(str(INDEXED_VCF_PATH), "bcf_parity_vcf")
-    pb.register_vcf(str(INDEXED_BCF_PATH), "bcf_parity_bcf")
+    pb.register_bcf(str(INDEXED_BCF_PATH), "bcf_parity_bcf")
     query = (
         'SELECT chrom, start, "DP" FROM {table} '
         "WHERE chrom = 'chr21' AND start >= 300000 ORDER BY start"
@@ -372,6 +405,37 @@ def test_register_bcf_sql_matches_registered_vcf():
     actual = pb.sql(query.format(table="bcf_parity_bcf")).collect()
 
     assert_frame_equal(actual, expected)
+
+
+def test_register_bcf_exposes_typed_dosage_to_sql():
+    pb.register_bcf(
+        str(BCF_DIR / "multisample.bcf"),
+        "bcf_registered_dosage",
+        info_fields=[],
+        format_fields=["GT"],
+        genotype_output="dosage",
+    )
+
+    actual = pb.sql(
+        "SELECT start, genotypes FROM bcf_registered_dosage ORDER BY start"
+    ).collect()
+    dosage = actual["genotypes"].struct.field("GT")
+
+    assert dosage.dtype == pl.List(pl.Int8)
+    assert dosage.to_list() == [[1, 2, 0], [0, 1, 2], [2, 0, 1]]
+
+
+def test_variant_registration_methods_are_format_specific():
+    with pytest.raises(ValueError, match="register_bcf.*register_vcf"):
+        pb.register_vcf(str(BCF_DIR / "ensembl.bcf"), "wrong_vcf_registration")
+
+    with pytest.raises(ValueError, match="register_bcf.*path ending in '.bcf'"):
+        pb.register_bcf(str(VCF_DIR / "ensembl.vcf"), "wrong_bcf_registration")
+
+
+def test_register_bcf_rejects_unknown_genotype_output_before_opening_source():
+    with pytest.raises(ValueError, match="genotype_output must be either"):
+        pb.register_bcf("unused.bcf", genotype_output="alleles")
 
 
 @pytest.mark.parametrize("format_name", ["vcf", "bcf", "vcf-zarr"])

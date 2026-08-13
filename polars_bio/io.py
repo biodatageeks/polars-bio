@@ -238,7 +238,9 @@ def _normalize_bigbed_schema_mode(schema: str) -> str:
     return normalized
 
 
-def _validate_variant_input_path(path: str, expected_format: str) -> None:
+def _validate_variant_input_path(
+    path: str, expected_format: str, operation: str = "read"
+) -> None:
     """Keep the public VCF and BCF entry points format-specific.
 
     The shared upstream provider selects its physical decoder from the path.
@@ -249,11 +251,31 @@ def _validate_variant_input_path(path: str, expected_format: str) -> None:
     is_bcf = normalized_path.endswith(".bcf")
 
     if expected_format == "vcf" and is_bcf:
+        if operation == "describe":
+            raise ValueError(
+                "BCF input must be described with describe_bcf(), not describe_vcf()"
+            )
+        if operation == "register":
+            raise ValueError(
+                "BCF input must be registered with register_bcf(), not register_vcf()"
+            )
         raise ValueError(
             "BCF input must be read with read_bcf() or scan_bcf(), not the VCF APIs"
         )
     if expected_format == "bcf" and not is_bcf:
+        if operation == "describe":
+            raise ValueError("describe_bcf() requires a path ending in '.bcf'")
+        if operation == "register":
+            raise ValueError("register_bcf() requires a path ending in '.bcf'")
         raise ValueError("read_bcf() and scan_bcf() require a path ending in '.bcf'")
+
+
+def _validate_bcf_genotype_output(genotype_output: str) -> None:
+    if genotype_output not in {"string", "dosage"}:
+        raise ValueError(
+            "genotype_output must be either 'string' or 'dosage', "
+            f"got {genotype_output!r}"
+        )
 
 
 class IOOperations:
@@ -595,7 +617,7 @@ class IOOperations:
             projection_pushdown: Push column projection into the BCF reader.
             predicate_pushdown: Use a neighboring `.bcf.csi` index for genomic predicate pushdown when available.
             use_zero_based: Select 0-based half-open (`True`) or 1-based closed (`False`) coordinates. *None* uses global configuration.
-            genotype_output: GT representation: `"string"` (default) or nullable `Int8` biallelic ALT-count `"dosage"`. Dosage requires `format_fields=["GT"]`.
+            genotype_output: GT representation. `"string"` (default) returns VCF-style calls such as `"0/1"`. `"dosage"` returns the number of ALT alleles per sample as nullable `Int8` (normally 0, 1, or 2 for diploid calls); any missing allele yields null. Dosage requires exactly `format_fields=["GT"]` and biallelic records; multiallelic records are rejected.
 
         !!! note
             BCF is input-only. Use `write_vcf` or `sink_vcf` to write text VCF.
@@ -644,15 +666,14 @@ class IOOperations:
         """Lazily read a BCF file into a LazyFrame.
 
         BCF CSI range pushdown, projection pushdown, and configured input
-        partition parallelism are preserved. `genotype_output="dosage"` returns
-        nullable `Int8` biallelic ALT counts and requires
-        `format_fields=["GT"]`; string GT output remains the default.
+        partition parallelism are preserved. `genotype_output="string"` returns
+        VCF-style GT calls and remains the default. `genotype_output="dosage"`
+        returns the number of ALT alleles per sample as nullable `Int8` (normally
+        0, 1, or 2 for diploid calls); any missing allele yields null. Dosage
+        requires exactly `format_fields=["GT"]` and biallelic records;
+        multiallelic records are rejected.
         """
-        if genotype_output not in {"string", "dosage"}:
-            raise ValueError(
-                "genotype_output must be either 'string' or 'dosage', "
-                f"got {genotype_output!r}"
-            )
+        _validate_bcf_genotype_output(genotype_output)
         _validate_variant_input_path(path, "bcf")
         return IOOperations._scan_variant(
             path=path,
@@ -2256,14 +2277,52 @@ class IOOperations:
         compression_type: str = "auto",
     ) -> pl.DataFrame:
         """
-        Describe VCF or BCF INFO and FORMAT schema.
+        Describe a text VCF INFO and FORMAT schema.
 
         Parameters:
-            path: The path to the VCF or BCF file. The format is auto-detected.
+            path: The path to the text VCF file.
             allow_anonymous: Whether to allow anonymous access to object storage (GCS and S3 supported).
             enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
         """
+        _validate_variant_input_path(path, "vcf", operation="describe")
+        return IOOperations._describe_variant(
+            path,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            compression_type=compression_type,
+        )
+
+    @staticmethod
+    def describe_bcf(
+        path: str,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+    ) -> pl.DataFrame:
+        """Describe a BCF INFO and FORMAT schema.
+
+        Parameters:
+            path: The path to the BCF file. The path must end in `.bcf`.
+            allow_anonymous: Whether to allow anonymous access to object storage (GCS and S3 supported).
+            enable_request_payer: Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            compression_type: The compression override. The default detects BCF automatically.
+        """
+        _validate_variant_input_path(path, "bcf", operation="describe")
+        return IOOperations._describe_variant(
+            path,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            compression_type=compression_type,
+        )
+
+    @staticmethod
+    def _describe_variant(
+        path: str,
+        allow_anonymous: bool,
+        enable_request_payer: bool,
+        compression_type: str,
+    ) -> pl.DataFrame:
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
             enable_request_payer=enable_request_payer,

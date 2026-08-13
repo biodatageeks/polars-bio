@@ -30,11 +30,12 @@ methods.
 - **THEN** the operation fails with a clear error instead of silently changing
   genotype meaning.
 
-### Requirement: Dedicated VCF and BCF Read APIs
+### Requirement: Dedicated VCF and BCF Public APIs
 
-The system SHALL expose text VCF through `read_vcf` and `scan_vcf`, expose BCF
-through `read_bcf` and `scan_bcf`, and keep format-specific genotype controls
-off APIs where they have no effect.
+The system SHALL expose text VCF through `read_vcf`, `scan_vcf`, `describe_vcf`,
+and `register_vcf`; expose BCF through `read_bcf`, `scan_bcf`, `describe_bcf`,
+and `register_bcf`; and keep format-specific genotype controls off APIs where
+they have no effect.
 
 #### Scenario: Text VCF signatures
 - **WHEN** a caller inspects or invokes `read_vcf` or `scan_vcf`
@@ -46,6 +47,22 @@ off APIs where they have no effect.
 - **THEN** `genotype_output` is exposed with `"string"` as its default
 - **AND** `genotype_encoding_raw` is not exposed
 - **AND** a non-BCF path is rejected with a clear format error.
+
+#### Scenario: Format-specific schema description
+- **WHEN** a caller describes equivalent VCF and BCF inputs with
+  `describe_vcf` and `describe_bcf`, respectively
+- **THEN** their INFO and FORMAT schema descriptions match
+- **AND** each method rejects the other physical format with guidance to use
+  the corresponding method.
+
+#### Scenario: Format-specific SQL registration
+- **WHEN** a caller registers equivalent VCF and BCF inputs with `register_vcf`
+  and `register_bcf`, respectively
+- **THEN** equivalent SQL projections return matching rows and schemas
+- **AND** `register_bcf` can expose nullable `Int8` dosage under the same
+  constraints as `read_bcf` and `scan_bcf`
+- **AND** each method rejects the other physical format with guidance to use
+  the corresponding method.
 
 #### Scenario: Signed BCF URL routing
 - **WHEN** a BCF URL contains query parameters or a fragment

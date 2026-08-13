@@ -280,10 +280,11 @@ Most formats work through the generic `read_*`/`scan_*`/`register_*` API with no
 ### VCF, BCF, and VCF Zarr
 
 Text VCF (plain or compressed) uses `read_vcf` / `scan_vcf`, while binary BCF
-uses the dedicated `read_bcf` / `scan_bcf` methods. SQL registration and schema
-inspection continue to auto-detect both formats through `register_vcf` and
-`describe_vcf`. Local VCF Zarr stores use the corresponding `*_vcf_zarr`
-functions. Default BCF output has the same rows, columns, data types, INFO
+uses the dedicated `read_bcf` / `scan_bcf` methods. Registration and schema
+inspection follow the same split: use `register_vcf` / `describe_vcf` for text
+VCF and `register_bcf` / `describe_bcf` for BCF. Local VCF Zarr stores use the
+corresponding `*_vcf_zarr` functions. Default BCF output has the same rows,
+columns, data types, INFO
 handling, and FORMAT layout as an equivalent VCF. Key behaviors:
 
 - **Lazy BCF scans** — use `scan_bcf("cohort.bcf")` to retain streaming execution, projection and predicate pushdown, and CSI-backed parallel partition processing. `read_bcf` is the eager convenience wrapper.
@@ -334,7 +335,9 @@ dosage = pb.scan_bcf(
 
 On `read_bcf` and `scan_bcf`, `genotype_output="string"` is the default and
 preserves VCF-compatible GT values. `genotype_output="dosage"` requires
-`format_fields=["GT"]`, and rejects multiallelic records instead of silently
+exactly `format_fields=["GT"]` and returns the number of ALT alleles per sample
+as nullable `Int8`—normally 0, 1, or 2 for diploid calls. A fully or partially
+missing GT becomes null. Multiallelic records are rejected instead of silently
 collapsing non-reference alleles. Text VCF methods do not expose this BCF-only
 option. Neither the VCF nor BCF methods expose `genotype_encoding_raw`; that
 option remains specific to `read_vcf_zarr` and `scan_vcf_zarr`.
@@ -466,7 +469,7 @@ schema = pb.describe_cram("file.cram")
 # VCF, BCF, and local VCF Zarr describe output includes INFO and FORMAT rows.
 # Nested FORMAT data is reported by its selectable column name, `genotypes`.
 vcf_schema = pb.describe_vcf("variants.vcf")
-bcf_schema = pb.describe_vcf("variants.bcf")
+bcf_schema = pb.describe_bcf("variants.bcf")
 vcz_schema = pb.describe_vcf_zarr("cohort.vcz")
 format_fields = vcf_schema.filter(pl.col("field_type") == "FORMAT")
 
