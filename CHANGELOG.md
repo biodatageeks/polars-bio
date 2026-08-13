@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `genotype_encoding_raw` remains available on `read_vcf_zarr()` and
   `scan_vcf_zarr()`, where it controls the returned genotype representation.
 
+### Fixed
+
+- BCF metadata now identifies its source format as `bcf`, and format detection
+  for VCF/BCF range operations ignores signed-URL query parameters and fragments.
+
 ## [0.33.1] - 2026-08-02
 
 ### Added

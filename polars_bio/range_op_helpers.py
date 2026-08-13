@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Union
 
 import polars as pl
@@ -15,6 +14,7 @@ from polars_bio.polars_bio import (
 )
 
 from ._metadata import set_coordinate_system
+from ._path_utils import path_suffixes
 from .logging import logger
 from .range_op_io import _df_to_reader, _get_schema, range_lazy_scan
 
@@ -191,11 +191,11 @@ def range_operation(
 
     if isinstance(df1, str) and isinstance(df2, str):
         supported_exts = {".parquet", ".csv", ".bed", ".vcf", ".bcf"}
-        ext1 = {suffix.lower() for suffix in Path(df1).suffixes}
+        ext1 = set(path_suffixes(df1))
         assert (
             len(supported_exts.intersection(ext1)) > 0 or len(ext1) == 0
         ), "Dataframe1 must be a Parquet, BED, CSV, VCF or BCF file"
-        ext2 = {suffix.lower() for suffix in Path(df2).suffixes}
+        ext2 = set(path_suffixes(df2))
         assert (
             len(supported_exts.intersection(ext2)) > 0 or len(ext2) == 0
         ), "Dataframe2 must be a Parquet, BED, CSV, VCF or BCF file"

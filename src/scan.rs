@@ -447,7 +447,7 @@ pub(crate) fn register_frame_from_arrow_stream_single_partition(
 }
 
 pub(crate) fn get_input_format(path: &str) -> InputFormat {
-    let path = path.to_lowercase();
+    let path = path.split(['?', '#']).next().unwrap_or(path).to_lowercase();
     if path.ends_with(".parquet") {
         InputFormat::Parquet
     } else if path.ends_with(".csv") {
@@ -1065,5 +1065,13 @@ mod tests {
     fn bcf_paths_use_the_vcf_logical_input_format() {
         assert_eq!(get_input_format("cohort.bcf"), InputFormat::Vcf);
         assert_eq!(get_input_format("COHORT.BCF"), InputFormat::Vcf);
+        assert_eq!(
+            get_input_format("https://host/cohort.bcf?token=secret"),
+            InputFormat::Vcf
+        );
+        assert_eq!(
+            get_input_format("s3://bucket/cohort.BCF#download"),
+            InputFormat::Vcf
+        );
     }
 }

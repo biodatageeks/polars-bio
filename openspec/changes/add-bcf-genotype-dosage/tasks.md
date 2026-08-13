@@ -38,5 +38,6 @@ hashes, build flags, environment metadata, and reproduction commands.
   `read_vcf`/`scan_vcf`, and omit raw encoding from the BCF signatures.
 - [x] 4.3 Migrate BCF tests, documentation, blog examples, and companion
   benchmark call sites to the dedicated methods.
-- [x] 4.4 Test signatures, format routing, eager/lazy parity, metadata, CSI
-  pushdown, partition scaling, and typed genotype output through the new APIs.
+- [x] 4.4 Test signatures, local and signed-URL format routing, eager/lazy parity,
+  metadata, CSI pushdown, partition scaling, and typed genotype output through
+  the new APIs.

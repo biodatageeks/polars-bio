@@ -47,6 +47,11 @@ off APIs where they have no effect.
 - **AND** `genotype_encoding_raw` is not exposed
 - **AND** a non-BCF path is rejected with a clear format error.
 
+#### Scenario: Signed BCF URL routing
+- **WHEN** a BCF URL contains query parameters or a fragment
+- **THEN** the URL path is still classified as BCF by reads and range operations
+- **AND** the complete URL remains available to the object-store reader.
+
 #### Scenario: VCF Zarr raw encoding remains supported
 - **WHEN** a caller uses `read_vcf_zarr` or `scan_vcf_zarr`
 - **THEN** `genotype_encoding_raw` remains available because it controls the

@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 from typing import Callable, Iterator, Union
 
 import datafusion
@@ -20,6 +19,8 @@ from polars_bio.polars_bio import (
     range_operation_lazy,
     range_operation_scan,
 )
+
+from ._path_utils import path_suffixes
 
 try:
     import pandas as pd
@@ -214,8 +215,7 @@ def _prepare_lazy_stream_input(
     so we do not have to build and consume a temporary Arrow stream just to inspect it.
     """
     if isinstance(df, str):
-        path = Path(df)
-        suffixes = [suffix.lower() for suffix in path.suffixes]
+        suffixes = path_suffixes(df)
 
         if ".parquet" in suffixes:
             lazy_df = pl.scan_parquet(df)
@@ -344,7 +344,7 @@ def _get_schema(
             else schema
         )
 
-    ext = [suffix.lower() for suffix in Path(path).suffixes]
+    ext = path_suffixes(path)
     if len(ext) == 0:
         df: DataFrame = py_read_table(ctx, path)
         arrow_schema = df.schema()

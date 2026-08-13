@@ -45,6 +45,7 @@ from polars_bio.polars_bio import (
 )
 
 from ._metadata import get_vcf_metadata, set_coordinate_system, set_vcf_metadata
+from ._path_utils import strip_url_parameters
 from .context import _resolve_zero_based, ctx
 from .predicate_translator import (
     BAM_INT32_COLUMNS,
@@ -244,7 +245,7 @@ def _validate_variant_input_path(path: str, expected_format: str) -> None:
     Query strings and fragments are ignored so signed object-store URLs work in
     the same way as local paths.
     """
-    normalized_path = str(path).split("#", 1)[0].split("?", 1)[0].lower()
+    normalized_path = strip_url_parameters(path).lower()
     is_bcf = normalized_path.endswith(".bcf")
 
     if expected_format == "vcf" and is_bcf:

@@ -11,6 +11,7 @@ from _expected import DATA_DIR
 from polars.testing import assert_frame_equal
 
 import polars_bio as pb
+from polars_bio._path_utils import path_suffixes
 from polars_bio.context import ctx
 from polars_bio.polars_bio import (
     InputFormat,
@@ -312,6 +313,18 @@ def test_scan_bcf_accepts_case_insensitive_extension(tmp_path):
     actual = pb.scan_bcf(str(uppercase_path)).collect()
 
     assert_frame_equal(actual, expected)
+
+
+@pytest.mark.parametrize(
+    ("path", "expected"),
+    [
+        ("https://host/cohort.bcf?token=.vcf", (".bcf",)),
+        ("s3://bucket/cohort.BCF#download", (".bcf",)),
+        ("https://host/cohort.vcf.gz?token=secret#download", (".vcf", ".gz")),
+    ],
+)
+def test_format_suffixes_ignore_url_parameters(path: str, expected: tuple[str, ...]):
+    assert path_suffixes(path) == expected
 
 
 @pytest.mark.parametrize("use_zero_based", [False, True])
