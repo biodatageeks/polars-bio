@@ -13,7 +13,7 @@ categories:
 
 BCF reader benchmarks can compare unlike work: one library counts records,
 another retains metadata, and a third materializes every genotype. We use two
-tests with explicit—but different—output contracts. The first compares five
+tests with explicit—but different—output contracts. The first compares four
 BCF readers on a 25,000-variant subset after normalizing every result to the
 same NumPy matrix. The second measures full-chromosome genotype throughput and
 parallel scaling for polars-bio against snputils while retaining each reader's
@@ -35,7 +35,7 @@ if only the row count changed.
 | Variants | 25,000 | 993,881 |
 | Samples | 2,548 | 2,548 |
 | Dosage cells | 63,700,000 | 2,532,408,788 |
-| Readers | pysam, cyvcf2, Oxbow, polars-bio, snputils | polars-bio and snputils |
+| Readers | pysam, cyvcf2, polars-bio, snputils | polars-bio and snputils |
 | Timed retained output | C-contiguous row-major NumPy `int8` matrix, positions, and sample IDs | Complete genotype dosage in each reader's native container |
 | Concurrency | Every pool capped at one thread | polars-bio at `t=1,2,4,8`; snputils as a serial control |
 | Repetitions | Two fresh-process runs | Three fresh-process runs per `t` |
@@ -68,7 +68,6 @@ Variant and sample order must remain unchanged.
 |---|---:|---|
 | pysam | 0.24.0 | native iterator, preallocated matrix |
 | cyvcf2 | 0.31.4 | native iterator, vectorized per-record dosage |
-| Oxbow | 0.8.1 | bounded Arrow record batches |
 | polars-bio | 0.33.1 feature branch | lazy scan, streaming collection |
 | snputils | pinned development commit | specialized eager reader |
 
@@ -106,7 +105,6 @@ part of either timed result. Peak RSS is measured after retaining the output.
 |---|---:|---:|
 | pysam | 28.328 s | 179.291× |
 | cyvcf2 | 1.903 s | 12.044× |
-| Oxbow | 13.465 s | 85.222× |
 | **polars-bio** | **0.158 s** | **1.000×** |
 | snputils | 0.842 s | 5.329× |
 
@@ -121,7 +119,6 @@ polars-bio is 5.329× faster than snputils at one thread, reducing wall time by
 |---|---:|
 | pysam | 105.8 MB |
 | cyvcf2 | **93.6 MB** |
-| Oxbow | 1,389.2 MB |
 | **polars-bio** | 321.5 MB |
 | snputils | 481.1 MB |
 
@@ -129,12 +126,6 @@ cyvcf2 has the smallest peak RSS. polars-bio uses 33.2% less peak RSS than
 snputils while completing the standardized workload 5.329× faster.
 
 ![BCF reader peak RSS on a linear scale](figures/bcf-readers/bcf-reader-memory.png)
-
-Oxbow's result includes materializing its wide nested genotype representation
-and normalizing all 63.7 million values. The adapter consumes bounded Arrow
-batches rather than an eager whole-file frame. In a separate 1,000-row BCF
-diagnostic, source creation, schema discovery, and first-batch materialization
-took 0.499 seconds, while normalizing that materialized batch took 0.067 seconds.
 
 ## Test 2: full-chromosome throughput and scaling
 
@@ -208,7 +199,7 @@ so core columns, INFO, FORMAT strings, and typed GT dosage all benefit.
 
 ## Limitations
 
-- Test 1 uses a 25,000-row slice so all five readers complete on a 64 GiB
+- Test 1 uses a 25,000-row slice so all four readers complete on a 64 GiB
   machine. Test 2 uses the complete 993,881-row callset.
 - The callset is phased, diploid, and biallelic. Multiallelic dosage is rejected
   rather than collapsed into a misleading non-reference count.
