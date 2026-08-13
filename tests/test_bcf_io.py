@@ -321,10 +321,23 @@ def test_scan_bcf_accepts_case_insensitive_extension(tmp_path):
         ("https://host/cohort.bcf?token=.vcf", (".bcf",)),
         ("s3://bucket/cohort.BCF#download", (".bcf",)),
         ("https://host/cohort.vcf.gz?token=secret#download", (".vcf", ".gz")),
+        ("/data/cohort#1.bcf", (".bcf",)),
+        ("/data/cohort?1.BCF", (".bcf",)),
     ],
 )
 def test_format_suffixes_ignore_url_parameters(path: str, expected: tuple[str, ...]):
     assert path_suffixes(path) == expected
+
+
+@pytest.mark.parametrize("filename", ["cohort#1.bcf", "cohort?1.bcf"])
+def test_bcf_readers_preserve_url_delimiters_in_local_filenames(tmp_path, filename):
+    bcf_path = tmp_path / filename
+    shutil.copyfile(BCF_DIR / "ensembl.bcf", bcf_path)
+
+    expected = pb.read_bcf(str(BCF_DIR / "ensembl.bcf"))
+    actual = pb.scan_bcf(str(bcf_path)).collect()
+
+    assert_frame_equal(actual, expected)
 
 
 @pytest.mark.parametrize("use_zero_based", [False, True])

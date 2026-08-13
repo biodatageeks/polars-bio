@@ -447,7 +447,12 @@ pub(crate) fn register_frame_from_arrow_stream_single_partition(
 }
 
 pub(crate) fn get_input_format(path: &str) -> InputFormat {
-    let path = path.split(['?', '#']).next().unwrap_or(path).to_lowercase();
+    let path = if path.contains("://") {
+        path.split(['?', '#']).next().unwrap_or(path)
+    } else {
+        path
+    };
+    let path = path.to_lowercase();
     if path.ends_with(".parquet") {
         InputFormat::Parquet
     } else if path.ends_with(".csv") {
@@ -1073,5 +1078,7 @@ mod tests {
             get_input_format("s3://bucket/cohort.BCF#download"),
             InputFormat::Vcf
         );
+        assert_eq!(get_input_format("/data/cohort#1.bcf"), InputFormat::Vcf);
+        assert_eq!(get_input_format("/data/cohort?1.BCF"), InputFormat::Vcf);
     }
 }

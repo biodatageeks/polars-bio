@@ -50,7 +50,8 @@ off APIs where they have no effect.
 #### Scenario: Signed BCF URL routing
 - **WHEN** a BCF URL contains query parameters or a fragment
 - **THEN** the URL path is still classified as BCF by reads and range operations
-- **AND** the complete URL remains available to the object-store reader.
+- **AND** the complete URL remains available to the object-store reader
+- **AND** literal `?` or `#` characters in local BCF filenames are preserved.
 
 #### Scenario: VCF Zarr raw encoding remains supported
 - **WHEN** a caller uses `read_vcf_zarr` or `scan_vcf_zarr`
