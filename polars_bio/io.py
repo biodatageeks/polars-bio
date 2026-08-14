@@ -1,5 +1,6 @@
 import logging
 import weakref as _weakref
+from uuid import uuid4
 from typing import Dict, Iterator, Optional, Union
 
 import polars as pl
@@ -2530,14 +2531,21 @@ class IOOperations:
             bgi_path=None,
             zero_based=_resolve_zero_based(None),
         )
+        # Registering under the derived name would deregister and replace a
+        # table the caller already registered for the same file, so describe
+        # uses a private name and removes it again.
+        describe_name = f"_pb_bgen_describe_{uuid4().hex}"
         table = py_register_table(
             ctx,
             path,
-            None,
+            describe_name,
             InputFormat.Bgen,
             ReadOptions(bgen_read_options=bgen_read_options),
         )
-        schema = py_get_table_schema(ctx, table.name)
+        try:
+            schema = py_get_table_schema(ctx, table.name)
+        finally:
+            ctx.deregister_table(table.name)
         metadata = {
             (key.decode() if isinstance(key, bytes) else key): (
                 value.decode() if isinstance(value, bytes) else value

@@ -151,6 +151,27 @@ class TestBgenDescribe:
         assert described["sample_names_synthetic"].unique().to_list() == ["false"]
 
 
+    def test_describe_does_not_disturb_a_registered_table(self):
+        pb.register_bgen(str(BGEN_PATH), "multisample", genotype_output="dosage")
+        try:
+            before = pb.sql("SELECT * FROM multisample").collect_schema()["genotypes"]
+            pb.describe_bgen(str(BGEN_PATH))
+            after = pb.sql("SELECT * FROM multisample").collect_schema()["genotypes"]
+            assert before == after
+        finally:
+            ctx.deregister_table("multisample")
+
+    def test_describe_leaves_no_table_behind(self):
+        # The temporary describe table must be gone, so a query naming it fails.
+        pb.describe_bgen(str(BGEN_PATH))
+        leftovers = [
+            name
+            for name in pb.sql("SHOW TABLES").collect()["table_name"].to_list()
+            if name.startswith("_pb_bgen_describe_")
+        ]
+        assert leftovers == []
+
+
 class TestBgenValidation:
     @pytest.mark.parametrize(
         "call",
