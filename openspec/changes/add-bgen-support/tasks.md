@@ -17,9 +17,13 @@
 - [x] 3.2 Test that content is independent of `target_partitions`.
 - [x] 3.3 Test that `describe_bgen` neither replaces nor leaves behind a table.
 - [x] 3.4 Verify output against the independent `bgen` package element by
-  element, with no tolerance, at every partition count.
+  element, with no tolerance, at every partition count. The comparison needs
+  cohort-scale fixtures and the `bgen`/`snputils` readers, so it lives in
+  `biodatageeks/bioformats-benchmark` (`benchmarks/bgen_verify.py`), not in this
+  repository's test suite. Evidence: `BGEN_BENCHMARK.md`, "Zero mismatches".
 - [x] 3.5 Benchmark against snputils and record the workloads where polars-bio
-  is slower.
+  is slower. Also in `biodatageeks/bioformats-benchmark`
+  (`run_bgen_benchmarks.py`); the probability workload is recorded as slower.
 
 ## 4. Documentation
 

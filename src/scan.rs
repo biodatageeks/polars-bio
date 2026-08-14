@@ -520,7 +520,28 @@ pub(crate) async fn register_table(
     format: InputFormat,
     read_options: Option<ReadOptions>,
 ) -> datafusion::common::Result<String> {
+    // Opening a provider can fail on user input, so the existing registration is
+    // kept aside and put back if it does. Without this, a failed replacement
+    // would leave the caller with no table at all.
+    let previous = ctx.table_provider(table_name).await.ok();
     ctx.deregister_table(table_name).unwrap();
+    let outcome = register_table_provider(ctx, path, table_name, format, read_options).await;
+    if outcome.is_err() {
+        if let Some(previous) = previous {
+            let _ = ctx.register_table(table_name, previous);
+        }
+    }
+    outcome?;
+    Ok(table_name.to_string())
+}
+
+async fn register_table_provider(
+    ctx: &SessionContext,
+    path: &str,
+    table_name: &str,
+    format: InputFormat,
+    read_options: Option<ReadOptions>,
+) -> datafusion::common::Result<()> {
     match format {
         InputFormat::Parquet => ctx
             .register_parquet(table_name, path, ParquetReadOptions::new())
@@ -836,7 +857,7 @@ pub(crate) async fn register_table(
                 .expect("Failed to register GTF table");
         },
     };
-    Ok(table_name.to_string())
+    Ok(())
 }
 
 pub(crate) fn maybe_register_table(

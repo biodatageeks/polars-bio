@@ -36,8 +36,17 @@ def _dosage_matrix(frame: pl.DataFrame) -> np.ndarray:
 
 @pytest.fixture(autouse=True)
 def single_partition():
+    """Pin partitions for these tests without leaking the setting.
+
+    The option is process-global, so leaving it at 1 would silently make every
+    later test module run single-partition.
+    """
+    previous = pb.get_option(TARGET_PARTITIONS)
     pb.set_option(TARGET_PARTITIONS, "1")
-    yield
+    try:
+        yield
+    finally:
+        pb.set_option(TARGET_PARTITIONS, previous)
 
 
 class TestBgenRead:
@@ -136,6 +145,17 @@ class TestBgenRegister:
             assert frame["rsid"].to_list() == EXPECTED_RSIDS
         finally:
             ctx.deregister_table("bgen_table")
+
+    def test_failed_registration_keeps_the_existing_table(self):
+        pb.register_bgen(str(BGEN_PATH), "kept", genotype_output="dosage")
+        try:
+            with pytest.raises(ValueError, match="NA00000"):
+                pb.register_bgen(str(BGEN_PATH), "kept", samples=["NA00000"])
+            # The failed replacement must not have destroyed the good table.
+            frame = pb.sql("SELECT rsid FROM kept ORDER BY start").collect()
+            assert frame["rsid"].to_list() == EXPECTED_RSIDS
+        finally:
+            ctx.deregister_table("kept")
 
     def test_register_bgen_rejects_an_unknown_genotype_output(self):
         with pytest.raises(ValueError, match="genotype_output"):
