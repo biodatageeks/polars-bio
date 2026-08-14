@@ -191,5 +191,7 @@ class TestBgenValidation:
             pb.scan_bgen(str(BGEN_PATH), genotype_output="probabilities")
 
     def test_missing_sample_is_reported(self):
-        with pytest.raises(Exception, match="(?i)sample"):
+        # The BGEN registration arm returns its error rather than panicking, so
+        # this must be a ValueError and not a PanicException.
+        with pytest.raises(ValueError, match="NA00000"):
             pb.read_bgen(str(BGEN_PATH), samples=["NA00000"])
