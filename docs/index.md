@@ -24,7 +24,7 @@ We'll be presenting **polars-bio** at [ECCB 2026](https://eccb2026.org) — the 
 * [out-of-core/streaming](features/index.md) processing (for data too large to fit into a computer's main memory)  with [Apache DataFusion](https://datafusion.apache.org/) and [polars](https://pola.rs/)
 * support for *federated* and *streamed* reading data from [cloud storages](features/cloud.md#cloud-storage) (e.g. S3, GCS) with [Apache OpenDAL](https://github.com/apache/opendal)  enabling processing large-scale genomics data without materializing in memory
 * zero-copy data exchange with [Apache Arrow](https://arrow.apache.org/)
-* bioinformatics file [formats](features/reading.md#file-formats-support) with [noodles](https://github.com/zaeleus/noodles)
+* bioinformatics file [formats](features/reading.md#file-formats-support), including native indexed BCF reads, with [noodles](https://github.com/zaeleus/noodles)
 * VCF Zarr support built on [Analysis-ready VCF at Biobank scale using Zarr](https://doi.org/10.1093/gigascience/giaf049), the [VCF Zarr specification](https://github.com/sgkit-dev/vcf-zarr-spec) and the [zarrs](https://crates.io/crates/zarrs) Rust crate
 * fast overlap operations with [COITrees: Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees)
 * pre-built wheel packages for *Linux*, *Windows* and *MacOS* (*arm64* and *x86_64*) available on [PyPI](https://pypi.org/project/polars-bio/#files)

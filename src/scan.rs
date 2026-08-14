@@ -26,7 +26,7 @@ use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_gtf::table_provider::GtfTableProvider;
 use datafusion_bio_format_pairs::table_provider::PairsTableProvider;
-use datafusion_bio_format_vcf::table_provider::VcfTableProvider;
+use datafusion_bio_format_vcf::table_provider::{GenotypeOutputMode, VcfTableProvider};
 use datafusion_bio_format_vcf::zarr::{
     VcfZarrReadOptions as NativeVcfZarrReadOptions, VcfZarrTableProvider,
 };
@@ -447,6 +447,11 @@ pub(crate) fn register_frame_from_arrow_stream_single_partition(
 }
 
 pub(crate) fn get_input_format(path: &str) -> InputFormat {
+    let path = if path.contains("://") {
+        path.split(['?', '#']).next().unwrap_or(path)
+    } else {
+        path
+    };
     let path = path.to_lowercase();
     if path.ends_with(".parquet") {
         InputFormat::Parquet
@@ -458,7 +463,11 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         InputFormat::BigWig
     } else if path.ends_with(".bb") || path.ends_with(".bigbed") {
         InputFormat::BigBed
-    } else if path.ends_with(".vcf") || path.ends_with(".vcf.gz") || path.ends_with(".vcf.bgz") {
+    } else if path.ends_with(".vcf")
+        || path.ends_with(".vcf.gz")
+        || path.ends_with(".vcf.bgz")
+        || path.ends_with(".bcf")
+    {
         InputFormat::Vcf
     } else if path.ends_with(".gff") || path.ends_with(".gff.gz") || path.ends_with(".gff.bgz") {
         InputFormat::Gff
@@ -537,6 +546,15 @@ pub(crate) async fn register_table(
                 "Registering VCF table {} with options: {:?}",
                 table_name, vcf_read_options
             );
+            let genotype_output_mode = match vcf_read_options.genotype_output.as_str() {
+                "string" => GenotypeOutputMode::String,
+                "dosage" => GenotypeOutputMode::Dosage,
+                value => {
+                    return Err(DataFusionError::Plan(format!(
+                        "Unsupported VCF genotype_output '{value}'. Expected 'string' or 'dosage'."
+                    )));
+                },
+            };
             let table_provider = VcfTableProvider::new_with_samples(
                 path.to_string(),
                 vcf_read_options.info_fields,
@@ -544,8 +562,8 @@ pub(crate) async fn register_table(
                 vcf_read_options.samples,
                 vcf_read_options.object_storage_options.clone(),
                 vcf_read_options.zero_based,
-            )
-            .unwrap();
+            )?
+            .with_genotype_output_mode(genotype_output_mode)?;
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register VCF table");
         },
@@ -957,8 +975,9 @@ mod tests {
     use arrow::array::{Int32Array, StringArray};
     use arrow_schema::{DataType, Field, Schema};
 
-    use super::partition_record_batches;
     use super::RecordBatch;
+    use super::{get_input_format, partition_record_batches};
+    use crate::option::InputFormat;
 
     fn make_batch(start: i32, len: usize) -> RecordBatch {
         let contigs = StringArray::from_iter_values((0..len).map(|_| "chr1"));
@@ -1045,5 +1064,21 @@ mod tests {
 
         assert_eq!(partitions.len(), 1);
         assert_eq!(partition_sizes(&partitions), vec![5]);
+    }
+
+    #[test]
+    fn bcf_paths_use_the_vcf_logical_input_format() {
+        assert_eq!(get_input_format("cohort.bcf"), InputFormat::Vcf);
+        assert_eq!(get_input_format("COHORT.BCF"), InputFormat::Vcf);
+        assert_eq!(
+            get_input_format("https://host/cohort.bcf?token=secret"),
+            InputFormat::Vcf
+        );
+        assert_eq!(
+            get_input_format("s3://bucket/cohort.BCF#download"),
+            InputFormat::Vcf
+        );
+        assert_eq!(get_input_format("/data/cohort#1.bcf"), InputFormat::Vcf);
+        assert_eq!(get_input_format("/data/cohort?1.BCF"), InputFormat::Vcf);
     }
 }

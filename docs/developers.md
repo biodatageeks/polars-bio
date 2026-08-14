@@ -115,7 +115,7 @@ Every `scan_*()` / `read_*()` call flows through the same pipeline:
 ```mermaid
 flowchart TB
     subgraph User["User API"]
-        scan["scan_bam() / scan_vcf() / scan_gff() / ..."]
+        scan["scan_bam() / scan_vcf() / scan_bcf() / scan_gff() / ..."]
     end
 
     subgraph ReadFile["_read_file()"]

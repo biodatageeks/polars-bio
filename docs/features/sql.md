@@ -11,6 +11,17 @@ pb.register_vcf("gs://gcp-public-data--gnomad/release/4.1/genome_sv/gnomad.v4.1.
 pb.sql("SELECT * FROM gnomad_sv WHERE SVTYPE = 'DEL' AND SVLEN > 1000").limit(3).collect()
 ```
 
+BCF uses its dedicated registration API. A companion `.bcf.csi` is discovered
+automatically for indexed range queries and parallel scans:
+
+```python
+pb.register_bcf("cohort.bcf", "cohort_bcf", info_fields=["AF"])
+pb.sql(
+    "SELECT chrom, start, AF FROM cohort_bcf "
+    "WHERE chrom = 'chr21' AND start BETWEEN 1000000 AND 2000000"
+).collect()
+```
+
 Local VCF Zarr stores can be registered with the same SQL context:
 
 ```python

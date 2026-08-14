@@ -8,6 +8,7 @@
         heading_level: 2
         docstring_section_style: table
         members:
+            - read_bcf
             - read_vcf
             - read_vcf_zarr
             - read_bam
@@ -22,6 +23,7 @@
             - read_bigwig
             - read_bigbed
             - read_table
+            - scan_bcf
             - scan_vcf
             - scan_vcf_zarr
             - scan_bam
@@ -36,6 +38,7 @@
             - scan_bigwig
             - scan_bigbed
             - scan_table
+            - describe_bcf
             - describe_vcf
             - describe_vcf_zarr
             - describe_bam

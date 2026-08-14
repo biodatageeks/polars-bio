@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Union
 
 import polars as pl
@@ -15,6 +14,7 @@ from polars_bio.polars_bio import (
 )
 
 from ._metadata import set_coordinate_system
+from ._path_utils import path_suffixes
 from .logging import logger
 from .range_op_io import _df_to_reader, _get_schema, range_lazy_scan
 
@@ -190,15 +190,15 @@ def range_operation(
             df2 = _lazyframe_to_dataframe(df2)
 
     if isinstance(df1, str) and isinstance(df2, str):
-        supported_exts = set([".parquet", ".csv", ".bed", ".vcf"])
-        ext1 = set(Path(df1).suffixes)
+        supported_exts = {".parquet", ".csv", ".bed", ".vcf", ".bcf"}
+        ext1 = set(path_suffixes(df1))
         assert (
             len(supported_exts.intersection(ext1)) > 0 or len(ext1) == 0
-        ), "Dataframe1 must be a Parquet, BED, CSV or VCF file"
-        ext2 = set(Path(df2).suffixes)
+        ), "Dataframe1 must be a Parquet, BED, CSV, VCF or BCF file"
+        ext2 = set(path_suffixes(df2))
         assert (
             len(supported_exts.intersection(ext2)) > 0 or len(ext2) == 0
-        ), "Dataframe2 must be a Parquet, BED, CSV or VCF file"
+        ), "Dataframe2 must be a Parquet, BED, CSV, VCF or BCF file"
         # use suffixes to avoid column name conflicts
 
         if range_options.range_op == RangeOp.CountOverlapsNaive:

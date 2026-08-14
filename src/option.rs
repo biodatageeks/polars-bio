@@ -345,18 +345,22 @@ pub struct VcfReadOptions {
     /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
     #[pyo3(get, set)]
     pub zero_based: bool,
+    /// Physical representation for BCF GT: "string" (default) or "dosage".
+    #[pyo3(get, set)]
+    pub genotype_output: String,
 }
 
 #[pymethods]
 impl VcfReadOptions {
     #[new]
-    #[pyo3(signature = (info_fields=None, format_fields=None, object_storage_options=None, zero_based=true, samples=None))]
+    #[pyo3(signature = (info_fields=None, format_fields=None, object_storage_options=None, zero_based=true, samples=None, genotype_output="string".to_string()))]
     pub fn new(
         info_fields: Option<Vec<String>>,
         format_fields: Option<Vec<String>>,
         object_storage_options: Option<PyObjectStorageOptions>,
         zero_based: bool,
         samples: Option<Vec<String>>,
+        genotype_output: String,
     ) -> Self {
         VcfReadOptions {
             info_fields,
@@ -366,6 +370,7 @@ impl VcfReadOptions {
                 object_storage_options,
             ),
             zero_based,
+            genotype_output,
         }
     }
     #[staticmethod]
@@ -384,6 +389,7 @@ impl VcfReadOptions {
                 compression_type: Some(CompressionType::AUTO),
             }),
             zero_based: true,
+            genotype_output: "string".to_string(),
         }
     }
 }

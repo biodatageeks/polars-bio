@@ -9,6 +9,7 @@
         docstring_section_style: table
         members:
             - sql
+            - register_bcf
             - register_vcf
             - register_vcf_zarr
             - register_bam

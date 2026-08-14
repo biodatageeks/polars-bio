@@ -32,7 +32,7 @@ use datafusion::dataframe::DataFrame;
 use datafusion::datasource::MemTable;
 use datafusion::physical_plan::ExecutionPlanProperties;
 use datafusion_bio_format_core::object_storage::ObjectStorageOptions;
-use datafusion_bio_format_vcf::storage::VcfReader;
+use datafusion_bio_format_vcf::table_provider::describe_fields;
 use datafusion_python::dataframe::PyDataFrame;
 use log::{debug, error, info};
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
@@ -491,11 +491,9 @@ fn py_describe_vcf(
 
         let df = rt
             .block_on(async {
-                let mut reader = VcfReader::new(path, Some(desc_object_storage_options)).await;
-                let rb = reader
-                    .describe()
+                let rb = describe_fields(&path, Some(desc_object_storage_options))
                     .await
-                    .map_err(|e| format!("Failed to describe VCF: {}", e))?;
+                    .map_err(|e| format!("Failed to describe VCF/BCF: {}", e))?;
                 let mem_table = MemTable::try_new(rb.schema().clone(), vec![vec![rb]])
                     .map_err(|e| format!("Failed to create memory table: {}", e))?;
                 let random_table_name = format!("vcf_schema_{}", rand::random::<u32>());

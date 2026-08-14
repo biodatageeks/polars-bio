@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 from typing import Callable, Iterator, Union
 
 import datafusion
@@ -20,6 +19,8 @@ from polars_bio.polars_bio import (
     range_operation_lazy,
     range_operation_scan,
 )
+
+from ._path_utils import path_suffixes
 
 try:
     import pandas as pd
@@ -214,8 +215,7 @@ def _prepare_lazy_stream_input(
     so we do not have to build and consume a temporary Arrow stream just to inspect it.
     """
     if isinstance(df, str):
-        path = Path(df)
-        suffixes = path.suffixes
+        suffixes = path_suffixes(df)
 
         if ".parquet" in suffixes:
             lazy_df = pl.scan_parquet(df)
@@ -344,7 +344,7 @@ def _get_schema(
             else schema
         )
 
-    ext = Path(path).suffixes
+    ext = path_suffixes(path)
     if len(ext) == 0:
         df: DataFrame = py_read_table(ctx, path)
         arrow_schema = df.schema()
@@ -358,7 +358,7 @@ def _get_schema(
         df = pl.read_parquet(path)
     elif ".csv" in ext:
         df = pl.read_csv(path)
-    elif ".vcf" in ext:
+    elif ".vcf" in ext or ".bcf" in ext:
         table = py_register_table(ctx, path, None, InputFormat.Vcf, read_options)
         df: DataFrame = py_read_table(ctx, table.name)
         arrow_schema = df.schema()
@@ -368,7 +368,7 @@ def _get_schema(
         )
         df = pl.from_arrow(empty_table)
     else:
-        raise ValueError("Only CSV and Parquet files are supported")
+        raise ValueError("Only CSV, Parquet, VCF, and BCF files are supported")
     if suffix is not None:
         df = _rename_columns(df, suffix)
     return df.schema

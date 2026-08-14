@@ -45,7 +45,7 @@ and [writing files](writing.md).
 ## [Reading files](reading.md)
 
 Eager (`read_*`), lazy (`scan_*`), and SQL-ready (`register_*`) access to all supported input
-formats (BED, VCF, VCF Zarr, BAM, CRAM, FASTQ, FASTA, GFF3, GTF, Pairs, BigWig, BigBed). Prefer
+formats (BED, VCF, BCF, VCF Zarr, BAM, CRAM, FASTQ, FASTA, GFF3, GTF, Pairs, BigWig, BigBed). Prefer
 `scan_*` — it enables indexed reads with predicate and projection pushdown. Also covers optional
 BAM tags, schema inspection, coordinate-system handling, and the metadata attached to every
 DataFrame.
@@ -69,4 +69,3 @@ Stream bioinformatic files directly from S3, GCS, and Azure via Apache OpenDAL, 
 ## [Parallel processing](parallel.md)
 
 One global `target_partitions` setting controls parallelism for both input reads and range operations across CPU cores.
-
