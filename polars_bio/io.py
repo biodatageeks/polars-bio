@@ -270,11 +270,24 @@ def _validate_variant_input_path(
         raise ValueError("read_bcf() and scan_bcf() require a path ending in '.bcf'")
 
 
-def _validate_bcf_genotype_output(genotype_output: str) -> None:
+def _validate_bcf_genotype_output(
+    genotype_output: str,
+    format_fields: Union[list[str], None] = None,
+) -> None:
     if genotype_output not in {"string", "dosage"}:
         raise ValueError(
             "genotype_output must be either 'string' or 'dosage', "
             f"got {genotype_output!r}"
+        )
+    if (
+        genotype_output == "dosage"
+        and format_fields is not None
+        and format_fields != ["GT"]
+    ):
+        raise ValueError(
+            'BCF genotype_output="dosage" requires GT as the only selected '
+            'FORMAT field (format_fields=["GT"]); '
+            f"got format_fields={format_fields!r}"
         )
 
 
@@ -617,7 +630,7 @@ class IOOperations:
             projection_pushdown: Push column projection into the BCF reader.
             predicate_pushdown: Use a neighboring `.bcf.csi` index for genomic predicate pushdown when available.
             use_zero_based: Select 0-based half-open (`True`) or 1-based closed (`False`) coordinates. *None* uses global configuration.
-            genotype_output: GT representation. `"string"` (default) returns VCF-style calls such as `"0/1"`. `"dosage"` returns the number of ALT alleles per sample as nullable `Int8` (normally 0, 1, or 2 for diploid calls); any missing allele yields null. Dosage requires exactly `format_fields=["GT"]` and biallelic records; multiallelic records are rejected.
+            genotype_output: GT representation. `"string"` (default) returns VCF-style calls such as `"0/1"`. `"dosage"` returns the number of ALT alleles per sample as nullable `Int8` (normally 0, 1, or 2 for diploid calls); any missing allele yields null. Dosage requires GT to be the only selected FORMAT field and requires biallelic records. When `format_fields` is *None*, all header-defined FORMAT fields are selected, so pass `format_fields=["GT"]` when the header declares additional fields. Multiallelic records are rejected.
 
         !!! note
             BCF is input-only. Use `write_vcf` or `sink_vcf` to write text VCF.
@@ -670,10 +683,12 @@ class IOOperations:
         VCF-style GT calls and remains the default. `genotype_output="dosage"`
         returns the number of ALT alleles per sample as nullable `Int8` (normally
         0, 1, or 2 for diploid calls); any missing allele yields null. Dosage
-        requires exactly `format_fields=["GT"]` and biallelic records;
-        multiallelic records are rejected.
+        requires GT to be the only selected FORMAT field and requires biallelic
+        records. When `format_fields` is `None`, all header-defined FORMAT
+        fields are selected, so pass `format_fields=["GT"]` when the header
+        declares additional fields. Multiallelic records are rejected.
         """
-        _validate_bcf_genotype_output(genotype_output)
+        _validate_bcf_genotype_output(genotype_output, format_fields)
         _validate_variant_input_path(path, "bcf")
         return IOOperations._scan_variant(
             path=path,

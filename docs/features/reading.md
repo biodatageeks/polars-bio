@@ -334,13 +334,16 @@ dosage = pb.scan_bcf(
 ```
 
 On `read_bcf` and `scan_bcf`, `genotype_output="string"` is the default and
-preserves VCF-compatible GT values. `genotype_output="dosage"` requires
-exactly `format_fields=["GT"]` and returns the number of ALT alleles per sample
-as nullable `Int8`—normally 0, 1, or 2 for diploid calls. A fully or partially
-missing GT becomes null. Multiallelic records are rejected instead of silently
-collapsing non-reference alleles. Text VCF methods do not expose this BCF-only
-option. Neither the VCF nor BCF methods expose `genotype_encoding_raw`; that
-option remains specific to `read_vcf_zarr` and `scan_vcf_zarr`.
+preserves VCF-compatible GT values. `genotype_output="dosage"` requires GT to
+be the only selected FORMAT field and returns the number of ALT alleles per
+sample as nullable `Int8`—normally 0, 1, or 2 for diploid calls. When
+`format_fields` is omitted, all header-defined FORMAT fields are selected, so
+pass `format_fields=["GT"]` when the header declares additional fields. A fully
+or partially missing GT becomes null. Multiallelic records are rejected instead
+of silently collapsing non-reference alleles. Text VCF methods do not expose
+this BCF-only option. Neither the VCF nor BCF methods expose
+`genotype_encoding_raw`; that option remains specific to `read_vcf_zarr` and
+`scan_vcf_zarr`.
 
 BCF is currently an input format. `write_vcf` / `sink_vcf` still write text VCF
 (optionally gzip/BGZF compressed). It shares the internal logical VCF schema,

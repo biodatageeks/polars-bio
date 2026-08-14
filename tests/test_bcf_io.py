@@ -6,6 +6,7 @@ import shutil
 from contextlib import contextmanager
 
 import polars as pl
+import pysam
 import pytest
 from _expected import DATA_DIR
 from polars.testing import assert_frame_equal
@@ -59,6 +60,17 @@ PARITY_CASES = [
 def _sorted(frame: pl.DataFrame) -> pl.DataFrame:
     """Canonicalize partition-dependent row order without changing the schema."""
     return frame.sort(SORT_COLUMNS)
+
+
+def _invoke_bcf_dosage(operation: str, path: str, **options):
+    """Invoke each public BCF entry point up to provider registration."""
+    if operation == "read":
+        return pb.read_bcf(path, **options)
+    if operation == "scan":
+        return pb.scan_bcf(path, **options)
+    if operation == "register":
+        return pb.register_bcf(path, "bcf_invalid_dosage_options", **options)
+    raise AssertionError(f"unknown test operation: {operation}")
 
 
 @contextmanager
@@ -274,6 +286,152 @@ def test_bcf_single_sample_typed_dosage_preserves_top_level_format_layout():
     assert "genotypes" not in eager.columns
     assert eager["GT"].dtype == pl.Int8
     assert eager["GT"].to_list() == [1, 2]
+
+
+def test_bcf_typed_dosage_default_formats_work_when_header_declares_only_gt():
+    path = str(BCF_DIR / "genotype_missing.bcf")
+    default_formats = pb.read_bcf(path, genotype_output="dosage")
+    explicit_gt = pb.read_bcf(
+        path,
+        format_fields=["GT"],
+        genotype_output="dosage",
+    )
+
+    assert_frame_equal(default_formats, explicit_gt)
+
+
+def test_bcf_typed_dosage_allows_exact_gt_with_no_selected_samples():
+    path = str(BCF_DIR / "multisample.bcf")
+    options = {
+        "format_fields": ["GT"],
+        "samples": [],
+        "genotype_output": "dosage",
+    }
+    eager = pb.read_bcf(path, **options)
+    lazy = pb.scan_bcf(path, **options).collect()
+
+    assert_frame_equal(eager, lazy)
+    assert "GT" not in eager.columns
+    assert "genotypes" not in eager.columns
+
+
+@pytest.mark.parametrize("operation", ["read", "scan", "register"])
+@pytest.mark.parametrize(
+    ("format_fields", "error_detail"),
+    [
+        pytest.param(
+            None,
+            "format_fields=None selects all header-defined FORMAT fields",
+            id="default-all",
+        ),
+        pytest.param([], "got format_fields=[]", id="empty"),
+        pytest.param(["DP"], "got format_fields=['DP']", id="without-gt"),
+        pytest.param(
+            ["GT", "DP"],
+            "got format_fields=['GT', 'DP']",
+            id="gt-and-dp",
+        ),
+        pytest.param(
+            ["GT", "GT"],
+            "got format_fields=['GT', 'GT']",
+            id="duplicate-gt",
+        ),
+    ],
+)
+def test_bcf_typed_dosage_requires_gt_only_even_with_no_selected_samples(
+    operation: str,
+    format_fields: list[str] | None,
+    error_detail: str,
+):
+    with pytest.raises(ValueError) as exc_info:
+        _invoke_bcf_dosage(
+            operation,
+            str(BCF_DIR / "multisample.bcf"),
+            format_fields=format_fields,
+            samples=[],
+            genotype_output="dosage",
+        )
+
+    message = str(exc_info.value)
+    assert "requires GT as the only selected FORMAT field" in message
+    assert error_detail in message
+
+
+@pytest.mark.parametrize("operation", ["read", "scan", "register"])
+def test_bcf_typed_dosage_rejects_invalid_explicit_formats_before_opening_source(
+    operation: str,
+    tmp_path,
+):
+    missing_path = tmp_path / "missing.bcf"
+
+    with pytest.raises(
+        ValueError,
+        match="requires GT as the only selected FORMAT field",
+    ):
+        _invoke_bcf_dosage(
+            operation,
+            str(missing_path),
+            format_fields=["DP"],
+            genotype_output="dosage",
+        )
+
+
+@pytest.mark.parametrize("operation", ["read", "scan", "register"])
+def test_bcf_typed_dosage_requires_gt_declared_in_header(operation: str):
+    with pytest.raises(ValueError, match="GT FORMAT field declared in the BCF header"):
+        _invoke_bcf_dosage(
+            operation,
+            str(BCF_DIR / "ensembl.bcf"),
+            format_fields=["GT"],
+            samples=[],
+            genotype_output="dosage",
+        )
+
+
+@pytest.fixture
+def multiallelic_gt_bcf(tmp_path) -> str:
+    path = tmp_path / "multiallelic-gt.bcf"
+    header = pysam.VariantHeader()
+    header.contigs.add("chr1", length=1000)
+    header.formats.add("GT", number=1, type="String", description="Genotype")
+    header.add_sample("S1")
+
+    with pysam.VariantFile(str(path), "wb", header=header) as writer:
+        record = writer.new_record(
+            contig="chr1",
+            start=9,
+            stop=10,
+            id="rs1",
+            alleles=("A", "C", "G"),
+        )
+        record.samples["S1"]["GT"] = (1, 2)
+        writer.write(record)
+
+    return str(path)
+
+
+@pytest.mark.parametrize("operation", ["read", "scan", "register"])
+def test_bcf_typed_dosage_rejects_multiallelic_records(
+    operation: str,
+    multiallelic_gt_bcf: str,
+):
+    options = {"format_fields": ["GT"], "genotype_output": "dosage"}
+
+    with pytest.raises(
+        pl.exceptions.ComputeError,
+        match="supports exactly one ALT allele; record has 2 ALT alleles",
+    ):
+        if operation == "read":
+            pb.read_bcf(multiallelic_gt_bcf, **options)
+        elif operation == "scan":
+            pb.scan_bcf(multiallelic_gt_bcf, **options).collect()
+        else:
+            pb.register_bcf(
+                multiallelic_gt_bcf,
+                "bcf_multiallelic_dosage",
+                **options,
+            )
+            pb.sql("SELECT COUNT(*) FROM bcf_multiallelic_dosage").collect()
 
 
 @pytest.mark.parametrize("extension", [".bcf", ".BCF"])

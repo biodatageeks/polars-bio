@@ -119,7 +119,7 @@ class SQL:
             info_fields: INFO fields to register. If *None*, all header-defined INFO fields are registered.
             format_fields: FORMAT fields to register. If *None*, all header-defined FORMAT fields are registered.
             samples: Optional sample names to register, in requested order.
-            genotype_output: GT representation. `"string"` (default) returns VCF-style calls such as `"0/1"`. `"dosage"` returns the number of ALT alleles per sample as nullable `Int8` (normally 0, 1, or 2 for diploid calls); any missing allele yields null. Dosage requires exactly `format_fields=["GT"]` and biallelic records; multiallelic records are rejected.
+            genotype_output: GT representation. `"string"` (default) returns VCF-style calls such as `"0/1"`. `"dosage"` returns the number of ALT alleles per sample as nullable `Int8` (normally 0, 1, or 2 for diploid calls); any missing allele yields null. Dosage requires GT to be the only selected FORMAT field and requires biallelic records. When `format_fields` is *None*, all header-defined FORMAT fields are selected, so pass `format_fields=["GT"]` when the header declares additional fields. Multiallelic records are rejected.
             chunk_size: Object-store chunk size in MB.
             concurrent_fetches: Number of concurrent object-store fetches.
             allow_anonymous: Allow anonymous object-store access.
@@ -128,7 +128,7 @@ class SQL:
             enable_request_payer: Enable AWS request-payer access.
             compression_type: Compression override. The default detects BCF automatically.
         """
-        _validate_bcf_genotype_output(genotype_output)
+        _validate_bcf_genotype_output(genotype_output, format_fields)
         _validate_variant_input_path(path, "bcf", operation="register")
         SQL._register_variant(
             path=path,
