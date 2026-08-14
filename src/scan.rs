@@ -20,6 +20,10 @@ use datafusion_bio_format_bbi::bigbed::{
 };
 use datafusion_bio_format_bbi::bigwig::BigWigTableProvider;
 use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
+use datafusion_bio_format_bgen::{
+    BgenOutputMode, BgenReadOptions as NativeBgenReadOptions, BgenTableProvider,
+};
+use datafusion_bio_format_core::genotype::CoordinateSystem;
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
@@ -38,9 +42,9 @@ use tracing::debug;
 
 use crate::context::PyBioSessionContext;
 use crate::option::{
-    BamReadOptions, BedReadOptions, BigBedReadOptions, BigWigReadOptions, CramReadOptions,
-    FastaReadOptions, FastqReadOptions, GffReadOptions, GtfReadOptions, InputFormat,
-    PairsReadOptions, ReadOptions, VcfReadOptions, VcfZarrReadOptions,
+    BamReadOptions, BedReadOptions, BgenReadOptions, BigBedReadOptions, BigWigReadOptions,
+    CramReadOptions, FastaReadOptions, FastqReadOptions, GffReadOptions, GtfReadOptions,
+    InputFormat, PairsReadOptions, ReadOptions, VcfReadOptions, VcfZarrReadOptions,
 };
 
 type BatchResultReceiver = Receiver<Result<RecordBatch, DataFusionError>>;
@@ -482,8 +486,20 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         || path.ends_with(".pairs.bgz")
     {
         InputFormat::Pairs
+    } else if path.ends_with(".bgen") {
+        InputFormat::Bgen
     } else {
         panic!("Unsupported format")
+    }
+}
+
+fn bgen_output_mode(mode: &str) -> datafusion::common::Result<BgenOutputMode> {
+    match mode.to_ascii_lowercase().as_str() {
+        "probability" => Ok(BgenOutputMode::Probability),
+        "dosage" => Ok(BgenOutputMode::Dosage),
+        _ => Err(DataFusionError::Execution(format!(
+            "Unsupported BGEN genotype output '{mode}'. Expected 'probability' or 'dosage'."
+        ))),
     }
 }
 
@@ -767,6 +783,35 @@ pub(crate) async fn register_table(
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register PAIRS table");
+        },
+        InputFormat::Bgen => {
+            let bgen_read_options = match &read_options {
+                Some(options) => match options.clone().bgen_read_options {
+                    Some(bgen_read_options) => bgen_read_options,
+                    _ => BgenReadOptions::default(),
+                },
+                _ => BgenReadOptions::default(),
+            };
+            info!(
+                "Registering BGEN table {} with options: {:?}",
+                table_name, bgen_read_options
+            );
+            let output_mode = bgen_output_mode(&bgen_read_options.genotype_output)?;
+            let native_options = NativeBgenReadOptions {
+                output_mode,
+                sample_path: bgen_read_options.sample_path.clone(),
+                bgi_path: bgen_read_options.bgi_path.clone(),
+                samples: bgen_read_options.samples.clone(),
+                coordinate_system: CoordinateSystem::from_zero_based(bgen_read_options.zero_based),
+                object_storage_options: bgen_read_options.object_storage_options.clone(),
+                ..Default::default()
+            };
+            // Reading a BGEN can fail on user input, such as a sample name that
+            // is not in the file, so the error is returned instead of panicking
+            // inside the extension.
+            let table_provider =
+                BgenTableProvider::try_new(path.to_string(), native_options).await?;
+            ctx.register_table(table_name, Arc::new(table_provider))?;
         },
         InputFormat::Gtf => {
             let gtf_read_options = match &read_options {

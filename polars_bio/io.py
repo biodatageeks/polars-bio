@@ -13,6 +13,7 @@ from polars_bio.polars_bio import (
     BamReadOptions,
     BamWriteOptions,
     BedReadOptions,
+    BgenReadOptions,
     BigBedReadOptions,
     BigWigReadOptions,
     CramReadOptions,
@@ -288,6 +289,22 @@ def _validate_bcf_genotype_output(
             'BCF genotype_output="dosage" requires GT as the only selected '
             'FORMAT field (format_fields=["GT"]); '
             f"got format_fields={format_fields!r}"
+        )
+
+
+def _validate_bgen_input_path(path: str, operation: str = "read") -> None:
+    """Keep the BGEN entry points format-specific."""
+    if not strip_url_parameters(path).lower().endswith(".bgen"):
+        raise ValueError(
+            f"BGEN {operation} requires a path ending in '.bgen', got {path!r}"
+        )
+
+
+def _validate_bgen_genotype_output(genotype_output: str) -> None:
+    if genotype_output not in {"probability", "dosage"}:
+        raise ValueError(
+            "genotype_output must be either 'probability' or 'dosage', "
+            f"got {genotype_output!r}"
         )
 
 
@@ -1911,6 +1928,128 @@ class IOOperations:
         )
 
     @staticmethod
+    def read_bgen(
+        path: str,
+        genotype_output: str = "probability",
+        samples: Union[list[str], None] = None,
+        sample_path: Union[str, None] = None,
+        bgi_path: Union[str, None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Read a BGEN file into a DataFrame.
+
+        One row is one BGEN variant. Encoded alleles stay ordered in `alleles`
+        and are not given reference/alternate semantics.
+
+        Parameters:
+            path: The path to the BGEN file. The path must end in `.bgen`.
+            genotype_output: Genotype representation. `"probability"` (default) keeps every format-defined state in `genotypes.GP`. `"dosage"` emits `genotypes.DS`, the expected copy count of `alleles[1]`, and rejects multiallelic variants.
+            samples: Sample identifiers to emit, in requested order. If *None*, all samples are emitted in file order.
+            sample_path: An explicit Oxford `.sample` companion. Used only when the BGEN has no embedded sample identifiers.
+            bgi_path: An explicit `.bgi` index. A neighbouring `file.bgen.bgi` is discovered automatically.
+            chunk_size: The size in MB of a chunk when reading from an object store.
+            concurrent_fetches: The number of concurrent fetches when reading from an object store.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression override. BGEN block compression is read from the file header.
+            projection_pushdown: Enable column projection pushdown. Metadata-only scans do not read or decompress probability blocks.
+            predicate_pushdown: Use a `.bgi` index for `chrom`, `rsid`, `id`, `start`, and `end` predicate pushdown when one is available.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration.
+
+        !!! note
+            BGEN is input-only.
+        """
+        lf = IOOperations.scan_bgen(
+            path=path,
+            genotype_output=genotype_output,
+            samples=samples,
+            sample_path=sample_path,
+            bgi_path=bgi_path,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+            use_zero_based=use_zero_based,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_bgen(
+        path: str,
+        genotype_output: str = "probability",
+        samples: Union[list[str], None] = None,
+        sample_path: Union[str, None] = None,
+        bgi_path: Union[str, None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read a BGEN file into a LazyFrame.
+
+        BGI range pushdown, projection pushdown, and configured input partition
+        parallelism are preserved. See `read_bgen` for the parameters.
+        """
+        _validate_bgen_genotype_output(genotype_output)
+        _validate_bgen_input_path(path)
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        zero_based = _resolve_zero_based(use_zero_based)
+        bgen_read_options = BgenReadOptions(
+            object_storage_options=object_storage_options,
+            genotype_output=genotype_output,
+            samples=samples,
+            sample_path=sample_path,
+            bgi_path=bgi_path,
+            zero_based=zero_based,
+        )
+        read_options = ReadOptions(bgen_read_options=bgen_read_options)
+        return _read_file(
+            path,
+            InputFormat.Bgen,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
+        )
+
+    @staticmethod
     def read_bed(
         path: str,
         chunk_size: int = 8,
@@ -2348,6 +2487,82 @@ class IOOperations:
             compression_type=compression_type,
         )
         return py_describe_vcf(ctx, path, object_storage_options).to_polars()
+
+    @staticmethod
+    def describe_bgen(
+        path: str,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+        sample_path: Union[str, None] = None,
+    ) -> pl.DataFrame:
+        """
+        Describe the schema a BGEN file produces.
+
+        BGEN has no INFO/FORMAT header, so instead of a field dictionary this
+        returns one row per emitted column, plus the file-level properties the
+        provider records in the Arrow schema metadata: the BGEN layout, whether
+        a `.bgi` index was used, whether sample identifiers were generated, and
+        the coordinate system.
+
+        Parameters:
+            path: The path to the BGEN file. The path must end in `.bgen`.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            compression_type: The compression override.
+            sample_path: An explicit Oxford `.sample` companion, used only when the BGEN has no embedded sample identifiers.
+        """
+        _validate_bgen_input_path(path, operation="describe")
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=8,
+            concurrent_fetches=1,
+            max_retries=1,
+            timeout=10,
+            compression_type=compression_type,
+        )
+        bgen_read_options = BgenReadOptions(
+            object_storage_options=object_storage_options,
+            genotype_output="probability",
+            samples=None,
+            sample_path=sample_path,
+            bgi_path=None,
+            zero_based=_resolve_zero_based(None),
+        )
+        table = py_register_table(
+            ctx,
+            path,
+            None,
+            InputFormat.Bgen,
+            ReadOptions(bgen_read_options=bgen_read_options),
+        )
+        schema = py_get_table_schema(ctx, table.name)
+        metadata = {
+            (key.decode() if isinstance(key, bytes) else key): (
+                value.decode() if isinstance(value, bytes) else value
+            )
+            for key, value in (schema.metadata or {}).items()
+        }
+        described = pl.DataFrame(
+            {
+                "name": [field.name for field in schema],
+                "type": [str(field.type) for field in schema],
+            }
+        )
+        properties = {
+            "layout": metadata.get("bio.bgen.layout"),
+            "index": metadata.get("bio.bgen.index"),
+            "sample_names_synthetic": metadata.get(
+                "bio.bgen.sample_names.synthetic"
+            ),
+            "coordinate_system_zero_based": metadata.get(
+                "bio.coordinate_system_zero_based"
+            ),
+        }
+        return described.with_columns(
+            [pl.lit(value).alias(name) for name, value in properties.items()]
+        )
 
     @staticmethod
     def describe_vcf_zarr(path: str) -> pl.DataFrame:
@@ -3749,6 +3964,8 @@ def _format_to_string(input_format: InputFormat) -> str:
         return "bed"
     elif "Pairs" in format_str:
         return "pairs"
+    elif "Bgen" in format_str:
+        return "bgen"
     else:
         return "unknown"
 
@@ -3808,6 +4025,7 @@ def _read_file(
             "cram",
             "bigwig",
             "bigbed",
+            "bgen",
         ]:
             # For other formats (including SAM via "bam" key), include their specific metadata
             header_metadata = format_specific.get(metadata_key, {})

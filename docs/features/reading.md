@@ -30,6 +30,7 @@ The matrix below summarizes which [performance features](#performance-features) 
 | [GFF3](../api/reading.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [GTF](../api/reading.md#polars_bio.data_input.read_gtf)     | :white_check_mark: | ❌                  | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [Pairs](../api/reading.md#polars_bio.data_input.read_pairs) | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
+| [BGEN](../api/reading.md#polars_bio.data_input.read_bgen)   | :white_check_mark: | :white_check_mark: (BGI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [BigWig](../api/reading.md#polars_bio.data_input.read_bigwig) | :white_check_mark: | ❌ | ❌ | :white_check_mark: | :white_check_mark: |
 | [BigBed](../api/reading.md#polars_bio.data_input.read_bigbed) | :white_check_mark: | ❌ | ❌ | :white_check_mark: | :white_check_mark: |
 
@@ -276,6 +277,47 @@ df = pb.read_fastq("reads.fastq.bgz")  # parallel BGZF decoding when .gzi index 
 ## Format-specific notes
 
 Most formats work through the generic `read_*`/`scan_*`/`register_*` API with no extra options. The formats below expose additional capabilities or behaviors worth knowing about.
+
+### BGEN
+
+BGEN 1.2 and 1.3 genotype files use `read_bgen` / `scan_bgen`, with
+`register_bgen` and `describe_bgen` for registration and schema inspection. One
+row is one BGEN variant. Encoded alleles stay ordered in `alleles` and are not
+assigned reference/alternate semantics, because BGEN does not define them.
+
+- **Genotype output** — `genotype_output="probability"` (default) emits
+  `genotypes.GP`, preserving every format-defined probability state, and
+  `genotypes.PLOIDY`, the declared ploidy of each selected sample.
+  `genotype_output="dosage"` emits `genotypes.DS` instead, the expected copy
+  count of `alleles[1]`, and rejects multiallelic variants.
+- **Probability layout** — for an unphased biallelic record `GP` holds one value
+  per allele-count state; for a phased record it holds one vector per haplotype,
+  haplotype-major. `phased` and `bits` are columns, so a mixed file stays
+  interpretable row by row.
+- **Indexes** — a neighbouring `cohort.bgen.bgi` is auto-discovered and used to
+  push `chrom`, `id`, `rsid`, `start`, and `end` predicates into the scan. Pass
+  `bgi_path` for an index stored elsewhere. Without an index, the provider
+  builds a transient in-memory catalog by scanning variant metadata.
+- **Samples** — identifiers come from the embedded sample block, an explicit
+  `sample_path`, or generated `sample_1`…`sample_N` names. `samples=[...]`
+  selects and reorders the emitted samples, and the emitted order is available
+  via `meta["header"]["sample_names"]`.
+- **Projection** — a scan that selects only metadata columns never reads or
+  decompresses probability blocks.
+
+```python
+import polars_bio as pb
+
+dosage = pb.scan_bgen("cohort.bgen", genotype_output="dosage")
+schema = pb.describe_bgen("cohort.bgen")
+```
+
+!!! note
+    A scan with more than one partition may emit rows out of source order,
+    because partitions are coalesced as their batches become ready. Sort
+    explicitly when row order matters.
+
+BGEN is an input format; polars-bio does not write it.
 
 ### VCF, BCF, and VCF Zarr
 

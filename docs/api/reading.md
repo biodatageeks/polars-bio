@@ -9,6 +9,7 @@
         docstring_section_style: table
         members:
             - read_bcf
+            - read_bgen
             - read_vcf
             - read_vcf_zarr
             - read_bam
@@ -24,6 +25,7 @@
             - read_bigbed
             - read_table
             - scan_bcf
+            - scan_bgen
             - scan_vcf
             - scan_vcf_zarr
             - scan_bam
@@ -39,6 +41,7 @@
             - scan_bigbed
             - scan_table
             - describe_bcf
+            - describe_bgen
             - describe_vcf
             - describe_vcf_zarr
             - describe_bam

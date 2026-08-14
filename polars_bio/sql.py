@@ -1,10 +1,11 @@
-from typing import Union
+from typing import Optional, Union
 
 import polars as pl
 
 from polars_bio.polars_bio import (
     BamReadOptions,
     BedReadOptions,
+    BgenReadOptions,
     BigBedReadOptions,
     BigWigReadOptions,
     CramReadOptions,
@@ -32,6 +33,8 @@ from .io import (
     _normalize_bigbed_schema_mode,
     _normalize_read_tag_type_hints,
     _validate_bcf_genotype_output,
+    _validate_bgen_genotype_output,
+    _validate_bgen_input_path,
     _validate_tag_type_hints,
     _validate_variant_input_path,
 )
@@ -936,6 +939,72 @@ class SQL:
         )
         read_options = ReadOptions(pairs_read_options=pairs_read_options)
         py_register_table(ctx, path, name, InputFormat.Pairs, read_options)
+
+    @staticmethod
+    def register_bgen(
+        path: str,
+        name: Union[str, None] = None,
+        genotype_output: str = "probability",
+        samples: Union[list[str], None] = None,
+        sample_path: Union[str, None] = None,
+        bgi_path: Union[str, None] = None,
+        chunk_size: int = 64,
+        concurrent_fetches: int = 8,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+        use_zero_based: Optional[bool] = None,
+    ) -> None:
+        """
+        Register a BGEN file as a DataFusion table.
+
+        Parameters:
+            path: The path to the BGEN file. The path must end in `.bgen`. A neighbouring `.bgen.bgi` index is auto-discovered.
+            name: The name of the table. If *None*, the name will be generated automatically from the path.
+            genotype_output: Genotype representation. `"probability"` (default) keeps every format-defined state in `genotypes.GP`. `"dosage"` emits `genotypes.DS`, the expected copy count of `alleles[1]`, and rejects multiallelic variants.
+            samples: Sample identifiers to register, in requested order.
+            sample_path: An explicit Oxford `.sample` companion, used only when the BGEN has no embedded sample identifiers.
+            bgi_path: An explicit `.bgi` index location.
+            chunk_size: The size in MB of a chunk when reading from an object store.
+            concurrent_fetches: The number of concurrent fetches when reading from an object store.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            compression_type: The compression override. BGEN block compression is read from the file header.
+            use_zero_based: If True, register 0-based half-open coordinates. If False, 1-based closed. If None (default), uses the global configuration.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.register_bgen("cohort.bgen", "cohort", genotype_output="dosage")
+            pb.sql("SELECT rsid, genotypes FROM cohort WHERE chrom = '22'").collect()
+            ```
+        """
+        _validate_bgen_genotype_output(genotype_output)
+        _validate_bgen_input_path(path, operation="register")
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        bgen_read_options = BgenReadOptions(
+            object_storage_options=object_storage_options,
+            genotype_output=genotype_output,
+            samples=samples,
+            sample_path=sample_path,
+            bgi_path=bgi_path,
+            zero_based=_resolve_zero_based(use_zero_based),
+        )
+        read_options = ReadOptions(bgen_read_options=bgen_read_options)
+        py_register_table(ctx, path, name, InputFormat.Bgen, read_options)
 
     @staticmethod
     def sql(query: str) -> pl.LazyFrame:

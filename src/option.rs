@@ -144,6 +144,7 @@ pub enum InputFormat {
     Pairs,
     BigWig,
     BigBed,
+    Bgen,
 }
 
 #[pyclass(eq, get_all, from_py_object)]
@@ -172,6 +173,7 @@ impl fmt::Display for InputFormat {
             InputFormat::Pairs => "PAIRS",
             InputFormat::BigWig => "BigWig",
             InputFormat::BigBed => "BigBed",
+            InputFormat::Bgen => "BGEN",
         };
         write!(f, "{}", text)
     }
@@ -203,12 +205,14 @@ pub struct ReadOptions {
     pub bigwig_read_options: Option<BigWigReadOptions>,
     #[pyo3(get, set)]
     pub bigbed_read_options: Option<BigBedReadOptions>,
+    #[pyo3(get, set)]
+    pub bgen_read_options: Option<BgenReadOptions>,
 }
 
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None, bigwig_read_options=None, bigbed_read_options=None))]
+    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None, bigwig_read_options=None, bigbed_read_options=None, bgen_read_options=None))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
@@ -223,6 +227,7 @@ impl ReadOptions {
         vcf_zarr_read_options: Option<VcfZarrReadOptions>,
         bigwig_read_options: Option<BigWigReadOptions>,
         bigbed_read_options: Option<BigBedReadOptions>,
+        bgen_read_options: Option<BgenReadOptions>,
     ) -> Self {
         ReadOptions {
             vcf_read_options,
@@ -237,6 +242,7 @@ impl ReadOptions {
             vcf_zarr_read_options,
             bigwig_read_options,
             bigbed_read_options,
+            bgen_read_options,
         }
     }
 }
@@ -826,6 +832,71 @@ impl FastaReadOptions {
                 compression_type: Some(CompressionType::AUTO),
             }),
             parallel: true,
+        }
+    }
+}
+
+#[pyclass(name = "BgenReadOptions", from_py_object)]
+#[derive(Clone, Debug)]
+pub struct BgenReadOptions {
+    pub object_storage_options: Option<ObjectStorageOptions>,
+    /// `"probability"` keeps every BGEN state, `"dosage"` emits biallelic ALT dosage.
+    #[pyo3(get, set)]
+    pub genotype_output: String,
+    /// Sample identifiers to emit, in requested order.
+    #[pyo3(get, set)]
+    pub samples: Option<Vec<String>>,
+    /// Explicit Oxford `.sample` companion, used only when IDs are not embedded.
+    #[pyo3(get, set)]
+    pub sample_path: Option<String>,
+    /// Explicit `.bgi` index location. A neighbouring index is discovered otherwise.
+    #[pyo3(get, set)]
+    pub bgi_path: Option<String>,
+    /// If true, output 0-based half-open coordinates; if false, 1-based closed.
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+}
+
+#[pymethods]
+impl BgenReadOptions {
+    #[new]
+    #[pyo3(signature = (object_storage_options=None, genotype_output="probability".to_string(), samples=None, sample_path=None, bgi_path=None, zero_based=false))]
+    pub fn new(
+        object_storage_options: Option<PyObjectStorageOptions>,
+        genotype_output: String,
+        samples: Option<Vec<String>>,
+        sample_path: Option<String>,
+        bgi_path: Option<String>,
+        zero_based: bool,
+    ) -> Self {
+        BgenReadOptions {
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
+            genotype_output,
+            samples,
+            sample_path,
+            bgi_path,
+            zero_based,
+        }
+    }
+    #[staticmethod]
+    pub fn default() -> Self {
+        BgenReadOptions {
+            object_storage_options: Some(ObjectStorageOptions {
+                chunk_size: Some(1024 * 1024), // 1MB
+                concurrent_fetches: Some(4),
+                allow_anonymous: false,
+                enable_request_payer: false,
+                max_retries: Some(5),
+                timeout: Some(300), // 300 seconds
+                compression_type: Some(CompressionType::AUTO),
+            }),
+            genotype_output: "probability".to_string(),
+            samples: None,
+            sample_path: None,
+            bgi_path: None,
+            zero_based: false,
         }
     }
 }
