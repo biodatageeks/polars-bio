@@ -68,7 +68,7 @@ Variant and sample order must remain unchanged.
 |---|---:|---|
 | pysam | 0.24.0 | native iterator, preallocated matrix |
 | cyvcf2 | 0.31.4 | native iterator, vectorized per-record dosage |
-| polars-bio | 0.33.1 feature branch | lazy scan, streaming collection |
+| polars-bio | 0.34.0 | lazy scan, streaming collection |
 | snputils | pinned development commit | specialized eager reader |
 
 PyVCF3 is omitted because it does not support BCF input.
@@ -80,8 +80,8 @@ configuration happen before the timer. The machine is a 16-core Apple M3 Max
 MacBook Pro with 64 GiB RAM and macOS 15.6. Measurements use a warm filesystem
 cache and a deterministically rotated reader order.
 
-The polars-bio extension was built from the reviewed feature branch in release
-mode with native CPU optimizations:
+The polars-bio extension was built in release mode with native CPU
+optimizations:
 
 ```bash
 RUSTFLAGS="-C target-cpu=native" maturin develop --release --locked
@@ -211,6 +211,12 @@ so core columns, INFO, FORMAT strings, and typed GT dosage all benefit.
 
 ## Try it
 
+Install the version used for this BCF API:
+
+```bash
+pip install polars-bio==0.34.0
+```
+
 BCF has its own public lazy entry point, `scan_bcf`; `scan_vcf` is reserved for
 text VCF:
 
@@ -249,6 +255,3 @@ region = (
 
 - [25,000-variant benchmark report and raw runs](https://github.com/biodatageeks/bioformats-benchmark/blob/5fa546e9212aaf49b985d53c0105153ae61eb917/GENOTYPE_READER_BENCHMARK.md)
 - [Full-chromosome benchmark report and raw runs](https://github.com/biodatageeks/bioformats-benchmark/blob/5fa546e9212aaf49b985d53c0105153ae61eb917/BCF_BENCHMARK.md)
-- [Reproducible benchmark pull request](https://github.com/biodatageeks/bioformats-benchmark/pull/3)
-- [datafusion-bio-formats BCF pull request](https://github.com/biodatageeks/datafusion-bio-formats/pull/218)
-- [polars-bio BCF pull request](https://github.com/biodatageeks/polars-bio/pull/435)
