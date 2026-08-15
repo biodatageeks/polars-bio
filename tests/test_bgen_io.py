@@ -26,6 +26,12 @@ EXPECTED_DOSAGE = np.array(
 EXPECTED_PROBABILITY_WIDTH = 3
 
 
+def _genotype_field(schema, name: str) -> pl.DataType:
+    """Look the genotype struct field up by name rather than by position."""
+    fields = {field.name: field.dtype for field in schema["genotypes"].fields}
+    return fields[name]
+
+
 def _dosage_matrix(frame: pl.DataFrame) -> np.ndarray:
     column = frame.select("genotypes").to_arrow().column("genotypes").combine_chunks()
     struct = column.chunk(0) if hasattr(column, "chunk") else column
@@ -197,13 +203,13 @@ class TestBgenProbabilityLayout:
 
     def test_default_layout_is_nested(self):
         schema = pb.scan_bgen(str(BGEN_PATH)).collect_schema()
-        assert schema["genotypes"].fields[0].dtype == pl.List(pl.List(pl.Float32))
+        assert _genotype_field(schema, "GP") == pl.List(pl.List(pl.Float32))
 
     def test_fixed_layout_declares_the_width_in_the_schema(self):
         schema = pb.scan_bgen(
             str(BGEN_PATH), probability_layout="fixed"
         ).collect_schema()
-        assert schema["genotypes"].fields[0].dtype == pl.List(
+        assert _genotype_field(schema, "GP") == pl.List(
             pl.Array(pl.Float32, EXPECTED_PROBABILITY_WIDTH)
         )
 

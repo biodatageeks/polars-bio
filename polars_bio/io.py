@@ -2525,6 +2525,12 @@ class IOOperations:
             enable_request_payer: Whether to enable request payer for object storage.
             compression_type: The compression override.
             sample_path: An explicit Oxford `.sample` companion, used only when the BGEN has no embedded sample identifiers.
+
+        !!! note
+            The reported schema is the one the default `probability_layout="nested"`
+            produces, because that layout describes every BGEN file. Reading with
+            `probability_layout="fixed"` gives `genotypes.GP` a fixed-width state
+            list instead.
         """
         _validate_bgen_input_path(path, operation="describe")
         object_storage_options = PyObjectStorageOptions(
