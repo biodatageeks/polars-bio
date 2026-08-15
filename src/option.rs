@@ -843,6 +843,10 @@ pub struct BgenReadOptions {
     /// `"probability"` keeps every BGEN state, `"dosage"` emits biallelic ALT dosage.
     #[pyo3(get, set)]
     pub genotype_output: String,
+    /// `"nested"` emits a variable-length state list per sample, `"fixed"` a
+    /// fixed-width one that drops the per-sample offsets.
+    #[pyo3(get, set)]
+    pub probability_layout: String,
     /// Sample identifiers to emit, in requested order.
     #[pyo3(get, set)]
     pub samples: Option<Vec<String>>,
@@ -860,10 +864,11 @@ pub struct BgenReadOptions {
 #[pymethods]
 impl BgenReadOptions {
     #[new]
-    #[pyo3(signature = (object_storage_options=None, genotype_output="probability".to_string(), samples=None, sample_path=None, bgi_path=None, zero_based=false))]
+    #[pyo3(signature = (object_storage_options=None, genotype_output="probability".to_string(), probability_layout="nested".to_string(), samples=None, sample_path=None, bgi_path=None, zero_based=false))]
     pub fn new(
         object_storage_options: Option<PyObjectStorageOptions>,
         genotype_output: String,
+        probability_layout: String,
         samples: Option<Vec<String>>,
         sample_path: Option<String>,
         bgi_path: Option<String>,
@@ -874,6 +879,7 @@ impl BgenReadOptions {
                 object_storage_options,
             ),
             genotype_output,
+            probability_layout,
             samples,
             sample_path,
             bgi_path,
@@ -893,6 +899,7 @@ impl BgenReadOptions {
                 compression_type: Some(CompressionType::AUTO),
             }),
             genotype_output: "probability".to_string(),
+            probability_layout: "nested".to_string(),
             samples: None,
             sample_path: None,
             bgi_path: None,

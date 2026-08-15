@@ -301,6 +301,14 @@ def _validate_bgen_input_path(path: str, operation: str = "read") -> None:
         )
 
 
+def _validate_bgen_probability_layout(probability_layout: str) -> None:
+    if probability_layout not in {"nested", "fixed"}:
+        raise ValueError(
+            "probability_layout must be either 'nested' or 'fixed', "
+            f"got {probability_layout!r}"
+        )
+
+
 def _validate_bgen_genotype_output(genotype_output: str) -> None:
     if genotype_output not in {"probability", "dosage"}:
         raise ValueError(
@@ -1932,6 +1940,7 @@ class IOOperations:
     def read_bgen(
         path: str,
         genotype_output: str = "probability",
+        probability_layout: str = "nested",
         samples: Union[list[str], None] = None,
         sample_path: Union[str, None] = None,
         bgi_path: Union[str, None] = None,
@@ -1975,6 +1984,7 @@ class IOOperations:
         lf = IOOperations.scan_bgen(
             path=path,
             genotype_output=genotype_output,
+            probability_layout=probability_layout,
             samples=samples,
             sample_path=sample_path,
             bgi_path=bgi_path,
@@ -1999,6 +2009,7 @@ class IOOperations:
     def scan_bgen(
         path: str,
         genotype_output: str = "probability",
+        probability_layout: str = "nested",
         samples: Union[list[str], None] = None,
         sample_path: Union[str, None] = None,
         bgi_path: Union[str, None] = None,
@@ -2020,6 +2031,7 @@ class IOOperations:
         parallelism are preserved. See `read_bgen` for the parameters.
         """
         _validate_bgen_genotype_output(genotype_output)
+        _validate_bgen_probability_layout(probability_layout)
         _validate_bgen_input_path(path)
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -2035,6 +2047,7 @@ class IOOperations:
         bgen_read_options = BgenReadOptions(
             object_storage_options=object_storage_options,
             genotype_output=genotype_output,
+            probability_layout=probability_layout,
             samples=samples,
             sample_path=sample_path,
             bgi_path=bgi_path,
@@ -2526,6 +2539,7 @@ class IOOperations:
         bgen_read_options = BgenReadOptions(
             object_storage_options=object_storage_options,
             genotype_output="probability",
+            probability_layout="nested",
             samples=None,
             sample_path=sample_path,
             bgi_path=None,

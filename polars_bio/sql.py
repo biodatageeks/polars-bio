@@ -35,6 +35,7 @@ from .io import (
     _validate_bcf_genotype_output,
     _validate_bgen_genotype_output,
     _validate_bgen_input_path,
+    _validate_bgen_probability_layout,
     _validate_tag_type_hints,
     _validate_variant_input_path,
 )
@@ -945,6 +946,7 @@ class SQL:
         path: str,
         name: Union[str, None] = None,
         genotype_output: str = "probability",
+        probability_layout: str = "nested",
         samples: Union[list[str], None] = None,
         sample_path: Union[str, None] = None,
         bgi_path: Union[str, None] = None,
@@ -984,6 +986,7 @@ class SQL:
             ```
         """
         _validate_bgen_genotype_output(genotype_output)
+        _validate_bgen_probability_layout(probability_layout)
         _validate_bgen_input_path(path, operation="register")
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -998,6 +1001,7 @@ class SQL:
         bgen_read_options = BgenReadOptions(
             object_storage_options=object_storage_options,
             genotype_output=genotype_output,
+            probability_layout=probability_layout,
             samples=samples,
             sample_path=sample_path,
             bgi_path=bgi_path,

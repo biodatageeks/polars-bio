@@ -21,7 +21,8 @@ use datafusion_bio_format_bbi::bigbed::{
 use datafusion_bio_format_bbi::bigwig::BigWigTableProvider;
 use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
 use datafusion_bio_format_bgen::{
-    BgenOutputMode, BgenReadOptions as NativeBgenReadOptions, BgenTableProvider,
+    BgenOutputMode, BgenProbabilityLayout, BgenReadOptions as NativeBgenReadOptions,
+    BgenTableProvider,
 };
 use datafusion_bio_format_core::genotype::CoordinateSystem;
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
@@ -493,6 +494,16 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
     }
 }
 
+fn bgen_probability_layout(layout: &str) -> datafusion::common::Result<BgenProbabilityLayout> {
+    match layout.to_ascii_lowercase().as_str() {
+        "nested" => Ok(BgenProbabilityLayout::Nested),
+        "fixed" => Ok(BgenProbabilityLayout::Fixed),
+        _ => Err(DataFusionError::Execution(format!(
+            "Unsupported BGEN probability layout '{layout}'. Expected 'nested' or 'fixed'."
+        ))),
+    }
+}
+
 fn bgen_output_mode(mode: &str) -> datafusion::common::Result<BgenOutputMode> {
     match mode.to_ascii_lowercase().as_str() {
         "probability" => Ok(BgenOutputMode::Probability),
@@ -818,8 +829,11 @@ async fn register_table_provider(
                 table_name, bgen_read_options
             );
             let output_mode = bgen_output_mode(&bgen_read_options.genotype_output)?;
+            let probability_layout =
+                bgen_probability_layout(&bgen_read_options.probability_layout)?;
             let native_options = NativeBgenReadOptions {
                 output_mode,
+                probability_layout,
                 sample_path: bgen_read_options.sample_path.clone(),
                 bgi_path: bgen_read_options.bgi_path.clone(),
                 samples: bgen_read_options.samples.clone(),
