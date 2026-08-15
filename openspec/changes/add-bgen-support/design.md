@@ -51,6 +51,29 @@ extra output volume in dosage mode, which is visible in the benchmark's peak
 RSS; the alternative — assuming diploid — would silently corrupt non-diploid
 files.
 
+### Probability storage is a layout choice, not a schema guess
+
+Per-sample list offsets are about a quarter of the emitted probability bytes for
+a diploid biallelic cohort, and for a file with one width they are entirely
+redundant. Emitting a fixed-width list instead removes them.
+
+That cannot be the default, and it cannot be auto-detected. BGEN permits each
+variant its own state count, and the width has to appear in the schema before
+any block is decoded, so a provider that guessed from the first variant would
+produce a schema it might later have to violate. The width is therefore read
+once from the first variant's block header only when the caller asks for the
+fixed layout, and any variant that disagrees fails the scan rather than being
+padded or truncated.
+
+Alternative considered: pad every sample to the widest state vector and always
+emit a fixed width. Rejected because it invents probability values, which the
+provider does not do elsewhere, and because the padding would be
+indistinguishable from a genuine state.
+
+snputils' native bulk probability reader makes the same requirement and falls
+back when it does not hold, so this is the shape a peer implementation of the
+same format arrived at independently.
+
 ### Description reports the emitted schema, not a field dictionary
 
 `describe_vcf` and `describe_bcf` return an INFO/FORMAT dictionary. BGEN has no

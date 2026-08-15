@@ -32,6 +32,37 @@ lazy, registration, and description methods, emitting one row per BGEN variant.
 - **WHEN** a path that does not end in `.bgen` is passed to a BGEN method
 - **THEN** the call raises `ValueError` naming the expected suffix.
 
+### Requirement: BGEN Probability Storage Layout
+
+The system SHALL store probability states as a variable-length list per sample
+by default, and SHALL offer a fixed-width layout for files whose variants all
+store the same number of states.
+
+#### Scenario: Default layout
+- **WHEN** probabilities are read without selecting a layout
+- **THEN** each sample's states are a variable-length list
+- **AND** a file whose variants store different numbers of states is readable.
+
+#### Scenario: Fixed layout
+- **WHEN** `probability_layout="fixed"` is selected
+- **THEN** the collected schema declares the number of states per sample
+- **AND** the probabilities equal those the default layout returns
+- **AND** every sample of a variant is present, whether or not it was called.
+
+#### Scenario: Fixed layout on a file that mixes state counts
+- **WHEN** `probability_layout="fixed"` is selected and a variant stores a
+  different number of states than the declared width
+- **THEN** the read fails and names the layout
+- **AND** no value is padded or truncated to fit.
+
+#### Scenario: Unknown layout
+- **WHEN** a layout other than `"nested"` or `"fixed"` is given
+- **THEN** the call raises `ValueError` before any file is opened.
+
+#### Scenario: Layout and dosage output
+- **WHEN** a layout is given together with `genotype_output="dosage"`
+- **THEN** the dosage output is unaffected.
+
 ### Requirement: BGEN Sample Selection And Metadata
 
 The system SHALL resolve sample identifiers from the file and SHALL report the

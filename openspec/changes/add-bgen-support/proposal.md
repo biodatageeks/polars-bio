@@ -18,6 +18,10 @@ costs a full rewrite of the cohort.
   `genotypes.PLOIDY`.
 - Expose `genotype_output="dosage"`, emitting `genotypes.DS` as the expected
   copy count of `alleles[1]`, and reject multiallelic variants in that mode.
+- Expose `probability_layout="fixed"`, storing each sample's states as a
+  fixed-width list so the per-sample offsets are not emitted, for files whose
+  variants all store the same number of states. `"nested"` remains the default
+  because BGEN does not require a uniform width.
 - Discover a neighbouring `.bgi` index and push `chrom`, `id`, `rsid`, `start`,
   and `end` predicates into the scan; accept an explicit `bgi_path`.
 - Resolve sample identifiers from the embedded sample block, an explicit

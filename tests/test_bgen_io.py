@@ -192,6 +192,70 @@ class TestBgenDescribe:
         assert leftovers == []
 
 
+class TestBgenProbabilityLayout:
+    """The fixed layout drops per-sample offsets but needs one shared width."""
+
+    def test_default_layout_is_nested(self):
+        schema = pb.scan_bgen(str(BGEN_PATH)).collect_schema()
+        assert schema["genotypes"].fields[0].dtype == pl.List(pl.List(pl.Float32))
+
+    def test_fixed_layout_declares_the_width_in_the_schema(self):
+        schema = pb.scan_bgen(
+            str(BGEN_PATH), probability_layout="fixed"
+        ).collect_schema()
+        assert schema["genotypes"].fields[0].dtype == pl.List(
+            pl.Array(pl.Float32, EXPECTED_PROBABILITY_WIDTH)
+        )
+
+    def test_fixed_layout_returns_the_same_probabilities(self):
+        def states(layout):
+            frame = pb.read_bgen(
+                str(BGEN_PATH), probability_layout=layout
+            ).sort("start")
+            column = (
+                frame.select("genotypes")
+                .to_arrow()
+                .column("genotypes")
+                .combine_chunks()
+            )
+            struct = column.chunk(0) if hasattr(column, "chunk") else column
+            per_sample = struct.field("GP").values
+            return np.asarray(
+                per_sample.values.to_numpy(zero_copy_only=False), dtype=np.float32
+            )
+
+        np.testing.assert_array_equal(states("nested"), states("fixed"))
+
+    def test_fixed_layout_preserves_the_sample_count_per_variant(self):
+        # A fixed-width slot exists for every sample, so the per-variant list
+        # still has one entry per sample rather than only the called ones.
+        frame = pb.read_bgen(str(BGEN_PATH), probability_layout="fixed").sort("start")
+        column = (
+            frame.select("genotypes").to_arrow().column("genotypes").combine_chunks()
+        )
+        struct = column.chunk(0) if hasattr(column, "chunk") else column
+        first_variant = struct.field("GP")[0]
+        assert len(first_variant) == len(EXPECTED_SAMPLES)
+        assert all(sample.as_py() is not None for sample in first_variant)
+
+    # A file that mixes state counts is rejected by the provider; the fixture
+    # here is uniformly three states, so that path is covered by
+    # `fixed_probability_layout_rejects_a_mixed_width_file` in
+    # datafusion-bio-format-bgen rather than duplicated with a second fixture.
+
+    def test_unknown_layout_is_rejected(self):
+        with pytest.raises(ValueError, match="probability_layout"):
+            pb.scan_bgen(str(BGEN_PATH), probability_layout="packed")
+
+    def test_layout_is_ignored_for_dosage(self):
+        frame = pb.read_bgen(
+            str(BGEN_PATH), genotype_output="dosage", probability_layout="fixed"
+        ).sort("start")
+        np.testing.assert_allclose(
+            _dosage_matrix(frame), EXPECTED_DOSAGE, rtol=0, atol=1 / 255
+        )
+
+
 class TestBgenValidation:
     @pytest.mark.parametrize(
         "call",

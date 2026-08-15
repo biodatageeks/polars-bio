@@ -294,6 +294,14 @@ assigned reference/alternate semantics, because BGEN does not define them.
   per allele-count state; for a phased record it holds one vector per haplotype,
   haplotype-major. `phased` and `bits` are columns, so a mixed file stays
   interpretable row by row.
+- **Probability storage** — `probability_layout="nested"` (default) stores each
+  sample's states as a variable-length list, which every BGEN file can use.
+  `probability_layout="fixed"` stores them as a fixed-width list instead,
+  dropping the per-sample offsets that are about a quarter of the emitted
+  probability bytes for a diploid biallelic cohort. It requires every variant to
+  store the same number of states and rejects a file that mixes them, so reach
+  for it on whole-cohort imputed data and stay on the default otherwise. The
+  option has no effect when `genotype_output="dosage"`.
 - **Indexes** — a neighbouring `cohort.bgen.bgi` is auto-discovered and used to
   push `chrom`, `id`, `rsid`, `start`, and `end` predicates into the scan. Pass
   `bgi_path` for an index stored elsewhere. Without an index, the provider
@@ -310,6 +318,9 @@ import polars_bio as pb
 
 dosage = pb.scan_bgen("cohort.bgen", genotype_output="dosage")
 schema = pb.describe_bgen("cohort.bgen")
+
+# Uniform-width probabilities without the per-sample offsets.
+probabilities = pb.scan_bgen("cohort.bgen", probability_layout="fixed")
 ```
 
 !!! note

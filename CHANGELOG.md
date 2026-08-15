@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   format-defined probability state, `genotype_output="dosage"` emits the
   expected copy count of `alleles[1]`, and a neighbouring `.bgi` index is used
   for `chrom`/`rsid`/`id`/`start`/`end` predicate pushdown.
+  `probability_layout="fixed"` stores probabilities as a fixed-width list per
+  sample, dropping the per-sample offsets, for files whose variants all store
+  the same number of states.
 - Dedicated `read_bcf()`, `scan_bcf()`, `describe_bcf()`, and `register_bcf()`
   APIs. BCF keeps
   `genotype_output="string"|"dosage"`, CSI predicate pushdown, and parallel
