@@ -1964,6 +1964,7 @@ class IOOperations:
         Parameters:
             path: The path to the BGEN file. The path must end in `.bgen`.
             genotype_output: Genotype representation. `"probability"` (default) keeps every format-defined state in `genotypes.GP`. `"dosage"` emits `genotypes.DS`, the expected copy count of `alleles[1]`, and rejects multiallelic variants.
+            probability_layout: How probability states are stored. `"nested"` (default) gives each sample a variable-length list and reads every BGEN file. `"fixed"` gives each sample a fixed-width list, dropping the per-sample offsets that are about a quarter of the emitted probability bytes for a diploid biallelic cohort; it requires every variant to store the same number of states and rejects a file that mixes them. Ignored when `genotype_output="dosage"`.
             samples: Sample identifiers to emit, in requested order. If *None*, all samples are emitted in file order.
             sample_path: An explicit Oxford `.sample` companion. Used only when the BGEN has no embedded sample identifiers.
             bgi_path: An explicit `.bgi` index. A neighbouring `file.bgen.bgi` is discovered automatically.
