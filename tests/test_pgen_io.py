@@ -337,3 +337,27 @@ class TestPgenMetadata:
         lazy = pb.scan_pgen(str(ORACLE_PATH))
         identities = pb.get_metadata(lazy)["header"]["sample_identities"]
         assert [identity["iid"] for identity in identities] == ORACLE_SAMPLES
+
+
+class TestPgenPushdown:
+    def test_projection_of_metadata_columns_only(self):
+        frame = pb.scan_pgen(str(ORACLE_PATH)).select("chrom", "id").collect()
+        assert frame.columns == ["chrom", "id"]
+        assert frame.height == 3
+
+    def test_predicate_selects_a_single_variant(self):
+        frame = pb.scan_pgen(str(ORACLE_PATH)).filter(pl.col("id") == "v2").collect()
+        assert frame["id"].to_list() == ["v2"]
+
+    def test_predicate_selects_a_chromosome(self):
+        frame = (
+            pb.scan_pgen(str(ORACLE_PATH))
+            .filter(pl.col("chrom") == "1")
+            .collect()
+            .sort("start")
+        )
+        assert frame["id"].to_list() == ["v1", "v2"]
+
+    def test_limit_is_applied(self):
+        frame = pb.scan_pgen(str(ORACLE_PATH)).limit(1).collect()
+        assert frame.height == 1
