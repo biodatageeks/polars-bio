@@ -19,7 +19,8 @@ polars-bio against snputils on the same chromosome in three formats, with one
 constraint held fixed throughout: **every reader gets one thread, and every
 comparison produces the same values.**
 
-polars-bio is faster than snputils on BCF and slower on PGEN and BGEN. Where it
+polars-bio is faster than snputils on BCF and PGEN, and slower on BGEN. On PGEN
+it also comes within a few percent of pgenlib, PLINK 2's own C reader. Where it
 loses, the reason is identified rather than glossed. In all three formats
 polars-bio is bit-identical to an independent reference implementation across
 2.53 billion genotypes; snputils is not, on BGEN.
@@ -104,21 +105,27 @@ one format where it wins outright at equal core count.
 
 | Reader | Hardcall | Dosage |
 |---|---:|---:|
-| pgenlib | **0.797 s** | **1.782 s** |
-| snputils | 1.467 s | 3.252 s |
-| polars-bio | 4.202 s | 5.615 s |
+| pgenlib | **0.827 s** | **1.779 s** |
+| **polars-bio** | **0.940 s** | **1.849 s** |
+| snputils | 1.487 s | 3.181 s |
 
-polars-bio is 2.9× slower than snputils on hardcalls and 1.7× slower on dosage.
-Note that snputils *is* pgenlib plus a NumPy wrapper here — the ~0.67 s between
-them is wrapper overhead — so the meaningful comparison is against pgenlib's
-0.797 s.
+polars-bio is **1.6× faster than snputils on hardcalls and 1.7× faster on
+dosage**, and lands **1.14× and 1.04× of pgenlib's time**. Note that snputils
+*is* pgenlib plus a NumPy wrapper here, so the meaningful comparison is against
+pgenlib itself, and coming within 4% of a C reader that decodes straight into
+the caller's array is the result worth reporting.
+
+This is a large change from the previous revision of this post, which had
+polars-bio at 4.202 s and 5.615 s. Three things moved it, and one of them was a
+harness bug — details in [Where the time went](#where-the-time-went).
 
 Two representation notes. PLINK 2 stores hardcalls as two bits per genotype, so
-`int8` output is the natural target; polars-bio grew an `ALT_COUNT` column for
-exactly this, which cut its peak memory from 17.9 GB to 8.5 GB. Its `DS` column
-stays `float32` because PGEN dosages are genuinely fractional — a dosage fileset
-holds values like `0.125` that no integer type can carry. pgenlib pays the same
-tax: identical records cost it 0.797 s as `int8` and 1.782 s as `float32`.
+`int8` output is the natural target; polars-bio's `ALT_COUNT` column emits
+exactly that, one byte per genotype rather than the four `DS` needs — 2.53 GB of
+output on this chromosome instead of 10.13 GB. Its `DS` column stays `float32`
+because PGEN dosages are genuinely fractional — a dosage fileset holds values
+like `0.125` that no integer type can carry. pgenlib pays the same tax:
+identical records cost it 0.827 s as `int8` and 1.779 s as `float32`.
 
 ### BGEN — float32 dosage
 
@@ -137,25 +144,53 @@ reads the same file in **6.296 s** against the `bgen` package's 15.024 s and
 snputils' 21.171 s. That is a real capability, and it is reported here as an
 aside rather than in the table above, because it is not a one-thread result.
 
-## Where polars-bio loses, and why
+## Where the time went
 
-The losses are mechanical, not mysterious.
+**BGEN** is decompression-bound, and is the one format where polars-bio still
+loses at one thread. snputils' reader is a C extension built around libdeflate;
+polars-bio decompresses the same blocks and then builds Arrow arrays on top.
+Per-core there is no structural advantage to be had, and this is the format
+where partition parallelism matters most, as the eight-partition figure above
+shows.
 
-**BGEN** is decompression-bound. snputils' reader is a C extension built around
-libdeflate; polars-bio decompresses the same blocks and then builds Arrow arrays
-on top. Per-core there is no structural advantage to be had, and this is the
-format where partition parallelism matters most, as the eight-partition figure
-above shows.
+**PGEN** went from 5.615 s to 1.849 s on dosage over three changes, and it is
+worth being precise about which did what, because one of them was a measurement
+fix rather than a speedup.
 
-**PGEN** is bound by LD reconstruction. `plink2 --make-pgen` writes
-LD-compressed records — 81% of this fixture — where each variant is a difflist
-against the previous one. polars-bio reconstructs a code per sample and a second
-pass converts it to output; pgenlib fuses the two. Profiling the Rust scan alone
-shows no single hotspot above about a fifth of samples, so closing it means
-restructuring the decode core rather than tuning a loop.
+*The decode was doing a pass the record does not need.* 81% of a
+`plink2 --make-pgen` fileset is a single common genotype for every sample plus a
+sparse list of exceptions. That record has no per-sample base to reconstruct, so
+filling a buffer of codes and then reading it back to write the output was one
+pass too many; the values are now written once, straight from the common
+category. The Rust scan alone went 2.31 s → 1.19 s for dosage and
+1.65 s → 0.59 s for hardcalls.
 
-Recent provider work cut the PGEN single-thread time by roughly 3×, and the
-remaining gap is documented rather than hidden.
+Notably this is the *opposite* of keeping the data packed the way PLINK does.
+pgenlib fills a packed array and then expands it, writing `sample_ct/4 +
+sample_ct` bytes; writing the output directly costs `sample_ct` and nothing
+else. For the record type that dominates, packing would have been a regression.
+
+*Building a matrix cost a second copy of every value.* Getting a contiguous
+array out of a DataFrame consolidates the scan's record batches into one Arrow
+buffer before NumPy ever sees them — a whole extra 10 GB here. A new
+`read_pgen_matrix` streams batches into a preallocated array instead, so the
+values are written once. That is the difference between 3.225 s and 1.849 s, and
+between 22.3 GB and 13.3 GB of peak memory.
+
+*And the timer was charging polars-bio for importing itself.* Each measurement
+runs in a fresh process, and every reader adapter imported its library inside
+the timed function — about 0.46 s for polars-bio's 228 MB extension against
+0.03 s for pgenlib and snputils. The harness had always documented imports as
+excluded; it now actually excludes them, for every reader alike. Charged the old
+way, polars-bio's dosage figure would read 2.26 s rather than 1.849 s, so this
+one is worth knowing about before comparing against the earlier revision.
+
+What is left is one copy from the scan's Arrow batches into the destination
+array, and it cannot be removed on this path: Arrow's `ListArray` uses 32-bit
+offsets, so a batch holds at most 842,811 rows at this sample count and the
+matrix can never arrive as a single zero-copy buffer. Closing it means the
+decoder writing into the caller's buffer, which is a different API rather than a
+tuning change.
 
 **BCF** is where the architecture pays off: typed FORMAT/GT decoding straight
 into Arrow buffers, with no per-record Python object and no intermediate
@@ -167,19 +202,26 @@ matrix. That is also why its memory is a quarter of snputils'.
   polars-bio's scaling is excluded, because the comparison readers cannot use
   it. Format-specific writeups in the benchmark repository report it in full.
 - **Query workloads.** Every test materializes a complete genotype matrix. That
-  is the worst case for a query engine: it pays a full pass to consolidate
-  chunked output into one contiguous array, which a streaming or SQL consumer
-  never pays. Reading a region, filtering, or aggregating is a different
-  measurement.
+  is the worst case for a query engine: it pays a copy from chunked output into
+  one contiguous array, which a streaming or SQL consumer never pays. Reading a
+  region, filtering, or aggregating is a different measurement.
 - **Anything but chromosome 22 on one machine.** A 16-core Apple M3 Max with
   64 GiB and macOS 15.6.
 
 ## Build and measurement controls
 
-Each measurement runs in a fresh Python process; imports and thread-pool
-configuration happen before the timer. The filesystem cache is warm and reader
-order is deterministically rotated. Peak RSS is process `ru_maxrss` after the
-output is retained; hashing runs outside the timer.
+Each measurement runs in a fresh Python process; imports happen before the timer
+and are recorded separately, and thread-pool configuration is set up front. The
+filesystem cache is warm and reader order is deterministically rotated. Peak RSS
+is process `ru_maxrss` after the output is retained; hashing runs outside the
+timer.
+
+The import exclusion is enforced as of this revision. It was always the stated
+contract, but the PGEN adapters imported inside the timed function, which
+charged each reader for its own module load — a cost that is paid once per
+process however many filesets are then read, and that differs by more than an
+order of magnitude across these libraries. The BCF and BGEN figures in this post
+are unaffected.
 
 The polars-bio extension **must** be built optimized — a plain
 `maturin develop` is a debug build and measured 3.1× slower, enough to invert a
@@ -194,8 +236,8 @@ verified after the fact.
 
 | Component | Version |
 |---|---|
-| polars-bio | 0.33.1 (`a8d5ef1`) |
-| datafusion-bio-formats | `8fbed14` |
+| polars-bio | 0.33.1 (branch `feat/bgen-pr220-bench`) |
+| datafusion-bio-formats | `1fc3673` (branch `perf/pgen-batch-array-build`) |
 | snputils | 1.1.1.dev17+gbdb1a56b5 |
 | pgenlib / bgen | 0.94.1 / 1.10.0 |
 | Polars / PyArrow / NumPy | 1.42.1 / 24.0.0 / 2.5.2 |
@@ -211,6 +253,16 @@ pb.set_option("datafusion.execution.target_partitions", "1")
 bcf  = pb.scan_bcf("ALL.chr22.phased.bcf", format_fields=["GT"])
 pgen = pb.scan_pgen("chr22.full.pgen", genotype_fields=["ALT_COUNT"])
 bgen = pb.scan_bgen("chr22.full.bgen", genotype_output="dosage")
+```
+
+The PGEN figures above are `read_pgen_matrix`, which returns the dense NumPy
+matrix directly rather than a DataFrame — the counterpart to `pgenlib.read_list`
+and what this benchmark's workload asks for:
+
+```python
+matrix = pb.read_pgen_matrix("chr22.full.pgen", field="ALT_COUNT")
+matrix.values.shape          # (variants, samples), int8
+matrix.values.mean(axis=0)   # per-variant ALT frequency x 2
 ```
 
 Runners, fixtures, and full result JSON — including every raw run, the
