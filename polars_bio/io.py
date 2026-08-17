@@ -2795,6 +2795,93 @@ class IOOperations:
         )
 
     @staticmethod
+    def describe_pgen(
+        path: str,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+        pvar_path: Union[str, None] = None,
+        psam_path: Union[str, None] = None,
+    ) -> pl.DataFrame:
+        """
+        Describe the schema a PLINK 2 PGEN fileset produces.
+
+        PGEN has no embedded header, so instead of a field dictionary this
+        returns one row per emitted column, plus the file-level properties the
+        provider records in the Arrow schema metadata: the storage mode,
+        whether the index is embedded or external, the specification baseline,
+        and the coordinate system.
+
+        Parameters:
+            path: The path to the PGEN file. The path must end in `.pgen`.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            compression_type: The compression override.
+            pvar_path: An explicit `.pvar` companion.
+            psam_path: An explicit `.psam` companion.
+
+        !!! note
+            The reported schema is the one the default `genotype_fields=("GT",)`
+            produces. Selecting other genotype fields changes the children of
+            the `genotypes` struct.
+        """
+        _validate_pgen_input_path(path, operation="describe")
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=8,
+            concurrent_fetches=1,
+            max_retries=1,
+            timeout=10,
+            compression_type=compression_type,
+        )
+        pgen_read_options = PgenReadOptions(
+            object_storage_options=object_storage_options,
+            genotype_fields=["GT"],
+            pvar_path=pvar_path,
+            psam_path=psam_path,
+            zero_based=_resolve_zero_based(None),
+        )
+        # Registering under the derived name would deregister and replace a
+        # table the caller already registered for the same file, so describe
+        # uses a private name and removes it again.
+        describe_name = f"_pb_pgen_describe_{uuid4().hex}"
+        table = py_register_table(
+            ctx,
+            path,
+            describe_name,
+            InputFormat.Pgen,
+            ReadOptions(pgen_read_options=pgen_read_options),
+        )
+        try:
+            schema = py_get_table_schema(ctx, table.name)
+        finally:
+            ctx.deregister_table(table.name)
+        metadata = {
+            (key.decode() if isinstance(key, bytes) else key): (
+                value.decode() if isinstance(value, bytes) else value
+            )
+            for key, value in (schema.metadata or {}).items()
+        }
+        described = pl.DataFrame(
+            {
+                "name": [field.name for field in schema],
+                "type": [str(field.type) for field in schema],
+            }
+        )
+        properties = {
+            "storage_mode": metadata.get("bio.pgen.storage_mode"),
+            "index": metadata.get("bio.pgen.index"),
+            "specification_baseline": metadata.get("bio.pgen.specification_baseline"),
+            "coordinate_system_zero_based": metadata.get(
+                "bio.coordinate_system_zero_based"
+            ),
+        }
+        return described.with_columns(
+            [pl.lit(value).alias(name) for name, value in properties.items()]
+        )
+
+    @staticmethod
     def describe_vcf_zarr(path: str) -> pl.DataFrame:
         """
         Describe VCF Zarr INFO and FORMAT schema.
@@ -4196,6 +4283,8 @@ def _format_to_string(input_format: InputFormat) -> str:
         return "pairs"
     elif "Bgen" in format_str:
         return "bgen"
+    elif "Pgen" in format_str:
+        return "pgen"
     else:
         return "unknown"
 
@@ -4256,6 +4345,7 @@ def _read_file(
             "bigwig",
             "bigbed",
             "bgen",
+            "pgen",
         ]:
             # For other formats (including SAM via "bam" key), include their specific metadata
             header_metadata = format_specific.get(metadata_key, {})

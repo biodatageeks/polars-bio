@@ -119,6 +119,11 @@ def _extract_format_specific_metadata(
             schema, schema_meta, field_meta
         )
 
+    if any(key.startswith("bio.pgen") for key in schema_meta.keys()):
+        result["pgen"] = _extract_pgen_specific_metadata(
+            schema, schema_meta, field_meta
+        )
+
     return result
 
 
@@ -164,6 +169,49 @@ def _bgen_genotype_output(schema: pa.Schema) -> Optional[str]:
     if "GP" in names:
         return "probability"
     return None
+
+
+def _extract_pgen_specific_metadata(
+    schema: pa.Schema, schema_meta: dict, field_meta: dict
+) -> Dict[str, Any]:
+    """
+    Extract PGEN-specific metadata.
+
+    PGEN has no embedded header. The provider records the storage mode, index
+    provenance, and specification baseline in the schema metadata, and the
+    emitted sample order and full PSAM identities in the ``genotypes`` field
+    metadata.
+    """
+    genotypes_meta = field_meta.get("genotypes", {})
+
+    def _json(key: str):
+        raw = genotypes_meta.get(key)
+        if not raw:
+            return None
+        try:
+            return json.loads(raw)
+        except (TypeError, ValueError):
+            return None
+
+    return {
+        "storage_mode": schema_meta.get("bio.pgen.storage_mode"),
+        "index": schema_meta.get("bio.pgen.index"),
+        "specification_baseline": schema_meta.get("bio.pgen.specification_baseline"),
+        "sample_names": _json("bio.genotype.sample_names"),
+        "sample_identities": _json("bio.pgen.sample_identities"),
+        "genotype_fields": _pgen_genotype_fields(schema),
+    }
+
+
+def _pgen_genotype_fields(schema: pa.Schema) -> Optional[list]:
+    """Report the emitted genotype children in schema order."""
+    index = schema.get_field_index("genotypes")
+    if index < 0:
+        return None
+    genotypes = schema.field(index).type
+    if not pa.types.is_struct(genotypes):
+        return None
+    return [genotypes.field(position).name for position in range(genotypes.num_fields)]
 
 
 def _extract_vcf_specific_metadata(

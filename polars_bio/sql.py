@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Sequence, Union
 
 import polars as pl
 
@@ -15,6 +15,7 @@ from polars_bio.polars_bio import (
     GtfReadOptions,
     InputFormat,
     PairsReadOptions,
+    PgenReadOptions,
     PyObjectStorageOptions,
     ReadOptions,
     VcfReadOptions,
@@ -36,6 +37,10 @@ from .io import (
     _validate_bgen_genotype_output,
     _validate_bgen_input_path,
     _validate_bgen_probability_layout,
+    _validate_pgen_genotype_fields,
+    _validate_pgen_input_path,
+    _validate_pgen_missing_sample_policy,
+    _validate_pgen_psam_id_mode,
     _validate_tag_type_hints,
     _validate_variant_input_path,
 )
@@ -1010,6 +1015,83 @@ class SQL:
         )
         read_options = ReadOptions(bgen_read_options=bgen_read_options)
         py_register_table(ctx, path, name, InputFormat.Bgen, read_options)
+
+    @staticmethod
+    def register_pgen(
+        path: str,
+        name: Union[str, None] = None,
+        genotype_fields: Sequence[str] = ("GT",),
+        samples: Union[list[str], None] = None,
+        missing_sample_policy: str = "error",
+        psam_id_mode: str = "iid",
+        pvar_path: Union[str, None] = None,
+        psam_path: Union[str, None] = None,
+        pgi_path: Union[str, None] = None,
+        chunk_size: int = 64,
+        concurrent_fetches: int = 8,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+        use_zero_based: Optional[bool] = None,
+    ) -> None:
+        """
+        Register a PLINK 2 PGEN fileset as a DataFusion table.
+
+        Parameters:
+            path: The path to the PGEN file. The path must end in `.pgen`. Neighbouring `.pvar` and `.psam` companions are auto-discovered.
+            name: The name of the table. If *None*, the name will be generated automatically from the path.
+            genotype_fields: Genotype children to emit, from `"GT"`, `"PHASED"`, `"DS"`, `"DS_STORED"`, and `"HDS"`. Defaults to `("GT",)`.
+            samples: Sample identifiers to register, in requested order.
+            missing_sample_policy: `"error"` (default) rejects an absent requested sample; `"ignore"` omits it.
+            psam_id_mode: `"iid"` (default), `"fid_iid"`, or `"fid_iid_sid"`.
+            pvar_path: An explicit `.pvar` companion.
+            psam_path: An explicit `.psam` companion.
+            pgi_path: An explicit `.pgi` index.
+            chunk_size: The size in MB of a chunk when reading from an object store.
+            concurrent_fetches: The number of concurrent fetches when reading from an object store.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            compression_type: The compression override.
+            use_zero_based: If True, register 0-based half-open coordinates. If False, 1-based closed. If None (default), uses the global configuration.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.register_pgen("cohort.pgen", "cohort", genotype_fields=["DS"])
+            pb.sql("SELECT id, genotypes FROM cohort WHERE chrom = '1'").collect()
+            ```
+        """
+        _validate_pgen_input_path(path, operation="register")
+        _validate_pgen_genotype_fields(genotype_fields)
+        _validate_pgen_psam_id_mode(psam_id_mode)
+        _validate_pgen_missing_sample_policy(missing_sample_policy)
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        pgen_read_options = PgenReadOptions(
+            object_storage_options=object_storage_options,
+            genotype_fields=list(genotype_fields),
+            samples=samples,
+            missing_sample_policy=missing_sample_policy,
+            psam_id_mode=psam_id_mode,
+            pvar_path=pvar_path,
+            psam_path=psam_path,
+            pgi_path=pgi_path,
+            zero_based=_resolve_zero_based(use_zero_based),
+        )
+        read_options = ReadOptions(pgen_read_options=pgen_read_options)
+        py_register_table(ctx, path, name, InputFormat.Pgen, read_options)
 
     @staticmethod
     def sql(query: str) -> pl.LazyFrame:

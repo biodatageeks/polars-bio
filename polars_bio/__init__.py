@@ -52,6 +52,7 @@ register_gtf = data_processing.register_gtf
 register_vcf = data_processing.register_vcf
 register_bcf = data_processing.register_bcf
 register_bgen = data_processing.register_bgen
+register_pgen = data_processing.register_pgen
 register_vcf_zarr = data_processing.register_vcf_zarr
 register_fastq = data_processing.register_fastq
 register_fasta = data_processing.register_fasta
@@ -69,6 +70,7 @@ sql = data_processing.sql
 describe_vcf = data_input.describe_vcf
 describe_bcf = data_input.describe_bcf
 describe_bgen = data_input.describe_bgen
+describe_pgen = data_input.describe_pgen
 describe_vcf_zarr = data_input.describe_vcf_zarr
 describe_bam = data_input.describe_bam
 describe_sam = data_input.describe_sam
@@ -169,6 +171,7 @@ __all__ = [
     # I/O functions
     "describe_bcf",
     "describe_bgen",
+    "describe_pgen",
     "describe_vcf",
     "describe_vcf_zarr",
     "describe_bam",
@@ -225,6 +228,7 @@ __all__ = [
     "register_gtf",
     "register_bcf",
     "register_bgen",
+    "register_pgen",
     "register_vcf",
     "register_vcf_zarr",
     "register_fastq",

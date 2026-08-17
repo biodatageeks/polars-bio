@@ -5,6 +5,7 @@ import pytest
 from _expected import DATA_DIR
 
 import polars_bio as pb
+from polars_bio.context import ctx
 
 PGEN_DIR = DATA_DIR / "io" / "pgen"
 ORACLE_PATH = PGEN_DIR / "oracle.pgen"
@@ -147,12 +148,12 @@ class TestPgenSampleSelection:
     def test_sample_names_are_exposed_as_metadata(self):
         lazy = pb.scan_pgen(str(ORACLE_PATH))
         metadata = pb.get_metadata(lazy)
-        assert metadata["pgen"]["sample_names"] == ORACLE_SAMPLES
+        assert metadata["header"]["sample_names"] == ORACLE_SAMPLES
 
     def test_selected_sample_names_follow_the_request(self):
         lazy = pb.scan_pgen(str(ORACLE_PATH), samples=["s8", "s2", "s1"])
         metadata = pb.get_metadata(lazy)
-        assert metadata["pgen"]["sample_names"] == ["s8", "s2", "s1"]
+        assert metadata["header"]["sample_names"] == ["s8", "s2", "s1"]
 
     def test_missing_sample_errors_by_default(self):
         with pytest.raises(Exception, match="nope"):
@@ -170,18 +171,18 @@ class TestPgenSampleSelection:
 class TestPgenPsamIdMode:
     def test_default_mode_uses_iid_alone(self):
         lazy = pb.scan_pgen(str(ORACLE_PATH))
-        assert pb.get_metadata(lazy)["pgen"]["sample_names"] == ORACLE_SAMPLES
+        assert pb.get_metadata(lazy)["header"]["sample_names"] == ORACLE_SAMPLES
 
     def test_fid_iid_mode_prefixes_the_default_fid(self):
         # These PSAM files declare only #IID, so FID defaults to "0".
         lazy = pb.scan_pgen(str(ORACLE_PATH), psam_id_mode="fid_iid")
-        assert pb.get_metadata(lazy)["pgen"]["sample_names"] == [
+        assert pb.get_metadata(lazy)["header"]["sample_names"] == [
             f"0:{name}" for name in ORACLE_SAMPLES
         ]
 
     def test_fid_iid_sid_mode_appends_the_default_sid(self):
         lazy = pb.scan_pgen(str(ORACLE_PATH), psam_id_mode="fid_iid_sid")
-        assert pb.get_metadata(lazy)["pgen"]["sample_names"] == [
+        assert pb.get_metadata(lazy)["header"]["sample_names"] == [
             f"0:{name}:0" for name in ORACLE_SAMPLES
         ]
 
@@ -260,3 +261,79 @@ class TestPgenPartitions:
             pb.set_option(TARGET_PARTITIONS, previous)
         assert frame["id"].to_list() == ORACLE_IDS
         assert frame.height == 3
+
+
+def _registered_tables() -> set:
+    frame = pb.sql("SELECT table_name FROM information_schema.tables").collect()
+    return set(frame["table_name"].to_list())
+
+
+class TestPgenRegister:
+    def test_register_pgen_creates_a_queryable_table(self):
+        pb.register_pgen(str(ORACLE_PATH), "pgen_oracle")
+        frame = pb.sql("SELECT id FROM pgen_oracle ORDER BY start").collect()
+        assert frame["id"].to_list() == ORACLE_IDS
+        ctx.deregister_table("pgen_oracle")
+
+    def test_failed_registration_keeps_the_existing_table(self):
+        pb.register_pgen(str(ORACLE_PATH), "pgen_keep")
+        with pytest.raises(Exception):
+            pb.register_pgen(str(ORACLE_PATH), "pgen_keep", samples=["nope"])
+        frame = pb.sql("SELECT id FROM pgen_keep ORDER BY start").collect()
+        assert frame["id"].to_list() == ORACLE_IDS
+        ctx.deregister_table("pgen_keep")
+
+    def test_register_pgen_rejects_an_unknown_genotype_field(self):
+        with pytest.raises(ValueError, match="GQ"):
+            pb.register_pgen(str(ORACLE_PATH), "pgen_bad", genotype_fields=["GQ"])
+
+    def test_register_pgen_rejects_a_non_pgen_path(self):
+        with pytest.raises(ValueError, match=r"\.pgen"):
+            pb.register_pgen("cohort.bgen", "pgen_bad")
+
+
+class TestPgenDescribe:
+    def test_describe_pgen_reports_schema_and_properties(self):
+        described = pb.describe_pgen(str(ORACLE_PATH))
+        assert described["name"].to_list() == [
+            "chrom",
+            "start",
+            "end",
+            "id",
+            "ref",
+            "alt",
+            "genotypes",
+        ]
+        assert described["index"][0] == "embedded"
+        assert described["storage_mode"][0].startswith("0x")
+        assert described["specification_baseline"][0] is not None
+
+    def test_describe_leaves_no_table_behind(self):
+        before = _registered_tables()
+        pb.describe_pgen(str(ORACLE_PATH))
+        assert _registered_tables() == before
+
+    def test_describe_does_not_disturb_a_registered_table(self):
+        pb.register_pgen(str(ORACLE_PATH), "pgen_live")
+        pb.describe_pgen(str(ORACLE_PATH))
+        frame = pb.sql("SELECT id FROM pgen_live ORDER BY start").collect()
+        assert frame["id"].to_list() == ORACLE_IDS
+        ctx.deregister_table("pgen_live")
+
+
+class TestPgenMetadata:
+    def test_metadata_reports_index_and_storage_mode(self):
+        lazy = pb.scan_pgen(str(ORACLE_PATH))
+        pgen = pb.get_metadata(lazy)["header"]
+        assert pgen["index"] == "embedded"
+        assert pgen["storage_mode"].startswith("0x")
+        assert pgen["specification_baseline"] is not None
+
+    def test_metadata_reports_selected_genotype_fields(self):
+        lazy = pb.scan_pgen(str(PHASE_PATH), genotype_fields=["GT", "PHASED"])
+        assert pb.get_metadata(lazy)["header"]["genotype_fields"] == ["GT", "PHASED"]
+
+    def test_metadata_reports_psam_identities(self):
+        lazy = pb.scan_pgen(str(ORACLE_PATH))
+        identities = pb.get_metadata(lazy)["header"]["sample_identities"]
+        assert [identity["iid"] for identity in identities] == ORACLE_SAMPLES
