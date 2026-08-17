@@ -130,3 +130,69 @@ class TestPgenValidation:
     def test_empty_genotype_fields_is_rejected(self):
         with pytest.raises(ValueError, match="at least one"):
             pb.read_pgen(str(ORACLE_PATH), genotype_fields=[])
+
+
+class TestPgenSampleSelection:
+    def test_samples_subset_and_reorder(self):
+        frame = pb.read_pgen(str(ORACLE_PATH), samples=["s8", "s2", "s1"]).sort("start")
+        assert len(_child(frame, "GT", 0)) == 3
+        # Upstream provider_test.rs asserts these two rows for this exact
+        # requested order; its gt_values(batch, column, row) returns the
+        # per-sample values of one row. The pgenlib source matrix for v1 is
+        # [0, 1, 2, -9, 0, 0, 0, 0] over s1..s8, so s8=0, s2=1, s1=0 gives
+        # [[0,0], [0,1], [0,0]] once reordered.
+        assert _child(frame, "GT", 0) == [[0, 0], [0, 1], [0, 0]]
+        assert _child(frame, "GT", 1) == [[0, 0], [0, 0], [0, 0]]
+
+    def test_sample_names_are_exposed_as_metadata(self):
+        lazy = pb.scan_pgen(str(ORACLE_PATH))
+        metadata = pb.get_metadata(lazy)
+        assert metadata["pgen"]["sample_names"] == ORACLE_SAMPLES
+
+    def test_selected_sample_names_follow_the_request(self):
+        lazy = pb.scan_pgen(str(ORACLE_PATH), samples=["s8", "s2", "s1"])
+        metadata = pb.get_metadata(lazy)
+        assert metadata["pgen"]["sample_names"] == ["s8", "s2", "s1"]
+
+    def test_missing_sample_errors_by_default(self):
+        with pytest.raises(Exception, match="nope"):
+            pb.read_pgen(str(ORACLE_PATH), samples=["s1", "nope"])
+
+    def test_missing_sample_can_be_ignored(self):
+        frame = pb.read_pgen(
+            str(ORACLE_PATH),
+            samples=["s1", "nope"],
+            missing_sample_policy="ignore",
+        )
+        assert len(_child(frame, "GT", 0)) == 1
+
+
+class TestPgenPsamIdMode:
+    def test_default_mode_uses_iid_alone(self):
+        lazy = pb.scan_pgen(str(ORACLE_PATH))
+        assert pb.get_metadata(lazy)["pgen"]["sample_names"] == ORACLE_SAMPLES
+
+    def test_fid_iid_mode_prefixes_the_default_fid(self):
+        # These PSAM files declare only #IID, so FID defaults to "0".
+        lazy = pb.scan_pgen(str(ORACLE_PATH), psam_id_mode="fid_iid")
+        assert pb.get_metadata(lazy)["pgen"]["sample_names"] == [
+            f"0:{name}" for name in ORACLE_SAMPLES
+        ]
+
+    def test_fid_iid_sid_mode_appends_the_default_sid(self):
+        lazy = pb.scan_pgen(str(ORACLE_PATH), psam_id_mode="fid_iid_sid")
+        assert pb.get_metadata(lazy)["pgen"]["sample_names"] == [
+            f"0:{name}:0" for name in ORACLE_SAMPLES
+        ]
+
+    def test_selection_uses_the_constructed_names(self):
+        frame = pb.read_pgen(str(ORACLE_PATH), psam_id_mode="fid_iid", samples=["0:s2"])
+        assert len(_child(frame, "GT", 0)) == 1
+
+    def test_unknown_id_mode_is_rejected(self):
+        with pytest.raises(ValueError, match="psam_id_mode"):
+            pb.read_pgen(str(ORACLE_PATH), psam_id_mode="fid")
+
+    def test_unknown_missing_sample_policy_is_rejected(self):
+        with pytest.raises(ValueError, match="missing_sample_policy"):
+            pb.read_pgen(str(ORACLE_PATH), missing_sample_policy="skip")

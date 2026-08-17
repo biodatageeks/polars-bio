@@ -343,6 +343,27 @@ def _validate_pgen_genotype_fields(genotype_fields: Sequence[str]) -> None:
         )
 
 
+PGEN_PSAM_ID_MODES = ("iid", "fid_iid", "fid_iid_sid")
+PGEN_MISSING_SAMPLE_POLICIES = ("error", "ignore")
+
+
+def _validate_pgen_psam_id_mode(psam_id_mode: str) -> None:
+    if psam_id_mode not in PGEN_PSAM_ID_MODES:
+        raise ValueError(
+            "psam_id_mode must be one of "
+            f"{', '.join(repr(mode) for mode in PGEN_PSAM_ID_MODES)}, "
+            f"got {psam_id_mode!r}"
+        )
+
+
+def _validate_pgen_missing_sample_policy(missing_sample_policy: str) -> None:
+    if missing_sample_policy not in PGEN_MISSING_SAMPLE_POLICIES:
+        raise ValueError(
+            "missing_sample_policy must be either 'error' or 'ignore', "
+            f"got {missing_sample_policy!r}"
+        )
+
+
 class IOOperations:
     @staticmethod
     def read_fasta(
@@ -2094,6 +2115,9 @@ class IOOperations:
     def read_pgen(
         path: str,
         genotype_fields: Sequence[str] = ("GT",),
+        samples: Union[list[str], None] = None,
+        missing_sample_policy: str = "error",
+        psam_id_mode: str = "iid",
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -2114,6 +2138,9 @@ class IOOperations:
         Parameters:
             path: The path to the PGEN file. The path must end in `.pgen`. A neighbouring `.pvar` (or `.pvar.zst`) and `.psam` are discovered automatically.
             genotype_fields: Genotype children to emit, from `"GT"`, `"PHASED"`, `"DS"`, `"DS_STORED"`, and `"HDS"`, in the requested order. Defaults to `("GT",)`. Note this narrows the provider default, which emits all five.
+            samples: Sample identifiers to emit, in requested order. If *None*, all samples are emitted in PSAM order.
+            missing_sample_policy: `"error"` (default) rejects a requested sample name absent from the PSAM; `"ignore"` omits it from the selection.
+            psam_id_mode: How selectable sample names are built from PSAM identifiers. `"iid"` (default) uses IID alone and rejects duplicates; `"fid_iid"` uses `FID:IID`; `"fid_iid_sid"` uses `FID:IID:SID`. A PSAM without FID or SID columns defaults those parts to `"0"`.
             chunk_size: The size in MB of a chunk when reading from an object store.
             concurrent_fetches: The number of concurrent fetches when reading from an object store.
             allow_anonymous: Whether to allow anonymous access to object storage.
@@ -2131,6 +2158,9 @@ class IOOperations:
         lf = IOOperations.scan_pgen(
             path=path,
             genotype_fields=genotype_fields,
+            samples=samples,
+            missing_sample_policy=missing_sample_policy,
+            psam_id_mode=psam_id_mode,
             chunk_size=chunk_size,
             concurrent_fetches=concurrent_fetches,
             allow_anonymous=allow_anonymous,
@@ -2152,6 +2182,9 @@ class IOOperations:
     def scan_pgen(
         path: str,
         genotype_fields: Sequence[str] = ("GT",),
+        samples: Union[list[str], None] = None,
+        missing_sample_policy: str = "error",
+        psam_id_mode: str = "iid",
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -2171,6 +2204,8 @@ class IOOperations:
         """
         _validate_pgen_input_path(path)
         _validate_pgen_genotype_fields(genotype_fields)
+        _validate_pgen_psam_id_mode(psam_id_mode)
+        _validate_pgen_missing_sample_policy(missing_sample_policy)
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
             enable_request_payer=enable_request_payer,
@@ -2186,6 +2221,9 @@ class IOOperations:
             object_storage_options=object_storage_options,
             genotype_fields=list(genotype_fields),
             zero_based=zero_based,
+            samples=samples,
+            missing_sample_policy=missing_sample_policy,
+            psam_id_mode=psam_id_mode,
         )
         read_options = ReadOptions(pgen_read_options=pgen_read_options)
         return _read_file(

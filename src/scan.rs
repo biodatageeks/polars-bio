@@ -24,14 +24,16 @@ use datafusion_bio_format_bgen::{
     BgenOutputMode, BgenProbabilityLayout, BgenReadOptions as NativeBgenReadOptions,
     BgenTableProvider,
 };
-use datafusion_bio_format_core::genotype::CoordinateSystem;
+use datafusion_bio_format_core::genotype::{CoordinateSystem, MissingSamplePolicy};
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_gtf::table_provider::GtfTableProvider;
 use datafusion_bio_format_pairs::table_provider::PairsTableProvider;
-use datafusion_bio_format_pgen::{PgenReadOptions as NativePgenReadOptions, PgenTableProvider};
+use datafusion_bio_format_pgen::{
+    PgenReadOptions as NativePgenReadOptions, PgenTableProvider, PsamIdMode,
+};
 use datafusion_bio_format_vcf::table_provider::{GenotypeOutputMode, VcfTableProvider};
 use datafusion_bio_format_vcf::zarr::{
     VcfZarrReadOptions as NativeVcfZarrReadOptions, VcfZarrTableProvider,
@@ -508,6 +510,27 @@ fn bgen_probability_layout(layout: &str) -> datafusion::common::Result<BgenProba
     }
 }
 
+fn pgen_psam_id_mode(mode: &str) -> datafusion::common::Result<PsamIdMode> {
+    match mode.to_ascii_lowercase().as_str() {
+        "iid" => Ok(PsamIdMode::Iid),
+        "fid_iid" => Ok(PsamIdMode::FidIid),
+        "fid_iid_sid" => Ok(PsamIdMode::FidIidSid),
+        _ => Err(DataFusionError::Plan(format!(
+            "Unsupported PGEN psam_id_mode '{mode}'. Expected 'iid', 'fid_iid', or 'fid_iid_sid'."
+        ))),
+    }
+}
+
+fn pgen_missing_sample_policy(policy: &str) -> datafusion::common::Result<MissingSamplePolicy> {
+    match policy.to_ascii_lowercase().as_str() {
+        "error" => Ok(MissingSamplePolicy::Error),
+        "ignore" => Ok(MissingSamplePolicy::Ignore),
+        _ => Err(DataFusionError::Plan(format!(
+            "Unsupported PGEN missing_sample_policy '{policy}'. Expected 'error' or 'ignore'."
+        ))),
+    }
+}
+
 fn bgen_output_mode(mode: &str) -> datafusion::common::Result<BgenOutputMode> {
     match mode.to_ascii_lowercase().as_str() {
         "probability" => Ok(BgenOutputMode::Probability),
@@ -868,6 +891,11 @@ async fn register_table_provider(
                 genotype_fields: pgen_read_options.genotype_fields.clone(),
                 coordinate_system: CoordinateSystem::from_zero_based(pgen_read_options.zero_based),
                 object_storage_options: pgen_read_options.object_storage_options.clone(),
+                samples: pgen_read_options.samples.clone(),
+                missing_sample_policy: pgen_missing_sample_policy(
+                    &pgen_read_options.missing_sample_policy,
+                )?,
+                psam_id_mode: pgen_psam_id_mode(&pgen_read_options.psam_id_mode)?,
                 ..Default::default()
             };
             // Opening a PGEN fileset can fail on user input, such as an absent

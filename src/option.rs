@@ -924,16 +924,28 @@ pub struct PgenReadOptions {
     /// If true, output 0-based half-open coordinates; if false, 1-based closed.
     #[pyo3(get, set)]
     pub zero_based: bool,
+    /// Requested sample names in output order, or all samples when absent.
+    #[pyo3(get, set)]
+    pub samples: Option<Vec<String>>,
+    /// `"error"` rejects an absent requested sample, `"ignore"` omits it.
+    #[pyo3(get, set)]
+    pub missing_sample_policy: String,
+    /// `"iid"`, `"fid_iid"`, or `"fid_iid_sid"`.
+    #[pyo3(get, set)]
+    pub psam_id_mode: String,
 }
 
 #[pymethods]
 impl PgenReadOptions {
     #[new]
-    #[pyo3(signature = (object_storage_options=None, genotype_fields=None, zero_based=false))]
+    #[pyo3(signature = (object_storage_options=None, genotype_fields=None, zero_based=false, samples=None, missing_sample_policy="error".to_string(), psam_id_mode="iid".to_string()))]
     pub fn new(
         object_storage_options: Option<PyObjectStorageOptions>,
         genotype_fields: Option<Vec<String>>,
         zero_based: bool,
+        samples: Option<Vec<String>>,
+        missing_sample_policy: String,
+        psam_id_mode: String,
     ) -> Self {
         PgenReadOptions {
             object_storage_options: pyobject_storage_options_to_object_storage_options(
@@ -941,6 +953,9 @@ impl PgenReadOptions {
             ),
             genotype_fields,
             zero_based,
+            samples,
+            missing_sample_policy,
+            psam_id_mode,
         }
     }
 
@@ -958,6 +973,9 @@ impl PgenReadOptions {
             }),
             genotype_fields: None,
             zero_based: false,
+            samples: None,
+            missing_sample_policy: "error".to_string(),
+            psam_id_mode: "iid".to_string(),
         }
     }
 }
