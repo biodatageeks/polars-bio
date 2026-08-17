@@ -5,8 +5,8 @@ was fused and the PGEN benchmark re-run. Supersedes
 `HANDOVER-pgen-benchmarks.md`, whose two tasks (wire PGEN into polars-bio;
 benchmark BCF/BGEN/PGEN) are both **done**.
 
-Everything below is committed. Nothing is half-finished. Two branches are ahead
-of their remotes — see task 4.
+Everything below is committed and pushed, except `bioformats-benchmark` — see
+task 4. Nothing is half-finished.
 
 ## Start here
 
@@ -20,8 +20,8 @@ datafusion/bio-format-pgen/PERF_HANDOVER.md in the provider worktree at
 
 | Repo | Branch | Head | Notes |
 |---|---|---|---|
-| polars-bio | `feat/bgen-pr220-bench` | `ed33b57` | PR #436; pins provider `25d6bd2`. **Not pushed since `6c76f4e`** |
-| datafusion-bio-formats | `perf/pgen-batch-array-build` | `25d6bd2` | PR #232, 9 commits, open, pushed |
+| polars-bio | `feat/bgen-pr220-bench` | branch tip | PR #436; pins provider `25d6bd2` |
+| datafusion-bio-formats | `perf/pgen-batch-array-build` | branch tip | PR #232, open, pushed. `25d6bd2` is its last code commit — the pin above; later ones are docs |
 | bioformats-benchmark | `feat/bgen-benchmark` | `55d7bf0` | local only, **not pushed** |
 
 Provider worktree: `/Users/mwiewior/CLionProjects/dbf-pgen-perf`.
@@ -111,11 +111,10 @@ the correctness section.
 Raw results for the post-fusion run: `bioformats-benchmark/results/pgen_full_fused.json`
 (gitignored, so regenerate with the command below if it is gone).
 
-### 4. Push the branches
+### 4. Push the benchmark repo
 
-`polars-bio` `feat/bgen-pr220-bench` is 1 commit ahead of its remote (the
-provider bump), and `bioformats-benchmark` `feat/bgen-benchmark` is 5 commits
-ahead, local only.
+`bioformats-benchmark` `feat/bgen-benchmark` is 5 commits ahead, local only. The
+other two repos are pushed.
 
 ## Measurement rules — each of these produced a wrong number in the last session
 
