@@ -1,7 +1,7 @@
 # Handover: PGEN performance and the three-format benchmark
 
 Written 2026-08-17, revised the same day after the common-value + difflist decode
-was fused and the PGEN benchmark re-run. Supersedes
+was fused, `read_pgen_matrix` was added, and the PGEN benchmark was re-run. Supersedes
 `HANDOVER-pgen-benchmarks.md`, whose two tasks (wire PGEN into polars-bio;
 benchmark BCF/BGEN/PGEN) are both **done**.
 
@@ -20,9 +20,9 @@ datafusion/bio-format-pgen/PERF_HANDOVER.md in the provider worktree at
 
 | Repo | Branch | Head | Notes |
 |---|---|---|---|
-| polars-bio | `feat/bgen-pr220-bench` | branch tip | PR #436; pins provider `25d6bd2` |
-| datafusion-bio-formats | `perf/pgen-batch-array-build` | branch tip | PR #232, open, pushed. `25d6bd2` is its last code commit — the pin above; later ones are docs |
-| bioformats-benchmark | `feat/bgen-benchmark` | `55d7bf0` | local only, **not pushed** |
+| polars-bio | `feat/bgen-pr220-bench` | branch tip | PR #436; pins provider `1fc3673` |
+| datafusion-bio-formats | `perf/pgen-batch-array-build` | branch tip | PR #232, open, pushed. `1fc3673` is its last code commit — the pin above; later ones are docs |
+| bioformats-benchmark | `feat/bgen-benchmark` | branch tip | 8 commits ahead, local only, **not pushed** |
 
 Provider worktree: `/Users/mwiewior/CLionProjects/dbf-pgen-perf`.
 Benchmark venv: `bioformats-benchmark/.venv-bcf` — has polars-bio (editable,
@@ -34,10 +34,11 @@ PGEN fixtures exist at `/Users/mwiewior/research/data/PGEN/`.
 ## What was accomplished
 
 PGEN reads through polars-bio (`read_pgen` / `scan_pgen` / `register_pgen` /
-`describe_pgen`, 51 tests). All three formats benchmarked at equal core count
-with element-wise correctness gates. The provider's single-partition PGEN scan
-went **11.2 s → 1.19 s** for dosage and **0.59 s** for hardcall, after fusing
-the common-value + difflist decode.
+`describe_pgen` / `read_pgen_matrix`, 67 tests). All three formats benchmarked at
+equal core count with element-wise correctness gates. The provider's
+single-partition PGEN scan went **11.2 s → 1.19 s** for dosage and **0.59 s** for
+hardcall after fusing the common-value + difflist decode, and `read_pgen_matrix`
+removed the copy between that scan and a NumPy matrix.
 
 Current numbers, chromosome 22, 993,881 × 2,548 = 2,532,408,788 genotypes,
 **one thread each** — pgenlib, snputils and `bgen` are all single-threaded.
@@ -47,73 +48,94 @@ interleaved in one session:
 | Format | polars-bio | snputils | reference |
 |---|---:|---:|---:|
 | BCF (int8) | **5.251 s** | 8.285 s | — |
-| PGEN hardcall (int8) | 1.940 s | 1.506 s | pgenlib 0.832 s |
-| PGEN dosage (f32) | **3.225 s** | 3.260 s | pgenlib 1.787 s |
+| PGEN hardcall (int8) | **0.940 s** | 1.487 s | pgenlib 0.827 s |
+| PGEN dosage (f32) | **1.849 s** | 3.181 s | pgenlib 1.779 s |
 | BGEN dosage (f32) | 25.804 s | 21.171 s | bgen 15.064 s |
 
-polars-bio wins on BCF and now edges snputils on PGEN dosage, where it was 1.34×
-behind; the PGEN hardcall gap to snputils closed from 1.96× to 1.29×. pgenlib and
-snputils reproduced their previous figures to within 1% in the same session, so
-the PGEN deltas are the change and not drift. Zero bitwise differences against
-the reference in all three formats, with the single-cell corruption self-test
-confirming the comparison can still fail.
+PGEN went 4.338 s → 1.849 s (dosage) and 2.959 s → 0.940 s (hardcall) over this
+work — 2.35× and 3.15×. polars-bio is now 1.04× pgenlib on dosage and 1.14× on
+hardcall, from 2.46× and 3.56×, and is 1.7× and 1.6× faster than snputils. Peak
+RSS fell from 22.31 GB to 13.30 GB (dosage) and 8.25 GB to 5.74 GB (hardcall)
+against pgenlib's 12.09 GB and 5.02 GB.
+
+pgenlib and snputils reproduced their earlier figures to within 1% in the same
+session, so the PGEN deltas are the change and not drift. Zero bitwise
+differences against the reference in all three formats, with the single-cell
+corruption self-test confirming the comparison can still fail.
+
+Two things about the PGEN figures a reader should know:
+
+- **The harness no longer times module imports.** Every reader used to import its
+  library inside its own timed read function. That is a one-time process cost,
+  and the magnitudes are not comparable — ~0.46 s for polars-bio's ~228 MB
+  extension against ~0.03 s for the others. It is now warmed before the clock for
+  every reader alike and recorded as `import_seconds`. Charged as before,
+  polars-bio's dosage read would read 2.26 s rather than 1.849 s.
+- **polars-bio uses `read_pgen_matrix`, not `read_pgen`.** The DataFrame path
+  consolidates the scan's batches into one contiguous Arrow buffer before the
+  array exists, a second full copy of the values; it measures 3.225 s / 22.3 GB
+  for dosage. The matrix reader is the fair counterpart to pgenlib's
+  `read_list`.
 
 ## Where the remaining PGEN time goes
 
-This is the main thing the re-measurement changed. The Rust scan improved 1.94×
-(dosage) and 2.80× (hardcall), but end-to-end only 1.35× and 1.53×, because
-materialization into a contiguous array is untouched and is now the larger term:
-
 | | total | scan | materialization |
 |---|---:|---:|---:|
-| dosage | 3.225 s | 1.19 s | **~2.03 s (63%)** |
-| hardcall | 1.940 s | 0.59 s | **~1.35 s (70%)** |
+| dosage | 1.849 s | ~1.19 s | ~0.66 s |
+| hardcall | 0.940 s | ~0.59 s | ~0.35 s |
 
-Optimizing the decoder further now buys progressively less. The materialization
-path is where the bulk is.
+What remains of materialization is one copy of the values from the scan's Arrow
+batches into the destination array. It cannot be removed on this path: Arrow's
+`ListArray` uses i32 offsets, so a batch holds at most 842,811 rows at 2,548
+samples and the whole matrix can never arrive as a single zero-copy buffer.
+Eliminating it means the decoder writing into the caller's array directly, the
+way pgenlib does — a genuinely different API, not a tweak.
 
 ## Tasks, in priority order
 
-### 1. Attack materialization, not the decoder
+### 1. Decide whether the last ~4% against pgenlib is worth chasing
 
-Per the table above, ~2.0 s of the 3.2 s dosage total and ~1.35 s of the 1.9 s
-hardcall total is Python-side assembly of the contiguous array, not decode. Start
-by finding out what that time actually is — Arrow-to-numpy copy, per-batch
-concatenation, or an avoidable intermediate — before optimizing anything.
+polars-bio is at 1.04× pgenlib on dosage and 1.14× on hardcall. Closing the rest
+means bypassing Arrow so the decode writes into the destination buffer, which is
+a new non-DataFrame API surface in the provider. It is a real feature with real
+cost; the gap it closes is small. Probably not worth it — but it is the only
+remaining lever, so decide deliberately rather than drifting.
 
-The provider-side follow-ups in `PERF_HANDOVER.md` (SIMD the difflist patch loop)
-are now chasing a much smaller slice; re-profile before spending time there.
+The provider-side follow-up in `PERF_HANDOVER.md` (SIMD the difflist patch loop)
+is a smaller lever still; re-profile before spending time there.
 
 **Do not implement issue #233 as written.** It proposes a 2-bit packed main
 track, which is aimed at the LD branch (13%) and would be a regression for the
 dominant one. Corrected in a comment on the issue.
 
-### 2. Explain the dosage peak-RSS increase
+### 2. Peak RSS — largely resolved, one loose end
 
-Still open, and now sharper: with provider `25d6bd2` the dosage path peaks at
-**22.31 GB** against pgenlib's 12.09 GB for the identical 10.13 GB output, while
-hardcall sits at 8.25 GB against 5.02 GB. Fusion neither caused nor fixed this —
-the Rust-only scan peaks at 9.97 GB (dosage) and 2.9 GB (hardcall), unchanged by
-the change — so the excess is in the materialization path, which makes this the
-same investigation as task 1.
+Dosage now peaks at 13.30 GB against pgenlib's 12.09 GB for the identical
+10.13 GB output, down from 22.31 GB; hardcall is 5.74 GB against 5.02 GB, down
+from 8.25 GB. The old 17.9 → 22.8 GB regression is moot: it was the DataFrame
+path's second full copy, which `read_pgen_matrix` does not make.
 
-**Resolve before publishing the numbers.** A benchmark carrying 1.85× pgenlib's
-memory for identical output is not a clean result.
+The loose end is small. `read_pgen_matrix` alone measures 10.85 GB for dosage,
+but the harness reports 13.30 GB; the extra ~2.4 GB is post-read hashing and
+sorting in `pgen_matrix.py`, which pgenlib pays too (12.09 GB against its 10.13 GB
+output) but apparently less. Worth a look before publishing, not a blocker.
 
 ### 3. Refresh the published figures
 
 `bioformats-benchmark/PGEN_BENCHMARK.md` and
-`polars-bio/docs/blog/posts/bcf-genotype-readers-2026-08.md` still carry
-pre-fusion PGEN numbers — now two generations stale. Use the table above. The
-blog post is otherwise current: it covers all three formats at one thread with
-the correctness section.
+`polars-bio/docs/blog/posts/bcf-genotype-readers-2026-08.md` still carry the
+original PGEN numbers — now three generations stale. Use the table above, and
+say plainly that the harness no longer times module imports and that polars-bio
+is measured through `read_pgen_matrix`; both changed the figures materially.
 
-Raw results for the post-fusion run: `bioformats-benchmark/results/pgen_full_fused.json`
-(gitignored, so regenerate with the command below if it is gone).
+`read_pgen_matrix` is also new public API and is not in the docs yet.
+
+Raw results: `bioformats-benchmark/results/pgen_full_final.json` (gitignored, so
+regenerate with the command below if it is gone).
 
 ### 4. Push the benchmark repo
 
-`bioformats-benchmark` `feat/bgen-benchmark` is 5 commits ahead, local only. The
+`bioformats-benchmark` `feat/bgen-benchmark` is 8 commits ahead, local only. The
 other two repos are pushed.
 
 ## Measurement rules — each of these produced a wrong number in the last session
