@@ -5,8 +5,7 @@ was fused, `read_pgen_matrix` was added, and the PGEN benchmark was re-run. Supe
 `HANDOVER-pgen-benchmarks.md`, whose two tasks (wire PGEN into polars-bio;
 benchmark BCF/BGEN/PGEN) are both **done**.
 
-Everything below is committed and pushed, except `bioformats-benchmark` — see
-task 4. Nothing is half-finished.
+Everything below is committed and pushed. Nothing is half-finished.
 
 ## Start here
 
@@ -22,7 +21,7 @@ datafusion/bio-format-pgen/PERF_HANDOVER.md in the provider worktree at
 |---|---|---|---|
 | polars-bio | `feat/bgen-pr220-bench` | branch tip | PR #436; pins provider `1fc3673` |
 | datafusion-bio-formats | `perf/pgen-batch-array-build` | branch tip | PR #232, open, pushed. `1fc3673` is its last code commit — the pin above; later ones are docs |
-| bioformats-benchmark | `feat/bgen-benchmark` | branch tip | 8 commits ahead, local only, **not pushed** |
+| bioformats-benchmark | `feat/bgen-benchmark` | branch tip | PR #4, open, pushed |
 
 Provider worktree: `/Users/mwiewior/CLionProjects/dbf-pgen-perf`.
 Benchmark venv: `bioformats-benchmark/.venv-bcf` — has polars-bio (editable,
@@ -120,23 +119,25 @@ but the harness reports 13.30 GB; the extra ~2.4 GB is post-read hashing and
 sorting in `pgen_matrix.py`, which pgenlib pays too (12.09 GB against its 10.13 GB
 output) but apparently less. Worth a look before publishing, not a blocker.
 
-### 3. Refresh the published figures
+### 3. Document `read_pgen_matrix`
 
-`bioformats-benchmark/PGEN_BENCHMARK.md` and
-`polars-bio/docs/blog/posts/bcf-genotype-readers-2026-08.md` still carry the
-original PGEN numbers — now three generations stale. Use the table above, and
-say plainly that the harness no longer times module imports and that polars-bio
-is measured through `read_pgen_matrix`; both changed the figures materially.
+Both writeups are refreshed — `bioformats-benchmark/PGEN_BENCHMARK.md` and
+`polars-bio/docs/blog/posts/bcf-genotype-readers-2026-08.md` now carry the
+current figures, and both state plainly that the harness no longer times module
+imports and that polars-bio is measured through `read_pgen_matrix`.
 
-`read_pgen_matrix` is also new public API and is not in the docs yet.
+What is still missing: `read_pgen_matrix` is new public API and appears in no
+API reference page, only in the blog post's "Try it" snippet. It also has no
+OpenSpec change, unlike `add-pgen-support` which accompanied the original PGEN
+work.
 
 Raw results: `bioformats-benchmark/results/pgen_full_final.json` (gitignored, so
 regenerate with the command below if it is gone).
 
-### 4. Push the benchmark repo
+### 4. Branches — all pushed
 
-`bioformats-benchmark` `feat/bgen-benchmark` is 8 commits ahead, local only. The
-other two repos are pushed.
+All three repos are pushed and their PRs updated: datafusion-bio-formats #232,
+polars-bio #436, bioformats-benchmark #4.
 
 ## Measurement rules — each of these produced a wrong number in the last session
 
