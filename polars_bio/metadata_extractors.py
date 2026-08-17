@@ -178,9 +178,14 @@ def _extract_pgen_specific_metadata(
     Extract PGEN-specific metadata.
 
     PGEN has no embedded header. The provider records the storage mode, index
-    provenance, and specification baseline in the schema metadata, and the
-    emitted sample order and full PSAM identities in the ``genotypes`` field
-    metadata.
+    provenance, specification baseline, and output shape in the schema metadata,
+    and the emitted sample order and full PSAM identities in the ``genotypes``
+    field metadata.
+
+    ``variant_count`` and ``sample_count`` are the output shape, known from the
+    companions without reading a genotype record, so a caller can allocate its
+    destination before scanning. ``sample_count`` reflects the selected samples,
+    not the whole cohort.
     """
     genotypes_meta = field_meta.get("genotypes", {})
 
@@ -193,10 +198,21 @@ def _extract_pgen_specific_metadata(
         except (TypeError, ValueError):
             return None
 
+    def _count(key: str) -> Optional[int]:
+        raw = schema_meta.get(key)
+        if raw is None:
+            return None
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return None
+
     return {
         "storage_mode": schema_meta.get("bio.pgen.storage_mode"),
         "index": schema_meta.get("bio.pgen.index"),
         "specification_baseline": schema_meta.get("bio.pgen.specification_baseline"),
+        "variant_count": _count("bio.pgen.variant_count"),
+        "sample_count": _count("bio.pgen.selected_sample_count"),
         "sample_names": _json("bio.genotype.sample_names"),
         "sample_identities": _json("bio.pgen.sample_identities"),
         "genotype_fields": _pgen_genotype_fields(schema),

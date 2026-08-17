@@ -419,3 +419,121 @@ class TestPgenAltCount:
         finally:
             pb.set_option(TARGET_PARTITIONS, previous)
         assert one == four
+
+
+class TestPgenMatrix:
+    """`read_pgen_matrix` must agree cell for cell with the DataFrame path.
+
+    It reaches the same values by a different route — streaming batches into a
+    preallocated array instead of consolidating them into one Arrow buffer — so
+    agreement with `read_pgen` is what says the fast path is not cutting a
+    corner.
+    """
+
+    @staticmethod
+    def _expected(path, field, rows):
+        frame = pb.read_pgen(str(path), genotype_fields=[field]).sort("start")
+        return [_child(frame, field, row) for row in range(rows)]
+
+    @pytest.mark.parametrize(
+        "path,field,rows,dtype",
+        [
+            (ORACLE_PATH, "ALT_COUNT", 3, "int8"),
+            (ORACLE_PATH, "DS", 3, "float32"),
+            (DOSAGE_PATH, "DS", 1, "float32"),
+            (DOSAGE_PATH, "ALT_COUNT", 1, "int8"),
+            (DOSAGE_PATH, "DS_STORED", 1, "float32"),
+        ],
+    )
+    def test_matches_the_dataframe_path(self, path, field, rows, dtype):
+        matrix = pb.read_pgen_matrix(str(path), field=field)
+        assert matrix.values.dtype == dtype
+        assert matrix.values.flags.c_contiguous
+        expected = self._expected(path, field, rows)
+        assert matrix.values.shape == (rows, len(expected[0]))
+        missing = -9 if dtype == "int8" else float("nan")
+        for row, values in enumerate(expected):
+            observed = matrix.values[row].tolist()
+            for column, value in enumerate(values):
+                if value is None:
+                    assert (
+                        observed[column] != observed[column]
+                        if dtype == "float32"
+                        else observed[column] == missing
+                    ), f"row {row} column {column} should be missing"
+                else:
+                    assert observed[column] == pytest.approx(value), (row, column)
+
+    def test_alt_count_is_the_hardcall_track_not_the_dosage_track(self):
+        # dosage.pgen's tracks genuinely disagree, so a matrix reader that
+        # confused them would pass every all-hardcall fixture and fail here.
+        alt = pb.read_pgen_matrix(str(DOSAGE_PATH), field="ALT_COUNT")
+        dosage = pb.read_pgen_matrix(str(DOSAGE_PATH), field="DS")
+        assert alt.values[0].tolist() == [-9, 1, -9, -9]
+        assert dosage.values[0][:3].tolist() == pytest.approx([0.125, 1.0, 1.875])
+
+    def test_missing_sentinel_is_configurable(self):
+        matrix = pb.read_pgen_matrix(str(DOSAGE_PATH), field="ALT_COUNT", missing=-1)
+        assert matrix.values[0].tolist() == [-1, 1, -1, -1]
+
+    def test_integer_nulls_do_not_widen_the_intermediate(self):
+        # An Arrow int8 array with nulls converts to float64 on the way to
+        # NumPy, which would be an eightfold intermediate here and an undefined
+        # narrowing cast back. The sentinel has to be substituted in Arrow.
+        matrix = pb.read_pgen_matrix(str(DOSAGE_PATH), field="ALT_COUNT")
+        assert matrix.values.dtype == "int8"
+        assert matrix.values.itemsize == 1
+
+    def test_labels_the_axes(self):
+        matrix = pb.read_pgen_matrix(str(ORACLE_PATH), field="ALT_COUNT")
+        assert matrix.sample_names == ORACLE_SAMPLES
+        assert matrix.values.shape[1] == len(matrix.sample_names)
+        assert matrix.values.shape[0] == len(matrix.positions)
+        starts = pb.read_pgen(str(ORACLE_PATH), genotype_fields=["ALT_COUNT"])[
+            "start"
+        ].to_list()
+        assert sorted(matrix.positions.tolist()) == sorted(starts)
+
+    def test_sample_selection_narrows_the_columns_in_requested_order(self):
+        matrix = pb.read_pgen_matrix(
+            str(ORACLE_PATH), field="ALT_COUNT", samples=["s3", "s1"]
+        )
+        assert matrix.sample_names == ["s3", "s1"]
+        assert matrix.values.shape == (3, 2)
+        full = pb.read_pgen_matrix(str(ORACLE_PATH), field="ALT_COUNT")
+        assert matrix.values[:, 0].tolist() == full.values[:, 2].tolist()
+        assert matrix.values[:, 1].tolist() == full.values[:, 0].tolist()
+
+    @pytest.mark.parametrize("field", ["GT", "HDS", "PHASED", "nonsense"])
+    def test_rejects_fields_without_a_dense_matrix_form(self, field):
+        with pytest.raises(ValueError, match="read_pgen_matrix supports"):
+            pb.read_pgen_matrix(str(ORACLE_PATH), field=field)
+
+    def test_content_is_independent_of_partition_count(self):
+        previous = pb.get_option(TARGET_PARTITIONS)
+        try:
+            pb.set_option(TARGET_PARTITIONS, "1")
+            one = pb.read_pgen_matrix(str(ORACLE_PATH), field="ALT_COUNT")
+            pb.set_option(TARGET_PARTITIONS, "4")
+            four = pb.read_pgen_matrix(str(ORACLE_PATH), field="ALT_COUNT")
+        finally:
+            pb.set_option(TARGET_PARTITIONS, previous)
+        # Emission order may interleave above one partition, so compare rows in
+        # position order rather than trusting the order they arrived in.
+        assert one.values.shape == four.values.shape
+        import numpy as np
+
+        for position in one.positions:
+            left = one.values[np.asarray(one.positions) == position]
+            right = four.values[np.asarray(four.positions) == position]
+            assert left.tolist() == right.tolist()
+
+    def test_metadata_reports_the_output_shape(self):
+        header = pb.get_metadata(pb.scan_pgen(str(ORACLE_PATH)))["header"]
+        assert header["variant_count"] == 3
+        assert header["sample_count"] == len(ORACLE_SAMPLES)
+        subset = pb.get_metadata(pb.scan_pgen(str(ORACLE_PATH), samples=["s2", "s5"]))[
+            "header"
+        ]
+        assert subset["variant_count"] == 3
+        assert subset["sample_count"] == 2

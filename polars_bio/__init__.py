@@ -22,6 +22,7 @@ from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemEr
 from .fastqc_op import FastQCOperations as fastqc_operations
 from .fastqc_op import FastQCResult
 from .io import IOOperations as data_input
+from .io import PgenMatrix
 from .logging import set_loglevel
 from .pileup_op import PileupOperations as pileup_operations
 from .range_op import FilterOp
@@ -86,6 +87,7 @@ read_table = data_input.read_table
 read_bcf = data_input.read_bcf
 read_bgen = data_input.read_bgen
 read_pgen = data_input.read_pgen
+read_pgen_matrix = data_input.read_pgen_matrix
 read_vcf = data_input.read_vcf
 read_vcf_zarr = data_input.read_vcf_zarr
 read_fastq = data_input.read_fastq
@@ -193,6 +195,8 @@ __all__ = [
     "read_bcf",
     "read_bgen",
     "read_pgen",
+    "read_pgen_matrix",
+    "PgenMatrix",
     "read_vcf",
     "read_vcf_zarr",
     "scan_bam",
