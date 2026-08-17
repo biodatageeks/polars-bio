@@ -163,9 +163,9 @@ matrix. That is also why its memory is a quarter of snputils'.
 
 ## What this does not measure
 
-- **Multi-partition throughput.** polars-bio's scaling is a genuine advantage
-  and it is deliberately excluded here, because the comparison readers cannot
-  use it. Format-specific writeups in the benchmark repository report it.
+- **Multi-partition throughput.** Apart from the single BGEN aside above,
+  polars-bio's scaling is excluded, because the comparison readers cannot use
+  it. Format-specific writeups in the benchmark repository report it in full.
 - **Query workloads.** Every test materializes a complete genotype matrix. That
   is the worst case for a query engine: it pays a full pass to consolidate
   chunked output into one contiguous array, which a streaming or SQL consumer
