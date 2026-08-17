@@ -145,6 +145,7 @@ pub enum InputFormat {
     BigWig,
     BigBed,
     Bgen,
+    Pgen,
 }
 
 #[pyclass(eq, get_all, from_py_object)]
@@ -174,6 +175,7 @@ impl fmt::Display for InputFormat {
             InputFormat::BigWig => "BigWig",
             InputFormat::BigBed => "BigBed",
             InputFormat::Bgen => "BGEN",
+            InputFormat::Pgen => "PGEN",
         };
         write!(f, "{}", text)
     }
@@ -207,12 +209,14 @@ pub struct ReadOptions {
     pub bigbed_read_options: Option<BigBedReadOptions>,
     #[pyo3(get, set)]
     pub bgen_read_options: Option<BgenReadOptions>,
+    #[pyo3(get, set)]
+    pub pgen_read_options: Option<PgenReadOptions>,
 }
 
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None, bigwig_read_options=None, bigbed_read_options=None, bgen_read_options=None))]
+    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None, bigwig_read_options=None, bigbed_read_options=None, bgen_read_options=None, pgen_read_options=None))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
@@ -228,6 +232,7 @@ impl ReadOptions {
         bigwig_read_options: Option<BigWigReadOptions>,
         bigbed_read_options: Option<BigBedReadOptions>,
         bgen_read_options: Option<BgenReadOptions>,
+        pgen_read_options: Option<PgenReadOptions>,
     ) -> Self {
         ReadOptions {
             vcf_read_options,
@@ -243,6 +248,7 @@ impl ReadOptions {
             bigwig_read_options,
             bigbed_read_options,
             bgen_read_options,
+            pgen_read_options,
         }
     }
 }
@@ -903,6 +909,54 @@ impl BgenReadOptions {
             samples: None,
             sample_path: None,
             bgi_path: None,
+            zero_based: false,
+        }
+    }
+}
+
+#[pyclass(name = "PgenReadOptions", from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PgenReadOptions {
+    pub object_storage_options: Option<ObjectStorageOptions>,
+    /// Genotype children to emit, from `GT`, `PHASED`, `DS`, `DS_STORED`, `HDS`.
+    #[pyo3(get, set)]
+    pub genotype_fields: Option<Vec<String>>,
+    /// If true, output 0-based half-open coordinates; if false, 1-based closed.
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+}
+
+#[pymethods]
+impl PgenReadOptions {
+    #[new]
+    #[pyo3(signature = (object_storage_options=None, genotype_fields=None, zero_based=false))]
+    pub fn new(
+        object_storage_options: Option<PyObjectStorageOptions>,
+        genotype_fields: Option<Vec<String>>,
+        zero_based: bool,
+    ) -> Self {
+        PgenReadOptions {
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
+            genotype_fields,
+            zero_based,
+        }
+    }
+
+    #[staticmethod]
+    pub fn default() -> Self {
+        PgenReadOptions {
+            object_storage_options: Some(ObjectStorageOptions {
+                chunk_size: Some(1024 * 1024), // 1MB
+                concurrent_fetches: Some(4),
+                allow_anonymous: false,
+                enable_request_payer: false,
+                max_retries: Some(5),
+                timeout: Some(300), // 300 seconds
+                compression_type: Some(CompressionType::AUTO),
+            }),
+            genotype_fields: None,
             zero_based: false,
         }
     }

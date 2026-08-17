@@ -1753,6 +1753,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "datafusion-bio-format-pgen"
+version = "0.1.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=e029e08#e029e080e8d87d59b5df7e63b85d3a1149a407c3"
+dependencies = [
+ "async-stream",
+ "async-trait",
+ "bytes",
+ "datafusion",
+ "datafusion-bio-format-core",
+ "flate2",
+ "opendal",
+ "serde",
+ "serde_json",
+ "tokio",
+ "zstd",
+]
+
+[[package]]
 name = "datafusion-bio-format-vcf"
 version = "1.9.1"
 source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=e029e08#e029e080e8d87d59b5df7e63b85d3a1149a407c3"
@@ -4886,6 +4904,7 @@ dependencies = [
  "datafusion-bio-format-gff",
  "datafusion-bio-format-gtf",
  "datafusion-bio-format-pairs",
+ "datafusion-bio-format-pgen",
  "datafusion-bio-format-vcf",
  "datafusion-bio-function-fastqc",
  "datafusion-bio-function-pileup",

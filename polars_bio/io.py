@@ -1,7 +1,7 @@
 import logging
 import weakref as _weakref
 from uuid import uuid4
-from typing import Dict, Iterator, Optional, Union
+from typing import Dict, Iterator, Optional, Sequence, Union
 
 import polars as pl
 
@@ -28,6 +28,7 @@ from polars_bio.polars_bio import (
     InputFormat,
     OutputFormat,
     PairsReadOptions,
+    PgenReadOptions,
     PyObjectStorageOptions,
     ReadOptions,
     VcfReadOptions,
@@ -314,6 +315,31 @@ def _validate_bgen_genotype_output(genotype_output: str) -> None:
         raise ValueError(
             "genotype_output must be either 'probability' or 'dosage', "
             f"got {genotype_output!r}"
+        )
+
+
+PGEN_GENOTYPE_FIELDS = ("GT", "PHASED", "DS", "DS_STORED", "HDS")
+
+
+def _validate_pgen_input_path(path: str, operation: str = "read") -> None:
+    """Keep the PGEN entry points format-specific."""
+    if not strip_url_parameters(path).lower().endswith(".pgen"):
+        raise ValueError(
+            f"PGEN {operation} requires a path ending in '.pgen', got {path!r}"
+        )
+
+
+def _validate_pgen_genotype_fields(genotype_fields: Sequence[str]) -> None:
+    if not genotype_fields:
+        raise ValueError(
+            "genotype_fields must name at least one of "
+            f"{', '.join(PGEN_GENOTYPE_FIELDS)}"
+        )
+    unknown = [name for name in genotype_fields if name not in PGEN_GENOTYPE_FIELDS]
+    if unknown:
+        raise ValueError(
+            f"unsupported PGEN genotype field(s) {unknown!r}; "
+            f"available fields: {', '.join(PGEN_GENOTYPE_FIELDS)}"
         )
 
 
@@ -2058,6 +2084,113 @@ class IOOperations:
         return _read_file(
             path,
             InputFormat.Bgen,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
+        )
+
+    @staticmethod
+    def read_pgen(
+        path: str,
+        genotype_fields: Sequence[str] = ("GT",),
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Read a PLINK 2 PGEN fileset into a DataFrame.
+
+        One row is one PVAR variant. The `.pvar` and `.psam` companions are
+        discovered from the `.pgen` basename.
+
+        Parameters:
+            path: The path to the PGEN file. The path must end in `.pgen`. A neighbouring `.pvar` (or `.pvar.zst`) and `.psam` are discovered automatically.
+            genotype_fields: Genotype children to emit, from `"GT"`, `"PHASED"`, `"DS"`, `"DS_STORED"`, and `"HDS"`, in the requested order. Defaults to `("GT",)`. Note this narrows the provider default, which emits all five.
+            chunk_size: The size in MB of a chunk when reading from an object store.
+            concurrent_fetches: The number of concurrent fetches when reading from an object store.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression override. PGEN record compression is read from the file header.
+            projection_pushdown: Enable column projection pushdown. Metadata-only scans do not read genotype records.
+            predicate_pushdown: Push `chrom`, `id`, `start`, and `end` predicates into variant selection.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration.
+
+        !!! note
+            PGEN is input-only.
+        """
+        lf = IOOperations.scan_pgen(
+            path=path,
+            genotype_fields=genotype_fields,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+            use_zero_based=use_zero_based,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_pgen(
+        path: str,
+        genotype_fields: Sequence[str] = ("GT",),
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read a PLINK 2 PGEN fileset into a LazyFrame.
+
+        Projection pushdown and configured input partition parallelism are
+        preserved. See `read_pgen` for the parameters.
+        """
+        _validate_pgen_input_path(path)
+        _validate_pgen_genotype_fields(genotype_fields)
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        zero_based = _resolve_zero_based(use_zero_based)
+        pgen_read_options = PgenReadOptions(
+            object_storage_options=object_storage_options,
+            genotype_fields=list(genotype_fields),
+            zero_based=zero_based,
+        )
+        read_options = ReadOptions(pgen_read_options=pgen_read_options)
+        return _read_file(
+            path,
+            InputFormat.Pgen,
             read_options,
             projection_pushdown,
             predicate_pushdown,

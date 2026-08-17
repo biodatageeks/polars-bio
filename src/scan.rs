@@ -31,6 +31,7 @@ use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_gtf::table_provider::GtfTableProvider;
 use datafusion_bio_format_pairs::table_provider::PairsTableProvider;
+use datafusion_bio_format_pgen::{PgenReadOptions as NativePgenReadOptions, PgenTableProvider};
 use datafusion_bio_format_vcf::table_provider::{GenotypeOutputMode, VcfTableProvider};
 use datafusion_bio_format_vcf::zarr::{
     VcfZarrReadOptions as NativeVcfZarrReadOptions, VcfZarrTableProvider,
@@ -45,7 +46,8 @@ use crate::context::PyBioSessionContext;
 use crate::option::{
     BamReadOptions, BedReadOptions, BgenReadOptions, BigBedReadOptions, BigWigReadOptions,
     CramReadOptions, FastaReadOptions, FastqReadOptions, GffReadOptions, GtfReadOptions,
-    InputFormat, PairsReadOptions, ReadOptions, VcfReadOptions, VcfZarrReadOptions,
+    InputFormat, PairsReadOptions, PgenReadOptions, ReadOptions, VcfReadOptions,
+    VcfZarrReadOptions,
 };
 
 type BatchResultReceiver = Receiver<Result<RecordBatch, DataFusionError>>;
@@ -489,6 +491,8 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         InputFormat::Pairs
     } else if path.ends_with(".bgen") {
         InputFormat::Bgen
+    } else if path.ends_with(".pgen") {
+        InputFormat::Pgen
     } else {
         panic!("Unsupported format")
     }
@@ -846,6 +850,31 @@ async fn register_table_provider(
             // inside the extension.
             let table_provider =
                 BgenTableProvider::try_new(path.to_string(), native_options).await?;
+            ctx.register_table(table_name, Arc::new(table_provider))?;
+        },
+        InputFormat::Pgen => {
+            let pgen_read_options = match &read_options {
+                Some(options) => match options.clone().pgen_read_options {
+                    Some(pgen_read_options) => pgen_read_options,
+                    _ => PgenReadOptions::default(),
+                },
+                _ => PgenReadOptions::default(),
+            };
+            info!(
+                "Registering PGEN table {} with options: {:?}",
+                table_name, pgen_read_options
+            );
+            let native_options = NativePgenReadOptions {
+                genotype_fields: pgen_read_options.genotype_fields.clone(),
+                coordinate_system: CoordinateSystem::from_zero_based(pgen_read_options.zero_based),
+                object_storage_options: pgen_read_options.object_storage_options.clone(),
+                ..Default::default()
+            };
+            // Opening a PGEN fileset can fail on user input, such as an absent
+            // PVAR companion or an unknown genotype field, so the error is
+            // returned instead of panicking inside the extension.
+            let table_provider =
+                PgenTableProvider::try_new(path.to_string(), native_options).await?;
             ctx.register_table(table_name, Arc::new(table_provider))?;
         },
         InputFormat::Gtf => {

@@ -83,6 +83,7 @@ read_gtf = data_input.read_gtf
 read_table = data_input.read_table
 read_bcf = data_input.read_bcf
 read_bgen = data_input.read_bgen
+read_pgen = data_input.read_pgen
 read_vcf = data_input.read_vcf
 read_vcf_zarr = data_input.read_vcf_zarr
 read_fastq = data_input.read_fastq
@@ -105,6 +106,7 @@ scan_pairs = data_input.scan_pairs
 scan_table = data_input.scan_table
 scan_bcf = data_input.scan_bcf
 scan_bgen = data_input.scan_bgen
+scan_pgen = data_input.scan_pgen
 scan_vcf = data_input.scan_vcf
 scan_vcf_zarr = data_input.scan_vcf_zarr
 write_vcf = data_input.write_vcf
@@ -187,6 +189,7 @@ __all__ = [
     "read_table",
     "read_bcf",
     "read_bgen",
+    "read_pgen",
     "read_vcf",
     "read_vcf_zarr",
     "scan_bam",
@@ -203,6 +206,7 @@ __all__ = [
     "scan_table",
     "scan_bcf",
     "scan_bgen",
+    "scan_pgen",
     "scan_vcf",
     "scan_vcf_zarr",
     "write_vcf",

@@ -1,0 +1,4 @@
+#CHROM	POS	ID	REF	ALT
+1	10	v1	A	C
+1	20	v2	G	T
+2	30	v3	C	G
