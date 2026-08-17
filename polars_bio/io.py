@@ -318,7 +318,7 @@ def _validate_bgen_genotype_output(genotype_output: str) -> None:
         )
 
 
-PGEN_GENOTYPE_FIELDS = ("GT", "PHASED", "DS", "DS_STORED", "HDS")
+PGEN_GENOTYPE_FIELDS = ("GT", "ALT_COUNT", "PHASED", "DS", "DS_STORED", "HDS")
 
 
 def _validate_pgen_input_path(path: str, operation: str = "read") -> None:
@@ -2143,7 +2143,7 @@ class IOOperations:
 
         Parameters:
             path: The path to the PGEN file. The path must end in `.pgen`. A neighbouring `.pvar` (or `.pvar.zst`) and `.psam` are discovered automatically.
-            genotype_fields: Genotype children to emit, from `"GT"`, `"PHASED"`, `"DS"`, `"DS_STORED"`, and `"HDS"`, in the requested order. Defaults to `("GT",)`. Note this narrows the provider default, which emits all five.
+            genotype_fields: Genotype children to emit, from `"GT"`, `"ALT_COUNT"`, `"PHASED"`, `"DS"`, `"DS_STORED"`, and `"HDS"`, in the requested order. Defaults to `("GT",)`. Note this narrows the provider default, which emits all of them. `"ALT_COUNT"` is the hardcall ALT allele count as `int8`, one byte per genotype rather than the four `"DS"` uses; prefer it when the fileset stores only hardcalls.
             samples: Sample identifiers to emit, in requested order. If *None*, all samples are emitted in PSAM order.
             missing_sample_policy: `"error"` (default) rejects a requested sample name absent from the PSAM; `"ignore"` omits it from the selection.
             psam_id_mode: How selectable sample names are built from PSAM identifiers. `"iid"` (default) uses IID alone and rejects duplicates; `"fid_iid"` uses `FID:IID`; `"fid_iid_sid"` uses `FID:IID:SID`. A PSAM without FID or SID columns defaults those parts to `"0"`.

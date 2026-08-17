@@ -1,6 +1,7 @@
 """PGEN read, scan, register, and describe tests."""
 
 import polars as pl
+import pyarrow as pa
 import pytest
 from _expected import DATA_DIR
 
@@ -361,3 +362,60 @@ class TestPgenPushdown:
     def test_limit_is_applied(self):
         frame = pb.scan_pgen(str(ORACLE_PATH)).limit(1).collect()
         assert frame.height == 1
+
+
+class TestPgenAltCount:
+    """ALT_COUNT emits the hardcall allele count as int8, one byte per cell.
+
+    DS carries the same values on a hardcall-only fileset but as float32, so
+    this exists to avoid paying four bytes per genotype for data that is
+    always 0, 1, 2, or missing.
+    """
+
+    def test_alt_count_is_int8(self):
+        frame = pb.read_pgen(str(ORACLE_PATH), genotype_fields=["ALT_COUNT"])
+        assert _genotype_names(frame) == ["ALT_COUNT"]
+        column = _genotypes(frame).field("ALT_COUNT")
+        assert column.type.value_type == pa.int8()
+
+    def test_alt_count_matches_the_gt_allele_counts(self):
+        alt = pb.read_pgen(str(ORACLE_PATH), genotype_fields=["ALT_COUNT"]).sort(
+            "start"
+        )
+        gt = pb.read_pgen(str(ORACLE_PATH), genotype_fields=["GT"]).sort("start")
+        for row in range(alt.height):
+            counts = _child(alt, "ALT_COUNT", row)
+            calls = _child(gt, "GT", row)
+            expected = [None if c is None else c.count(1) for c in calls]
+            assert counts == expected
+
+    def test_alt_count_is_the_hardcall_track_not_the_dosage_track(self):
+        # dosage.pgen carries fractional dosages (0.125, 1.875) whose hardcalls
+        # are mostly missing. ALT_COUNT must report the hardcalls.
+        alt = pb.read_pgen(str(DOSAGE_PATH), genotype_fields=["ALT_COUNT"])
+        ds = pb.read_pgen(str(DOSAGE_PATH), genotype_fields=["DS"])
+        assert _child(alt, "ALT_COUNT") != _child(ds, "DS")
+        assert _child(alt, "ALT_COUNT") == [None, 1, None, None]
+
+    def test_alt_count_content_is_independent_of_partition_count(self):
+        previous = pb.get_option(TARGET_PARTITIONS)
+        try:
+            # A multi-partition scan may emit rows out of source order, so sort
+            # before comparing rather than trusting emission order.
+            pb.set_option(TARGET_PARTITIONS, "1")
+            one = _child(
+                pb.read_pgen(str(ORACLE_PATH), genotype_fields=["ALT_COUNT"]).sort(
+                    "start"
+                ),
+                "ALT_COUNT",
+            )
+            pb.set_option(TARGET_PARTITIONS, "4")
+            four = _child(
+                pb.read_pgen(str(ORACLE_PATH), genotype_fields=["ALT_COUNT"]).sort(
+                    "start"
+                ),
+                "ALT_COUNT",
+            )
+        finally:
+            pb.set_option(TARGET_PARTITIONS, previous)
+        assert one == four
