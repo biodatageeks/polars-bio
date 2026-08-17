@@ -2118,6 +2118,12 @@ class IOOperations:
         samples: Union[list[str], None] = None,
         missing_sample_policy: str = "error",
         psam_id_mode: str = "iid",
+        pvar_path: Union[str, None] = None,
+        psam_path: Union[str, None] = None,
+        pgi_path: Union[str, None] = None,
+        max_range_gap: Union[int, None] = None,
+        max_range_bytes: Union[int, None] = None,
+        batch_soft_byte_limit: Union[int, None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -2141,6 +2147,12 @@ class IOOperations:
             samples: Sample identifiers to emit, in requested order. If *None*, all samples are emitted in PSAM order.
             missing_sample_policy: `"error"` (default) rejects a requested sample name absent from the PSAM; `"ignore"` omits it from the selection.
             psam_id_mode: How selectable sample names are built from PSAM identifiers. `"iid"` (default) uses IID alone and rejects duplicates; `"fid_iid"` uses `FID:IID`; `"fid_iid_sid"` uses `FID:IID:SID`. A PSAM without FID or SID columns defaults those parts to `"0"`.
+            pvar_path: An explicit `.pvar` companion. A neighbouring `.pvar` then `.pvar.zst` is discovered otherwise.
+            psam_path: An explicit `.psam` companion. The shared-basename `.psam` is used otherwise.
+            pgi_path: An explicit `.pgi` index, for a PGEN that uses an external index.
+            max_range_gap: The largest run of unselected bytes bridged when coalescing reads, in bytes. The provider default is 0, which never bridges a gap and issues one read per contiguous run of selected variants. Raising it trades wasted bytes for fewer requests, which matters most on object storage. If *None*, the provider default is used.
+            max_range_bytes: The largest coalesced read, in bytes. If *None*, the provider default is used.
+            batch_soft_byte_limit: A soft target for genotype bytes in one RecordBatch. If *None*, the provider default is used.
             chunk_size: The size in MB of a chunk when reading from an object store.
             concurrent_fetches: The number of concurrent fetches when reading from an object store.
             allow_anonymous: Whether to allow anonymous access to object storage.
@@ -2161,6 +2173,12 @@ class IOOperations:
             samples=samples,
             missing_sample_policy=missing_sample_policy,
             psam_id_mode=psam_id_mode,
+            pvar_path=pvar_path,
+            psam_path=psam_path,
+            pgi_path=pgi_path,
+            max_range_gap=max_range_gap,
+            max_range_bytes=max_range_bytes,
+            batch_soft_byte_limit=batch_soft_byte_limit,
             chunk_size=chunk_size,
             concurrent_fetches=concurrent_fetches,
             allow_anonymous=allow_anonymous,
@@ -2185,6 +2203,12 @@ class IOOperations:
         samples: Union[list[str], None] = None,
         missing_sample_policy: str = "error",
         psam_id_mode: str = "iid",
+        pvar_path: Union[str, None] = None,
+        psam_path: Union[str, None] = None,
+        pgi_path: Union[str, None] = None,
+        max_range_gap: Union[int, None] = None,
+        max_range_bytes: Union[int, None] = None,
+        batch_soft_byte_limit: Union[int, None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -2224,6 +2248,12 @@ class IOOperations:
             samples=samples,
             missing_sample_policy=missing_sample_policy,
             psam_id_mode=psam_id_mode,
+            pvar_path=pvar_path,
+            psam_path=psam_path,
+            pgi_path=pgi_path,
+            max_range_gap=max_range_gap,
+            max_range_bytes=max_range_bytes,
+            batch_soft_byte_limit=batch_soft_byte_limit,
         )
         read_options = ReadOptions(pgen_read_options=pgen_read_options)
         return _read_file(

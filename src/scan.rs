@@ -887,6 +887,9 @@ async fn register_table_provider(
                 "Registering PGEN table {} with options: {:?}",
                 table_name, pgen_read_options
             );
+            // An unset tuning knob keeps the provider default rather than
+            // collapsing to zero, which would disable coalescing entirely.
+            let defaults = NativePgenReadOptions::default();
             let native_options = NativePgenReadOptions {
                 genotype_fields: pgen_read_options.genotype_fields.clone(),
                 coordinate_system: CoordinateSystem::from_zero_based(pgen_read_options.zero_based),
@@ -896,7 +899,19 @@ async fn register_table_provider(
                     &pgen_read_options.missing_sample_policy,
                 )?,
                 psam_id_mode: pgen_psam_id_mode(&pgen_read_options.psam_id_mode)?,
-                ..Default::default()
+                pvar_path: pgen_read_options.pvar_path.clone(),
+                psam_path: pgen_read_options.psam_path.clone(),
+                pgi_path: pgen_read_options.pgi_path.clone(),
+                max_range_gap: pgen_read_options
+                    .max_range_gap
+                    .unwrap_or(defaults.max_range_gap),
+                max_range_bytes: pgen_read_options
+                    .max_range_bytes
+                    .unwrap_or(defaults.max_range_bytes),
+                batch_soft_byte_limit: pgen_read_options
+                    .batch_soft_byte_limit
+                    .unwrap_or(defaults.batch_soft_byte_limit),
+                ..defaults
             };
             // Opening a PGEN fileset can fail on user input, such as an absent
             // PVAR companion or an unknown genotype field, so the error is

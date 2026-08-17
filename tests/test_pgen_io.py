@@ -196,3 +196,67 @@ class TestPgenPsamIdMode:
     def test_unknown_missing_sample_policy_is_rejected(self):
         with pytest.raises(ValueError, match="missing_sample_policy"):
             pb.read_pgen(str(ORACLE_PATH), missing_sample_policy="skip")
+
+
+class TestPgenCompanionPaths:
+    def test_explicit_companions_are_used(self):
+        frame = pb.read_pgen(
+            str(ORACLE_PATH),
+            pvar_path=str(PGEN_DIR / "oracle.pvar"),
+            psam_path=str(PGEN_DIR / "oracle.psam"),
+        ).sort("start")
+        assert frame["id"].to_list() == ORACLE_IDS
+
+    def test_a_missing_companion_reports_the_path(self, tmp_path):
+        orphan = tmp_path / "orphan.pgen"
+        orphan.write_bytes(ORACLE_PATH.read_bytes())
+        with pytest.raises(Exception, match="orphan"):
+            pb.read_pgen(str(orphan))
+
+
+class TestPgenRangeTuning:
+    """The tuning knobs bound I/O, so they must not change what is emitted.
+
+    Each test compares against the default read rather than against a
+    hardcoded genotype matrix: the property under test is invariance, and a
+    literal would only restate what the read tests already pin down.
+    """
+
+    @pytest.mark.parametrize("gap", [0, 4096])
+    def test_range_gap_does_not_change_content(self, gap):
+        tuned = pb.read_pgen(str(ORACLE_PATH), max_range_gap=gap).sort("start")
+        default = pb.read_pgen(str(ORACLE_PATH)).sort("start")
+        assert tuned.equals(default)
+        assert tuned["id"].to_list() == ORACLE_IDS
+
+    def test_batch_soft_byte_limit_does_not_change_content(self):
+        small = pb.read_pgen(str(ORACLE_PATH), batch_soft_byte_limit=1).sort("start")
+        default = pb.read_pgen(str(ORACLE_PATH)).sort("start")
+        assert small.equals(default)
+
+    def test_max_range_bytes_does_not_change_content(self):
+        tuned = pb.read_pgen(str(ORACLE_PATH), max_range_bytes=1).sort("start")
+        default = pb.read_pgen(str(ORACLE_PATH)).sort("start")
+        assert tuned.equals(default)
+        assert tuned["id"].to_list() == ORACLE_IDS
+
+    def test_the_invariance_check_can_actually_fail(self):
+        # A comparison that cannot fail proves nothing. Confirm `.equals`
+        # distinguishes two genuinely different reads before trusting the
+        # three tests above.
+        default = pb.read_pgen(str(ORACLE_PATH)).sort("start")
+        subset = pb.read_pgen(str(ORACLE_PATH), samples=["s1"]).sort("start")
+        assert not default.equals(subset)
+
+
+class TestPgenPartitions:
+    @pytest.mark.parametrize("partitions", ["1", "2", "4"])
+    def test_content_is_independent_of_partition_count(self, partitions):
+        previous = pb.get_option(TARGET_PARTITIONS)
+        pb.set_option(TARGET_PARTITIONS, partitions)
+        try:
+            frame = pb.read_pgen(str(ORACLE_PATH)).sort("start")
+        finally:
+            pb.set_option(TARGET_PARTITIONS, previous)
+        assert frame["id"].to_list() == ORACLE_IDS
+        assert frame.height == 3

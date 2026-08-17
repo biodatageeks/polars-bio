@@ -933,12 +933,31 @@ pub struct PgenReadOptions {
     /// `"iid"`, `"fid_iid"`, or `"fid_iid_sid"`.
     #[pyo3(get, set)]
     pub psam_id_mode: String,
+    /// Explicit PVAR location; `.pvar` then `.pvar.zst` are tried when absent.
+    #[pyo3(get, set)]
+    pub pvar_path: Option<String>,
+    /// Explicit PSAM location; the shared-basename `.psam` is used when absent.
+    #[pyo3(get, set)]
+    pub psam_path: Option<String>,
+    /// Explicit external PGEN index location.
+    #[pyo3(get, set)]
+    pub pgi_path: Option<String>,
+    /// Maximum unselected byte gap bridged by one PGEN range.
+    #[pyo3(get, set)]
+    pub max_range_gap: Option<u64>,
+    /// Maximum size of a coalesced PGEN range.
+    #[pyo3(get, set)]
+    pub max_range_bytes: Option<u64>,
+    /// Soft target for genotype bytes in one RecordBatch.
+    #[pyo3(get, set)]
+    pub batch_soft_byte_limit: Option<usize>,
 }
 
 #[pymethods]
 impl PgenReadOptions {
     #[new]
-    #[pyo3(signature = (object_storage_options=None, genotype_fields=None, zero_based=false, samples=None, missing_sample_policy="error".to_string(), psam_id_mode="iid".to_string()))]
+    #[pyo3(signature = (object_storage_options=None, genotype_fields=None, zero_based=false, samples=None, missing_sample_policy="error".to_string(), psam_id_mode="iid".to_string(), pvar_path=None, psam_path=None, pgi_path=None, max_range_gap=None, max_range_bytes=None, batch_soft_byte_limit=None))]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         object_storage_options: Option<PyObjectStorageOptions>,
         genotype_fields: Option<Vec<String>>,
@@ -946,6 +965,12 @@ impl PgenReadOptions {
         samples: Option<Vec<String>>,
         missing_sample_policy: String,
         psam_id_mode: String,
+        pvar_path: Option<String>,
+        psam_path: Option<String>,
+        pgi_path: Option<String>,
+        max_range_gap: Option<u64>,
+        max_range_bytes: Option<u64>,
+        batch_soft_byte_limit: Option<usize>,
     ) -> Self {
         PgenReadOptions {
             object_storage_options: pyobject_storage_options_to_object_storage_options(
@@ -956,6 +981,12 @@ impl PgenReadOptions {
             samples,
             missing_sample_policy,
             psam_id_mode,
+            pvar_path,
+            psam_path,
+            pgi_path,
+            max_range_gap,
+            max_range_bytes,
+            batch_soft_byte_limit,
         }
     }
 
@@ -976,6 +1007,12 @@ impl PgenReadOptions {
             samples: None,
             missing_sample_policy: "error".to_string(),
             psam_id_mode: "iid".to_string(),
+            pvar_path: None,
+            psam_path: None,
+            pgi_path: None,
+            max_range_gap: None,
+            max_range_bytes: None,
+            batch_soft_byte_limit: None,
         }
     }
 }
