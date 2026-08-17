@@ -600,13 +600,14 @@ class TestPgenSampleSelection:
             str(ORACLE_PATH), samples=["s8", "s2", "s1"]
         ).sort("start")
         assert len(_child(frame, "GT", 0)) == 3
-        # Upstream provider_test.rs asserts s8 = [[0,0],[0,1],[0,0]] and
-        # s2 = [[0,0],[0,0],[0,0]] across variants v1, v2, v3 for this
-        # exact requested order.
-        s8 = [_child(frame, "GT", row)[0] for row in range(3)]
-        s2 = [_child(frame, "GT", row)[1] for row in range(3)]
-        assert s8 == [[0, 0], [0, 1], [0, 0]]
-        assert s2 == [[0, 0], [0, 0], [0, 0]]
+        # Upstream provider_test.rs asserts these two rows for this exact
+        # requested order. Read its helper signature before copying values:
+        # gt_values(batch, column, row) returns the per-sample values of ONE
+        # row, not one sample across rows. The pgenlib source matrix for v1 is
+        # [0, 1, 2, -9, 0, 0, 0, 0] over s1..s8, so s8=0, s2=1, s1=0 gives
+        # [[0,0], [0,1], [0,0]] once reordered.
+        assert _child(frame, "GT", 0) == [[0, 0], [0, 1], [0, 0]]
+        assert _child(frame, "GT", 1) == [[0, 0], [0, 0], [0, 0]]
 
     def test_sample_names_are_exposed_as_metadata(self):
         lazy = pb.scan_pgen(str(ORACLE_PATH))
