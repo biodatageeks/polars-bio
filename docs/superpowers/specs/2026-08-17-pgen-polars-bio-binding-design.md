@@ -142,8 +142,9 @@ benchmark fixtures, which are out of scope here.
 `tests/test_pgen_io.py`, mirroring `test_bgen_io.py`:
 
 - variant metadata columns and the default `GT`-only genotype child
-- each of the five genotype fields, including that `DS` and `DS_STORED` differ
-  on the `dosage` fixture
+- each of the five genotype fields: that all five are selectable together, that
+  the requested order is preserved, and that `DS` on the `dosage` fixture
+  matches the values upstream `provider_test.rs` asserts
 - sample selection and reordering against the `oracle` fixture
 - `missing_sample_policy` in both directions
 - `psam_id_mode` across all three modes, including duplicate-IID rejection
