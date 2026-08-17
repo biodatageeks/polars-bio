@@ -4080,7 +4080,7 @@ def _extract_py_object_storage_options(read_options):
     )
 
 
-def _extract_column_names_from_expr(with_columns: Union[pl.Expr, list]) -> "List[str]":
+def _extract_column_names_from_expr(with_columns: Union[pl.Expr, list]) -> list[str]:
     """Extract column names from Polars expressions."""
     if with_columns is None:
         return []
