@@ -2376,7 +2376,7 @@ class IOOperations:
 
             matrix = pb.read_pgen_matrix("cohort.pgen", field="ALT_COUNT")
             matrix.values.shape       # (variants, samples)
-            matrix.values.mean(axis=0)  # per-variant ALT frequency * 2
+            matrix.values.mean(axis=1)  # per-variant ALT frequency * 2
             ```
         """
         # Imported here rather than at module scope: NumPy is not a polars-bio

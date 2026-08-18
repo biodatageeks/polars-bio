@@ -346,7 +346,7 @@ straight into it, so the values are never copied:
 ```python
 matrix = pb.read_pgen_matrix("cohort.pgen", field="ALT_COUNT")
 matrix.values.shape         # (variants, samples), int8
-matrix.values.mean(axis=0)  # per-variant ALT frequency x 2
+matrix.values.mean(axis=1)  # per-variant ALT frequency x 2
 matrix.positions            # one per row
 matrix.sample_names         # one per column
 ```

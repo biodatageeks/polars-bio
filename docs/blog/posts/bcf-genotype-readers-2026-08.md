@@ -361,7 +361,7 @@ and what this benchmark's workload asks for:
 ```python
 matrix = pb.read_pgen_matrix("chr22.full.pgen", field="ALT_COUNT")
 matrix.values.shape          # (variants, samples), int8
-matrix.values.mean(axis=0)   # per-variant ALT frequency x 2
+matrix.values.mean(axis=1)   # per-variant ALT frequency x 2
 ```
 
 Runners, fixtures, and full result JSON — including every raw run, the
