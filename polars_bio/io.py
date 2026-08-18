@@ -2397,67 +2397,9 @@ class IOOperations:
         if missing is None:
             missing = -9 if dtype == np.int8 else np.nan
 
-        frame = IOOperations.scan_pgen(
-            path=path,
-            genotype_fields=[field],
-            samples=samples,
-            missing_sample_policy=missing_sample_policy,
-            psam_id_mode=psam_id_mode,
-            pvar_path=pvar_path,
-            psam_path=psam_path,
-            pgi_path=pgi_path,
-            max_range_gap=max_range_gap,
-            max_range_bytes=max_range_bytes,
-            batch_soft_byte_limit=batch_soft_byte_limit,
-            chunk_size=chunk_size,
-            concurrent_fetches=concurrent_fetches,
-            allow_anonymous=allow_anonymous,
-            enable_request_payer=enable_request_payer,
-            max_retries=max_retries,
-            timeout=timeout,
-            compression_type=compression_type,
-            projection_pushdown=True,
-            predicate_pushdown=True,
-            use_zero_based=use_zero_based,
-        )
-        from polars_bio._metadata import get_metadata
-        from polars_bio.context import get_option
-
-        header = get_metadata(frame)["header"]
-        variants = header.get("variant_count")
-        columns = header.get("sample_count")
-        if variants is None or columns is None:
-            raise RuntimeError(
-                "the PGEN provider did not report an output shape "
-                "(bio.pgen.variant_count / bio.pgen.selected_sample_count); "
-                "read_pgen_matrix needs it to preallocate"
-            )
-        sample_names = list(header.get("sample_names") or [])
-
-        if copy_threads is None:
-            try:
-                copy_threads = int(get_option("datafusion.execution.target_partitions"))
-            except (TypeError, ValueError):
-                copy_threads = 1
-        copy_threads = max(1, int(copy_threads))
-
-        variants, columns = header["variant_count"], header["sample_count"]
-        values = np.empty((variants, columns), dtype=dtype)
-        # The decoder is handed this array's address, so these are the checks
-        # standing between a wrong dtype and memory corruption. numpy.empty
-        # gives all three, but they are asserted rather than assumed because the
-        # Rust side cannot see them under the limited API.
-        if not values.flags.c_contiguous or not values.flags.writeable:
-            raise RuntimeError(
-                "PGEN matrix destination must be writable and C-contiguous"
-            )
-        if values.dtype != dtype or values.size != variants * columns:
-            raise RuntimeError("PGEN matrix destination has the wrong dtype or size")
-
-        from polars_bio.polars_bio import py_read_pgen_matrix
-
-        # Built here rather than reached out of `scan_pgen`, so the decoder and
-        # the metadata scan are demonstrably given the same request.
+        # Built directly rather than through `scan_pgen`, because this path does
+        # not register a table: the reader opens the fileset itself and answers
+        # shape, names and positions from it, so the PVAR is parsed once.
         decode_options = PgenReadOptions(
             object_storage_options=PyObjectStorageOptions(
                 allow_anonymous=allow_anonymous,
@@ -2480,32 +2422,44 @@ class IOOperations:
             max_range_bytes=max_range_bytes,
             batch_soft_byte_limit=batch_soft_byte_limit,
         )
-        decoded_variants, decoded_samples, raw_positions = py_read_pgen_matrix(
-            path,
-            decode_options,
-            field,
-            values.ctypes.data,
-            values.size,
-            copy_threads,
-            float(missing),
-        )
-        if (decoded_variants, decoded_samples) != (variants, columns):
-            raise RuntimeError(
-                f"PGEN decode reported {decoded_variants}x{decoded_samples}, "
-                f"expected {variants}x{columns}"
-            )
 
-        # Positions come back from the decode itself, in row order. Reading them
-        # from a second scan instead would parse the 108 MB PVAR again, which on
-        # a hardcall read costs more than a fifth of the whole operation — and a
-        # multi-partition scan could return them in a different order from the
-        # rows they label.
-        positions = np.asarray(raw_positions, dtype=np.int64)
+        from polars_bio.context import get_option
+        from polars_bio.polars_bio import PgenMatrixReader
+
+        reader = PgenMatrixReader(path, decode_options)
+        variants, columns = reader.shape()
+
+        if copy_threads is None:
+            try:
+                copy_threads = int(get_option("datafusion.execution.target_partitions"))
+            except (TypeError, ValueError):
+                copy_threads = 1
+        copy_threads = max(1, int(copy_threads))
+
+        values = np.empty((variants, columns), dtype=dtype)
+        # The decoder is handed this array's address, so these are the checks
+        # standing between a wrong dtype and memory corruption. numpy.empty
+        # gives all three, but they are asserted rather than assumed because the
+        # Rust side cannot see them under the limited API.
+        if not values.flags.c_contiguous or not values.flags.writeable:
+            raise RuntimeError(
+                "PGEN matrix destination must be writable and C-contiguous"
+            )
+        if values.dtype != dtype or values.size != variants * columns:
+            raise RuntimeError("PGEN matrix destination has the wrong dtype or size")
+
+        reader.read_into(
+            field, values.ctypes.data, values.size, copy_threads, float(missing)
+        )
+
+        positions = np.asarray(reader.positions(), dtype=np.int64)
         if positions.shape[0] != variants:
             raise RuntimeError(
                 f"PGEN reported {variants} variants but {positions.shape[0]} positions"
             )
-        return PgenMatrix(values=values, positions=positions, sample_names=sample_names)
+        return PgenMatrix(
+            values=values, positions=positions, sample_names=list(reader.sample_names())
+        )
 
     @staticmethod
     def read_bed(

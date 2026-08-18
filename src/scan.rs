@@ -31,7 +31,7 @@ use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_gtf::table_provider::GtfTableProvider;
 use datafusion_bio_format_pairs::table_provider::PairsTableProvider;
-use datafusion_bio_format_pgen::matrix::{MatrixData, MatrixField, read_genotype_matrix};
+use datafusion_bio_format_pgen::matrix::{GenotypeMatrixReader, MatrixData};
 use datafusion_bio_format_pgen::{
     PgenReadOptions as NativePgenReadOptions, PgenTableProvider, PsamIdMode,
 };
@@ -1241,78 +1241,99 @@ mod tests {
     }
 }
 
-/// Decodes a PGEN genotype field into memory the caller already owns.
+/// Opens a PGEN fileset for matrix reads.
 ///
-/// `values` is a raw destination because polars-bio builds against the limited
-/// API, where PyO3's buffer protocol is unavailable; the Python side owns the
-/// array and checks its dtype, contiguity and length before handing over the
-/// pointer. Decoders write genotypes at their final address, so nothing copies
-/// the matrix afterwards.
-///
-/// # Safety
-///
-/// `values` must point to at least `len` writable, C-contiguous elements of the
-/// type the field implies — `i8` for `ALT_COUNT`, `f32` for `DS` — and must stay
-/// valid and unaliased for the call.
-pub unsafe fn read_pgen_matrix_into(
-    path: String,
-    options: &PgenReadOptions,
-    field: &str,
-    values: *mut u8,
-    len: usize,
-    threads: usize,
-    missing: f64,
-) -> datafusion::common::Result<(usize, usize, Vec<u64>)> {
-    let native = native_pgen_options(options)?;
-    let matrix_field = match field {
-        "ALT_COUNT" => MatrixField::AltCount,
-        "DS" => MatrixField::Dosage,
-        other => {
+/// Kept open across the shape query and the decode so the 108 MB PVAR is parsed
+/// once. Answering "how big is it" and "give me the values" as two separate
+/// calls would otherwise parse it twice, which on the hardcall workload is a
+/// fifth of the whole operation.
+pub struct OpenPgenMatrix {
+    reader: GenotypeMatrixReader,
+    runtime: tokio::runtime::Runtime,
+}
+
+impl OpenPgenMatrix {
+    /// Opens a fileset and reads its companions.
+    pub fn open(path: String, options: &PgenReadOptions) -> datafusion::common::Result<Self> {
+        let native = native_pgen_options(options)?;
+        // A private runtime: this is driven from Python, so there is no ambient
+        // one, and the provider spawns its decode threads inside it.
+        let runtime = tokio::runtime::Runtime::new().map_err(|error| {
+            datafusion::error::DataFusionError::Execution(format!(
+                "failed to start a runtime for the PGEN matrix read: {error}"
+            ))
+        })?;
+        let reader = runtime.block_on(GenotypeMatrixReader::open(path, &native))?;
+        Ok(Self { reader, runtime })
+    }
+
+    /// Rows and columns the decode will fill.
+    pub fn shape(&self) -> (usize, usize) {
+        let shape = self.reader.shape();
+        (shape.variants, shape.samples)
+    }
+
+    /// Selected sample names, in column order.
+    pub fn sample_names(&self) -> Vec<String> {
+        self.reader.sample_names().to_vec()
+    }
+
+    /// Variant start positions, in row order.
+    pub fn positions(&self) -> Vec<u64> {
+        self.reader.positions()
+    }
+
+    /// Decodes into memory the caller owns.
+    ///
+    /// # Safety
+    ///
+    /// `values` must point to at least `len` writable, C-contiguous elements of
+    /// the type `field` implies — `i8` for `ALT_COUNT`, `f32` for `DS` — and
+    /// must stay valid and unaliased for the call.
+    pub unsafe fn read_into(
+        &self,
+        field: &str,
+        values: *mut u8,
+        len: usize,
+        threads: usize,
+        missing: f64,
+    ) -> datafusion::common::Result<()> {
+        let (variants, samples) = self.shape();
+        let expected = variants.saturating_mul(samples);
+        if len != expected {
             return Err(datafusion::error::DataFusionError::Execution(format!(
-                "read_pgen_matrix supports ALT_COUNT and DS, not {other}"
+                "PGEN matrix destination holds {len} values; expected {expected}"
             )));
         }
-    };
-    // A private runtime: this is called from Python, so there is no ambient one,
-    // and the provider spawns its own decode threads inside it.
-    let runtime = tokio::runtime::Runtime::new().map_err(|error| {
-        datafusion::error::DataFusionError::Execution(format!(
-            "failed to start a runtime for the PGEN matrix read: {error}"
-        ))
-    })?;
-    // The destination length is checked inside `read_genotype_matrix` against
-    // the shape it derives, so the fileset is opened once rather than twice.
-    let expected = len;
-
-    let (shape, positions) = match matrix_field {
-        MatrixField::AltCount => {
-            // SAFETY: the caller guarantees `values` addresses `len` writable
-            // `i8`s; the decode rejects a length that disagrees with the shape
-            // the fileset reports, so it cannot index past the end.
-            let slice = unsafe { std::slice::from_raw_parts_mut(values as *mut i8, expected) };
-            runtime.block_on(read_genotype_matrix(
-                path,
-                &native,
-                MatrixData::AltCount {
-                    values: slice,
-                    missing: missing as i8,
-                },
-                threads,
-            ))?
+        match field {
+            "ALT_COUNT" => {
+                // SAFETY: the caller guarantees `values` addresses `len`
+                // writable `i8`s, and `len` has just been checked against the
+                // shape, so the decoder cannot index past the end.
+                let slice = unsafe { std::slice::from_raw_parts_mut(values as *mut i8, expected) };
+                self.runtime.block_on(self.reader.read_into(
+                    MatrixData::AltCount {
+                        values: slice,
+                        missing: missing as i8,
+                    },
+                    threads,
+                ))
+            }
+            "DS" => {
+                // SAFETY: as above, for `f32`.
+                let slice =
+                    unsafe { std::slice::from_raw_parts_mut(values as *mut f32, expected) };
+                self.runtime.block_on(self.reader.read_into(
+                    MatrixData::Dosage {
+                        values: slice,
+                        missing: missing as f32,
+                    },
+                    threads,
+                ))
+            }
+            other => Err(datafusion::error::DataFusionError::Execution(format!(
+                "read_pgen_matrix supports ALT_COUNT and DS, not {other}"
+            ))),
         }
-        MatrixField::Dosage => {
-            // SAFETY: as above, for `f32`.
-            let slice = unsafe { std::slice::from_raw_parts_mut(values as *mut f32, expected) };
-            runtime.block_on(read_genotype_matrix(
-                path,
-                &native,
-                MatrixData::Dosage {
-                    values: slice,
-                    missing: missing as f32,
-                },
-                threads,
-            ))?
-        }
-    };
-    Ok((shape.variants, shape.samples, positions))
+    }
 }
