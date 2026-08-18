@@ -163,13 +163,20 @@ identical records cost it 0.873 s as `int8` and 1.884 s as `float32`.
 
 | Reader | Time | Peak RSS |
 |---|---:|---:|
-| **polars-bio** | **14.142 s** | 24,291 MB |
-| bgen | 15.680 s | 20,377 MB |
-| snputils | 21.807 s | 21,020 MB |
+| **polars-bio** | **12.800 s** | 24,418 MB |
+| bgen | 15.442 s | 21,801 MB |
+| snputils | 21.510 s | 21,953 MB |
 
-polars-bio is **1.11× faster than the `bgen` package and 1.54× faster than
-snputils**. Its three runs were 13.600 s, 14.181 s and 14.142 s, all below the
+polars-bio is **1.21× faster than the `bgen` package and 1.68× faster than
+snputils**. Its three runs were 12.338 s, 12.800 s and 12.884 s, all below the
 `bgen` package's slowest, so the ranges do not overlap.
+
+polars-bio is asked for `genotype_fields=["DS"]` here. Its `genotypes` struct
+also carries a `PLOIDY` child that neither other reader emits and that this
+workload never reads, and a NumPy view of the result keeps the whole Arrow
+struct alive — so requesting it charged polars-bio 2.40 GB of resident output
+nobody asked for, and about 8% of the wall time, outside the equivalence these
+readers are held to.
 
 An earlier revision of this post had polars-bio last here at 25.804 s, 1.71×
 slower than the `bgen` package, and explained it as decompression being where a
@@ -180,17 +187,17 @@ measurement that replaced it.
 **The memory column is the one number here not to lean on.** polars-bio peaks
 above the other two, and an earlier revision of this post recorded the rise as an
 unexplained regression. It isn't one: peak RSS on this path is set by a single
-call in the benchmark's adapter — `combine_chunks()`, which holds the scan's 340
+call in the benchmark's adapter — `combine_chunks()`, which holds the scan's
 Arrow chunks and their concatenation at the same time — and that call's peak
 measured 16.8, 20.9, 21.3, 21.4 and 22.3 GB across five runs of identical code.
-The genotype data itself is stable at 12.80 GB ±35 MB. The decoder changes cannot
-be the cause either way: the Rust scan's own peak is 804 MB before and 797 MB
-after.
+The genotype data itself is stable to ±35 MB. The decoder changes cannot be the
+cause either way: the Rust scan's own peak is 804 MB before and 797 MB after.
 
-What the instrumentation does show is that **2.53 GB of that 12.80 is `PLOIDY`**,
-a column the `genotypes` struct always carries and no projection can drop, held
-alive because the returned matrix is a view into the Arrow table. That is a real
-saving and it has not been taken.
+The clearest demonstration is that the column cannot see a real improvement
+either. Dropping `PLOIDY` removes **2.40 GB** of retained genotype data — 12,798
+against 10,402 MB measured at `collect()`, stable to ±30 MB — and peak RSS goes
+from 24,291 to 24,418 MB. Unmoved, because the peak happens later and varies by
+more than the saving.
 
 Given more than one partition it pulls further ahead: at eight partitions it
 reads the same file in **3.789 s**. That is not a one-thread result and is
