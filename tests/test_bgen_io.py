@@ -40,6 +40,14 @@ def _dosage_matrix(frame: pl.DataFrame) -> np.ndarray:
     return np.ascontiguousarray(flat, dtype=np.float32).reshape(len(values), -1)
 
 
+def _ploidy_matrix(frame: pl.DataFrame) -> np.ndarray:
+    column = frame.select("genotypes").to_arrow().column("genotypes").combine_chunks()
+    struct = column.chunk(0) if hasattr(column, "chunk") else column
+    values = struct.field("PLOIDY")
+    flat = values.flatten().to_numpy(zero_copy_only=False)
+    return np.ascontiguousarray(flat, dtype=np.uint8).reshape(len(values), -1)
+
+
 @pytest.fixture(autouse=True)
 def single_partition():
     """Pin partitions for these tests without leaking the setting.
@@ -260,6 +268,76 @@ class TestBgenProbabilityLayout:
         np.testing.assert_allclose(
             _dosage_matrix(frame), EXPECTED_DOSAGE, rtol=0, atol=1 / 255
         )
+
+
+class TestBgenGenotypeFields:
+    """`PLOIDY` is a byte per genotype and a NumPy view of a result keeps the
+    whole struct alive, so a caller that only wants dosages must be able to
+    decline it."""
+
+    def test_default_emits_every_child(self):
+        schema = pb.scan_bgen(str(BGEN_PATH), genotype_output="dosage").collect_schema()
+        assert [field.name for field in schema["genotypes"].fields] == ["DS", "PLOIDY"]
+
+    def test_value_child_only_drops_ploidy(self):
+        schema = pb.scan_bgen(
+            str(BGEN_PATH), genotype_output="dosage", genotype_fields=["DS"]
+        ).collect_schema()
+        assert [field.name for field in schema["genotypes"].fields] == ["DS"]
+
+    def test_dropping_ploidy_leaves_the_dosages_untouched(self):
+        both = pb.read_bgen(str(BGEN_PATH), genotype_output="dosage").sort("start")
+        ds_only = pb.read_bgen(
+            str(BGEN_PATH), genotype_output="dosage", genotype_fields=["DS"]
+        ).sort("start")
+        # Establish the projection actually happened before comparing values:
+        # without this the value comparison passes trivially when the option is
+        # ignored, which is the failure mode this test exists to catch.
+        assert [f.name for f in both.schema["genotypes"].fields] == ["DS", "PLOIDY"]
+        assert [f.name for f in ds_only.schema["genotypes"].fields] == ["DS"]
+        # Bit patterns, not approximate equality: the projection must not change
+        # a single emitted value.
+        np.testing.assert_array_equal(
+            _dosage_matrix(ds_only).view(np.uint32),
+            _dosage_matrix(both).view(np.uint32),
+        )
+        np.testing.assert_allclose(
+            _dosage_matrix(ds_only), EXPECTED_DOSAGE, rtol=0, atol=1 / 255
+        )
+
+    def test_ploidy_only_is_a_valid_projection(self):
+        frame = pb.read_bgen(
+            str(BGEN_PATH), genotype_output="dosage", genotype_fields=["PLOIDY"]
+        ).sort("start")
+        fields = [field.name for field in frame.schema["genotypes"].fields]
+        assert fields == ["PLOIDY"]
+        # The fixture is diploid throughout.
+        np.testing.assert_array_equal(
+            _ploidy_matrix(frame),
+            np.full((len(EXPECTED_POSITIONS), len(EXPECTED_SAMPLES)), 2, dtype=np.uint8),
+        )
+
+    def test_children_follow_the_requested_order(self):
+        schema = pb.scan_bgen(
+            str(BGEN_PATH), genotype_output="dosage", genotype_fields=["PLOIDY", "DS"]
+        ).collect_schema()
+        assert [field.name for field in schema["genotypes"].fields] == ["PLOIDY", "DS"]
+
+    def test_probability_mode_names_its_own_value_child(self):
+        schema = pb.scan_bgen(str(BGEN_PATH), genotype_fields=["GP"]).collect_schema()
+        assert [field.name for field in schema["genotypes"].fields] == ["GP"]
+
+    def test_the_other_modes_value_child_is_rejected(self):
+        # `DS` does not exist in probability mode, and asking for it must fail
+        # rather than silently produce a `GP` column under another name.
+        with pytest.raises(ValueError, match="DS"):
+            pb.read_bgen(str(BGEN_PATH), genotype_fields=["DS"])
+
+    def test_unknown_child_is_rejected(self):
+        with pytest.raises(ValueError, match="NOPE"):
+            pb.read_bgen(
+                str(BGEN_PATH), genotype_output="dosage", genotype_fields=["NOPE"]
+            )
 
 
 class TestBgenValidation:
