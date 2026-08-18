@@ -19,8 +19,8 @@
 - [x] 3.2 Thread counts produce identical values
 - [x] 3.3 Sample selection reorders columns
 - [x] 3.4 `genotype_fields` selection, ordering, and rejection cases
-- [ ] 3.5 Positions under a zero-based read — **open**, and the gap that let a
-      row-mislabelling bug through provider review
+- [x] 3.5 Positions under a zero-based read, compared against the scan under both
+      systems — the gap that let a row-mislabelling bug through provider review
 
 ## 4. Documentation
 - [x] 4.1 API docstrings covering the dosage-only limit and the PLOIDY cost

@@ -411,3 +411,22 @@ class TestBgenMatrix:
     def test_non_bgen_path_is_rejected(self):
         with pytest.raises(ValueError, match=r"\.bgen"):
             pb.read_bgen_matrix(str(DATA_DIR / "io" / "vcf" / "multisample.vcf"))
+
+    def test_matrix_positions_follow_the_coordinate_system(self):
+        # The matrix labels its rows, and those labels must be the `start` the
+        # scan emits under whichever coordinate system is in force. Returning
+        # the raw one-based BGEN position instead puts every row one base later
+        # than the DataFrame path, which no assertion about values would catch —
+        # and which passes unnoticed under the one-based default, where the two
+        # values coincide.
+        for zero_based in (False, True):
+            matrix = pb.read_bgen_matrix(str(BGEN_PATH), use_zero_based=zero_based)
+            frame = pb.read_bgen(
+                str(BGEN_PATH),
+                genotype_output="dosage",
+                genotype_fields=["DS"],
+                use_zero_based=zero_based,
+            ).sort("start")
+            assert sorted(matrix.positions.tolist()) == frame["start"].to_list(), (
+                f"zero_based={zero_based}"
+            )
