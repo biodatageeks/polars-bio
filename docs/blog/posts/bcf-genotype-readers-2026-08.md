@@ -3,6 +3,7 @@ draft: false
 date:
   created: 2026-08-12
   updated: 2026-08-18
+  # second revision of this date: BGEN re-measured, PGEN snputils column corrected
 categories:
   - performance
   - benchmarks
@@ -19,11 +20,14 @@ polars-bio against snputils on the same chromosome in three formats, with one
 constraint held fixed throughout: **every reader gets one thread, and every
 comparison produces the same values.**
 
-polars-bio is faster than snputils on BCF and PGEN, and slower on BGEN. On PGEN
-it is also faster than pgenlib, PLINK 2's own C reader — at one thread, on both
-workloads. Where it loses, the reason is identified rather than glossed. In all
-three formats polars-bio is bit-identical to an independent reference
-implementation across 2.53 billion genotypes; snputils is not, on BGEN.
+polars-bio is the fastest reader measured here in all three formats, at one
+thread. On PGEN that includes pgenlib, PLINK 2's own C reader, on both
+workloads; on BGEN it includes the `bgen` package. It did not start that way —
+BGEN was the format it lost, and an earlier revision of this post said so — and
+what closed that gap was measuring where the time actually went rather than
+trusting the explanation. In all three formats polars-bio is bit-identical to an
+independent reference implementation across 2.53 billion genotypes; snputils is
+not, on BGEN.
 
 <!-- more -->
 
@@ -91,10 +95,12 @@ is not.
 
 Medians of three fresh-process runs, one thread each. Lower is better.
 
-The PGEN block was re-measured on 2026-08-18 against provider `765a8d2`, after a
-further change to the matrix reader. All three readers were re-run together in
-that session, so the PGEN table is internally consistent; the BCF and BGEN
-figures are unchanged from the earlier session and are not compared against it.
+The PGEN and BGEN blocks were both re-measured on 2026-08-18 against provider
+`5f3dcf3`, each with all of its readers re-run together, so each table is
+internally consistent; they are two separate sessions and should not be compared
+against each other. The BCF figures are unchanged from the earlier session. The
+PGEN table also carries a harness fix that moved only the snputils column — see
+the note under that table.
 
 ### BCF — int8 dosage
 
@@ -110,14 +116,22 @@ one format where it wins outright at equal core count.
 
 | Reader | Hardcall | Dosage |
 |---|---:|---:|
-| **polars-bio** | **0.653 s** | **1.221 s** |
-| pgenlib | 0.826 s | 1.861 s |
-| snputils | 1.470 s | 3.462 s |
+| **polars-bio** | **0.684 s** | **1.277 s** |
+| pgenlib | 0.873 s | 1.884 s |
+| snputils | 0.875 s | 2.651 s |
 
-polars-bio is **1.52× faster than pgenlib on dosage and 1.27× on hardcalls**, and
-2.8×/2.3× faster than snputils on those same two workloads. Note that snputils
-*is* pgenlib plus a NumPy wrapper here, so the meaningful comparison is against
-pgenlib itself.
+polars-bio is **1.48× faster than pgenlib on dosage and 1.28× on hardcalls**, and
+2.08×/1.28× faster than snputils. Note that snputils *is* pgenlib plus a NumPy
+wrapper here, so the meaningful comparison is against pgenlib itself — and on
+hardcalls the two are now within 2 ms of each other, which is what that wrapper
+should cost.
+
+An earlier revision of this post had snputils at 1.470 s and 3.462 s. That was a
+harness bug, not the reader: the timer excludes library imports, and the warm-up
+imported each reader's top-level package, which does not reach snputils' lazily
+loaded reader. It was charged ~0.94 s of module loading inside its own timed
+region while every other reader had that excluded. Worth stating plainly that
+the correction moves against this post's own subject.
 
 Two caveats. pgenlib drifted by up to 4.6% between sessions earlier in this
 work, and this session shows the same thing from the other side: it reproduced
@@ -129,7 +143,7 @@ decimal place across them. And pgenlib still uses less memory in both workloads
 buffer, though the gap is 4% rather than the 65% it was.
 
 Given more than one core polars-bio pulls further ahead: at eight partitions it
-reads the same file in **0.379 s** (dosage) and **0.234 s** (hardcall). That is
+reads the same file in **0.385 s** (dosage) and **0.238 s** (hardcall). That is
 not a one-thread result and is reported as an aside, the same way the BGEN
 figure below is.
 
@@ -143,33 +157,69 @@ exactly that, one byte per genotype rather than the four `DS` needs — 2.53 GB 
 output on this chromosome instead of 10.13 GB. Its `DS` column stays `float32`
 because PGEN dosages are genuinely fractional — a dosage fileset holds values
 like `0.125` that no integer type can carry. pgenlib pays the same tax:
-identical records cost it 0.826 s as `int8` and 1.861 s as `float32`.
+identical records cost it 0.873 s as `int8` and 1.884 s as `float32`.
 
 ### BGEN — float32 dosage
 
 | Reader | Time | Peak RSS |
 |---|---:|---:|
-| bgen | **15.064 s** | 19,718 MB |
-| snputils | 21.171 s | 19,329 MB |
-| polars-bio | 25.804 s | 20,462 MB |
+| **polars-bio** | **14.142 s** | 24,291 MB |
+| bgen | 15.680 s | 20,377 MB |
+| snputils | 21.807 s | 21,020 MB |
 
-polars-bio is 1.22× slower than snputils and 1.71× slower than the `bgen`
-package. BGEN spends most of its time in per-variant zlib decompression, which
-is where a single-threaded C extension is strongest.
+polars-bio is **1.11× faster than the `bgen` package and 1.54× faster than
+snputils**. Its three runs were 13.600 s, 14.181 s and 14.142 s, all below the
+`bgen` package's slowest, so the ranges do not overlap.
 
-Given more than one partition polars-bio overtakes both: at eight partitions it
-reads the same file in **6.296 s** against the `bgen` package's 15.024 s and
-snputils' 21.171 s. That is a real capability, and it is reported here as an
-aside rather than in the table above, because it is not a one-thread result.
+An earlier revision of this post had polars-bio last here at 25.804 s, 1.71×
+slower than the `bgen` package, and explained it as decompression being where a
+single-threaded C extension is strongest. That explanation was wrong in a way
+worth recording, and [Where the time went](#where-the-time-went) has the
+measurement that replaced it.
+
+**Memory is the one axis that moved the wrong way.** polars-bio peaks 19% above
+the `bgen` package, and 9% above where it peaked when it was slower. That is not
+explained; a scan that produces batches twice as fast plausibly keeps more of
+them in flight ahead of a Python consumer that did not get faster, but that is a
+hypothesis, not a measurement.
+
+Given more than one partition it pulls further ahead: at eight partitions it
+reads the same file in **3.789 s**. That is not a one-thread result and is
+reported as an aside rather than in the table above.
 
 ## Where the time went
 
-**BGEN** is decompression-bound, and is the one format where polars-bio still
-loses at one thread. snputils' reader is a C extension built around libdeflate;
-polars-bio decompresses the same blocks and then builds Arrow arrays on top.
-Per-core there is no structural advantage to be had, and this is the format
-where partition parallelism matters most, as the eight-partition figure above
-shows.
+**BGEN** was the format polars-bio lost at one thread, and the explanation this
+post gave for it was wrong. The claim was that decompression dominates and a C
+extension wins there, so per core there was no structural advantage to be had.
+Two measurements retired that.
+
+*Decompression is a floor every reader pays, in the same library.* Walking the
+variant records and inflating every payload with libdeflate — which is all any
+reader of this file must do — takes **9.5 s** and produces 7.61 GB from a 160 MB
+file. The `bgen` package reads the whole file in 15.7 s, so its own work is
+about 6 s. polars-bio's was 14.8 s. The gap was never decompression; both use
+libdeflate.
+
+*And Arrow construction is four milliseconds.* The decoder writes Arrow's layout
+as it goes, so building a batch only wraps buffers. "Builds Arrow arrays on top"
+was measuring nothing.
+
+The cost was the loop turning a decompressed block into output, at 5.15 ns per
+genotype across 2.53 billion of them. Profiling it found two things. First, the
+two helpers it calls per sample were **out-of-line calls** — 15% and 18% of the
+scan — and neither was reachable by a hint: one already carried `#[inline]` and
+LLVM declined it, the other's callers were marked but it was not. Second, the
+loop **decided per sample what the read had already decided for all of them**:
+it gathered through the selected-sample index array even when the selection was
+the whole cohort in order, wrote a uniform ploidy a byte at a time, and tested a
+missingness that a fully called variant does not have.
+
+Inlining both helpers and filling a whole-cohort dosage read straight from the
+stored byte pairs took the non-decompression work from **14.8 s to 2.3 s**.
+Decompression is now 80% of a one-partition scan, against 39% before. The output
+is bit-identical through both changes — the dosages are written by the same
+expression the per-sample path uses, not an equivalent one.
 
 **PGEN** went from 5.615 s to 1.221 s on dosage over six changes, and it is
 worth being precise about which did what, because one of them was a measurement
@@ -267,12 +317,21 @@ filesystem cache is warm and reader order is deterministically rotated. Peak RSS
 is process `ru_maxrss` after the output is retained; hashing runs outside the
 timer.
 
-The import exclusion is enforced as of this revision. It was always the stated
+The import exclusion needed two goes to get right. It was always the stated
 contract, but the PGEN adapters imported inside the timed function, which
-charged each reader for its own module load — a cost that is paid once per
-process however many filesets are then read, and that differs by more than an
-order of magnitude across these libraries. The BCF and BGEN figures in this post
-are unaffected.
+charged each reader for its own module load — a cost paid once per process
+however many filesets are then read. Warming the imports fixed that for
+polars-bio and pgenlib but not for snputils, which loads its readers lazily:
+importing the package costs ~0.03 s while the first touch of `read_pgen` costs
+~0.94 s, and that touch stayed inside the timer. Warming now reaches the
+attribute each adapter calls.
+
+Measured cold, the imports are ~0.59 s for polars-bio's 228 MB extension,
+~0.94 s for snputils' PGEN reader, ~0.88 s for its BGEN reader, and under
+0.06 s for pgenlib and the `bgen` package — so this exclusion is not a courtesy
+to polars-bio, and while it was broken it was costing snputils the most. The
+BCF and BGEN figures are unaffected: their adapters import at module scope,
+before the clock.
 
 The polars-bio extension **must** be built optimized — a plain
 `maturin develop` is a debug build and measured 3.1× slower, enough to invert a
@@ -288,7 +347,7 @@ verified after the fact.
 | Component | Version |
 |---|---|
 | polars-bio | 0.33.1 (branch `feat/bgen-pr220-bench`) |
-| datafusion-bio-formats | `765a8d2` (branch `perf/pgen-batch-array-build`) |
+| datafusion-bio-formats | `5f3dcf3` (branch `perf/bgen-bulk-dosage-fill`, [#235](https://github.com/biodatageeks/datafusion-bio-formats/pull/235) on [#234](https://github.com/biodatageeks/datafusion-bio-formats/pull/234)); its PGEN provider is [#232](https://github.com/biodatageeks/datafusion-bio-formats/pull/232) as merged |
 | snputils | 1.1.1.dev17+gbdb1a56b5 |
 | pgenlib / bgen | 0.94.1 / 1.10.0 |
 | Polars / PyArrow / NumPy | 1.42.1 / 24.0.0 / 2.5.2 |
