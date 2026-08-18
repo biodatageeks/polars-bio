@@ -2448,7 +2448,9 @@ class IOOperations:
         # gives all three, but they are asserted rather than assumed because the
         # Rust side cannot see them under the limited API.
         if not values.flags.c_contiguous or not values.flags.writeable:
-            raise RuntimeError("PGEN matrix destination must be writable and C-contiguous")
+            raise RuntimeError(
+                "PGEN matrix destination must be writable and C-contiguous"
+            )
         if values.dtype != dtype or values.size != variants * columns:
             raise RuntimeError("PGEN matrix destination has the wrong dtype or size")
 
