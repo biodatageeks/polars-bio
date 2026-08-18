@@ -20,10 +20,10 @@ constraint held fixed throughout: **every reader gets one thread, and every
 comparison produces the same values.**
 
 polars-bio is faster than snputils on BCF and PGEN, and slower on BGEN. On PGEN
-it also comes within a few percent of pgenlib, PLINK 2's own C reader. Where it
-loses, the reason is identified rather than glossed. In all three formats
-polars-bio is bit-identical to an independent reference implementation across
-2.53 billion genotypes; snputils is not, on BGEN.
+it is also faster than pgenlib, PLINK 2's own C reader — at one thread, on both
+workloads. Where it loses, the reason is identified rather than glossed. In all
+three formats polars-bio is bit-identical to an independent reference
+implementation across 2.53 billion genotypes; snputils is not, on BGEN.
 
 <!-- more -->
 
@@ -105,18 +105,22 @@ one format where it wins outright at equal core count.
 
 | Reader | Hardcall | Dosage |
 |---|---:|---:|
-| pgenlib | **0.827 s** | **1.779 s** |
-| **polars-bio** | **0.940 s** | **1.849 s** |
-| snputils | 1.487 s | 3.181 s |
+| **polars-bio** | **0.694 s** | **1.665 s** |
+| pgenlib | 0.866 s | 1.865 s |
+| snputils | 1.557 s | 3.361 s |
 
-polars-bio is **1.6× faster than snputils on hardcalls and 1.7× faster on
-dosage**, and lands **1.14× and 1.04× of pgenlib's time**. Note that snputils
-*is* pgenlib plus a NumPy wrapper here, so the meaningful comparison is against
-pgenlib itself, and coming within 4% of a C reader that decodes straight into
-the caller's array is the result worth reporting.
+polars-bio is **1.25× faster than pgenlib on hardcalls and 1.12× on dosage**, and
+2.2×/2.0× faster than snputils. Note that snputils *is* pgenlib plus a NumPy
+wrapper here, so the meaningful comparison is against pgenlib itself.
+
+Two caveats on that. pgenlib measured 4.6% slower in this session than the last
+(0.866 s against 0.828 s on hardcalls), more drift than these reference readers
+usually show — read the hardcall margin as "faster", not as exactly 1.25×. And
+pgenlib still uses less memory in both workloads, because it decodes straight
+into the caller's array and never makes the copy polars-bio makes.
 
 This is a large change from the previous revision of this post, which had
-polars-bio at 4.202 s and 5.615 s. Three things moved it, and one of them was a
+polars-bio at 4.202 s and 5.615 s. Four things moved it, and one of them was a
 harness bug — details in [Where the time went](#where-the-time-went).
 
 Two representation notes. PLINK 2 stores hardcalls as two bits per genotype, so
@@ -125,7 +129,7 @@ exactly that, one byte per genotype rather than the four `DS` needs — 2.53 GB 
 output on this chromosome instead of 10.13 GB. Its `DS` column stays `float32`
 because PGEN dosages are genuinely fractional — a dosage fileset holds values
 like `0.125` that no integer type can carry. pgenlib pays the same tax:
-identical records cost it 0.827 s as `int8` and 1.779 s as `float32`.
+identical records cost it 0.866 s as `int8` and 1.865 s as `float32`.
 
 ### BGEN — float32 dosage
 
@@ -153,7 +157,7 @@ Per-core there is no structural advantage to be had, and this is the format
 where partition parallelism matters most, as the eight-partition figure above
 shows.
 
-**PGEN** went from 5.615 s to 1.849 s on dosage over three changes, and it is
+**PGEN** went from 5.615 s to 1.665 s on dosage over four changes, and it is
 worth being precise about which did what, because one of them was a measurement
 fix rather than a speedup.
 
@@ -174,23 +178,34 @@ else. For the record type that dominates, packing would have been a regression.
 array out of a DataFrame consolidates the scan's record batches into one Arrow
 buffer before NumPy ever sees them — a whole extra 10 GB here. A new
 `read_pgen_matrix` streams batches into a preallocated array instead, so the
-values are written once. That is the difference between 3.225 s and 1.849 s, and
-between 22.3 GB and 13.3 GB of peak memory.
+values are written once. Measured against the same provider on both sides, that
+was 3.225 s and 22.3 GB through the DataFrame against 1.849 s and 13.3 GB
+through the matrix reader — 1.7× the time and 1.7× the memory, for a copy the
+job does not need.
+
+*Opening the fileset parsed 108 MB of text before anything else started.* The
+`.pvar` companion lists every variant, and it was parsed on one thread — 0.257 s,
+paid before any partition ran, and a fixed floor under every read no matter how
+many cores it was given. Splitting it across threads takes it to 0.068 s. That
+is the change that put polars-bio ahead of pgenlib rather than beside it.
 
 *And the timer was charging polars-bio for importing itself.* Each measurement
 runs in a fresh process, and every reader adapter imported its library inside
 the timed function — about 0.46 s for polars-bio's 228 MB extension against
 0.03 s for pgenlib and snputils. The harness had always documented imports as
-excluded; it now actually excludes them, for every reader alike. Charged the old
-way, polars-bio's dosage figure would read 2.26 s rather than 1.849 s, so this
-one is worth knowing about before comparing against the earlier revision.
+excluded; it now actually excludes them, for every reader alike. That is worth
+~0.43 s of the dosage figure, so it is worth knowing about before comparing
+against the earlier revision.
 
 What is left is one copy from the scan's Arrow batches into the destination
 array, and it cannot be removed on this path: Arrow's `ListArray` uses 32-bit
 offsets, so a batch holds at most 842,811 rows at this sample count and the
 matrix can never arrive as a single zero-copy buffer. Closing it means the
 decoder writing into the caller's buffer, which is a different API rather than a
-tuning change.
+tuning change. It is also why pgenlib still wins on memory, and why polars-bio
+scales to only about 2× on four cores when its decoder alone scales 5× — the
+copy is over half of a four-partition run and saturates memory bandwidth well
+before it runs out of threads.
 
 **BCF** is where the architecture pays off: typed FORMAT/GT decoding straight
 into Arrow buffers, with no per-record Python object and no intermediate
@@ -237,7 +252,7 @@ verified after the fact.
 | Component | Version |
 |---|---|
 | polars-bio | 0.33.1 (branch `feat/bgen-pr220-bench`) |
-| datafusion-bio-formats | `1fc3673` (branch `perf/pgen-batch-array-build`) |
+| datafusion-bio-formats | `b2ed0b3` (branch `perf/pgen-batch-array-build`) |
 | snputils | 1.1.1.dev17+gbdb1a56b5 |
 | pgenlib / bgen | 0.94.1 / 1.10.0 |
 | Polars / PyArrow / NumPy | 1.42.1 / 24.0.0 / 2.5.2 |
