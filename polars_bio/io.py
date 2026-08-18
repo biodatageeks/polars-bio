@@ -2319,20 +2319,21 @@ class IOOperations:
         Read one genotype field of a PGEN fileset into a dense NumPy matrix.
 
         The whole-cohort matrix is what association testing, PCA, and relatedness
-        pipelines consume, and going through a DataFrame to get it costs a second
-        full copy of the values: the scan's record batches are consolidated into
-        one contiguous Arrow buffer, and only then viewed as an array. This
-        streams the batches straight into a preallocated array instead, so the
-        values are written once. On chromosome 22 of 1000 Genomes
-        (993,881 x 2,548) that is 3.2 s and 22.3 GB for `DS` through
-        `read_pgen`, against 1.9 s and 10.9 GB here.
+        pipelines consume, and going through a DataFrame to get one costs a
+        second full copy of every value: the scan builds Arrow batches, and
+        something then has to consolidate them into a contiguous array. The
+        decoder here writes genotypes at their final address instead, so they
+        are written once.
 
-        Preallocation is possible because the provider reports the output shape
-        from the `.pvar` and `.psam` without reading a genotype record.
+        On chromosome 22 of 1000 Genomes (993,881 variants x 2,548 samples) the
+        `DS` matrix takes **1.29 s** and 12.6 GB, against 3.2 s and 22.3 GB
+        through `read_pgen`. `ALT_COUNT` takes 0.70 s. Both are faster than
+        PLINK 2's own `pgenlib` at one thread, and roughly three times faster
+        again given eight partitions.
 
         Parameters:
             path: The path to the PGEN file. The path must end in `.pgen`.
-            field: The genotype field to materialize: `"ALT_COUNT"` (`int8` hardcall ALT allele count), `"DS"` (`float32` ALT dosage), or `"DS_STORED"` (`float32`, the stored dosage track without the hardcall fallback). Fields with more than one value per sample — `"GT"`, `"HDS"` — have no dense matrix form; read them with `read_pgen`.
+            field: The genotype field to materialize: `"ALT_COUNT"` (`int8` hardcall ALT allele count) or `"DS"` (`float32` ALT dosage). Fields with more than one value per sample — `"GT"`, `"HDS"` — have no dense matrix form, and `"DS_STORED"` has no decoder on this path; read those with `read_pgen`.
             samples: Sample identifiers to emit, in requested order. If *None*, all samples are emitted in PSAM order. The matrix has one column per selected sample.
             missing: The value written where a genotype is missing. Defaults to `-9` for `"ALT_COUNT"`, matching PLINK's sentinel, and to NaN for the float fields.
             missing_sample_policy: `"error"` (default) rejects a requested sample name absent from the PSAM; `"ignore"` omits it.
@@ -2351,7 +2352,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression override.
             use_zero_based: If True, report 0-based positions. If False, 1-based. If None (default), uses the global configuration.
-            copy_threads: How many threads copy decoded batches into the result. Writing the matrix is about half memcpy and half first-touch page faults, and neither holds the GIL, so this scales — but it is the *only* stage that does not follow `datafusion.execution.target_partitions`, which is why it is settable. If *None* (default), it follows `target_partitions`, so a single-partition scan stays single-threaded end to end.
+            copy_threads: How many threads decode into the result. They write disjoint row ranges, so they never contend. If *None* (default), this follows `datafusion.execution.target_partitions`, so a single-partition read stays single-threaded end to end.
 
         Returns:
             A `PgenMatrix` of `values` (a C-contiguous `(variants, samples)`
@@ -2359,10 +2360,10 @@ class IOOperations:
             column).
 
         !!! note
-            Rows follow the scan's emission order, which is source order for a
-            single partition but may interleave when
-            `datafusion.execution.target_partitions` is above one. `positions`
-            labels every row, so sort by it if source order matters.
+            Rows are in PVAR order at every partition count: each variant is
+            written at its own row index rather than in the order it finished
+            decoding. This differs from `read_pgen`, whose row order may
+            interleave above one partition.
 
         Example:
             ```python

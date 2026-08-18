@@ -337,6 +337,24 @@ PLINK 2 filesets use `read_pgen` / `scan_pgen`, with `register_pgen` and
 `describe_pgen` for registration and schema inspection. One row is one PVAR
 variant, with `ref` and a list-typed `alt` carrying the declared alleles.
 
+For a whole-cohort genotype matrix — what association testing, PCA and
+relatedness pipelines consume — use
+[`read_pgen_matrix`](../api/reading.md#polars_bio.data_input.read_pgen_matrix)
+instead. It returns a dense NumPy array rather than a DataFrame, and decodes
+straight into it, so the values are never copied:
+
+```python
+matrix = pb.read_pgen_matrix("cohort.pgen", field="ALT_COUNT")
+matrix.values.shape         # (variants, samples), int8
+matrix.values.mean(axis=0)  # per-variant ALT frequency x 2
+matrix.positions            # one per row
+matrix.sample_names         # one per column
+```
+
+Rows are in PVAR order at every partition count, which a `read_pgen` scan does
+not guarantee. `field` takes `"ALT_COUNT"` or `"DS"`; fields with more than one
+value per sample have no dense form.
+
 - **Genotype fields** — `genotype_fields` selects children of the `genotypes`
   struct by name, from `"GT"`, `"PHASED"`, `"DS"`, `"DS_STORED"`, and `"HDS"`,
   emitted in the requested order. It defaults to `("GT",)`. This narrows the

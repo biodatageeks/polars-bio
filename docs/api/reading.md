@@ -11,6 +11,7 @@
             - read_bcf
             - read_bgen
             - read_pgen
+            - read_pgen_matrix
             - read_vcf
             - read_vcf_zarr
             - read_bam
