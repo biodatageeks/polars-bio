@@ -20,6 +20,7 @@ use datafusion_bio_format_bbi::bigbed::{
 };
 use datafusion_bio_format_bbi::bigwig::BigWigTableProvider;
 use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
+use datafusion_bio_format_bgen::matrix::GenotypeMatrixReader as BgenGenotypeMatrixReader;
 use datafusion_bio_format_bgen::{
     BgenOutputMode, BgenProbabilityLayout, BgenReadOptions as NativeBgenReadOptions,
     BgenTableProvider,
@@ -1335,5 +1336,86 @@ impl OpenPgenMatrix {
                 "read_pgen_matrix supports ALT_COUNT and DS, not {other}"
             ))),
         }
+    }
+}
+
+/// An open BGEN, read as a dense dosage matrix.
+///
+/// The BGEN counterpart of [`OpenPgenMatrix`], and a handle for the same
+/// reason: a caller must learn the shape before it can allocate, and reopening
+/// would rebuild the catalog — which for a file without a usable index is a
+/// walk of every record.
+pub struct OpenBgenMatrix {
+    reader: BgenGenotypeMatrixReader,
+    runtime: tokio::runtime::Runtime,
+}
+
+impl OpenBgenMatrix {
+    /// Opens a BGEN and reads its metadata.
+    pub fn open(path: String, options: &BgenReadOptions) -> datafusion::common::Result<Self> {
+        // Dosage only, and only the value child: the matrix produces one value
+        // per genotype by construction, so PLOIDY has nowhere to go and asking
+        // the provider for probabilities fails at open.
+        let native = NativeBgenReadOptions {
+            output_mode: BgenOutputMode::Dosage,
+            genotype_fields: Some(vec!["DS".to_string()]),
+            sample_path: options.sample_path.clone(),
+            bgi_path: options.bgi_path.clone(),
+            samples: options.samples.clone(),
+            coordinate_system: CoordinateSystem::from_zero_based(options.zero_based),
+            object_storage_options: options.object_storage_options.clone(),
+            ..Default::default()
+        };
+        let runtime = tokio::runtime::Runtime::new().map_err(|error| {
+            datafusion::error::DataFusionError::Execution(format!(
+                "failed to start a runtime for the BGEN matrix read: {error}"
+            ))
+        })?;
+        let reader = runtime.block_on(BgenGenotypeMatrixReader::open(path, native))?;
+        Ok(Self { reader, runtime })
+    }
+
+    /// Rows and columns the decode will fill.
+    pub fn shape(&self) -> (usize, usize) {
+        let shape = self.reader.shape();
+        (shape.variants, shape.samples)
+    }
+
+    /// Selected sample names, in column order.
+    pub fn sample_names(&self) -> Vec<String> {
+        self.reader.sample_names().to_vec()
+    }
+
+    /// Variant start positions, in row order.
+    pub fn positions(&self) -> Vec<u64> {
+        self.reader.positions()
+    }
+
+    /// Decodes into memory the caller owns.
+    ///
+    /// # Safety
+    ///
+    /// `values` must point to at least `len` writable, C-contiguous `f32`s and
+    /// must stay valid and unaliased for the call.
+    pub unsafe fn read_into(
+        &self,
+        values: *mut u8,
+        len: usize,
+        threads: usize,
+        missing: f64,
+    ) -> datafusion::common::Result<()> {
+        let (variants, samples) = self.shape();
+        let expected = variants.saturating_mul(samples);
+        if len != expected {
+            return Err(datafusion::error::DataFusionError::Execution(format!(
+                "BGEN matrix destination holds {len} values; expected {expected}"
+            )));
+        }
+        // SAFETY: the caller guarantees `values` addresses `len` writable,
+        // C-contiguous `f32`s that stay alive and unaliased for this call.
+        let slice = unsafe { std::slice::from_raw_parts_mut(values as *mut f32, len) };
+        self.runtime
+            .block_on(self.reader.read_into(slice, missing as f32, threads))?;
+        Ok(())
     }
 }

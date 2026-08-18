@@ -975,6 +975,66 @@ impl PyPgenMatrixReader {
     }
 }
 
+/// An open BGEN, read as a dense dosage matrix.
+///
+/// The BGEN counterpart of [`PyPgenMatrixReader`], with the same handle shape
+/// and the same raw-address contract: the Python wrapper owns the dtype,
+/// C-contiguity, writability and length checks, and `read_bgen_matrix` in
+/// `io.py` is the only supported caller.
+#[pyclass(name = "BgenMatrixReader")]
+struct PyBgenMatrixReader {
+    inner: scan::OpenBgenMatrix,
+}
+
+#[pymethods]
+impl PyBgenMatrixReader {
+    #[new]
+    fn new(path: String, options: BgenReadOptions) -> PyResult<Self> {
+        scan::OpenBgenMatrix::open(path, &options)
+            .map(|inner| Self { inner })
+            .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+
+    /// `(variants, samples)` — the shape the decode will fill.
+    fn shape(&self) -> (usize, usize) {
+        self.inner.shape()
+    }
+
+    /// Selected sample names, in column order.
+    fn sample_names(&self) -> Vec<String> {
+        self.inner.sample_names()
+    }
+
+    /// Variant start positions, in row order.
+    fn positions(&self) -> Vec<u64> {
+        self.inner.positions()
+    }
+
+    /// Decodes into the `float32` array at `destination`, `length` long.
+    fn read_into(
+        &self,
+        py: Python<'_>,
+        destination: usize,
+        length: usize,
+        threads: usize,
+        missing: f64,
+    ) -> PyResult<()> {
+        // The GIL is released for the decode: the provider runs its own threads
+        // and holding it would serialize them against each other.
+        py.detach(|| {
+            // SAFETY: the Python wrapper has checked that `destination`
+            // addresses `length` writable, C-contiguous `float32`s and keeps
+            // the array alive across this call. The length is checked again
+            // against the file's shape inside.
+            unsafe {
+                self.inner
+                    .read_into(destination as *mut u8, length, threads, missing)
+            }
+        })
+        .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -985,6 +1045,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_debug_arrow_stream_partition_count, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
     m.add_class::<PyPgenMatrixReader>()?;
+    m.add_class::<PyBgenMatrixReader>()?;
     m.add_function(wrap_pyfunction!(py_read_sql, m)?)?;
     m.add_function(wrap_pyfunction!(py_get_table_schema, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;

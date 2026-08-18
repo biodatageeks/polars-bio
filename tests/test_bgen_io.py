@@ -369,3 +369,45 @@ class TestBgenValidation:
         # this must be a ValueError and not a PanicException.
         with pytest.raises(ValueError, match="NA00000"):
             pb.read_bgen(str(BGEN_PATH), samples=["NA00000"])
+
+
+class TestBgenMatrix:
+    """`read_bgen_matrix` exists to avoid the consolidation `scan_bgen`'s
+    consumer does, not to decode differently."""
+
+    def test_matrix_matches_the_dataframe_path(self):
+        frame = pb.read_bgen(
+            str(BGEN_PATH), genotype_output="dosage", genotype_fields=["DS"]
+        ).sort("start")
+        expected = _dosage_matrix(frame)
+        matrix = pb.read_bgen_matrix(str(BGEN_PATH))
+        order = np.argsort(matrix.positions, kind="stable")
+        # Bit patterns: the matrix path must be faster, not different.
+        np.testing.assert_array_equal(
+            matrix.values[order].view(np.uint32), expected.view(np.uint32)
+        )
+
+    def test_matrix_reports_its_axes(self):
+        matrix = pb.read_bgen_matrix(str(BGEN_PATH))
+        assert matrix.values.shape == (len(EXPECTED_POSITIONS), len(EXPECTED_SAMPLES))
+        assert matrix.values.dtype == np.float32
+        assert matrix.values.flags.c_contiguous
+        assert list(matrix.sample_names) == EXPECTED_SAMPLES
+        assert sorted(matrix.positions.tolist()) == EXPECTED_POSITIONS
+
+    def test_thread_count_does_not_change_the_values(self):
+        base = pb.read_bgen_matrix(str(BGEN_PATH), threads=1)
+        for threads in (2, 4):
+            other = pb.read_bgen_matrix(str(BGEN_PATH), threads=threads)
+            np.testing.assert_array_equal(
+                other.values.view(np.uint32), base.values.view(np.uint32)
+            )
+
+    def test_sample_selection_reorders_the_columns(self):
+        matrix = pb.read_bgen_matrix(str(BGEN_PATH), samples=["NA12880", "NA12878"])
+        assert list(matrix.sample_names) == ["NA12880", "NA12878"]
+        assert matrix.values.shape[1] == 2
+
+    def test_non_bgen_path_is_rejected(self):
+        with pytest.raises(ValueError, match=r"\.bgen"):
+            pb.read_bgen_matrix(str(DATA_DIR / "io" / "vcf" / "multisample.vcf"))

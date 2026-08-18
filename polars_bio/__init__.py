@@ -88,6 +88,7 @@ read_bcf = data_input.read_bcf
 read_bgen = data_input.read_bgen
 read_pgen = data_input.read_pgen
 read_pgen_matrix = data_input.read_pgen_matrix
+read_bgen_matrix = data_input.read_bgen_matrix
 read_vcf = data_input.read_vcf
 read_vcf_zarr = data_input.read_vcf_zarr
 read_fastq = data_input.read_fastq
@@ -196,6 +197,7 @@ __all__ = [
     "read_bgen",
     "read_pgen",
     "read_pgen_matrix",
+    "read_bgen_matrix",
     "PgenMatrix",
     "read_vcf",
     "read_vcf_zarr",

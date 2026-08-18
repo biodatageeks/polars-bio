@@ -2468,6 +2468,123 @@ class IOOperations:
         )
 
     @staticmethod
+    def read_bgen_matrix(
+        path: str,
+        samples: Union[list[str], None] = None,
+        missing: Union[float, None] = None,
+        sample_path: Union[str, None] = None,
+        bgi_path: Union[str, None] = None,
+        threads: Union[int, None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        use_zero_based: Optional[bool] = None,
+    ) -> PgenMatrix:
+        """
+        Read a BGEN's ALT dosages into a dense NumPy matrix.
+
+        The counterpart of `read_pgen_matrix`. `scan_bgen` returns Arrow batches
+        that a caller wanting one array must then consolidate, and on a whole
+        chromosome that consolidation is a serial pass over 10 GB — it does not
+        parallelise, so it becomes the ceiling as partitions are added. This
+        decodes each variant at its final address instead, which on chromosome
+        22 scales 6.0x from one thread to eight against the Arrow path's 4.2x.
+
+        Dosage only: BGEN probabilities are variable width and have no single
+        dense shape. Use `scan_bgen(genotype_output="probability")` for those.
+
+        Parameters:
+            path: The path to the BGEN file. The path must end in `.bgen`.
+            samples: Sample identifiers to emit, in requested order. If *None*, all samples are emitted in file order.
+            missing: Written where a sample has no called genotype. Defaults to `NaN`.
+            sample_path: An explicit Oxford `.sample` companion, used only when the BGEN has no embedded sample identifiers.
+            bgi_path: An explicit `.bgi` index. A neighbouring `file.bgen.bgi` is discovered automatically.
+            threads: Decoder threads. Defaults to the configured `datafusion.execution.target_partitions`.
+            use_zero_based: Output coordinate convention for the returned positions.
+
+        Example:
+            ```python
+            import polars_bio as pb
+
+            matrix = pb.read_bgen_matrix("chr22.bgen")
+            matrix.values.shape          # (variants, samples), float32
+            matrix.values.mean(axis=1)   # per-variant mean dosage
+            ```
+        """
+        # Imported here rather than at module scope: NumPy is not a polars-bio
+        # dependency, and only the matrix readers need it.
+        try:
+            import numpy as np
+        except ImportError as error:  # pragma: no cover - environment-dependent
+            raise ImportError(
+                "read_bgen_matrix returns NumPy arrays and needs NumPy installed"
+            ) from error
+
+        _validate_bgen_input_path(path)
+        dtype = np.dtype(np.float32)
+        if missing is None:
+            missing = np.nan
+
+        decode_options = BgenReadOptions(
+            object_storage_options=PyObjectStorageOptions(
+                allow_anonymous=allow_anonymous,
+                enable_request_payer=enable_request_payer,
+                chunk_size=chunk_size,
+                concurrent_fetches=concurrent_fetches,
+                max_retries=max_retries,
+                timeout=timeout,
+                compression_type=compression_type,
+            ),
+            genotype_output="dosage",
+            probability_layout="nested",
+            samples=samples,
+            genotype_fields=["DS"],
+            sample_path=sample_path,
+            bgi_path=bgi_path,
+            zero_based=_resolve_zero_based(use_zero_based),
+        )
+
+        from polars_bio.context import get_option
+        from polars_bio.polars_bio import BgenMatrixReader
+
+        reader = BgenMatrixReader(path, decode_options)
+        variants, columns = reader.shape()
+
+        if threads is None:
+            try:
+                threads = int(get_option("datafusion.execution.target_partitions"))
+            except (TypeError, ValueError):
+                threads = 1
+        threads = max(1, int(threads))
+
+        values = np.empty((variants, columns), dtype=dtype)
+        # The decoder is handed this array's address, so these are the checks
+        # standing between a wrong dtype and memory corruption. numpy.empty
+        # gives all three, but they are asserted rather than assumed because the
+        # Rust side cannot see them under the limited API.
+        if not values.flags.c_contiguous or not values.flags.writeable:
+            raise RuntimeError(
+                "BGEN matrix destination must be writable and C-contiguous"
+            )
+        if values.dtype != dtype or values.size != variants * columns:
+            raise RuntimeError("BGEN matrix destination has the wrong dtype or size")
+
+        reader.read_into(values.ctypes.data, values.size, threads, float(missing))
+
+        positions = np.asarray(reader.positions(), dtype=np.int64)
+        if positions.shape[0] != variants:
+            raise RuntimeError(
+                f"BGEN reported {variants} variants but {positions.shape[0]} positions"
+            )
+        return PgenMatrix(
+            values=values, positions=positions, sample_names=list(reader.sample_names())
+        )
+
+    @staticmethod
     def read_bed(
         path: str,
         chunk_size: int = 8,
