@@ -856,6 +856,12 @@ pub struct BgenReadOptions {
     /// Sample identifiers to emit, in requested order.
     #[pyo3(get, set)]
     pub samples: Option<Vec<String>>,
+    /// Children of the `genotypes` struct to emit. `None` emits all of them.
+    ///
+    /// `PLOIDY` is a byte per genotype, so a dosage read that does not need it
+    /// can pass `["DS"]` and neither build nor carry it.
+    #[pyo3(get, set)]
+    pub genotype_fields: Option<Vec<String>>,
     /// Explicit Oxford `.sample` companion, used only when IDs are not embedded.
     #[pyo3(get, set)]
     pub sample_path: Option<String>,
@@ -870,12 +876,14 @@ pub struct BgenReadOptions {
 #[pymethods]
 impl BgenReadOptions {
     #[new]
-    #[pyo3(signature = (object_storage_options=None, genotype_output="probability".to_string(), probability_layout="nested".to_string(), samples=None, sample_path=None, bgi_path=None, zero_based=false))]
+    #[pyo3(signature = (object_storage_options=None, genotype_output="probability".to_string(), probability_layout="nested".to_string(), samples=None, genotype_fields=None, sample_path=None, bgi_path=None, zero_based=false))]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         object_storage_options: Option<PyObjectStorageOptions>,
         genotype_output: String,
         probability_layout: String,
         samples: Option<Vec<String>>,
+        genotype_fields: Option<Vec<String>>,
         sample_path: Option<String>,
         bgi_path: Option<String>,
         zero_based: bool,
@@ -887,6 +895,7 @@ impl BgenReadOptions {
             genotype_output,
             probability_layout,
             samples,
+            genotype_fields,
             sample_path,
             bgi_path,
             zero_based,
@@ -907,6 +916,7 @@ impl BgenReadOptions {
             genotype_output: "probability".to_string(),
             probability_layout: "nested".to_string(),
             samples: None,
+            genotype_fields: None,
             sample_path: None,
             bgi_path: None,
             zero_based: false,

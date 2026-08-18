@@ -2015,6 +2015,7 @@ class IOOperations:
         genotype_output: str = "probability",
         probability_layout: str = "nested",
         samples: Union[list[str], None] = None,
+        genotype_fields: Union[list[str], None] = None,
         sample_path: Union[str, None] = None,
         bgi_path: Union[str, None] = None,
         chunk_size: int = 8,
@@ -2039,6 +2040,7 @@ class IOOperations:
             genotype_output: Genotype representation. `"probability"` (default) keeps every format-defined state in `genotypes.GP`. `"dosage"` emits `genotypes.DS`, the expected copy count of `alleles[1]`, and rejects multiallelic variants.
             probability_layout: How probability states are stored. `"nested"` (default) gives each sample a variable-length list and reads every BGEN file. `"fixed"` gives each sample a fixed-width list, dropping the per-sample offsets that are about a quarter of the emitted probability bytes for a diploid biallelic cohort; it requires every variant to store the same number of states and rejects a file that mixes them. Ignored when `genotype_output="dosage"`.
             samples: Sample identifiers to emit, in requested order. If *None*, all samples are emitted in file order.
+            genotype_fields: Children of the `genotypes` struct to emit, from the output mode's value child — `"DS"` for dosage, `"GP"` for probability — and `"PLOIDY"`, in the requested order. If *None*, all of them are emitted. `"PLOIDY"` is a byte per genotype, 2.53 GB on a whole 1000 Genomes chromosome 22, and a NumPy view of the result keeps the whole struct alive, so pass `["DS"]` when only the dosages are wanted.
             sample_path: An explicit Oxford `.sample` companion. Used only when the BGEN has no embedded sample identifiers.
             bgi_path: An explicit `.bgi` index. A neighbouring `file.bgen.bgi` is discovered automatically.
             chunk_size: The size in MB of a chunk when reading from an object store.
@@ -2060,6 +2062,7 @@ class IOOperations:
             genotype_output=genotype_output,
             probability_layout=probability_layout,
             samples=samples,
+            genotype_fields=genotype_fields,
             sample_path=sample_path,
             bgi_path=bgi_path,
             chunk_size=chunk_size,
@@ -2085,6 +2088,7 @@ class IOOperations:
         genotype_output: str = "probability",
         probability_layout: str = "nested",
         samples: Union[list[str], None] = None,
+        genotype_fields: Union[list[str], None] = None,
         sample_path: Union[str, None] = None,
         bgi_path: Union[str, None] = None,
         chunk_size: int = 8,
@@ -2123,6 +2127,7 @@ class IOOperations:
             genotype_output=genotype_output,
             probability_layout=probability_layout,
             samples=samples,
+            genotype_fields=genotype_fields,
             sample_path=sample_path,
             bgi_path=bgi_path,
             zero_based=zero_based,

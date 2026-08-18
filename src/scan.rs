@@ -895,6 +895,7 @@ async fn register_table_provider(
                 sample_path: bgen_read_options.sample_path.clone(),
                 bgi_path: bgen_read_options.bgi_path.clone(),
                 samples: bgen_read_options.samples.clone(),
+                genotype_fields: bgen_read_options.genotype_fields.clone(),
                 coordinate_system: CoordinateSystem::from_zero_based(bgen_read_options.zero_based),
                 object_storage_options: bgen_read_options.object_storage_options.clone(),
                 ..Default::default()
@@ -1318,11 +1319,10 @@ impl OpenPgenMatrix {
                     },
                     threads,
                 ))
-            }
+            },
             "DS" => {
                 // SAFETY: as above, for `f32`.
-                let slice =
-                    unsafe { std::slice::from_raw_parts_mut(values as *mut f32, expected) };
+                let slice = unsafe { std::slice::from_raw_parts_mut(values as *mut f32, expected) };
                 self.runtime.block_on(self.reader.read_into(
                     MatrixData::Dosage {
                         values: slice,
@@ -1330,7 +1330,7 @@ impl OpenPgenMatrix {
                     },
                     threads,
                 ))
-            }
+            },
             other => Err(datafusion::error::DataFusionError::Execution(format!(
                 "read_pgen_matrix supports ALT_COUNT and DS, not {other}"
             ))),
