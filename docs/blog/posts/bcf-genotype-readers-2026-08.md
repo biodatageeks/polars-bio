@@ -2,7 +2,7 @@
 draft: false
 date:
   created: 2026-08-12
-  updated: 2026-08-17
+  updated: 2026-08-18
 categories:
   - performance
   - benchmarks
@@ -91,6 +91,11 @@ is not.
 
 Medians of three fresh-process runs, one thread each. Lower is better.
 
+The PGEN block was re-measured on 2026-08-18 against provider `765a8d2`, after a
+further change to the matrix reader. All three readers were re-run together in
+that session, so the PGEN table is internally consistent; the BCF and BGEN
+figures are unchanged from the earlier session and are not compared against it.
+
 ### BCF — int8 dosage
 
 | Reader | Time | Peak RSS |
@@ -105,29 +110,31 @@ one format where it wins outright at equal core count.
 
 | Reader | Hardcall | Dosage |
 |---|---:|---:|
-| **polars-bio** | **0.689 s** | **1.285 s** |
-| pgenlib | 0.862 s | 1.863 s |
-| snputils | 1.538 s | 3.558 s |
+| **polars-bio** | **0.653 s** | **1.221 s** |
+| pgenlib | 0.826 s | 1.861 s |
+| snputils | 1.470 s | 3.462 s |
 
-polars-bio is **1.45× faster than pgenlib on dosage and 1.25× on hardcalls**, and
-2.2×/2.8× faster than snputils. Note that snputils *is* pgenlib plus a NumPy
-wrapper here, so the meaningful comparison is against pgenlib itself.
+polars-bio is **1.52× faster than pgenlib on dosage and 1.27× on hardcalls**, and
+2.8×/2.3× faster than snputils on those same two workloads. Note that snputils
+*is* pgenlib plus a NumPy wrapper here, so the meaningful comparison is against
+pgenlib itself.
 
 Two caveats. pgenlib drifted by up to 4.6% between sessions earlier in this
-work, though not in the session these figures come from — it landed within 1% of
-the previous run — so read the margins as measured, but prefer "faster" to a
-third decimal place across sessions. And
-pgenlib still uses less memory in both workloads — 12.1 GB against 12.6 GB on
-dosage — because its output array *is* its working buffer, though the gap is now
-4% rather than the 65% it was.
+work, and this session shows the same thing from the other side: it reproduced
+its dosage figure to within 0.1% but ran 4.2% faster on hardcalls than the
+previous run, with snputils moving 2.7% and 4.4% on the same two workloads.
+Read the margins as measured within a session, and prefer "faster" to a third
+decimal place across them. And pgenlib still uses less memory in both workloads
+— 12.1 GB against 12.6 GB on dosage — because its output array *is* its working
+buffer, though the gap is 4% rather than the 65% it was.
 
 Given more than one core polars-bio pulls further ahead: at eight partitions it
-reads the same file in **0.392 s** (dosage) and **0.242 s** (hardcall). That is
+reads the same file in **0.379 s** (dosage) and **0.234 s** (hardcall). That is
 not a one-thread result and is reported as an aside, the same way the BGEN
 figure below is.
 
 This is a large change from the first revision of this post, which had polars-bio
-at 4.202 s and 5.615 s. Five things moved it, and one of them was a harness bug —
+at 4.202 s and 5.615 s. Six things moved it, and one of them was a harness bug —
 details in [Where the time went](#where-the-time-went).
 
 Two representation notes. PLINK 2 stores hardcalls as two bits per genotype, so
@@ -136,7 +143,7 @@ exactly that, one byte per genotype rather than the four `DS` needs — 2.53 GB 
 output on this chromosome instead of 10.13 GB. Its `DS` column stays `float32`
 because PGEN dosages are genuinely fractional — a dosage fileset holds values
 like `0.125` that no integer type can carry. pgenlib pays the same tax:
-identical records cost it 0.862 s as `int8` and 1.863 s as `float32`.
+identical records cost it 0.826 s as `int8` and 1.861 s as `float32`.
 
 ### BGEN — float32 dosage
 
@@ -164,7 +171,7 @@ Per-core there is no structural advantage to be had, and this is the format
 where partition parallelism matters most, as the eight-partition figure above
 shows.
 
-**PGEN** went from 5.615 s to 1.285 s on dosage over five changes, and it is
+**PGEN** went from 5.615 s to 1.221 s on dosage over six changes, and it is
 worth being precise about which did what, because one of them was a measurement
 fix rather than a speedup.
 
@@ -219,8 +226,20 @@ which is worth recording because of how it happened. Building a matrix means
 asking the file how big it is, allocating, then filling — and asking reopened
 the fileset, so the 108 MB PVAR was parsed twice. Dosage's decode is large
 enough to hide that; the hardcall decode is not. Holding the fileset open across
-both questions fixed it, and hardcalls are now 0.689 s at one core and 0.242 s
+both questions fixed it, and hardcalls are now 0.653 s at one core and 0.234 s
 at eight.
+
+*And the input was still being copied.* The matrix reader read every byte range
+of every partition into a buffer of its own before starting a decoder, so the
+whole 79.9 MB fileset sat in memory on top of the destination and the reads ran
+one after another however many decoders were asked for. It now fetches and
+decodes a round at a time — one range per partition, read concurrently — and the
+decoders read out of the readers' own buffers, so a range is not copied at all.
+Resident input is bounded by the range budget rather than by the file, which is
+the point of the change; the time it is worth is small and hard to pin, because
+the reference readers moved between the two sessions too. Isolating the Rust
+decode alone puts it at 2.8% on dosage at one thread, which is the honest figure
+— the 5.0% the end-to-end table shows includes whatever the machine contributed.
 
 What is left is one PVAR parse and the decode itself, which already scales 5×.
 
@@ -269,7 +288,7 @@ verified after the fact.
 | Component | Version |
 |---|---|
 | polars-bio | 0.33.1 (branch `feat/bgen-pr220-bench`) |
-| datafusion-bio-formats | `9cccf2e` (branch `perf/pgen-batch-array-build`) |
+| datafusion-bio-formats | `765a8d2` (branch `perf/pgen-batch-array-build`) |
 | snputils | 1.1.1.dev17+gbdb1a56b5 |
 | pgenlib / bgen | 0.94.1 / 1.10.0 |
 | Polars / PyArrow / NumPy | 1.42.1 / 24.0.0 / 2.5.2 |
