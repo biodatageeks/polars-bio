@@ -312,7 +312,7 @@ verified after the fact.
 | Tool | Version | Source |
 |---|---|---|
 | **polars-bio** | 0.33.1 (branch `feat/bgen-pr220-bench`) | [biodatageeks/polars-bio](https://github.com/biodatageeks/polars-bio) |
-| snputils | 1.1.1.dev17+gbdb1a56b5 | [AI-sandbox/snputils](https://github.com/AI-sandbox/snputils) |
+| snputils | 1.1.1.dev17+gbdb1a56b5 | [AI-sandbox/snputils](https://github.com/AI-sandbox/snputils) — [Bonet et al. 2026](https://www.biorxiv.org/content/10.64898/2026.02.28.708618) |
 | pgenlib | 0.94.1 | [chrchang/plink-ng](https://github.com/chrchang/plink-ng) (PLINK 2's own reader) |
 | bgen | 1.10.0 | [jeremymcrae/bgen](https://github.com/jeremymcrae/bgen) |
 
@@ -326,6 +326,21 @@ verified after the fact.
 | Polars / PyArrow / NumPy | 1.42.1 / 24.0.0 / 2.5.2 | |
 | Python | 3.12.9 | |
 | Host | Apple M3 Max, 16 cores, 64 GiB, macOS 15.6 arm64 | |
+
+## Citing the readers compared
+
+snputils is described in
+[Bonet et al., *snputils: A High-Performance Python Library for Genetic
+Variation and Population Structure*, bioRxiv 2026](https://www.biorxiv.org/content/10.64898/2026.02.28.708618)
+(doi:10.64898/2026.02.28.708618), and publishes
+[its own reader benchmark](https://github.com/AI-sandbox/snputils/tree/main/benchmark)
+on the same chromosome. pgenlib ships with
+[PLINK 2](https://github.com/chrchang/plink-ng); the `bgen` package is
+[jeremymcrae/bgen](https://github.com/jeremymcrae/bgen).
+
+This post measures one workload — a dense genotype matrix — against readers
+whose scope is much wider than that, and a result on it says nothing about the
+rest of what they do.
 
 ## Try it
 
