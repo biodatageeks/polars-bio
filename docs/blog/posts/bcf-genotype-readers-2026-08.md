@@ -95,8 +95,9 @@ is not.
 
 Medians of three fresh-process runs, one thread each. Lower is better.
 
-The PGEN and BGEN blocks were both re-measured on 2026-08-18 against provider
-`5f3dcf3`, each with all of its readers re-run together, so each table is
+The PGEN and BGEN blocks were both re-measured on 2026-08-18, the BGEN one
+against provider `a5d5fe5` and through `read_bgen_matrix`, each with all of its
+readers re-run together, so each table is
 internally consistent; they are two separate sessions and should not be compared
 against each other. The BCF figures are unchanged from the earlier session. The
 PGEN table also carries a harness fix that moved only the snputils column — see
@@ -161,22 +162,21 @@ identical records cost it 0.873 s as `int8` and 1.884 s as `float32`.
 
 ### BGEN — float32 dosage
 
-| Reader | Time | Peak RSS |
-|---|---:|---:|
-| **polars-bio** | **12.800 s** | 24,418 MB |
-| bgen | 15.442 s | 21,801 MB |
-| snputils | 21.510 s | 21,953 MB |
+| Reader | Time |
+|---|---:|
+| **polars-bio** | **11.826 s** |
+| bgen | 15.415 s |
+| snputils | 21.737 s |
 
-polars-bio is **1.21× faster than the `bgen` package and 1.68× faster than
-snputils**. Its three runs were 12.338 s, 12.800 s and 12.884 s, all below the
-`bgen` package's slowest, so the ranges do not overlap.
+polars-bio is **1.30× faster than the `bgen` package and 1.84× faster than
+snputils**.
 
-polars-bio is asked for `genotype_fields=["DS"]` here. Its `genotypes` struct
-also carries a `PLOIDY` child that neither other reader emits and that this
-workload never reads, and a NumPy view of the result keeps the whole Arrow
-struct alive — so requesting it charged polars-bio 2.40 GB of resident output
-nobody asked for, and about 8% of the wall time, outside the equivalence these
-readers are held to.
+It is read through `read_bgen_matrix`, which decodes each variant straight into
+the destination array. That is what the other two do natively; going through
+`scan_bgen` and consolidating its Arrow chunks into one array — work neither
+comparison reader performs — was costing polars-bio a serial pass over 10 GB
+that does not parallelise. `read_pgen_matrix` plays the same role in the PGEN
+table above.
 
 An earlier revision of this post had polars-bio last here at 25.804 s, 1.71×
 slower than the `bgen` package, and explained it as decompression being where a
@@ -184,24 +184,21 @@ single-threaded C extension is strongest. That explanation was wrong in a way
 worth recording, and [Where the time went](#where-the-time-went) has the
 measurement that replaced it.
 
-**The memory column is the one number here not to lean on.** polars-bio peaks
-above the other two, and an earlier revision of this post recorded the rise as an
-unexplained regression. It isn't one: peak RSS on this path is set by a single
-call in the benchmark's adapter — `combine_chunks()`, which holds the scan's
-Arrow chunks and their concatenation at the same time — and that call's peak
-measured 16.8, 20.9, 21.3, 21.4 and 22.3 GB across five runs of identical code.
-The genotype data itself is stable to ±35 MB. The decoder changes cannot be the
-cause either way: the Rust scan's own peak is 804 MB before and 797 MB after.
-
-The clearest demonstration is that the column cannot see a real improvement
-either. Dropping `PLOIDY` removes **2.40 GB** of retained genotype data — 12,798
-against 10,402 MB measured at `collect()`, stable to ±30 MB — and peak RSS goes
-from 24,291 to 24,418 MB. Unmoved, because the peak happens later and varies by
-more than the saving.
+**The peak-RSS column has been removed rather than updated, because it does not
+measure what it appears to.** Every reader in this benchmark reports 19–22 GB
+for a 10.13 GB result, and the same polars-bio read measured on its own is
+10.3 GB — so roughly 9–12 GB belongs to the harness process rather than to any
+reader. Earlier revisions of this post leaned on that column in both directions:
+first recording a rise as an unexplained regression, then reporting that
+dropping `PLOIDY` saved 2.40 GB. Neither claim was comparable, and a column that
+cannot distinguish a 10 GB difference between two measurements of the same work
+should not be quoted at all until it is understood. The post-read hashing, the
+`ascontiguousarray` and the argsort were each measured at zero cost, so the
+source is still open.
 
 Given more than one partition it pulls further ahead: at eight partitions it
-reads the same file in **3.789 s**. That is not a one-thread result and is
-reported as an aside rather than in the table above.
+reads the same file in **2.083 s**, scaling 5.68× from one. That is not a
+one-thread result and is reported as an aside rather than in the table above.
 
 ## Where the time went
 
@@ -363,7 +360,7 @@ verified after the fact.
 | Component | Version |
 |---|---|
 | polars-bio | 0.33.1 (branch `feat/bgen-pr220-bench`) |
-| datafusion-bio-formats | `5f3dcf3` (branch `perf/bgen-bulk-dosage-fill`, [#235](https://github.com/biodatageeks/datafusion-bio-formats/pull/235) on [#234](https://github.com/biodatageeks/datafusion-bio-formats/pull/234)); its PGEN provider is [#232](https://github.com/biodatageeks/datafusion-bio-formats/pull/232) as merged |
+| datafusion-bio-formats | `a5d5fe5` on master — [#234](https://github.com/biodatageeks/datafusion-bio-formats/pull/234), [#235](https://github.com/biodatageeks/datafusion-bio-formats/pull/235), [#236](https://github.com/biodatageeks/datafusion-bio-formats/pull/236) and [#237](https://github.com/biodatageeks/datafusion-bio-formats/pull/237) for BGEN, [#232](https://github.com/biodatageeks/datafusion-bio-formats/pull/232) for PGEN |
 | snputils | 1.1.1.dev17+gbdb1a56b5 |
 | pgenlib / bgen | 0.94.1 / 1.10.0 |
 | Polars / PyArrow / NumPy | 1.42.1 / 24.0.0 / 2.5.2 |
