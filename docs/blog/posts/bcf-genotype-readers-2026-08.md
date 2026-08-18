@@ -307,14 +307,25 @@ RUSTFLAGS="-C target-cpu=native" maturin develop --release --locked
 The runners record the loaded extension's size so the build profile can be
 verified after the fact.
 
-| Component | Version |
-|---|---|
-| polars-bio | 0.33.1 (branch `feat/bgen-pr220-bench`) |
-| datafusion-bio-formats | `a5d5fe5` on master — [#234](https://github.com/biodatageeks/datafusion-bio-formats/pull/234), [#235](https://github.com/biodatageeks/datafusion-bio-formats/pull/235), [#236](https://github.com/biodatageeks/datafusion-bio-formats/pull/236) and [#237](https://github.com/biodatageeks/datafusion-bio-formats/pull/237) for BGEN, [#232](https://github.com/biodatageeks/datafusion-bio-formats/pull/232) for PGEN |
-| snputils | 1.1.1.dev17+gbdb1a56b5 |
-| pgenlib / bgen | 0.94.1 / 1.10.0 |
-| Polars / PyArrow / NumPy | 1.42.1 / 24.0.0 / 2.5.2 |
-| Python | 3.12.9 |
+### Readers compared
+
+| Tool | Version | Source |
+|---|---|---|
+| **polars-bio** | 0.33.1 (branch `feat/bgen-pr220-bench`) | [biodatageeks/polars-bio](https://github.com/biodatageeks/polars-bio) |
+| snputils | 1.1.1.dev17+gbdb1a56b5 | [AI-sandbox/snputils](https://github.com/AI-sandbox/snputils) |
+| pgenlib | 0.94.1 | [chrchang/plink-ng](https://github.com/chrchang/plink-ng) (PLINK 2's own reader) |
+| bgen | 1.10.0 | [jeremymcrae/bgen](https://github.com/jeremymcrae/bgen) |
+
+### Everything else
+
+| Component | Version | Source |
+|---|---|---|
+| datafusion-bio-formats | `a5d5fe5` on master | [biodatageeks/datafusion-bio-formats](https://github.com/biodatageeks/datafusion-bio-formats) — BGEN [#234](https://github.com/biodatageeks/datafusion-bio-formats/pull/234) [#235](https://github.com/biodatageeks/datafusion-bio-formats/pull/235) [#236](https://github.com/biodatageeks/datafusion-bio-formats/pull/236) [#237](https://github.com/biodatageeks/datafusion-bio-formats/pull/237), PGEN [#232](https://github.com/biodatageeks/datafusion-bio-formats/pull/232) |
+| benchmark harness | `feat/bgen-benchmark` | [biodatageeks/bioformats-benchmark](https://github.com/biodatageeks/bioformats-benchmark) — runners, fixtures, result JSON, figure scripts |
+| plink2 | v2.0.0-a.7.3 M1 (8 Aug 2026) | [chrchang/plink-ng](https://github.com/chrchang/plink-ng) — produced the PGEN and BGEN fixtures |
+| Polars / PyArrow / NumPy | 1.42.1 / 24.0.0 / 2.5.2 | |
+| Python | 3.12.9 | |
+| Host | Apple M3 Max, 16 cores, 64 GiB, macOS 15.6 arm64 | |
 
 ## Try it
 
