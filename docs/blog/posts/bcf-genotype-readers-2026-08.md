@@ -105,21 +105,22 @@ one format where it wins outright at equal core count.
 
 | Reader | Hardcall | Dosage |
 |---|---:|---:|
-| **polars-bio** | **0.759 s** | **1.345 s** |
-| pgenlib | 0.853 s | 1.843 s |
-| snputils | 1.548 s | 3.302 s |
+| **polars-bio** | **0.696 s** | **1.287 s** |
+| pgenlib | 0.863 s | 1.879 s |
+| snputils | 1.565 s | 3.391 s |
 
-polars-bio is **1.37× faster than pgenlib on dosage and 1.12× on hardcalls**, and
-2.0×/2.5× faster than snputils. Note that snputils *is* pgenlib plus a NumPy
+polars-bio is **1.46× faster than pgenlib on dosage and 1.24× on hardcalls**, and
+2.2×/2.6× faster than snputils. Note that snputils *is* pgenlib plus a NumPy
 wrapper here, so the meaningful comparison is against pgenlib itself.
 
 Two caveats. pgenlib has drifted by up to 4.6% between sessions across this
 work, so read the hardcall margin as "faster" rather than as exactly 1.12×. And
-pgenlib still uses less memory in both workloads — 12.4 GB against 13.4 GB on
-dosage — because its output array *is* its working buffer.
+pgenlib still uses less memory in both workloads — 12.1 GB against 12.6 GB on
+dosage — because its output array *is* its working buffer, though the gap is now
+4% rather than the 65% it was.
 
 Given more than one core polars-bio pulls further ahead: at eight partitions it
-reads the same file in **0.468 s** (dosage) and **0.304 s** (hardcall). That is
+reads the same file in **0.388 s** (dosage) and **0.240 s** (hardcall). That is
 not a one-thread result and is reported as an aside, the same way the BGEN
 figure below is.
 
@@ -133,7 +134,7 @@ exactly that, one byte per genotype rather than the four `DS` needs — 2.53 GB 
 output on this chromosome instead of 10.13 GB. Its `DS` column stays `float32`
 because PGEN dosages are genuinely fractional — a dosage fileset holds values
 like `0.125` that no integer type can carry. pgenlib pays the same tax:
-identical records cost it 0.853 s as `int8` and 1.843 s as `float32`.
+identical records cost it 0.863 s as `int8` and 1.879 s as `float32`.
 
 ### BGEN — float32 dosage
 
@@ -161,7 +162,7 @@ Per-core there is no structural advantage to be had, and this is the format
 where partition parallelism matters most, as the eight-partition figure above
 shows.
 
-**PGEN** went from 5.615 s to 1.345 s on dosage over five changes, and it is
+**PGEN** went from 5.615 s to 1.287 s on dosage over five changes, and it is
 worth being precise about which did what, because one of them was a measurement
 fix rather than a speedup.
 
@@ -207,15 +208,19 @@ result — and that second write could not be removed on the Arrow path, because
 `ListArray` uses 32-bit offsets and a batch holds at most 842,811 rows at this
 sample count, so the matrix can never arrive as one zero-copy buffer. The
 decoder was given a path that writes at the destination instead. That is worth
-1.24× at one core and 1.93× at eight, and it is most of why scaling improved
-from 1.85× to 2.87× — the copy saturated memory bandwidth at about 2.8×
-regardless of thread count, so it was the ceiling.
+1.3× at one core and 2.3× at eight, and it is most of why scaling improved from
+1.85× to 3.32× — the copy saturated memory bandwidth at about 2.8× regardless of
+thread count, so it was the ceiling.
 
-What is left is smaller and duller: building the matrix opens the fileset twice,
-once to decode and once to read sample names, so the 108 MB PVAR is parsed
-twice. On dosage that is 12% of the run; on hardcalls 18%, which is why *that*
-workload briefly got slower at one core — 0.694 s to 0.759 s — while gaining at
-eight.
+That change did briefly make *hardcalls* slower at one core, 0.694 s to 0.759 s,
+which is worth recording because of how it happened. Building a matrix means
+asking the file how big it is, allocating, then filling — and asking reopened
+the fileset, so the 108 MB PVAR was parsed twice. Dosage's decode is large
+enough to hide that; the hardcall decode is not. Holding the fileset open across
+both questions fixed it, and hardcalls are now 0.696 s at one core and 0.240 s
+at eight.
+
+What is left is one PVAR parse and the decode itself, which already scales 5×.
 
 **BCF** is where the architecture pays off: typed FORMAT/GT decoding straight
 into Arrow buffers, with no per-record Python object and no intermediate
@@ -262,7 +267,7 @@ verified after the fact.
 | Component | Version |
 |---|---|
 | polars-bio | 0.33.1 (branch `feat/bgen-pr220-bench`) |
-| datafusion-bio-formats | `182de32` (branch `perf/pgen-batch-array-build`) |
+| datafusion-bio-formats | `9cccf2e` (branch `perf/pgen-batch-array-build`) |
 | snputils | 1.1.1.dev17+gbdb1a56b5 |
 | pgenlib / bgen | 0.94.1 / 1.10.0 |
 | Polars / PyArrow / NumPy | 1.42.1 / 24.0.0 / 2.5.2 |
