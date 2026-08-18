@@ -2385,13 +2385,13 @@ class IOOperations:
         dtypes = {
             "ALT_COUNT": np.int8,
             "DS": np.float32,
-            "DS_STORED": np.float32,
         }
         if field not in dtypes:
             raise ValueError(
                 f"read_pgen_matrix supports {sorted(dtypes)}, not {field!r}. "
                 "Fields with more than one value per sample have no dense matrix "
-                "form; read them with read_pgen."
+                "form, and DS_STORED has no decoder on this path; read them with "
+                "read_pgen."
             )
         dtype = np.dtype(dtypes[field])
         if missing is None:
@@ -2441,73 +2441,69 @@ class IOOperations:
                 copy_threads = 1
         copy_threads = max(1, int(copy_threads))
 
+        variants, columns = header["variant_count"], header["sample_count"]
         values = np.empty((variants, columns), dtype=dtype)
-        positions = np.empty(variants, dtype=np.int64)
+        # The decoder is handed this array's address, so these are the checks
+        # standing between a wrong dtype and memory corruption. numpy.empty
+        # gives all three, but they are asserted rather than assumed because the
+        # Rust side cannot see them under the limited API.
+        if not values.flags.c_contiguous or not values.flags.writeable:
+            raise RuntimeError("PGEN matrix destination must be writable and C-contiguous")
+        if values.dtype != dtype or values.size != variants * columns:
+            raise RuntimeError("PGEN matrix destination has the wrong dtype or size")
 
-        def fill(destination, listing):
-            """Copy one Arrow list array into an already-assigned row range."""
-            inner = listing.flatten()
-            if inner.null_count:
-                # Substitute the sentinel in Arrow rather than in the
-                # destination: an integer array with nulls converts to float64
-                # on the way to NumPy, which is an eightfold intermediate on a
-                # matrix this size, and the narrowing cast back is undefined for
-                # the null positions.
-                inner = inner.fill_null(missing)
-            destination.reshape(-1)[:] = inner.to_numpy(zero_copy_only=False)
+        from polars_bio.polars_bio import py_read_pgen_matrix
 
-        row = 0
-        selected = frame.select("start", "genotypes")
-        batches = selected.collect_batches(lazy=True, engine="streaming")
-
-        if copy_threads == 1:
-            for part in batches:
-                column = part.select("genotypes").to_arrow().column("genotypes")
-                positions[row : row + len(part)] = part["start"].to_numpy()
-                for chunk in column.chunks:
-                    listing = chunk.field(field)
-                    count = _check_room(row, len(listing), variants)
-                    fill(values[row : row + count], listing)
-                    row += count
-        else:
-            # Row ranges are assigned here, in arrival order, so the workers
-            # write disjoint slices and need no lock. Only `pending` bounds
-            # memory: without it the executor's queue would hold every batch and
-            # the scan's output would be resident twice.
-            from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
-
-            pending = set()
-            limit = copy_threads * 2
-            with ThreadPoolExecutor(max_workers=copy_threads) as pool:
-                try:
-                    for part in batches:
-                        column = part.select("genotypes").to_arrow().column("genotypes")
-                        positions[row : row + len(part)] = part["start"].to_numpy()
-                        for chunk in column.chunks:
-                            listing = chunk.field(field)
-                            count = _check_room(row, len(listing), variants)
-                            if len(pending) >= limit:
-                                done, pending = wait(
-                                    pending, return_when=FIRST_COMPLETED
-                                )
-                                for future in done:
-                                    future.result()
-                            pending.add(
-                                pool.submit(fill, values[row : row + count], listing)
-                            )
-                            row += count
-                    for future in pending:
-                        future.result()
-                except BaseException:
-                    for future in pending:
-                        future.cancel()
-                    raise
-
-        # A prefix of rows is still C-contiguous, so a scan that emitted fewer
-        # variants than the companions declare needs no copy to truncate.
-        return PgenMatrix(
-            values=values[:row], positions=positions[:row], sample_names=sample_names
+        # Built here rather than reached out of `scan_pgen`, so the decoder and
+        # the metadata scan are demonstrably given the same request.
+        decode_options = PgenReadOptions(
+            object_storage_options=PyObjectStorageOptions(
+                allow_anonymous=allow_anonymous,
+                enable_request_payer=enable_request_payer,
+                chunk_size=chunk_size,
+                concurrent_fetches=concurrent_fetches,
+                max_retries=max_retries,
+                timeout=timeout,
+                compression_type=compression_type,
+            ),
+            genotype_fields=[field],
+            zero_based=_resolve_zero_based(use_zero_based),
+            samples=samples,
+            missing_sample_policy=missing_sample_policy,
+            psam_id_mode=psam_id_mode,
+            pvar_path=pvar_path,
+            psam_path=psam_path,
+            pgi_path=pgi_path,
+            max_range_gap=max_range_gap,
+            max_range_bytes=max_range_bytes,
+            batch_soft_byte_limit=batch_soft_byte_limit,
         )
+        decoded_variants, decoded_samples, raw_positions = py_read_pgen_matrix(
+            path,
+            decode_options,
+            field,
+            values.ctypes.data,
+            values.size,
+            copy_threads,
+            float(missing),
+        )
+        if (decoded_variants, decoded_samples) != (variants, columns):
+            raise RuntimeError(
+                f"PGEN decode reported {decoded_variants}x{decoded_samples}, "
+                f"expected {variants}x{columns}"
+            )
+
+        # Positions come back from the decode itself, in row order. Reading them
+        # from a second scan instead would parse the 108 MB PVAR again, which on
+        # a hardcall read costs more than a fifth of the whole operation — and a
+        # multi-partition scan could return them in a different order from the
+        # rows they label.
+        positions = np.asarray(raw_positions, dtype=np.int64)
+        if positions.shape[0] != variants:
+            raise RuntimeError(
+                f"PGEN reported {variants} variants but {positions.shape[0]} positions"
+            )
+        return PgenMatrix(values=values, positions=positions, sample_names=sample_names)
 
     @staticmethod
     def read_bed(

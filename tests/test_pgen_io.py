@@ -442,7 +442,6 @@ class TestPgenMatrix:
             (ORACLE_PATH, "DS", 3, "float32"),
             (DOSAGE_PATH, "DS", 1, "float32"),
             (DOSAGE_PATH, "ALT_COUNT", 1, "int8"),
-            (DOSAGE_PATH, "DS_STORED", 1, "float32"),
         ],
     )
     def test_matches_the_dataframe_path(self, path, field, rows, dtype):
@@ -504,7 +503,7 @@ class TestPgenMatrix:
         assert matrix.values[:, 0].tolist() == full.values[:, 2].tolist()
         assert matrix.values[:, 1].tolist() == full.values[:, 0].tolist()
 
-    @pytest.mark.parametrize("field", ["GT", "HDS", "PHASED", "nonsense"])
+    @pytest.mark.parametrize("field", ["GT", "HDS", "PHASED", "DS_STORED", "nonsense"])
     def test_rejects_fields_without_a_dense_matrix_form(self, field):
         with pytest.raises(ValueError, match="read_pgen_matrix supports"):
             pb.read_pgen_matrix(str(ORACLE_PATH), field=field)

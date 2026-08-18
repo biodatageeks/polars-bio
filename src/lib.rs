@@ -909,6 +909,52 @@ fn py_register_fastqc_table(
     })
 }
 
+/// Decodes a PGEN genotype field into a NumPy array the caller already holds.
+///
+/// `destination` is the array's data pointer and `length` its element count.
+/// polars-bio builds against the limited API, where PyO3's buffer protocol is
+/// unavailable, so the pointer is passed explicitly and the Python wrapper is
+/// responsible for the checks that go with it: correct dtype, C-contiguous,
+/// writable, and exactly `variants * samples` long. `read_pgen_matrix` in
+/// `io.py` is that wrapper and is the only supported caller.
+///
+/// Returns the `(variants, samples)` shape and the variant start positions in
+/// row order, which the decode has already read and would otherwise cost a
+/// second parse of the PVAR to recover.
+#[pyfunction]
+#[pyo3(signature = (path, options, field, destination, length, threads, missing))]
+fn py_read_pgen_matrix(
+    py: Python<'_>,
+    path: String,
+    options: PgenReadOptions,
+    field: String,
+    destination: usize,
+    length: usize,
+    threads: usize,
+    missing: f64,
+) -> PyResult<(usize, usize, Vec<u64>)> {
+    // The GIL is released for the decode: the provider runs its own threads and
+    // holding it would serialize them against each other.
+    py.detach(|| {
+        // SAFETY: the Python wrapper has checked that `destination` addresses
+        // `length` writable, C-contiguous elements of the dtype `field` implies,
+        // and it keeps the array alive across this call. The length is checked
+        // again against the fileset's shape inside.
+        unsafe {
+            scan::read_pgen_matrix_into(
+                path,
+                &options,
+                &field,
+                destination as *mut u8,
+                length,
+                threads,
+                missing,
+            )
+        }
+    })
+    .map_err(|error| PyValueError::new_err(error.to_string()))
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -918,6 +964,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_debug_arrow_stream_partition_count, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
+    m.add_function(wrap_pyfunction!(py_read_pgen_matrix, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_sql, m)?)?;
     m.add_function(wrap_pyfunction!(py_get_table_schema, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;

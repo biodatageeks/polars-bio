@@ -31,6 +31,7 @@ use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_gtf::table_provider::GtfTableProvider;
 use datafusion_bio_format_pairs::table_provider::PairsTableProvider;
+use datafusion_bio_format_pgen::matrix::{MatrixData, MatrixField, read_genotype_matrix};
 use datafusion_bio_format_pgen::{
     PgenReadOptions as NativePgenReadOptions, PgenTableProvider, PsamIdMode,
 };
@@ -510,6 +511,36 @@ fn bgen_probability_layout(layout: &str) -> datafusion::common::Result<BgenProba
     }
 }
 
+/// Builds the provider's PGEN options from the Python-facing ones.
+///
+/// Shared by table registration and the matrix reader, which must agree on how
+/// a request is interpreted — a sample selection or a coordinate system that
+/// differed between the two would give the same file two different meanings.
+pub fn native_pgen_options(
+    options: &PgenReadOptions,
+) -> datafusion::common::Result<NativePgenReadOptions> {
+    // An unset tuning knob keeps the provider default rather than collapsing to
+    // zero, which would disable coalescing entirely.
+    let defaults = NativePgenReadOptions::default();
+    Ok(NativePgenReadOptions {
+        genotype_fields: options.genotype_fields.clone(),
+        coordinate_system: CoordinateSystem::from_zero_based(options.zero_based),
+        object_storage_options: options.object_storage_options.clone(),
+        samples: options.samples.clone(),
+        missing_sample_policy: pgen_missing_sample_policy(&options.missing_sample_policy)?,
+        psam_id_mode: pgen_psam_id_mode(&options.psam_id_mode)?,
+        pvar_path: options.pvar_path.clone(),
+        psam_path: options.psam_path.clone(),
+        pgi_path: options.pgi_path.clone(),
+        max_range_gap: options.max_range_gap.unwrap_or(defaults.max_range_gap),
+        max_range_bytes: options.max_range_bytes.unwrap_or(defaults.max_range_bytes),
+        batch_soft_byte_limit: options
+            .batch_soft_byte_limit
+            .unwrap_or(defaults.batch_soft_byte_limit),
+        ..defaults
+    })
+}
+
 fn pgen_psam_id_mode(mode: &str) -> datafusion::common::Result<PsamIdMode> {
     match mode.to_ascii_lowercase().as_str() {
         "iid" => Ok(PsamIdMode::Iid),
@@ -887,32 +918,7 @@ async fn register_table_provider(
                 "Registering PGEN table {} with options: {:?}",
                 table_name, pgen_read_options
             );
-            // An unset tuning knob keeps the provider default rather than
-            // collapsing to zero, which would disable coalescing entirely.
-            let defaults = NativePgenReadOptions::default();
-            let native_options = NativePgenReadOptions {
-                genotype_fields: pgen_read_options.genotype_fields.clone(),
-                coordinate_system: CoordinateSystem::from_zero_based(pgen_read_options.zero_based),
-                object_storage_options: pgen_read_options.object_storage_options.clone(),
-                samples: pgen_read_options.samples.clone(),
-                missing_sample_policy: pgen_missing_sample_policy(
-                    &pgen_read_options.missing_sample_policy,
-                )?,
-                psam_id_mode: pgen_psam_id_mode(&pgen_read_options.psam_id_mode)?,
-                pvar_path: pgen_read_options.pvar_path.clone(),
-                psam_path: pgen_read_options.psam_path.clone(),
-                pgi_path: pgen_read_options.pgi_path.clone(),
-                max_range_gap: pgen_read_options
-                    .max_range_gap
-                    .unwrap_or(defaults.max_range_gap),
-                max_range_bytes: pgen_read_options
-                    .max_range_bytes
-                    .unwrap_or(defaults.max_range_bytes),
-                batch_soft_byte_limit: pgen_read_options
-                    .batch_soft_byte_limit
-                    .unwrap_or(defaults.batch_soft_byte_limit),
-                ..defaults
-            };
+            let native_options = native_pgen_options(&pgen_read_options)?;
             // Opening a PGEN fileset can fail on user input, such as an absent
             // PVAR companion or an unknown genotype field, so the error is
             // returned instead of panicking inside the extension.
@@ -1233,4 +1239,80 @@ mod tests {
         assert_eq!(get_input_format("/data/cohort#1.bcf"), InputFormat::Vcf);
         assert_eq!(get_input_format("/data/cohort?1.BCF"), InputFormat::Vcf);
     }
+}
+
+/// Decodes a PGEN genotype field into memory the caller already owns.
+///
+/// `values` is a raw destination because polars-bio builds against the limited
+/// API, where PyO3's buffer protocol is unavailable; the Python side owns the
+/// array and checks its dtype, contiguity and length before handing over the
+/// pointer. Decoders write genotypes at their final address, so nothing copies
+/// the matrix afterwards.
+///
+/// # Safety
+///
+/// `values` must point to at least `len` writable, C-contiguous elements of the
+/// type the field implies — `i8` for `ALT_COUNT`, `f32` for `DS` — and must stay
+/// valid and unaliased for the call.
+pub unsafe fn read_pgen_matrix_into(
+    path: String,
+    options: &PgenReadOptions,
+    field: &str,
+    values: *mut u8,
+    len: usize,
+    threads: usize,
+    missing: f64,
+) -> datafusion::common::Result<(usize, usize, Vec<u64>)> {
+    let native = native_pgen_options(options)?;
+    let matrix_field = match field {
+        "ALT_COUNT" => MatrixField::AltCount,
+        "DS" => MatrixField::Dosage,
+        other => {
+            return Err(datafusion::error::DataFusionError::Execution(format!(
+                "read_pgen_matrix supports ALT_COUNT and DS, not {other}"
+            )));
+        }
+    };
+    // A private runtime: this is called from Python, so there is no ambient one,
+    // and the provider spawns its own decode threads inside it.
+    let runtime = tokio::runtime::Runtime::new().map_err(|error| {
+        datafusion::error::DataFusionError::Execution(format!(
+            "failed to start a runtime for the PGEN matrix read: {error}"
+        ))
+    })?;
+    // The destination length is checked inside `read_genotype_matrix` against
+    // the shape it derives, so the fileset is opened once rather than twice.
+    let expected = len;
+
+    let (shape, positions) = match matrix_field {
+        MatrixField::AltCount => {
+            // SAFETY: the caller guarantees `values` addresses `len` writable
+            // `i8`s; the decode rejects a length that disagrees with the shape
+            // the fileset reports, so it cannot index past the end.
+            let slice = unsafe { std::slice::from_raw_parts_mut(values as *mut i8, expected) };
+            runtime.block_on(read_genotype_matrix(
+                path,
+                &native,
+                MatrixData::AltCount {
+                    values: slice,
+                    missing: missing as i8,
+                },
+                threads,
+            ))?
+        }
+        MatrixField::Dosage => {
+            // SAFETY: as above, for `f32`.
+            let slice = unsafe { std::slice::from_raw_parts_mut(values as *mut f32, expected) };
+            runtime.block_on(read_genotype_matrix(
+                path,
+                &native,
+                MatrixData::Dosage {
+                    values: slice,
+                    missing: missing as f32,
+                },
+                threads,
+            ))?
+        }
+    };
+    Ok((shape.variants, shape.samples, positions))
 }
