@@ -177,11 +177,20 @@ single-threaded C extension is strongest. That explanation was wrong in a way
 worth recording, and [Where the time went](#where-the-time-went) has the
 measurement that replaced it.
 
-**Memory is the one axis that moved the wrong way.** polars-bio peaks 19% above
-the `bgen` package, and 9% above where it peaked when it was slower. That is not
-explained; a scan that produces batches twice as fast plausibly keeps more of
-them in flight ahead of a Python consumer that did not get faster, but that is a
-hypothesis, not a measurement.
+**The memory column is the one number here not to lean on.** polars-bio peaks
+above the other two, and an earlier revision of this post recorded the rise as an
+unexplained regression. It isn't one: peak RSS on this path is set by a single
+call in the benchmark's adapter — `combine_chunks()`, which holds the scan's 340
+Arrow chunks and their concatenation at the same time — and that call's peak
+measured 16.8, 20.9, 21.3, 21.4 and 22.3 GB across five runs of identical code.
+The genotype data itself is stable at 12.80 GB ±35 MB. The decoder changes cannot
+be the cause either way: the Rust scan's own peak is 804 MB before and 797 MB
+after.
+
+What the instrumentation does show is that **2.53 GB of that 12.80 is `PLOIDY`**,
+a column the `genotypes` struct always carries and no projection can drop, held
+alive because the returned matrix is a view into the Arrow table. That is a real
+saving and it has not been taken.
 
 Given more than one partition it pulls further ahead: at eight partitions it
 reads the same file in **3.789 s**. That is not a one-thread result and is
