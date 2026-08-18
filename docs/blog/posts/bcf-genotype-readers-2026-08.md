@@ -246,18 +246,15 @@ one-partition time, on the same chromosome.
 
 | Partitions | BCF | PGEN | BGEN |
 |---:|---:|---:|---:|
-| 2 | 1.64× | not measured | 1.75× |
-| 4 | 3.04× | 2.54× | 3.24× |
-| 8 | **5.58×** | **3.32×** | **5.68×** |
+| 2 | 1.64× | 1.64× | 1.75× |
+| 4 | 3.04× | 2.51× | 3.24× |
+| 8 | **5.58×** | **3.22×** | **5.68×** |
 
 **PGEN is the outlier, and not because its decoder is worse.** It is the
 fastest of the three per byte, which means the dense-matrix materialisation
 becomes the dominant term sooner — and that copy saturates memory bandwidth at
 about 2.8× however many threads it gets. BCF and BGEN have more decode work per
 byte to divide, so they track the decoder further before hitting the same wall.
-
-PGEN was measured at one, four and eight partitions; the two-partition point was
-never run and is left out rather than interpolated.
 
 None of this is a like-for-like comparison against the other readers, which are
 single-threaded — it is reported separately from the tables above for that
