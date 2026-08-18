@@ -305,17 +305,23 @@ class TestBgenGenotypeFields:
             _dosage_matrix(ds_only), EXPECTED_DOSAGE, rtol=0, atol=1 / 255
         )
 
-    def test_ploidy_only_is_a_valid_projection(self):
+    def test_ploidy_is_emitted_alongside_the_value_child(self):
         frame = pb.read_bgen(
-            str(BGEN_PATH), genotype_output="dosage", genotype_fields=["PLOIDY"]
+            str(BGEN_PATH), genotype_output="dosage", genotype_fields=["DS", "PLOIDY"]
         ).sort("start")
-        fields = [field.name for field in frame.schema["genotypes"].fields]
-        assert fields == ["PLOIDY"]
         # The fixture is diploid throughout.
         np.testing.assert_array_equal(
             _ploidy_matrix(frame),
             np.full((len(EXPECTED_POSITIONS), len(EXPECTED_SAMPLES)), 2, dtype=np.uint8),
         )
+
+    def test_ploidy_without_the_value_child_is_rejected(self):
+        # Serving it would mean decoding every genotype for an array that is
+        # then discarded; the provider refuses it instead.
+        with pytest.raises(ValueError, match="DS"):
+            pb.read_bgen(
+                str(BGEN_PATH), genotype_output="dosage", genotype_fields=["PLOIDY"]
+            )
 
     def test_children_follow_the_requested_order(self):
         schema = pb.scan_bgen(
