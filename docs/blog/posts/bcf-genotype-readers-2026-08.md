@@ -211,115 +211,30 @@ tracks the decoder rather than flattening against a serial stage — which it di
 before `read_bgen_matrix`, at 4.15×. That is not a
 one-thread result and is reported as an aside rather than in the table above.
 
-## Where the time went
+## How it got there
 
-**BGEN** was the format polars-bio lost at one thread, and the explanation this
-post gave for it was wrong. The claim was that decompression dominates and a C
-extension wins there, so per core there was no structural advantage to be had.
-Two measurements retired that.
+The short version, kept because the numbers are not believable without it.
 
-*Decompression is a floor every reader pays, in the same library.* Walking the
-variant records and inflating every payload with libdeflate — which is all any
-reader of this file must do — takes **9.5 s** and produces 7.61 GB from a 160 MB
-file. The `bgen` package reads the whole file in 15.7 s, so its own work is
-about 6 s. polars-bio's was 14.8 s. The gap was never decompression; both use
-libdeflate.
+**BGEN** was the format polars-bio lost, at 25.804 s. The explanation this post
+originally gave — decompression favouring a single-threaded C extension — was
+wrong: inflating every payload of this file takes 9.5 s whoever does it, and all
+three readers use libdeflate. So did the second explanation, that polars-bio was
+"building Arrow arrays on top": Arrow construction is four milliseconds of a
+one-partition scan. The cost was the per-sample decode loop, at 5.15 ns per
+genotype across 2.53 billion of them. Two changes took it apart: the two helpers
+it called per sample were out-of-line calls that no `#[inline]` hint would move,
+and the loop decided per sample what a whole-cohort read has already decided for
+every sample — which sample to read, what ploidy to record, whether it is
+missing. Non-decompression work went 14.8 s to 2.3 s. Then `read_bgen_matrix`
+removed the last serial stage, a 10 GB consolidation the other readers never
+perform.
 
-*And Arrow construction is four milliseconds.* The decoder writes Arrow's layout
-as it goes, so building a batch only wraps buffers. "Builds Arrow arrays on top"
-was measuring nothing.
+**PGEN** went from 5.615 s to 1.277 s on dosage over six changes, the largest
+being a fused decode for the record type that dominates a `plink2 --make-pgen`
+fileset, and a matrix path that writes at the destination instead of copying.
 
-The cost was the loop turning a decompressed block into output, at 5.15 ns per
-genotype across 2.53 billion of them. Profiling it found two things. First, the
-two helpers it calls per sample were **out-of-line calls** — 15% and 18% of the
-scan — and neither was reachable by a hint: one already carried `#[inline]` and
-LLVM declined it, the other's callers were marked but it was not. Second, the
-loop **decided per sample what the read had already decided for all of them**:
-it gathered through the selected-sample index array even when the selection was
-the whole cohort in order, wrote a uniform ploidy a byte at a time, and tested a
-missingness that a fully called variant does not have.
-
-Inlining both helpers and filling a whole-cohort dosage read straight from the
-stored byte pairs took the non-decompression work from **14.8 s to 2.3 s**.
-Decompression is now 80% of a one-partition scan, against 39% before. The output
-is bit-identical through both changes — the dosages are written by the same
-expression the per-sample path uses, not an equivalent one.
-
-**PGEN** went from 5.615 s to 1.221 s on dosage over six changes, and it is
-worth being precise about which did what, because one of them was a measurement
-fix rather than a speedup.
-
-*The decode was doing a pass the record does not need.* 81% of a
-`plink2 --make-pgen` fileset is a single common genotype for every sample plus a
-sparse list of exceptions. That record has no per-sample base to reconstruct, so
-filling a buffer of codes and then reading it back to write the output was one
-pass too many; the values are now written once, straight from the common
-category. The Rust scan alone went 2.31 s → 1.19 s for dosage and
-1.65 s → 0.59 s for hardcalls.
-
-Notably this is the *opposite* of keeping the data packed the way PLINK does.
-pgenlib fills a packed array and then expands it, writing `sample_ct/4 +
-sample_ct` bytes; writing the output directly costs `sample_ct` and nothing
-else. For the record type that dominates, packing would have been a regression.
-
-*Building a matrix cost a second copy of every value.* Getting a contiguous
-array out of a DataFrame consolidates the scan's record batches into one Arrow
-buffer before NumPy ever sees them — a whole extra 10 GB here. A new
-`read_pgen_matrix` streams batches into a preallocated array instead, so the
-values are written once. Measured against the same provider on both sides, that
-was 3.225 s and 22.3 GB through the DataFrame against 1.849 s and 13.3 GB
-through the matrix reader — 1.7× the time and 1.7× the memory, for a copy the
-job does not need.
-
-*Opening the fileset parsed 108 MB of text before anything else started.* The
-`.pvar` companion lists every variant, and it was parsed on one thread — 0.257 s,
-paid before any partition ran, and a fixed floor under every read no matter how
-many cores it was given. Splitting it across threads takes it to 0.068 s. That
-is the change that put polars-bio ahead of pgenlib rather than beside it.
-
-*And the timer was charging polars-bio for importing itself.* Each measurement
-runs in a fresh process, and every reader adapter imported its library inside
-the timed function — about 0.46 s for polars-bio's 228 MB extension against
-0.03 s for pgenlib and snputils. The harness had always documented imports as
-excluded; it now actually excludes them, for every reader alike. That is worth
-~0.43 s of the dosage figure, so it is worth knowing about before comparing
-against the earlier revision.
-
-*And then the copy went away entirely.* Streaming batches into a preallocated
-array still means writing every value twice — once into Arrow, once into the
-result — and that second write could not be removed on the Arrow path, because
-`ListArray` uses 32-bit offsets and a batch holds at most 842,811 rows at this
-sample count, so the matrix can never arrive as one zero-copy buffer. The
-decoder was given a path that writes at the destination instead. That is worth
-1.3× at one core and 2.3× at eight, and it is most of why scaling improved from
-1.85× to 3.28× — the copy saturated memory bandwidth at about 2.8× regardless of
-thread count, so it was the ceiling.
-
-That change did briefly make *hardcalls* slower at one core, 0.694 s to 0.759 s,
-which is worth recording because of how it happened. Building a matrix means
-asking the file how big it is, allocating, then filling — and asking reopened
-the fileset, so the 108 MB PVAR was parsed twice. Dosage's decode is large
-enough to hide that; the hardcall decode is not. Holding the fileset open across
-both questions fixed it, and hardcalls are now 0.653 s at one core and 0.234 s
-at eight.
-
-*And the input was still being copied.* The matrix reader read every byte range
-of every partition into a buffer of its own before starting a decoder, so the
-whole 79.9 MB fileset sat in memory on top of the destination and the reads ran
-one after another however many decoders were asked for. It now fetches and
-decodes a round at a time — one range per partition, read concurrently — and the
-decoders read out of the readers' own buffers, so a range is not copied at all.
-Resident input is bounded by the range budget rather than by the file, which is
-the point of the change; the time it is worth is small and hard to pin, because
-the reference readers moved between the two sessions too. Isolating the Rust
-decode alone puts it at 2.8% on dosage at one thread, which is the honest figure
-— the 5.0% the end-to-end table shows includes whatever the machine contributed.
-
-What is left is one PVAR parse and the decode itself, which already scales 5×.
-
-**BCF** is where the architecture pays off: typed FORMAT/GT decoding straight
-into Arrow buffers, with no per-record Python object and no intermediate
-matrix. That is also why its memory is a quarter of snputils'.
+**BCF** needed none of this: typed FORMAT/GT decoding straight into Arrow
+buffers, with no per-record Python object and no intermediate matrix.
 
 ## Scaling, by format
 
