@@ -121,6 +121,8 @@ one format where it wins outright at equal core count.
 | pgenlib | 0.873 s | 1.884 s |
 | snputils | 0.875 s | 2.651 s |
 
+![PGEN one-thread comparison](figures/genotype-readers-2026-08/pgen-one-thread.png)
+
 polars-bio is **1.48× faster than pgenlib on dosage and 1.28× on hardcalls**, and
 2.08×/1.28× faster than snputils. Note that snputils *is* pgenlib plus a NumPy
 wrapper here, so the meaningful comparison is against pgenlib itself — and on
@@ -168,6 +170,8 @@ identical records cost it 0.873 s as `int8` and 1.884 s as `float32`.
 | bgen | 15.415 s |
 | snputils | 21.737 s |
 
+![BGEN one-thread comparison](figures/genotype-readers-2026-08/bgen-one-thread.png)
+
 polars-bio is **1.30× faster than the `bgen` package and 1.84× faster than
 snputils**.
 
@@ -197,7 +201,14 @@ should not be quoted at all until it is understood. The post-read hashing, the
 source is still open.
 
 Given more than one partition it pulls further ahead: at eight partitions it
-reads the same file in **2.083 s**, scaling 5.68× from one. That is not a
+reads the same file in **2.083 s**, scaling 5.68× from one.
+
+![polars-bio BGEN scaling](figures/genotype-readers-2026-08/bgen-scaling.png)
+
+The right-hand panel is the one worth reading: the gap to linear is the fixed
+cost a scan cannot divide, and it is small enough here that the curve still
+tracks the decoder rather than flattening against a serial stage — which it did
+before `read_bgen_matrix`, at 4.15×. That is not a
 one-thread result and is reported as an aside rather than in the table above.
 
 ## Where the time went
