@@ -537,3 +537,42 @@ class TestPgenMatrix:
         ]
         assert subset["variant_count"] == 3
         assert subset["sample_count"] == 2
+
+    def test_parallel_copy_matches_the_serial_copy(self):
+        # The parallel path assigns row ranges in arrival order and writes them
+        # from worker threads. Disjoint slices need no lock, but an off-by-one
+        # in the range assignment would interleave or overwrite rows, which only
+        # a value comparison catches — and only when there is more than one
+        # batch to get out of order, hence the batch size of one row.
+        batch_size = "datafusion.execution.batch_size"
+        # Unset by default, so there is no value to restore; DataFusion's own
+        # default is 8192 and putting it back keeps later tests unaffected.
+        previous = pb.get_option(batch_size) or "8192"
+        try:
+            pb.set_option(batch_size, "1")
+            serial = pb.read_pgen_matrix(
+                str(ORACLE_PATH), field="ALT_COUNT", copy_threads=1
+            )
+            assert serial.values.shape == (3, len(ORACLE_SAMPLES))
+            for threads in (2, 4, 8):
+                parallel = pb.read_pgen_matrix(
+                    str(ORACLE_PATH), field="ALT_COUNT", copy_threads=threads
+                )
+                assert parallel.values.tolist() == serial.values.tolist(), threads
+                assert parallel.positions.tolist() == serial.positions.tolist(), threads
+                assert parallel.values.flags.c_contiguous
+        finally:
+            pb.set_option(batch_size, previous)
+
+    def test_copy_threads_defaults_to_the_partition_count(self):
+        # The copy is the one stage that does not follow target_partitions on its
+        # own, so it is made to. A single-partition scan must stay single
+        # threaded end to end, or a "one thread" measurement is not one.
+        previous = pb.get_option(TARGET_PARTITIONS)
+        try:
+            for partitions in ("1", "4"):
+                pb.set_option(TARGET_PARTITIONS, partitions)
+                matrix = pb.read_pgen_matrix(str(ORACLE_PATH), field="ALT_COUNT")
+                assert matrix.values.shape == (3, len(ORACLE_SAMPLES))
+        finally:
+            pb.set_option(TARGET_PARTITIONS, previous)

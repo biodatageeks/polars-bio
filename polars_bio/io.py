@@ -364,6 +364,15 @@ def _validate_pgen_missing_sample_policy(missing_sample_policy: str) -> None:
         )
 
 
+def _check_room(row: int, count: int, variants: int) -> int:
+    """Guard the destination against a scan longer than the companions declare."""
+    if row + count > variants:
+        raise RuntimeError(
+            f"PGEN scan emitted more than the {variants} variants the provider reported"
+        )
+    return count
+
+
 class PgenMatrix(NamedTuple):
     """A dense genotype matrix and the labels for its axes.
 
@@ -2304,6 +2313,7 @@ class IOOperations:
         timeout: int = 300,
         compression_type: str = "auto",
         use_zero_based: Optional[bool] = None,
+        copy_threads: Union[int, None] = None,
     ) -> "PgenMatrix":
         """
         Read one genotype field of a PGEN fileset into a dense NumPy matrix.
@@ -2341,6 +2351,7 @@ class IOOperations:
             timeout: The timeout in seconds for reading the file from object storage.
             compression_type: The compression override.
             use_zero_based: If True, report 0-based positions. If False, 1-based. If None (default), uses the global configuration.
+            copy_threads: How many threads copy decoded batches into the result. Writing the matrix is about half memcpy and half first-touch page faults, and neither holds the GIL, so this scales — but it is the *only* stage that does not follow `datafusion.execution.target_partitions`, which is why it is settable. If *None* (default), it follows `target_partitions`, so a single-partition scan stays single-threaded end to end.
 
         Returns:
             A `PgenMatrix` of `values` (a C-contiguous `(variants, samples)`
@@ -2410,6 +2421,7 @@ class IOOperations:
             use_zero_based=use_zero_based,
         )
         from polars_bio._metadata import get_metadata
+        from polars_bio.context import get_option
 
         header = get_metadata(frame)["header"]
         variants = header.get("variant_count")
@@ -2422,33 +2434,75 @@ class IOOperations:
             )
         sample_names = list(header.get("sample_names") or [])
 
+        if copy_threads is None:
+            try:
+                copy_threads = int(get_option("datafusion.execution.target_partitions"))
+            except (TypeError, ValueError):
+                copy_threads = 1
+        copy_threads = max(1, int(copy_threads))
+
         values = np.empty((variants, columns), dtype=dtype)
         positions = np.empty(variants, dtype=np.int64)
+
+        def fill(destination, listing):
+            """Copy one Arrow list array into an already-assigned row range."""
+            inner = listing.flatten()
+            if inner.null_count:
+                # Substitute the sentinel in Arrow rather than in the
+                # destination: an integer array with nulls converts to float64
+                # on the way to NumPy, which is an eightfold intermediate on a
+                # matrix this size, and the narrowing cast back is undefined for
+                # the null positions.
+                inner = inner.fill_null(missing)
+            destination.reshape(-1)[:] = inner.to_numpy(zero_copy_only=False)
+
         row = 0
         selected = frame.select("start", "genotypes")
-        for part in selected.collect_batches(lazy=True, engine="streaming"):
-            column = part.select("genotypes").to_arrow().column("genotypes")
-            positions[row : row + len(part)] = part["start"].to_numpy()
-            for chunk in column.chunks:
-                listing = chunk.field(field)
-                count = len(listing)
-                if row + count > variants:
-                    raise RuntimeError(
-                        f"PGEN scan emitted more than the {variants} variants the "
-                        "provider reported"
-                    )
-                inner = listing.flatten()
-                if inner.null_count:
-                    # Substitute the sentinel in Arrow rather than in the
-                    # destination: an integer array with nulls converts to
-                    # float64 on the way to NumPy, which is an eightfold
-                    # intermediate on a matrix this size, and the narrowing cast
-                    # back is undefined for the null positions.
-                    inner = inner.fill_null(missing)
-                values[row : row + count].reshape(-1)[:] = inner.to_numpy(
-                    zero_copy_only=False
-                )
-                row += count
+        batches = selected.collect_batches(lazy=True, engine="streaming")
+
+        if copy_threads == 1:
+            for part in batches:
+                column = part.select("genotypes").to_arrow().column("genotypes")
+                positions[row : row + len(part)] = part["start"].to_numpy()
+                for chunk in column.chunks:
+                    listing = chunk.field(field)
+                    count = _check_room(row, len(listing), variants)
+                    fill(values[row : row + count], listing)
+                    row += count
+        else:
+            # Row ranges are assigned here, in arrival order, so the workers
+            # write disjoint slices and need no lock. Only `pending` bounds
+            # memory: without it the executor's queue would hold every batch and
+            # the scan's output would be resident twice.
+            from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+
+            pending = set()
+            limit = copy_threads * 2
+            with ThreadPoolExecutor(max_workers=copy_threads) as pool:
+                try:
+                    for part in batches:
+                        column = part.select("genotypes").to_arrow().column("genotypes")
+                        positions[row : row + len(part)] = part["start"].to_numpy()
+                        for chunk in column.chunks:
+                            listing = chunk.field(field)
+                            count = _check_room(row, len(listing), variants)
+                            if len(pending) >= limit:
+                                done, pending = wait(
+                                    pending, return_when=FIRST_COMPLETED
+                                )
+                                for future in done:
+                                    future.result()
+                            pending.add(
+                                pool.submit(fill, values[row : row + count], listing)
+                            )
+                            row += count
+                    for future in pending:
+                        future.result()
+                except BaseException:
+                    for future in pending:
+                        future.cancel()
+                    raise
+
         # A prefix of rows is still C-contiguous, so a scan that emitted fewer
         # variants than the companions declare needs no copy to truncate.
         return PgenMatrix(
