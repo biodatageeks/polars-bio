@@ -1,5 +1,7 @@
 """BGEN read, scan, register, and describe tests."""
 
+import inspect
+
 import numpy as np
 import polars as pl
 import pytest
@@ -442,6 +444,18 @@ class TestBgenMatrix:
     def test_non_bgen_path_is_rejected(self):
         with pytest.raises(ValueError, match=r"\.bgen"):
             pb.read_bgen_matrix(str(DATA_DIR / "io" / "vcf" / "multisample.vcf"))
+
+    def test_the_matrix_path_offers_no_output_mode(self):
+        # Probabilities are variable width and have no dense shape, so the
+        # matrix reader declines to offer the choice rather than accepting one
+        # and failing at open. Pinned because the spec now says the argument is
+        # absent, and an absent argument is only observable as its absence.
+        assert (
+            "genotype_output"
+            not in inspect.signature(pb.read_bgen_matrix).parameters
+        )
+        with pytest.raises(TypeError):
+            pb.read_bgen_matrix(str(BGEN_PATH), genotype_output="probability")
 
     def test_matrix_positions_follow_the_coordinate_system(self):
         # The matrix labels its rows, and those labels must be the `start` the

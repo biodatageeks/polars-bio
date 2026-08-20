@@ -1354,8 +1354,11 @@ impl OpenBgenMatrix {
     /// Opens a BGEN and reads its metadata.
     pub fn open(path: String, options: &BgenReadOptions) -> datafusion::common::Result<Self> {
         // Dosage only, and only the value child: the matrix produces one value
-        // per genotype by construction, so PLOIDY has nowhere to go and asking
-        // the provider for probabilities fails at open.
+        // per genotype by construction, so PLOIDY has nowhere to go and
+        // probabilities, being variable width, have no dense shape to land in.
+        // The mode is fixed here rather than read from `options`, so there is
+        // no probability request to reject: `read_bgen_matrix` exposes no
+        // output mode for one to arrive through.
         let native = NativeBgenReadOptions {
             output_mode: BgenOutputMode::Dosage,
             genotype_fields: Some(vec!["DS".to_string()]),

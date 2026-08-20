@@ -25,8 +25,9 @@ and reached the same answer.
   buffer and writes each variant's dosages at their final address, so no
   consolidation stage exists.
 - Dosage only. BGEN probabilities are variable width and have no single dense
-  shape; asking for them fails when the file is opened rather than part way
-  through a decode.
+  shape, so the matrix reader takes no output mode at all rather than accepting
+  one and rejecting it. The probability states are read through
+  `scan_bgen(genotype_output="probability")`.
 - Add `genotype_fields` to `scan_bgen` and `read_bgen`, selecting which children
   of the `genotypes` struct to emit. `PLOIDY` is a byte per genotype and a NumPy
   view of a result keeps the whole Arrow struct alive, so a dosage-only caller

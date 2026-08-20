@@ -28,10 +28,12 @@ sample, together with the variant positions and sample names labelling its axes.
 - **THEN** the caller-supplied missing value SHALL be written, defaulting to
   `NaN`
 
-#### Scenario: Probabilities are refused
-- **WHEN** a probability output is requested from the matrix path
-- **THEN** the call SHALL fail when the file is opened, because probabilities
-  are variable width and have no single dense shape
+#### Scenario: Probabilities have no dense form
+- **WHEN** a caller wants BGEN probability states as a matrix
+- **THEN** `read_bgen_matrix` SHALL NOT offer an output mode to ask for them,
+  because probabilities are variable width and have no single dense shape
+- **AND** they SHALL be reached through `scan_bgen(genotype_output="probability")`
+  instead
 
 ### Requirement: Genotype child projection
 `scan_bgen`, `read_bgen`, and `register_bgen` SHALL accept `genotype_fields`,
