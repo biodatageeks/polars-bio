@@ -1316,7 +1316,9 @@ impl OpenBgenMatrix {
             )));
         }
         // SAFETY: the caller guarantees `values` addresses `len` writable,
-        // C-contiguous `f32`s that stay alive and unaliased for this call.
+        // C-contiguous, 4-byte-aligned `f32`s that stay alive and unaliased for
+        // this call. Alignment is the one `from_raw_parts_mut` requires that
+        // C-contiguity and writability do not imply.
         let slice = unsafe { std::slice::from_raw_parts_mut(values as *mut f32, len) };
         self.runtime
             .block_on(self.reader.read_into(slice, missing as f32, threads))?;
