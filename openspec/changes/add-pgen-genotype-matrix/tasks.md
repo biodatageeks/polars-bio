@@ -14,10 +14,18 @@
 
 - [x] 2.1 Expose the reader to Python as a handle, since the caller must learn
       the shape before it can allocate
-- [x] 2.2 Pass the destination as an address, the limited API having no buffer
-      protocol, and check dtype, contiguity, writability and length in the
-      Python wrapper before handing it over
-- [x] 2.3 Release the GIL for the decode
+- [x] 2.2 Pass the destination array itself and check its type, dtype,
+      contiguity, writability, alignment and length in Rust, so the checks sit
+      on the boundary every caller crosses rather than in the Python wrapper a
+      caller holding the reader goes around
+- [x] 2.3 Hold the GIL for the decode, so no Python thread can resize or free
+      the destination between the checks and the write. The buffer protocol
+      would pin the export instead, at no cost to other Python threads, but
+      `Py_buffer` reached the limited API in 3.11 and `datafusion-python`
+      enables bare `abi3`, pinning this build's floor at 3.10
+- [x] 2.4 Refuse an `ALT_COUNT` sentinel `int8` cannot hold at the cast as well
+      as in the wrapper, the wrapper's copy earning its place by failing before
+      the fileset is opened
 
 ## 3. Python API
 

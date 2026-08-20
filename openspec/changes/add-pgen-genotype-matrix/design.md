@@ -13,19 +13,41 @@ micro-optimisation: an earlier revision did open it twice, which cost 18% of a
 hardcall read and briefly made that workload slower than the DataFrame path it
 replaced.
 
-## Why the destination is passed as an address
+## Where the destination is checked
 
 polars-bio builds against the CPython limited API (`abi3`), where PyO3's buffer
-protocol is unavailable. The alternatives were to take a NumPy build dependency
-or to pass the array's address explicitly. The address was chosen because the
-dependency would apply to the whole package for one function's benefit.
+protocol is unavailable, so the reader cannot ask CPython for a validated
+pointer. The alternatives were a NumPy build dependency for one function's
+benefit, or checking the array from Rust through its Python attributes. The
+second was chosen.
 
-The cost is that the checks the buffer protocol would have made are now the
-Python wrapper's responsibility: dtype, C-contiguity, writability and length are
-all verified before the address is handed over, and the decode re-checks the
-length against the shape it derives from the fileset. Both `unsafe` blocks name
-the check that makes them sound. `read_pgen_matrix` is the only supported caller
-of the binding, and the binding says so.
+The first attempt put those checks in `read_pgen_matrix` and passed the address
+across as an integer. That was wrong: the pyclass is registered on the
+extension module, so `from polars_bio.polars_bio import PgenMatrixReader`
+reaches a `read_into` that would decode into any address it was handed, and a
+check the caller can walk around is not a check. The array itself is passed
+now, and its type, dtype, C-contiguity, writability, alignment and length are
+verified in Rust, on the boundary every caller crosses. The wrapper keeps only
+the one check that earns a second copy: the `ALT_COUNT` sentinel, rejected
+there before the fileset is opened as well as at the cast.
+
+The decode holds the GIL. Keeping the array alive does not keep its allocation
+still — another Python thread could resize it between the checks and the write
+— and the export flag that `PyObject_GetBuffer` sets is what would prevent that
+without blocking anyone. `Py_buffer` reached the limited API in 3.11, and this
+package already requires 3.11, but `datafusion-python` enables bare `abi3`,
+which drags the floor to 3.10 whatever this crate asks for. Until that changes
+the GIL is the available guarantee, and its cost is other Python threads
+waiting out the decode rather than any loss of decode parallelism: the
+provider's threads never touch Python.
+
+One residual is recorded rather than fixed. The trusted type comes from
+`numpy.ndarray`, a rebindable module attribute; it is read once and cached,
+which narrows the window to before the first matrix read rather than closing
+it. Closing it needs the buffer protocol. Code that can rebind NumPy's
+internals can already reach any address through `ctypes` without this reader,
+so the checks are treated as catching accidents — a wrong dtype, a strided
+view, a read-only or misaligned array — which they do.
 
 ## Why a sentinel and not a validity bitmap
 

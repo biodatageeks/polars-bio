@@ -9,8 +9,10 @@
 
 ## 2. Binding
 - [x] 2.1 `OpenBgenMatrix` and the `BgenMatrixReader` pyclass
-- [x] 2.2 `read_bgen_matrix` wrapper owning the dtype, C-contiguity, writability
-      and length checks, since the limited API cannot see them from Rust
+- [x] 2.2 `BgenMatrixReader.read_into` taking the destination array itself and
+      validating its type, dtype, C-contiguity, writability, alignment and
+      length in Rust, then decoding with the GIL held so no Python thread can
+      resize the array out from under it
 - [x] 2.3 `genotype_fields` on `scan_bgen`, `read_bgen`, and `register_bgen`
 - [x] 2.4 Export from `polars_bio`
 
