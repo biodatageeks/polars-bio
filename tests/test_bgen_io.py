@@ -12,6 +12,12 @@ from polars_bio.context import ctx
 
 BGEN_DIR = DATA_DIR / "io" / "bgen"
 BGEN_PATH = BGEN_DIR / "multisample.bgen"
+# `multisample.vcf` with two calls replaced by `./.`, exported the same way.
+# multisample.bgen has no missing call, so the sentinel had nothing to write.
+MISSING_CALLS_PATH = BGEN_DIR / "missing_calls.bgen"
+EXPECTED_MISSING_DOSAGE = np.array(
+    [[1.0, np.nan, 2.0], [np.nan, 1.0, 0.0]], dtype=np.float32
+)
 TARGET_PARTITIONS = "datafusion.execution.target_partitions"
 
 # The fixture is `multisample.vcf` exported by `plink2 --export bgen-1.3
@@ -444,6 +450,32 @@ class TestBgenMatrix:
     def test_non_bgen_path_is_rejected(self):
         with pytest.raises(ValueError, match=r"\.bgen"):
             pb.read_bgen_matrix(str(DATA_DIR / "io" / "vcf" / "multisample.vcf"))
+
+    def test_a_missing_call_gets_the_sentinel(self):
+        matrix = pb.read_bgen_matrix(str(MISSING_CALLS_PATH))
+        np.testing.assert_array_equal(matrix.values, EXPECTED_MISSING_DOSAGE)
+
+    def test_the_sentinel_is_configurable(self):
+        matrix = pb.read_bgen_matrix(str(MISSING_CALLS_PATH), missing=-1.0)
+        expected = np.where(
+            np.isnan(EXPECTED_MISSING_DOSAGE), -1.0, EXPECTED_MISSING_DOSAGE
+        )
+        np.testing.assert_array_equal(matrix.values, expected)
+
+    def test_missing_calls_agree_with_the_dataframe_path(self):
+        # The matrix writes a sentinel where the scan writes a null, so the two
+        # have to be compared through that correspondence rather than directly.
+        matrix = pb.read_bgen_matrix(str(MISSING_CALLS_PATH))
+        frame = pb.read_bgen(str(MISSING_CALLS_PATH), genotype_output="dosage").sort(
+            "start"
+        )
+        for row, genotypes in enumerate(frame["genotypes"].to_list()):
+            for column, dosage in enumerate(genotypes["DS"]):
+                observed = matrix.values[row][column]
+                if dosage is None:
+                    assert np.isnan(observed), f"row {row} column {column}"
+                else:
+                    assert observed == dosage, f"row {row} column {column}"
 
     def test_the_destination_is_checked_before_it_is_decoded_into(self):
         # `BgenMatrixReader` is importable and used to take the destination as

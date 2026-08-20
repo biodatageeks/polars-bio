@@ -18,8 +18,10 @@
 - [x] 3.1 Matrix against the DataFrame path, compared as bit patterns
 - [x] 3.2 Thread counts produce identical values
 - [x] 3.3 Sample selection reorders columns
-- [x] 3.4 `genotype_fields` selection, ordering, and rejection cases
-- [x] 3.5 Positions under a zero-based read, compared against the scan under both
+- [x] 3.4 The missing-call sentinel, against a fixture carrying `./.` calls,
+      compared with the nulls the DataFrame path reports
+- [x] 3.5 `genotype_fields` selection, ordering, and rejection cases
+- [x] 3.6 Positions under a zero-based read, compared against the scan under both
       systems — the gap that let a row-mislabelling bug through provider review
 
 ## 4. Documentation

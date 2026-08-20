@@ -114,13 +114,14 @@ class TestPgenRead:
         frame = pb.read_pgen(str(PHASE_PATH), genotype_fields=["PHASED", "GT"])
         assert _genotype_names(frame) == ["PHASED", "GT"]
 
-    def test_all_five_fields_can_be_selected(self):
+    def test_all_six_fields_can_be_selected(self):
         frame = pb.read_pgen(
             str(DOSAGE_PATH),
-            genotype_fields=["GT", "PHASED", "DS", "DS_STORED", "HDS"],
+            genotype_fields=["GT", "ALT_COUNT", "PHASED", "DS", "DS_STORED", "HDS"],
         )
         assert _genotype_names(frame) == [
             "GT",
+            "ALT_COUNT",
             "PHASED",
             "DS",
             "DS_STORED",
