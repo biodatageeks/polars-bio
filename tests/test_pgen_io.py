@@ -539,7 +539,7 @@ class TestPgenMatrixDestination:
     def test_an_address_is_no_longer_accepted(self):
         # The regression that matters: an integer used to be the destination.
         reader = self._reader()
-        with pytest.raises(AttributeError):
+        with pytest.raises(TypeError, match="numpy.ndarray"):
             reader.read_into("ALT_COUNT", 12345, 1, -9.0)
 
     def test_a_wrong_dtype_is_refused(self):
@@ -570,6 +570,64 @@ class TestPgenMatrixDestination:
         short = np.empty((variants, samples + 1), dtype=np.int8)
         with pytest.raises(ValueError, match="expected"):
             reader.read_into("ALT_COUNT", short, 1, -9.0)
+
+    def test_an_object_that_merely_answers_the_checks_is_refused(self):
+        # Every check but the first is an attribute lookup, and any object can
+        # answer those however it likes while handing back an address of its
+        # choosing. The type check is what makes the rest mean anything.
+        class Spoof:
+            dtype = "int8"
+            size = 24
+
+            class flags:
+                c_contiguous = True
+                writeable = True
+                aligned = True
+
+            class ctypes:
+                data = 0x1234
+
+        reader = self._reader()
+        with pytest.raises(TypeError, match="numpy.ndarray"):
+            reader.read_into("ALT_COUNT", Spoof(), 1, -9.0)
+
+    def test_a_subclass_is_refused(self):
+        # A subclass can answer the same checks through `__getattr__`, so the
+        # type is compared by identity rather than with `isinstance`.
+        reader = self._reader()
+        variants, samples = reader.shape()
+        subclass = type("Sub", (np.ndarray,), {})((variants, samples), dtype=np.int8)
+        with pytest.raises(TypeError, match="numpy.ndarray"):
+            reader.read_into("ALT_COUNT", subclass, 1, -9.0)
+
+    def test_a_misaligned_destination_is_refused(self):
+        # C-contiguous and writable do not imply aligned. `from_raw_parts_mut`
+        # requires alignment, so this one is undefined behaviour rather than a
+        # slow read.
+        reader = self._reader("DS")
+        variants, samples = reader.shape()
+        count = variants * samples
+        misaligned = np.ndarray(
+            (variants, samples),
+            dtype=np.float32,
+            buffer=bytearray(count * 4 + 1),
+            offset=1,
+        )
+        assert misaligned.flags.c_contiguous and misaligned.flags.writeable
+        assert not misaligned.flags.aligned
+        with pytest.raises(ValueError, match="aligned"):
+            reader.read_into("DS", misaligned, 1, float("nan"))
+
+    @pytest.mark.parametrize("sentinel", [float("nan"), 200.0, 0.5])
+    def test_the_alt_count_sentinel_is_checked_at_the_reader_too(self, sentinel):
+        # `read_pgen_matrix` rejects these before the fileset is opened, but a
+        # caller holding the reader goes around that wrapper — and `as i8`
+        # would turn NaN into 0, which reads as a homozygous-reference call.
+        reader = self._reader()
+        variants, samples = reader.shape()
+        values = np.empty((variants, samples), dtype=np.int8)
+        with pytest.raises(ValueError, match="representable"):
+            reader.read_into("ALT_COUNT", values, 1, sentinel)
 
     def test_a_valid_destination_still_decodes(self):
         # The refusals above prove nothing if the accepting case never runs.

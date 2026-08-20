@@ -35,7 +35,7 @@ use datafusion_bio_format_core::object_storage::ObjectStorageOptions;
 use datafusion_bio_format_vcf::table_provider::describe_fields;
 use datafusion_python::dataframe::PyDataFrame;
 use log::{debug, error, info};
-use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use tokio::runtime::Runtime;
 
@@ -917,13 +917,28 @@ fn py_register_fastqc_table(
 /// build has, and it keeps the raw address on this side of the boundary: the
 /// caller passes the array, never a number that a decoder would write to.
 ///
+/// The type is checked first, and by identity rather than `isinstance`. Every
+/// check below it is an attribute lookup, and an arbitrary object can answer
+/// them however it likes — reporting the right dtype, flags and size while
+/// handing back any address it wants as `ctypes.data`. A subclass can do the
+/// same through `__getattr__`, so only `numpy.ndarray` itself is accepted;
+/// nothing in polars-bio hands over anything else.
+///
 /// Failing here costs one attribute walk per matrix read, against a decode
 /// measured in seconds.
 fn validated_destination(
     destination: &Bound<'_, PyAny>,
     expected_dtype: &str,
+    expected_align: usize,
     expected_length: usize,
 ) -> PyResult<usize> {
+    let ndarray = destination.py().import("numpy")?.getattr("ndarray")?;
+    if !destination.get_type().as_any().is(&ndarray) {
+        return Err(PyTypeError::new_err(format!(
+            "matrix destination must be a numpy.ndarray, not {}",
+            destination.get_type().name()?
+        )));
+    }
     let dtype = destination.getattr("dtype")?.str()?.to_string();
     if dtype != expected_dtype {
         return Err(PyValueError::new_err(format!(
@@ -939,16 +954,31 @@ fn validated_destination(
     if !flags.getattr("writeable")?.extract::<bool>()? {
         return Err(PyValueError::new_err("matrix destination must be writable"));
     }
+    // C-contiguous and writable do not imply aligned: an array built over a
+    // `bytearray` at a non-zero offset has both flags and an address `f32`
+    // cannot legally be read from. `from_raw_parts_mut` requires alignment, so
+    // decoding into one would be undefined behaviour rather than a slow read.
+    if !flags.getattr("aligned")?.extract::<bool>()? {
+        return Err(PyValueError::new_err("matrix destination must be aligned"));
+    }
     let length = destination.getattr("size")?.extract::<usize>()?;
     if length != expected_length {
         return Err(PyValueError::new_err(format!(
             "matrix destination holds {length} values; expected {expected_length}"
         )));
     }
-    destination
+    let address = destination
         .getattr("ctypes")?
         .getattr("data")?
-        .extract::<usize>()
+        .extract::<usize>()?;
+    // The flag is NumPy's word for it; this is the property the unsafe code
+    // actually needs, checked directly.
+    if address % expected_align != 0 {
+        return Err(PyValueError::new_err(format!(
+            "matrix destination is at {address:#x}, not {expected_align}-byte aligned"
+        )));
+    }
+    Ok(address)
 }
 
 /// An open PGEN fileset, read as a dense matrix.
@@ -1000,9 +1030,9 @@ impl PyPgenMatrixReader {
         threads: usize,
         missing: f64,
     ) -> PyResult<()> {
-        let dtype = match field.as_str() {
-            "ALT_COUNT" => "int8",
-            "DS" => "float32",
+        let (dtype, align) = match field.as_str() {
+            "ALT_COUNT" => ("int8", std::mem::align_of::<i8>()),
+            "DS" => ("float32", std::mem::align_of::<f32>()),
             other => {
                 return Err(PyValueError::new_err(format!(
                     "read_pgen_matrix supports ALT_COUNT and DS, not {other}"
@@ -1011,7 +1041,7 @@ impl PyPgenMatrixReader {
         };
         let (variants, samples) = self.inner.shape();
         let length = variants.saturating_mul(samples);
-        let address = validated_destination(destination, dtype, length)?;
+        let address = validated_destination(destination, dtype, align, length)?;
         // The GIL is released for the decode: the provider runs its own threads
         // and holding it would serialize them against each other.
         py.detach(|| {
@@ -1072,7 +1102,8 @@ impl PyBgenMatrixReader {
     ) -> PyResult<()> {
         let (variants, samples) = self.inner.shape();
         let length = variants.saturating_mul(samples);
-        let address = validated_destination(destination, "float32", length)?;
+        let address =
+            validated_destination(destination, "float32", std::mem::align_of::<f32>(), length)?;
         // The GIL is released for the decode: the provider runs its own threads
         // and holding it would serialize them against each other.
         py.detach(|| {

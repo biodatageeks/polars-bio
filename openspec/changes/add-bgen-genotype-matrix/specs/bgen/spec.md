@@ -29,8 +29,9 @@ sample, together with the variant positions and sample names labelling its axes.
   `NaN`
 
 #### Scenario: Destination is validated before it is written
-- **WHEN** a destination that is not writable, not C-contiguous, not `float32`,
-  or not the length the file's shape reports is given to the matrix reader
+- **WHEN** a destination that is not a `numpy.ndarray`, not writable, not
+  C-contiguous, not aligned, not `float32`, or not the length the file's shape
+  reports is given to the matrix reader
 - **THEN** the reader SHALL raise before any dosage is decoded, and SHALL take
   the destination array itself rather than an address
 

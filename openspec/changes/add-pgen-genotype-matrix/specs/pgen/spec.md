@@ -34,9 +34,11 @@ selected sample, decoding into that matrix directly rather than copying into it.
 #### Scenario: A sentinel the field cannot hold
 - **WHEN** `missing` is not a whole number in `[-128, 127]` and `field` is
   `ALT_COUNT`
-- **THEN** the call raises `ValueError` before the file is opened, rather than
-  letting the `f64`-to-`i8` cast saturate it or turn NaN into `0`, which would
-  be indistinguishable from a homozygous-reference call.
+- **THEN** `read_pgen_matrix` SHALL raise `ValueError` before the file is
+  opened, rather than letting the `f64`-to-`i8` cast saturate it or turn NaN
+  into `0`, which would be indistinguishable from a homozygous-reference call
+- **AND** the same value SHALL be refused where the cast happens, so a caller
+  holding the reader directly cannot route around the wrapper's check.
 
 #### Scenario: Sample selection
 - **WHEN** `samples=[...]` is given
@@ -55,11 +57,14 @@ selected sample, decoding into that matrix directly rather than copying into it.
 - **AND** a single-partition read decodes on one thread.
 
 #### Scenario: Destination is validated before it is written
-- **WHEN** a destination that is not writable, not C-contiguous, not the dtype
-  the field implies, or not the length the fileset's shape reports is given to
-  the matrix reader
+- **WHEN** a destination that is not a `numpy.ndarray`, not writable, not
+  C-contiguous, not aligned, not the dtype the field implies, or not the length
+  the fileset's shape reports is given to the matrix reader
 - **THEN** the reader SHALL raise before any genotype is decoded
 - **AND** the reader SHALL take the destination array itself, never an address,
   so no caller can direct a decode at memory of its choosing
+- **AND** the type SHALL be checked by identity rather than by `isinstance`,
+  because every other check is an attribute lookup an arbitrary object — or a
+  subclass through `__getattr__` — can answer while supplying any address
 - **AND** `read_pgen_matrix` allocates its own destination, so a caller of the
   public function cannot reach that failure.

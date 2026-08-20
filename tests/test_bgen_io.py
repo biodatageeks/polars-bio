@@ -503,7 +503,7 @@ class TestBgenMatrix:
         )
         reader = BgenMatrixReader(str(BGEN_PATH), options)
         variants, samples = reader.shape()
-        with pytest.raises(AttributeError):
+        with pytest.raises(TypeError, match="numpy.ndarray"):
             reader.read_into(12345, 1, float("nan"))
         with pytest.raises(ValueError, match="dtype"):
             reader.read_into(np.empty((variants, samples), dtype=np.int8), 1, 0.0)
@@ -511,6 +511,20 @@ class TestBgenMatrix:
         frozen.flags.writeable = False
         with pytest.raises(ValueError, match="writable"):
             reader.read_into(frozen, 1, float("nan"))
+        misaligned = np.ndarray(
+            (variants, samples),
+            dtype=np.float32,
+            buffer=bytearray(variants * samples * 4 + 1),
+            offset=1,
+        )
+        with pytest.raises(ValueError, match="aligned"):
+            reader.read_into(misaligned, 1, float("nan"))
+        with pytest.raises(TypeError, match="numpy.ndarray"):
+            reader.read_into(
+                type("Sub", (np.ndarray,), {})((variants, samples), dtype=np.float32),
+                1,
+                float("nan"),
+            )
         # And the accepting case, without which the refusals prove nothing.
         values = np.empty((variants, samples), dtype=np.float32)
         reader.read_into(values, 1, float("nan"))

@@ -1194,9 +1194,25 @@ impl OpenPgenMatrix {
         }
         match field {
             "ALT_COUNT" => {
+                // `missing as i8` saturates and turns NaN into 0, so a sentinel
+                // int8 cannot hold would come back indistinguishable from a
+                // homozygous-reference call. `read_pgen_matrix` rejects those
+                // before the fileset is opened; this is the same check at the
+                // boundary every caller crosses, including one holding the
+                // reader directly.
+                if !missing.is_finite()
+                    || missing.fract() != 0.0
+                    || !(-128.0..=127.0).contains(&missing)
+                {
+                    return Err(datafusion::error::DataFusionError::Execution(format!(
+                        "missing={missing} is not representable as the int8 ALT_COUNT \
+                         matrix stores; pass a whole number in [-128, 127]"
+                    )));
+                }
                 // SAFETY: the caller guarantees `values` addresses `len`
-                // writable `i8`s, and `len` has just been checked against the
-                // shape, so the decoder cannot index past the end.
+                // writable, correctly aligned `i8`s, and `len` has just been
+                // checked against the shape, so the decoder cannot index past
+                // the end.
                 let slice = unsafe { std::slice::from_raw_parts_mut(values as *mut i8, expected) };
                 self.runtime.block_on(self.reader.read_into(
                     MatrixData::AltCount {
