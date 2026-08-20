@@ -100,6 +100,11 @@ projected column needs.
 
 Describing a BGEN file SHALL NOT disturb tables the caller has registered.
 
+#### Scenario: Describing with an explicit index
+- **WHEN** `describe_bgen` is given `bgi_path`
+- **THEN** that index is opened, so the reported `index` property reflects the
+  index a read of the same file would use.
+
 #### Scenario: Describe alongside a registered table
 - **WHEN** a user registers a BGEN table and then describes the same file
 - **THEN** the registered table keeps its own options and schema

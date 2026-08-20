@@ -3030,6 +3030,7 @@ class IOOperations:
         enable_request_payer: bool = False,
         compression_type: str = "auto",
         sample_path: Union[str, None] = None,
+        bgi_path: Union[str, None] = None,
     ) -> pl.DataFrame:
         """
         Describe the schema a BGEN file produces.
@@ -3046,6 +3047,7 @@ class IOOperations:
             enable_request_payer: Whether to enable request payer for object storage.
             compression_type: The compression override.
             sample_path: An explicit Oxford `.sample` companion, used only when the BGEN has no embedded sample identifiers.
+            bgi_path: An explicit `.bgi` index. Pass it for an index stored away from the file, so the reported `index` property reflects the index a read would actually use.
 
         !!! note
             The reported schema is the one the default `probability_layout="nested"`
@@ -3069,7 +3071,7 @@ class IOOperations:
             probability_layout="nested",
             samples=None,
             sample_path=sample_path,
-            bgi_path=None,
+            bgi_path=bgi_path,
             zero_based=_resolve_zero_based(None),
         )
         # Registering under the derived name would deregister and replace a
@@ -3121,6 +3123,7 @@ class IOOperations:
         compression_type: str = "auto",
         pvar_path: Union[str, None] = None,
         psam_path: Union[str, None] = None,
+        pgi_path: Union[str, None] = None,
     ) -> pl.DataFrame:
         """
         Describe the schema a PLINK 2 PGEN fileset produces.
@@ -3138,6 +3141,7 @@ class IOOperations:
             compression_type: The compression override.
             pvar_path: An explicit `.pvar` companion.
             psam_path: An explicit `.psam` companion.
+            pgi_path: An explicit `.pgi` index, for a PGEN that uses an external index. Without it, such a fileset cannot be opened here at all.
 
         !!! note
             The reported schema is the one the default `genotype_fields=("GT",)`
@@ -3159,6 +3163,7 @@ class IOOperations:
             genotype_fields=["GT"],
             pvar_path=pvar_path,
             psam_path=psam_path,
+            pgi_path=pgi_path,
             zero_based=_resolve_zero_based(None),
         )
         # Registering under the derived name would deregister and replace a

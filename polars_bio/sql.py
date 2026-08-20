@@ -953,6 +953,7 @@ class SQL:
         genotype_output: str = "probability",
         probability_layout: str = "nested",
         samples: Union[list[str], None] = None,
+        genotype_fields: Union[list[str], None] = None,
         sample_path: Union[str, None] = None,
         bgi_path: Union[str, None] = None,
         chunk_size: int = 64,
@@ -973,6 +974,7 @@ class SQL:
             genotype_output: Genotype representation. `"probability"` (default) keeps every format-defined state in `genotypes.GP`. `"dosage"` emits `genotypes.DS`, the expected copy count of `alleles[1]`, and rejects multiallelic variants.
             probability_layout: How probability states are stored. `"nested"` (default) gives each sample a variable-length list and reads every BGEN file. `"fixed"` gives each sample a fixed-width list, dropping the per-sample offsets that are about a quarter of the emitted probability bytes for a diploid biallelic cohort; it requires every variant to store the same number of states and rejects a file that mixes them. Ignored when `genotype_output="dosage"`.
             samples: Sample identifiers to register, in requested order.
+            genotype_fields: Children of the `genotypes` struct to emit, from the output mode's value child — `"DS"` for dosage, `"GP"` for probability — and `"PLOIDY"`, in the requested order. If *None*, all of them are emitted. `"PLOIDY"` is a byte per genotype, so register with `["DS"]` when only the dosages are queried.
             sample_path: An explicit Oxford `.sample` companion, used only when the BGEN has no embedded sample identifiers.
             bgi_path: An explicit `.bgi` index location.
             chunk_size: The size in MB of a chunk when reading from an object store.
@@ -1009,6 +1011,7 @@ class SQL:
             genotype_output=genotype_output,
             probability_layout=probability_layout,
             samples=samples,
+            genotype_fields=genotype_fields,
             sample_path=sample_path,
             bgi_path=bgi_path,
             zero_based=_resolve_zero_based(use_zero_based),
@@ -1027,6 +1030,9 @@ class SQL:
         pvar_path: Union[str, None] = None,
         psam_path: Union[str, None] = None,
         pgi_path: Union[str, None] = None,
+        max_range_gap: Union[int, None] = None,
+        max_range_bytes: Union[int, None] = None,
+        batch_soft_byte_limit: Union[int, None] = None,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
@@ -1042,13 +1048,16 @@ class SQL:
         Parameters:
             path: The path to the PGEN file. The path must end in `.pgen`. Neighbouring `.pvar` and `.psam` companions are auto-discovered.
             name: The name of the table. If *None*, the name will be generated automatically from the path.
-            genotype_fields: Genotype children to emit, from `"GT"`, `"PHASED"`, `"DS"`, `"DS_STORED"`, and `"HDS"`. Defaults to `("GT",)`.
+            genotype_fields: Genotype children to emit, from `"GT"`, `"ALT_COUNT"`, `"PHASED"`, `"DS"`, `"DS_STORED"`, and `"HDS"`. Defaults to `("GT",)`.
             samples: Sample identifiers to register, in requested order.
             missing_sample_policy: `"error"` (default) rejects an absent requested sample; `"ignore"` omits it.
             psam_id_mode: `"iid"` (default), `"fid_iid"`, or `"fid_iid_sid"`.
             pvar_path: An explicit `.pvar` companion.
             psam_path: An explicit `.psam` companion.
             pgi_path: An explicit `.pgi` index.
+            max_range_gap: The largest run of unselected bytes bridged when coalescing reads, in bytes. The provider default is 0, which never bridges a gap and issues one read per contiguous run of selected variants. Raising it trades wasted bytes for fewer requests, which matters most on object storage. If *None*, the provider default is used.
+            max_range_bytes: The largest coalesced read, in bytes. If *None*, the provider default is used.
+            batch_soft_byte_limit: A soft target for genotype bytes in one RecordBatch. If *None*, the provider default is used.
             chunk_size: The size in MB of a chunk when reading from an object store.
             concurrent_fetches: The number of concurrent fetches when reading from an object store.
             allow_anonymous: Whether to allow anonymous access to object storage.
@@ -1088,6 +1097,9 @@ class SQL:
             pvar_path=pvar_path,
             psam_path=psam_path,
             pgi_path=pgi_path,
+            max_range_gap=max_range_gap,
+            max_range_bytes=max_range_bytes,
+            batch_soft_byte_limit=batch_soft_byte_limit,
             zero_based=_resolve_zero_based(use_zero_based),
         )
         read_options = ReadOptions(pgen_read_options=pgen_read_options)

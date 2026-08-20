@@ -34,8 +34,8 @@ sample, together with the variant positions and sample names labelling its axes.
   are variable width and have no single dense shape
 
 ### Requirement: Genotype child projection
-`scan_bgen` and `read_bgen` SHALL accept `genotype_fields`, selecting which
-children of the `genotypes` struct are emitted.
+`scan_bgen`, `read_bgen`, and `register_bgen` SHALL accept `genotype_fields`,
+selecting which children of the `genotypes` struct are emitted.
 
 #### Scenario: Default is unchanged
 - **WHEN** `genotype_fields` is `None`
@@ -44,6 +44,11 @@ children of the `genotypes` struct are emitted.
 #### Scenario: Declining PLOIDY
 - **WHEN** `genotype_fields=["DS"]`
 - **THEN** the struct SHALL carry only `DS`, and the dosages SHALL be unchanged
+
+#### Scenario: Registration carries the projection
+- **WHEN** a table is registered with `genotype_fields=["DS"]`
+- **THEN** the registered table's `genotypes` struct SHALL carry only `DS`, so a
+  SQL user is not forced to materialize `PLOIDY`
 
 #### Scenario: The value child is required
 - **WHEN** a projection omits the output mode's value child

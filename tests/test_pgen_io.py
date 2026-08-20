@@ -1,12 +1,20 @@
 """PGEN read, scan, register, and describe tests."""
 
+import sys
+
 import polars as pl
 import pyarrow as pa
 import pytest
 from _expected import DATA_DIR
 
 import polars_bio as pb
+import polars_bio.io as pb_io
+import polars_bio.sql  # noqa: F401 - imported for its module object below
 from polars_bio.context import ctx
+
+# `polars_bio.sql` the attribute is the query function, not the module, so the
+# module object has to come from sys.modules to be patched.
+pb_sql = sys.modules["polars_bio.sql"]
 
 PGEN_DIR = DATA_DIR / "io" / "pgen"
 ORACLE_PATH = PGEN_DIR / "oracle.pgen"
@@ -269,6 +277,23 @@ def _registered_tables() -> set:
     return set(frame["table_name"].to_list())
 
 
+def _captured_pgen_options(module, call) -> dict:
+    """Run `call` and return the kwargs it passed to `PgenReadOptions`."""
+    seen: dict = {}
+    real = module.PgenReadOptions
+
+    def capture(**kwargs):
+        seen.update(kwargs)
+        return real(**kwargs)
+
+    module.PgenReadOptions = capture
+    try:
+        call()
+    finally:
+        module.PgenReadOptions = real
+    return seen
+
+
 class TestPgenRegister:
     def test_register_pgen_creates_a_queryable_table(self):
         pb.register_pgen(str(ORACLE_PATH), "pgen_oracle")
@@ -292,6 +317,41 @@ class TestPgenRegister:
         with pytest.raises(ValueError, match=r"\.pgen"):
             pb.register_pgen("cohort.bgen", "pgen_bad")
 
+    def test_register_pgen_accepts_the_range_controls(self):
+        # `features/reading.md` tells object-storage users to raise
+        # `max_range_gap`; a registered table had no way to do it.
+        pb.register_pgen(
+            str(ORACLE_PATH),
+            "pgen_tuned",
+            max_range_gap=4096,
+            max_range_bytes=1 << 20,
+            batch_soft_byte_limit=1,
+        )
+        try:
+            frame = pb.sql("SELECT id FROM pgen_tuned ORDER BY start").collect()
+            assert frame["id"].to_list() == ORACLE_IDS
+        finally:
+            ctx.deregister_table("pgen_tuned")
+
+    def test_register_pgen_forwards_the_range_controls(self):
+        # The controls bound I/O and change nothing observable in the result,
+        # so accepting them is not evidence they are used. Assert on what
+        # reaches the options object instead.
+        seen = _captured_pgen_options(
+            pb_sql,
+            lambda: pb.register_pgen(
+                str(ORACLE_PATH),
+                "pgen_fwd",
+                max_range_gap=4096,
+                max_range_bytes=1 << 20,
+                batch_soft_byte_limit=64,
+            ),
+        )
+        ctx.deregister_table("pgen_fwd")
+        assert seen["max_range_gap"] == 4096
+        assert seen["max_range_bytes"] == 1 << 20
+        assert seen["batch_soft_byte_limit"] == 64
+
 
 class TestPgenDescribe:
     def test_describe_pgen_reports_schema_and_properties(self):
@@ -313,6 +373,17 @@ class TestPgenDescribe:
         before = _registered_tables()
         pb.describe_pgen(str(ORACLE_PATH))
         assert _registered_tables() == before
+
+    def test_describe_pgen_forwards_an_explicit_pgi(self):
+        # A PGEN whose index lives outside the file cannot be described at all
+        # without this. oracle.pgen carries an embedded index, so the explicit
+        # path changes nothing observable in the described schema — the
+        # regression to guard is the argument being dropped.
+        seen = _captured_pgen_options(
+            pb_io,
+            lambda: pb.describe_pgen(str(ORACLE_PATH), pgi_path="/elsewhere/x.pgi"),
+        )
+        assert seen["pgi_path"] == "/elsewhere/x.pgi"
 
     def test_describe_does_not_disturb_a_registered_table(self):
         pb.register_pgen(str(ORACLE_PATH), "pgen_live")

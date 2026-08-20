@@ -175,6 +175,30 @@ class TestBgenRegister:
         with pytest.raises(ValueError, match="genotype_output"):
             pb.register_bgen(str(BGEN_PATH), "bgen_bad", genotype_output="calls")
 
+    def test_register_bgen_emits_every_child_by_default(self):
+        # The control for the projection test below: without it, that test
+        # passes trivially if `genotype_fields` is ignored and the struct only
+        # ever had `DS` to begin with.
+        pb.register_bgen(str(BGEN_PATH), "bgen_all", genotype_output="dosage")
+        try:
+            schema = pb.sql("SELECT genotypes FROM bgen_all").collect_schema()
+            assert [f.name for f in schema["genotypes"].fields] == ["DS", "PLOIDY"]
+        finally:
+            ctx.deregister_table("bgen_all")
+
+    def test_register_bgen_can_decline_the_ploidy_child(self):
+        pb.register_bgen(
+            str(BGEN_PATH),
+            "bgen_ds_only",
+            genotype_output="dosage",
+            genotype_fields=["DS"],
+        )
+        try:
+            schema = pb.sql("SELECT genotypes FROM bgen_ds_only").collect_schema()
+            assert [f.name for f in schema["genotypes"].fields] == ["DS"]
+        finally:
+            ctx.deregister_table("bgen_ds_only")
+
 
 class TestBgenDescribe:
     def test_describe_bgen_reports_schema_and_layout(self):
@@ -194,6 +218,13 @@ class TestBgenDescribe:
             assert before == after
         finally:
             ctx.deregister_table("multisample")
+
+    def test_describe_bgen_uses_an_explicit_index(self):
+        # `describe_bgen` reports whether an index was used, so it has to be
+        # able to reach one stored away from the file. A path that does not
+        # exist proves the argument is opened rather than dropped.
+        with pytest.raises(ValueError, match="BGI"):
+            pb.describe_bgen(str(BGEN_PATH), bgi_path=str(BGEN_DIR / "absent.bgi"))
 
     def test_describe_leaves_no_table_behind(self):
         # The temporary describe table must be gone, so a query naming it fails.

@@ -39,6 +39,12 @@ and SHALL accept explicit locations.
 - **WHEN** `pvar_path` or `psam_path` is given
 - **THEN** that location is used in place of discovery.
 
+#### Scenario: Explicit index at every entry point
+- **WHEN** a fileset whose index lives outside the `.pgen` is read, scanned,
+  registered, or described
+- **THEN** every one of those entry points accepts `pgi_path` and passes it to
+  the provider, so none of them is unable to open the fileset.
+
 #### Scenario: Absent companion
 - **WHEN** a required companion cannot be opened
 - **THEN** the error names the location that was tried.
@@ -82,6 +88,12 @@ changing the emitted content.
 #### Scenario: Provider defaults are preserved
 - **WHEN** a tuning option is left unset
 - **THEN** the provider default is used rather than a zero value.
+
+#### Scenario: Registration exposes the same controls
+- **WHEN** a PGEN on object storage is registered rather than scanned
+- **THEN** `register_pgen` accepts `max_range_gap`, `max_range_bytes`, and
+  `batch_soft_byte_limit` and forwards them, so a registered table can be tuned
+  the same way a scan can.
 
 ### Requirement: PGEN Metadata Reporting
 
