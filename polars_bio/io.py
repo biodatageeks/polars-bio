@@ -2459,20 +2459,10 @@ class IOOperations:
         copy_threads = max(1, int(copy_threads))
 
         values = np.empty((variants, columns), dtype=dtype)
-        # The decoder is handed this array's address, so these are the checks
-        # standing between a wrong dtype and memory corruption. numpy.empty
-        # gives all three, but they are asserted rather than assumed because the
-        # Rust side cannot see them under the limited API.
-        if not values.flags.c_contiguous or not values.flags.writeable:
-            raise RuntimeError(
-                "PGEN matrix destination must be writable and C-contiguous"
-            )
-        if values.dtype != dtype or values.size != variants * columns:
-            raise RuntimeError("PGEN matrix destination has the wrong dtype or size")
-
-        reader.read_into(
-            field, values.ctypes.data, values.size, copy_threads, float(missing)
-        )
+        # The array itself is handed over, not its address: the reader checks
+        # dtype, C-contiguity, writability and length at the boundary, which is
+        # the only place a caller cannot route around.
+        reader.read_into(field, values, copy_threads, float(missing))
 
         positions = np.asarray(reader.positions(), dtype=np.int64)
         if positions.shape[0] != variants:
@@ -2578,18 +2568,9 @@ class IOOperations:
         threads = max(1, int(threads))
 
         values = np.empty((variants, columns), dtype=dtype)
-        # The decoder is handed this array's address, so these are the checks
-        # standing between a wrong dtype and memory corruption. numpy.empty
-        # gives all three, but they are asserted rather than assumed because the
-        # Rust side cannot see them under the limited API.
-        if not values.flags.c_contiguous or not values.flags.writeable:
-            raise RuntimeError(
-                "BGEN matrix destination must be writable and C-contiguous"
-            )
-        if values.dtype != dtype or values.size != variants * columns:
-            raise RuntimeError("BGEN matrix destination has the wrong dtype or size")
-
-        reader.read_into(values.ctypes.data, values.size, threads, float(missing))
+        # As in `read_pgen_matrix`: the array goes across, not its address, and
+        # the reader validates it before decoding.
+        reader.read_into(values, threads, float(missing))
 
         positions = np.asarray(reader.positions(), dtype=np.int64)
         if positions.shape[0] != variants:

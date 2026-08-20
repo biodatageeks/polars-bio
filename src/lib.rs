@@ -909,17 +909,59 @@ fn py_register_fastqc_table(
     })
 }
 
+/// Validates a NumPy destination and returns its address and element count.
+///
+/// polars-bio builds against the limited API, where PyO3's buffer protocol is
+/// unavailable, so the array is inspected through its Python attributes rather
+/// than through `Py_buffer`. That reads the same facts by the only route this
+/// build has, and it keeps the raw address on this side of the boundary: the
+/// caller passes the array, never a number that a decoder would write to.
+///
+/// Failing here costs one attribute walk per matrix read, against a decode
+/// measured in seconds.
+fn validated_destination(
+    destination: &Bound<'_, PyAny>,
+    expected_dtype: &str,
+    expected_length: usize,
+) -> PyResult<usize> {
+    let dtype = destination.getattr("dtype")?.str()?.to_string();
+    if dtype != expected_dtype {
+        return Err(PyValueError::new_err(format!(
+            "matrix destination has dtype {dtype}, expected {expected_dtype}"
+        )));
+    }
+    let flags = destination.getattr("flags")?;
+    if !flags.getattr("c_contiguous")?.extract::<bool>()? {
+        return Err(PyValueError::new_err(
+            "matrix destination must be C-contiguous",
+        ));
+    }
+    if !flags.getattr("writeable")?.extract::<bool>()? {
+        return Err(PyValueError::new_err("matrix destination must be writable"));
+    }
+    let length = destination.getattr("size")?.extract::<usize>()?;
+    if length != expected_length {
+        return Err(PyValueError::new_err(format!(
+            "matrix destination holds {length} values; expected {expected_length}"
+        )));
+    }
+    destination
+        .getattr("ctypes")?
+        .getattr("data")?
+        .extract::<usize>()
+}
+
 /// An open PGEN fileset, read as a dense matrix.
 ///
 /// Exists as a handle rather than one call because the caller must learn the
 /// shape before it can allocate the array to decode into, and reopening the
 /// fileset to answer that would parse the 108 MB PVAR a second time.
 ///
-/// `read_into` takes a raw address: polars-bio builds against the limited API,
-/// where PyO3's buffer protocol is unavailable, so the Python wrapper owns the
-/// checks that go with it — dtype, C-contiguity, writability and length are all
-/// verified before the address is handed over. `read_pgen_matrix` in `io.py` is
-/// that wrapper and is the only supported caller.
+/// `read_into` takes the destination array itself and checks its dtype,
+/// C-contiguity, writability and length before decoding. It used to take the
+/// address as an integer, leaving those checks to `read_pgen_matrix` in
+/// `io.py` — but the class is importable, so any caller could reach the raw
+/// form and hand a decoder an arbitrary address.
 #[pyclass(name = "PgenMatrixReader")]
 struct PyPgenMatrixReader {
     inner: scan::OpenPgenMatrix,
@@ -949,26 +991,37 @@ impl PyPgenMatrixReader {
         self.inner.positions()
     }
 
-    /// Decodes into the array at `destination`, `length` elements long.
+    /// Decodes one genotype field into `destination`, a NumPy array.
     fn read_into(
         &self,
         py: Python<'_>,
         field: String,
-        destination: usize,
-        length: usize,
+        destination: &Bound<'_, PyAny>,
         threads: usize,
         missing: f64,
     ) -> PyResult<()> {
+        let dtype = match field.as_str() {
+            "ALT_COUNT" => "int8",
+            "DS" => "float32",
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "read_pgen_matrix supports ALT_COUNT and DS, not {other}"
+                )))
+            },
+        };
+        let (variants, samples) = self.inner.shape();
+        let length = variants.saturating_mul(samples);
+        let address = validated_destination(destination, dtype, length)?;
         // The GIL is released for the decode: the provider runs its own threads
         // and holding it would serialize them against each other.
         py.detach(|| {
-            // SAFETY: the Python wrapper has checked that `destination`
-            // addresses `length` writable, C-contiguous elements of the dtype
-            // `field` implies, and keeps the array alive across this call. The
-            // length is checked again against the fileset's shape inside.
+            // SAFETY: `address` came from `destination`, which was just checked
+            // to hold `length` writable, C-contiguous elements of `dtype`.
+            // `destination` is a live argument for the whole call, so the array
+            // cannot be collected out from under the decode.
             unsafe {
                 self.inner
-                    .read_into(&field, destination as *mut u8, length, threads, missing)
+                    .read_into(&field, address as *mut u8, length, threads, missing)
             }
         })
         .map_err(|error| PyValueError::new_err(error.to_string()))
@@ -978,9 +1031,8 @@ impl PyPgenMatrixReader {
 /// An open BGEN, read as a dense dosage matrix.
 ///
 /// The BGEN counterpart of [`PyPgenMatrixReader`], with the same handle shape
-/// and the same raw-address contract: the Python wrapper owns the dtype,
-/// C-contiguity, writability and length checks, and `read_bgen_matrix` in
-/// `io.py` is the only supported caller.
+/// and the same checked destination: `read_into` takes the array itself and
+/// verifies its dtype, C-contiguity, writability and length before decoding.
 #[pyclass(name = "BgenMatrixReader")]
 struct PyBgenMatrixReader {
     inner: scan::OpenBgenMatrix,
@@ -1010,25 +1062,27 @@ impl PyBgenMatrixReader {
         self.inner.positions()
     }
 
-    /// Decodes into the `float32` array at `destination`, `length` long.
+    /// Decodes the dosages into `destination`, a `float32` NumPy array.
     fn read_into(
         &self,
         py: Python<'_>,
-        destination: usize,
-        length: usize,
+        destination: &Bound<'_, PyAny>,
         threads: usize,
         missing: f64,
     ) -> PyResult<()> {
+        let (variants, samples) = self.inner.shape();
+        let length = variants.saturating_mul(samples);
+        let address = validated_destination(destination, "float32", length)?;
         // The GIL is released for the decode: the provider runs its own threads
         // and holding it would serialize them against each other.
         py.detach(|| {
-            // SAFETY: the Python wrapper has checked that `destination`
-            // addresses `length` writable, C-contiguous `float32`s and keeps
-            // the array alive across this call. The length is checked again
-            // against the file's shape inside.
+            // SAFETY: `address` came from `destination`, which was just checked
+            // to hold `length` writable, C-contiguous `float32`s. `destination`
+            // is a live argument for the whole call, so the array cannot be
+            // collected out from under the decode.
             unsafe {
                 self.inner
-                    .read_into(destination as *mut u8, length, threads, missing)
+                    .read_into(address as *mut u8, length, threads, missing)
             }
         })
         .map_err(|error| PyValueError::new_err(error.to_string()))

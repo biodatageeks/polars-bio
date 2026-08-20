@@ -28,6 +28,12 @@ sample, together with the variant positions and sample names labelling its axes.
 - **THEN** the caller-supplied missing value SHALL be written, defaulting to
   `NaN`
 
+#### Scenario: Destination is validated before it is written
+- **WHEN** a destination that is not writable, not C-contiguous, not `float32`,
+  or not the length the file's shape reports is given to the matrix reader
+- **THEN** the reader SHALL raise before any dosage is decoded, and SHALL take
+  the destination array itself rather than an address
+
 #### Scenario: Probabilities have no dense form
 - **WHEN** a caller wants BGEN probability states as a matrix
 - **THEN** `read_bgen_matrix` SHALL NOT offer an output mode to ask for them,

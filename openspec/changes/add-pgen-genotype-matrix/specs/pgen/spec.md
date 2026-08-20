@@ -55,6 +55,11 @@ selected sample, decoding into that matrix directly rather than copying into it.
 - **AND** a single-partition read decodes on one thread.
 
 #### Scenario: Destination is validated before it is written
-- **WHEN** the destination array is not writable, not C-contiguous, or not the
-  shape the fileset reports
-- **THEN** the call raises before any genotype is decoded.
+- **WHEN** a destination that is not writable, not C-contiguous, not the dtype
+  the field implies, or not the length the fileset's shape reports is given to
+  the matrix reader
+- **THEN** the reader SHALL raise before any genotype is decoded
+- **AND** the reader SHALL take the destination array itself, never an address,
+  so no caller can direct a decode at memory of its choosing
+- **AND** `read_pgen_matrix` allocates its own destination, so a caller of the
+  public function cannot reach that failure.

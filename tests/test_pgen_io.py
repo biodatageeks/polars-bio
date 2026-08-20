@@ -2,6 +2,7 @@
 
 import sys
 
+import numpy as np
 import polars as pl
 import pyarrow as pa
 import pytest
@@ -496,6 +497,87 @@ class TestPgenAltCount:
         finally:
             pb.set_option(TARGET_PARTITIONS, previous)
         assert one == four
+
+
+def _storage_options():
+    """Local-file storage options, for the reader constructed directly."""
+    from polars_bio.polars_bio import PyObjectStorageOptions
+
+    return PyObjectStorageOptions(
+        allow_anonymous=True,
+        enable_request_payer=False,
+        chunk_size=8,
+        concurrent_fetches=1,
+        max_retries=1,
+        timeout=10,
+        compression_type="auto",
+    )
+
+
+class TestPgenMatrixDestination:
+    """The reader class is importable, so its destination check is the boundary.
+
+    `read_pgen_matrix` allocates the array itself and can only ever hand over a
+    good one, but `PgenMatrixReader` is reachable from Python and used to take
+    the destination as an integer address — an arbitrary one would have been
+    decoded into. These tests exercise the reader directly, because that is the
+    surface a caller could misuse.
+    """
+
+    @staticmethod
+    def _reader(field="ALT_COUNT"):
+        from polars_bio.polars_bio import PgenMatrixReader, PgenReadOptions
+
+        options = PgenReadOptions(
+            object_storage_options=_storage_options(),
+            genotype_fields=[field],
+            zero_based=False,
+        )
+        return PgenMatrixReader(str(ORACLE_PATH), options)
+
+    def test_an_address_is_no_longer_accepted(self):
+        # The regression that matters: an integer used to be the destination.
+        reader = self._reader()
+        with pytest.raises(AttributeError):
+            reader.read_into("ALT_COUNT", 12345, 1, -9.0)
+
+    def test_a_wrong_dtype_is_refused(self):
+        reader = self._reader()
+        variants, samples = reader.shape()
+        wrong = np.empty((variants, samples), dtype=np.float32)
+        with pytest.raises(ValueError, match="dtype"):
+            reader.read_into("ALT_COUNT", wrong, 1, -9.0)
+
+    def test_a_read_only_destination_is_refused(self):
+        reader = self._reader()
+        variants, samples = reader.shape()
+        frozen = np.zeros((variants, samples), dtype=np.int8)
+        frozen.flags.writeable = False
+        with pytest.raises(ValueError, match="writable"):
+            reader.read_into("ALT_COUNT", frozen, 1, -9.0)
+
+    def test_a_non_contiguous_destination_is_refused(self):
+        reader = self._reader()
+        variants, samples = reader.shape()
+        strided = np.empty((variants, samples * 2), dtype=np.int8)[:, ::2]
+        with pytest.raises(ValueError, match="C-contiguous"):
+            reader.read_into("ALT_COUNT", strided, 1, -9.0)
+
+    def test_a_wrong_length_destination_is_refused(self):
+        reader = self._reader()
+        variants, samples = reader.shape()
+        short = np.empty((variants, samples + 1), dtype=np.int8)
+        with pytest.raises(ValueError, match="expected"):
+            reader.read_into("ALT_COUNT", short, 1, -9.0)
+
+    def test_a_valid_destination_still_decodes(self):
+        # The refusals above prove nothing if the accepting case never runs.
+        reader = self._reader()
+        variants, samples = reader.shape()
+        values = np.empty((variants, samples), dtype=np.int8)
+        reader.read_into("ALT_COUNT", values, 1, -9.0)
+        expected = pb.read_pgen_matrix(str(ORACLE_PATH), field="ALT_COUNT")
+        np.testing.assert_array_equal(values, expected.values)
 
 
 class TestPgenMatrix:

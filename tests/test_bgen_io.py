@@ -445,6 +445,45 @@ class TestBgenMatrix:
         with pytest.raises(ValueError, match=r"\.bgen"):
             pb.read_bgen_matrix(str(DATA_DIR / "io" / "vcf" / "multisample.vcf"))
 
+    def test_the_destination_is_checked_before_it_is_decoded_into(self):
+        # `BgenMatrixReader` is importable and used to take the destination as
+        # an integer address, so the check at that boundary is what stands
+        # between a wrong array and a corrupted heap.
+        from polars_bio.polars_bio import (
+            BgenMatrixReader,
+            BgenReadOptions,
+            PyObjectStorageOptions,
+        )
+
+        options = BgenReadOptions(
+            object_storage_options=PyObjectStorageOptions(
+                allow_anonymous=True,
+                enable_request_payer=False,
+                chunk_size=8,
+                concurrent_fetches=1,
+                max_retries=1,
+                timeout=10,
+                compression_type="auto",
+            ),
+            genotype_output="dosage",
+            genotype_fields=["DS"],
+            zero_based=False,
+        )
+        reader = BgenMatrixReader(str(BGEN_PATH), options)
+        variants, samples = reader.shape()
+        with pytest.raises(AttributeError):
+            reader.read_into(12345, 1, float("nan"))
+        with pytest.raises(ValueError, match="dtype"):
+            reader.read_into(np.empty((variants, samples), dtype=np.int8), 1, 0.0)
+        frozen = np.zeros((variants, samples), dtype=np.float32)
+        frozen.flags.writeable = False
+        with pytest.raises(ValueError, match="writable"):
+            reader.read_into(frozen, 1, float("nan"))
+        # And the accepting case, without which the refusals prove nothing.
+        values = np.empty((variants, samples), dtype=np.float32)
+        reader.read_into(values, 1, float("nan"))
+        np.testing.assert_array_equal(values, EXPECTED_DOSAGE)
+
     def test_the_matrix_path_offers_no_output_mode(self):
         # Probabilities are variable width and have no dense shape, so the
         # matrix reader declines to offer the choice rather than accepting one
