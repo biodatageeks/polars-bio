@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-08-20
+
 ### Added
 
 - BGEN 1.2/1.3 support: `read_bgen()`, `scan_bgen()`, `describe_bgen()`, and
@@ -37,6 +39,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   APIs. BCF keeps
   `genotype_output="string"|"dosage"`, CSI predicate pushdown, and parallel
   partition processing.
+- polars-bio is now published on Bioconda:
+  `conda install -c conda-forge -c bioconda polars-bio` (linux-64, osx-64,
+  osx-arm64). Its one unpackaged dependency, `polars-config-meta`, was published
+  on conda-forge first (#426)
 
 ### Changed
 
@@ -51,6 +57,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - BCF metadata now identifies its source format as `bcf`, and format detection
   for VCF/BCF range operations ignores signed-URL query parameters and fragments.
+
+### Documentation
+
+- Quickstart documents the conda/mamba install alongside pip, with the platform
+  and extras caveats, and the README carries Bioconda version, downloads and
+  platform badges. The `update_bioconda_recipe` workflow is removed — Bioconda's
+  autobump bot already watches the recipe's PyPI source URL and Mergify
+  auto-merges its bump PRs (#438)
 
 ## [0.33.1] - 2026-08-02
 
