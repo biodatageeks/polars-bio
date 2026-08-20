@@ -10,6 +10,22 @@ For visualization features, which depend on `bioframe` and `matplotlib`, install
 ```shell
 pip install polars-bio[viz]
 ```
+
+polars-bio is also available from [bioconda](https://anaconda.org/bioconda/polars-bio):
+```shell
+conda install -c conda-forge -c bioconda polars-bio
+```
+or, if you use [mamba](https://mamba.readthedocs.io/):
+```shell
+mamba install -c conda-forge -c bioconda polars-bio
+```
+
+!!! note
+    Conda packages are built for `linux-64`, `osx-64` and `osx-arm64` with Python 3.11, 3.12
+    and 3.13. There is no conda package for Windows — use pip there. The `pandas` and `viz`
+    extras have no conda equivalent, so install `pandas`, `bioframe` or `matplotlib`
+    alongside polars-bio if you need them.
+
 There are binary versions for Linux (x86_64), MacOS (x86_64 and arm64) and Windows (x86_64).
 In case of other platforms (or errors indicating incompatibilites between Python's ABI), it is fairly easy to build polars-bio from source with [uv](https://docs.astral.sh/uv/) and [maturin](https://github.com/PyO3/maturin):
 ```shell
