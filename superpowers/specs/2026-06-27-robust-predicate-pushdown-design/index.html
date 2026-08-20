@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html class="no-js" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<link href="https://biodatageeks.org/polars-bio/superpowers/specs/2026-06-27-robust-predicate-pushdown-design/" rel="canonical"/>
+<link href="../../../assets/logo.png" rel="icon"/>
+<meta content="mkdocs-1.6.1, mkdocs-material-9.7.6" name="generator"/>
+<title>Robust Predicate Pushdown — Design Spec - polars-bio</title>
+<link href="../../../assets/stylesheets/main.484c7ddc.min.css" rel="stylesheet"/>
+<link href="../../../assets/stylesheets/palette.ab4e12ef.min.css" rel="stylesheet"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
+<style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+<link href="../../../assets/_markdown_exec_pyodide.css" rel="stylesheet"/>
+<link href="../../../assets/_mkdocstrings.css" rel="stylesheet"/>
+<link href="../../../stylesheets/extra.css" rel="stylesheet"/>
+<script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+<script id="__analytics">function __md_analytics(){function e(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],e("js",new Date),e("config","G-1M9PLLGBYS"),document.addEventListener("DOMContentLoaded",(function(){document.forms.search&&document.forms.search.query.addEventListener("blur",(function(){this.value&&e("event","search",{search_term:this.value})}));document$.subscribe((function(){var t=document.forms.feedback;if(void 0!==t)for(var a of t.querySelectorAll("[type=submit]"))a.addEventListener("click",(function(a){a.preventDefault();var n=document.location.pathname,d=this.getAttribute("data-md-value");e("event","feedback",{page:n,data:d}),t.firstElementChild.disabled=!0;var r=t.querySelector(".md-feedback__note [data-md-value='"+d+"']");r&&(r.hidden=!1)})),t.hidden=!1})),location$.subscribe((function(t){e("config","G-1M9PLLGBYS",{page_path:t.pathname})}))}));var t=document.createElement("script");t.async=!0,t.src="https://www.googletagmanager.com/gtag/js?id=G-1M9PLLGBYS",document.getElementById("__analytics").insertAdjacentElement("afterEnd",t)}</script>
+<script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
+<meta content="website" property="og:type"/>
+<meta content="Robust Predicate Pushdown — Design Spec - polars-bio" property="og:title"/>
+<meta content="https://biodatageeks.org/polars-bio/assets/images/social/superpowers/specs/2026-06-27-robust-predicate-pushdown-design.png" property="og:image"/>
+<meta content="image/png" property="og:image:type"/>
+<meta content="1200" property="og:image:width"/>
+<meta content="630" property="og:image:height"/>
+<meta content="https://biodatageeks.org/polars-bio/superpowers/specs/2026-06-27-robust-predicate-pushdown-design/" property="og:url"/>
+<meta content="summary_large_image" property="twitter:card"/>
+<meta content="Robust Predicate Pushdown — Design Spec - polars-bio" property="twitter:title"/>
+<meta content="https://biodatageeks.org/polars-bio/assets/images/social/superpowers/specs/2026-06-27-robust-predicate-pushdown-design.png" property="twitter:image"/>
+<link href="../../../assets/stylesheets/glightbox.min.css" rel="stylesheet"/><script src="../../../assets/javascripts/glightbox.min.js"></script><style id="glightbox-style">
+            html.glightbox-open { overflow: initial; height: 100%; }
+            .gslide-title { margin-top: 0px; user-select: text; }
+            .gslide-desc { color: #666; user-select: text; }
+            .gslide-image img { background: white; }
+            .gscrollbar-fixer { padding-right: 15px; }
+            .gdesc-inner { font-size: 0.75rem; }
+            body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color); }
+            body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color); }
+            body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color); }
+        </style></head>
+<body data-md-color-accent="indigo" data-md-color-primary="indigo" data-md-color-scheme="default" dir="ltr">
+<input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
+<input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
+<label class="md-overlay" for="__drawer"></label>
+<div data-md-component="skip">
+<a class="md-skip" href="#robust-predicate-pushdown-design-spec">
+          Skip to content
+        </a>
+</div>
+<div data-md-component="announce">
+</div>
+<div data-md-color-scheme="default" data-md-component="outdated" hidden="">
+</div>
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+<nav aria-label="Header" class="md-header__inner md-grid">
+<a aria-label="polars-bio" class="md-header__button md-logo" data-md-component="logo" href="../../.." title="polars-bio">
+<img alt="logo" src="../../../assets/logo.png"/>
+</a>
+<label class="md-header__button md-icon" for="__drawer">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+</label>
+<div class="md-header__title" data-md-component="header-title">
+<div class="md-header__ellipsis">
+<div class="md-header__topic">
+<span class="md-ellipsis">
+            polars-bio
+          </span>
+</div>
+<div class="md-header__topic" data-md-component="header-topic">
+<span class="md-ellipsis">
+            
+              Robust Predicate Pushdown — Design Spec
+            
+          </span>
+</div>
+</div>
+</div>
+<form class="md-header__option" data-md-component="palette">
+<input aria-label="Switch to dark mode" class="md-option" data-md-color-accent="indigo" data-md-color-media="(prefers-color-scheme: light)" data-md-color-primary="indigo" data-md-color-scheme="default" id="__palette_0" name="__palette" type="radio"/>
+<label class="md-header__button md-icon" for="__palette_1" hidden="" title="Switch to dark mode">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"></path></svg>
+</label>
+<input aria-label="Switch to light mode" class="md-option" data-md-color-accent="indigo" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-primary="indigo" data-md-color-scheme="slate" id="__palette_1" name="__palette" type="radio"/>
+<label class="md-header__button md-icon" for="__palette_0" hidden="" title="Switch to light mode">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"></path></svg>
+</label>
+</form>
+<script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+<a class="md-header__button md-icon" href="https://discord.gg/bpxQ4Yxhk5" rel="noopener" target="_blank" title="Discord">
+<svg viewbox="0 0 576 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M492.5 69.8c-.2-.3-.4-.6-.8-.7-38.1-17.5-78.4-30-119.7-37.1-.4-.1-.8 0-1.1.1s-.6.4-.8.8c-5.5 9.9-10.5 20.2-14.9 30.6-44.6-6.8-89.9-6.8-134.4 0-4.5-10.5-9.5-20.7-15.1-30.6-.2-.3-.5-.6-.8-.8s-.7-.2-1.1-.2C162.5 39 122.2 51.5 84.1 69c-.3.1-.6.4-.8.7C7.1 183.5-13.8 294.6-3.6 404.2c0 .3.1.5.2.8s.3.4.5.6c44.4 32.9 94 58 146.8 74.2.4.1.8.1 1.1 0s.7-.4.9-.7c11.3-15.4 21.4-31.8 30-48.8.1-.2.2-.5.2-.8s0-.5-.1-.8-.2-.5-.4-.6-.4-.3-.7-.4c-15.8-6.1-31.2-13.4-45.9-21.9-.3-.2-.5-.4-.7-.6s-.3-.6-.3-.9 0-.6.2-.9.3-.5.6-.7c3.1-2.3 6.2-4.7 9.1-7.1.3-.2.6-.4.9-.4s.7 0 1 .1c96.2 43.9 200.4 43.9 295.5 0 .3-.1.7-.2 1-.2s.7.2.9.4c2.9 2.4 6 4.9 9.1 7.2.2.2.4.4.6.7s.2.6.2.9-.1.6-.3.9-.4.5-.6.6c-14.7 8.6-30 15.9-45.9 21.8-.2.1-.5.2-.7.4s-.3.4-.4.7-.1.5-.1.8.1.5.2.8c8.8 17 18.8 33.3 30 48.8.2.3.6.6.9.7s.8.1 1.1 0c52.9-16.2 102.6-41.3 147.1-74.2.2-.2.4-.4.5-.6s.2-.5.2-.8c12.3-126.8-20.5-236.9-86.9-334.5zm-302 267.7c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.4 59.2-52.8 59.2m195.4 0c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.2 59.2-52.8 59.2"></path></svg>
+</a>
+<a class="md-header__button md-icon" href="https://www.linkedin.com/company/polars-bio" rel="noopener" target="_blank" title="LinkedIn">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"></path></svg>
+</a>
+<label class="md-header__button md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+</label>
+<div class="md-search" data-md-component="search" role="dialog">
+<label class="md-search__overlay" for="__search"></label>
+<div class="md-search__inner" role="search">
+<form class="md-search__form" name="search">
+<input aria-label="Search" autocapitalize="off" autocomplete="off" autocorrect="off" class="md-search__input" data-md-component="search-query" name="query" placeholder="Search" required="" spellcheck="false" type="text"/>
+<label class="md-search__icon md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+</label>
+<nav aria-label="Search" class="md-search__options">
+<button aria-label="Clear" class="md-search__icon md-icon" tabindex="-1" title="Clear" type="reset">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+</button>
+</nav>
+</form>
+<div class="md-search__output">
+<div class="md-search__scrollwrap" data-md-scrollfix="" tabindex="0">
+<div class="md-search-result" data-md-component="search-result">
+<div class="md-search-result__meta">
+            Initializing search
+          </div>
+<ol class="md-search-result__list" role="presentation"></ol>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="md-header__source">
+<a class="md-source" data-md-component="source" href="https://github.com/biodatageeks/polars-bio" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+</div>
+<div class="md-source__repository">
+    biodatageeks/polars-bio
+  </div>
+</a>
+</div>
+</nav>
+<nav aria-label="Tabs" class="md-tabs" data-md-component="tabs">
+<div class="md-grid">
+<ul class="md-tabs__list">
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../..">
+        
+  
+  
+    
+  
+  🏠 Home
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../quickstart/">
+        
+  
+  
+    
+  
+  🏃🏼‍♂️ Quick start
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../features/">
+          
+  
+  
+  🔨 Features
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../notebooks/tutorial/">
+        
+  
+  
+    
+  
+  📚 Tutorial
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../api/">
+          
+  
+  
+  ⚙️ API reference
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../faq/">
+        
+  
+  
+    
+  
+  ❓ FAQ
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../supplement/">
+        
+  
+  
+    
+  
+  🚀 Performance
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../developers/">
+        
+  
+  
+    
+  
+  🛠️ Developers guide
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../talks/">
+        
+  
+  
+    
+  
+  🎤 Talks &amp; presentations
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../contact/">
+        
+  
+  
+    
+  
+  📡 Contact
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../blog/">
+          
+  
+  
+  📖 Blog
+
+        </a>
+</li>
+</ul>
+</div>
+</nav>
+</header>
+<div class="md-container" data-md-component="container">
+<main class="md-main" data-md-component="main">
+<div class="md-main__inner md-grid">
+<div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Navigation" class="md-nav md-nav--primary md-nav--lifted" data-md-level="0">
+<label class="md-nav__title" for="__drawer">
+<a aria-label="polars-bio" class="md-nav__button md-logo" data-md-component="logo" href="../../.." title="polars-bio">
+<img alt="logo" src="../../../assets/logo.png"/>
+</a>
+    polars-bio
+  </label>
+<div class="md-nav__source">
+<a class="md-source" data-md-component="source" href="https://github.com/biodatageeks/polars-bio" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+</div>
+<div class="md-source__repository">
+    biodatageeks/polars-bio
+  </div>
+</a>
+</div>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../..">
+<span class="md-ellipsis">
+    
+  
+    🏠 Home
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../quickstart/">
+<span class="md-ellipsis">
+    
+  
+    🏃🏼‍♂️ Quick start
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3" type="checkbox"/>
+<label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+<span class="md-ellipsis">
+    
+  
+    🔨 Features
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_3_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_3">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    🔨 Features
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/">
+<span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/operations/">
+<span class="md-ellipsis">
+    
+  
+    Genomic operations
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/reading/">
+<span class="md-ellipsis">
+    
+  
+    Reading files
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/writing/">
+<span class="md-ellipsis">
+    
+  
+    Writing files
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/sql/">
+<span class="md-ellipsis">
+    
+  
+    SQL processing
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/dataframes/">
+<span class="md-ellipsis">
+    
+  
+    DataFrames support
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/cloud/">
+<span class="md-ellipsis">
+    
+  
+    Cloud storage
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/parallel/">
+<span class="md-ellipsis">
+    
+  
+    Parallel processing
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../notebooks/tutorial/">
+<span class="md-ellipsis">
+    
+  
+    📚 Tutorial
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_5" type="checkbox"/>
+<label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+<span class="md-ellipsis">
+    
+  
+    ⚙️ API reference
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_5_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_5">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    ⚙️ API reference
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/">
+<span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/reading/">
+<span class="md-ellipsis">
+    
+  
+    Reading files
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/operations/">
+<span class="md-ellipsis">
+    
+  
+    Genomic operations
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/writing/">
+<span class="md-ellipsis">
+    
+  
+    Writing files
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/sql/">
+<span class="md-ellipsis">
+    
+  
+    SQL interface
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/auxiliary/">
+<span class="md-ellipsis">
+    
+  
+    Auxiliary
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../faq/">
+<span class="md-ellipsis">
+    
+  
+    ❓ FAQ
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../supplement/">
+<span class="md-ellipsis">
+    
+  
+    🚀 Performance
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../developers/">
+<span class="md-ellipsis">
+    
+  
+    🛠️ Developers guide
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../talks/">
+<span class="md-ellipsis">
+    
+  
+    🎤 Talks &amp; presentations
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../contact/">
+<span class="md-ellipsis">
+    
+  
+    📡 Contact
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_11" type="checkbox"/>
+<label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+<span class="md-ellipsis">
+    
+  
+    📖 Blog
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_11_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_11">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    📖 Blog
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/">
+<span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_11_2" type="checkbox"/>
+<label class="md-nav__link" for="__nav_11_2" id="__nav_11_2_label" tabindex="0">
+<span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_11_2_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_11_2">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/architecture/">
+<span class="md-ellipsis">
+    
+  
+    architecture
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/benchmarks/">
+<span class="md-ellipsis">
+    
+  
+    benchmarks
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/file-formats/">
+<span class="md-ellipsis">
+    
+  
+    file formats
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/opinion/">
+<span class="md-ellipsis">
+    
+  
+    opinion
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/pandas/">
+<span class="md-ellipsis">
+    
+  
+    pandas
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/performance/">
+<span class="md-ellipsis">
+    
+  
+    performance
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/postmortem/">
+<span class="md-ellipsis">
+    
+  
+    postmortem
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/releases/">
+<span class="md-ellipsis">
+    
+  
+    releases
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#1-problem">
+<span class="md-ellipsis">
+      
+        1. Problem
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2-goals-non-goals">
+<span class="md-ellipsis">
+      
+        2. Goals / Non-goals
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#3-core-invariant">
+<span class="md-ellipsis">
+      
+        3. Core invariant
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#4-architecture">
+<span class="md-ellipsis">
+      
+        4. Architecture
+      
+    </span>
+</a>
+<nav aria-label="4. Architecture" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#41-structured-ast-translator-predicate_translatorpy-rewritten">
+<span class="md-ellipsis">
+      
+        4.1 Structured AST translator (predicate_translator.py, rewritten)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#42-conjunction-decomposition-certification">
+<span class="md-ellipsis">
+      
+        4.2 Conjunction decomposition + certification
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#43-centralized-safe-pushdown-helper-new-shared">
+<span class="md-ellipsis">
+      
+        4.3 Centralized safe-pushdown helper (new, shared)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#44-centralized-safe-projection-helper-new-shared">
+<span class="md-ellipsis">
+      
+        4.4 Centralized safe-projection helper (new, shared)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#45-exception-narrowing">
+<span class="md-ellipsis">
+      
+        4.5 Exception narrowing
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#5-data-flow">
+<span class="md-ellipsis">
+      
+        5. Data flow
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#6-error-handling">
+<span class="md-ellipsis">
+      
+        6. Error handling
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#7-testing">
+<span class="md-ellipsis">
+      
+        7. Testing
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#8-rollout">
+<span class="md-ellipsis">
+      
+        8. Rollout
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#9-risks-mitigations">
+<span class="md-ellipsis">
+      
+        9. Risks &amp; mitigations
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#10-out-of-scope-follow-ups">
+<span class="md-ellipsis">
+      
+        10. Out of scope / follow-ups
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-content" data-md-component="content">
+<article class="md-content__inner md-typeset">
+<a class="md-content__button md-icon" href="https://github.com/biodatageeks/polars-bio/edit/master/docs/superpowers/specs/2026-06-27-robust-predicate-pushdown-design.md" rel="edit" title="Edit this page">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"></path></svg>
+</a>
+<h1 id="robust-predicate-pushdown-design-spec">Robust Predicate Pushdown — Design Spec<a class="headerlink" href="#robust-predicate-pushdown-design-spec" title="Permanent link"></a></h1>
+<ul>
+<li><strong>Date:</strong> 2026-06-27</li>
+<li><strong>Issue:</strong> <a href="https://github.com/biodatageeks/polars-bio/issues/396">#396 — Incorrect results from scan_gtf(), dropping a filter()</a></li>
+<li><strong>Triggering review:</strong> <a href="https://github.com/biodatageeks/polars-bio/issues/396#issuecomment-4564747142">tgbrooks comment 4564747142</a></li>
+<li><strong>Status:</strong> Proposed (awaiting review)</li>
+</ul>
+<h2 id="1-problem">1. Problem<a class="headerlink" href="#1-problem" title="Permanent link"></a></h2>
+<p><code>scan_gtf()</code> (and the other scan paths) can return <strong>silently wrong results</strong>: a
+<code>filter()</code> is dropped during predicate pushdown and never reapplied, so a query
+returns rows that the predicate should have excluded — with no error, only a log
+warning at best.</p>
+<p>Two root causes, both flagged by the reviewer:</p>
+<ol>
+<li>
+<p><strong>The translator parses a stringified expression with regex.</strong> <code>predicate_translator.py</code>
+   runs <code>re.search(pattern, str(expr))</code> (lines ~193, 210, 263, 386) and a final
+   regex SQL-cleanup pass (lines ~637–658). Any AST node whose textual form no
+   pattern matches simply <em>vanishes</em> from the generated SQL — a silent partial
+   translation that can both drop conditions and (worse) emit a predicate that
+   removes rows the real predicate keeps.</p>
+</li>
+<li>
+<p><strong>Correctness depends on translation success.</strong> The client-side safety filter is
+   applied <em>conditionally</em> — only <code>if not datafusion_predicate_applied</code>
+   (<code>io.py:3026</code>, <code>utils.py:92</code>, the second <code>io.py</code> path ~3563, <code>pileup_op.py</code>).
+   So a translation that <em>looks</em> successful but is subtly wrong produces wrong
+   results with <strong>no net</strong>. The <code>except Exception</code> around pushdown is also a
+   catch-all that swallows genuine bugs (AttributeError, etc.) into "drop the
+   filter".</p>
+</li>
+</ol>
+<p>The recent <code>feat/gff-gtf-attributes-sentinel</code> commits fixed specific GFF/GTF
+symptoms but left both root causes in place.</p>
+<h2 id="2-goals-non-goals">2. Goals / Non-goals<a class="headerlink" href="#2-goals-non-goals" title="Permanent link"></a></h2>
+<p><strong>Goals</strong></p>
+<ul>
+<li>A translation bug can cost <em>performance</em> but <strong>never correctness</strong>. Pushdown
+  becomes a pure optimization.</li>
+<li>Replace regex-on-stringified-<code>Expr</code> with a structured walk over the Polars
+  expression AST. Unsupported nodes fail <em>loudly and locally</em>, never silently.</li>
+<li>Push down the translatable subset of a predicate even when the whole thing
+  isn't translatable (partial pushdown), without sacrificing correctness.</li>
+<li>Centralize the copy-pasted fallback logic into one audited helper used by all
+  scan paths, covering <strong>both</strong> predicate and projection pushdown.</li>
+<li>Bring projection pushdown under the same correctness invariant: a botched
+  projection must never silently change the output. (Projection keeps its existing
+  structured column-name extraction — it does <strong>not</strong> use the AST translator; see
+  §4.4.)</li>
+<li>Lock the eager-vs-lazy equivalence invariant — for predicate <strong>and</strong> projection
+  — with a property-based test that mirrors the reviewer's fuzzer.</li>
+<li><strong>Extensive unit-test coverage</strong> as a first-class deliverable, not an
+  afterthought: every AST node type, every fallback branch, and every call site
+  is covered (see §7).</li>
+</ul>
+<p><strong>Non-goals</strong></p>
+<ul>
+<li>The <strong>AST-to-SQL translator (§4.1) is not applied to projection.</strong> Projection
+  only needs column <em>names</em>, which Polars already exposes structurally
+  (<code>meta.output_name()</code> / <code>meta.root_names()</code>); there is no boolean expression to
+  translate. Projection is in scope only for the correctness lever (§3) and the
+  centralized helper (§4.4).</li>
+<li>No new operators or expanded predicate coverage beyond what is needed to keep
+  parity with today's supported set. Coverage can grow later against the new
+  structured translator.</li>
+<li>Rust-side changes are out of scope; this is a Python-layer correctness fix.</li>
+</ul>
+<h2 id="3-core-invariant">3. Core invariant<a class="headerlink" href="#3-core-invariant" title="Permanent link"></a></h2>
+<blockquote>
+<p><strong>The client-side filter on the full original predicate is the source of truth.
+Pushdown may only ever remove rows the client-side filter would also remove.</strong></p>
+</blockquote>
+<p>Formally: let <code>P</code> be the user predicate and <code>P'</code> the predicate we push to
+DataFusion. We guarantee <code>P ⟹ P'</code> (the pushed predicate keeps a <em>superset</em> of
+rows). Reapplying <code>P</code> client-side then yields exactly <code>P</code>'s rows regardless of how
+incomplete or buggy the translation of <code>P'</code> was.</p>
+<p><code>P ⟹ P'</code> is guaranteed structurally by only ever pushing a <strong>subset of the
+top-level AND-conjuncts</strong> of <code>P</code>, each of which must be <strong>faithfully</strong> translated:</p>
+<ul>
+<li><strong>AND is splittable.</strong> <code>a AND b AND c</code>, pushing only <code>a AND c</code>, keeps a superset
+  of rows. Safe.</li>
+<li><strong>OR is atomic.</strong> Pushing one side of <code>a OR b</code> would wrongly drop rows. An OR is
+  translated whole or not pushed at all.</li>
+<li><strong>Faithful</strong> means the translator emits SQL for a node <em>only</em> when it is certain
+  the SQL is semantically equivalent; any doubt → mark the node unsupported.</li>
+</ul>
+<p>When <em>every</em> conjunct of <code>P</code> translates faithfully, the translator certifies
+<code>fully_translated = True</code>, and the client-side reapply is skipped as an
+optimization. Otherwise the full <code>P</code> is reapplied client-side.</p>
+<p><strong>The same principle governs projection.</strong> The requested column set <code>C</code> is the
+source of truth. Pushdown may select a <em>superset</em> of <code>C</code> from the source; the
+client-side <code>.select(with_columns)</code> then yields exactly <code>C</code>. The client reapply is
+skipped only when the extraction is certified complete (every requested column was
+recovered structurally with no swallowed error). A botched projection therefore
+costs at most an extra select, never a wrong/missing column.</p>
+<h2 id="4-architecture">4. Architecture<a class="headerlink" href="#4-architecture" title="Permanent link"></a></h2>
+<p>Four components.</p>
+<h3 id="41-structured-ast-translator-predicate_translatorpy-rewritten">4.1 Structured AST translator (<code>predicate_translator.py</code>, rewritten)<a class="headerlink" href="#41-structured-ast-translator-predicate_translatorpy-rewritten" title="Permanent link"></a></h3>
+<p>Input: a Polars <code>pl.Expr</code> plus the format's column-type sets (unchanged signature
+intent). Output: a <code>PushdownPlan</code> (below).</p>
+<p>Mechanism: <code>json.loads(expr.meta.serialize(format="json"))</code> → recursive emitter
+over the AST. <strong>Exact</strong> node shapes confirmed empirically in Polars 1.40.1 (these
+are not approximations — the emitter keys off them literally):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a>BinaryExpr { left, op, right }      op ∈ {Eq, NotEq, Lt, LtEq, Gt, GtEq, And, Or}
+</span><span id="__span-0-2"><a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>Column &lt;name&gt;                       # value is the bare string, e.g. {"Column": "start"}
+</span><span id="__span-0-3"><a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>Literal { Scalar { String: &lt;s&gt; } }  # strings
+</span><span id="__span-0-4"><a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a>Literal { Scalar { Boolean: &lt;b&gt; } } # booleans
+</span><span id="__span-0-5"><a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>Literal { Dyn { Int: &lt;i&gt; } }        # integers  — NOTE: "Dyn", not "Scalar"
+</span><span id="__span-0-6"><a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>Literal { Dyn { Float: &lt;f&gt; } }      # floats    — NOTE: "Dyn", not "Scalar"
+</span><span id="__span-0-7"><a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a>Function { input:[col, listlit], function: { Boolean: { IsIn {nulls_equal} } } }
+</span><span id="__span-0-8"><a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a>Function { input:[expr],          function: { Boolean: "Not" } }
+</span><span id="__span-0-9"><a href="#__codelineno-0-9" id="__codelineno-0-9" name="__codelineno-0-9"></a>Function { input:[col],           function: { Boolean: "IsNull" | "IsNotNull" } }
+</span><span id="__span-0-10"><a href="#__codelineno-0-10" id="__codelineno-0-10" name="__codelineno-0-10"></a>Function { input:[col, lit],      function: { StringExpr: { Contains|StartsWith|EndsWith } } }
+</span></code></pre></div>
+<p>Each node type has an explicit handler that emits a SQL fragment:</p>
+<ul>
+<li><code>Column</code> → quoted identifier (<code>"name"</code>), validated against the active column-type
+  sets where types matter.</li>
+<li><code>Literal</code> → correctly formatted SQL literal, handling <strong>both</strong> wrappers:
+  <code>Scalar.String</code> (quoted/escaped), <code>Scalar.Boolean</code> (<code>TRUE</code>/<code>FALSE</code>),
+  <code>Dyn.Int</code> (bare integer), <code>Dyn.Float</code> (bare float). Replaces the regex cleanup
+  pass entirely.</li>
+<li><code>BinaryExpr</code> comparison ops → <code>&lt;left&gt; &lt;op&gt; &lt;right&gt;</code>, with column-type checks
+  (string columns: equality/IN only, matching today's rules).</li>
+<li><code>BinaryExpr</code> And/Or → combine fragments; And participates in conjunct splitting,
+  Or is atomic.</li>
+<li><code>Function.Boolean.IsIn</code> → <code>&lt;col&gt; IN (v1, v2, ...)</code>. <strong>The value list does not
+  appear as readable values in the JSON</strong> — it is an Arrow IPC byte blob under
+  <code>Literal.Scalar.List</code>. The handler decodes it with <code>pyarrow.ipc.open_stream</code>
+  (verified: yields <code>['chr1','chr2',...]</code>). If decode fails for any reason, the
+  node is treated as unsupported → client-side. So <code>is_in</code> pushdown is preserved
+  but never at the cost of correctness.</li>
+<li><code>Function.Boolean.Not</code> → <code>NOT (&lt;inner&gt;)</code>; <code>IsNull</code>/<code>IsNotNull</code> → <code>&lt;col&gt; IS [NOT]
+  NULL</code>.</li>
+<li>String functions (<code>Contains</code>, <code>StartsWith</code>, <code>EndsWith</code>) → <strong>treated as
+  unsupported for pushdown</strong> (the original failure was exactly <code>str.contains</code> being
+  unpushable in the bio-format provider). They are not emitted; they fall to
+  client-side filtering. This is correct under the invariant and removes the
+  temptation to emit a wrong <code>LIKE</code>/regex.</li>
+</ul>
+<p>Any unrecognized node type, or a recognized node in an unsupported position, raises
+<code>UnsupportedPredicate(node)</code> — caught locally during conjunct splitting, never
+allowed to silently disappear.</p>
+<p>The old <code>_translate_polars_expr</code> regex chain and <code>datafusion_expr_to_sql</code> regex
+cleanup are deleted.</p>
+<h3 id="42-conjunction-decomposition-certification">4.2 Conjunction decomposition + certification<a class="headerlink" href="#42-conjunction-decomposition-certification" title="Permanent link"></a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a href="#__codelineno-1-1" id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="nd">@dataclass</span>
+</span><span id="__span-1-2"><a href="#__codelineno-1-2" id="__codelineno-1-2" name="__codelineno-1-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">PushdownPlan</span><span class="p">:</span>
+</span><span id="__span-1-3"><a href="#__codelineno-1-3" id="__codelineno-1-3" name="__codelineno-1-3"></a>    <span class="n">pushdown_sql</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>   <span class="c1"># SQL for the faithfully-translatable AND-conjunct</span>
+</span><span id="__span-1-4"><a href="#__codelineno-1-4" id="__codelineno-1-4" name="__codelineno-1-4"></a>                                  <span class="c1"># subset, or None if nothing is pushable</span>
+</span><span id="__span-1-5"><a href="#__codelineno-1-5" id="__codelineno-1-5" name="__codelineno-1-5"></a>    <span class="n">fully_translated</span><span class="p">:</span> <span class="nb">bool</span>        <span class="c1"># True iff the ENTIRE predicate translated faithfully</span>
+</span><span id="__span-1-6"><a href="#__codelineno-1-6" id="__codelineno-1-6" name="__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a href="#__codelineno-1-7" id="__codelineno-1-7" name="__codelineno-1-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">plan_predicate_pushdown</span><span class="p">(</span>
+</span><span id="__span-1-8"><a href="#__codelineno-1-8" id="__codelineno-1-8" name="__codelineno-1-8"></a>    <span class="n">predicate</span><span class="p">:</span> <span class="n">pl</span><span class="o">.</span><span class="n">Expr</span><span class="p">,</span>
+</span><span id="__span-1-9"><a href="#__codelineno-1-9" id="__codelineno-1-9" name="__codelineno-1-9"></a>    <span class="o">*</span><span class="p">,</span> <span class="n">string_cols</span><span class="p">,</span> <span class="n">uint32_cols</span><span class="p">,</span> <span class="n">float32_cols</span><span class="p">,</span>
+</span><span id="__span-1-10"><a href="#__codelineno-1-10" id="__codelineno-1-10" name="__codelineno-1-10"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PushdownPlan</span>
+</span></code></pre></div>
+<p>Algorithm:
+1. Flatten the top-level <code>AND</code> chain into conjuncts <code>[c1, c2, ...]</code>.
+2. Translate each <code>ci</code> independently; collect the ones that translate faithfully.
+3. <code>pushdown_sql</code> = the translatable conjuncts re-joined with <code>AND</code> (or <code>None</code>).
+4. <code>fully_translated</code> = every conjunct translated faithfully.</p>
+<p>A single non-AND predicate is the degenerate one-conjunct case.</p>
+<h3 id="43-centralized-safe-pushdown-helper-new-shared">4.3 Centralized safe-pushdown helper (new, shared)<a class="headerlink" href="#43-centralized-safe-pushdown-helper-new-shared" title="Permanent link"></a></h3>
+<p>One function replaces the four copy-pasted blocks (<code>io.py</code> ×2, <code>utils.py</code>,
+<code>pileup_op.py</code>):</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a href="#__codelineno-2-1" id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">apply_predicate_pushdown</span><span class="p">(</span><span class="n">query_df</span><span class="p">,</span> <span class="n">predicate</span><span class="p">,</span> <span class="n">col_types</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
+</span><span id="__span-2-2"><a href="#__codelineno-2-2" id="__codelineno-2-2" name="__codelineno-2-2"></a><span class="w">    </span><span class="sd">"""Returns (query_df_with_pushdown, needs_client_filter)."""</span>
+</span><span id="__span-2-3"><a href="#__codelineno-2-3" id="__codelineno-2-3" name="__codelineno-2-3"></a>    <span class="k">if</span> <span class="n">predicate</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-2-4"><a href="#__codelineno-2-4" id="__codelineno-2-4" name="__codelineno-2-4"></a>        <span class="k">return</span> <span class="n">query_df</span><span class="p">,</span> <span class="kc">False</span>
+</span><span id="__span-2-5"><a href="#__codelineno-2-5" id="__codelineno-2-5" name="__codelineno-2-5"></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-2-6"><a href="#__codelineno-2-6" id="__codelineno-2-6" name="__codelineno-2-6"></a>        <span class="n">plan</span> <span class="o">=</span> <span class="n">plan_predicate_pushdown</span><span class="p">(</span><span class="n">predicate</span><span class="p">,</span> <span class="o">**</span><span class="n">col_types</span><span class="p">)</span>
+</span><span id="__span-2-7"><a href="#__codelineno-2-7" id="__codelineno-2-7" name="__codelineno-2-7"></a>    <span class="k">except</span> <span class="n">PredicateTranslationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="__span-2-8"><a href="#__codelineno-2-8" id="__codelineno-2-8" name="__codelineno-2-8"></a>        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"predicate pushdown skipped (translation): </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+</span><span id="__span-2-9"><a href="#__codelineno-2-9" id="__codelineno-2-9" name="__codelineno-2-9"></a>        <span class="k">return</span> <span class="n">query_df</span><span class="p">,</span> <span class="kc">True</span>
+</span><span id="__span-2-10"><a href="#__codelineno-2-10" id="__codelineno-2-10" name="__codelineno-2-10"></a>    <span class="k">if</span> <span class="n">plan</span><span class="o">.</span><span class="n">pushdown_sql</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-2-11"><a href="#__codelineno-2-11" id="__codelineno-2-11" name="__codelineno-2-11"></a>        <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-2-12"><a href="#__codelineno-2-12" id="__codelineno-2-12" name="__codelineno-2-12"></a>            <span class="n">native</span> <span class="o">=</span> <span class="n">query_df</span><span class="o">.</span><span class="n">parse_sql_expr</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">pushdown_sql</span><span class="p">)</span>
+</span><span id="__span-2-13"><a href="#__codelineno-2-13" id="__codelineno-2-13" name="__codelineno-2-13"></a>            <span class="n">query_df</span> <span class="o">=</span> <span class="n">query_df</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">native</span><span class="p">)</span>
+</span><span id="__span-2-14"><a href="#__codelineno-2-14" id="__codelineno-2-14" name="__codelineno-2-14"></a>        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>               <span class="c1"># parse_sql_expr / filter binding failure</span>
+</span><span id="__span-2-15"><a href="#__codelineno-2-15" id="__codelineno-2-15" name="__codelineno-2-15"></a>            <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"predicate pushdown skipped (bind): </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+</span><span id="__span-2-16"><a href="#__codelineno-2-16" id="__codelineno-2-16" name="__codelineno-2-16"></a>            <span class="k">return</span> <span class="n">query_df</span><span class="p">,</span> <span class="kc">True</span>            <span class="c1"># nothing safely pushed → full client filter</span>
+</span><span id="__span-2-17"><a href="#__codelineno-2-17" id="__codelineno-2-17" name="__codelineno-2-17"></a>    <span class="k">return</span> <span class="n">query_df</span><span class="p">,</span> <span class="ow">not</span> <span class="n">plan</span><span class="o">.</span><span class="n">fully_translated</span>
+</span></code></pre></div>
+<p>Callers then do, in the stream loop:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a href="#__codelineno-3-1" id="__codelineno-3-1" name="__codelineno-3-1"></a><span class="k">if</span> <span class="n">predicate</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">needs_client_filter</span><span class="p">:</span>
+</span><span id="__span-3-2"><a href="#__codelineno-3-2" id="__codelineno-3-2" name="__codelineno-3-2"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">predicate</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Note the SQL → <code>parse_sql_expr</code> round-trip is <strong>retained</strong> — it is required by the
+documented PyO3 binding mismatch (pip <code>datafusion</code> Expr is incompatible with the
+<code>polars_bio</code> Rust extension; <code>parse_sql_expr</code> rebuilds a binding-compatible Expr
+from the same compilation unit). The structured translator changes how the SQL is
+<em>built</em>, not how it is bound.</p>
+<h3 id="44-centralized-safe-projection-helper-new-shared">4.4 Centralized safe-projection helper (new, shared)<a class="headerlink" href="#44-centralized-safe-projection-helper-new-shared" title="Permanent link"></a></h3>
+<p>A sibling helper applies the same source-of-truth discipline to projection. It does
+<strong>not</strong> use the AST translator — it relies on Polars' structured column-name API.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a href="#__codelineno-4-1" id="__codelineno-4-1" name="__codelineno-4-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">apply_projection_pushdown</span><span class="p">(</span><span class="n">query_df</span><span class="p">,</span> <span class="n">with_columns</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="nb">bool</span><span class="p">]:</span>
+</span><span id="__span-4-2"><a href="#__codelineno-4-2" id="__codelineno-4-2" name="__codelineno-4-2"></a><span class="w">    </span><span class="sd">"""Returns (query_df_with_projection, needs_client_select)."""</span>
+</span><span id="__span-4-3"><a href="#__codelineno-4-3" id="__codelineno-4-3" name="__codelineno-4-3"></a>    <span class="k">if</span> <span class="n">with_columns</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-4-4"><a href="#__codelineno-4-4" id="__codelineno-4-4" name="__codelineno-4-4"></a>        <span class="k">return</span> <span class="n">query_df</span><span class="p">,</span> <span class="kc">False</span>
+</span><span id="__span-4-5"><a href="#__codelineno-4-5" id="__codelineno-4-5" name="__codelineno-4-5"></a>    <span class="n">cols</span><span class="p">,</span> <span class="n">complete</span> <span class="o">=</span> <span class="n">extract_source_columns</span><span class="p">(</span><span class="n">with_columns</span><span class="p">)</span>   <span class="c1"># structured, no silent skips</span>
+</span><span id="__span-4-6"><a href="#__codelineno-4-6" id="__codelineno-4-6" name="__codelineno-4-6"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">cols</span><span class="p">:</span>
+</span><span id="__span-4-7"><a href="#__codelineno-4-7" id="__codelineno-4-7" name="__codelineno-4-7"></a>        <span class="k">return</span> <span class="n">query_df</span><span class="p">,</span> <span class="kc">True</span>                               <span class="c1"># couldn't determine → client select</span>
+</span><span id="__span-4-8"><a href="#__codelineno-4-8" id="__codelineno-4-8" name="__codelineno-4-8"></a>    <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-4-9"><a href="#__codelineno-4-9" id="__codelineno-4-9" name="__codelineno-4-9"></a>        <span class="n">query_df</span> <span class="o">=</span> <span class="n">query_df</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="n">query_df</span><span class="o">.</span><span class="n">parse_sql_expr</span><span class="p">(</span><span class="sa">f</span><span class="s1">'"</span><span class="si">{</span><span class="n">c</span><span class="si">}</span><span class="s1">"'</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cols</span><span class="p">])</span>
+</span><span id="__span-4-10"><a href="#__codelineno-4-10" id="__codelineno-4-10" name="__codelineno-4-10"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>                                   <span class="c1"># parse_sql_expr / select binding failure</span>
+</span><span id="__span-4-11"><a href="#__codelineno-4-11" id="__codelineno-4-11" name="__codelineno-4-11"></a>        <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"projection pushdown skipped (bind): </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">e</span><span class="p">)</span>
+</span><span id="__span-4-12"><a href="#__codelineno-4-12" id="__codelineno-4-12" name="__codelineno-4-12"></a>        <span class="k">return</span> <span class="n">query_df</span><span class="p">,</span> <span class="kc">True</span>
+</span><span id="__span-4-13"><a href="#__codelineno-4-13" id="__codelineno-4-13" name="__codelineno-4-13"></a>    <span class="k">return</span> <span class="n">query_df</span><span class="p">,</span> <span class="ow">not</span> <span class="n">complete</span>
+</span></code></pre></div>
+<p><code>extract_source_columns</code> replaces <code>_extract_column_names_from_expr</code>. It uses
+<code>expr.meta.root_names()</code> to determine which <strong>source</strong> columns must be requested
+(so a computed/aliased projection like <code>(col("c")+1).alias("y")</code> correctly requests
+<code>c</code>, not <code>y</code>), and returns a <code>complete</code> flag that is <code>False</code> if <em>any</em> element's
+names could not be recovered. The current <code>except Exception: pass</code> that silently
+drops a column is removed — an unrecoverable element flips <code>complete=False</code> so the
+full client-side <code>.select(with_columns)</code> runs.</p>
+<p>Callers then do, in the stream loop:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a href="#__codelineno-5-1" id="__codelineno-5-1" name="__codelineno-5-1"></a><span class="k">if</span> <span class="n">with_columns</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">needs_client_select</span><span class="p">:</span>
+</span><span id="__span-5-2"><a href="#__codelineno-5-2" id="__codelineno-5-2" name="__codelineno-5-2"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">with_columns</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="45-exception-narrowing">4.5 Exception narrowing<a class="headerlink" href="#45-exception-narrowing" title="Permanent link"></a></h3>
+<ul>
+<li>Translation errors are typed (<code>PredicateTranslationError</code> / <code>UnsupportedPredicate</code>)
+  and caught specifically.</li>
+<li>The only remaining broad catches are around <code>parse_sql_expr</code>/<code>filter</code> and
+  <code>parse_sql_expr</code>/<code>select</code> <em>binding</em>, which are genuine "couldn't push, fall back
+  safely" boundaries and <strong>always</strong> return <code>needs_client_filter=True</code> /
+  <code>needs_client_select=True</code> respectively.</li>
+<li>Genuine programming errors in the translator surface as <code>PredicateTranslationError</code>
+  with the original cause chained (<code>raise ... from e</code>) and are logged — never
+  silently swallowed into a dropped filter.</li>
+<li>Projection's previous <code>except Exception: pass</code> (silently dropping a column from
+  the requested set) is <strong>removed</strong>; an unrecoverable element flips the
+  <code>complete</code> flag instead, forcing a correct client-side select.</li>
+</ul>
+<h2 id="5-data-flow">5. Data flow<a class="headerlink" href="#5-data-flow" title="Permanent link"></a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a href="#__codelineno-6-1" id="__codelineno-6-1" name="__codelineno-6-1"></a>pl.Expr predicate
+</span><span id="__span-6-2"><a href="#__codelineno-6-2" id="__codelineno-6-2" name="__codelineno-6-2"></a>   │  expr.meta.serialize(format="json")
+</span><span id="__span-6-3"><a href="#__codelineno-6-3" id="__codelineno-6-3" name="__codelineno-6-3"></a>   ▼
+</span><span id="__span-6-4"><a href="#__codelineno-6-4" id="__codelineno-6-4" name="__codelineno-6-4"></a>JSON AST ──(recursive emitter, per-node)──► faithful SQL fragments
+</span><span id="__span-6-5"><a href="#__codelineno-6-5" id="__codelineno-6-5" name="__codelineno-6-5"></a>   │                                          (unsupported node → UnsupportedPredicate)
+</span><span id="__span-6-6"><a href="#__codelineno-6-6" id="__codelineno-6-6" name="__codelineno-6-6"></a>   ▼
+</span><span id="__span-6-7"><a href="#__codelineno-6-7" id="__codelineno-6-7" name="__codelineno-6-7"></a>plan_predicate_pushdown: split top-level ANDs, keep faithful conjuncts
+</span><span id="__span-6-8"><a href="#__codelineno-6-8" id="__codelineno-6-8" name="__codelineno-6-8"></a>   │
+</span><span id="__span-6-9"><a href="#__codelineno-6-9" id="__codelineno-6-9" name="__codelineno-6-9"></a>   ├─ PushdownPlan.pushdown_sql ──► query_df.parse_sql_expr() ──► query_df.filter()   [optimization]
+</span><span id="__span-6-10"><a href="#__codelineno-6-10" id="__codelineno-6-10" name="__codelineno-6-10"></a>   └─ PushdownPlan.fully_translated ──► needs_client_filter
+</span><span id="__span-6-11"><a href="#__codelineno-6-11" id="__codelineno-6-11" name="__codelineno-6-11"></a>                                          │
+</span><span id="__span-6-12"><a href="#__codelineno-6-12" id="__codelineno-6-12" name="__codelineno-6-12"></a>   stream batches ──► if needs_client_filter: out.filter(P)   [correctness, source of truth]
+</span><span id="__span-6-13"><a href="#__codelineno-6-13" id="__codelineno-6-13" name="__codelineno-6-13"></a>
+</span><span id="__span-6-14"><a href="#__codelineno-6-14" id="__codelineno-6-14" name="__codelineno-6-14"></a>with_columns C
+</span><span id="__span-6-15"><a href="#__codelineno-6-15" id="__codelineno-6-15" name="__codelineno-6-15"></a>   │  extract_source_columns (meta.root_names(), structured, no silent skips)
+</span><span id="__span-6-16"><a href="#__codelineno-6-16" id="__codelineno-6-16" name="__codelineno-6-16"></a>   ▼
+</span><span id="__span-6-17"><a href="#__codelineno-6-17" id="__codelineno-6-17" name="__codelineno-6-17"></a>source column set ──► query_df.parse_sql_expr('"col"') ──► query_df.select()        [optimization]
+</span><span id="__span-6-18"><a href="#__codelineno-6-18" id="__codelineno-6-18" name="__codelineno-6-18"></a>   │  complete? ──► needs_client_select
+</span><span id="__span-6-19"><a href="#__codelineno-6-19" id="__codelineno-6-19" name="__codelineno-6-19"></a>   ▼
+</span><span id="__span-6-20"><a href="#__codelineno-6-20" id="__codelineno-6-20" name="__codelineno-6-20"></a>   stream batches ──► if needs_client_select: out.select(C)   [correctness, source of truth]
+</span></code></pre></div>
+<h2 id="6-error-handling">6. Error handling<a class="headerlink" href="#6-error-handling" title="Permanent link"></a></h2>
+<p><strong>Predicate</strong></p>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Node type unknown / unsupported position</td>
+<td><code>UnsupportedPredicate</code>, conjunct not pushed, full <code>P</code> reapplied client-side</td>
+</tr>
+<tr>
+<td>No conjunct translatable</td>
+<td><code>pushdown_sql=None</code>, full scan + full client filter (logged at warning)</td>
+</tr>
+<tr>
+<td>Some conjuncts translatable</td>
+<td>push subset, reapply full <code>P</code> client-side</td>
+</tr>
+<tr>
+<td>All conjuncts translatable</td>
+<td>push all, skip client reapply</td>
+</tr>
+<tr>
+<td><code>parse_sql_expr</code>/<code>filter</code> raises</td>
+<td>skip pushdown entirely, <code>needs_client_filter=True</code> (logged)</td>
+</tr>
+<tr>
+<td>Translator internal bug</td>
+<td><code>PredicateTranslationError</code> (chained cause), safe fallback, logged — not silent</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Projection</strong></p>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All source columns recovered</td>
+<td>push select, skip client reapply (<code>complete=True</code>)</td>
+</tr>
+<tr>
+<td>Some element's names unrecoverable</td>
+<td><code>complete=False</code>, push what's known, reapply full <code>C</code> client-side</td>
+</tr>
+<tr>
+<td>No columns determinable</td>
+<td><code>needs_client_select=True</code>, no pushdown, client select runs</td>
+</tr>
+<tr>
+<td><code>parse_sql_expr</code>/<code>select</code> raises</td>
+<td>skip pushdown entirely, <code>needs_client_select=True</code> (logged)</td>
+</tr>
+</tbody>
+</table>
+<p>In every row-returning path, the result is exactly <code>P</code>'s rows over exactly <code>C</code>'s columns.</p>
+<h2 id="7-testing">7. Testing<a class="headerlink" href="#7-testing" title="Permanent link"></a></h2>
+<p><strong>Extensive unit-test coverage is a first-class deliverable of this work, not an
+afterthought.</strong> The fragility that caused #396 went undetected because the
+translator had no per-node tests; the rewrite must not repeat that. Every AST node
+type, every fallback branch, the certification flags, and every call site are
+covered. Concretely:</p>
+<ol>
+<li><strong>Property-based equivalence (the headline test).</strong> Mirror the reviewer's
+   <code>hypothesis.stateful</code> fuzzer: generate predicates <em>and</em> column projections over
+   GTF/GFF/VCF/BAM columns (including <code>str.contains</code>, <code>is_in</code>, AND/OR nesting,
+   negation, mixed attribute + parsed fields, aliased/computed projections) and
+   assert, for every generated <code>(P, C)</code>:</li>
+<li><code>scan(...).filter(P).select(C).collect() == scan(...).collect().filter(P).select(C)</code>.
+   This is the invariant from §3 expressed as a test and would have caught #396.</li>
+<li><strong>Regression test for #396</strong> — the exact GTF snippet from the issue; the
+   <code>type=='transcript' &amp; gene_biotype.str.contains('pseudogene')</code> query must return
+   0 rows in both lazy and eager forms.</li>
+<li><strong>Translator unit tests — exhaustive, per node type.</strong> For <em>each</em> AST node the
+   emitter claims to support (Column, every BinaryExpr comparison op, And/Or,
+   Literal of each scalar type, IsIn): assert the exact SQL emitted, including
+   literal quoting/escaping and identifier quoting. For <em>each</em> unsupported node
+   (string functions, arithmetic, unknown types): assert <code>UnsupportedPredicate</code> is
+   raised — never silent emission. Plus: conjunct splitting keeps the correct
+   subset; <code>fully_translated</code> is <code>True</code> only when every conjunct translated;
+   OR-atomicity (an OR with one unsupported side pushes nothing); literal-escaping
+   edge cases (quotes, unicode, empty string, negative/float/bool literals).</li>
+<li><strong>Projection extraction unit tests.</strong> <code>extract_source_columns</code> returns the right
+   <em>source</em> names for plain, aliased, and computed projections (via <code>root_names</code>);
+   <code>complete=False</code> when an element's names can't be recovered; no column is ever
+   silently dropped.</li>
+<li><strong>Helper-level fallback tests.</strong> Drive <code>apply_predicate_pushdown</code> /
+   <code>apply_projection_pushdown</code> directly with a stub <code>query_df</code> whose
+   <code>parse_sql_expr</code>/<code>filter</code>/<code>select</code> raise, and assert they return
+   <code>needs_client_filter=True</code> / <code>needs_client_select=True</code> and log — never propagate
+   or silently succeed.</li>
+<li><strong>All four call sites</strong> exercised (io streaming, io second path, overlap/range
+   via <code>utils.py</code>, pileup) to confirm they route through the shared helpers and
+   reapply correctly for both predicate and projection.</li>
+</ol>
+<h2 id="8-rollout">8. Rollout<a class="headerlink" href="#8-rollout" title="Permanent link"></a></h2>
+<ul>
+<li>Land the <strong>safety lever first</strong> (§4.3 + §4.4 helpers + unconditional reapply
+  semantics + exception narrowing, with their fallback unit tests) so the
+  wrong-results class is closed immediately for both predicate and projection,
+  even before the translator rewrite. This is the cheap high-value piece.</li>
+<li>Land the <strong>structured translator</strong> (§4.1/§4.2) second, swapping the regex
+  internals behind the unchanged <code>plan_predicate_pushdown</code> surface, with its
+  exhaustive per-node unit tests.</li>
+<li>Land the <strong>property-based equivalence test</strong> (§7.1) to lock the invariant.</li>
+<li>Delete dead regex code (<code>_translate_polars_expr</code> chain, <code>datafusion_expr_to_sql</code>
+  cleanup) once the structured translator is in.</li>
+</ul>
+<h2 id="9-risks-mitigations">9. Risks &amp; mitigations<a class="headerlink" href="#9-risks-mitigations" title="Permanent link"></a></h2>
+<ul>
+<li><strong><code>meta.serialize</code> format drift across Polars versions.</strong> Mitigation: handlers
+  key off node-type names with an explicit "unknown → unsupported" default, so a
+  new/renamed node degrades to client-side filtering, not wrong results. Pin the
+  observed schema in tests.</li>
+<li><strong>Double-filter cost when fully translated.</strong> Mitigation: <code>fully_translated</code>
+  skips the reapply; partial cases filter on already-reduced data.</li>
+<li><strong>Behavioral change: more full scans surface as warnings.</strong> This is intended —
+  correctness over silent speed. The property test guards equivalence.</li>
+</ul>
+<h2 id="10-out-of-scope-follow-ups">10. Out of scope / follow-ups<a class="headerlink" href="#10-out-of-scope-follow-ups" title="Permanent link"></a></h2>
+<ul>
+<li>Expanding pushdown coverage (e.g. safe <code>str.contains</code> → provider-native regex)
+  once the structured translator makes it safe to add.</li>
+<li>Rust-side predicate support in the bio-format providers.</li>
+</ul>
+</article>
+</div>
+<script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+</div>
+<button class="md-top md-icon" data-md-component="top" hidden="" type="button">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"></path></svg>
+  Back to top
+</button>
+</main>
+<footer class="md-footer">
+<div class="md-footer-meta md-typeset">
+<div class="md-footer-meta__inner md-grid">
+<div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener" target="_blank">
+      Material for MkDocs
+    </a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+<div class="md-dialog" data-md-component="dialog">
+<div class="md-dialog__inner md-typeset"></div>
+</div>
+<script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["content.code.copy", "content.code.select", "content.code.annotate", "content.tabs.link", "content.action.edit", "content.tooltips", "toc.follow", "navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.footer", "navigation.tracking", "navigation.instant", "content.footnote.tooltips"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": ["latest"], "provider": "mike"}}</script>
+<script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+<script src="../../../assets/_markdown_exec_pyodide.js"></script>
+<script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(()=>{ lightbox.reload(); });
+</script></body></html>
