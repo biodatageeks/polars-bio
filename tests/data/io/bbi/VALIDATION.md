@@ -10,7 +10,7 @@ predicate-pushdown fix ([datafusion-bio-formats#205], tag `v1.8.3`).
 |------|----------------|--------|
 | `tests/test_io_bbi.py` | no | API, schema, autoSQL/rest, coordinate conversion, pushdown == client-side, register/SQL path |
 | `tests/test_io_bbi_streaming.py` | no | lazy scan, `limit` pushdown across batch boundaries, streaming vs in-memory engine equality, streaming aggregation, region pushdown unclipped |
-| `tests/test_io_bbi_parity.py` | yes (`importorskip`) | row-for-row equality vs pyBigWig (bigWig intervals, bigBed `rest`), pushdown-region parity |
+| `tests/test_io_bbi_parity.py` | yes (missing dependency skips; load errors fail) | row-for-row equality vs pyBigWig (bigWig intervals, bigBed `rest`), pushdown-region parity |
 
 Fixtures are committed under `tests/data/io/bbi/`. `large_signal.bw` (95 KB,
 20,000 intervals on chr1 + 5,000 on chr2) is generated with pyBigWig so the
