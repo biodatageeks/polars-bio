@@ -61,7 +61,7 @@ are compared element by element after verifying positions and sample order.
 
 | Workload | Oracle | polars-bio mismatches | Other readers vs oracle |
 |---|---|---:|---|
-| BCF dosage, 63.7M cells | pysam | **0** | cyvcf2 0; Oxbow 0; snputils 0 |
+| BCF dosage, 63.7M cells | pysam | **0** | cyvcf2 0; snputils 0 |
 | PGEN hardcall, 2.53B cells | pgenlib | **0** | snputils 0 |
 | PGEN dosage, 2.53B cells | pgenlib | **0** | snputils 0 |
 | BGEN dosage, 2.53B cells | `bgen` | **0** | snputils 126,259,603 |
@@ -85,7 +85,6 @@ all three readers agree exactly.
 | **polars-bio** | **0.171 s** |
 | snputils | 0.862 s |
 | cyvcf2 | 1.951 s |
-| Oxbow | 13.549 s |
 | pysam | 27.675 s |
 
 ![BCF one-thread comparison](figures/genotype-readers-2026-08/bcf-one-thread.png)
@@ -122,15 +121,26 @@ This rerun corrects the earlier claim that polars-bio was fastest on BGEN at
 one thread. The `bgen` package leads by 0.425 s, while polars-bio remains 1.54×
 faster than snputils.
 
-Parallel results are deliberately kept out of the tables above. For context,
-polars-bio reaches 0.242 s / 0.385 s on PGEN hardcall/dosage and 2.071 s on
-BGEN dosage at eight partitions. Those numbers describe polars-bio scaling;
-they are not comparisons with the serial readers.
+### polars-bio scalability
+
+The cross-reader tables stay at one thread. Separately, the same full-chromosome
+polars-bio workloads were run with 1, 2, 4, and 8 partitions:
+
+| Workload | 1 partition | 2 partitions | 4 partitions | 8 partitions | Speedup at 8 |
+|---|---:|---:|---:|---:|---:|
+| PGEN hardcall | 0.699 s | 0.434 s | 0.311 s | 0.242 s | 2.89× |
+| PGEN dosage | 1.312 s | 0.792 s | 0.513 s | 0.385 s | 3.41× |
+| BGEN dosage | 11.404 s | 6.529 s | 3.598 s | 2.071 s | 5.51× |
+
+![polars-bio genotype-reader scaling](figures/genotype-readers-2026-08/scaling-all-formats.png)
+
+These are within-reader scaling results, not comparisons against the serial
+reference readers.
 
 ## Reproduce
 
-These results use [polars-bio PR #436](https://github.com/biodatageeks/polars-bio/pull/436)
-with every formats crate pinned to the released
+These results cover the code shipping as polars-bio 0.34.0, with every formats
+crate pinned to the released
 [`datafusion-bio-formats` v1.10.0](https://github.com/biodatageeks/datafusion-bio-formats/releases/tag/v1.10.0)
 commit `0d9730c`, and the current
 [snputils benchmark](https://github.com/AI-sandbox/snputils/tree/main/benchmark)
@@ -138,7 +148,7 @@ at `482c6d1`.
 
 | Component | Version |
 |---|---|
-| polars-bio | 0.33.1, PR #436 |
+| polars-bio | 0.34.0 |
 | snputils | 1.1.1.dev19+g482c6d1df |
 | pgenlib / `bgen` / pysam | 0.94.1 / 1.10.0 / 0.24.0 |
 | Polars / PyArrow / NumPy | 1.42.1 / 24.0.0 / 2.5.2 |
@@ -152,7 +162,7 @@ RUSTFLAGS="-C target-cpu=native" maturin develop --release --locked
 
 The runners, fixture construction, raw-result schema, and exact verification
 logic are in
-[bioformats-benchmark PR #4](https://github.com/biodatageeks/bioformats-benchmark/pull/4):
+[bioformats-benchmark](https://github.com/biodatageeks/bioformats-benchmark):
 `run_genotype_matrix_benchmarks.py`, `run_pgen_benchmarks.py`, and
 `run_bgen_benchmarks.py`.
 
