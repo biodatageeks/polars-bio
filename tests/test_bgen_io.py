@@ -223,7 +223,7 @@ class TestBgenDescribe:
         # `describe_bgen` reports whether an index was used, so it has to be
         # able to reach one stored away from the file. A path that does not
         # exist proves the argument is opened rather than dropped.
-        with pytest.raises(ValueError, match="BGI"):
+        with pytest.raises(ValueError, match=r"(?i)bgi"):
             pb.describe_bgen(str(BGEN_PATH), bgi_path=str(BGEN_DIR / "absent.bgi"))
 
     def test_describe_leaves_no_table_behind(self):

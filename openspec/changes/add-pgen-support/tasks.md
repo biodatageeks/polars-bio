@@ -24,7 +24,7 @@
 
 ## 3. Validation
 
-- [x] 3.1 Test variant metadata, the GT-only default, and each of the five
+- [x] 3.1 Test variant metadata, the GT-only default, and each of the six
   genotype fields.
 - [x] 3.2 Test sample selection and reordering, both missing-sample policies,
   and all three PSAM identifier modes.

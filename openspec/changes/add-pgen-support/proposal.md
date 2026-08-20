@@ -14,7 +14,7 @@ cohort before any polars-bio query, which costs a full rewrite.
 - Emit one row per PVAR variant, with `chrom`, `start`, `end`, `id`, `ref`, and
   a list-typed `alt`, alongside a `genotypes` struct.
 - Select genotype children by name through `genotype_fields`, from `GT`,
-  `PHASED`, `DS`, `DS_STORED`, and `HDS`, in the requested order.
+  `ALT_COUNT`, `PHASED`, `DS`, `DS_STORED`, and `HDS`, in the requested order.
 - Default `genotype_fields` to `("GT",)`, narrowing the provider default of
   every available child, so the default read is not the expensive one.
 - Discover the `.pvar` (then `.pvar.zst`) and `.psam` companions from the

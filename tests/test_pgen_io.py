@@ -278,7 +278,13 @@ def _registered_tables() -> set:
 
 
 def _captured_pgen_options(module, call) -> dict:
-    """Run `call` and return the kwargs it passed to `PgenReadOptions`."""
+    """Run `call` and return the kwargs it passed to `PgenReadOptions`.
+
+    An empty result means `call` never reached the constructor — it raised
+    first, or the entry point stopped building options. The caller then fails
+    on `KeyError` rather than on the value it meant to assert, so read an empty
+    dict as "the call did not get that far".
+    """
     seen: dict = {}
     real = module.PgenReadOptions
 

@@ -7,11 +7,11 @@ here are the three decisions that are not evident from the API alone.
 ## The Python default narrows the provider default
 
 `resolve_genotype_fields` returns every available field when the requested list
-is absent, so `PgenReadOptions::default()` emits `GT`, `PHASED`, `DS`,
-`DS_STORED`, and `HDS` together. That is a defensible Rust default: explicit,
-with no hidden narrowing.
+is absent, so `PgenReadOptions::default()` emits `GT`, `ALT_COUNT`, `PHASED`,
+`DS`, `DS_STORED`, and `HDS` together. That is a defensible Rust default:
+explicit, with no hidden narrowing.
 
-It is a poor Python default. `read_pgen(path)` would decode five
+It is a poor Python default. `read_pgen(path)` would decode six
 representations of the same genotypes, and a benchmark run at default arguments
 would report a figure no comparison corresponds to. The Python default is
 therefore `("GT",)`, and the divergence is documented on the function and the

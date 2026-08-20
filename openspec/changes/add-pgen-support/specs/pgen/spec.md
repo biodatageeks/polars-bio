@@ -17,8 +17,8 @@ lazy, registration, and description methods, emitting one row per PVAR variant.
 - **AND** `PHASED` distinguishes a missing call from an unphased one.
 
 #### Scenario: Unsupported genotype field
-- **WHEN** a genotype field outside `GT`, `PHASED`, `DS`, `DS_STORED`, and
-  `HDS` is given
+- **WHEN** a genotype field outside `GT`, `ALT_COUNT`, `PHASED`, `DS`,
+  `DS_STORED`, and `HDS` is given
 - **THEN** the call raises `ValueError` before any file is opened.
 
 #### Scenario: Empty genotype field selection
