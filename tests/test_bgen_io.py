@@ -378,6 +378,34 @@ class TestBgenGenotypeFields:
         with pytest.raises(ValueError, match="DS"):
             pb.read_bgen(str(BGEN_PATH), genotype_fields=["DS"])
 
+    def test_an_empty_selection_is_rejected(self):
+        # Asking for no children at all is a mistake, not a projection. The
+        # provider refuses it too; catching it here means the file is never
+        # opened, and it was the one rejection path with no test.
+        with pytest.raises(ValueError, match="at least one"):
+            pb.read_bgen(
+                str(BGEN_PATH), genotype_output="dosage", genotype_fields=[]
+            )
+
+    def test_a_misspelled_child_is_rejected_before_the_file_is_opened(self):
+        # A path that does not exist would raise if the name check did not come
+        # first, so this pins the ordering rather than just the message.
+        with pytest.raises(ValueError, match="NOPE"):
+            pb.read_bgen("/nonexistent/cohort.bgen", genotype_fields=["NOPE"])
+
+    def test_the_mode_rule_stays_with_the_provider(self):
+        # `GP` is a real field name, so the Python check passes it through; only
+        # the provider knows it is wrong for dosage output. That split is
+        # deliberate — the mode rule has one home.
+        with pytest.raises(ValueError, match="GP"):
+            pb.read_bgen(
+                str(BGEN_PATH), genotype_output="dosage", genotype_fields=["GP"]
+            )
+
+    def test_register_bgen_rejects_an_empty_selection(self):
+        with pytest.raises(ValueError, match="at least one"):
+            pb.register_bgen(str(BGEN_PATH), "bgen_empty", genotype_fields=[])
+
     def test_unknown_child_is_rejected(self):
         with pytest.raises(ValueError, match="NOPE"):
             pb.read_bgen(

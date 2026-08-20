@@ -61,6 +61,13 @@ selecting which children of the `genotypes` struct are emitted.
 - **THEN** the registered table's `genotypes` struct SHALL carry only `DS`, so a
   SQL user is not forced to materialize `PLOIDY`
 
+#### Scenario: An empty or misspelled selection
+- **WHEN** `genotype_fields` is empty, or names a field outside `DS`, `GP`, and
+  `PLOIDY`
+- **THEN** the call SHALL raise `ValueError` before the file is opened
+- **AND** which of those names a given output mode accepts SHALL remain the
+  provider's rule, so the mode semantics have one home rather than two
+
 #### Scenario: The value child is required
 - **WHEN** a projection omits the output mode's value child
 - **THEN** the call SHALL fail at plan time naming the child it requires

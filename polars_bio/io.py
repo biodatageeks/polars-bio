@@ -310,6 +310,35 @@ def _validate_bgen_probability_layout(probability_layout: str) -> None:
         )
 
 
+BGEN_GENOTYPE_FIELDS = ("DS", "GP", "PLOIDY")
+
+
+def _validate_bgen_genotype_fields(
+    genotype_fields: Union[Sequence[str], None],
+) -> None:
+    """Catch an empty or misspelled selection before a file is opened.
+
+    Only the names are checked here. *Which* of them a given call may ask for
+    depends on `genotype_output` — `DS` for dosage, `GP` for probability — and
+    that rule stays with the provider, which states it precisely and cannot
+    drift from itself. Duplicating it would put two answers in the repository
+    for one question.
+    """
+    if genotype_fields is None:
+        return
+    if not genotype_fields:
+        raise ValueError(
+            "genotype_fields must name at least one of "
+            f"{', '.join(BGEN_GENOTYPE_FIELDS)}"
+        )
+    unknown = [name for name in genotype_fields if name not in BGEN_GENOTYPE_FIELDS]
+    if unknown:
+        raise ValueError(
+            f"unsupported BGEN genotype field(s) {unknown!r}; "
+            f"available fields: {', '.join(BGEN_GENOTYPE_FIELDS)}"
+        )
+
+
 def _validate_bgen_genotype_output(genotype_output: str) -> None:
     if genotype_output not in {"probability", "dosage"}:
         raise ValueError(
@@ -2110,6 +2139,7 @@ class IOOperations:
         """
         _validate_bgen_genotype_output(genotype_output)
         _validate_bgen_probability_layout(probability_layout)
+        _validate_bgen_genotype_fields(genotype_fields)
         _validate_bgen_input_path(path)
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,

@@ -34,6 +34,7 @@ from .io import (
     _normalize_bigbed_schema_mode,
     _normalize_read_tag_type_hints,
     _validate_bcf_genotype_output,
+    _validate_bgen_genotype_fields,
     _validate_bgen_genotype_output,
     _validate_bgen_input_path,
     _validate_bgen_probability_layout,
@@ -995,6 +996,7 @@ class SQL:
         """
         _validate_bgen_genotype_output(genotype_output)
         _validate_bgen_probability_layout(probability_layout)
+        _validate_bgen_genotype_fields(genotype_fields)
         _validate_bgen_input_path(path, operation="register")
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
