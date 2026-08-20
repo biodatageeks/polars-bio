@@ -1499,8 +1499,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-bam"
-version = "1.9.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=63b6eb17c07e85841dd3783f6010120f2da3c88f#63b6eb17c07e85841dd3783f6010120f2da3c88f"
+version = "1.10.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.10.0#0d9730c83f3ac936efa1595335caee0b0e538fa1"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1525,8 +1525,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-bbi"
-version = "1.7.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=63b6eb17c07e85841dd3783f6010120f2da3c88f#63b6eb17c07e85841dd3783f6010120f2da3c88f"
+version = "1.8.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.10.0#0d9730c83f3ac936efa1595335caee0b0e538fa1"
 dependencies = [
  "async-trait",
  "bigtools",
@@ -1537,8 +1537,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-bed"
-version = "1.9.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=63b6eb17c07e85841dd3783f6010120f2da3c88f#63b6eb17c07e85841dd3783f6010120f2da3c88f"
+version = "1.10.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.10.0#0d9730c83f3ac936efa1595335caee0b0e538fa1"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1559,9 +1559,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "datafusion-bio-format-bgen"
+version = "0.2.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.10.0#0d9730c83f3ac936efa1595335caee0b0e538fa1"
+dependencies = [
+ "async-stream",
+ "async-trait",
+ "blake3",
+ "bytes",
+ "datafusion",
+ "datafusion-bio-format-core",
+ "flate2",
+ "libdeflater",
+ "log",
+ "opendal",
+ "rusqlite",
+ "tokio",
+ "zstd",
+]
+
+[[package]]
 name = "datafusion-bio-format-core"
-version = "1.9.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=63b6eb17c07e85841dd3783f6010120f2da3c88f#63b6eb17c07e85841dd3783f6010120f2da3c88f"
+version = "1.10.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.10.0#0d9730c83f3ac936efa1595335caee0b0e538fa1"
 dependencies = [
  "async-compression",
  "bytes",
@@ -1575,6 +1595,7 @@ dependencies = [
  "opendal",
  "serde",
  "serde_json",
+ "strum 0.26.3",
  "tokio",
  "tokio-util",
  "url",
@@ -1582,8 +1603,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-cram"
-version = "1.9.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=63b6eb17c07e85841dd3783f6010120f2da3c88f#63b6eb17c07e85841dd3783f6010120f2da3c88f"
+version = "1.10.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.10.0#0d9730c83f3ac936efa1595335caee0b0e538fa1"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1608,8 +1629,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-fasta"
-version = "1.9.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=63b6eb17c07e85841dd3783f6010120f2da3c88f#63b6eb17c07e85841dd3783f6010120f2da3c88f"
+version = "1.10.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.10.0#0d9730c83f3ac936efa1595335caee0b0e538fa1"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1631,8 +1652,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-fastq"
-version = "1.9.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=63b6eb17c07e85841dd3783f6010120f2da3c88f#63b6eb17c07e85841dd3783f6010120f2da3c88f"
+version = "1.10.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.10.0#0d9730c83f3ac936efa1595335caee0b0e538fa1"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1655,8 +1676,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-gff"
-version = "1.9.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=63b6eb17c07e85841dd3783f6010120f2da3c88f#63b6eb17c07e85841dd3783f6010120f2da3c88f"
+version = "1.10.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.10.0#0d9730c83f3ac936efa1595335caee0b0e538fa1"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1682,8 +1703,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-gtf"
-version = "1.9.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=63b6eb17c07e85841dd3783f6010120f2da3c88f#63b6eb17c07e85841dd3783f6010120f2da3c88f"
+version = "1.10.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.10.0#0d9730c83f3ac936efa1595335caee0b0e538fa1"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1706,8 +1727,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-pairs"
-version = "1.9.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=63b6eb17c07e85841dd3783f6010120f2da3c88f#63b6eb17c07e85841dd3783f6010120f2da3c88f"
+version = "1.10.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.10.0#0d9730c83f3ac936efa1595335caee0b0e538fa1"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1732,9 +1753,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "datafusion-bio-format-pgen"
+version = "0.2.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.10.0#0d9730c83f3ac936efa1595335caee0b0e538fa1"
+dependencies = [
+ "async-stream",
+ "async-trait",
+ "bytes",
+ "datafusion",
+ "datafusion-bio-format-core",
+ "flate2",
+ "futures",
+ "opendal",
+ "serde",
+ "serde_json",
+ "tokio",
+ "zstd",
+]
+
+[[package]]
 name = "datafusion-bio-format-vcf"
-version = "1.9.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=63b6eb17c07e85841dd3783f6010120f2da3c88f#63b6eb17c07e85841dd3783f6010120f2da3c88f"
+version = "1.10.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.10.0#0d9730c83f3ac936efa1595335caee0b0e538fa1"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -2813,6 +2853,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fallible-iterator"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2acce4a10f12dc2fb14a218589d4f1f62ef011b2d0cc4b3cb1bba8e94da14649"
+
+[[package]]
+name = "fallible-streaming-iterator"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
+
+[[package]]
 name = "fastrand"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3111,6 +3163,9 @@ name = "hashbrown"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
+dependencies = [
+ "ahash",
+]
 
 [[package]]
 name = "hashbrown"
@@ -3137,6 +3192,15 @@ name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
+
+[[package]]
+name = "hashlink"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ba4ff7128dee98c7dc9794b6a411377e1404dba1c97deb8d1a55297bd25d8af"
+dependencies = [
+ "hashbrown 0.14.5",
+]
 
 [[package]]
 name = "heck"
@@ -3754,6 +3818,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a45a52f43e1c16f667ccfe4dd8c85b7f7c204fd5e3bf46c5b0db9a5c3c0b8e9"
 dependencies = [
  "cc",
+]
+
+[[package]]
+name = "libsqlite3-sys"
+version = "0.30.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e99fb7a497b1e3339bc746195567ed8d3e24945ecd636e3619d20b9de9e9149"
+dependencies = [
+ "cc",
+ "pkg-config",
+ "vcpkg",
 ]
 
 [[package]]
@@ -4822,6 +4897,7 @@ dependencies = [
  "datafusion-bio-format-bam",
  "datafusion-bio-format-bbi",
  "datafusion-bio-format-bed",
+ "datafusion-bio-format-bgen",
  "datafusion-bio-format-core",
  "datafusion-bio-format-cram",
  "datafusion-bio-format-fasta",
@@ -4829,6 +4905,7 @@ dependencies = [
  "datafusion-bio-format-gff",
  "datafusion-bio-format-gtf",
  "datafusion-bio-format-pairs",
+ "datafusion-bio-format-pgen",
  "datafusion-bio-format-vcf",
  "datafusion-bio-function-fastqc",
  "datafusion-bio-function-pileup",
@@ -5616,6 +5693,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "rusqlite"
+version = "0.32.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7753b721174eb8ff87a9a0e799e2d7bc3749323e773db92e0984debb00019d6e"
+dependencies = [
+ "bitflags 2.13.0",
+ "fallible-iterator",
+ "fallible-streaming-iterator",
+ "hashlink",
+ "libsqlite3-sys",
+ "smallvec",
+]
+
+[[package]]
 name = "rust-ini"
 version = "0.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6157,6 +6248,9 @@ name = "strum"
 version = "0.26.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fec0f0aef304996cf250b31b5a10dee7980c85da9d759361292b8bca5a18f06"
+dependencies = [
+ "strum_macros 0.26.4",
+]
 
 [[package]]
 name = "strum"

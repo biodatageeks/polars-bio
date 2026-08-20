@@ -114,7 +114,120 @@ def _extract_format_specific_metadata(
     if any(key.startswith("bio.gff") for key in schema_meta.keys()):
         result["gff"] = _extract_gff_specific_metadata(schema, schema_meta, field_meta)
 
+    if any(key.startswith("bio.bgen") for key in schema_meta.keys()):
+        result["bgen"] = _extract_bgen_specific_metadata(
+            schema, schema_meta, field_meta
+        )
+
+    if any(key.startswith("bio.pgen") for key in schema_meta.keys()):
+        result["pgen"] = _extract_pgen_specific_metadata(
+            schema, schema_meta, field_meta
+        )
+
     return result
+
+
+def _extract_bgen_specific_metadata(
+    schema: pa.Schema, schema_meta: dict, field_meta: dict
+) -> Dict[str, Any]:
+    """
+    Extract BGEN-specific metadata.
+
+    BGEN has no INFO/FORMAT header. The provider records the file layout and
+    index provenance in the schema metadata, and the emitted sample order in the
+    metadata of the ``genotypes`` field.
+    """
+    sample_names = None
+    genotypes_meta = field_meta.get("genotypes", {})
+    raw_samples = genotypes_meta.get("bio.genotype.sample_names")
+    if raw_samples:
+        try:
+            sample_names = json.loads(raw_samples)
+        except (TypeError, ValueError):
+            sample_names = None
+
+    return {
+        "layout": schema_meta.get("bio.bgen.layout"),
+        "index": schema_meta.get("bio.bgen.index"),
+        "sample_names_synthetic": schema_meta.get("bio.bgen.sample_names.synthetic"),
+        "sample_names": sample_names,
+        "genotype_output": _bgen_genotype_output(schema),
+    }
+
+
+def _bgen_genotype_output(schema: pa.Schema) -> Optional[str]:
+    """Report the emitted genotype representation from the struct's value field."""
+    index = schema.get_field_index("genotypes")
+    if index < 0:
+        return None
+    genotypes = schema.field(index).type
+    if not pa.types.is_struct(genotypes):
+        return None
+    names = {genotypes.field(position).name for position in range(genotypes.num_fields)}
+    if "DS" in names:
+        return "dosage"
+    if "GP" in names:
+        return "probability"
+    return None
+
+
+def _extract_pgen_specific_metadata(
+    schema: pa.Schema, schema_meta: dict, field_meta: dict
+) -> Dict[str, Any]:
+    """
+    Extract PGEN-specific metadata.
+
+    PGEN has no embedded header. The provider records the storage mode, index
+    provenance, specification baseline, and output shape in the schema metadata,
+    and the emitted sample order and full PSAM identities in the ``genotypes``
+    field metadata.
+
+    ``variant_count`` and ``sample_count`` are the output shape, known from the
+    companions without reading a genotype record, so a caller can allocate its
+    destination before scanning. ``sample_count`` reflects the selected samples,
+    not the whole cohort.
+    """
+    genotypes_meta = field_meta.get("genotypes", {})
+
+    def _json(key: str):
+        raw = genotypes_meta.get(key)
+        if not raw:
+            return None
+        try:
+            return json.loads(raw)
+        except (TypeError, ValueError):
+            return None
+
+    def _count(key: str) -> Optional[int]:
+        raw = schema_meta.get(key)
+        if raw is None:
+            return None
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return None
+
+    return {
+        "storage_mode": schema_meta.get("bio.pgen.storage_mode"),
+        "index": schema_meta.get("bio.pgen.index"),
+        "specification_baseline": schema_meta.get("bio.pgen.specification_baseline"),
+        "variant_count": _count("bio.pgen.variant_count"),
+        "sample_count": _count("bio.pgen.selected_sample_count"),
+        "sample_names": _json("bio.genotype.sample_names"),
+        "sample_identities": _json("bio.pgen.sample_identities"),
+        "genotype_fields": _pgen_genotype_fields(schema),
+    }
+
+
+def _pgen_genotype_fields(schema: pa.Schema) -> Optional[list]:
+    """Report the emitted genotype children in schema order."""
+    index = schema.get_field_index("genotypes")
+    if index < 0:
+        return None
+    genotypes = schema.field(index).type
+    if not pa.types.is_struct(genotypes):
+        return None
+    return [genotypes.field(position).name for position in range(genotypes.num_fields)]
 
 
 def _extract_vcf_specific_metadata(

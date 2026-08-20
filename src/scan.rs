@@ -20,12 +20,22 @@ use datafusion_bio_format_bbi::bigbed::{
 };
 use datafusion_bio_format_bbi::bigwig::BigWigTableProvider;
 use datafusion_bio_format_bed::table_provider::{BEDFields, BedTableProvider};
+use datafusion_bio_format_bgen::matrix::GenotypeMatrixReader as BgenGenotypeMatrixReader;
+use datafusion_bio_format_bgen::{
+    BgenOutputMode, BgenProbabilityLayout, BgenReadOptions as NativeBgenReadOptions,
+    BgenTableProvider,
+};
+use datafusion_bio_format_core::genotype::{CoordinateSystem, MissingSamplePolicy};
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_gtf::table_provider::GtfTableProvider;
 use datafusion_bio_format_pairs::table_provider::PairsTableProvider;
+use datafusion_bio_format_pgen::matrix::{GenotypeMatrixReader, MatrixData};
+use datafusion_bio_format_pgen::{
+    PgenReadOptions as NativePgenReadOptions, PgenTableProvider, PsamIdMode,
+};
 use datafusion_bio_format_vcf::table_provider::{GenotypeOutputMode, VcfTableProvider};
 use datafusion_bio_format_vcf::zarr::{
     VcfZarrReadOptions as NativeVcfZarrReadOptions, VcfZarrTableProvider,
@@ -38,9 +48,10 @@ use tracing::debug;
 
 use crate::context::PyBioSessionContext;
 use crate::option::{
-    BamReadOptions, BedReadOptions, BigBedReadOptions, BigWigReadOptions, CramReadOptions,
-    FastaReadOptions, FastqReadOptions, GffReadOptions, GtfReadOptions, InputFormat,
-    PairsReadOptions, ReadOptions, VcfReadOptions, VcfZarrReadOptions,
+    BamReadOptions, BedReadOptions, BgenReadOptions, BigBedReadOptions, BigWigReadOptions,
+    CramReadOptions, FastaReadOptions, FastqReadOptions, GffReadOptions, GtfReadOptions,
+    InputFormat, PairsReadOptions, PgenReadOptions, ReadOptions, VcfReadOptions,
+    VcfZarrReadOptions,
 };
 
 type BatchResultReceiver = Receiver<Result<RecordBatch, DataFusionError>>;
@@ -482,8 +493,83 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         || path.ends_with(".pairs.bgz")
     {
         InputFormat::Pairs
+    } else if path.ends_with(".bgen") {
+        InputFormat::Bgen
+    } else if path.ends_with(".pgen") {
+        InputFormat::Pgen
     } else {
         panic!("Unsupported format")
+    }
+}
+
+fn bgen_probability_layout(layout: &str) -> datafusion::common::Result<BgenProbabilityLayout> {
+    match layout.to_ascii_lowercase().as_str() {
+        "nested" => Ok(BgenProbabilityLayout::Nested),
+        "fixed" => Ok(BgenProbabilityLayout::Fixed),
+        _ => Err(DataFusionError::Execution(format!(
+            "Unsupported BGEN probability layout '{layout}'. Expected 'nested' or 'fixed'."
+        ))),
+    }
+}
+
+/// Builds the provider's PGEN options from the Python-facing ones.
+///
+/// Shared by table registration and the matrix reader, which must agree on how
+/// a request is interpreted — a sample selection or a coordinate system that
+/// differed between the two would give the same file two different meanings.
+pub fn native_pgen_options(
+    options: &PgenReadOptions,
+) -> datafusion::common::Result<NativePgenReadOptions> {
+    // An unset tuning knob keeps the provider default rather than collapsing to
+    // zero, which would disable coalescing entirely.
+    let defaults = NativePgenReadOptions::default();
+    Ok(NativePgenReadOptions {
+        genotype_fields: options.genotype_fields.clone(),
+        coordinate_system: CoordinateSystem::from_zero_based(options.zero_based),
+        object_storage_options: options.object_storage_options.clone(),
+        samples: options.samples.clone(),
+        missing_sample_policy: pgen_missing_sample_policy(&options.missing_sample_policy)?,
+        psam_id_mode: pgen_psam_id_mode(&options.psam_id_mode)?,
+        pvar_path: options.pvar_path.clone(),
+        psam_path: options.psam_path.clone(),
+        pgi_path: options.pgi_path.clone(),
+        max_range_gap: options.max_range_gap.unwrap_or(defaults.max_range_gap),
+        max_range_bytes: options.max_range_bytes.unwrap_or(defaults.max_range_bytes),
+        batch_soft_byte_limit: options
+            .batch_soft_byte_limit
+            .unwrap_or(defaults.batch_soft_byte_limit),
+        ..defaults
+    })
+}
+
+fn pgen_psam_id_mode(mode: &str) -> datafusion::common::Result<PsamIdMode> {
+    match mode.to_ascii_lowercase().as_str() {
+        "iid" => Ok(PsamIdMode::Iid),
+        "fid_iid" => Ok(PsamIdMode::FidIid),
+        "fid_iid_sid" => Ok(PsamIdMode::FidIidSid),
+        _ => Err(DataFusionError::Plan(format!(
+            "Unsupported PGEN psam_id_mode '{mode}'. Expected 'iid', 'fid_iid', or 'fid_iid_sid'."
+        ))),
+    }
+}
+
+fn pgen_missing_sample_policy(policy: &str) -> datafusion::common::Result<MissingSamplePolicy> {
+    match policy.to_ascii_lowercase().as_str() {
+        "error" => Ok(MissingSamplePolicy::Error),
+        "ignore" => Ok(MissingSamplePolicy::Ignore),
+        _ => Err(DataFusionError::Plan(format!(
+            "Unsupported PGEN missing_sample_policy '{policy}'. Expected 'error' or 'ignore'."
+        ))),
+    }
+}
+
+fn bgen_output_mode(mode: &str) -> datafusion::common::Result<BgenOutputMode> {
+    match mode.to_ascii_lowercase().as_str() {
+        "probability" => Ok(BgenOutputMode::Probability),
+        "dosage" => Ok(BgenOutputMode::Dosage),
+        _ => Err(DataFusionError::Execution(format!(
+            "Unsupported BGEN genotype output '{mode}'. Expected 'probability' or 'dosage'."
+        ))),
     }
 }
 
@@ -504,7 +590,28 @@ pub(crate) async fn register_table(
     format: InputFormat,
     read_options: Option<ReadOptions>,
 ) -> datafusion::common::Result<String> {
+    // Opening a provider can fail on user input, so the existing registration is
+    // kept aside and put back if it does. Without this, a failed replacement
+    // would leave the caller with no table at all.
+    let previous = ctx.table_provider(table_name).await.ok();
     ctx.deregister_table(table_name).unwrap();
+    let outcome = register_table_provider(ctx, path, table_name, format, read_options).await;
+    if outcome.is_err() {
+        if let Some(previous) = previous {
+            let _ = ctx.register_table(table_name, previous);
+        }
+    }
+    outcome?;
+    Ok(table_name.to_string())
+}
+
+async fn register_table_provider(
+    ctx: &SessionContext,
+    path: &str,
+    table_name: &str,
+    format: InputFormat,
+    read_options: Option<ReadOptions>,
+) -> datafusion::common::Result<()> {
     match format {
         InputFormat::Parquet => ctx
             .register_parquet(table_name, path, ParquetReadOptions::new())
@@ -768,6 +875,59 @@ pub(crate) async fn register_table(
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register PAIRS table");
         },
+        InputFormat::Bgen => {
+            let bgen_read_options = match &read_options {
+                Some(options) => match options.clone().bgen_read_options {
+                    Some(bgen_read_options) => bgen_read_options,
+                    _ => BgenReadOptions::default(),
+                },
+                _ => BgenReadOptions::default(),
+            };
+            info!(
+                "Registering BGEN table {} with options: {:?}",
+                table_name, bgen_read_options
+            );
+            let output_mode = bgen_output_mode(&bgen_read_options.genotype_output)?;
+            let probability_layout =
+                bgen_probability_layout(&bgen_read_options.probability_layout)?;
+            let native_options = NativeBgenReadOptions {
+                output_mode,
+                probability_layout,
+                sample_path: bgen_read_options.sample_path.clone(),
+                bgi_path: bgen_read_options.bgi_path.clone(),
+                samples: bgen_read_options.samples.clone(),
+                genotype_fields: bgen_read_options.genotype_fields.clone(),
+                coordinate_system: CoordinateSystem::from_zero_based(bgen_read_options.zero_based),
+                object_storage_options: bgen_read_options.object_storage_options.clone(),
+                ..Default::default()
+            };
+            // Reading a BGEN can fail on user input, such as a sample name that
+            // is not in the file, so the error is returned instead of panicking
+            // inside the extension.
+            let table_provider =
+                BgenTableProvider::try_new(path.to_string(), native_options).await?;
+            ctx.register_table(table_name, Arc::new(table_provider))?;
+        },
+        InputFormat::Pgen => {
+            let pgen_read_options = match &read_options {
+                Some(options) => match options.clone().pgen_read_options {
+                    Some(pgen_read_options) => pgen_read_options,
+                    _ => PgenReadOptions::default(),
+                },
+                _ => PgenReadOptions::default(),
+            };
+            info!(
+                "Registering PGEN table {} with options: {:?}",
+                table_name, pgen_read_options
+            );
+            let native_options = native_pgen_options(&pgen_read_options)?;
+            // Opening a PGEN fileset can fail on user input, such as an absent
+            // PVAR companion or an unknown genotype field, so the error is
+            // returned instead of panicking inside the extension.
+            let table_provider =
+                PgenTableProvider::try_new(path.to_string(), native_options).await?;
+            ctx.register_table(table_name, Arc::new(table_provider))?;
+        },
         InputFormat::Gtf => {
             let gtf_read_options = match &read_options {
                 Some(options) => match options.clone().gtf_read_options {
@@ -791,7 +951,7 @@ pub(crate) async fn register_table(
                 .expect("Failed to register GTF table");
         },
     };
-    Ok(table_name.to_string())
+    Ok(())
 }
 
 pub(crate) fn maybe_register_table(
@@ -966,6 +1126,208 @@ pub fn py_describe_cram(
             })?;
         Ok(datafusion_python::dataframe::PyDataFrame::new(df))
     })
+}
+
+/// Opens a PGEN fileset for matrix reads.
+///
+/// Kept open across the shape query and the decode so the 108 MB PVAR is parsed
+/// once. Answering "how big is it" and "give me the values" as two separate
+/// calls would otherwise parse it twice, which on the hardcall workload is a
+/// fifth of the whole operation.
+pub struct OpenPgenMatrix {
+    reader: GenotypeMatrixReader,
+    runtime: tokio::runtime::Runtime,
+}
+
+impl OpenPgenMatrix {
+    /// Opens a fileset and reads its companions.
+    pub fn open(path: String, options: &PgenReadOptions) -> datafusion::common::Result<Self> {
+        let native = native_pgen_options(options)?;
+        // A private runtime: this is driven from Python, so there is no ambient
+        // one, and the provider spawns its decode threads inside it.
+        let runtime = tokio::runtime::Runtime::new().map_err(|error| {
+            datafusion::error::DataFusionError::Execution(format!(
+                "failed to start a runtime for the PGEN matrix read: {error}"
+            ))
+        })?;
+        let reader = runtime.block_on(GenotypeMatrixReader::open(path, &native))?;
+        Ok(Self { reader, runtime })
+    }
+
+    /// Rows and columns the decode will fill.
+    pub fn shape(&self) -> (usize, usize) {
+        let shape = self.reader.shape();
+        (shape.variants, shape.samples)
+    }
+
+    /// Selected sample names, in column order.
+    pub fn sample_names(&self) -> Vec<String> {
+        self.reader.sample_names().to_vec()
+    }
+
+    /// Variant start positions, in row order.
+    pub fn positions(&self) -> Vec<u64> {
+        self.reader.positions()
+    }
+
+    /// Decodes into memory the caller owns.
+    ///
+    /// # Safety
+    ///
+    /// `values` must point to at least `len` writable, C-contiguous, correctly
+    /// aligned elements of the type `field` implies — `i8` for `ALT_COUNT`,
+    /// `f32` for `DS` — and must stay valid and unaliased for the call.
+    /// Alignment is the requirement `from_raw_parts_mut` makes that
+    /// C-contiguity and writability do not imply, and `f32` wants four bytes.
+    pub unsafe fn read_into(
+        &self,
+        field: &str,
+        values: *mut u8,
+        len: usize,
+        threads: usize,
+        missing: f64,
+    ) -> datafusion::common::Result<()> {
+        let (variants, samples) = self.shape();
+        let expected = variants.saturating_mul(samples);
+        if len != expected {
+            return Err(datafusion::error::DataFusionError::Execution(format!(
+                "PGEN matrix destination holds {len} values; expected {expected}"
+            )));
+        }
+        match field {
+            "ALT_COUNT" => {
+                // `missing as i8` saturates and turns NaN into 0, so a sentinel
+                // int8 cannot hold would come back indistinguishable from a
+                // homozygous-reference call. `read_pgen_matrix` rejects those
+                // before the fileset is opened; this is the same check at the
+                // boundary every caller crosses, including one holding the
+                // reader directly.
+                if !missing.is_finite()
+                    || missing.fract() != 0.0
+                    || !(-128.0..=127.0).contains(&missing)
+                {
+                    return Err(datafusion::error::DataFusionError::Execution(format!(
+                        "missing={missing} is not representable as the int8 ALT_COUNT \
+                         matrix stores; pass a whole number in [-128, 127]"
+                    )));
+                }
+                // SAFETY: the caller guarantees `values` addresses `len`
+                // writable, correctly aligned `i8`s, and `len` has just been
+                // checked against the shape, so the decoder cannot index past
+                // the end.
+                let slice = unsafe { std::slice::from_raw_parts_mut(values as *mut i8, expected) };
+                self.runtime.block_on(self.reader.read_into(
+                    MatrixData::AltCount {
+                        values: slice,
+                        missing: missing as i8,
+                    },
+                    threads,
+                ))
+            },
+            "DS" => {
+                // SAFETY: as above, for `f32`.
+                let slice = unsafe { std::slice::from_raw_parts_mut(values as *mut f32, expected) };
+                self.runtime.block_on(self.reader.read_into(
+                    MatrixData::Dosage {
+                        values: slice,
+                        missing: missing as f32,
+                    },
+                    threads,
+                ))
+            },
+            other => Err(datafusion::error::DataFusionError::Execution(format!(
+                "read_pgen_matrix supports ALT_COUNT and DS, not {other}"
+            ))),
+        }
+    }
+}
+
+/// An open BGEN, read as a dense dosage matrix.
+///
+/// The BGEN counterpart of [`OpenPgenMatrix`], and a handle for the same
+/// reason: a caller must learn the shape before it can allocate, and reopening
+/// would rebuild the catalog — which for a file without a usable index is a
+/// walk of every record.
+pub struct OpenBgenMatrix {
+    reader: BgenGenotypeMatrixReader,
+    runtime: tokio::runtime::Runtime,
+}
+
+impl OpenBgenMatrix {
+    /// Opens a BGEN and reads its metadata.
+    pub fn open(path: String, options: &BgenReadOptions) -> datafusion::common::Result<Self> {
+        // Dosage only, and only the value child: the matrix produces one value
+        // per genotype by construction, so PLOIDY has nowhere to go and
+        // probabilities, being variable width, have no dense shape to land in.
+        // The mode is fixed here rather than read from `options`, so there is
+        // no probability request to reject: `read_bgen_matrix` exposes no
+        // output mode for one to arrive through.
+        let native = NativeBgenReadOptions {
+            output_mode: BgenOutputMode::Dosage,
+            genotype_fields: Some(vec!["DS".to_string()]),
+            sample_path: options.sample_path.clone(),
+            bgi_path: options.bgi_path.clone(),
+            samples: options.samples.clone(),
+            coordinate_system: CoordinateSystem::from_zero_based(options.zero_based),
+            object_storage_options: options.object_storage_options.clone(),
+            ..Default::default()
+        };
+        let runtime = tokio::runtime::Runtime::new().map_err(|error| {
+            datafusion::error::DataFusionError::Execution(format!(
+                "failed to start a runtime for the BGEN matrix read: {error}"
+            ))
+        })?;
+        let reader = runtime.block_on(BgenGenotypeMatrixReader::open(path, native))?;
+        Ok(Self { reader, runtime })
+    }
+
+    /// Rows and columns the decode will fill.
+    pub fn shape(&self) -> (usize, usize) {
+        let shape = self.reader.shape();
+        (shape.variants, shape.samples)
+    }
+
+    /// Selected sample names, in column order.
+    pub fn sample_names(&self) -> Vec<String> {
+        self.reader.sample_names().to_vec()
+    }
+
+    /// Variant start positions, in row order.
+    pub fn positions(&self) -> Vec<u64> {
+        self.reader.positions()
+    }
+
+    /// Decodes into memory the caller owns.
+    ///
+    /// # Safety
+    ///
+    /// `values` must point to at least `len` writable, C-contiguous,
+    /// 4-byte-aligned `f32`s that stay valid and unaliased for the call.
+    /// Alignment is the requirement `from_raw_parts_mut` makes that
+    /// C-contiguity and writability do not imply.
+    pub unsafe fn read_into(
+        &self,
+        values: *mut u8,
+        len: usize,
+        threads: usize,
+        missing: f64,
+    ) -> datafusion::common::Result<()> {
+        let (variants, samples) = self.shape();
+        let expected = variants.saturating_mul(samples);
+        if len != expected {
+            return Err(datafusion::error::DataFusionError::Execution(format!(
+                "BGEN matrix destination holds {len} values; expected {expected}"
+            )));
+        }
+        // SAFETY: the caller guarantees `values` addresses `len` writable,
+        // C-contiguous, 4-byte-aligned `f32`s that stay alive and unaliased for
+        // this call. Alignment is the one `from_raw_parts_mut` requires that
+        // C-contiguity and writability do not imply.
+        let slice = unsafe { std::slice::from_raw_parts_mut(values as *mut f32, len) };
+        self.runtime
+            .block_on(self.reader.read_into(slice, missing as f32, threads))?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

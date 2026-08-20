@@ -1,6 +1,7 @@
 import logging
 import weakref as _weakref
-from typing import Dict, Iterator, Optional, Union
+from uuid import uuid4
+from typing import Any, Dict, Iterator, NamedTuple, Optional, Sequence, Union
 
 import polars as pl
 
@@ -13,6 +14,7 @@ from polars_bio.polars_bio import (
     BamReadOptions,
     BamWriteOptions,
     BedReadOptions,
+    BgenReadOptions,
     BigBedReadOptions,
     BigWigReadOptions,
     CramReadOptions,
@@ -26,6 +28,7 @@ from polars_bio.polars_bio import (
     InputFormat,
     OutputFormat,
     PairsReadOptions,
+    PgenReadOptions,
     PyObjectStorageOptions,
     ReadOptions,
     VcfReadOptions,
@@ -289,6 +292,131 @@ def _validate_bcf_genotype_output(
             'FORMAT field (format_fields=["GT"]); '
             f"got format_fields={format_fields!r}"
         )
+
+
+def _validate_bgen_input_path(path: str, operation: str = "read") -> None:
+    """Keep the BGEN entry points format-specific."""
+    if not strip_url_parameters(path).lower().endswith(".bgen"):
+        raise ValueError(
+            f"BGEN {operation} requires a path ending in '.bgen', got {path!r}"
+        )
+
+
+def _validate_bgen_probability_layout(probability_layout: str) -> None:
+    if probability_layout not in {"nested", "fixed"}:
+        raise ValueError(
+            "probability_layout must be either 'nested' or 'fixed', "
+            f"got {probability_layout!r}"
+        )
+
+
+BGEN_GENOTYPE_FIELDS = ("DS", "GP", "PLOIDY")
+
+
+def _validate_bgen_genotype_fields(
+    genotype_fields: Union[Sequence[str], None],
+) -> None:
+    """Catch an empty or misspelled selection before a file is opened.
+
+    Only the names are checked here. *Which* of them a given call may ask for
+    depends on `genotype_output` — `DS` for dosage, `GP` for probability — and
+    that rule stays with the provider, which states it precisely and cannot
+    drift from itself. Duplicating it would put two answers in the repository
+    for one question.
+    """
+    if genotype_fields is None:
+        return
+    if not genotype_fields:
+        raise ValueError(
+            "genotype_fields must name at least one of "
+            f"{', '.join(BGEN_GENOTYPE_FIELDS)}"
+        )
+    unknown = [name for name in genotype_fields if name not in BGEN_GENOTYPE_FIELDS]
+    if unknown:
+        raise ValueError(
+            f"unsupported BGEN genotype field(s) {unknown!r}; "
+            f"available fields: {', '.join(BGEN_GENOTYPE_FIELDS)}"
+        )
+
+
+def _validate_bgen_genotype_output(genotype_output: str) -> None:
+    if genotype_output not in {"probability", "dosage"}:
+        raise ValueError(
+            "genotype_output must be either 'probability' or 'dosage', "
+            f"got {genotype_output!r}"
+        )
+
+
+PGEN_GENOTYPE_FIELDS = ("GT", "ALT_COUNT", "PHASED", "DS", "DS_STORED", "HDS")
+
+
+def _validate_pgen_input_path(path: str, operation: str = "read") -> None:
+    """Keep the PGEN entry points format-specific."""
+    if not strip_url_parameters(path).lower().endswith(".pgen"):
+        raise ValueError(
+            f"PGEN {operation} requires a path ending in '.pgen', got {path!r}"
+        )
+
+
+def _validate_pgen_genotype_fields(genotype_fields: Sequence[str]) -> None:
+    if not genotype_fields:
+        raise ValueError(
+            "genotype_fields must name at least one of "
+            f"{', '.join(PGEN_GENOTYPE_FIELDS)}"
+        )
+    unknown = [name for name in genotype_fields if name not in PGEN_GENOTYPE_FIELDS]
+    if unknown:
+        raise ValueError(
+            f"unsupported PGEN genotype field(s) {unknown!r}; "
+            f"available fields: {', '.join(PGEN_GENOTYPE_FIELDS)}"
+        )
+
+
+PGEN_PSAM_ID_MODES = ("iid", "fid_iid", "fid_iid_sid")
+PGEN_MISSING_SAMPLE_POLICIES = ("error", "ignore")
+
+
+def _validate_pgen_psam_id_mode(psam_id_mode: str) -> None:
+    if psam_id_mode not in PGEN_PSAM_ID_MODES:
+        raise ValueError(
+            "psam_id_mode must be one of "
+            f"{', '.join(repr(mode) for mode in PGEN_PSAM_ID_MODES)}, "
+            f"got {psam_id_mode!r}"
+        )
+
+
+def _validate_pgen_missing_sample_policy(missing_sample_policy: str) -> None:
+    if missing_sample_policy not in PGEN_MISSING_SAMPLE_POLICIES:
+        raise ValueError(
+            "missing_sample_policy must be either 'error' or 'ignore', "
+            f"got {missing_sample_policy!r}"
+        )
+
+
+def _check_room(row: int, count: int, variants: int) -> int:
+    """Guard the destination against a scan longer than the companions declare."""
+    if row + count > variants:
+        raise RuntimeError(
+            f"PGEN scan emitted more than the {variants} variants the provider reported"
+        )
+    return count
+
+
+class PgenMatrix(NamedTuple):
+    """A dense genotype matrix and the labels for its axes.
+
+    `values` is a C-contiguous NumPy array with one row per variant and one
+    column per selected sample; `positions` is a NumPy array labelling the rows
+    and `sample_names` a list labelling the columns.
+
+    The fields are typed loosely because NumPy is not a polars-bio dependency —
+    it is imported only by `read_pgen_matrix`, which is the only thing that
+    produces this.
+    """
+
+    values: Any
+    positions: Any
+    sample_names: list
 
 
 class IOOperations:
@@ -1911,6 +2039,579 @@ class IOOperations:
         )
 
     @staticmethod
+    def read_bgen(
+        path: str,
+        genotype_output: str = "probability",
+        probability_layout: str = "nested",
+        samples: Union[list[str], None] = None,
+        genotype_fields: Union[list[str], None] = None,
+        sample_path: Union[str, None] = None,
+        bgi_path: Union[str, None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Read a BGEN file into a DataFrame.
+
+        One row is one BGEN variant. Encoded alleles stay ordered in `alleles`
+        and are not given reference/alternate semantics.
+
+        Parameters:
+            path: The path to the BGEN file. The path must end in `.bgen`.
+            genotype_output: Genotype representation. `"probability"` (default) keeps every format-defined state in `genotypes.GP`. `"dosage"` emits `genotypes.DS`, the expected copy count of `alleles[1]`, and rejects multiallelic variants.
+            probability_layout: How probability states are stored. `"nested"` (default) gives each sample a variable-length list and reads every BGEN file. `"fixed"` gives each sample a fixed-width list, dropping the per-sample offsets that are about a quarter of the emitted probability bytes for a diploid biallelic cohort; it requires every variant to store the same number of states and rejects a file that mixes them. Ignored when `genotype_output="dosage"`.
+            samples: Sample identifiers to emit, in requested order. If *None*, all samples are emitted in file order.
+            genotype_fields: Children of the `genotypes` struct to emit, from the output mode's value child — `"DS"` for dosage, `"GP"` for probability — and `"PLOIDY"`, in the requested order. If *None*, all of them are emitted. `"PLOIDY"` is a byte per genotype, 2.53 GB on a whole 1000 Genomes chromosome 22, and a NumPy view of the result keeps the whole struct alive, so pass `["DS"]` when only the dosages are wanted.
+            sample_path: An explicit Oxford `.sample` companion. Used only when the BGEN has no embedded sample identifiers.
+            bgi_path: An explicit `.bgi` index. A neighbouring `file.bgen.bgi` is discovered automatically.
+            chunk_size: The size in MB of a chunk when reading from an object store.
+            concurrent_fetches: The number of concurrent fetches when reading from an object store.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression override. BGEN block compression is read from the file header.
+            projection_pushdown: Enable column projection pushdown. Metadata-only scans do not read or decompress probability blocks.
+            predicate_pushdown: Use a `.bgi` index for `chrom`, `rsid`, `id`, `start`, and `end` predicate pushdown when one is available.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration.
+
+        !!! note
+            BGEN is input-only.
+        """
+        lf = IOOperations.scan_bgen(
+            path=path,
+            genotype_output=genotype_output,
+            probability_layout=probability_layout,
+            samples=samples,
+            genotype_fields=genotype_fields,
+            sample_path=sample_path,
+            bgi_path=bgi_path,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+            use_zero_based=use_zero_based,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_bgen(
+        path: str,
+        genotype_output: str = "probability",
+        probability_layout: str = "nested",
+        samples: Union[list[str], None] = None,
+        genotype_fields: Union[list[str], None] = None,
+        sample_path: Union[str, None] = None,
+        bgi_path: Union[str, None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read a BGEN file into a LazyFrame.
+
+        BGI range pushdown, projection pushdown, and configured input partition
+        parallelism are preserved. See `read_bgen` for the parameters.
+        """
+        _validate_bgen_genotype_output(genotype_output)
+        _validate_bgen_probability_layout(probability_layout)
+        _validate_bgen_genotype_fields(genotype_fields)
+        _validate_bgen_input_path(path)
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        zero_based = _resolve_zero_based(use_zero_based)
+        bgen_read_options = BgenReadOptions(
+            object_storage_options=object_storage_options,
+            genotype_output=genotype_output,
+            probability_layout=probability_layout,
+            samples=samples,
+            genotype_fields=genotype_fields,
+            sample_path=sample_path,
+            bgi_path=bgi_path,
+            zero_based=zero_based,
+        )
+        read_options = ReadOptions(bgen_read_options=bgen_read_options)
+        return _read_file(
+            path,
+            InputFormat.Bgen,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
+        )
+
+    @staticmethod
+    def read_pgen(
+        path: str,
+        genotype_fields: Sequence[str] = ("GT",),
+        samples: Union[list[str], None] = None,
+        missing_sample_policy: str = "error",
+        psam_id_mode: str = "iid",
+        pvar_path: Union[str, None] = None,
+        psam_path: Union[str, None] = None,
+        pgi_path: Union[str, None] = None,
+        max_range_gap: Union[int, None] = None,
+        max_range_bytes: Union[int, None] = None,
+        batch_soft_byte_limit: Union[int, None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Read a PLINK 2 PGEN fileset into a DataFrame.
+
+        One row is one PVAR variant. The `.pvar` and `.psam` companions are
+        discovered from the `.pgen` basename.
+
+        Parameters:
+            path: The path to the PGEN file. The path must end in `.pgen`. A neighbouring `.pvar` (or `.pvar.zst`) and `.psam` are discovered automatically.
+            genotype_fields: Genotype children to emit, from `"GT"`, `"ALT_COUNT"`, `"PHASED"`, `"DS"`, `"DS_STORED"`, and `"HDS"`, in the requested order. Defaults to `("GT",)`. Note this narrows the provider default, which emits all of them. `"ALT_COUNT"` is the hardcall ALT allele count as `int8`, one byte per genotype rather than the four `"DS"` uses; prefer it when the fileset stores only hardcalls.
+            samples: Sample identifiers to emit, in requested order. If *None*, all samples are emitted in PSAM order.
+            missing_sample_policy: `"error"` (default) rejects a requested sample name absent from the PSAM; `"ignore"` omits it from the selection.
+            psam_id_mode: How selectable sample names are built from PSAM identifiers. `"iid"` (default) uses IID alone and rejects duplicates; `"fid_iid"` uses `FID:IID`; `"fid_iid_sid"` uses `FID:IID:SID`. A PSAM without FID or SID columns defaults those parts to `"0"`.
+            pvar_path: An explicit `.pvar` companion. A neighbouring `.pvar` then `.pvar.zst` is discovered otherwise.
+            psam_path: An explicit `.psam` companion. The shared-basename `.psam` is used otherwise.
+            pgi_path: An explicit `.pgi` index, for a PGEN that uses an external index.
+            max_range_gap: The largest run of unselected bytes bridged when coalescing reads, in bytes. The provider default is 0, which never bridges a gap and issues one read per contiguous run of selected variants. Raising it trades wasted bytes for fewer requests, which matters most on object storage. If *None*, the provider default is used.
+            max_range_bytes: The largest coalesced read, in bytes. If *None*, the provider default is used.
+            batch_soft_byte_limit: A soft target for genotype bytes in one RecordBatch. If *None*, the provider default is used.
+            chunk_size: The size in MB of a chunk when reading from an object store.
+            concurrent_fetches: The number of concurrent fetches when reading from an object store.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression override. PGEN record compression is read from the file header.
+            projection_pushdown: Enable column projection pushdown. Metadata-only scans do not read genotype records.
+            predicate_pushdown: Push `chrom`, `id`, `start`, and `end` predicates into variant selection.
+            use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration.
+
+        !!! note
+            PGEN is input-only.
+        """
+        lf = IOOperations.scan_pgen(
+            path=path,
+            genotype_fields=genotype_fields,
+            samples=samples,
+            missing_sample_policy=missing_sample_policy,
+            psam_id_mode=psam_id_mode,
+            pvar_path=pvar_path,
+            psam_path=psam_path,
+            pgi_path=pgi_path,
+            max_range_gap=max_range_gap,
+            max_range_bytes=max_range_bytes,
+            batch_soft_byte_limit=batch_soft_byte_limit,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+            use_zero_based=use_zero_based,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_pgen(
+        path: str,
+        genotype_fields: Sequence[str] = ("GT",),
+        samples: Union[list[str], None] = None,
+        missing_sample_policy: str = "error",
+        psam_id_mode: str = "iid",
+        pvar_path: Union[str, None] = None,
+        psam_path: Union[str, None] = None,
+        pgi_path: Union[str, None] = None,
+        max_range_gap: Union[int, None] = None,
+        max_range_bytes: Union[int, None] = None,
+        batch_soft_byte_limit: Union[int, None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read a PLINK 2 PGEN fileset into a LazyFrame.
+
+        Projection pushdown and configured input partition parallelism are
+        preserved. See `read_pgen` for the parameters.
+        """
+        _validate_pgen_input_path(path)
+        _validate_pgen_genotype_fields(genotype_fields)
+        _validate_pgen_psam_id_mode(psam_id_mode)
+        _validate_pgen_missing_sample_policy(missing_sample_policy)
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+
+        zero_based = _resolve_zero_based(use_zero_based)
+        pgen_read_options = PgenReadOptions(
+            object_storage_options=object_storage_options,
+            genotype_fields=list(genotype_fields),
+            zero_based=zero_based,
+            samples=samples,
+            missing_sample_policy=missing_sample_policy,
+            psam_id_mode=psam_id_mode,
+            pvar_path=pvar_path,
+            psam_path=psam_path,
+            pgi_path=pgi_path,
+            max_range_gap=max_range_gap,
+            max_range_bytes=max_range_bytes,
+            batch_soft_byte_limit=batch_soft_byte_limit,
+        )
+        read_options = ReadOptions(pgen_read_options=pgen_read_options)
+        return _read_file(
+            path,
+            InputFormat.Pgen,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
+        )
+
+    @staticmethod
+    def read_pgen_matrix(
+        path: str,
+        field: str = "ALT_COUNT",
+        samples: Union[list[str], None] = None,
+        missing: Union[int, float, None] = None,
+        missing_sample_policy: str = "error",
+        psam_id_mode: str = "iid",
+        pvar_path: Union[str, None] = None,
+        psam_path: Union[str, None] = None,
+        pgi_path: Union[str, None] = None,
+        max_range_gap: Union[int, None] = None,
+        max_range_bytes: Union[int, None] = None,
+        batch_soft_byte_limit: Union[int, None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        use_zero_based: Optional[bool] = None,
+        copy_threads: Union[int, None] = None,
+    ) -> "PgenMatrix":
+        """
+        Read one genotype field of a PGEN fileset into a dense NumPy matrix.
+
+        The whole-cohort matrix is what association testing, PCA, and relatedness
+        pipelines consume, and going through a DataFrame to get one costs a
+        second full copy of every value: the scan builds Arrow batches, and
+        something then has to consolidate them into a contiguous array. The
+        decoder here writes genotypes at their final address instead, so they
+        are written once.
+
+        On chromosome 22 of 1000 Genomes (993,881 variants x 2,548 samples) the
+        `DS` matrix takes **1.29 s** and 12.6 GB, against 3.2 s and 22.3 GB
+        through `read_pgen`. `ALT_COUNT` takes 0.70 s. Both are faster than
+        PLINK 2's own `pgenlib` at one thread, and roughly three times faster
+        again given eight partitions.
+
+        Parameters:
+            path: The path to the PGEN file. The path must end in `.pgen`.
+            field: The genotype field to materialize: `"ALT_COUNT"` (`int8` hardcall ALT allele count) or `"DS"` (`float32` ALT dosage). Fields with more than one value per sample — `"GT"`, `"HDS"` — have no dense matrix form, and `"DS_STORED"` has no decoder on this path; read those with `read_pgen`.
+            samples: Sample identifiers to emit, in requested order. If *None*, all samples are emitted in PSAM order. The matrix has one column per selected sample.
+            missing: The value written where a genotype is missing. Defaults to `-9` for `"ALT_COUNT"`, matching PLINK's sentinel, and to NaN for the float fields.
+            missing_sample_policy: `"error"` (default) rejects a requested sample name absent from the PSAM; `"ignore"` omits it.
+            psam_id_mode: How selectable sample names are built from PSAM identifiers. See `read_pgen`.
+            pvar_path: An explicit `.pvar` companion.
+            psam_path: An explicit `.psam` companion.
+            pgi_path: An explicit `.pgi` index.
+            max_range_gap: The largest run of unselected bytes bridged when coalescing reads.
+            max_range_bytes: The largest coalesced read, in bytes.
+            batch_soft_byte_limit: A soft target for genotype bytes in one RecordBatch.
+            chunk_size: The size in MB of a chunk when reading from an object store.
+            concurrent_fetches: The number of concurrent fetches when reading from an object store.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            max_retries: The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression override.
+            use_zero_based: If True, report 0-based positions. If False, 1-based. If None (default), uses the global configuration.
+            copy_threads: How many threads decode into the result. They write disjoint row ranges, so they never contend. If *None* (default), this follows `datafusion.execution.target_partitions`, so a single-partition read stays single-threaded end to end.
+
+        Returns:
+            A `PgenMatrix` of `values` (a C-contiguous `(variants, samples)`
+            array), `positions` (one per row), and `sample_names` (one per
+            column).
+
+        !!! note
+            Rows are in PVAR order at every partition count: each variant is
+            written at its own row index rather than in the order it finished
+            decoding. This differs from `read_pgen`, whose row order may
+            interleave above one partition.
+
+        Example:
+            ```python
+            import polars_bio as pb
+
+            matrix = pb.read_pgen_matrix("cohort.pgen", field="ALT_COUNT")
+            matrix.values.shape       # (variants, samples)
+            matrix.values.mean(axis=1)  # per-variant ALT frequency * 2
+            ```
+        """
+        # Imported here rather than at module scope: NumPy is not a polars-bio
+        # dependency, and only this function needs it.
+        try:
+            import numpy as np
+        except ImportError as error:  # pragma: no cover - environment-dependent
+            raise ImportError(
+                "read_pgen_matrix returns NumPy arrays and needs NumPy installed"
+            ) from error
+
+        dtypes = {
+            "ALT_COUNT": np.int8,
+            "DS": np.float32,
+        }
+        if field not in dtypes:
+            raise ValueError(
+                f"read_pgen_matrix supports {sorted(dtypes)}, not {field!r}. "
+                "Fields with more than one value per sample have no dense matrix "
+                "form, and DS_STORED has no decoder on this path; read them with "
+                "read_pgen."
+            )
+        dtype = np.dtype(dtypes[field])
+        if missing is None:
+            missing = -9 if dtype == np.int8 else np.nan
+        elif field == "ALT_COUNT":
+            # The sentinel crosses into Rust as an f64 and is written with
+            # `as i8`, which saturates out-of-range values and turns NaN into
+            # 0 — silently indistinguishable from a homozygous-reference call.
+            # Reject what that cast would corrupt rather than write it.
+            sentinel = float(missing)
+            if (
+                not np.isfinite(sentinel)
+                or sentinel != int(sentinel)
+                or not -128 <= sentinel <= 127
+            ):
+                raise ValueError(
+                    f"missing={missing!r} is not representable as the int8 "
+                    "ALT_COUNT matrix stores; pass a whole number in "
+                    "[-128, 127] (PLINK's own sentinel is -9)"
+                )
+
+        # Built directly rather than through `scan_pgen`, because this path does
+        # not register a table: the reader opens the fileset itself and answers
+        # shape, names and positions from it, so the PVAR is parsed once.
+        decode_options = PgenReadOptions(
+            object_storage_options=PyObjectStorageOptions(
+                allow_anonymous=allow_anonymous,
+                enable_request_payer=enable_request_payer,
+                chunk_size=chunk_size,
+                concurrent_fetches=concurrent_fetches,
+                max_retries=max_retries,
+                timeout=timeout,
+                compression_type=compression_type,
+            ),
+            genotype_fields=[field],
+            zero_based=_resolve_zero_based(use_zero_based),
+            samples=samples,
+            missing_sample_policy=missing_sample_policy,
+            psam_id_mode=psam_id_mode,
+            pvar_path=pvar_path,
+            psam_path=psam_path,
+            pgi_path=pgi_path,
+            max_range_gap=max_range_gap,
+            max_range_bytes=max_range_bytes,
+            batch_soft_byte_limit=batch_soft_byte_limit,
+        )
+
+        from polars_bio.context import get_option
+        from polars_bio.polars_bio import PgenMatrixReader
+
+        reader = PgenMatrixReader(path, decode_options)
+        variants, columns = reader.shape()
+
+        if copy_threads is None:
+            try:
+                copy_threads = int(get_option("datafusion.execution.target_partitions"))
+            except (TypeError, ValueError):
+                copy_threads = 1
+        copy_threads = max(1, int(copy_threads))
+
+        values = np.empty((variants, columns), dtype=dtype)
+        # The array itself is handed over, not its address: the reader checks
+        # dtype, C-contiguity, writability and length at the boundary, which is
+        # the only place a caller cannot route around.
+        reader.read_into(field, values, copy_threads, float(missing))
+
+        positions = np.asarray(reader.positions(), dtype=np.int64)
+        if positions.shape[0] != variants:
+            raise RuntimeError(
+                f"PGEN reported {variants} variants but {positions.shape[0]} positions"
+            )
+        return PgenMatrix(
+            values=values, positions=positions, sample_names=list(reader.sample_names())
+        )
+
+    @staticmethod
+    def read_bgen_matrix(
+        path: str,
+        samples: Union[list[str], None] = None,
+        missing: Union[float, None] = None,
+        sample_path: Union[str, None] = None,
+        bgi_path: Union[str, None] = None,
+        threads: Union[int, None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        use_zero_based: Optional[bool] = None,
+    ) -> PgenMatrix:
+        """
+        Read a BGEN's ALT dosages into a dense NumPy matrix.
+
+        The counterpart of `read_pgen_matrix`. `scan_bgen` returns Arrow batches
+        that a caller wanting one array must then consolidate, and on a whole
+        chromosome that consolidation is a serial pass over 10 GB — it does not
+        parallelise, so it becomes the ceiling as partitions are added. This
+        decodes each variant at its final address instead, which on chromosome
+        22 scales 6.0x from one thread to eight against the Arrow path's 4.2x.
+
+        Dosage only: BGEN probabilities are variable width and have no single
+        dense shape. Use `scan_bgen(genotype_output="probability")` for those.
+
+        Parameters:
+            path: The path to the BGEN file. The path must end in `.bgen`.
+            samples: Sample identifiers to emit, in requested order. If *None*, all samples are emitted in file order.
+            missing: Written where a sample has no called genotype. Defaults to `NaN`.
+            sample_path: An explicit Oxford `.sample` companion, used only when the BGEN has no embedded sample identifiers.
+            bgi_path: An explicit `.bgi` index. A neighbouring `file.bgen.bgi` is discovered automatically.
+            threads: Decoder threads. Defaults to the configured `datafusion.execution.target_partitions`.
+            use_zero_based: Output coordinate convention for the returned positions.
+
+        Example:
+            ```python
+            import polars_bio as pb
+
+            matrix = pb.read_bgen_matrix("chr22.bgen")
+            matrix.values.shape          # (variants, samples), float32
+            matrix.values.mean(axis=1)   # per-variant mean dosage
+            ```
+        """
+        # Imported here rather than at module scope: NumPy is not a polars-bio
+        # dependency, and only the matrix readers need it.
+        try:
+            import numpy as np
+        except ImportError as error:  # pragma: no cover - environment-dependent
+            raise ImportError(
+                "read_bgen_matrix returns NumPy arrays and needs NumPy installed"
+            ) from error
+
+        _validate_bgen_input_path(path)
+        dtype = np.dtype(np.float32)
+        if missing is None:
+            missing = np.nan
+
+        decode_options = BgenReadOptions(
+            object_storage_options=PyObjectStorageOptions(
+                allow_anonymous=allow_anonymous,
+                enable_request_payer=enable_request_payer,
+                chunk_size=chunk_size,
+                concurrent_fetches=concurrent_fetches,
+                max_retries=max_retries,
+                timeout=timeout,
+                compression_type=compression_type,
+            ),
+            genotype_output="dosage",
+            probability_layout="nested",
+            samples=samples,
+            genotype_fields=["DS"],
+            sample_path=sample_path,
+            bgi_path=bgi_path,
+            zero_based=_resolve_zero_based(use_zero_based),
+        )
+
+        from polars_bio.context import get_option
+        from polars_bio.polars_bio import BgenMatrixReader
+
+        reader = BgenMatrixReader(path, decode_options)
+        variants, columns = reader.shape()
+
+        if threads is None:
+            try:
+                threads = int(get_option("datafusion.execution.target_partitions"))
+            except (TypeError, ValueError):
+                threads = 1
+        threads = max(1, int(threads))
+
+        values = np.empty((variants, columns), dtype=dtype)
+        # As in `read_pgen_matrix`: the array goes across, not its address, and
+        # the reader validates it before decoding.
+        reader.read_into(values, threads, float(missing))
+
+        positions = np.asarray(reader.positions(), dtype=np.int64)
+        if positions.shape[0] != variants:
+            raise RuntimeError(
+                f"BGEN reported {variants} variants but {positions.shape[0]} positions"
+            )
+        return PgenMatrix(
+            values=values, positions=positions, sample_names=list(reader.sample_names())
+        )
+
+    @staticmethod
     def read_bed(
         path: str,
         chunk_size: int = 8,
@@ -2348,6 +3049,188 @@ class IOOperations:
             compression_type=compression_type,
         )
         return py_describe_vcf(ctx, path, object_storage_options).to_polars()
+
+    @staticmethod
+    def describe_bgen(
+        path: str,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+        sample_path: Union[str, None] = None,
+        bgi_path: Union[str, None] = None,
+    ) -> pl.DataFrame:
+        """
+        Describe the schema a BGEN file produces.
+
+        BGEN has no INFO/FORMAT header, so instead of a field dictionary this
+        returns one row per emitted column, plus the file-level properties the
+        provider records in the Arrow schema metadata: the BGEN layout, whether
+        a `.bgi` index was used, whether sample identifiers were generated, and
+        the coordinate system.
+
+        Parameters:
+            path: The path to the BGEN file. The path must end in `.bgen`.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            compression_type: The compression override.
+            sample_path: An explicit Oxford `.sample` companion, used only when the BGEN has no embedded sample identifiers.
+            bgi_path: An explicit `.bgi` index. Pass it for an index stored away from the file, so the reported `index` property reflects the index a read would actually use.
+
+        !!! note
+            The reported schema is the one the default `probability_layout="nested"`
+            produces, because that layout describes every BGEN file. Reading with
+            `probability_layout="fixed"` gives `genotypes.GP` a fixed-width state
+            list instead.
+        """
+        _validate_bgen_input_path(path, operation="describe")
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=8,
+            concurrent_fetches=1,
+            max_retries=1,
+            timeout=10,
+            compression_type=compression_type,
+        )
+        bgen_read_options = BgenReadOptions(
+            object_storage_options=object_storage_options,
+            genotype_output="probability",
+            probability_layout="nested",
+            samples=None,
+            sample_path=sample_path,
+            bgi_path=bgi_path,
+            zero_based=_resolve_zero_based(None),
+        )
+        # Registering under the derived name would deregister and replace a
+        # table the caller already registered for the same file, so describe
+        # uses a private name and removes it again.
+        describe_name = f"_pb_bgen_describe_{uuid4().hex}"
+        table = py_register_table(
+            ctx,
+            path,
+            describe_name,
+            InputFormat.Bgen,
+            ReadOptions(bgen_read_options=bgen_read_options),
+        )
+        try:
+            schema = py_get_table_schema(ctx, table.name)
+        finally:
+            ctx.deregister_table(table.name)
+        metadata = {
+            (key.decode() if isinstance(key, bytes) else key): (
+                value.decode() if isinstance(value, bytes) else value
+            )
+            for key, value in (schema.metadata or {}).items()
+        }
+        described = pl.DataFrame(
+            {
+                "name": [field.name for field in schema],
+                "type": [str(field.type) for field in schema],
+            }
+        )
+        properties = {
+            "layout": metadata.get("bio.bgen.layout"),
+            "index": metadata.get("bio.bgen.index"),
+            "sample_names_synthetic": metadata.get(
+                "bio.bgen.sample_names.synthetic"
+            ),
+            "coordinate_system_zero_based": metadata.get(
+                "bio.coordinate_system_zero_based"
+            ),
+        }
+        return described.with_columns(
+            [pl.lit(value).alias(name) for name, value in properties.items()]
+        )
+
+    @staticmethod
+    def describe_pgen(
+        path: str,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+        pvar_path: Union[str, None] = None,
+        psam_path: Union[str, None] = None,
+        pgi_path: Union[str, None] = None,
+    ) -> pl.DataFrame:
+        """
+        Describe the schema a PLINK 2 PGEN fileset produces.
+
+        PGEN has no embedded header, so instead of a field dictionary this
+        returns one row per emitted column, plus the file-level properties the
+        provider records in the Arrow schema metadata: the storage mode,
+        whether the index is embedded or external, the specification baseline,
+        and the coordinate system.
+
+        Parameters:
+            path: The path to the PGEN file. The path must end in `.pgen`.
+            allow_anonymous: Whether to allow anonymous access to object storage.
+            enable_request_payer: Whether to enable request payer for object storage.
+            compression_type: The compression override.
+            pvar_path: An explicit `.pvar` companion.
+            psam_path: An explicit `.psam` companion.
+            pgi_path: An explicit `.pgi` index, for a PGEN that uses an external index. Without it, such a fileset cannot be opened here at all.
+
+        !!! note
+            The reported schema is the one the default `genotype_fields=("GT",)`
+            produces. Selecting other genotype fields changes the children of
+            the `genotypes` struct.
+        """
+        _validate_pgen_input_path(path, operation="describe")
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=8,
+            concurrent_fetches=1,
+            max_retries=1,
+            timeout=10,
+            compression_type=compression_type,
+        )
+        pgen_read_options = PgenReadOptions(
+            object_storage_options=object_storage_options,
+            genotype_fields=["GT"],
+            pvar_path=pvar_path,
+            psam_path=psam_path,
+            pgi_path=pgi_path,
+            zero_based=_resolve_zero_based(None),
+        )
+        # Registering under the derived name would deregister and replace a
+        # table the caller already registered for the same file, so describe
+        # uses a private name and removes it again.
+        describe_name = f"_pb_pgen_describe_{uuid4().hex}"
+        table = py_register_table(
+            ctx,
+            path,
+            describe_name,
+            InputFormat.Pgen,
+            ReadOptions(pgen_read_options=pgen_read_options),
+        )
+        try:
+            schema = py_get_table_schema(ctx, table.name)
+        finally:
+            ctx.deregister_table(table.name)
+        metadata = {
+            (key.decode() if isinstance(key, bytes) else key): (
+                value.decode() if isinstance(value, bytes) else value
+            )
+            for key, value in (schema.metadata or {}).items()
+        }
+        described = pl.DataFrame(
+            {
+                "name": [field.name for field in schema],
+                "type": [str(field.type) for field in schema],
+            }
+        )
+        properties = {
+            "storage_mode": metadata.get("bio.pgen.storage_mode"),
+            "index": metadata.get("bio.pgen.index"),
+            "specification_baseline": metadata.get("bio.pgen.specification_baseline"),
+            "coordinate_system_zero_based": metadata.get(
+                "bio.coordinate_system_zero_based"
+            ),
+        }
+        return described.with_columns(
+            [pl.lit(value).alias(name) for name, value in properties.items()]
+        )
 
     @staticmethod
     def describe_vcf_zarr(path: str) -> pl.DataFrame:
@@ -3548,7 +4431,7 @@ def _extract_py_object_storage_options(read_options):
     )
 
 
-def _extract_column_names_from_expr(with_columns: Union[pl.Expr, list]) -> "List[str]":
+def _extract_column_names_from_expr(with_columns: Union[pl.Expr, list]) -> list[str]:
     """Extract column names from Polars expressions."""
     if with_columns is None:
         return []
@@ -3749,6 +4632,10 @@ def _format_to_string(input_format: InputFormat) -> str:
         return "bed"
     elif "Pairs" in format_str:
         return "pairs"
+    elif "Bgen" in format_str:
+        return "bgen"
+    elif "Pgen" in format_str:
+        return "pgen"
     else:
         return "unknown"
 
@@ -3808,6 +4695,8 @@ def _read_file(
             "cram",
             "bigwig",
             "bigbed",
+            "bgen",
+            "pgen",
         ]:
             # For other formats (including SAM via "bam" key), include their specific metadata
             header_metadata = format_specific.get(metadata_key, {})

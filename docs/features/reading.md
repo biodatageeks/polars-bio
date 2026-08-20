@@ -30,6 +30,8 @@ The matrix below summarizes which [performance features](#performance-features) 
 | [GFF3](../api/reading.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [GTF](../api/reading.md#polars_bio.data_input.read_gtf)     | :white_check_mark: | ❌                  | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [Pairs](../api/reading.md#polars_bio.data_input.read_pairs) | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
+| [BGEN](../api/reading.md#polars_bio.data_input.read_bgen)   | :white_check_mark: | :white_check_mark: (BGI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
+| [PGEN](../api/reading.md#polars_bio.data_input.read_pgen)   | :white_check_mark: | :white_check_mark: (embedded/PGI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [BigWig](../api/reading.md#polars_bio.data_input.read_bigwig) | :white_check_mark: | ❌ | ❌ | :white_check_mark: | :white_check_mark: |
 | [BigBed](../api/reading.md#polars_bio.data_input.read_bigbed) | :white_check_mark: | ❌ | ❌ | :white_check_mark: | :white_check_mark: |
 
@@ -276,6 +278,156 @@ df = pb.read_fastq("reads.fastq.bgz")  # parallel BGZF decoding when .gzi index 
 ## Format-specific notes
 
 Most formats work through the generic `read_*`/`scan_*`/`register_*` API with no extra options. The formats below expose additional capabilities or behaviors worth knowing about.
+
+### BGEN
+
+BGEN 1.2 and 1.3 genotype files use `read_bgen` / `scan_bgen`, with
+`register_bgen` and `describe_bgen` for registration and schema inspection. One
+row is one BGEN variant. Encoded alleles stay ordered in `alleles` and are not
+assigned reference/alternate semantics, because BGEN does not define them.
+
+- **Genotype output** — `genotype_output="probability"` (default) emits
+  `genotypes.GP`, preserving every format-defined probability state, and
+  `genotypes.PLOIDY`, the declared ploidy of each selected sample.
+  `genotype_output="dosage"` emits `genotypes.DS` instead, the expected copy
+  count of `alleles[1]`, and rejects multiallelic variants.
+- **Probability layout** — for an unphased biallelic record `GP` holds one value
+  per allele-count state; for a phased record it holds one vector per haplotype,
+  haplotype-major. `phased` and `bits` are columns, so a mixed file stays
+  interpretable row by row.
+- **Probability storage** — `probability_layout="nested"` (default) stores each
+  sample's states as a variable-length list, which every BGEN file can use.
+  `probability_layout="fixed"` stores them as a fixed-width list instead,
+  dropping the per-sample offsets that are about a quarter of the emitted
+  probability bytes for a diploid biallelic cohort. It requires every variant to
+  store the same number of states and rejects a file that mixes them, so reach
+  for it on whole-cohort imputed data and stay on the default otherwise. The
+  option has no effect when `genotype_output="dosage"`.
+- **Indexes** — a neighbouring `cohort.bgen.bgi` is auto-discovered and used to
+  push `chrom`, `id`, `rsid`, `start`, and `end` predicates into the scan. Pass
+  `bgi_path` for an index stored elsewhere. Without an index, the provider
+  builds a transient in-memory catalog by scanning variant metadata.
+- **Samples** — identifiers come from the embedded sample block, an explicit
+  `sample_path`, or generated `sample_1`…`sample_N` names. `samples=[...]`
+  selects and reorders the emitted samples, and the emitted order is available
+  via `meta["header"]["sample_names"]`.
+- **Genotype fields** — `genotype_fields` selects children of the `genotypes`
+  struct by name, from the output mode's value child — `"DS"` for dosage, `"GP"`
+  for probability — and `"PLOIDY"`, emitted in the requested order. All of them
+  are emitted by default. `"PLOIDY"` is a byte per genotype, 2.53 GB on a whole
+  1000 Genomes chromosome 22, and a NumPy view of the result keeps the whole
+  struct alive, so pass `["DS"]` when only the dosages are wanted.
+- **Projection** — a scan that selects only metadata columns never reads or
+  decompresses probability blocks.
+
+```python
+import polars_bio as pb
+
+dosage = pb.scan_bgen("cohort.bgen", genotype_output="dosage")
+schema = pb.describe_bgen("cohort.bgen")
+
+# Uniform-width probabilities without the per-sample offsets.
+probabilities = pb.scan_bgen("cohort.bgen", probability_layout="fixed")
+
+# Only the dosages, without the per-genotype ploidy byte.
+dosage_only = pb.scan_bgen(
+    "cohort.bgen", genotype_output="dosage", genotype_fields=["DS"]
+)
+```
+
+For a whole-cohort dosage matrix, use
+[`read_bgen_matrix`](../api/reading.md#polars_bio.data_input.read_bgen_matrix)
+instead of consolidating Arrow batches yourself. It decodes each variant
+straight to its final address in a dense NumPy array, so the dosages are never
+copied, and rows stay in file order at every thread count:
+
+```python
+matrix = pb.read_bgen_matrix("chr22.bgen")
+matrix.values.shape         # (variants, samples), float32
+matrix.values.mean(axis=1)  # per-variant mean dosage
+matrix.positions            # one per row
+matrix.sample_names         # one per column
+```
+
+Dosage only: BGEN probabilities are variable width and have no single dense
+shape, so read those with `scan_bgen(genotype_output="probability")`.
+
+!!! note
+    A scan with more than one partition may emit rows out of source order,
+    because partitions are coalesced as their batches become ready. Sort
+    explicitly when row order matters.
+
+BGEN is an input format; polars-bio does not write it.
+
+### PGEN
+
+PLINK 2 filesets use `read_pgen` / `scan_pgen`, with `register_pgen` and
+`describe_pgen` for registration and schema inspection. One row is one PVAR
+variant, with `ref` and a list-typed `alt` carrying the declared alleles.
+
+For a whole-cohort genotype matrix — what association testing, PCA and
+relatedness pipelines consume — use
+[`read_pgen_matrix`](../api/reading.md#polars_bio.data_input.read_pgen_matrix)
+instead. It returns a dense NumPy array rather than a DataFrame, and decodes
+straight into it, so the values are never copied:
+
+```python
+matrix = pb.read_pgen_matrix("cohort.pgen", field="ALT_COUNT")
+matrix.values.shape         # (variants, samples), int8
+matrix.values.mean(axis=1)  # per-variant ALT frequency x 2
+matrix.positions            # one per row
+matrix.sample_names         # one per column
+```
+
+Rows are in PVAR order at every partition count, which a `read_pgen` scan does
+not guarantee. `field` takes `"ALT_COUNT"` or `"DS"`; fields with more than one
+value per sample have no dense form.
+
+- **Genotype fields** — `genotype_fields` selects children of the `genotypes`
+  struct by name, from `"GT"`, `"ALT_COUNT"`, `"PHASED"`, `"DS"`,
+  `"DS_STORED"`, and `"HDS"`, emitted in the requested order. It defaults to
+  `("GT",)`. This narrows the provider default, which emits all of them:
+  reading several representations of the same genotypes is rarely what you
+  want, so ask for the others explicitly. `"ALT_COUNT"` is the hardcall ALT
+  allele count as `int8`, one byte per genotype rather than the four `"DS"`
+  uses; prefer it when the fileset stores only hardcalls.
+- **Companions** — the `.pvar` (then `.pvar.zst`) and `.psam` are discovered
+  from the `.pgen` basename. Pass `pvar_path`, `psam_path`, or `pgi_path` for
+  companions stored elsewhere.
+- **Samples** — selectable names are built from PSAM identifiers under
+  `psam_id_mode`: `"iid"` (default) uses IID alone and rejects duplicates,
+  `"fid_iid"` uses `FID:IID`, and `"fid_iid_sid"` uses `FID:IID:SID`. A PSAM
+  without FID or SID columns defaults those parts to `0`. `samples=[...]`
+  selects and reorders the emitted samples; `missing_sample_policy="ignore"`
+  drops requested names the PSAM does not have, instead of raising.
+- **Read coalescing** — `max_range_gap` bounds the run of unselected bytes
+  bridged when merging reads. It defaults to 0, so a subset scan issues one
+  read per contiguous run of selected variants. Raising it trades wasted bytes
+  for fewer requests, which matters most on object storage. `max_range_bytes`
+  and `batch_soft_byte_limit` bound the largest coalesced read and the soft
+  genotype-byte target per batch. Leave any of them unset to keep the provider
+  default.
+- **Projection** — a scan that selects only metadata columns never reads
+  genotype records.
+
+```python
+import polars_bio as pb
+
+dosages = pb.scan_pgen("cohort.pgen", genotype_fields=["DS"])
+schema = pb.describe_pgen("cohort.pgen")
+
+# Bridge gaps up to 64 KiB to cut request count on object storage.
+subset = pb.scan_pgen(
+    "cohort.pgen", samples=["NA12878", "NA12879"], max_range_gap=65536
+)
+```
+
+!!! note
+    A scan with more than one partition may emit rows out of source order,
+    because partitions are coalesced as their batches become ready. Sort
+    explicitly when row order matters.
+
+PGEN is an input format; polars-bio does not write it.
 
 ### VCF, BCF, and VCF Zarr
 

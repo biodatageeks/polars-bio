@@ -10,6 +10,8 @@
         members:
             - sql
             - register_bcf
+            - register_bgen
+            - register_pgen
             - register_vcf
             - register_vcf_zarr
             - register_bam

@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- BGEN 1.2/1.3 support: `read_bgen()`, `scan_bgen()`, `describe_bgen()`, and
+  `register_bgen()`. `genotype_output="probability"` preserves every
+  format-defined probability state, `genotype_output="dosage"` emits the
+  expected copy count of `alleles[1]`, and a neighbouring `.bgi` index is used
+  for `chrom`/`rsid`/`id`/`start`/`end` predicate pushdown.
+  `probability_layout="fixed"` stores probabilities as a fixed-width list per
+  sample, dropping the per-sample offsets, for files whose variants all store
+  the same number of states.
+- PLINK 2 PGEN support: `read_pgen()`, `scan_pgen()`, `describe_pgen()`, and
+  `register_pgen()`. One row is one PVAR variant; `genotype_fields` selects the
+  children of the `genotypes` struct — `"GT"`, `"ALT_COUNT"`, `"PHASED"`,
+  `"DS"`, `"DS_STORED"`, `"HDS"` — and `max_range_gap`, `max_range_bytes`, and
+  `batch_soft_byte_limit` tune read coalescing for object storage.
+- `read_pgen_matrix()` and `read_bgen_matrix()` return a whole cohort as a dense
+  `(variants, samples)` NumPy array — `values`, `positions`, and `sample_names`
+  — instead of a DataFrame. Genotypes are decoded straight to their final
+  address rather than consolidated from Arrow batches, and rows stay in source
+  order at every thread count. PGEN takes `field="ALT_COUNT"` (`int8`) or
+  `field="DS"` (`float32`); BGEN is ALT dosage only, because its probabilities
+  are variable width and have no single dense shape.
+- `genotype_fields` on `read_bgen()`, `scan_bgen()`, and `register_bgen()`
+  selects the children of the BGEN `genotypes` struct — the output mode's value
+  child (`"DS"` or `"GP"`) and `"PLOIDY"` — so a dosage read can skip the
+  per-genotype ploidy byte.
 - Dedicated `read_bcf()`, `scan_bcf()`, `describe_bcf()`, and `register_bcf()`
   APIs. BCF keeps
   `genotype_output="string"|"dosage"`, CSI predicate pushdown, and parallel

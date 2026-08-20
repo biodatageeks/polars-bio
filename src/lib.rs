@@ -35,19 +35,21 @@ use datafusion_bio_format_core::object_storage::ObjectStorageOptions;
 use datafusion_bio_format_vcf::table_provider::describe_fields;
 use datafusion_python::dataframe::PyDataFrame;
 use log::{debug, error, info};
-use pyo3::exceptions::{PyRuntimeError, PyValueError};
+use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
+use pyo3::sync::PyOnceLock;
 use tokio::runtime::Runtime;
 
 use crate::context::PyBioSessionContext;
 use crate::operation::do_range_operation;
 use crate::option::{
     pyobject_storage_options_to_object_storage_options, BamReadOptions, BamWriteOptions,
-    BedReadOptions, BigBedReadOptions, BigWigReadOptions, BioTable, CramReadOptions,
-    CramWriteOptions, FastaReadOptions, FastaWriteOptions, FastqReadOptions, FastqWriteOptions,
-    FilterOp, GffReadOptions, GtfReadOptions, InputFormat, OutputFormat, OverlapOutputMode,
-    PairsReadOptions, PileupOptions, PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions,
-    VcfReadOptions, VcfWriteOptions, VcfZarrReadOptions, WriteOptions,
+    BedReadOptions, BgenReadOptions, BigBedReadOptions, BigWigReadOptions, BioTable,
+    CramReadOptions, CramWriteOptions, FastaReadOptions, FastaWriteOptions, FastqReadOptions,
+    FastqWriteOptions, FilterOp, GffReadOptions, GtfReadOptions, InputFormat, OutputFormat,
+    OverlapOutputMode, PairsReadOptions, PgenReadOptions, PileupOptions, PyObjectStorageOptions,
+    RangeOp, RangeOptions, ReadOptions, VcfReadOptions, VcfWriteOptions, VcfZarrReadOptions,
+    WriteOptions,
 };
 use crate::scan::{
     maybe_register_table, register_frame, register_frame_from_arrow_stream,
@@ -908,6 +910,230 @@ fn py_register_fastqc_table(
     })
 }
 
+/// The real `numpy.ndarray` type, looked up once.
+///
+/// `numpy.ndarray` is a module attribute a caller can rebind, so reading it on
+/// every call would let a process that rebinds it before the first matrix read
+/// choose what counts as an array. Caching narrows that to the first call.
+/// It does not close it, and cannot: the buffer protocol is what would ask
+/// CPython instead of the object, and `Py_buffer` only entered the limited API
+/// in 3.11 while `datafusion-python` enables bare `abi3`, pinning this build's
+/// floor at 3.10. What is left is worth having anyway — every accident these
+/// checks catch is an ordinary array with the wrong dtype, a stride, or a
+/// read-only flag, and code that rebinds NumPy's internals to reach the
+/// decoder is code that could already call `ctypes.memset` on any address it
+/// likes.
+static NDARRAY_TYPE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+
+/// Validates a NumPy destination and returns the address to decode into.
+///
+/// The array is inspected through its Python attributes rather than through
+/// `Py_buffer`, for the limited-API reason above, and the raw address stays on
+/// this side of the boundary: the caller passes the array, never a number a
+/// decoder would write to. The type is compared by identity rather than with
+/// `isinstance`, since a subclass can answer every attribute below through
+/// `__getattr__`.
+///
+/// Failing here costs one attribute walk per matrix read, against a decode
+/// measured in seconds.
+fn validated_destination(
+    destination: &Bound<'_, PyAny>,
+    expected_dtype: &str,
+    expected_align: usize,
+    expected_length: usize,
+) -> PyResult<usize> {
+    let py = destination.py();
+    let ndarray = NDARRAY_TYPE
+        .get_or_try_init(py, || -> PyResult<Py<PyAny>> {
+            Ok(py.import("numpy")?.getattr("ndarray")?.unbind())
+        })?
+        .bind(py);
+    if !destination.get_type().as_any().is(ndarray) {
+        return Err(PyTypeError::new_err(format!(
+            "matrix destination must be a numpy.ndarray, not {}",
+            destination.get_type().name()?
+        )));
+    }
+    let dtype = destination.getattr("dtype")?.str()?.to_string();
+    if dtype != expected_dtype {
+        return Err(PyValueError::new_err(format!(
+            "matrix destination has dtype {dtype}, expected {expected_dtype}"
+        )));
+    }
+    let flags = destination.getattr("flags")?;
+    if !flags.getattr("c_contiguous")?.extract::<bool>()? {
+        return Err(PyValueError::new_err(
+            "matrix destination must be C-contiguous",
+        ));
+    }
+    if !flags.getattr("writeable")?.extract::<bool>()? {
+        return Err(PyValueError::new_err("matrix destination must be writable"));
+    }
+    // C-contiguous and writable do not imply aligned: an array built over a
+    // `bytearray` at a non-zero offset has both flags and an address `f32`
+    // cannot legally be read from. `from_raw_parts_mut` requires alignment, so
+    // decoding into one would be undefined behaviour rather than a slow read.
+    if !flags.getattr("aligned")?.extract::<bool>()? {
+        return Err(PyValueError::new_err("matrix destination must be aligned"));
+    }
+    let length = destination.getattr("size")?.extract::<usize>()?;
+    if length != expected_length {
+        return Err(PyValueError::new_err(format!(
+            "matrix destination holds {length} values; expected {expected_length}"
+        )));
+    }
+    let address = destination
+        .getattr("ctypes")?
+        .getattr("data")?
+        .extract::<usize>()?;
+    // The flag is NumPy's word for it; this is the property the unsafe code
+    // actually needs, checked directly.
+    if address % expected_align != 0 {
+        return Err(PyValueError::new_err(format!(
+            "matrix destination is at {address:#x}, not {expected_align}-byte aligned"
+        )));
+    }
+    Ok(address)
+}
+
+/// An open PGEN fileset, read as a dense matrix.
+///
+/// Exists as a handle rather than one call because the caller must learn the
+/// shape before it can allocate the array to decode into, and reopening the
+/// fileset to answer that would parse the 108 MB PVAR a second time.
+///
+/// `read_into` takes the destination array itself and validates it through the
+/// buffer protocol before decoding. It used to take the address as an integer,
+/// leaving the checks to `read_pgen_matrix` in `io.py` — but the class is
+/// importable, so any caller could reach the raw form and hand a decoder an
+/// arbitrary address.
+#[pyclass(name = "PgenMatrixReader")]
+struct PyPgenMatrixReader {
+    inner: scan::OpenPgenMatrix,
+}
+
+#[pymethods]
+impl PyPgenMatrixReader {
+    #[new]
+    fn new(path: String, options: PgenReadOptions) -> PyResult<Self> {
+        scan::OpenPgenMatrix::open(path, &options)
+            .map(|inner| Self { inner })
+            .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+
+    /// `(variants, samples)` — the shape the decode will fill.
+    fn shape(&self) -> (usize, usize) {
+        self.inner.shape()
+    }
+
+    /// Selected sample names, in column order.
+    fn sample_names(&self) -> Vec<String> {
+        self.inner.sample_names()
+    }
+
+    /// Variant start positions, in row order.
+    fn positions(&self) -> Vec<u64> {
+        self.inner.positions()
+    }
+
+    /// Decodes one genotype field into `destination`, a NumPy array.
+    fn read_into(
+        &self,
+        field: String,
+        destination: &Bound<'_, PyAny>,
+        threads: usize,
+        missing: f64,
+    ) -> PyResult<()> {
+        let (dtype, align) = match field.as_str() {
+            "ALT_COUNT" => ("int8", std::mem::align_of::<i8>()),
+            "DS" => ("float32", std::mem::align_of::<f32>()),
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "read_pgen_matrix supports ALT_COUNT and DS, not {other}"
+                )))
+            },
+        };
+        let (variants, samples) = self.inner.shape();
+        let length = variants.saturating_mul(samples);
+        let address = validated_destination(destination, dtype, align, length)?;
+        // The GIL is held for the decode. It used to be released, on the
+        // reasoning that the provider runs its own threads and holding it would
+        // serialize them — which is wrong twice over: those threads never touch
+        // Python, so the GIL does not slow them, and releasing it lets another
+        // Python thread call `destination.resize(..., refcheck=False)` between
+        // the checks above and the write below, freeing the buffer this address
+        // points into. Holding it costs other Python threads the duration of
+        // the decode and buys the address staying valid for it.
+        // SAFETY: `address` came from `destination`, checked just above to hold
+        // `length` writable, C-contiguous, aligned elements of `dtype`. The GIL
+        // is held for the whole decode, so no Python code can resize or free
+        // the array while it is written to.
+        unsafe {
+            self.inner
+                .read_into(&field, address as *mut u8, length, threads, missing)
+        }
+        .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+}
+
+/// An open BGEN, read as a dense dosage matrix.
+///
+/// The BGEN counterpart of [`PyPgenMatrixReader`], with the same handle shape
+/// and the same checked destination: `read_into` takes the array itself and
+/// validates it through the buffer protocol before decoding.
+#[pyclass(name = "BgenMatrixReader")]
+struct PyBgenMatrixReader {
+    inner: scan::OpenBgenMatrix,
+}
+
+#[pymethods]
+impl PyBgenMatrixReader {
+    #[new]
+    fn new(path: String, options: BgenReadOptions) -> PyResult<Self> {
+        scan::OpenBgenMatrix::open(path, &options)
+            .map(|inner| Self { inner })
+            .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+
+    /// `(variants, samples)` — the shape the decode will fill.
+    fn shape(&self) -> (usize, usize) {
+        self.inner.shape()
+    }
+
+    /// Selected sample names, in column order.
+    fn sample_names(&self) -> Vec<String> {
+        self.inner.sample_names()
+    }
+
+    /// Variant start positions, in row order.
+    fn positions(&self) -> Vec<u64> {
+        self.inner.positions()
+    }
+
+    /// Decodes the dosages into `destination`, a `float32` NumPy array.
+    fn read_into(
+        &self,
+        destination: &Bound<'_, PyAny>,
+        threads: usize,
+        missing: f64,
+    ) -> PyResult<()> {
+        let (variants, samples) = self.inner.shape();
+        let length = variants.saturating_mul(samples);
+        let address =
+            validated_destination(destination, "float32", std::mem::align_of::<f32>(), length)?;
+        // Held, not released — see `PyPgenMatrixReader::read_into` for why.
+        // SAFETY: `address` came from `destination`, checked just above to hold
+        // `length` writable, C-contiguous, aligned `f32`s. The GIL is held for
+        // the whole decode, so no Python code can resize or free the array
+        // while it is written to.
+        unsafe {
+            self.inner
+                .read_into(address as *mut u8, length, threads, missing)
+        }
+        .map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+}
+
 #[pymodule]
 fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     pyo3_log::init();
@@ -917,6 +1143,8 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_register_table, m)?)?;
     m.add_function(wrap_pyfunction!(py_debug_arrow_stream_partition_count, m)?)?;
     m.add_function(wrap_pyfunction!(py_read_table, m)?)?;
+    m.add_class::<PyPgenMatrixReader>()?;
+    m.add_class::<PyBgenMatrixReader>()?;
     m.add_function(wrap_pyfunction!(py_read_sql, m)?)?;
     m.add_function(wrap_pyfunction!(py_get_table_schema, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
@@ -955,6 +1183,8 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<FastaReadOptions>()?;
     m.add_class::<FastaWriteOptions>()?;
     m.add_class::<PairsReadOptions>()?;
+    m.add_class::<BgenReadOptions>()?;
+    m.add_class::<PgenReadOptions>()?;
     m.add_class::<PileupOptions>()?;
     m.add_class::<PyObjectStorageOptions>()?;
     Ok(())

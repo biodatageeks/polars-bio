@@ -144,6 +144,8 @@ pub enum InputFormat {
     Pairs,
     BigWig,
     BigBed,
+    Bgen,
+    Pgen,
 }
 
 #[pyclass(eq, get_all, from_py_object)]
@@ -172,6 +174,8 @@ impl fmt::Display for InputFormat {
             InputFormat::Pairs => "PAIRS",
             InputFormat::BigWig => "BigWig",
             InputFormat::BigBed => "BigBed",
+            InputFormat::Bgen => "BGEN",
+            InputFormat::Pgen => "PGEN",
         };
         write!(f, "{}", text)
     }
@@ -203,12 +207,16 @@ pub struct ReadOptions {
     pub bigwig_read_options: Option<BigWigReadOptions>,
     #[pyo3(get, set)]
     pub bigbed_read_options: Option<BigBedReadOptions>,
+    #[pyo3(get, set)]
+    pub bgen_read_options: Option<BgenReadOptions>,
+    #[pyo3(get, set)]
+    pub pgen_read_options: Option<PgenReadOptions>,
 }
 
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None, bigwig_read_options=None, bigbed_read_options=None))]
+    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None, bigwig_read_options=None, bigbed_read_options=None, bgen_read_options=None, pgen_read_options=None))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
@@ -223,6 +231,8 @@ impl ReadOptions {
         vcf_zarr_read_options: Option<VcfZarrReadOptions>,
         bigwig_read_options: Option<BigWigReadOptions>,
         bigbed_read_options: Option<BigBedReadOptions>,
+        bgen_read_options: Option<BgenReadOptions>,
+        pgen_read_options: Option<PgenReadOptions>,
     ) -> Self {
         ReadOptions {
             vcf_read_options,
@@ -237,6 +247,8 @@ impl ReadOptions {
             vcf_zarr_read_options,
             bigwig_read_options,
             bigbed_read_options,
+            bgen_read_options,
+            pgen_read_options,
         }
     }
 }
@@ -826,6 +838,191 @@ impl FastaReadOptions {
                 compression_type: Some(CompressionType::AUTO),
             }),
             parallel: true,
+        }
+    }
+}
+
+#[pyclass(name = "BgenReadOptions", from_py_object)]
+#[derive(Clone, Debug)]
+pub struct BgenReadOptions {
+    pub object_storage_options: Option<ObjectStorageOptions>,
+    /// `"probability"` keeps every BGEN state, `"dosage"` emits biallelic ALT dosage.
+    #[pyo3(get, set)]
+    pub genotype_output: String,
+    /// `"nested"` emits a variable-length state list per sample, `"fixed"` a
+    /// fixed-width one that drops the per-sample offsets.
+    #[pyo3(get, set)]
+    pub probability_layout: String,
+    /// Sample identifiers to emit, in requested order.
+    #[pyo3(get, set)]
+    pub samples: Option<Vec<String>>,
+    /// Children of the `genotypes` struct to emit. `None` emits all of them.
+    ///
+    /// `PLOIDY` is a byte per genotype, so a dosage read that does not need it
+    /// can pass `["DS"]` and neither build nor carry it.
+    #[pyo3(get, set)]
+    pub genotype_fields: Option<Vec<String>>,
+    /// Explicit Oxford `.sample` companion, used only when IDs are not embedded.
+    #[pyo3(get, set)]
+    pub sample_path: Option<String>,
+    /// Explicit `.bgi` index location. A neighbouring index is discovered otherwise.
+    #[pyo3(get, set)]
+    pub bgi_path: Option<String>,
+    /// If true, output 0-based half-open coordinates; if false, 1-based closed.
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+}
+
+#[pymethods]
+impl BgenReadOptions {
+    #[new]
+    #[pyo3(signature = (object_storage_options=None, genotype_output="probability".to_string(), probability_layout="nested".to_string(), samples=None, genotype_fields=None, sample_path=None, bgi_path=None, zero_based=false))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        object_storage_options: Option<PyObjectStorageOptions>,
+        genotype_output: String,
+        probability_layout: String,
+        samples: Option<Vec<String>>,
+        genotype_fields: Option<Vec<String>>,
+        sample_path: Option<String>,
+        bgi_path: Option<String>,
+        zero_based: bool,
+    ) -> Self {
+        BgenReadOptions {
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
+            genotype_output,
+            probability_layout,
+            samples,
+            genotype_fields,
+            sample_path,
+            bgi_path,
+            zero_based,
+        }
+    }
+    #[staticmethod]
+    pub fn default() -> Self {
+        BgenReadOptions {
+            object_storage_options: Some(ObjectStorageOptions {
+                chunk_size: Some(1024 * 1024), // 1MB
+                concurrent_fetches: Some(4),
+                allow_anonymous: false,
+                enable_request_payer: false,
+                max_retries: Some(5),
+                timeout: Some(300), // 300 seconds
+                compression_type: Some(CompressionType::AUTO),
+            }),
+            genotype_output: "probability".to_string(),
+            probability_layout: "nested".to_string(),
+            samples: None,
+            genotype_fields: None,
+            sample_path: None,
+            bgi_path: None,
+            zero_based: false,
+        }
+    }
+}
+
+#[pyclass(name = "PgenReadOptions", from_py_object)]
+#[derive(Clone, Debug)]
+pub struct PgenReadOptions {
+    pub object_storage_options: Option<ObjectStorageOptions>,
+    /// Genotype children to emit, from `GT`, `PHASED`, `DS`, `DS_STORED`, `HDS`.
+    #[pyo3(get, set)]
+    pub genotype_fields: Option<Vec<String>>,
+    /// If true, output 0-based half-open coordinates; if false, 1-based closed.
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+    /// Requested sample names in output order, or all samples when absent.
+    #[pyo3(get, set)]
+    pub samples: Option<Vec<String>>,
+    /// `"error"` rejects an absent requested sample, `"ignore"` omits it.
+    #[pyo3(get, set)]
+    pub missing_sample_policy: String,
+    /// `"iid"`, `"fid_iid"`, or `"fid_iid_sid"`.
+    #[pyo3(get, set)]
+    pub psam_id_mode: String,
+    /// Explicit PVAR location; `.pvar` then `.pvar.zst` are tried when absent.
+    #[pyo3(get, set)]
+    pub pvar_path: Option<String>,
+    /// Explicit PSAM location; the shared-basename `.psam` is used when absent.
+    #[pyo3(get, set)]
+    pub psam_path: Option<String>,
+    /// Explicit external PGEN index location.
+    #[pyo3(get, set)]
+    pub pgi_path: Option<String>,
+    /// Maximum unselected byte gap bridged by one PGEN range.
+    #[pyo3(get, set)]
+    pub max_range_gap: Option<u64>,
+    /// Maximum size of a coalesced PGEN range.
+    #[pyo3(get, set)]
+    pub max_range_bytes: Option<u64>,
+    /// Soft target for genotype bytes in one RecordBatch.
+    #[pyo3(get, set)]
+    pub batch_soft_byte_limit: Option<usize>,
+}
+
+#[pymethods]
+impl PgenReadOptions {
+    #[new]
+    #[pyo3(signature = (object_storage_options=None, genotype_fields=None, zero_based=false, samples=None, missing_sample_policy="error".to_string(), psam_id_mode="iid".to_string(), pvar_path=None, psam_path=None, pgi_path=None, max_range_gap=None, max_range_bytes=None, batch_soft_byte_limit=None))]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        object_storage_options: Option<PyObjectStorageOptions>,
+        genotype_fields: Option<Vec<String>>,
+        zero_based: bool,
+        samples: Option<Vec<String>>,
+        missing_sample_policy: String,
+        psam_id_mode: String,
+        pvar_path: Option<String>,
+        psam_path: Option<String>,
+        pgi_path: Option<String>,
+        max_range_gap: Option<u64>,
+        max_range_bytes: Option<u64>,
+        batch_soft_byte_limit: Option<usize>,
+    ) -> Self {
+        PgenReadOptions {
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
+            genotype_fields,
+            zero_based,
+            samples,
+            missing_sample_policy,
+            psam_id_mode,
+            pvar_path,
+            psam_path,
+            pgi_path,
+            max_range_gap,
+            max_range_bytes,
+            batch_soft_byte_limit,
+        }
+    }
+
+    #[staticmethod]
+    pub fn default() -> Self {
+        PgenReadOptions {
+            object_storage_options: Some(ObjectStorageOptions {
+                chunk_size: Some(1024 * 1024), // 1MB
+                concurrent_fetches: Some(4),
+                allow_anonymous: false,
+                enable_request_payer: false,
+                max_retries: Some(5),
+                timeout: Some(300), // 300 seconds
+                compression_type: Some(CompressionType::AUTO),
+            }),
+            genotype_fields: None,
+            zero_based: false,
+            samples: None,
+            missing_sample_policy: "error".to_string(),
+            psam_id_mode: "iid".to_string(),
+            pvar_path: None,
+            psam_path: None,
+            pgi_path: None,
+            max_range_gap: None,
+            max_range_bytes: None,
+            batch_soft_byte_limit: None,
         }
     }
 }

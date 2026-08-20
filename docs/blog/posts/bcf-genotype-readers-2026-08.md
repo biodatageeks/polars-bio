@@ -2,6 +2,7 @@
 draft: false
 date:
   created: 2026-08-12
+  updated: 2026-08-20
 categories:
   - performance
   - benchmarks
@@ -9,249 +10,163 @@ categories:
 
 ---
 
-# BCF Genotype Readers in Python: Two Complementary Benchmarks
+# Genotype Readers in Python: BCF, PGEN, and BGEN at One Thread
 
-BCF reader benchmarks can compare unlike work: one library counts records,
-another retains metadata, and a third materializes every genotype. We use two
-tests with explicit—but different—output contracts. The first compares four
-BCF readers on a 25,000-variant subset after normalizing every result to the
-same NumPy matrix. The second measures full-chromosome genotype throughput and
-parallel scaling for polars-bio against snputils while retaining each reader's
-native output container.
+Reader benchmarks are easy to overstate: one tool counts records while another
+materializes genotypes, or a parallel result is placed next to a serial one.
+Here every headline result uses one thread and produces the same dense matrix,
+with the same row order, sample order, dtype, and missing-value convention.
 
-polars-bio is fastest in both tests at one thread. It is 5.329× faster than
-snputils in the standardized 25,000-row comparison and 1.622× faster on the
-993,881-row full-chromosome workload. The different ratios are expected because
-the tests answer different questions; their medians should not be compared as
-if only the row count changed.
+The result is mixed, and more useful for it. polars-bio is fastest on the BCF
+and PGEN workloads. On BGEN dosage, the independent `bgen` package is 3.9%
+faster at one thread; polars-bio is 1.54× faster than snputils. polars-bio has
+**zero mismatches against the independent oracle in every workload tested**.
 
 <!-- more -->
 
-## Two tests, two questions
+## Fairness contract
 
-| | Test 1: standardized reader comparison | Test 2: full-chromosome scaling |
-|---|---|---|
-| Question | How do BCF readers compare when they must return exactly the same physical output? | How do polars-bio and snputils perform on a complete native genotype workload, and how does polars-bio scale? |
-| Variants | 25,000 | 993,881 |
-| Samples | 2,548 | 2,548 |
-| Dosage cells | 63,700,000 | 2,532,408,788 |
-| Readers | pysam, cyvcf2, polars-bio, snputils | polars-bio and snputils |
-| Timed retained output | C-contiguous row-major NumPy `int8` matrix, positions, and sample IDs | Complete genotype dosage in each reader's native container |
-| Concurrency | Every pool capped at one thread | polars-bio at `t=1,2,4,8`; snputils as a serial control |
-| Repetitions | Two fresh-process runs | Three fresh-process runs per `t` |
+All inputs come from the phased, biallelic 1000 Genomes GRCh38 chromosome 22
+callset and contain the same 2,548 samples.
 
-Both tests read every requested genotype and use the same dosage semantics.
-Test 1 proves equivalence by hashing its completed common outputs. Test 2 runs a
-separate complete equivalence gate before timing because polars-bio retains an
-Arrow `List(Int8)` column while snputils retains a NumPy `int8` matrix.
+| Workload | Variants | Values | Required output |
+|---|---:|---:|---|
+| BCF GT dosage | 25,000 | 63,700,000 | row-major `int8`, missing = −1 |
+| PGEN hardcall | 993,881 | 2,532,408,788 | row-major `int8`, missing = −9 |
+| PGEN dosage | 993,881 | 2,532,408,788 | row-major `float32`, missing = NaN |
+| BGEN dosage | 993,881 | 2,532,408,788 | row-major `float32`, missing = NaN |
+| BGEN probabilities | 25,000 | 254,800,000 | row-major `float32` GP tensor |
 
-## Dataset and dosage semantics
+The BCF comparison uses the 25,000-variant slice so record-at-a-time Python
+readers, including pysam, remain practical. PGEN and BGEN dosage use the full
+chromosome; the larger BGEN probability tensor uses the same slice. Results are
+compared only within a workload, never across rows of this table.
 
-The source is the phased, biallelic 1000 Genomes GRCh38 chromosome 22 callset.
-Test 1 uses the inclusive region `chr22:10516173-16717478`; Test 2 restores the
-entire chromosome:
+Each reader runs in a fresh process. Imports and thread-pool initialization are
+excluded; opening the source, discovering the schema, decoding, converting,
+and producing the final contiguous matrix are timed. Filesystem cache state is
+warm, reader order rotates, and reported times are medians of three runs.
+DataFusion, Polars, Rayon, OpenMP, BLAS, Accelerate, and NumExpr are capped at
+one thread for the headline tables.
 
-| Property | Test 1 | Test 2 |
+Each library uses its appropriate dense-output path. In particular, polars-bio
+uses `read_pgen_matrix` and `read_bgen_matrix`, matching the NumPy arrays
+returned by the reference readers rather than charging only polars-bio for a
+DataFrame-to-matrix conversion.
+
+## Correctness before speed
+
+The checks are exact: no epsilon and no rounded summaries. Complete matrices
+are compared element by element after verifying positions and sample order.
+
+| Workload | Oracle | polars-bio mismatches | Other readers vs oracle |
+|---|---|---:|---|
+| BCF dosage, 63.7M cells | pysam | **0** | cyvcf2 0; snputils 0 |
+| PGEN hardcall, 2.53B cells | pgenlib | **0** | snputils 0 |
+| PGEN dosage, 2.53B cells | pgenlib | **0** | snputils 0 |
+| BGEN dosage, 2.53B cells | `bgen` | **0** | snputils 126,259,603 |
+| BGEN probabilities, 254.8M cells | `bgen` | **0** | snputils 0 |
+
+The PGEN verifier also corrupts one cell and confirms that the comparison
+detects it. snputils' PGEN result is not an independent oracle—it wraps
+pgenlib—so polars-bio versus pgenlib is the meaningful check there.
+
+On full-cohort BGEN dosage, snputils differs from `bgen` by at most
+`1.18e-7`; the discrepancy is tiny but not zero. polars-bio matches all
+2,532,408,788 values bit for bit. On the 25,000-variant probability tensor,
+all three readers agree exactly.
+
+## Results
+
+### BCF dosage
+
+| Reader | Median time |
+|---|---:|
+| **polars-bio** | **0.171 s** |
+| snputils | 0.862 s |
+| cyvcf2 | 1.951 s |
+| pysam | 27.675 s |
+
+![BCF one-thread comparison](figures/genotype-readers-2026-08/bcf-one-thread.png)
+
+pysam is included here because it supports BCF. It is not shown for PGEN or
+BGEN because it cannot read those formats; an unsupported cell is not a slow
+result and cannot be made apples-to-apples.
+
+### PGEN hardcalls and dosage
+
+| Reader | Hardcall `int8` | Dosage `float32` |
 |---|---:|---:|
-| BCF size | 4,666,229 bytes | 135,128,073 bytes |
-| Variants | 25,000 | 993,881 |
-| Samples | 2,548 | 2,548 |
-| Dosage cells | 63,700,000 | 2,532,408,788 |
+| **polars-bio** | **0.699 s** | **1.312 s** |
+| pgenlib | 0.840 s | 1.879 s |
+| snputils | 0.845 s | 2.791 s |
 
-A genotype becomes the number of allele-index-1 calls: `0|0 → 0`, `0|1` and
-`1|0 → 1`, and `1|1 → 2`. Missing calls use `-1` in the comparable output.
-Variant and sample order must remain unchanged.
+![PGEN one-thread comparison](figures/genotype-readers-2026-08/pgen-one-thread.png)
 
-## Readers
+At equal core count, polars-bio is 1.20× faster than pgenlib on hardcalls and
+1.43× faster on dosage. pgenlib remains slightly more memory-efficient because
+it decodes directly into its caller-owned array.
 
-| Reader | Version | Mode used in Test 1 |
-|---|---:|---|
-| pysam | 0.24.0 | native iterator, preallocated matrix |
-| cyvcf2 | 0.31.4 | native iterator, vectorized per-record dosage |
-| polars-bio | 0.34.0 | lazy scan, streaming collection |
-| snputils | pinned development commit | specialized eager reader |
+### BGEN dosage
 
-PyVCF3 is omitted because it does not support BCF input.
+| Reader | Median time |
+|---|---:|
+| **bgen** | **10.979 s** |
+| polars-bio | 11.404 s |
+| snputils | 17.551 s |
 
-## Build and measurement controls
+![BGEN one-thread comparison](figures/genotype-readers-2026-08/bgen-one-thread.png)
 
-Each measurement runs in a fresh Python process. Module imports and thread-pool
-configuration happen before the timer. The machine is a 16-core Apple M3 Max
-MacBook Pro with 64 GiB RAM and macOS 15.6. Measurements use a warm filesystem
-cache and a deterministically rotated reader order.
+This rerun corrects the earlier claim that polars-bio was fastest on BGEN at
+one thread. The `bgen` package leads by 0.425 s, while polars-bio remains 1.54×
+faster than snputils.
 
-The polars-bio extension was built in release mode with native CPU
-optimizations:
+### polars-bio scalability
+
+The cross-reader tables stay at one thread. Separately, the same full-chromosome
+polars-bio workloads were run with 1, 2, 4, and 8 partitions:
+
+| Workload | 1 partition | 2 partitions | 4 partitions | 8 partitions | Speedup at 8 |
+|---|---:|---:|---:|---:|---:|
+| PGEN hardcall | 0.699 s | 0.434 s | 0.311 s | 0.242 s | 2.89× |
+| PGEN dosage | 1.312 s | 0.792 s | 0.513 s | 0.385 s | 3.41× |
+| BGEN dosage | 11.404 s | 6.529 s | 3.598 s | 2.071 s | 5.51× |
+
+![polars-bio genotype-reader scaling](figures/genotype-readers-2026-08/scaling-all-formats.png)
+
+These are within-reader scaling results, not comparisons against the serial
+reference readers.
+
+## Reproduce
+
+These results cover the code shipping as polars-bio 0.34.0, with every formats
+crate pinned to the released
+[`datafusion-bio-formats` v1.10.0](https://github.com/biodatageeks/datafusion-bio-formats/releases/tag/v1.10.0)
+commit `0d9730c`, and the current
+[snputils benchmark](https://github.com/AI-sandbox/snputils/tree/main/benchmark)
+at `482c6d1`.
+
+| Component | Version |
+|---|---|
+| polars-bio | 0.34.0 |
+| snputils | 1.1.1.dev19+g482c6d1df |
+| pgenlib / `bgen` / pysam | 0.94.1 / 1.10.0 / 0.24.0 |
+| Polars / PyArrow / NumPy | 1.42.1 / 24.0.0 / 2.5.2 |
+| Python / host | 3.12.9 / Apple M3 Max, 64 GiB, macOS 15.6 |
+
+polars-bio was built as an optimized native extension:
 
 ```bash
 RUSTFLAGS="-C target-cpu=native" maturin develop --release --locked
 ```
 
-For Test 1, the timer includes source opening, header/schema discovery, BCF
-reading, GT decoding, dosage conversion, and final common NumPy materialization.
-Positions and sample IDs are retained too. Polars, Rayon, OpenMP, OpenBLAS, MKL,
-Accelerate, NumExpr, and DataFusion target partitions are all capped at one.
+The runners, fixture construction, raw-result schema, and exact verification
+logic are in
+[bioformats-benchmark](https://github.com/biodatageeks/bioformats-benchmark):
+`run_genotype_matrix_benchmarks.py`, `run_pgen_benchmarks.py`, and
+`run_bgen_benchmarks.py`.
 
-For Test 2, both readers project only `FORMAT/GT` and retain every dosage value.
-polars-bio keeps its Arrow list column; snputils keeps its native NumPy matrix.
-Position and sample metadata are checked by the equivalence gate but are not
-part of either timed result. Peak RSS is measured after retaining the output.
-
-## Test 1: standardized 25,000-variant comparison
-
-### Wall time
-
-| Reader | BCF median | Relative to polars-bio |
-|---|---:|---:|
-| pysam | 28.328 s | 179.291× |
-| cyvcf2 | 1.903 s | 12.044× |
-| **polars-bio** | **0.158 s** | **1.000×** |
-| snputils | 0.842 s | 5.329× |
-
-polars-bio is 5.329× faster than snputils at one thread, reducing wall time by
-81.2%.
-
-![BCF reader wall time on a linear scale](figures/bcf-readers/bcf-reader-time.png)
-
-### Peak memory
-
-| Reader | Peak RSS |
-|---|---:|
-| pysam | 105.8 MB |
-| cyvcf2 | **93.6 MB** |
-| **polars-bio** | 321.5 MB |
-| snputils | 481.1 MB |
-
-cyvcf2 has the smallest peak RSS. polars-bio uses 33.2% less peak RSS than
-snputils while completing the standardized workload 5.329× faster.
-
-![BCF reader peak RSS on a linear scale](figures/bcf-readers/bcf-reader-memory.png)
-
-## Test 2: full-chromosome throughput and scaling
-
-The second test processes all 993,881 chromosome 22 variants and all 2,548
-samples. polars-bio runs at 1, 2, 4, and 8 target partitions. The pinned
-snputils BCF API has no worker-count option, so it is remeasured as a serial
-control at each sweep point.
-
-| `t` | polars-bio median | Scale-up | Peak RSS | snputils serial control | vs snputils |
-|---:|---:|---:|---:|---:|---:|
-| 1 | 5.248 s | 1.000× | 2,658.7 MB | 8.513 s / 10,067.4 MB | 1.622× faster |
-| 2 | 3.203 s | 1.638× | 2,663.2 MB | 8.461 s / 10,065.9 MB | 2.642× faster |
-| 4 | 1.727 s | 3.039× | 2,667.9 MB | 8.516 s / 10,067.7 MB | 4.931× faster |
-| 8 | 0.941 s | 5.577× | 2,677.7 MB | 8.568 s / 10,066.6 MB | 9.105× faster |
-
-![Full-chromosome BCF thread scaling](figures/bcf-readers/bcf-thread-scaling.png)
-
-At the one-thread point, polars-bio is 1.622× faster and uses 73.6% less peak
-RSS. At eight threads it reaches a 5.577× scale-up over its own one-thread
-result while memory stays near 2.68 GB.
-
-Before every timed group, the full equivalence gate compares all 993,881
-variant keys, all 2,548 sample IDs in order, and all 2,532,408,788 dosage cells
-in bounded chunks. This correctness work is deliberately outside the timer for
-both readers.
-
-## Why the two one-thread ratios differ
-
-The full-chromosome input contains 39.755× as many dosage cells as the subset,
-but dataset size is not the only difference:
-
-- Test 1 converts every reader to a common C-contiguous NumPy matrix and retains
-  positions and sample IDs inside the timed workload.
-- Test 2 requests genotypes only and retains each reader's efficient native
-  container. It measures complete native BCF genotype throughput rather than
-  cross-library container normalization.
-- Fixed startup and schema costs are better amortized over the full chromosome.
-
-For polars-bio, processing 39.755× more cells takes 33.215× longer at one
-thread: 5.248 seconds instead of 0.158 seconds. The snputils subset/full timing
-ratio should not be treated as pure row scaling because its Test 1 call also
-returns and normalizes positions and sample IDs. Use Test 1 for standardized
-cross-reader comparison and Test 2 for full-cohort native throughput, memory,
-and scaling.
-
-## Why direct typed BCF dosage is fast
-
-BCF stores FORMAT series as typed binary values. polars-bio projects only
-`FORMAT/GT` and sends the encoded allele bytes directly into a nullable Arrow
-`Int8` dosage builder. It avoids intermediate genotype strings, dynamic FORMAT
-value objects, and per-cell heap allocations. Batches remain bounded by the
-shared 8 MB genotype-byte budget even for very large sample counts.
-
-The optimization is a GT dosage representation, but the broader pattern
-generalizes: project early, decode typed fields directly into their final Arrow
-representation, and keep batches bounded. Other FORMAT fields need their own
-semantics and output types; they should not be mislabeled as dosage.
-
-## CSI pushdown and partition processing
-
-The BCF reader auto-discovers a neighboring `.bcf.csi`. Coordinate predicates
-are translated into CSI regions and exact record-intersection checks; full
-indexed scans divide those regions across the configured target partitions.
-The test suite covers indexed range-query equality against a sequential BCF
-reference, physical partition counts at 1/2/4/8, stable results across partition
-counts, unknown contigs, missing-index fallback, and local and remote range
-reads.
-
-This is not GT-only. CSI pruning and partition planning happen below projection,
-so core columns, INFO, FORMAT strings, and typed GT dosage all benefit.
-
-## Limitations
-
-- Test 1 uses a 25,000-row slice so all four readers complete on a 64 GiB
-  machine. Test 2 uses the complete 993,881-row callset.
-- The callset is phased, diploid, and biallelic. Multiallelic dosage is rejected
-  rather than collapsed into a misleading non-reference count.
-- Results are warm-cache measurements on one Apple Silicon machine. Treat the
-  ratios as workload evidence, not universal constants.
-- Test 1 standardizes the physical output; Test 2 deliberately retains native
-  containers. Timing and memory values are comparable within each test, not
-  directly between the tests.
-
-## Try it
-
-Install the version used for this BCF API:
-
-```bash
-pip install polars-bio==0.34.0
-```
-
-BCF has its own public lazy entry point, `scan_bcf`; `scan_vcf` is reserved for
-text VCF:
-
-```python
-import polars_bio as pb
-
-dosage = (
-    pb.scan_bcf(
-        "cohort.bcf",
-        info_fields=[],
-        format_fields=["GT"],
-        genotype_output="dosage",
-    )
-    .select("chrom", "start", "genotypes")
-    .collect(engine="streaming")
-)
-```
-
-For indexed range work, keep the scan lazy so predicates reach the CSI-backed
-source:
-
-```python
-import polars as pl
-import polars_bio as pb
-
-region = (
-    pb.scan_bcf("cohort.bcf", info_fields=["AF"], format_fields=[])
-    .filter(
-        (pl.col("chrom") == "chr22")
-        & (pl.col("start") >= 20_000_000)
-        & (pl.col("start") <= 21_000_000)
-    )
-    .collect(engine="streaming")
-)
-```
-
-- [25,000-variant benchmark report and raw runs](https://github.com/biodatageeks/bioformats-benchmark/blob/5fa546e9212aaf49b985d53c0105153ae61eb917/GENOTYPE_READER_BENCHMARK.md)
-- [Full-chromosome benchmark report and raw runs](https://github.com/biodatageeks/bioformats-benchmark/blob/5fa546e9212aaf49b985d53c0105153ae61eb917/BCF_BENCHMARK.md)
+The main conclusion is narrower than “one reader wins.” Under equal work and
+equal core count, polars-bio leads BCF and PGEN, nearly ties the specialized
+BGEN oracle, and reproduces every oracle value exactly. Keeping those
+constraints visible is what makes the timings worth comparing.

@@ -22,6 +22,7 @@ from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemEr
 from .fastqc_op import FastQCOperations as fastqc_operations
 from .fastqc_op import FastQCResult
 from .io import IOOperations as data_input
+from .io import PgenMatrix
 from .logging import set_loglevel
 from .pileup_op import PileupOperations as pileup_operations
 from .range_op import FilterOp
@@ -51,6 +52,8 @@ register_gff = data_processing.register_gff
 register_gtf = data_processing.register_gtf
 register_vcf = data_processing.register_vcf
 register_bcf = data_processing.register_bcf
+register_bgen = data_processing.register_bgen
+register_pgen = data_processing.register_pgen
 register_vcf_zarr = data_processing.register_vcf_zarr
 register_fastq = data_processing.register_fastq
 register_fasta = data_processing.register_fasta
@@ -67,6 +70,8 @@ sql = data_processing.sql
 
 describe_vcf = data_input.describe_vcf
 describe_bcf = data_input.describe_bcf
+describe_bgen = data_input.describe_bgen
+describe_pgen = data_input.describe_pgen
 describe_vcf_zarr = data_input.describe_vcf_zarr
 describe_bam = data_input.describe_bam
 describe_sam = data_input.describe_sam
@@ -80,6 +85,10 @@ read_gff = data_input.read_gff
 read_gtf = data_input.read_gtf
 read_table = data_input.read_table
 read_bcf = data_input.read_bcf
+read_bgen = data_input.read_bgen
+read_pgen = data_input.read_pgen
+read_pgen_matrix = data_input.read_pgen_matrix
+read_bgen_matrix = data_input.read_bgen_matrix
 read_vcf = data_input.read_vcf
 read_vcf_zarr = data_input.read_vcf_zarr
 read_fastq = data_input.read_fastq
@@ -101,6 +110,8 @@ scan_gtf = data_input.scan_gtf
 scan_pairs = data_input.scan_pairs
 scan_table = data_input.scan_table
 scan_bcf = data_input.scan_bcf
+scan_bgen = data_input.scan_bgen
+scan_pgen = data_input.scan_pgen
 scan_vcf = data_input.scan_vcf
 scan_vcf_zarr = data_input.scan_vcf_zarr
 write_vcf = data_input.write_vcf
@@ -162,6 +173,8 @@ __all__ = [
     "print_metadata_summary",
     # I/O functions
     "describe_bcf",
+    "describe_bgen",
+    "describe_pgen",
     "describe_vcf",
     "describe_vcf_zarr",
     "describe_bam",
@@ -181,6 +194,11 @@ __all__ = [
     "read_gtf",
     "read_table",
     "read_bcf",
+    "read_bgen",
+    "read_pgen",
+    "read_pgen_matrix",
+    "read_bgen_matrix",
+    "PgenMatrix",
     "read_vcf",
     "read_vcf_zarr",
     "scan_bam",
@@ -196,6 +214,8 @@ __all__ = [
     "scan_pairs",
     "scan_table",
     "scan_bcf",
+    "scan_bgen",
+    "scan_pgen",
     "scan_vcf",
     "scan_vcf_zarr",
     "write_vcf",
@@ -213,6 +233,8 @@ __all__ = [
     "register_gff",
     "register_gtf",
     "register_bcf",
+    "register_bgen",
+    "register_pgen",
     "register_vcf",
     "register_vcf_zarr",
     "register_fastq",
