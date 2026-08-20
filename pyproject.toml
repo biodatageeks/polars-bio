@@ -37,7 +37,7 @@ test = [
   "pysam",
   "pyranges1==1.3.8; python_version >= '3.12' and python_version < '3.14'",
   # pyBigWig is the reference for the BBI parity tests; manylinux wheels exist
-  # for 3.11-3.13. On 3.14 the tests importorskip and are skipped.
+  # for 3.11-3.13. On 3.14 the missing dependency skips the parity module.
   "pyBigWig>=0.3.22; python_version < '3.14'",
 ]
 
@@ -91,3 +91,8 @@ benchmark = [
 
 [tool.uv]
 default-groups = ["dev"]
+
+[tool.uv.extra-build-variables]
+# pyBigWig publishes no macOS wheels. This build revision invalidates older uv
+# source-build wheels that were linked without an LC_RPATH.
+pybigwig = { POLARS_BIO_PYBIGWIG_BUILD_REVISION = "1" }

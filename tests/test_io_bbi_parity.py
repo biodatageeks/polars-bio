@@ -1,17 +1,21 @@
 """Parity tests: polars-bio BBI readers vs pyBigWig (the de-facto reference).
 
-Skipped automatically where pyBigWig is not installed. Validates that the
-polars-bio output matches libBigWig row-for-row on the committed fixtures, and
-that predicate pushdown returns the same rows as a client-side filter.
+Skipped automatically only where pyBigWig is not installed. Import failures
+from an installed but unusable extension are errors, so the parity checks cannot
+be reported as skipped when pyBigWig has a broken native-library dependency.
 """
 
+import importlib.util
 from pathlib import Path
 
 import numpy as np
 import polars as pl
 import pytest
 
-pyBigWig = pytest.importorskip("pyBigWig")
+if importlib.util.find_spec("pyBigWig") is None:
+    pytest.skip("pyBigWig is not installed", allow_module_level=True)
+
+import pyBigWig  # noqa: E402
 
 import polars_bio as pb  # noqa: E402
 
