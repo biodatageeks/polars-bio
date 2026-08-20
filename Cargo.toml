@@ -37,7 +37,7 @@ pyo3-log = "0.13.3"
 
 
 # NOTE: temporarily pinned to 53.0.0 (down from 53.1.0) to match datafusion-bio-formats
-# v1.9.1 / datafusion-bio-functions v0.14.1, which pin datafusion to "=53.0.0". Restore
+# v1.10.0 / datafusion-bio-functions v0.14.1, which pin datafusion to "=53.0.0". Restore
 # 53.1.0 once those crates publish releases built against datafusion 53.1.0.
 datafusion = { version = "53.0.0", default-features = false, features = ["nested_expressions", "crypto_expressions", "datetime_expressions", "encoding_expressions", "regex_expressions", "string_expressions", "unicode_expressions", "parquet", "recursive_protection", "sql"] }
 arrow = "58.3.0"
@@ -48,19 +48,19 @@ log = "0.4.22"
 tracing = { version = "0.1.41", features = ["log"] }
 futures-util = "0.3.31"
 
-datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a5d5fe5" }
-datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a5d5fe5" }
-datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a5d5fe5" }
-datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a5d5fe5" }
-datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a5d5fe5" }
-datafusion-bio-format-cram = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a5d5fe5" }
-datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a5d5fe5" }
-datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a5d5fe5" }
-datafusion-bio-format-pairs = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a5d5fe5" }
-datafusion-bio-format-gtf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a5d5fe5" }
-datafusion-bio-format-bbi = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a5d5fe5" }
-datafusion-bio-format-bgen = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a5d5fe5" }
-datafusion-bio-format-pgen = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "a5d5fe5" }
+datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.10.0" }
+datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.10.0" }
+datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.10.0" }
+datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.10.0" }
+datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.10.0" }
+datafusion-bio-format-cram = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.10.0" }
+datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.10.0" }
+datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.10.0" }
+datafusion-bio-format-pairs = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.10.0" }
+datafusion-bio-format-gtf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.10.0" }
+datafusion-bio-format-bbi = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.10.0" }
+datafusion-bio-format-bgen = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.10.0" }
+datafusion-bio-format-pgen = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.10.0" }
 
 datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.11.0" }
 # v0.14.1 carries the #427 half-open coordinate fix
