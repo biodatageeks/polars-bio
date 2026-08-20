@@ -2402,6 +2402,22 @@ class IOOperations:
         dtype = np.dtype(dtypes[field])
         if missing is None:
             missing = -9 if dtype == np.int8 else np.nan
+        elif field == "ALT_COUNT":
+            # The sentinel crosses into Rust as an f64 and is written with
+            # `as i8`, which saturates out-of-range values and turns NaN into
+            # 0 — silently indistinguishable from a homozygous-reference call.
+            # Reject what that cast would corrupt rather than write it.
+            sentinel = float(missing)
+            if (
+                not np.isfinite(sentinel)
+                or sentinel != int(sentinel)
+                or not -128 <= sentinel <= 127
+            ):
+                raise ValueError(
+                    f"missing={missing!r} is not representable as the int8 "
+                    "ALT_COUNT matrix stores; pass a whole number in "
+                    "[-128, 127] (PLINK's own sentinel is -9)"
+                )
 
         # Built directly rather than through `scan_pgen`, because this path does
         # not register a table: the reader opens the fileset itself and answers

@@ -546,6 +546,20 @@ class TestPgenMatrix:
         matrix = pb.read_pgen_matrix(str(DOSAGE_PATH), field="ALT_COUNT", missing=-1)
         assert matrix.values[0].tolist() == [-1, 1, -1, -1]
 
+    @pytest.mark.parametrize("sentinel", [float("nan"), float("inf"), 200, -200, 0.5])
+    def test_an_alt_count_sentinel_int8_cannot_hold_is_refused(self, sentinel):
+        # The sentinel crosses into Rust as an f64 and is written with `as i8`,
+        # which saturates and turns NaN into 0 — a "missing" value silently
+        # indistinguishable from a homozygous-reference call.
+        with pytest.raises(ValueError, match="int8"):
+            pb.read_pgen_matrix(str(DOSAGE_PATH), field="ALT_COUNT", missing=sentinel)
+
+    def test_a_float_field_still_takes_nan(self):
+        # The guard is specific to the int8 field; NaN is the natural sentinel
+        # for DS and must keep working.
+        matrix = pb.read_pgen_matrix(str(DOSAGE_PATH), field="DS", missing=float("nan"))
+        assert matrix.values[0][3] != matrix.values[0][3]
+
     def test_integer_nulls_do_not_widen_the_intermediate(self):
         # An Arrow int8 array with nulls converts to float64 on the way to
         # NumPy, which would be an eightfold intermediate here and an undefined

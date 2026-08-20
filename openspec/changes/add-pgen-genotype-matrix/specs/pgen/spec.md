@@ -31,6 +31,13 @@ selected sample, decoding into that matrix directly rather than copying into it.
 - **AND** the default is `-9` for `ALT_COUNT` and NaN for `DS`
 - **AND** an integer field never widens to `float64` on the way to NumPy.
 
+#### Scenario: A sentinel the field cannot hold
+- **WHEN** `missing` is not a whole number in `[-128, 127]` and `field` is
+  `ALT_COUNT`
+- **THEN** the call raises `ValueError` before the file is opened, rather than
+  letting the `f64`-to-`i8` cast saturate it or turn NaN into `0`, which would
+  be indistinguishable from a homozygous-reference call.
+
 #### Scenario: Sample selection
 - **WHEN** `samples=[...]` is given
 - **THEN** the matrix has one column per requested sample, in that order

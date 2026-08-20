@@ -23,7 +23,8 @@
 
 - [x] 3.1 Add `read_pgen_matrix` returning values, positions and sample names
 - [x] 3.2 Default `copy_threads` to `datafusion.execution.target_partitions`
-- [x] 3.3 Reject fields without a dense form, pointing at `read_pgen`
+- [x] 3.3 Reject fields without a dense form, pointing at `read_pgen`, and
+      reject an `ALT_COUNT` sentinel `int8` cannot hold
 - [x] 3.4 Import NumPy inside the function, so `import polars_bio` does not
       require it
 - [x] 3.5 Test against the DataFrame path: values, missing sentinels, sample
