@@ -10,6 +10,7 @@
         members:
             - read_bcf
             - read_bgen
+            - read_bgen_matrix
             - read_pgen
             - read_pgen_matrix
             - read_vcf

@@ -311,6 +311,12 @@ assigned reference/alternate semantics, because BGEN does not define them.
   `sample_path`, or generated `sample_1`…`sample_N` names. `samples=[...]`
   selects and reorders the emitted samples, and the emitted order is available
   via `meta["header"]["sample_names"]`.
+- **Genotype fields** — `genotype_fields` selects children of the `genotypes`
+  struct by name, from the output mode's value child — `"DS"` for dosage, `"GP"`
+  for probability — and `"PLOIDY"`, emitted in the requested order. All of them
+  are emitted by default. `"PLOIDY"` is a byte per genotype, 2.53 GB on a whole
+  1000 Genomes chromosome 22, and a NumPy view of the result keeps the whole
+  struct alive, so pass `["DS"]` when only the dosages are wanted.
 - **Projection** — a scan that selects only metadata columns never reads or
   decompresses probability blocks.
 
@@ -322,7 +328,29 @@ schema = pb.describe_bgen("cohort.bgen")
 
 # Uniform-width probabilities without the per-sample offsets.
 probabilities = pb.scan_bgen("cohort.bgen", probability_layout="fixed")
+
+# Only the dosages, without the per-genotype ploidy byte.
+dosage_only = pb.scan_bgen(
+    "cohort.bgen", genotype_output="dosage", genotype_fields=["DS"]
+)
 ```
+
+For a whole-cohort dosage matrix, use
+[`read_bgen_matrix`](../api/reading.md#polars_bio.data_input.read_bgen_matrix)
+instead of consolidating Arrow batches yourself. It decodes each variant
+straight to its final address in a dense NumPy array, so the dosages are never
+copied, and rows stay in file order at every thread count:
+
+```python
+matrix = pb.read_bgen_matrix("chr22.bgen")
+matrix.values.shape         # (variants, samples), float32
+matrix.values.mean(axis=1)  # per-variant mean dosage
+matrix.positions            # one per row
+matrix.sample_names         # one per column
+```
+
+Dosage only: BGEN probabilities are variable width and have no single dense
+shape, so read those with `scan_bgen(genotype_output="probability")`.
 
 !!! note
     A scan with more than one partition may emit rows out of source order,
@@ -356,10 +384,13 @@ not guarantee. `field` takes `"ALT_COUNT"` or `"DS"`; fields with more than one
 value per sample have no dense form.
 
 - **Genotype fields** — `genotype_fields` selects children of the `genotypes`
-  struct by name, from `"GT"`, `"PHASED"`, `"DS"`, `"DS_STORED"`, and `"HDS"`,
-  emitted in the requested order. It defaults to `("GT",)`. This narrows the
-  provider default, which emits all five: reading five representations of the
-  same genotypes is rarely what you want, so ask for the others explicitly.
+  struct by name, from `"GT"`, `"ALT_COUNT"`, `"PHASED"`, `"DS"`,
+  `"DS_STORED"`, and `"HDS"`, emitted in the requested order. It defaults to
+  `("GT",)`. This narrows the provider default, which emits all of them:
+  reading several representations of the same genotypes is rarely what you
+  want, so ask for the others explicitly. `"ALT_COUNT"` is the hardcall ALT
+  allele count as `int8`, one byte per genotype rather than the four `"DS"`
+  uses; prefer it when the fileset stores only hardcalls.
 - **Companions** — the `.pvar` (then `.pvar.zst`) and `.psam` are discovered
   from the `.pgen` basename. Pass `pvar_path`, `psam_path`, or `pgi_path` for
   companions stored elsewhere.
