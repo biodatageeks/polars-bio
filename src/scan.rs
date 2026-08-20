@@ -1174,9 +1174,11 @@ impl OpenPgenMatrix {
     ///
     /// # Safety
     ///
-    /// `values` must point to at least `len` writable, C-contiguous elements of
-    /// the type `field` implies — `i8` for `ALT_COUNT`, `f32` for `DS` — and
-    /// must stay valid and unaliased for the call.
+    /// `values` must point to at least `len` writable, C-contiguous, correctly
+    /// aligned elements of the type `field` implies — `i8` for `ALT_COUNT`,
+    /// `f32` for `DS` — and must stay valid and unaliased for the call.
+    /// Alignment is the requirement `from_raw_parts_mut` makes that
+    /// C-contiguity and writability do not imply, and `f32` wants four bytes.
     pub unsafe fn read_into(
         &self,
         field: &str,
@@ -1299,8 +1301,10 @@ impl OpenBgenMatrix {
     ///
     /// # Safety
     ///
-    /// `values` must point to at least `len` writable, C-contiguous `f32`s and
-    /// must stay valid and unaliased for the call.
+    /// `values` must point to at least `len` writable, C-contiguous,
+    /// 4-byte-aligned `f32`s that stay valid and unaliased for the call.
+    /// Alignment is the requirement `from_raw_parts_mut` makes that
+    /// C-contiguity and writability do not imply.
     pub unsafe fn read_into(
         &self,
         values: *mut u8,
