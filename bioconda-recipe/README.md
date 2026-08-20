@@ -93,18 +93,30 @@ bioconda-utils build --docker --mulled-test --packages polars-bio
 
 Bioconda builds `linux-64` and `osx-64` by default; `osx-arm64` and
 `linux-aarch64` require an explicit `extra: additional-platforms:` entry. The
-recipe currently targets the defaults only — cross-compiling a Rust tree this
-large is worth adding once the package is green, not as part of the initial
-submission. Bioconda does not build Windows packages at all; Windows users
-continue to install from PyPI.
+recipe opts in to `osx-arm64` only. Both ARM targets are built natively on
+CircleCI (`osx-arm64` on an Apple Silicon runner, `linux-aarch64` on ARM Linux) —
+there is no cross-compilation involved. `osx-arm64` is safe because polars-bio's
+own CI already builds macOS aarch64 wheels from the same crate graph;
+`linux-aarch64` is left out because nothing upstream exercises ARM Linux.
+Bioconda does not build Windows packages at all; Windows users continue to
+install from PyPI.
 
 ## Release automation
 
-`.github/workflows/update_bioconda_recipe.yml` opens a version-bump pull request
-against `bioconda/bioconda-recipes` when a release is published. Bioconda's own
-autobump bot usually does this unprompted once the package exists; the workflow
-makes the bump deterministic rather than waiting on the bot. It requires a
-`BIOCONDA_PAT` secret with `public_repo` scope.
+Nothing to do, and no secret required. Bioconda's autobump bot watches the
+recipe: its source URL matches the bot's PyPI hoster, so a new release on PyPI
+is picked up automatically, and Mergify auto-approves and merges the bot's
+bump PR once the tests pass (its rule requires `commits[*].author=BiocondaBot`
+and `label=autobump`, which the bot's own PRs satisfy).
+
+An earlier `.github/workflows/update_bioconda_recipe.yml` did the same job
+deterministically on release-published, but it duplicated the bot and needed a
+`BIOCONDA_PAT` secret, so it was removed.
+
+**One thing the automation cannot do:** autobump does not track changed
+dependencies. If a release changes the pins in `pyproject.toml`, the `run:`
+section here has to be updated by hand — the bot only rewrites version, sha256
+and build number.
 
 ## Maintainers
 
