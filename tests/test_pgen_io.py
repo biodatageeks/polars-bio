@@ -629,6 +629,49 @@ class TestPgenMatrixDestination:
         with pytest.raises(ValueError, match="representable"):
             reader.read_into("ALT_COUNT", values, 1, sentinel)
 
+    def test_rebinding_numpy_ndarray_does_not_help_once_it_is_cached(self):
+        # `numpy.ndarray` is a module attribute a caller can rebind, so the type
+        # is looked up once and kept. That narrows the window to before the
+        # first matrix read rather than closing it — a process that rebinds
+        # earlier still wins, but such a process can already write to any
+        # address it likes through `ctypes`, without going through this reader.
+        class Spoof:
+            dtype = "int8"
+            size = 24
+
+            class flags:
+                c_contiguous = True
+                writeable = True
+                aligned = True
+
+            class ctypes:
+                data = 0x1234
+
+        reader = self._reader()
+        variants, samples = reader.shape()
+        values = np.empty((variants, samples), dtype=np.int8)
+        reader.read_into("ALT_COUNT", values, 1, -9.0)
+
+        original = np.ndarray
+        np.ndarray = Spoof
+        try:
+            with pytest.raises(TypeError, match="numpy.ndarray"):
+                reader.read_into("ALT_COUNT", Spoof(), 1, -9.0)
+        finally:
+            np.ndarray = original
+
+    def test_a_resized_destination_is_caught(self):
+        # A resize before the call changes the size the checks see. A resize
+        # *during* the call is what the GIL now prevents: the decode no longer
+        # runs inside `py.detach`, so no Python thread can reallocate the array
+        # between the checks and the write.
+        reader = self._reader()
+        variants, samples = reader.shape()
+        values = np.empty((variants, samples), dtype=np.int8)
+        values.resize((variants + 100, samples), refcheck=False)
+        with pytest.raises(ValueError, match="expected"):
+            reader.read_into("ALT_COUNT", values, 1, -9.0)
+
     def test_a_valid_destination_still_decodes(self):
         # The refusals above prove nothing if the accepting case never runs.
         reader = self._reader()

@@ -34,6 +34,8 @@ sample, together with the variant positions and sample names labelling its axes.
   reports is given to the matrix reader
 - **THEN** the reader SHALL raise before any dosage is decoded, and SHALL take
   the destination array itself rather than an address
+- **AND** the decode SHALL hold the GIL, so no Python thread can resize or free
+  the destination between the checks and the write
 
 #### Scenario: Probabilities have no dense form
 - **WHEN** a caller wants BGEN probability states as a matrix

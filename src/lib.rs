@@ -37,6 +37,7 @@ use datafusion_python::dataframe::PyDataFrame;
 use log::{debug, error, info};
 use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
+use pyo3::sync::PyOnceLock;
 use tokio::runtime::Runtime;
 
 use crate::context::PyBioSessionContext;
@@ -909,20 +910,29 @@ fn py_register_fastqc_table(
     })
 }
 
-/// Validates a NumPy destination and returns its address and element count.
+/// The real `numpy.ndarray` type, looked up once.
 ///
-/// polars-bio builds against the limited API, where PyO3's buffer protocol is
-/// unavailable, so the array is inspected through its Python attributes rather
-/// than through `Py_buffer`. That reads the same facts by the only route this
-/// build has, and it keeps the raw address on this side of the boundary: the
-/// caller passes the array, never a number that a decoder would write to.
+/// `numpy.ndarray` is a module attribute a caller can rebind, so reading it on
+/// every call would let a process that rebinds it before the first matrix read
+/// choose what counts as an array. Caching narrows that to the first call.
+/// It does not close it, and cannot: the buffer protocol is what would ask
+/// CPython instead of the object, and `Py_buffer` only entered the limited API
+/// in 3.11 while `datafusion-python` enables bare `abi3`, pinning this build's
+/// floor at 3.10. What is left is worth having anyway — every accident these
+/// checks catch is an ordinary array with the wrong dtype, a stride, or a
+/// read-only flag, and code that rebinds NumPy's internals to reach the
+/// decoder is code that could already call `ctypes.memset` on any address it
+/// likes.
+static NDARRAY_TYPE: PyOnceLock<Py<PyAny>> = PyOnceLock::new();
+
+/// Validates a NumPy destination and returns the address to decode into.
 ///
-/// The type is checked first, and by identity rather than `isinstance`. Every
-/// check below it is an attribute lookup, and an arbitrary object can answer
-/// them however it likes — reporting the right dtype, flags and size while
-/// handing back any address it wants as `ctypes.data`. A subclass can do the
-/// same through `__getattr__`, so only `numpy.ndarray` itself is accepted;
-/// nothing in polars-bio hands over anything else.
+/// The array is inspected through its Python attributes rather than through
+/// `Py_buffer`, for the limited-API reason above, and the raw address stays on
+/// this side of the boundary: the caller passes the array, never a number a
+/// decoder would write to. The type is compared by identity rather than with
+/// `isinstance`, since a subclass can answer every attribute below through
+/// `__getattr__`.
 ///
 /// Failing here costs one attribute walk per matrix read, against a decode
 /// measured in seconds.
@@ -932,8 +942,13 @@ fn validated_destination(
     expected_align: usize,
     expected_length: usize,
 ) -> PyResult<usize> {
-    let ndarray = destination.py().import("numpy")?.getattr("ndarray")?;
-    if !destination.get_type().as_any().is(&ndarray) {
+    let py = destination.py();
+    let ndarray = NDARRAY_TYPE
+        .get_or_try_init(py, || -> PyResult<Py<PyAny>> {
+            Ok(py.import("numpy")?.getattr("ndarray")?.unbind())
+        })?
+        .bind(py);
+    if !destination.get_type().as_any().is(ndarray) {
         return Err(PyTypeError::new_err(format!(
             "matrix destination must be a numpy.ndarray, not {}",
             destination.get_type().name()?
@@ -987,11 +1002,11 @@ fn validated_destination(
 /// shape before it can allocate the array to decode into, and reopening the
 /// fileset to answer that would parse the 108 MB PVAR a second time.
 ///
-/// `read_into` takes the destination array itself and checks its dtype,
-/// C-contiguity, writability and length before decoding. It used to take the
-/// address as an integer, leaving those checks to `read_pgen_matrix` in
-/// `io.py` — but the class is importable, so any caller could reach the raw
-/// form and hand a decoder an arbitrary address.
+/// `read_into` takes the destination array itself and validates it through the
+/// buffer protocol before decoding. It used to take the address as an integer,
+/// leaving the checks to `read_pgen_matrix` in `io.py` — but the class is
+/// importable, so any caller could reach the raw form and hand a decoder an
+/// arbitrary address.
 #[pyclass(name = "PgenMatrixReader")]
 struct PyPgenMatrixReader {
     inner: scan::OpenPgenMatrix,
@@ -1024,7 +1039,6 @@ impl PyPgenMatrixReader {
     /// Decodes one genotype field into `destination`, a NumPy array.
     fn read_into(
         &self,
-        py: Python<'_>,
         field: String,
         destination: &Bound<'_, PyAny>,
         threads: usize,
@@ -1042,18 +1056,22 @@ impl PyPgenMatrixReader {
         let (variants, samples) = self.inner.shape();
         let length = variants.saturating_mul(samples);
         let address = validated_destination(destination, dtype, align, length)?;
-        // The GIL is released for the decode: the provider runs its own threads
-        // and holding it would serialize them against each other.
-        py.detach(|| {
-            // SAFETY: `address` came from `destination`, which was just checked
-            // to hold `length` writable, C-contiguous elements of `dtype`.
-            // `destination` is a live argument for the whole call, so the array
-            // cannot be collected out from under the decode.
-            unsafe {
-                self.inner
-                    .read_into(&field, address as *mut u8, length, threads, missing)
-            }
-        })
+        // The GIL is held for the decode. It used to be released, on the
+        // reasoning that the provider runs its own threads and holding it would
+        // serialize them — which is wrong twice over: those threads never touch
+        // Python, so the GIL does not slow them, and releasing it lets another
+        // Python thread call `destination.resize(..., refcheck=False)` between
+        // the checks above and the write below, freeing the buffer this address
+        // points into. Holding it costs other Python threads the duration of
+        // the decode and buys the address staying valid for it.
+        // SAFETY: `address` came from `destination`, checked just above to hold
+        // `length` writable, C-contiguous, aligned elements of `dtype`. The GIL
+        // is held for the whole decode, so no Python code can resize or free
+        // the array while it is written to.
+        unsafe {
+            self.inner
+                .read_into(&field, address as *mut u8, length, threads, missing)
+        }
         .map_err(|error| PyValueError::new_err(error.to_string()))
     }
 }
@@ -1062,7 +1080,7 @@ impl PyPgenMatrixReader {
 ///
 /// The BGEN counterpart of [`PyPgenMatrixReader`], with the same handle shape
 /// and the same checked destination: `read_into` takes the array itself and
-/// verifies its dtype, C-contiguity, writability and length before decoding.
+/// validates it through the buffer protocol before decoding.
 #[pyclass(name = "BgenMatrixReader")]
 struct PyBgenMatrixReader {
     inner: scan::OpenBgenMatrix,
@@ -1095,7 +1113,6 @@ impl PyBgenMatrixReader {
     /// Decodes the dosages into `destination`, a `float32` NumPy array.
     fn read_into(
         &self,
-        py: Python<'_>,
         destination: &Bound<'_, PyAny>,
         threads: usize,
         missing: f64,
@@ -1104,18 +1121,15 @@ impl PyBgenMatrixReader {
         let length = variants.saturating_mul(samples);
         let address =
             validated_destination(destination, "float32", std::mem::align_of::<f32>(), length)?;
-        // The GIL is released for the decode: the provider runs its own threads
-        // and holding it would serialize them against each other.
-        py.detach(|| {
-            // SAFETY: `address` came from `destination`, which was just checked
-            // to hold `length` writable, C-contiguous `float32`s. `destination`
-            // is a live argument for the whole call, so the array cannot be
-            // collected out from under the decode.
-            unsafe {
-                self.inner
-                    .read_into(address as *mut u8, length, threads, missing)
-            }
-        })
+        // Held, not released — see `PyPgenMatrixReader::read_into` for why.
+        // SAFETY: `address` came from `destination`, checked just above to hold
+        // `length` writable, C-contiguous, aligned `f32`s. The GIL is held for
+        // the whole decode, so no Python code can resize or free the array
+        // while it is written to.
+        unsafe {
+            self.inner
+                .read_into(address as *mut u8, length, threads, missing)
+        }
         .map_err(|error| PyValueError::new_err(error.to_string()))
     }
 }

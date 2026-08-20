@@ -66,5 +66,7 @@ selected sample, decoding into that matrix directly rather than copying into it.
 - **AND** the type SHALL be checked by identity rather than by `isinstance`,
   because every other check is an attribute lookup an arbitrary object — or a
   subclass through `__getattr__` — can answer while supplying any address
+- **AND** the decode SHALL hold the GIL, so no Python thread can resize or free
+  the destination between the checks and the write.
 - **AND** `read_pgen_matrix` allocates its own destination, so a caller of the
   public function cannot reach that failure.
