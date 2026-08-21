@@ -1,11 +1,13 @@
 # polars-bio - Next-gen Python DataFrame operations for genomics!
 ![PyPI - Version](https://img.shields.io/pypi/v/polars-bio)
+[![Python versions](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue?logo=python&logoColor=white)](https://pypi.org/project/polars-bio/)
+[![Platforms](https://img.shields.io/badge/platforms-linux%20%7C%20macOS%20%7C%20windows-lightgrey)](https://pypi.org/project/polars-bio/#files)
 ![GitHub License](https://img.shields.io/github/license/biodatageeks/polars-bio)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/polars-bio)
 [![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](https://bioconda.github.io/recipes/polars-bio/README.html)
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/polars-bio?label=bioconda)](https://anaconda.org/bioconda/polars-bio)
 [![Bioconda - Downloads](https://img.shields.io/conda/dn/bioconda/polars-bio?label=bioconda%20downloads)](https://anaconda.org/bioconda/polars-bio)
-[![Bioconda - Platforms](https://img.shields.io/conda/pn/bioconda/polars-bio?label=platforms)](https://anaconda.org/bioconda/polars-bio)
+[![Bioconda - Platforms](https://img.shields.io/conda/pn/bioconda/polars-bio?label=bioconda%20platforms)](https://anaconda.org/bioconda/polars-bio)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/biodatageeks/polars-bio)
 [![](https://dcbadge.limes.pink/api/server/https://discord.gg/bpxQ4Yxhk5?style=flat)](https://discord.gg/bpxQ4Yxhk5)
 
