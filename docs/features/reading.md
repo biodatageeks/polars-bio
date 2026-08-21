@@ -28,7 +28,7 @@ The matrix below summarizes which [performance features](#performance-features) 
 | [FASTQ](../api/reading.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: (GZI) | :white_check_mark: |  ❌  |  ❌   |
 | [FASTA](../api/reading.md#polars_bio.data_input.read_fasta) | :white_check_mark: |  ❌  | :white_check_mark: |  ❌  |  ❌   |
 | [GFF3](../api/reading.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
-| [GTF](../api/reading.md#polars_bio.data_input.read_gtf)     | :white_check_mark: | ❌                  | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
+| [GTF](../api/reading.md#polars_bio.data_input.read_gtf)     | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [Pairs](../api/reading.md#polars_bio.data_input.read_pairs) | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [BGEN](../api/reading.md#polars_bio.data_input.read_bgen)   | :white_check_mark: | :white_check_mark: (BGI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [PGEN](../api/reading.md#polars_bio.data_input.read_pgen)   | :white_check_mark: | :white_check_mark: (embedded/PGI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
@@ -76,6 +76,7 @@ Index files are **auto-discovered** by convention. Predicate pushdown is **enabl
 | VCF (bgzf) | TBI, CSI | `sample.vcf.gz.tbi`, `sample.vcf.gz.csi` |
 | BCF | CSI | `sample.bcf.csi` |
 | GFF (bgzf) | TBI, CSI | `sample.gff.gz.tbi`, `sample.gff.gz.csi` |
+| GTF (bgzf) | TBI, CSI | `sample.gtf.gz.tbi`, `sample.gtf.gz.csi` |
 | Pairs (bgzf) | TBI, CSI | `contacts.pairs.gz.tbi`, `contacts.pairs.gz.csi` |
 | FASTQ (bgzf) | GZI | `sample.fastq.bgz.gzi` |
 
