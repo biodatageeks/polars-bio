@@ -2,6 +2,7 @@
 ![PyPI - Version](https://img.shields.io/pypi/v/polars-bio)
 ![GitHub License](https://img.shields.io/github/license/biodatageeks/polars-bio)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/polars-bio)
+[![install with bioconda](https://img.shields.io/badge/install%20with-bioconda-brightgreen.svg?style=flat)](https://bioconda.github.io/recipes/polars-bio/README.html)
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/polars-bio?label=bioconda)](https://anaconda.org/bioconda/polars-bio)
 [![Bioconda - Downloads](https://img.shields.io/conda/dn/bioconda/polars-bio?label=bioconda%20downloads)](https://anaconda.org/bioconda/polars-bio)
 [![Bioconda - Platforms](https://img.shields.io/conda/pn/bioconda/polars-bio?label=platforms)](https://anaconda.org/bioconda/polars-bio)
