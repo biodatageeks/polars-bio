@@ -52,7 +52,7 @@
 - [ ] 6.3 Test `use_zero_based=True`, `use_zero_based=False`, and global default behavior.
 - [ ] 6.4 Test projection pushdown returns only requested columns and plan output includes `BigWigExec` or `BigBedExec` projection details.
 - [x] 6.5 Test genomic predicate pushdown against equivalent non-pushdown results.
-- [ ] 6.6 Test parallel partition behavior by setting `datafusion.execution.target_partitions`.
+- [x] 6.6 Test parallel partition behavior by setting `datafusion.execution.target_partitions`.
 - [x] 6.7 Test BigBed autoSQL field parsing and fallback `rest` behavior.
 - [ ] 6.8 Test unsupported remote paths fail with clear errors.
 

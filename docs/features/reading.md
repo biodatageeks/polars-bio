@@ -32,8 +32,8 @@ The matrix below summarizes which [performance features](#performance-features) 
 | [Pairs](../api/reading.md#polars_bio.data_input.read_pairs) | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [BGEN](../api/reading.md#polars_bio.data_input.read_bgen)   | :white_check_mark: | :white_check_mark: (BGI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [PGEN](../api/reading.md#polars_bio.data_input.read_pgen)   | :white_check_mark: | :white_check_mark: (embedded/PGI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
-| [BigWig](../api/reading.md#polars_bio.data_input.read_bigwig) | :white_check_mark: | ❌ | ❌ | :white_check_mark: | :white_check_mark: |
-| [BigBed](../api/reading.md#polars_bio.data_input.read_bigbed) | :white_check_mark: | ❌ | ❌ | :white_check_mark: | :white_check_mark: |
+| [BigWig](../api/reading.md#polars_bio.data_input.read_bigwig) | :white_check_mark: | :white_check_mark: (built-in BBI index) | ❌ | :white_check_mark: | :white_check_mark: |
+| [BigBed](../api/reading.md#polars_bio.data_input.read_bigbed) | :white_check_mark: | :white_check_mark: (built-in BBI index) | ❌ | :white_check_mark: | :white_check_mark: |
 
 ## Performance features
 
@@ -573,6 +573,12 @@ Full registry includes ~40 common SAM tags.
 [BigBed](https://genome.ucsc.edu/goldenPath/help/bigBed.html) (feature intervals) are
 supported through the same eager/lazy/register access patterns. Predicate pushdown on the
 genomic coordinate columns and projection pushdown are enabled by default.
+
+Parallel scans use each file's built-in cir-tree (R-tree) index, so BigWig and
+BigBed do not need a sidecar index. The reader balances compressed data blocks
+across up to `datafusion.execution.target_partitions` independent partitions;
+small files can expose fewer partitions than requested when they contain fewer
+independent indexed work units.
 
 ```python
 import polars as pl

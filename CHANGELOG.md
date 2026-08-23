@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- BigWig and BigBed full scans now use their built-in BBI index to balance
+  compressed blocks across `datafusion.execution.target_partitions`. No sidecar
+  index is required, and partitioned scans preserve every row exactly once.
+
 ## [0.34.0] - 2026-08-20
 
 ### Added

@@ -8,7 +8,7 @@ predicate-pushdown fix ([datafusion-bio-formats#205], tag `v1.8.3`).
 
 | File | Needs pyBigWig | Covers |
 |------|----------------|--------|
-| `tests/test_io_bbi.py` | no | API, schema, autoSQL/rest, coordinate conversion, pushdown == client-side, register/SQL path |
+| `tests/test_io_bbi.py` | no | API, schema, autoSQL/rest, coordinate conversion, pushdown == client-side, register/SQL path, physical partition counts and exact serial/parallel equality for `target_partitions=1..8` |
 | `tests/test_io_bbi_streaming.py` | no | lazy scan, `limit` pushdown across batch boundaries, streaming vs in-memory engine equality, streaming aggregation, region pushdown unclipped |
 | `tests/test_io_bbi_parity.py` | yes (missing dependency skips; load errors fail) | row-for-row equality vs pyBigWig (bigWig intervals, bigBed `rest`), pushdown-region parity |
 
