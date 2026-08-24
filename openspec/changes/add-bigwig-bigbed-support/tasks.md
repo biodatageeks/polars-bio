@@ -13,7 +13,7 @@
 - [x] 2.3 Implement projection flags for `chrom`, `start`, `end`, and `value`.
 - [x] 2.4 Implement genomic filter analysis and interval-region pruning for `chrom`, `start`, and `end`.
 - [ ] 2.5 Implement provider-side residual filtering for `value` comparisons when feasible.
-- [ ] 2.6 Implement partition planning from DataFusion `target_partitions`.
+- [x] 2.6 Implement partition planning from DataFusion `target_partitions`.
 - [ ] 2.7 Add provider tests for full scan, projected scan, genomic predicate scan, value residual filter, empty projection/count, and partition count.
 
 ## 3. DataFusion BigBed Provider
@@ -24,7 +24,7 @@
 - [x] 3.4 Implement projection flags so non-projected extra fields are not parsed.
 - [x] 3.5 Implement genomic filter analysis and interval-region pruning for `chrom`, `start`, and `end`.
 - [ ] 3.6 Implement provider-side residual filtering for supported parsed scalar fields when feasible.
-- [ ] 3.7 Implement partition planning and boundary ownership filtering.
+- [x] 3.7 Implement partition planning and boundary ownership filtering.
 - [ ] 3.8 Add provider tests for autoSQL schema, fallback `rest`, projection, genomic predicates, scalar residual predicates, empty projection/count, and partition count.
 
 ## 4. Rust/PyO3 Integration
@@ -61,4 +61,4 @@
 - [ ] 7.1 Update API docs for BigWig and BigBed read/scan/register methods.
 - [ ] 7.2 Document initial storage limitations and coordinate semantics.
 - [ ] 7.3 Add examples for selecting BigWig signal columns and filtering BigBed annotations by genomic interval.
-- [ ] 7.4 Add changelog entry.
+- [x] 7.4 Add changelog entry.

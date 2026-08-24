@@ -216,6 +216,8 @@ def test_bbi_parallel_full_scan_matches_serial_without_duplicate_or_missing_rows
             expected_partitions = partitions
         else:
             actual = pb.read_bigbed(BIGBED, use_zero_based=True)
+            # annotations.bb has two independent indexed work units, so this
+            # small fixture correctly caps at two physical partitions.
             expected_partitions = min(partitions, 2)
 
     execution = _find_exec(plan, node_name)
