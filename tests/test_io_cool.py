@@ -198,3 +198,61 @@ class TestCoolMetadata:
     def test_coordinate_system_metadata(self):
         lf = pb.scan_cool(COOL, use_zero_based=True)
         assert lf.config_meta.get_metadata().get("coordinate_system_zero_based") is True
+
+
+class TestCoolPlanAndParallel:
+    """Tasks 6.5/6.6: plan display shows projection; parallel == serial."""
+
+    @staticmethod
+    def _execution_plan(name: str, partitions: int):
+        from polars_bio.context import ctx
+        from polars_bio.polars_bio import (
+            CoolReadOptions,
+            InputFormat,
+            ReadOptions,
+            py_read_table,
+            py_register_table,
+        )
+
+        read_options = ReadOptions(cool_read_options=CoolReadOptions(zero_based=True))
+        table = py_register_table(
+            ctx, COOL, f"{name}_{partitions}", InputFormat.Cool, read_options
+        )
+        return py_read_table(ctx, table.name)
+
+    def test_execution_plan_shows_projection(self):
+        df = self._execution_plan("cool_plan_proj", 1)
+        plan = str(df.select_exprs("chrom1", "count").execution_plan())
+        assert "CoolerExec" in plan
+        assert "projection=[chrom1, count]" in plan
+
+    def test_execution_plan_full_rows(self):
+        df = self._execution_plan("cool_plan_rows", 1)
+        plan = str(df.execution_plan())
+        assert "rows=4210" in plan
+
+    @pytest.mark.parametrize("partitions", [1, 2, 4, 8])
+    def test_parallel_scan_matches_serial(self, partitions, cool_serial_frame):
+        from contextlib import contextmanager
+
+        target_key = "datafusion.execution.target_partitions"
+        original = pb.get_option(target_key)
+        pb.set_option(target_key, str(partitions))
+        try:
+            plan = self._execution_plan("cool_parallel", partitions).execution_plan()
+            actual = pb.read_cool(COOL, use_zero_based=True)
+        finally:
+            pb.set_option(target_key, original)
+        assert plan.partition_count == partitions
+        assert actual.sort(JOINED_COLUMNS).equals(cool_serial_frame)
+
+
+@pytest.fixture(scope="module")
+def cool_serial_frame():
+    target_key = "datafusion.execution.target_partitions"
+    original = pb.get_option(target_key)
+    pb.set_option(target_key, "1")
+    try:
+        return pb.read_cool(COOL, use_zero_based=True).sort(JOINED_COLUMNS)
+    finally:
+        pb.set_option(target_key, original)
