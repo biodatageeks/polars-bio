@@ -14,8 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are handled through a `resolution` argument or the cooler URI syntax
   (`file.mcool::/resolutions/10000`). Pixels are joined with bin coordinates
   by default (`chrom1..count`, optional `weight1`/`weight2` balancing
-  weights), with a raw COO mode (`join_bins=False`); `count` is `Int32` or
-  `Float64` following the stored dtype. First-axis predicate pushdown prunes
+  weights), with a raw COO mode (`join_bins=False`); the stored `count` dtype
+  is preserved as `Int32`, `Int64`, `UInt32`, `UInt64`, or `Float64`.
+  First-axis predicate pushdown prunes
   pixel row ranges through the cooler CSR indexes, projection pushdown reads
   only the needed HDF5 datasets, `count(*)` is served without touching pixel
   data, and parallel scans split rows along bin1 boundaries. HDF5 is

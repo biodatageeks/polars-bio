@@ -465,7 +465,16 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         path
     };
     // Cooler URIs address a group inside the file: `x.mcool::/resolutions/N`.
-    let path = path.split_once("::").map_or(path, |(file, _)| file);
+    // Preserve `::` in ordinary object keys so their actual suffix still
+    // determines the input format.
+    let path = path
+        .split_once("::")
+        .and_then(|(file, _)| {
+            let lowercase_file = file.to_ascii_lowercase();
+            (lowercase_file.ends_with(".cool") || lowercase_file.ends_with(".mcool"))
+                .then_some(file)
+        })
+        .unwrap_or(path);
     let path = path.to_lowercase();
     if path.ends_with(".parquet") {
         InputFormat::Parquet
@@ -1468,5 +1477,21 @@ mod tests {
         );
         assert_eq!(get_input_format("/data/cohort#1.bcf"), InputFormat::Vcf);
         assert_eq!(get_input_format("/data/cohort?1.BCF"), InputFormat::Vcf);
+    }
+
+    #[test]
+    fn cooler_group_suffix_is_stripped_only_for_cooler_files() {
+        assert_eq!(
+            get_input_format("contacts.mcool::/resolutions/10000"),
+            InputFormat::Cool
+        );
+        assert_eq!(
+            get_input_format("s3://bucket/run::lane/variants.vcf"),
+            InputFormat::Vcf
+        );
+        assert_eq!(
+            get_input_format("s3://bucket/run::lane/alignments.cram"),
+            InputFormat::Cram
+        );
     }
 }

@@ -609,8 +609,9 @@ HDF5, no `cooler`/`h5py` dependency) through the same eager/lazy/register
 access patterns.
 
 Each row is one stored (upper-triangle) pixel, joined with bin coordinates by
-default: `chrom1`, `start1`, `end1`, `chrom2`, `start2`, `end2`, `count`
-(`Int32`, or `Float64` when the file stores float counts). `join_bins=False`
+default: `chrom1`, `start1`, `end1`, `chrom2`, `start2`, `end2`, `count`.
+The stored count dtype is preserved as `Int32`, `Int64`, `UInt32`, `UInt64`,
+or `Float64`. `join_bins=False`
 returns the raw COO triple (`bin1_id`, `bin2_id`, `count`), and
 `include_weights=True` adds the `weight1`/`weight2` balancing weights of a
 balanced cooler (`NaN` marks bins filtered out by balancing). Coordinates are
