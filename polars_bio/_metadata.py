@@ -186,7 +186,7 @@ def get_coordinate_system(
 
 
 def _get_input_type_name(
-    df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str],
+    df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str]
 ) -> str:
     """Get a human-readable name for the input type."""
     if isinstance(df, pl.LazyFrame):

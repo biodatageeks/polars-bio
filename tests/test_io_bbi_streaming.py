@@ -57,10 +57,7 @@ def test_bigwig_streaming_aggregation_matches_eager():
     streamed = agg.collect(engine="streaming").sort("chrom")
     eager = agg.collect().sort("chrom")
     # Row counts are exact and must match between engines.
-    assert dict(zip(streamed["chrom"], streamed["n"])) == {
-        "chr1": CHR1_N,
-        "chr2": CHR2_N,
-    }
+    assert dict(zip(streamed["chrom"], streamed["n"])) == {"chr1": CHR1_N, "chr2": CHR2_N}
     assert streamed["n"].to_list() == eager["n"].to_list()
     # Float sums agree within tolerance; the streaming and in-memory engines sum
     # in different orders, and floating-point addition is non-associative.
