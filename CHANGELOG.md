@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Cooler Hi-C contact matrix support (`.cool`/`.mcool`): `read_cool()`,
+  `scan_cool()`, `describe_cool()`, and `register_cool()`. Both file layouts
+  are handled through a `resolution` argument or the cooler URI syntax
+  (`file.mcool::/resolutions/10000`). Pixels are joined with bin coordinates
+  by default (`chrom1..count`, optional `weight1`/`weight2` balancing
+  weights), with a raw COO mode (`join_bins=False`); `count` is `Int32` or
+  `Float64` following the stored dtype. First-axis predicate pushdown prunes
+  pixel row ranges through the cooler CSR indexes, projection pushdown reads
+  only the needed HDF5 datasets, `count(*)` is served without touching pixel
+  data, and parallel scans split rows along bin1 boundaries. HDF5 is
+  statically linked — no system HDF5 or Python `cooler` required. Outputs are
+  validated row-for-row against the reference `cooler` implementation.
+  Local filesystem paths only in this version.
+
+### Fixed
+
+- Numeric predicate pushdown now works on the Polars scan path for every
+  format. The Polars optimizer casts filter literals to the column dtype
+  before they reach the io-plugin callback (`{"Scalar": {"UInt32": N}}`
+  instead of the untyped `Dyn` int), and the predicate translator silently
+  kept such conjuncts client-side — so filters like
+  `pl.col("start") >= 20_000_000` never pruned at the reader level (results
+  were still correct via client-side re-filtering). Typed integer and float
+  scalar kinds now translate; a cooler region query went from 1.95 s to
+  0.23 s with the fix.
+
 ### Changed
 
 - Updated `datafusion-bio-formats` to v1.11.0 and

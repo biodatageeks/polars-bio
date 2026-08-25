@@ -34,6 +34,7 @@ The matrix below summarizes which [performance features](#performance-features) 
 | [PGEN](../api/reading.md#polars_bio.data_input.read_pgen)   | :white_check_mark: | :white_check_mark: (embedded/PGI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [BigWig](../api/reading.md#polars_bio.data_input.read_bigwig) | :white_check_mark: | :white_check_mark: (built-in BBI index) | ❌ | :white_check_mark: | :white_check_mark: |
 | [BigBed](../api/reading.md#polars_bio.data_input.read_bigbed) | :white_check_mark: | :white_check_mark: (built-in BBI index) | ❌ | :white_check_mark: | :white_check_mark: |
+| [Cooler (.cool/.mcool)](../api/reading.md#polars_bio.data_input.read_cool) | :white_check_mark: | :white_check_mark: (built-in CSR index) | ❌ | :white_check_mark: (first axis) | :white_check_mark: |
 
 ## Performance features
 
@@ -597,6 +598,80 @@ features = pb.read_bigbed("features.bb")
 # Register as a DataFusion table for SQL
 pb.register_bigwig("signal.bw", "signal")
 pb.sql("SELECT chrom, start, `end`, value FROM signal WHERE chrom = 'chr1'").collect()
+```
+
+### Cooler (.cool/.mcool)
+
+[Cooler](https://github.com/open2c/cooler) files store Hi-C contact matrices as
+HDF5 containers: `.cool` holds a single resolution, `.mcool` nests one data
+collection per resolution. polars-bio reads them natively (statically linked
+HDF5, no `cooler`/`h5py` dependency) through the same eager/lazy/register
+access patterns.
+
+Each row is one stored (upper-triangle) pixel, joined with bin coordinates by
+default: `chrom1`, `start1`, `end1`, `chrom2`, `start2`, `end2`, `count`
+(`Int32`, or `Float64` when the file stores float counts). `join_bins=False`
+returns the raw COO triple (`bin1_id`, `bin2_id`, `count`), and
+`include_weights=True` adds the `weight1`/`weight2` balancing weights of a
+balanced cooler (`NaN` marks bins filtered out by balancing). Coordinates are
+natively 0-based half-open and follow the standard `use_zero_based` handling.
+
+Select an `.mcool` resolution with the `resolution` argument or the cooler URI
+syntax `file.mcool::/resolutions/10000`; a multi-resolution file with no
+selection raises an error listing the stored resolutions. `describe_cool`
+lists every data collection (resolution, nbins, nnz, assembly) without
+touching pixel data.
+
+Predicate pushdown prunes pixel row ranges through the cooler
+`chrom_offset`/`bin1_offset` CSR indexes for filters on the first axis
+(`chrom1`, `start1`, `end1`); second-axis and `count` filters are applied
+client-side. Projection pushdown reads only the HDF5 datasets the requested
+columns need, and `count(*)` is served from the index without reading pixels.
+Parallel scans split the (pruned) pixel row space along bin1 boundaries across
+`datafusion.execution.target_partitions`; note that libhdf5 serializes raw
+reads behind a global lock, so parallel speedups flatten beyond a few
+partitions. Only local filesystem paths are supported in this version, and the
+single-cell `.scool` layout is not supported.
+
+```python
+import polars as pl
+import polars_bio as pb
+
+# Available resolutions, without scanning pixels
+pb.describe_cool("contacts.mcool")
+
+# Lazy scan of one resolution with a first-axis region filter (pushdown)
+cis = (
+    pb.scan_cool("contacts.mcool", resolution=10000)
+    .filter((pl.col("chrom1") == "chr2") & (pl.col("start1") >= 20_000_000))
+    .collect()
+)
+
+# Balanced contact counts, computed client-side from the exposed weights
+balanced = (
+    pb.scan_cool("contacts.mcool", resolution=10000, include_weights=True)
+    .with_columns((pl.col("count") * pl.col("weight1") * pl.col("weight2")).alias("balanced"))
+    .collect()
+)
+
+# Hi-C end to end: raw pairs and the binned matrix side by side
+pairs = pb.scan_pairs("sample.pairs.gz")
+n_cis_pairs = (
+    pairs.filter(pl.col("chrom1") == pl.col("chrom2")).select(pl.len()).collect().item()
+)
+n_cis_pixels = (
+    pb.scan_cool("contacts.mcool", resolution=10000)
+    .filter(pl.col("chrom1") == pl.col("chrom2"))
+    .select(pl.len())
+    .collect()
+    .item()
+)
+
+# Register as a DataFusion table for SQL
+pb.register_cool("contacts.mcool", "hic", resolution=10000)
+pb.sql(
+    "SELECT chrom1, start1, count FROM hic WHERE chrom1 = 'chr2' ORDER BY count DESC LIMIT 10"
+).collect()
 ```
 
 ## Schema inspection

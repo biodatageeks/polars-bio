@@ -45,7 +45,7 @@ and [writing files](writing.md).
 ## [Reading files](reading.md)
 
 Eager (`read_*`), lazy (`scan_*`), and SQL-ready (`register_*`) access to all supported input
-formats (BED, VCF, BCF, VCF Zarr, BAM, CRAM, FASTQ, FASTA, GFF3, GTF, Pairs, BigWig, BigBed). Prefer
+formats (BED, VCF, BCF, VCF Zarr, BAM, CRAM, FASTQ, FASTA, GFF3, GTF, Pairs, BigWig, BigBed, Cooler .cool/.mcool). Prefer
 `scan_*` — it enables indexed reads with predicate and projection pushdown. Also covers optional
 BAM tags, schema inspection, coordinate-system handling, and the metadata attached to every
 DataFrame.
