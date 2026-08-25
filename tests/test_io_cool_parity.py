@@ -184,7 +184,8 @@ class TestDescribeParity:
         )
 
     @pytest.mark.parametrize(
-        "uri", [COOL] + [f"{MCOOL}::/resolutions/{r}" for r in MCOOL_RESOLUTIONS]
+        "uri",
+        [COOL, FLOAT_COOL] + [f"{MCOOL}::/resolutions/{r}" for r in MCOOL_RESOLUTIONS],
     )
     def test_collection_info_matches_cooler_info(self, uri):
         info = cooler.Cooler(uri).info

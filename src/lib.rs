@@ -548,7 +548,7 @@ fn py_describe_cool(
     py_ctx: &PyBioSessionContext,
     path: String,
 ) -> PyResult<PyDataFrame> {
-    use datafusion::arrow::array::{Int64Array, StringArray};
+    use datafusion::arrow::array::{Float64Array, Int64Array, StringArray};
     use datafusion::arrow::datatypes::{DataType, Field, Schema};
     use datafusion::arrow::record_batch::RecordBatch;
     py.detach(|| {
@@ -564,7 +564,8 @@ fn py_describe_cool(
             Field::new("assembly", DataType::Utf8, true),
             Field::new("nbins", DataType::Int64, true),
             Field::new("nnz", DataType::Int64, true),
-            Field::new("sum", DataType::Int64, true),
+            // Float: float-count coolers store a float sum attribute.
+            Field::new("sum", DataType::Float64, true),
             Field::new("nchroms", DataType::Int64, false),
         ]));
         let rb = RecordBatch::try_new(
@@ -587,7 +588,7 @@ fn py_describe_cool(
                 )),
                 Arc::new(Int64Array::from_iter(collections.iter().map(|c| c.nbins))),
                 Arc::new(Int64Array::from_iter(collections.iter().map(|c| c.nnz))),
-                Arc::new(Int64Array::from_iter(collections.iter().map(|c| c.sum))),
+                Arc::new(Float64Array::from_iter(collections.iter().map(|c| c.sum))),
                 Arc::new(Int64Array::from_iter_values(
                     collections.iter().map(|c| c.nchroms),
                 )),

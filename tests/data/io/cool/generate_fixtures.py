@@ -1,4 +1,9 @@
-"""Generate small cooler fixtures with the reference implementation (spike task 1.3)."""
+"""Generate small cooler fixtures with the reference implementation.
+
+Run from this directory (regenerates the fixtures in place):
+
+    python generate_fixtures.py
+"""
 
 import cooler
 import numpy as np
@@ -25,39 +30,32 @@ pixels = (
 )
 print(f"pixels: {len(pixels)}")
 
-cooler.create_cooler("fixtures/test.cool", bins, pixels, assembly="toyGenome")
+cooler.create_cooler("test.cool", bins, pixels, assembly="toyGenome")
 
 # multi-resolution + balancing weights
 cooler.zoomify_cooler(
-    "fixtures/test.cool",
-    "fixtures/test.mcool",
-    resolutions=[1000, 2000, 5000],
-    chunksize=10_000,
+    "test.cool", "test.mcool", resolutions=[1000, 2000, 5000], chunksize=10_000
 )
 for res in (1000, 2000, 5000):
-    clr = cooler.Cooler(f"fixtures/test.mcool::/resolutions/{res}")
+    clr = cooler.Cooler(f"test.mcool::/resolutions/{res}")
     cooler.balance_cooler(clr, store=True, min_nnz=2)
 
 # float-count variant
 fp = pixels.copy()
 fp["count"] = fp["count"].astype("float64") * 0.5
-cooler.create_cooler("fixtures/test_float.cool", bins, fp, dtypes={"count": "float64"})
+cooler.create_cooler("test_float.cool", bins, fp, dtypes={"count": "float64"})
 
 # cooler <=0.8.x wrote some numeric attrs as JSON strings; mimic that on the
 # float fixture so readers keep tolerating string-typed numeric attributes.
 import h5py
 
-with h5py.File("fixtures/test_float.cool", "r+") as h5:
+with h5py.File("test_float.cool", "r+") as h5:
     h5.attrs["format-version"] = str(int(h5.attrs["format-version"]))
 
-for uri in [
-    "fixtures/test.cool",
-    "fixtures/test.mcool::/resolutions/2000",
-    "fixtures/test_float.cool",
-]:
+for uri in ["test.cool", "test.mcool::/resolutions/2000", "test_float.cool"]:
     c = cooler.Cooler(uri)
     print(uri, c.info["nnz"], c.pixels()[:3].to_dict("list"))
 print(
     "weights present:",
-    "weight" in cooler.Cooler("fixtures/test.mcool::/resolutions/1000").bins().columns,
+    "weight" in cooler.Cooler("test.mcool::/resolutions/1000").bins().columns,
 )

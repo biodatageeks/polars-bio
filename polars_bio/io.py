@@ -3059,11 +3059,14 @@ class IOOperations:
 
         Returns one row per stored data collection (one for `.cool`, one per
         resolution for `.mcool`) with `group_path`, `resolution` (bin size),
-        `bin_type`, `format_version`, `assembly`, `nbins`, `nnz`, `sum`, and
-        `nchroms`, read from file metadata without scanning pixel data.
+        `bin_type`, `format_version`, `assembly`, `nbins`, `nnz`, `sum`
+        (Float64: float-count coolers store a float sum), and `nchroms`, read
+        from file metadata without scanning pixel data.
 
         Parameters:
-            path: The path to the `.cool`/`.mcool` file.
+            path: The path to the `.cool`/`.mcool` file, or a cooler URI
+                (`file.mcool::/resolutions/10000`) to describe a single data
+                collection.
         """
         return py_describe_cool(ctx, path).to_polars()
 
