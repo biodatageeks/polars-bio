@@ -21,7 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   data, and parallel scans split rows along bin1 boundaries. HDF5 is
   statically linked — no system HDF5 or Python `cooler` required. Outputs are
   validated row-for-row against the reference `cooler` implementation.
-  Local filesystem paths only in this version.
+  Local filesystem paths only in this version. Pixel reads use a
+  direct-chunk fast path (chunk addresses indexed once, then plain file
+  I/O + zlib-rs inflation + unshuffling outside the libhdf5 global lock),
+  so scans parallelize across partitions: a 24.5M-pixel full joined scan
+  runs in 0.91 s serial / 0.27 s at 4 partitions vs 2.06 s for the
+  cooler chunked-pandas equivalent.
 
 ### Fixed
 
