@@ -80,7 +80,7 @@ The system SHALL provide a `register_cool` API that registers a cooler data coll
 
 #### Scenario: Register and query
 
-- **WHEN** `register_cool("hic", "contacts.mcool", resolution=10000)` is followed by `pb.sql("SELECT chrom1, count FROM hic LIMIT 5")`
+- **WHEN** `register_cool("contacts.mcool", "hic", resolution=10000)` is followed by `pb.sql("SELECT chrom1, count FROM hic LIMIT 5")`
 - **THEN** the query executes against the cooler table provider and returns pixel rows
 
 ### Requirement: Cooler projection pushdown
