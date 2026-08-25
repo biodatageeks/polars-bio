@@ -104,7 +104,14 @@ class TestCoolPushdown:
         assert df.height == 4210
 
     def test_count_star(self):
-        assert pb.scan_cool(COOL).select(pl.len()).collect().item() == 4210
+        target_key = "datafusion.execution.target_partitions"
+        original = pb.get_option(target_key)
+        pb.set_option(target_key, "4")
+        try:
+            actual = pb.scan_cool(COOL).select(pl.len()).collect().item()
+        finally:
+            pb.set_option(target_key, original)
+        assert actual == 4210
 
     @pytest.mark.parametrize(
         ("predicate_pushdown", "predicate"),
@@ -114,15 +121,33 @@ class TestCoolPushdown:
         ],
     )
     def test_count_star_after_client_side_filter(self, predicate_pushdown, predicate):
-        expected = pb.read_cool(COOL).filter(predicate).height
-        actual = (
-            pb.scan_cool(COOL, predicate_pushdown=predicate_pushdown)
-            .filter(predicate)
-            .select(pl.len())
-            .collect()
-            .item()
-        )
+        target_key = "datafusion.execution.target_partitions"
+        original = pb.get_option(target_key)
+        pb.set_option(target_key, "4")
+        try:
+            expected = pb.read_cool(COOL).filter(predicate).height
+            actual = (
+                pb.scan_cool(COOL, predicate_pushdown=predicate_pushdown)
+                .filter(predicate)
+                .select(pl.len())
+                .collect()
+                .item()
+            )
+        finally:
+            pb.set_option(target_key, original)
         assert actual == expected
+
+    def test_client_side_filter_runs_before_limit(self):
+        predicate = pl.col("chrom1") == "chr2"
+        expected = pb.read_cool(COOL).filter(predicate).head(5)
+        actual = (
+            pb.scan_cool(COOL, predicate_pushdown=False)
+            .filter(predicate)
+            .head(5)
+            .collect()
+        )
+        assert actual.height == 5
+        assert actual.equals(expected)
 
     @pytest.mark.parametrize(
         "predicate",

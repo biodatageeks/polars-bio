@@ -4356,7 +4356,11 @@ def _lazy_scan(
         from polars_bio.polars_bio import py_read_table, py_register_table
 
         from .context import ctx as _ctx
-        from .pushdown import apply_predicate_pushdown, apply_projection_pushdown
+        from .pushdown import (
+            apply_predicate_pushdown,
+            apply_projection_pushdown,
+            extract_source_columns,
+        )
 
         table_refreshed = False
 
@@ -4486,22 +4490,32 @@ def _lazy_scan(
                 retain_for_client=predicate if needs_client_filter else None,
             )
 
+        projection_columns, projection_complete = extract_source_columns(with_columns)
+        rootless_client_projection = (
+            with_columns is not None
+            and needs_client_select
+            and projection_complete
+            and not projection_columns
+        )
+
         # 4. Limit
-        if n_rows and n_rows > 0:
+        # A limit cannot cross a predicate that still runs client-side: doing so
+        # would inspect only the first N unfiltered rows. The loop below instead
+        # keeps consuming batches until it has N matching rows.
+        if n_rows and n_rows > 0 and not needs_client_filter:
             query_df = query_df.limit(int(n_rows))
 
         # 5. Stream with safety net
         df_stream = query_df.execute_stream()
         progress_bar = tqdm(unit="rows")
         remaining = int(n_rows) if n_rows is not None else None
+        rootless_row_count = 0
         for r in df_stream:
             out = pl.DataFrame(r.to_pyarrow())
             # Source of truth: reapply the full predicate/projection client-side
             # unless the helper certified the pushdown was complete.
             if predicate is not None and needs_client_filter:
                 out = out.filter(predicate)
-            if with_columns is not None and needs_client_select:
-                out = out.select(with_columns)
 
             if remaining is not None:
                 if remaining <= 0:
@@ -4510,10 +4524,32 @@ def _lazy_scan(
                     out = out.head(remaining)
                 remaining -= len(out)
 
+            # Rootless projections such as ``pl.len()`` are whole-stream
+            # expressions. Applying them to each RecordBatch would emit partial
+            # aggregates, so retain only the total input height and evaluate once
+            # after the stream is exhausted. Arrow's NullArray has no value
+            # buffer, keeping this metadata-only even for very large counts.
+            if rootless_client_projection:
+                rootless_row_count += len(out)
+                if remaining is not None and remaining <= 0:
+                    break
+                continue
+
+            if with_columns is not None and needs_client_select:
+                out = out.select(with_columns)
+
             progress_bar.update(len(out))
             yield out
             if remaining is not None and remaining <= 0:
                 return
+
+        if rootless_client_projection:
+            virtual_rows = pa.record_batch(
+                [pa.nulls(rootless_row_count)], names=["__polars_bio_row"]
+            ).drop_columns(["__polars_bio_row"])
+            out = pl.DataFrame(virtual_rows).select(with_columns)
+            progress_bar.update(len(out))
+            yield out
 
     return register_io_source(_overlap_source, schema=original_schema)
 
