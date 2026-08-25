@@ -110,13 +110,14 @@ def _sql_string(s) -> str:
     return "'" + str(s).replace("'", "''") + "'"
 
 
-def _sql_scalar(value) -> str:
+def _sql_scalar(value, *, float32: bool = False) -> str:
     if isinstance(value, bool):
         return "TRUE" if value else "FALSE"
     if isinstance(value, int):
         return str(value)
     if isinstance(value, float):
-        return repr(value)
+        literal = repr(value)
+        return f"CAST({literal} AS REAL)" if float32 else literal
     if value is None:
         return "NULL"
     return _sql_string(value)
@@ -168,11 +169,11 @@ def _emit_literal(body: dict) -> str:
         # keep them client-side rather than emitting a bogus literal.
         if value is None or not _math.isfinite(float(value)):
             raise UnsupportedPredicate("non-finite float literal; pushdown unsafe")
-        return repr(float(value))
+        return _sql_scalar(float(value), float32=kind == "Float32")
     raise UnsupportedPredicate(f"unsupported literal kind: {kind}")
 
 
-def _decode_is_in_list(list_node: dict) -> list:
+def _decode_is_in_list(list_node: dict) -> tuple[list, object]:
     try:
         blob = list_node["Literal"]["Scalar"]["List"]
     except (KeyError, TypeError):
@@ -184,14 +185,15 @@ def _decode_is_in_list(list_node: dict) -> list:
         table = pa.ipc.open_stream(raw).read_all()
     except Exception as exc:  # decode failure -> safe client-side fallback
         raise UnsupportedPredicate(f"could not decode is_in list: {exc}")
-    return table.column(0).to_pylist()
+    column = table.column(0)
+    return column.to_pylist(), column.type
 
 
 def _emit_is_in(inputs: list) -> str:
     if len(inputs) != 2:
         raise UnsupportedPredicate("is_in expects exactly two inputs")
     col_sql = _quote_ident(_column_name(inputs[0]))
-    values = _decode_is_in_list(inputs[1])
+    values, value_type = _decode_is_in_list(inputs[1])
     if not values:
         # Polars is_in([]) is uniformly False; SQL FALSE matches it faithfully.
         return "FALSE"
@@ -199,7 +201,10 @@ def _emit_is_in(inputs: list) -> str:
         # SQL `IN (..., NULL)` yields UNKNOWN (not FALSE) for non-matching rows,
         # which diverges from Polars' null-aware is_in. Keep it client-side.
         raise UnsupportedPredicate("is_in list contains NULL; pushdown unsafe")
-    items = ", ".join(_sql_scalar(v) for v in values)
+    import pyarrow as pa
+
+    is_float32 = pa.types.is_float32(value_type)
+    items = ", ".join(_sql_scalar(v, float32=is_float32) for v in values)
     return f"({col_sql} IN ({items}))"
 
 
