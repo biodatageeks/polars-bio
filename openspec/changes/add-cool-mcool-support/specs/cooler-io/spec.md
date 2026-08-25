@@ -72,12 +72,17 @@ Cooler bins are natively 0-based half-open. The system SHALL apply the standard 
 
 ### Requirement: Cooler metadata description
 
-The system SHALL provide a `describe_cool` API returning the data collections of a `.cool` or `.mcool` file — including resolution (bin size), bin count, non-zero pixel count, chromosome count, and genome assembly when present — without scanning pixel data.
+The system SHALL provide a `describe_cool` API returning the data collections of a `.cool` or `.mcool` file — including resolution (bin size), bin count, non-zero pixel count, chromosome count, sum, and genome assembly when present — without scanning pixel data.
 
 #### Scenario: Describe an .mcool file
 
 - **WHEN** `describe_cool("contacts.mcool")` is called
 - **THEN** one row per stored resolution is returned with its bin size, nbins, nnz, and assembly attributes, consistent with `cooler.fileops.list_coolers` and `Cooler.info`
+
+#### Scenario: Mixed collection sum types
+
+- **WHEN** an `.mcool` contains independent floating and wide-integer collection sums
+- **THEN** all collections are returned without rounding or rejecting either sum representation
 
 ### Requirement: Cooler SQL registration
 

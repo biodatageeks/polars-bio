@@ -2,7 +2,7 @@
 
 ## 1. HDF5 Feasibility Spike (gates everything below)
 
-- [x] 1.1 Treat this polars-bio OpenSpec change as the authoritative tracker for both polars-bio and `biodatageeks/datafusion-bio-formats`; do not create a mirrored provider OpenSpec change.
+- [x] 1.1 Coordinate this cross-repository feature from the polars-bio plan and maintain a repository-local provider record in `biodatageeks/datafusion-bio-formats` for its requirements and archival.
 - [x] 1.2 Prototype `hdf5-metno` with the `static` feature: build in the polars-bio wheel CI matrix (manylinux x86_64/aarch64, macOS arm64/x86_64, Windows MSVC) and record build-time cost; if any target fails, stop and re-scope (feature flag or alternative crate) before continuing.
 - [x] 1.3 Prototype opening a cooler-generated `.cool` and `.mcool`, reading root attributes, `chroms`, `bins` (including enum-typed `chrom`), `indexes`, and a chunked slice of `pixels`.
 - [x] 1.4 Confirm the provider crate builds against the DataFusion/Arrow versions pinned by polars-bio and `datafusion-bio-formats`.
@@ -16,7 +16,7 @@
 
 - [x] 3.1 Implement data-collection resolution: `.cool` root, `.mcool` + resolution, `::` URI parsing, ambiguity/missing-resolution errors listing available resolutions.
 - [x] 3.2 Implement `CoolerMetadata` (attributes, chroms, resolutions) without touching `pixels`.
-- [x] 3.3 Implement `CoolerTableProvider` schema: joined mode (`chrom1..count`), raw COO mode, optional `weight1`/`weight2`, Int32-vs-Float64 `count` from stored dtype.
+- [x] 3.3 Implement `CoolerTableProvider` schema: joined mode (`chrom1..count`), raw COO mode, optional `weight1`/`weight2`, and lossless Int32/Int64/UInt32/UInt64/Float64 `count` selection from the stored dtype.
 - [x] 3.4 Implement `CoolerExec` streaming full scans: load `bins`+`chroms` once, stream `pixels` in chunks, join by array indexing, emit Arrow batches.
 - [x] 3.5 Implement projection pushdown (skip non-projected datasets; `count(*)` from index/nnz arithmetic) and `DisplayAs` plan output.
 - [x] 3.6 Implement first-axis predicate pruning via `chrom_offset`/`bin1_offset` (chrom equality/membership + start1/end1 range conjunctions), reported inexact.

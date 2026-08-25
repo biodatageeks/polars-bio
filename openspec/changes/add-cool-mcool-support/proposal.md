@@ -20,7 +20,7 @@ Cooler `.cool` (single-resolution) and `.mcool` (multi-resolution) files are the
 ## Impact
 
 - Affected specs: `cooler-io` (new capability)
-- Planning ownership: this polars-bio OpenSpec change is the single authoritative plan for both polars-bio integration and the companion format-provider work. Do not create a separate mirrored OpenSpec change in `datafusion-bio-formats`.
+- Planning coordination: this polars-bio change is the original cross-repository feature plan; `datafusion-bio-formats` also carries a repository-local `add-cool-mcool-support` record for its provider-specific requirements and archival.
 - Affected companion format-provider checkout:
   - `biodatageeks/datafusion-bio-formats`
   - new `datafusion-bio-format-cooler` crate (HDF5 reader + `CoolerTableProvider`/`CoolerExec`)

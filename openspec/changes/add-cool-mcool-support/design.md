@@ -52,7 +52,7 @@ Implement provider logic in `biodatageeks/datafusion-bio-formats` as a new `data
 - `CoolerExec` — streams pixel row ranges as Arrow record batches.
 - A small `CoolerMetadata` reader for `describe_cool` (resolutions, bin size, chroms, nnz, assembly) that never touches `pixels`.
 
-This polars-bio OpenSpec change is the authoritative tracker for both repositories.
+This polars-bio change is the original cross-repository feature plan. The provider repository also keeps a local `add-cool-mcool-support` record for its own requirements, design decisions, and archival lifecycle.
 
 ### URI and resolution handling
 
