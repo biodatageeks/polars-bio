@@ -128,6 +128,21 @@ def _column_name(node: dict) -> str:
     raise UnsupportedPredicate(f"expected a column, got: {node!r}")
 
 
+_INT_LITERAL_KINDS = {
+    "Int",
+    "Int8",
+    "Int16",
+    "Int32",
+    "Int64",
+    "Int128",
+    "UInt8",
+    "UInt16",
+    "UInt32",
+    "UInt64",
+}
+_FLOAT_LITERAL_KINDS = {"Float", "Float32", "Float64"}
+
+
 def _emit_literal(body: dict) -> str:
     wrapper = body.get("Scalar")
     if wrapper is None:
@@ -139,11 +154,15 @@ def _emit_literal(body: dict) -> str:
         return _sql_string(value)
     if kind == "Boolean":
         return "TRUE" if value else "FALSE"
-    if kind == "Int":
+    # "Int"/"Float" are the untyped Dyn kinds of freshly built expressions; the
+    # typed kinds appear after the Polars optimizer casts a literal to the
+    # column dtype (e.g. `start >= 20000000` on a UInt32 column arrives as
+    # {"Scalar": {"UInt32": 20000000}} inside the io-plugin callback).
+    if kind in _INT_LITERAL_KINDS:
         if value is None:
             raise UnsupportedPredicate("null int literal; pushdown unsafe")
         return str(int(value))
-    if kind == "Float":
+    if kind in _FLOAT_LITERAL_KINDS:
         # Polars serializes nan/inf/-inf as a JSON null float; non-finite float
         # comparisons also have IEEE semantics SQL won't faithfully reproduce, so
         # keep them client-side rather than emitting a bogus literal.
