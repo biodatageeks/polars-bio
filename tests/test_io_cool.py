@@ -23,6 +23,14 @@ class TestCoolScan:
         assert isinstance(scan, pl.LazyFrame)
         assert pl.concat([scan, scan]).head(2).collect().height == 2
 
+        scan.config_meta.set(test_marker="preserved")
+        assert scan.select("count").config_meta.get_metadata()["test_marker"] == (
+            "preserved"
+        )
+        assert scan.select(pl.len()).config_meta.get_metadata()["test_marker"] == (
+            "preserved"
+        )
+
     def test_full_scan_shape_and_schema(self):
         df = pb.scan_cool(COOL).collect()
         assert df.shape == (4210, 7)

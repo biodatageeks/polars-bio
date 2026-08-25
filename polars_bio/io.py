@@ -5008,11 +5008,11 @@ class CoolLazyFrameWrapper(pl.LazyFrame):
                 self._read_options,
                 force_empty_projection=True,
             )
-            metadata = self._base_lf.config_meta.get_metadata()
+            metadata = self.config_meta.get_metadata()
             if metadata:
                 count_lf.config_meta.set(**metadata)
             return count_lf.select(*exprs, **named_exprs)
-        return self._base_lf.select(*exprs, **named_exprs)
+        return super().select(*exprs, **named_exprs)
 
 
 class AnnotationLazyFrameWrapper:
