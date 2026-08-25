@@ -256,3 +256,19 @@ def cool_serial_frame():
         return pb.read_cool(COOL, use_zero_based=True).sort(JOINED_COLUMNS)
     finally:
         pb.set_option(target_key, original)
+
+
+class TestCoolInt64Count:
+    def test_int64_count_not_truncated(self):
+        df = pb.scan_cool(str(DATA_DIR / "test_int64.cool")).collect()
+        assert df["count"].dtype == pl.Int64
+        # first pixel's count exceeds i32::MAX; truncation would corrupt it
+        assert df["count"][0] == 5_000_000_000
+
+
+class TestCoolSqlDefaultName:
+    def test_register_cool_uri_derives_name_from_file(self):
+        # contacts.mcool::/resolutions/N must not register as table "N"
+        pb.register_cool(f"{MCOOL}::/resolutions/2000")
+        n = pb.sql("SELECT count(*) AS n FROM test").collect()["n"][0]
+        assert n == 2560

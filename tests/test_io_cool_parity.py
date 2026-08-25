@@ -20,6 +20,7 @@ DATA_DIR = Path(__file__).parent / "data" / "io" / "cool"
 COOL = str(DATA_DIR / "test.cool")
 MCOOL = str(DATA_DIR / "test.mcool")
 FLOAT_COOL = str(DATA_DIR / "test_float.cool")
+INT64_COOL = str(DATA_DIR / "test_int64.cool")
 
 JOINED = ["chrom1", "start1", "end1", "chrom2", "start2", "end2", "count"]
 MCOOL_RESOLUTIONS = [1000, 2000, 5000]
@@ -62,9 +63,10 @@ class TestFullScanParity:
 
     @pytest.mark.parametrize(
         "uri",
-        [COOL, FLOAT_COOL]
+        [COOL, FLOAT_COOL, INT64_COOL]
         + [f"{MCOOL}::/resolutions/{res}" for res in MCOOL_RESOLUTIONS],
-        ids=["cool", "float_cool"] + [f"mcool_{res}" for res in MCOOL_RESOLUTIONS],
+        ids=["cool", "float_cool", "int64_cool"]
+        + [f"mcool_{res}" for res in MCOOL_RESOLUTIONS],
     )
     def test_joined_pixels(self, uri):
         expected = pl.from_pandas(cooler.Cooler(uri).pixels(join=True)[:])
@@ -185,7 +187,8 @@ class TestDescribeParity:
 
     @pytest.mark.parametrize(
         "uri",
-        [COOL, FLOAT_COOL] + [f"{MCOOL}::/resolutions/{r}" for r in MCOOL_RESOLUTIONS],
+        [COOL, FLOAT_COOL, INT64_COOL]
+        + [f"{MCOOL}::/resolutions/{r}" for r in MCOOL_RESOLUTIONS],
     )
     def test_collection_info_matches_cooler_info(self, uri):
         info = cooler.Cooler(uri).info

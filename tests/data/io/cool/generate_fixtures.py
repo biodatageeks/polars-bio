@@ -45,6 +45,15 @@ fp = pixels.copy()
 fp["count"] = fp["count"].astype("float64") * 0.5
 cooler.create_cooler("test_float.cool", bins, fp, dtypes={"count": "float64"})
 
+# int64-count variant with a value above i32::MAX, so any i32 truncation in a
+# reader is caught by value comparison rather than passing silently.
+ip = pixels.copy()
+ip["count"] = ip["count"].astype("int64")
+ip.loc[ip.index[0], "count"] = 5_000_000_000
+cooler.create_cooler(
+    "test_int64.cool", bins, ip, dtypes={"count": "int64"}, assembly="toyGenome"
+)
+
 # cooler <=0.8.x wrote some numeric attrs as JSON strings; mimic that on the
 # float fixture so readers keep tolerating string-typed numeric attributes.
 import h5py

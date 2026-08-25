@@ -216,7 +216,6 @@ class TestBgenDescribe:
         assert described["index"].unique().to_list() == ["transient"]
         assert described["sample_names_synthetic"].unique().to_list() == ["false"]
 
-
     def test_describe_does_not_disturb_a_registered_table(self):
         pb.register_bgen(str(BGEN_PATH), "multisample", genotype_output="dosage")
         try:
@@ -262,9 +261,9 @@ class TestBgenProbabilityLayout:
 
     def test_fixed_layout_returns_the_same_probabilities(self):
         def states(layout):
-            frame = pb.read_bgen(
-                str(BGEN_PATH), probability_layout=layout
-            ).sort("start")
+            frame = pb.read_bgen(str(BGEN_PATH), probability_layout=layout).sort(
+                "start"
+            )
             column = (
                 frame.select("genotypes")
                 .to_arrow()
@@ -351,7 +350,9 @@ class TestBgenGenotypeFields:
         # The fixture is diploid throughout.
         np.testing.assert_array_equal(
             _ploidy_matrix(frame),
-            np.full((len(EXPECTED_POSITIONS), len(EXPECTED_SAMPLES)), 2, dtype=np.uint8),
+            np.full(
+                (len(EXPECTED_POSITIONS), len(EXPECTED_SAMPLES)), 2, dtype=np.uint8
+            ),
         )
 
     def test_ploidy_without_the_value_child_is_rejected(self):
@@ -383,9 +384,7 @@ class TestBgenGenotypeFields:
         # provider refuses it too; catching it here means the file is never
         # opened, and it was the one rejection path with no test.
         with pytest.raises(ValueError, match="at least one"):
-            pb.read_bgen(
-                str(BGEN_PATH), genotype_output="dosage", genotype_fields=[]
-            )
+            pb.read_bgen(str(BGEN_PATH), genotype_output="dosage", genotype_fields=[])
 
     def test_a_misspelled_child_is_rejected_before_the_file_is_opened(self):
         # A path that does not exist would raise if the name check did not come
@@ -564,8 +563,7 @@ class TestBgenMatrix:
         # and failing at open. Pinned because the spec now says the argument is
         # absent, and an absent argument is only observable as its absence.
         assert (
-            "genotype_output"
-            not in inspect.signature(pb.read_bgen_matrix).parameters
+            "genotype_output" not in inspect.signature(pb.read_bgen_matrix).parameters
         )
         with pytest.raises(TypeError):
             pb.read_bgen_matrix(str(BGEN_PATH), genotype_output="probability")
@@ -585,6 +583,6 @@ class TestBgenMatrix:
                 genotype_fields=["DS"],
                 use_zero_based=zero_based,
             ).sort("start")
-            assert sorted(matrix.positions.tolist()) == frame["start"].to_list(), (
-                f"zero_based={zero_based}"
-            )
+            assert (
+                sorted(matrix.positions.tolist()) == frame["start"].to_list()
+            ), f"zero_based={zero_based}"

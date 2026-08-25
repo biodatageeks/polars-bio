@@ -286,6 +286,23 @@ fn py_register_table(
 
         let table_name = match name {
             Some(name) => name,
+            None if input_format == InputFormat::Cool => {
+                // Cooler URIs address a group inside the file
+                // (contacts.mcool::/resolutions/10000): derive the default
+                // table name from the file component, stripping the whole
+                // .mcool/.cool suffix so the name is SQL-usable (the generic
+                // path would yield "10000" or "contacts_m").
+                let path = path.to_lowercase();
+                let file = path
+                    .split_once("::")
+                    .map_or(path.as_str(), |(file, _)| file);
+                let base = file.rsplit('/').next().unwrap();
+                base.strip_suffix(".mcool")
+                    .or_else(|| base.strip_suffix(".cool"))
+                    .unwrap_or(base)
+                    .replace(".", "_")
+                    .replace("-", "_")
+            },
             None => {
                 let path = path.to_lowercase();
                 let extension = format!(".{input_format}").to_lowercase();
