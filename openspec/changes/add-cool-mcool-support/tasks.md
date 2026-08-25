@@ -16,7 +16,7 @@
 
 - [x] 3.1 Implement data-collection resolution: `.cool` root, `.mcool` + resolution, `::` URI parsing, ambiguity/missing-resolution errors listing available resolutions.
 - [x] 3.2 Implement `CoolerMetadata` (attributes, chroms, resolutions) without touching `pixels`.
-- [x] 3.3 Implement `CoolerTableProvider` schema: joined mode (`chrom1..count`), raw COO mode, optional `weight1`/`weight2`, and lossless Int32/Int64/UInt32/UInt64/Float64 `count` selection from the stored dtype.
+- [x] 3.3 Implement `CoolerTableProvider` schema: joined mode (`chrom1..count`) with UInt64 coordinates, raw COO mode, optional `weight1`/`weight2`, and lossless Int32/Int64/UInt32/UInt64/Float64 `count` selection from the stored dtype.
 - [x] 3.4 Implement `CoolerExec` streaming full scans: load `bins`+`chroms` once, stream `pixels` in chunks, join by array indexing, emit Arrow batches.
 - [x] 3.5 Implement projection pushdown (skip non-projected datasets; `count(*)` from index/nnz arithmetic) and `DisplayAs` plan output.
 - [x] 3.6 Implement first-axis predicate pruning via `chrom_offset`/`bin1_offset` (chrom equality/membership + start1/end1 range conjunctions), reported inexact.

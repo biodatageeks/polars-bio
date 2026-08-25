@@ -22,7 +22,10 @@ class TestCoolScan:
         assert df.shape == (4210, 7)
         assert df.columns == JOINED_COLUMNS
         assert df["chrom1"].dtype == pl.Utf8
-        assert df["start1"].dtype == pl.UInt32
+        assert df["start1"].dtype == pl.UInt64
+        assert df["end1"].dtype == pl.UInt64
+        assert df["start2"].dtype == pl.UInt64
+        assert df["end2"].dtype == pl.UInt64
         assert df["count"].dtype == pl.Int32
 
     def test_first_pixel_one_based_default(self):
@@ -327,12 +330,20 @@ class TestCoolWideValues:
         assert uint64["count"].dtype == pl.UInt64
         assert uint64["count"][0] == 10_000_000_000_000_000_000
 
-    def test_coordinates_above_int32_are_preserved(self):
-        df = pb.scan_cool(
+    def test_coordinates_above_uint32_are_preserved(self):
+        zero_based = pb.scan_cool(
             str(DATA_DIR / "test_wide_coords.cool"), use_zero_based=True
         ).collect()
-        assert df["start1"][0] == 3_000_000_000
-        assert df["end1"][0] == 4_000_000_000
+        assert zero_based["start1"].dtype == pl.UInt64
+        assert zero_based["end1"].dtype == pl.UInt64
+        assert zero_based["start1"][0] == 5_000_000_000
+        assert zero_based["end1"][0] == 6_000_000_000
+
+        one_based = pb.scan_cool(
+            str(DATA_DIR / "test_wide_coords.cool"), use_zero_based=False
+        ).collect()
+        assert one_based["start1"][0] == 5_000_000_001
+        assert one_based["end1"][0] == 6_000_000_000
 
     def test_exact_integer_sum_above_float_range(self):
         df = pb.describe_cool(str(DATA_DIR / "test_exact_sum.cool"))

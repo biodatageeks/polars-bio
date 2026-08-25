@@ -70,6 +70,11 @@ Cooler bins are natively 0-based half-open. The system SHALL apply the standard 
 - **WHEN** `scan_cool(path, use_zero_based=True)` is collected
 - **THEN** coordinates are emitted exactly as stored (0-based half-open) and metadata records the zero-based system
 
+#### Scenario: Wide bin coordinates
+
+- **WHEN** stored bin coordinates exceed the UInt32 range
+- **THEN** joined start and end columns use UInt64 and preserve both zero-based values and one-based start conversion without narrowing
+
 ### Requirement: Cooler metadata description
 
 The system SHALL provide a `describe_cool` API returning the data collections of a `.cool` or `.mcool` file — including resolution (bin size), bin count, non-zero pixel count, chromosome count, sum, and genome assembly when present — without scanning pixel data.

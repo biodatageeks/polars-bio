@@ -89,13 +89,13 @@ cooler.create_cooler(
     assembly="toyGenome",
 )
 
-# Coordinates can legally use int64 storage while still fitting Arrow UInt32.
-# The second bin begins above i32::MAX, catching any signed-32-bit intermediate.
+# Coordinates can legally use int64 storage beyond the UInt32 range. The second
+# bin begins above u32::MAX, catching narrowing in the joined Arrow output.
 wide_bins = pd.DataFrame(
     {
         "chrom": ["chrWide", "chrWide"],
-        "start": np.array([0, 3_000_000_000], dtype="int64"),
-        "end": np.array([3_000_000_000, 4_000_000_000], dtype="int64"),
+        "start": np.array([0, 5_000_000_000], dtype="int64"),
+        "end": np.array([5_000_000_000, 6_000_000_000], dtype="int64"),
     }
 )
 wide_pixels = pd.DataFrame(
@@ -111,9 +111,9 @@ cooler.create_cooler("test_wide_coords.cool", wide_bins, wide_pixels, ordered=Tr
 with h5py.File("test_wide_coords.cool", "r+") as h5:
     del h5["bins/start"]
     del h5["bins/end"]
-    h5["bins"].create_dataset("start", data=np.array([0, 3_000_000_000], dtype="int64"))
+    h5["bins"].create_dataset("start", data=np.array([0, 5_000_000_000], dtype="int64"))
     h5["bins"].create_dataset(
-        "end", data=np.array([3_000_000_000, 4_000_000_000], dtype="int64")
+        "end", data=np.array([5_000_000_000, 6_000_000_000], dtype="int64")
     )
 
 # cooler <=0.8.x wrote some numeric attrs as JSON strings; mimic that on the

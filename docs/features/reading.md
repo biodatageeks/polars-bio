@@ -611,7 +611,8 @@ access patterns.
 Each row is one stored (upper-triangle) pixel, joined with bin coordinates by
 default: `chrom1`, `start1`, `end1`, `chrom2`, `start2`, `end2`, `count`.
 The stored count dtype is preserved as `Int32`, `Int64`, `UInt32`, `UInt64`,
-or `Float64`. `join_bins=False`
+or `Float64`, while joined start/end coordinates use `UInt64` so values beyond
+the 32-bit range remain lossless. `join_bins=False`
 returns the raw COO triple (`bin1_id`, `bin2_id`, `count`), and
 `include_weights=True` adds the `weight1`/`weight2` balancing weights of a
 balanced cooler (`NaN` marks bins filtered out by balancing). Coordinates are

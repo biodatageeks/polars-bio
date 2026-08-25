@@ -76,8 +76,8 @@ This polars-bio change is the original cross-repository feature plan. The provid
 
 Default output (`join_bins=True`), one row per pixel:
 
-- `chrom1: Utf8`, `start1: UInt32`, `end1: UInt32`
-- `chrom2: Utf8`, `start2: UInt32`, `end2: UInt32`
+- `chrom1: Utf8`, `start1: UInt64`, `end1: UInt64`
+- `chrom2: Utf8`, `start2: UInt64`, `end2: UInt64`
 - `count`: Int32, Int64, UInt32, UInt64, or Float64 as required to preserve the stored numeric range (detected from the HDF5 dataset dtype)
 - with `include_weights=True` and a `bins/weight` column present: `weight1: Float64`, `weight2: Float64` (NaN where bins are unbalanced/filtered)
 
