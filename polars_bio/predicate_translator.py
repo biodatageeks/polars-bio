@@ -51,10 +51,10 @@ PAIRS_UINT32_COLUMNS = {"pos1", "pos2"}
 PAIRS_FLOAT32_COLUMNS: set = set()
 
 # Cooler (.cool/.mcool) joined pixels view. `count` and the weight columns are
-# left untyped on purpose: `count` can be Int32 or Float64 depending on the
-# stored dtype, so literal coercion is left to DataFusion.
+# left untyped on purpose: `count` can use several signed, unsigned, or float
+# dtypes depending on storage, so literal coercion is left to DataFusion.
 COOL_STRING_COLUMNS = {"chrom1", "chrom2"}
-COOL_UINT32_COLUMNS = {"start1", "end1", "start2", "end2"}
+COOL_UINT64_COLUMNS = {"start1", "end1", "start2", "end2"}
 COOL_FLOAT32_COLUMNS: set = set()
 
 # BigWig

@@ -2,6 +2,7 @@ from decimal import Decimal
 from pathlib import Path
 from shutil import copyfile
 
+import h5py
 import polars as pl
 import pytest
 
@@ -91,6 +92,18 @@ class TestCoolScan:
     def test_mcool_missing_resolution_errors(self):
         with pytest.raises(Exception, match="1234"):
             pb.scan_cool(MCOOL, resolution=1234)
+
+    def test_conflicting_uri_and_resolution_errors(self):
+        with pytest.raises(Exception, match="Conflicting"):
+            pb.scan_cool(f"{MCOOL}::/resolutions/2000", resolution=5000)
+
+    def test_non_cooler_hdf5_errors(self, tmp_path: Path):
+        path = tmp_path / "not-cooler.cool"
+        with h5py.File(path, "w") as h5:
+            h5.create_dataset("values", data=[1, 2, 3])
+
+        with pytest.raises(Exception, match="not a cooler file"):
+            pb.scan_cool(str(path))
 
     def test_weights_on_balanced_mcool(self):
         df = pb.scan_cool(MCOOL, resolution=1000, include_weights=True).collect()
