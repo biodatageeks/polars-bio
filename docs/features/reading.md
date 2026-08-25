@@ -659,7 +659,7 @@ balanced = (
 # Hi-C end to end: raw pairs and the binned matrix side by side
 pairs = pb.scan_pairs("sample.pairs.gz")
 n_cis_pairs = (
-    pairs.filter(pl.col("chrom1") == pl.col("chrom2")).select(pl.len()).collect().item()
+    pairs.filter(pl.col("chr1") == pl.col("chr2")).select(pl.len()).collect().item()
 )
 n_cis_pixels = (
     pb.scan_cool("contacts.mcool", resolution=10000)

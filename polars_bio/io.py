@@ -3029,7 +3029,9 @@ class IOOperations:
 
         !!! Example
             ```python
+            import polars as pl
             import polars_bio as pb
+
             pb.scan_cool("contacts.mcool", resolution=10000).filter(
                 pl.col("chrom1") == "chr1"
             ).collect()
