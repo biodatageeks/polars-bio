@@ -5,8 +5,8 @@
 Cooler files are HDF5 containers following the cooler schema (v3). A *data collection* holds four groups:
 
 - `chroms`: `name` (string), `length` (int32)
-- `bins`: `chrom` (int32 enum referencing `chroms`), `start` (int32), `end` (int32), plus optional value columns — most commonly balancing weights such as `weight` (float64)
-- `pixels`: `bin1_id` (int64), `bin2_id` (int64), `count` (int32, or float for some aggregations) — upper-triangle COO sparse matrix, sorted by (`bin1_id`, `bin2_id`)
+- `bins`: `chrom` (integer/enum referencing `chroms`), integer `start`/`end` coordinates, plus optional value columns — most commonly balancing weights such as `weight` (float64)
+- `pixels`: `bin1_id` (int64), `bin2_id` (int64), and an integer or floating `count` dataset — upper-triangle COO sparse matrix, sorted by (`bin1_id`, `bin2_id`)
 - `indexes`: `chrom_offset` (int64, maps chrom → first bin id) and `bin1_offset` (int64, maps bin1_id → first pixel row) — a CSR-style row index
 
 A `.cool` file has one data collection at the HDF5 root. An `.mcool` file nests one data collection per resolution under `/resolutions/<binsize>`. The cooler ecosystem addresses these with URI syntax `file.mcool::/resolutions/10000`. Root attributes (`format`, `format-version`, `bin-size`, `nbins`, `nnz`, `sum`, `genome-assembly`) provide metadata without scanning data.
@@ -66,10 +66,11 @@ This polars-bio OpenSpec change is the authoritative tracker for both repositori
 
 ### API shape
 
-- `scan_cool(path, resolution=None, join_bins=True, include_weights=False, thread_num=1, use_zero_based=None, predicate_pushdown=True, projection_pushdown=True, parallel=False)`
+- `scan_cool(path, resolution=None, join_bins=True, include_weights=False, projection_pushdown=True, predicate_pushdown=True, use_zero_based=None)`
 - `read_cool(...)` — eager wrapper, same signature.
 - `describe_cool(path)` — returns a DataFrame of data collections: resolution/bin size, bin type, chrom count, nbins, nnz, sum, assembly, format version.
-- `register_cool(name, path, resolution=None, ...)` for SQL.
+- `register_cool(path, name=None, resolution=None, join_bins=True, include_weights=False, use_zero_based=None)` for SQL.
+- Scan partitioning follows the session's `datafusion.execution.target_partitions` setting rather than a per-call thread or parallel flag.
 
 ### Schema
 
@@ -77,7 +78,7 @@ Default output (`join_bins=True`), one row per pixel:
 
 - `chrom1: Utf8`, `start1: UInt32`, `end1: UInt32`
 - `chrom2: Utf8`, `start2: UInt32`, `end2: UInt32`
-- `count: Int32` when the stored `pixels/count` dtype is integral, `Float64` when float (detected from the HDF5 dataset dtype)
+- `count`: Int32, Int64, UInt32, UInt64, or Float64 as required to preserve the stored numeric range (detected from the HDF5 dataset dtype)
 - with `include_weights=True` and a `bins/weight` column present: `weight1: Float64`, `weight2: Float64` (NaN where bins are unbalanced/filtered)
 
 With `join_bins=False` the raw COO view is exposed instead: `bin1_id: Int64`, `bin2_id: Int64`, `count` — no coordinate conversion applies.
@@ -104,7 +105,7 @@ The pixels table is sorted by `bin1_id` and CSR-indexed by `bin1_offset`, so fir
 ### Parallel execution
 
 - Partition planning splits the (possibly predicate-pruned) pixel row space into `target_partitions` contiguous ranges aligned to bin1 boundaries via `bin1_offset`.
-- Constraint: libhdf5 is not concurrency-friendly — `hdf5-metno` serializes all calls behind a global lock, so parallel partitions contend on raw HDF5 reads. Each partition therefore reads coarse HDF5 chunks under the lock and does Arrow building, joining, and filtering outside it. Speedup is real but sublattice-bound; this is documented, and `parallel=False` (single partition) is the default like other formats.
+- Constraint: libhdf5 is not concurrency-friendly — `hdf5-metno` serializes all calls behind a global lock, so parallel partitions contend on raw HDF5 reads. Each partition therefore reads coarse HDF5 chunks under the lock and does Arrow building, joining, and filtering outside it. Speedup is real but lock-bound; this is documented, and the session defaults `datafusion.execution.target_partitions` to 1.
 - Evaluating `hidefix` for lock-free chunk decompression is an explicit follow-up if profiling shows the global lock dominating.
 
 ### Storage scope

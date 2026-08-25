@@ -44,7 +44,12 @@ The system SHALL provide `scan_cool` and `read_cool` APIs that read the pixels t
 #### Scenario: Float count dtype
 
 - **WHEN** the stored `pixels/count` dataset has a floating-point dtype
-- **THEN** the `count` column is emitted as Float64 instead of Int32
+- **THEN** the `count` column is emitted as Float64 without integer coercion
+
+#### Scenario: Wide integer count dtype
+
+- **WHEN** the stored `pixels/count` dataset uses Int64, UInt32, or UInt64 values that exceed narrower signed ranges
+- **THEN** the `count` column uses the corresponding lossless Arrow integer type
 
 #### Scenario: Remote path rejected
 
