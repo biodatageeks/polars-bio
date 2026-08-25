@@ -146,6 +146,7 @@ pub enum InputFormat {
     BigBed,
     Bgen,
     Pgen,
+    Cool,
 }
 
 #[pyclass(eq, get_all, from_py_object)]
@@ -176,6 +177,7 @@ impl fmt::Display for InputFormat {
             InputFormat::BigBed => "BigBed",
             InputFormat::Bgen => "BGEN",
             InputFormat::Pgen => "PGEN",
+            InputFormat::Cool => "COOL",
         };
         write!(f, "{}", text)
     }
@@ -211,12 +213,14 @@ pub struct ReadOptions {
     pub bgen_read_options: Option<BgenReadOptions>,
     #[pyo3(get, set)]
     pub pgen_read_options: Option<PgenReadOptions>,
+    #[pyo3(get, set)]
+    pub cool_read_options: Option<CoolReadOptions>,
 }
 
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None, bigwig_read_options=None, bigbed_read_options=None, bgen_read_options=None, pgen_read_options=None))]
+    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None, bigwig_read_options=None, bigbed_read_options=None, bgen_read_options=None, pgen_read_options=None, cool_read_options=None))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
@@ -233,6 +237,7 @@ impl ReadOptions {
         bigbed_read_options: Option<BigBedReadOptions>,
         bgen_read_options: Option<BgenReadOptions>,
         pgen_read_options: Option<PgenReadOptions>,
+        cool_read_options: Option<CoolReadOptions>,
     ) -> Self {
         ReadOptions {
             vcf_read_options,
@@ -249,6 +254,7 @@ impl ReadOptions {
             bigbed_read_options,
             bgen_read_options,
             pgen_read_options,
+            cool_read_options,
         }
     }
 }
@@ -715,6 +721,54 @@ impl BedReadOptions {
                 timeout: Some(300), // 300 seconds
                 compression_type: Some(CompressionType::AUTO),
             }),
+            zero_based: true,
+        }
+    }
+}
+
+#[pyclass(name = "CoolReadOptions", from_py_object)]
+#[derive(Clone, Debug)]
+pub struct CoolReadOptions {
+    /// Resolution (bin size) selecting an .mcool data collection; must match
+    /// the stored bin size for single-resolution .cool files when given.
+    #[pyo3(get, set)]
+    pub resolution: Option<u64>,
+    /// If true (default), join pixels with bin coordinates (chrom1..count);
+    /// if false, expose the raw COO triple (bin1_id, bin2_id, count).
+    #[pyo3(get, set)]
+    pub join_bins: bool,
+    /// If true, expose balancing weights as weight1/weight2 (requires a
+    /// balanced cooler with a bins/weight column).
+    #[pyo3(get, set)]
+    pub include_weights: bool,
+    /// If true (default), output 0-based half-open coordinates; if false, 1-based closed
+    #[pyo3(get, set)]
+    pub zero_based: bool,
+}
+
+#[pymethods]
+impl CoolReadOptions {
+    #[new]
+    #[pyo3(signature = (resolution=None, join_bins=true, include_weights=false, zero_based=true))]
+    pub fn new(
+        resolution: Option<u64>,
+        join_bins: bool,
+        include_weights: bool,
+        zero_based: bool,
+    ) -> Self {
+        CoolReadOptions {
+            resolution,
+            join_bins,
+            include_weights,
+            zero_based,
+        }
+    }
+    #[staticmethod]
+    pub fn default() -> Self {
+        CoolReadOptions {
+            resolution: None,
+            join_bins: true,
+            include_weights: false,
             zero_based: true,
         }
     }

@@ -45,11 +45,11 @@ use crate::operation::do_range_operation;
 use crate::option::{
     pyobject_storage_options_to_object_storage_options, BamReadOptions, BamWriteOptions,
     BedReadOptions, BgenReadOptions, BigBedReadOptions, BigWigReadOptions, BioTable,
-    CramReadOptions, CramWriteOptions, FastaReadOptions, FastaWriteOptions, FastqReadOptions,
-    FastqWriteOptions, FilterOp, GffReadOptions, GtfReadOptions, InputFormat, OutputFormat,
-    OverlapOutputMode, PairsReadOptions, PgenReadOptions, PileupOptions, PyObjectStorageOptions,
-    RangeOp, RangeOptions, ReadOptions, VcfReadOptions, VcfWriteOptions, VcfZarrReadOptions,
-    WriteOptions,
+    CoolReadOptions, CramReadOptions, CramWriteOptions, FastaReadOptions, FastaWriteOptions,
+    FastqReadOptions, FastqWriteOptions, FilterOp, GffReadOptions, GtfReadOptions, InputFormat,
+    OutputFormat, OverlapOutputMode, PairsReadOptions, PgenReadOptions, PileupOptions,
+    PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions, VcfWriteOptions,
+    VcfZarrReadOptions, WriteOptions,
 };
 use crate::scan::{
     maybe_register_table, register_frame, register_frame_from_arrow_stream,
@@ -528,6 +528,75 @@ fn py_describe_vcf_zarr(
         let mem_table = MemTable::try_new(rb.schema().clone(), vec![vec![rb]])
             .map_err(|e| PyRuntimeError::new_err(format!("Failed to create memory table: {e}")))?;
         let table_name = format!("vcf_zarr_schema_{}", rand::random::<u32>());
+        let df = rt
+            .block_on(async {
+                ctx.register_table(table_name.clone(), Arc::new(mem_table))
+                    .map_err(|e| format!("Failed to register table: {e}"))?;
+                ctx.table(table_name)
+                    .await
+                    .map_err(|e| format!("Failed to get table: {e}"))
+            })
+            .map_err(PyRuntimeError::new_err)?;
+        Ok(PyDataFrame::new(df))
+    })
+}
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, path))]
+fn py_describe_cool(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    path: String,
+) -> PyResult<PyDataFrame> {
+    use datafusion::arrow::array::{Int64Array, StringArray};
+    use datafusion::arrow::datatypes::{DataType, Field, Schema};
+    use datafusion::arrow::record_batch::RecordBatch;
+    py.detach(|| {
+        let rt = Runtime::new()?;
+        let ctx = &py_ctx.ctx;
+        let collections = datafusion_bio_format_cooler::list_data_collections(&path)
+            .map_err(|e| PyRuntimeError::new_err(format!("Cooler describe failed: {e}")))?;
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("group_path", DataType::Utf8, false),
+            Field::new("resolution", DataType::Int64, true),
+            Field::new("bin_type", DataType::Utf8, true),
+            Field::new("format_version", DataType::Int64, true),
+            Field::new("assembly", DataType::Utf8, true),
+            Field::new("nbins", DataType::Int64, true),
+            Field::new("nnz", DataType::Int64, true),
+            Field::new("sum", DataType::Int64, true),
+            Field::new("nchroms", DataType::Int64, false),
+        ]));
+        let rb = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(StringArray::from_iter_values(
+                    collections.iter().map(|c| c.group_path.clone()),
+                )),
+                Arc::new(Int64Array::from_iter(
+                    collections.iter().map(|c| c.bin_size),
+                )),
+                Arc::new(StringArray::from_iter(
+                    collections.iter().map(|c| c.bin_type.clone()),
+                )),
+                Arc::new(Int64Array::from_iter(
+                    collections.iter().map(|c| c.format_version),
+                )),
+                Arc::new(StringArray::from_iter(
+                    collections.iter().map(|c| c.assembly.clone()),
+                )),
+                Arc::new(Int64Array::from_iter(collections.iter().map(|c| c.nbins))),
+                Arc::new(Int64Array::from_iter(collections.iter().map(|c| c.nnz))),
+                Arc::new(Int64Array::from_iter(collections.iter().map(|c| c.sum))),
+                Arc::new(Int64Array::from_iter_values(
+                    collections.iter().map(|c| c.nchroms),
+                )),
+            ],
+        )
+        .map_err(|e| PyRuntimeError::new_err(format!("Failed to build describe batch: {e}")))?;
+        let mem_table = MemTable::try_new(schema, vec![vec![rb]])
+            .map_err(|e| PyRuntimeError::new_err(format!("Failed to create memory table: {e}")))?;
+        let table_name = format!("cool_schema_{}", rand::random::<u32>());
         let df = rt
             .block_on(async {
                 ctx.register_table(table_name.clone(), Arc::new(mem_table))
@@ -1149,6 +1218,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_get_table_schema, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf_zarr, m)?)?;
+    m.add_function(wrap_pyfunction!(py_describe_cool, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
     m.add_function(wrap_pyfunction!(py_write_table, m)?)?;
@@ -1179,6 +1249,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<CramWriteOptions>()?;
     m.add_class::<BedReadOptions>()?;
     m.add_class::<BigWigReadOptions>()?;
+    m.add_class::<CoolReadOptions>()?;
     m.add_class::<BigBedReadOptions>()?;
     m.add_class::<FastaReadOptions>()?;
     m.add_class::<FastaWriteOptions>()?;

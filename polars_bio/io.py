@@ -1,7 +1,7 @@
 import logging
 import weakref as _weakref
-from uuid import uuid4
 from typing import Any, Dict, Iterator, NamedTuple, Optional, Sequence, Union
+from uuid import uuid4
 
 import polars as pl
 
@@ -17,6 +17,7 @@ from polars_bio.polars_bio import (
     BgenReadOptions,
     BigBedReadOptions,
     BigWigReadOptions,
+    CoolReadOptions,
     CramReadOptions,
     CramWriteOptions,
     FastaReadOptions,
@@ -36,6 +37,7 @@ from polars_bio.polars_bio import (
     VcfZarrReadOptions,
     WriteOptions,
     py_describe_bam,
+    py_describe_cool,
     py_describe_cram,
     py_describe_vcf,
     py_describe_vcf_zarr,
@@ -60,6 +62,9 @@ from .predicate_translator import (
     BIGWIG_FLOAT32_COLUMNS,
     BIGWIG_STRING_COLUMNS,
     BIGWIG_UINT32_COLUMNS,
+    COOL_FLOAT32_COLUMNS,
+    COOL_STRING_COLUMNS,
+    COOL_UINT32_COLUMNS,
     GFF_FLOAT32_COLUMNS,
     GFF_STRING_COLUMNS,
     GFF_UINT32_COLUMNS,
@@ -83,6 +88,7 @@ _FORMAT_COLUMN_TYPES = {
     "Pairs": (PAIRS_STRING_COLUMNS, PAIRS_UINT32_COLUMNS, PAIRS_FLOAT32_COLUMNS),
     "BigWig": (BIGWIG_STRING_COLUMNS, BIGWIG_UINT32_COLUMNS, BIGWIG_FLOAT32_COLUMNS),
     "BigBed": (BIGBED_STRING_COLUMNS, BIGBED_UINT32_COLUMNS, BIGBED_FLOAT32_COLUMNS),
+    "Cool": (COOL_STRING_COLUMNS, COOL_UINT32_COLUMNS, COOL_FLOAT32_COLUMNS),
 }
 
 _VALID_SAM_SCALAR_TYPE_CODES = {"A", "c", "C", "s", "S", "i", "I", "f", "Z", "H"}
@@ -2951,6 +2957,117 @@ class IOOperations:
         )
 
     @staticmethod
+    def read_cool(
+        path: str,
+        resolution: Optional[int] = None,
+        join_bins: bool = True,
+        include_weights: bool = False,
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Read a Cooler (`.cool`/`.mcool`) Hi-C contact matrix into a DataFrame.
+
+        See `scan_cool` for parameter semantics.
+
+        Parameters:
+            path: The path to the `.cool`/`.mcool` file, or a cooler URI (`file.mcool::/resolutions/10000`).
+            resolution: Bin size selecting an `.mcool` data collection. Optional for `.cool` files and single-resolution `.mcool` files.
+            join_bins: If *True* (default), join pixels with bin coordinates (`chrom1`, `start1`, `end1`, `chrom2`, `start2`, `end2`, `count`); if *False*, return the raw COO triple (`bin1_id`, `bin2_id`, `count`).
+            include_weights: If *True*, expose balancing weights as `weight1`/`weight2` (requires a balanced cooler).
+            projection_pushdown: Enable column projection pushdown optimization.
+            predicate_pushdown: Enable predicate pushdown on the first-axis genomic columns (`chrom1`, `start1`, `end1`) so range filters prune pixel row ranges through the cooler indexes.
+            use_zero_based: Coordinate system override. Cooler is natively 0-based half-open; set to *False* to emit 1-based closed coordinates, or *None* to use the global default.
+        """
+        lf = IOOperations.scan_cool(
+            path,
+            resolution=resolution,
+            join_bins=join_bins,
+            include_weights=include_weights,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+            use_zero_based=use_zero_based,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_cool(
+        path: str,
+        resolution: Optional[int] = None,
+        join_bins: bool = True,
+        include_weights: bool = False,
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read a Cooler (`.cool`/`.mcool`) Hi-C contact matrix into a LazyFrame.
+
+        One row per stored pixel (upper-triangle contact), joined with bin
+        coordinates by default. `.mcool` files store one data collection per
+        resolution: select one with ``resolution`` or the cooler URI syntax
+        ``file.mcool::/resolutions/10000``; an `.mcool` with several
+        resolutions and no selection raises an error listing the available
+        ones. Only local filesystem paths are supported.
+
+        Cooler is natively 0-based half-open. Set ``use_zero_based=False`` to
+        emit 1-based closed coordinates.
+
+        Parameters:
+            path: The path to the `.cool`/`.mcool` file, or a cooler URI (`file.mcool::/resolutions/10000`).
+            resolution: Bin size selecting an `.mcool` data collection. Optional for `.cool` files and single-resolution `.mcool` files.
+            join_bins: If *True* (default), join pixels with bin coordinates (`chrom1`, `start1`, `end1`, `chrom2`, `start2`, `end2`, `count`); if *False*, return the raw COO triple (`bin1_id`, `bin2_id`, `count`).
+            include_weights: If *True*, expose balancing weights as `weight1`/`weight2` (requires a balanced cooler).
+            projection_pushdown: Enable column projection pushdown optimization. Only HDF5 datasets required by the requested columns are read, and `count(*)` is served from the cooler index without touching pixel data.
+            predicate_pushdown: Enable predicate pushdown on the first-axis genomic columns (`chrom1`, `start1`, `end1`) so range filters prune pixel row ranges through the cooler indexes.
+            use_zero_based: Coordinate system override. Cooler is natively 0-based half-open; set to *False* to emit 1-based closed coordinates, or *None* to use the global default.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.scan_cool("contacts.mcool", resolution=10000).filter(
+                pl.col("chrom1") == "chr1"
+            ).collect()
+            ```
+        """
+        zero_based = _resolve_zero_based(use_zero_based)
+        cool_read_options = CoolReadOptions(
+            resolution=resolution,
+            join_bins=join_bins,
+            include_weights=include_weights,
+            zero_based=zero_based,
+        )
+        read_options = ReadOptions(cool_read_options=cool_read_options)
+        return _read_file(
+            path,
+            InputFormat.Cool,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
+        )
+
+    @staticmethod
+    def describe_cool(path: str) -> pl.DataFrame:
+        """
+        Describe the data collections of a Cooler (`.cool`/`.mcool`) file.
+
+        Returns one row per stored data collection (one for `.cool`, one per
+        resolution for `.mcool`) with `group_path`, `resolution` (bin size),
+        `bin_type`, `format_version`, `assembly`, `nbins`, `nnz`, `sum`, and
+        `nchroms`, read from file metadata without scanning pixel data.
+
+        Parameters:
+            path: The path to the `.cool`/`.mcool` file.
+        """
+        return py_describe_cool(ctx, path).to_polars()
+
+    @staticmethod
     def read_table(path: str, schema: Dict = None, **kwargs) -> pl.DataFrame:
         """
          Read a tab-delimited (i.e. BED) file into a Polars DataFrame.
@@ -3131,9 +3248,7 @@ class IOOperations:
         properties = {
             "layout": metadata.get("bio.bgen.layout"),
             "index": metadata.get("bio.bgen.index"),
-            "sample_names_synthetic": metadata.get(
-                "bio.bgen.sample_names.synthetic"
-            ),
+            "sample_names_synthetic": metadata.get("bio.bgen.sample_names.synthetic"),
             "coordinate_system_zero_based": metadata.get(
                 "bio.coordinate_system_zero_based"
             ),
@@ -4628,6 +4743,8 @@ def _format_to_string(input_format: InputFormat) -> str:
         return "bigwig"
     elif "BigBed" in format_str:
         return "bigbed"
+    elif "Cool" in format_str:
+        return "cool"
     elif "Bed" in format_str:
         return "bed"
     elif "Pairs" in format_str:
@@ -4697,6 +4814,7 @@ def _read_file(
             "bigbed",
             "bgen",
             "pgen",
+            "cool",
         ]:
             # For other formats (including SAM via "bam" key), include their specific metadata
             header_metadata = format_specific.get(metadata_key, {})

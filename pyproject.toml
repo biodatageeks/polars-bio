@@ -46,6 +46,8 @@ test = [
   # pyBigWig is the reference for the BBI parity tests; manylinux wheels exist
   # for 3.11-3.13. On 3.14 the missing dependency skips the parity module.
   "pyBigWig>=0.3.22; python_version < '3.14'",
+  # cooler is the reference implementation for the .cool/.mcool parity tests.
+  "cooler>=0.10.0",
 ]
 
 [tool.maturin]

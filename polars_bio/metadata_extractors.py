@@ -124,7 +124,24 @@ def _extract_format_specific_metadata(
             schema, schema_meta, field_meta
         )
 
+    if any(key.startswith("bio.cool") for key in schema_meta.keys()):
+        result["cool"] = _extract_cool_specific_metadata(schema_meta)
+
     return result
+
+
+def _extract_cool_specific_metadata(schema_meta: dict) -> Dict[str, Any]:
+    """Extract cooler collection metadata stamped by the table provider."""
+    metadata: Dict[str, Any] = {}
+    if "bio.cool.resolution" in schema_meta:
+        metadata["resolution"] = int(schema_meta["bio.cool.resolution"])
+    if "bio.cool.group_path" in schema_meta:
+        metadata["group_path"] = schema_meta["bio.cool.group_path"]
+    if "bio.cool.assembly" in schema_meta:
+        metadata["assembly"] = schema_meta["bio.cool.assembly"]
+    if "bio.cool.format_version" in schema_meta:
+        metadata["format_version"] = int(schema_meta["bio.cool.format_version"])
+    return metadata
 
 
 def _extract_bgen_specific_metadata(
