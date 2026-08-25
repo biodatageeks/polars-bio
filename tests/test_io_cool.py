@@ -18,6 +18,11 @@ JOINED_COLUMNS = ["chrom1", "start1", "end1", "chrom2", "start2", "end2", "count
 
 
 class TestCoolScan:
+    def test_scan_is_native_lazyframe(self):
+        scan = pb.scan_cool(COOL)
+        assert isinstance(scan, pl.LazyFrame)
+        assert pl.concat([scan, scan]).head(2).collect().height == 2
+
     def test_full_scan_shape_and_schema(self):
         df = pb.scan_cool(COOL).collect()
         assert df.shape == (4210, 7)

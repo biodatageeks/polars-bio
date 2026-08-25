@@ -4957,7 +4957,7 @@ def _is_len_projection(exprs, named_exprs) -> bool:
     return bool(items) and all(_is_len_expr(expr) for expr in items)
 
 
-class CoolLazyFrameWrapper:
+class CoolLazyFrameWrapper(pl.LazyFrame):
     """Preserve Cooler count-only intent before Polars projection rewriting.
 
     Polars' Python IO optimizer requests an arbitrary physical column for
@@ -4976,12 +4976,25 @@ class CoolLazyFrameWrapper:
         read_options: ReadOptions,
         projection_pushdown: bool = True,
     ):
+        # Remain a real LazyFrame so Polars APIs that dispatch by type (for
+        # example, pl.concat) accept Cooler scans without special handling.
+        self._ldf = base_lf._ldf
         self._base_lf = base_lf
         self._schema = schema
         self._table_name = table_name
         self._file_path = file_path
         self._read_options = read_options
         self._projection_pushdown = projection_pushdown
+        metadata = base_lf.config_meta.get_metadata()
+        if metadata:
+            self.config_meta.set(**metadata)
+
+    @classmethod
+    def _from_pyldf(cls, ldf):
+        # Any operation other than the direct select intercepted below returns
+        # an ordinary LazyFrame. Subclass instances constructed by Polars would
+        # otherwise lack the Cooler source state stored by __init__.
+        return pl.LazyFrame._from_pyldf(ldf)
 
     def select(self, *exprs, **named_exprs):
         if self._projection_pushdown and _is_len_projection(exprs, named_exprs):
@@ -5000,9 +5013,6 @@ class CoolLazyFrameWrapper:
                 count_lf.config_meta.set(**metadata)
             return count_lf.select(*exprs, **named_exprs)
         return self._base_lf.select(*exprs, **named_exprs)
-
-    def __getattr__(self, name):
-        return getattr(self._base_lf, name)
 
 
 class AnnotationLazyFrameWrapper:
