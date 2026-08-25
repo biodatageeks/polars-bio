@@ -170,3 +170,29 @@ def test_rootless_projection_pushes_empty_datafusion_schema():
     assert out is df
     assert needs_select is True
     assert df.selected == ()
+
+
+def test_rootless_projection_retains_client_filter_columns():
+    df = _StubDF()
+    out, needs_select = apply_projection_pushdown(
+        df,
+        [pl.len()],
+        log=LOG,
+        retain_for_client=pl.col("chrom1") == "chr1",
+    )
+    assert out is df
+    assert needs_select is True
+    assert df.selected == (("expr", '"chrom1"'),)
+
+
+def test_identity_projection_reapplies_select_when_filter_needs_extra_column():
+    df = _StubDF()
+    out, needs_select = apply_projection_pushdown(
+        df,
+        [pl.col("count")],
+        log=LOG,
+        retain_for_client=pl.col("chrom1") == "chr1",
+    )
+    assert out is df
+    assert needs_select is True
+    assert df.selected == (("expr", '"count"'), ("expr", '"chrom1"'))

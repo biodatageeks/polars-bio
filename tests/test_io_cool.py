@@ -107,6 +107,24 @@ class TestCoolPushdown:
         assert pb.scan_cool(COOL).select(pl.len()).collect().item() == 4210
 
     @pytest.mark.parametrize(
+        ("predicate_pushdown", "predicate"),
+        [
+            (False, pl.col("chrom1") == "chr2"),
+            (True, pl.col("chrom1").str.contains("2")),
+        ],
+    )
+    def test_count_star_after_client_side_filter(self, predicate_pushdown, predicate):
+        expected = pb.read_cool(COOL).filter(predicate).height
+        actual = (
+            pb.scan_cool(COOL, predicate_pushdown=predicate_pushdown)
+            .filter(predicate)
+            .select(pl.len())
+            .collect()
+            .item()
+        )
+        assert actual == expected
+
+    @pytest.mark.parametrize(
         "predicate",
         [
             pl.col("chrom1") == "chr2",

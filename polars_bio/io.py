@@ -4480,7 +4480,10 @@ def _lazy_scan(
         needs_client_select = with_columns is not None
         if projection_pushdown and with_columns is not None:
             query_df, needs_client_select = apply_projection_pushdown(
-                query_df, with_columns, log=logger
+                query_df,
+                with_columns,
+                log=logger,
+                retain_for_client=predicate if needs_client_filter else None,
             )
 
         # 4. Limit
