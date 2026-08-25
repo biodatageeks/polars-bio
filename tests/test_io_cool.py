@@ -266,6 +266,29 @@ class TestCoolInt64Count:
         assert df["count"][0] == 5_000_000_000
 
 
+class TestCoolWideValues:
+    def test_unsigned_counts_keep_their_full_ranges(self):
+        uint32 = pb.scan_cool(str(DATA_DIR / "test_uint32.cool")).collect()
+        assert uint32["count"].dtype == pl.UInt32
+        assert uint32["count"][0] == 3_000_000_000
+
+        uint64 = pb.scan_cool(str(DATA_DIR / "test_uint64.cool")).collect()
+        assert uint64["count"].dtype == pl.UInt64
+        assert uint64["count"][0] == 10_000_000_000_000_000_000
+
+    def test_coordinates_above_int32_are_preserved(self):
+        df = pb.scan_cool(
+            str(DATA_DIR / "test_wide_coords.cool"), use_zero_based=True
+        ).collect()
+        assert df["start1"][0] == 3_000_000_000
+        assert df["end1"][0] == 4_000_000_000
+
+    def test_exact_integer_sum_above_float_range(self):
+        df = pb.describe_cool(str(DATA_DIR / "test_exact_sum.cool"))
+        assert df["sum"].dtype == pl.Int64
+        assert df["sum"][0] == 9_007_199_254_740_993
+
+
 class TestCoolSqlDefaultName:
     def test_register_cool_uri_derives_name_from_file(self):
         # contacts.mcool::/resolutions/N must not register as table "N"

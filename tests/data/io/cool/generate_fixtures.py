@@ -6,6 +6,7 @@ Run from this directory (regenerates the fixtures in place):
 """
 
 import cooler
+import h5py
 import numpy as np
 import pandas as pd
 
@@ -54,10 +55,63 @@ cooler.create_cooler(
     "test_int64.cool", bins, ip, dtypes={"count": "int64"}, assembly="toyGenome"
 )
 
+# Unsigned-count variants exercise the ranges that do not fit the signed Arrow
+# type of the same width.
+u32p = pixels.copy()
+u32p["count"] = u32p["count"].astype("uint32")
+u32p.loc[u32p.index[0], "count"] = 3_000_000_000
+cooler.create_cooler(
+    "test_uint32.cool", bins, u32p, dtypes={"count": "uint32"}, assembly="toyGenome"
+)
+
+u64p = pixels.copy()
+u64p["count"] = u64p["count"].astype("uint64")
+u64p.loc[u64p.index[0], "count"] = 10_000_000_000_000_000_000
+cooler.create_cooler(
+    "test_uint64.cool", bins, u64p, dtypes={"count": "uint64"}, assembly="toyGenome"
+)
+
+# One exact integer sum above f64's 53-bit integer range. Metadata readers must
+# not round it while accommodating fractional sums from float-count coolers.
+exact_pixels = pixels.iloc[[0]].copy()
+exact_pixels["count"] = np.array([9_007_199_254_740_993], dtype="int64")
+cooler.create_cooler(
+    "test_exact_sum.cool",
+    bins,
+    exact_pixels,
+    dtypes={"count": "int64"},
+    assembly="toyGenome",
+)
+
+# Coordinates can legally use int64 storage while still fitting Arrow UInt32.
+# The second bin begins above i32::MAX, catching any signed-32-bit intermediate.
+wide_bins = pd.DataFrame(
+    {
+        "chrom": ["chrWide", "chrWide"],
+        "start": np.array([0, 3_000_000_000], dtype="int64"),
+        "end": np.array([3_000_000_000, 4_000_000_000], dtype="int64"),
+    }
+)
+wide_pixels = pd.DataFrame(
+    {
+        "bin1_id": np.array([1], dtype="int64"),
+        "bin2_id": np.array([1], dtype="int64"),
+        "count": np.array([1], dtype="int32"),
+    }
+)
+cooler.create_cooler("test_wide_coords.cool", wide_bins, wide_pixels, ordered=True)
+# cooler's writer currently coerces bin coordinates to int32. Replace these two
+# datasets with the valid int64 storage used by other cooler-producing tools.
+with h5py.File("test_wide_coords.cool", "r+") as h5:
+    del h5["bins/start"]
+    del h5["bins/end"]
+    h5["bins"].create_dataset("start", data=np.array([0, 3_000_000_000], dtype="int64"))
+    h5["bins"].create_dataset(
+        "end", data=np.array([3_000_000_000, 4_000_000_000], dtype="int64")
+    )
+
 # cooler <=0.8.x wrote some numeric attrs as JSON strings; mimic that on the
 # float fixture so readers keep tolerating string-typed numeric attributes.
-import h5py
-
 with h5py.File("test_float.cool", "r+") as h5:
     h5.attrs["format-version"] = str(int(h5.attrs["format-version"]))
 

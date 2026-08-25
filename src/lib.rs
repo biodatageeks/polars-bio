@@ -292,16 +292,7 @@ fn py_register_table(
                 // table name from the file component, stripping the whole
                 // .mcool/.cool suffix so the name is SQL-usable (the generic
                 // path would yield "10000" or "contacts_m").
-                let path = path.to_lowercase();
-                let file = path
-                    .split_once("::")
-                    .map_or(path.as_str(), |(file, _)| file);
-                let base = file.rsplit('/').next().unwrap();
-                base.strip_suffix(".mcool")
-                    .or_else(|| base.strip_suffix(".cool"))
-                    .unwrap_or(base)
-                    .replace(".", "_")
-                    .replace("-", "_")
+                cooler_default_table_name(&path)
             },
             None => {
                 let path = path.to_lowercase();
@@ -343,6 +334,42 @@ fn py_register_table(
             },
         }
     })
+}
+
+fn cooler_default_table_name(path: &str) -> String {
+    let path = path.to_lowercase();
+    let file = path
+        .split_once("::")
+        .map_or(path.as_str(), |(file, _)| file);
+    // Recognize both separators on every host so Windows paths remain usable
+    // even when they arrive through a cross-platform client or test harness.
+    let base = file.rsplit(['/', '\\']).next().unwrap_or(file);
+    base.strip_suffix(".mcool")
+        .or_else(|| base.strip_suffix(".cool"))
+        .unwrap_or(base)
+        .replace(".", "_")
+        .replace("-", "_")
+}
+
+#[cfg(test)]
+mod cooler_table_name_tests {
+    use super::cooler_default_table_name;
+
+    #[test]
+    fn derives_name_from_posix_uri_file_component() {
+        assert_eq!(
+            cooler_default_table_name("/data/My-Contacts.mcool::/resolutions/10000"),
+            "my_contacts"
+        );
+    }
+
+    #[test]
+    fn derives_name_from_windows_path() {
+        assert_eq!(
+            cooler_default_table_name(r"C:\data\My-Contacts.cool"),
+            "my_contacts"
+        );
+    }
 }
 
 /// Test helper: register one Arrow C stream input and return the physical partition count.
@@ -565,14 +592,79 @@ fn py_describe_cool(
     py_ctx: &PyBioSessionContext,
     path: String,
 ) -> PyResult<PyDataFrame> {
-    use datafusion::arrow::array::{Float64Array, Int64Array, StringArray};
+    use datafusion::arrow::array::{ArrayRef, Float64Array, Int64Array, StringArray, UInt64Array};
     use datafusion::arrow::datatypes::{DataType, Field, Schema};
     use datafusion::arrow::record_batch::RecordBatch;
+    use datafusion_bio_format_cooler::CoolerCollectionSum;
     py.detach(|| {
         let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         let collections = datafusion_bio_format_cooler::list_data_collections(&path)
             .map_err(|e| PyRuntimeError::new_err(format!("Cooler describe failed: {e}")))?;
+        let has_float_sum = collections.iter().any(|collection| {
+            matches!(collection.sum, Some(CoolerCollectionSum::Float64(_)))
+        });
+        let has_unsigned_sum = collections.iter().any(|collection| {
+            matches!(collection.sum, Some(CoolerCollectionSum::UInt64(_)))
+        });
+        let (sum_type, sum_array): (DataType, ArrayRef) = if has_float_sum {
+            const MAX_EXACT_F64_INTEGER: u64 = 1_u64 << 53;
+            let values = collections
+                .iter()
+                .map(|collection| match collection.sum {
+                    None => Ok(None),
+                    Some(CoolerCollectionSum::Float64(value)) => Ok(Some(value)),
+                    Some(CoolerCollectionSum::Int64(value))
+                        if value.unsigned_abs() <= MAX_EXACT_F64_INTEGER =>
+                    {
+                        Ok(Some(value as f64))
+                    }
+                    Some(CoolerCollectionSum::UInt64(value))
+                        if value <= MAX_EXACT_F64_INTEGER =>
+                    {
+                        Ok(Some(value as f64))
+                    }
+                    Some(value) => Err(PyRuntimeError::new_err(format!(
+                        "Cooler describe cannot combine exact integer sum {value:?} with float sums"
+                    ))),
+                })
+                .collect::<PyResult<Vec<_>>>()?;
+            (DataType::Float64, Arc::new(Float64Array::from(values)))
+        } else if has_unsigned_sum {
+            let values = collections
+                .iter()
+                .map(|collection| match collection.sum {
+                    None => Ok(None),
+                    Some(CoolerCollectionSum::UInt64(value)) => Ok(Some(value)),
+                    Some(CoolerCollectionSum::Int64(value)) => u64::try_from(value)
+                        .map(Some)
+                        .map_err(|_| {
+                            PyRuntimeError::new_err(format!(
+                                "Cooler describe cannot combine negative sum {value} with unsigned sums"
+                            ))
+                        }),
+                    Some(CoolerCollectionSum::Float64(_)) => unreachable!(),
+                })
+                .collect::<PyResult<Vec<_>>>()?;
+            (DataType::UInt64, Arc::new(UInt64Array::from(values)))
+        } else {
+            let values = collections
+                .iter()
+                .map(|collection| match collection.sum {
+                    None => Ok(None),
+                    Some(CoolerCollectionSum::Int64(value)) => Ok(Some(value)),
+                    Some(CoolerCollectionSum::UInt64(value)) => i64::try_from(value)
+                        .map(Some)
+                        .map_err(|_| {
+                            PyRuntimeError::new_err(format!(
+                                "Cooler sum {value} exceeds the Int64 range"
+                            ))
+                        }),
+                    Some(CoolerCollectionSum::Float64(_)) => unreachable!(),
+                })
+                .collect::<PyResult<Vec<_>>>()?;
+            (DataType::Int64, Arc::new(Int64Array::from(values)))
+        };
         let schema = Arc::new(Schema::new(vec![
             Field::new("group_path", DataType::Utf8, false),
             Field::new("resolution", DataType::Int64, true),
@@ -581,8 +673,7 @@ fn py_describe_cool(
             Field::new("assembly", DataType::Utf8, true),
             Field::new("nbins", DataType::Int64, true),
             Field::new("nnz", DataType::Int64, true),
-            // Float: float-count coolers store a float sum attribute.
-            Field::new("sum", DataType::Float64, true),
+            Field::new("sum", sum_type, true),
             Field::new("nchroms", DataType::Int64, false),
         ]));
         let rb = RecordBatch::try_new(
@@ -605,7 +696,7 @@ fn py_describe_cool(
                 )),
                 Arc::new(Int64Array::from_iter(collections.iter().map(|c| c.nbins))),
                 Arc::new(Int64Array::from_iter(collections.iter().map(|c| c.nnz))),
-                Arc::new(Float64Array::from_iter(collections.iter().map(|c| c.sum))),
+                sum_array,
                 Arc::new(Int64Array::from_iter_values(
                     collections.iter().map(|c| c.nchroms),
                 )),

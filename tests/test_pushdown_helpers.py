@@ -162,3 +162,11 @@ def test_projection_none_is_noop():
     df = _StubDF()
     out, needs_select = apply_projection_pushdown(df, None, log=LOG)
     assert needs_select is False
+
+
+def test_rootless_projection_pushes_empty_datafusion_schema():
+    df = _StubDF()
+    out, needs_select = apply_projection_pushdown(df, [pl.len()], log=LOG)
+    assert out is df
+    assert needs_select is True
+    assert df.selected == ()

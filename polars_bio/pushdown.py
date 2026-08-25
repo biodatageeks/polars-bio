@@ -111,6 +111,13 @@ def apply_projection_pushdown(query_df, with_columns, *, log) -> Tuple[Any, bool
         return query_df, False
     cols, complete = extract_source_columns(with_columns)
     if not cols:
+        try:
+            # DataFusion represents a row-count-only projection as a zero-field
+            # RecordBatch that retains its row count. Forward that projection so
+            # providers with metadata-only count paths need not scan any column.
+            query_df = query_df.select()
+        except Exception as exc:
+            log.warning("empty projection pushdown skipped (bind): %s", exc)
         return query_df, True
     try:
         select_exprs = [query_df.parse_sql_expr(f'"{c}"') for c in cols]

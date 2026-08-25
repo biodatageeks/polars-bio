@@ -3059,9 +3059,10 @@ class IOOperations:
 
         Returns one row per stored data collection (one for `.cool`, one per
         resolution for `.mcool`) with `group_path`, `resolution` (bin size),
-        `bin_type`, `format_version`, `assembly`, `nbins`, `nnz`, `sum`
-        (Float64: float-count coolers store a float sum), and `nchroms`, read
-        from file metadata without scanning pixel data.
+        `bin_type`, `format_version`, `assembly`, `nbins`, `nnz`, `sum`, and
+        `nchroms`, read from file metadata without scanning pixel data. `sum`
+        is Int64/UInt64 for integer-count collections and Float64 for
+        float-count collections, preserving exact wide integer totals.
 
         Parameters:
             path: The path to the `.cool`/`.mcool` file, or a cooler URI
