@@ -34,7 +34,7 @@
 - [x] 5.1 Add `IOOperations.scan_cool`, `read_cool`, and `describe_cool` with remote-path rejection and cooler-URI support.
 - [x] 5.2 Add `SQL.register_cool`.
 - [x] 5.3 Export new APIs from `polars_bio/__init__.py`.
-- [x] 5.4 Add cooler column-type metadata to `predicate_translator.py` string/uint32/float sets and `_FORMAT_COLUMN_TYPES` (string keys).
+- [x] 5.4 Add cooler column-type metadata to `predicate_translator.py` string/uint64/float sets and `_FORMAT_COLUMN_TYPES` (string keys).
 - [x] 5.5 Extend `metadata_extractors.py` so source format, path, resolution, and coordinate-system metadata are visible on cooler scans.
 
 ## 6. Python Tests (cooler as correctness oracle)
