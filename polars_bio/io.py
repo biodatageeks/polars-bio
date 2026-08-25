@@ -3062,7 +3062,9 @@ class IOOperations:
         `bin_type`, `format_version`, `assembly`, `nbins`, `nnz`, `sum`, and
         `nchroms`, read from file metadata without scanning pixel data. `sum`
         is Int64/UInt64 for integer-count collections and Float64 for
-        float-count collections, preserving exact wide integer totals.
+        float-count collections. Files mixing those storage classes use an
+        exact Decimal column (or an exact string for values outside Arrow's
+        Decimal128 range), preserving wide integer totals alongside fractions.
 
         Parameters:
             path: The path to the `.cool`/`.mcool` file, or a cooler URI

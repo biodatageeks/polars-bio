@@ -1,4 +1,6 @@
+from decimal import Decimal
 from pathlib import Path
+from shutil import copyfile
 
 import polars as pl
 import pytest
@@ -288,6 +290,16 @@ class TestCoolWideValues:
         assert df["sum"].dtype == pl.Int64
         assert df["sum"][0] == 9_007_199_254_740_993
 
+    def test_mixed_resolution_sums_remain_exact(self):
+        df = pb.describe_cool(str(DATA_DIR / "test_mixed_sums.mcool")).sort(
+            "resolution"
+        )
+        assert df["sum"].dtype == pl.Decimal(precision=38, scale=1)
+        assert df["sum"].to_list() == [
+            Decimal("124193.5"),
+            Decimal("9007199254740993.0"),
+        ]
+
 
 class TestCoolSqlDefaultName:
     def test_register_cool_uri_derives_name_from_file(self):
@@ -295,3 +307,12 @@ class TestCoolSqlDefaultName:
         pb.register_cool(f"{MCOOL}::/resolutions/2000")
         n = pb.sql("SELECT count(*) AS n FROM test").collect()["n"][0]
         assert n == 2560
+
+    def test_default_name_is_a_valid_unquoted_identifier(self, tmp_path):
+        path = tmp_path / "123 contacts! (final).cool"
+        copyfile(COOL, path)
+        pb.register_cool(str(path))
+        n = pb.sql("SELECT count(*) AS n FROM cool_123_contacts_final").collect()["n"][
+            0
+        ]
+        assert n == 4210

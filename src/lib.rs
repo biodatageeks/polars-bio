@@ -344,11 +344,40 @@ fn cooler_default_table_name(path: &str) -> String {
     // Recognize both separators on every host so Windows paths remain usable
     // even when they arrive through a cross-platform client or test harness.
     let base = file.rsplit(['/', '\\']).next().unwrap_or(file);
-    base.strip_suffix(".mcool")
+    let stem = base
+        .strip_suffix(".mcool")
         .or_else(|| base.strip_suffix(".cool"))
-        .unwrap_or(base)
-        .replace(".", "_")
-        .replace("-", "_")
+        .unwrap_or(base);
+    let mut name = String::with_capacity(stem.len());
+    let mut previous_was_underscore = false;
+    for character in stem.chars() {
+        let character = if character.is_ascii_alphanumeric() || character == '_' {
+            character
+        } else {
+            '_'
+        };
+        if character == '_' {
+            if previous_was_underscore {
+                continue;
+            }
+            previous_was_underscore = true;
+        } else {
+            previous_was_underscore = false;
+        }
+        name.push(character);
+    }
+    let mut name = name.trim_matches('_').to_string();
+    if name.is_empty() {
+        return "cooler".to_string();
+    }
+    let starts_with_digit = name.as_bytes()[0].is_ascii_digit();
+    let uppercase = name.to_ascii_uppercase();
+    let is_sql_keyword =
+        datafusion::sql::sqlparser::keywords::ALL_KEYWORDS.contains(&uppercase.as_str());
+    if starts_with_digit || is_sql_keyword {
+        name.insert_str(0, "cool_");
+    }
+    name
 }
 
 #[cfg(test)]
@@ -369,6 +398,20 @@ mod cooler_table_name_tests {
             cooler_default_table_name(r"C:\data\My-Contacts.cool"),
             "my_contacts"
         );
+    }
+
+    #[test]
+    fn sanitizes_invalid_identifier_characters_and_leading_digits() {
+        assert_eq!(
+            cooler_default_table_name("/data/123 contacts! (final).cool"),
+            "cool_123_contacts_final"
+        );
+    }
+
+    #[test]
+    fn avoids_sql_keywords_and_empty_names() {
+        assert_eq!(cooler_default_table_name("select.cool"), "cool_select");
+        assert_eq!(cooler_default_table_name("---.cool"), "cooler");
     }
 }
 
@@ -585,6 +628,119 @@ fn py_describe_vcf_zarr(
     })
 }
 
+fn finite_f64_decimal_parts(value: f64) -> Option<(i128, u32)> {
+    if !value.is_finite() {
+        return None;
+    }
+    let representation = value.to_string();
+    let (mantissa, exponent) = if let Some((mantissa, exponent)) = representation
+        .split_once('e')
+        .or_else(|| representation.split_once('E'))
+    {
+        (mantissa, exponent.parse::<i32>().ok()?)
+    } else {
+        (representation.as_str(), 0_i32)
+    };
+    let (negative, mantissa) = mantissa
+        .strip_prefix('-')
+        .map_or((false, mantissa), |unsigned| (true, unsigned));
+    let fractional_digits = mantissa
+        .split_once('.')
+        .map_or(0_u32, |(_, fractional)| fractional.len() as u32);
+    let digits = mantissa.replace('.', "");
+    let mut coefficient = digits.parse::<i128>().ok()?;
+    if negative {
+        coefficient = coefficient.checked_neg()?;
+    }
+    let mut scale = i32::try_from(fractional_digits).ok()? - exponent;
+    if scale < 0 {
+        coefficient = coefficient.checked_mul(10_i128.checked_pow(scale.unsigned_abs())?)?;
+        scale = 0;
+    }
+    while scale > 0 && coefficient % 10 == 0 {
+        coefficient /= 10;
+        scale -= 1;
+    }
+    Some((coefficient, u32::try_from(scale).ok()?))
+}
+
+fn cooler_sum_decimal_parts(
+    sum: datafusion_bio_format_cooler::CoolerCollectionSum,
+) -> Option<(i128, u32)> {
+    use datafusion_bio_format_cooler::CoolerCollectionSum;
+    match sum {
+        CoolerCollectionSum::Int64(value) => Some((i128::from(value), 0)),
+        CoolerCollectionSum::UInt64(value) => Some((i128::from(value), 0)),
+        CoolerCollectionSum::Float64(value) => finite_f64_decimal_parts(value),
+    }
+}
+
+fn exact_cooler_sum_decimals(
+    sums: &[Option<datafusion_bio_format_cooler::CoolerCollectionSum>],
+) -> Option<(Vec<Option<i128>>, i8)> {
+    let parts = sums
+        .iter()
+        .map(|sum| match sum {
+            None => Some(None),
+            Some(sum) => cooler_sum_decimal_parts(*sum).map(Some),
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let scale = parts
+        .iter()
+        .filter_map(|parts| parts.map(|(_, scale)| scale))
+        .max()
+        .unwrap_or(0);
+    let scale = i8::try_from(scale).ok()?;
+    let output_scale = u32::try_from(scale).ok()?;
+    let values = parts
+        .into_iter()
+        .map(|parts| match parts {
+            None => Some(None),
+            Some((coefficient, value_scale)) => {
+                let adjustment = output_scale.checked_sub(value_scale)?;
+                coefficient
+                    .checked_mul(10_i128.checked_pow(adjustment)?)
+                    .map(Some)
+            },
+        })
+        .collect::<Option<Vec<_>>>()?;
+    Some((values, scale))
+}
+
+fn cooler_sum_string(sum: datafusion_bio_format_cooler::CoolerCollectionSum) -> String {
+    use datafusion_bio_format_cooler::CoolerCollectionSum;
+    match sum {
+        CoolerCollectionSum::Int64(value) => value.to_string(),
+        CoolerCollectionSum::UInt64(value) => value.to_string(),
+        CoolerCollectionSum::Float64(value) => value.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod cooler_sum_tests {
+    use super::{exact_cooler_sum_decimals, finite_f64_decimal_parts};
+    use datafusion_bio_format_cooler::CoolerCollectionSum;
+
+    #[test]
+    fn converts_finite_floats_to_shortest_exact_decimal_parts() {
+        assert_eq!(finite_f64_decimal_parts(124_193.5), Some((1_241_935, 1)));
+        assert_eq!(finite_f64_decimal_parts(1.25e-7), Some((125, 9)));
+        assert_eq!(finite_f64_decimal_parts(f64::INFINITY), None);
+    }
+
+    #[test]
+    fn aligns_mixed_float_and_wide_integer_sums_without_rounding() {
+        let sums = [
+            Some(CoolerCollectionSum::Float64(124_193.5)),
+            Some(CoolerCollectionSum::Int64(9_007_199_254_740_993)),
+        ];
+        assert_eq!(
+            exact_cooler_sum_decimals(&sums),
+            Some((vec![Some(1_241_935), Some(90_071_992_547_409_930)], 1))
+        );
+    }
+}
+
 #[pyfunction]
 #[pyo3(signature = (py_ctx, path))]
 fn py_describe_cool(
@@ -592,7 +748,9 @@ fn py_describe_cool(
     py_ctx: &PyBioSessionContext,
     path: String,
 ) -> PyResult<PyDataFrame> {
-    use datafusion::arrow::array::{ArrayRef, Float64Array, Int64Array, StringArray, UInt64Array};
+    use datafusion::arrow::array::{
+        ArrayRef, Decimal128Array, Float64Array, Int64Array, StringArray, UInt64Array,
+    };
     use datafusion::arrow::datatypes::{DataType, Field, Schema};
     use datafusion::arrow::record_batch::RecordBatch;
     use datafusion_bio_format_cooler::CoolerCollectionSum;
@@ -607,28 +765,47 @@ fn py_describe_cool(
         let has_unsigned_sum = collections.iter().any(|collection| {
             matches!(collection.sum, Some(CoolerCollectionSum::UInt64(_)))
         });
-        let (sum_type, sum_array): (DataType, ArrayRef) = if has_float_sum {
-            const MAX_EXACT_F64_INTEGER: u64 = 1_u64 << 53;
-            let values = collections
+        let has_signed_sum = collections.iter().any(|collection| {
+            matches!(collection.sum, Some(CoolerCollectionSum::Int64(_)))
+        });
+        let has_negative_sum = collections.iter().any(|collection| {
+            matches!(collection.sum, Some(CoolerCollectionSum::Int64(value)) if value < 0)
+        });
+        let sums = collections
+            .iter()
+            .map(|collection| collection.sum)
+            .collect::<Vec<_>>();
+        let requires_heterogeneous_sum =
+            (has_float_sum && (has_signed_sum || has_unsigned_sum))
+                || (has_unsigned_sum && has_negative_sum);
+        let (sum_type, sum_array): (DataType, ArrayRef) = if requires_heterogeneous_sum {
+            if let Some((values, scale)) = exact_cooler_sum_decimals(&sums) {
+                match Decimal128Array::from(values).with_precision_and_scale(38, scale) {
+                    Ok(array) => (DataType::Decimal128(38, scale), Arc::new(array)),
+                    Err(_) => {
+                        let values = sums
+                            .iter()
+                            .map(|sum| sum.map(cooler_sum_string))
+                            .collect::<Vec<_>>();
+                        (DataType::Utf8, Arc::new(StringArray::from(values)))
+                    },
+                }
+            } else {
+                let values = sums
+                    .iter()
+                    .map(|sum| sum.map(cooler_sum_string))
+                    .collect::<Vec<_>>();
+                (DataType::Utf8, Arc::new(StringArray::from(values)))
+            }
+        } else if has_float_sum {
+            let values = sums
                 .iter()
-                .map(|collection| match collection.sum {
-                    None => Ok(None),
-                    Some(CoolerCollectionSum::Float64(value)) => Ok(Some(value)),
-                    Some(CoolerCollectionSum::Int64(value))
-                        if value.unsigned_abs() <= MAX_EXACT_F64_INTEGER =>
-                    {
-                        Ok(Some(value as f64))
-                    }
-                    Some(CoolerCollectionSum::UInt64(value))
-                        if value <= MAX_EXACT_F64_INTEGER =>
-                    {
-                        Ok(Some(value as f64))
-                    }
-                    Some(value) => Err(PyRuntimeError::new_err(format!(
-                        "Cooler describe cannot combine exact integer sum {value:?} with float sums"
-                    ))),
+                .map(|sum| match sum {
+                    None => None,
+                    Some(CoolerCollectionSum::Float64(value)) => Some(*value),
+                    Some(_) => unreachable!(),
                 })
-                .collect::<PyResult<Vec<_>>>()?;
+                .collect::<Vec<_>>();
             (DataType::Float64, Arc::new(Float64Array::from(values)))
         } else if has_unsigned_sum {
             let values = collections

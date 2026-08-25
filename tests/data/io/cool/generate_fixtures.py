@@ -115,6 +115,25 @@ with h5py.File("test_wide_coords.cool", "r+") as h5:
 with h5py.File("test_float.cool", "r+") as h5:
     h5.attrs["format-version"] = str(int(h5.attrs["format-version"]))
 
+# Multi-resolution metadata may legitimately mix independent float- and
+# integer-count collections. Keep one exact integer total above 2^53 beside a
+# fractional float total to catch whole-file describe paths that coerce or
+# reject the heterogeneous values.
+with (
+    h5py.File("test_mixed_sums.mcool", "w") as target_h5,
+    h5py.File("test_float.cool", "r") as float_h5,
+    h5py.File("test_exact_sum.cool", "r") as integer_h5,
+):
+    target_h5.attrs["format"] = "HDF5::MCOOL"
+    target_h5.attrs["format-version"] = 2
+    resolutions = target_h5.create_group("resolutions")
+    for resolution, source in ((1000, float_h5), (2000, integer_h5)):
+        target = resolutions.create_group(str(resolution))
+        for name, value in source.attrs.items():
+            target.attrs[name] = value
+        for name in source:
+            source.copy(name, target)
+
 for uri in ["test.cool", "test.mcool::/resolutions/2000", "test_float.cool"]:
     c = cooler.Cooler(uri)
     print(uri, c.info["nnz"], c.pixels()[:3].to_dict("list"))
