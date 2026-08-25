@@ -1,3 +1,4 @@
+import json
 import logging
 import weakref as _weakref
 from typing import Any, Dict, Iterator, NamedTuple, Optional, Sequence, Union
@@ -4313,6 +4314,7 @@ def _lazy_scan(
     input_format: InputFormat = None,
     file_path: str = None,
     read_options: ReadOptions = None,
+    force_empty_projection: bool = False,
 ) -> pl.LazyFrame:
     # Handle both PyArrow schema (new streaming path) and DataFusion DataFrame (old SQL path)
     import pyarrow as pa
@@ -4348,6 +4350,13 @@ def _lazy_scan(
         original_schema = (
             dict(schema_or_df) if not isinstance(schema_or_df, dict) else schema_or_df
         )
+
+    if force_empty_projection:
+        # Polars cannot express a zero-column request through the Python IO
+        # callback: count-only plans are represented by an arbitrary physical
+        # source column. Advertise an empty schema so the provider can preserve
+        # row counts without decoding any Cooler datasets.
+        original_schema = {}
 
     def _overlap_source(
         with_columns: Union[pl.Expr, None],
@@ -4466,6 +4475,9 @@ def _lazy_scan(
                     _ctx, file_path, table_to_query, input_format, read_options
                 )
             query_df = py_read_table(_ctx, table_to_query)
+
+        if force_empty_projection:
+            query_df = query_df.select()
 
         # 2. Predicate pushdown (optimization only; the client-side filter below
         #    is the source of truth). The shared helper pushes the faithfully
@@ -4904,8 +4916,93 @@ def _read_file(
         return GtfLazyFrameWrapper(
             lf, path, read_options, projection_pushdown, predicate_pushdown
         )
+    if input_format == InputFormat.Cool:
+        return CoolLazyFrameWrapper(
+            lf,
+            schema,
+            table.name,
+            path,
+            read_options,
+            projection_pushdown,
+        )
 
     return lf
+
+
+def _is_len_expr(expr) -> bool:
+    """Return whether an expression is exactly ``pl.len()``, optionally aliased."""
+    if not isinstance(expr, pl.Expr):
+        return False
+    try:
+        serialized = json.loads(expr.meta.serialize(format="json"))
+    except Exception:
+        return False
+    return serialized == "Len" or (
+        isinstance(serialized, dict)
+        and isinstance(serialized.get("Alias"), list)
+        and len(serialized["Alias"]) == 2
+        and serialized["Alias"][0] == "Len"
+    )
+
+
+def _is_len_projection(exprs, named_exprs) -> bool:
+    """Return whether a select consists only of row-count expressions."""
+    items = []
+    for expr in exprs:
+        if isinstance(expr, (list, tuple)):
+            items.extend(expr)
+        else:
+            items.append(expr)
+    items.extend(named_exprs.values())
+    return bool(items) and all(_is_len_expr(expr) for expr in items)
+
+
+class CoolLazyFrameWrapper:
+    """Preserve Cooler count-only intent before Polars projection rewriting.
+
+    Polars' Python IO optimizer requests an arbitrary physical column for
+    ``select(pl.len())``. By the time the IO callback runs, that request is
+    indistinguishable from a real one-column projection. Intercepting the exact
+    count projection here lets DataFusion execute a zero-column Cooler scan and
+    retain only RecordBatch row counts.
+    """
+
+    def __init__(
+        self,
+        base_lf: pl.LazyFrame,
+        schema,
+        table_name: str,
+        file_path: str,
+        read_options: ReadOptions,
+        projection_pushdown: bool = True,
+    ):
+        self._base_lf = base_lf
+        self._schema = schema
+        self._table_name = table_name
+        self._file_path = file_path
+        self._read_options = read_options
+        self._projection_pushdown = projection_pushdown
+
+    def select(self, *exprs, **named_exprs):
+        if self._projection_pushdown and _is_len_projection(exprs, named_exprs):
+            count_lf = _lazy_scan(
+                self._schema,
+                False,
+                False,
+                self._table_name,
+                InputFormat.Cool,
+                self._file_path,
+                self._read_options,
+                force_empty_projection=True,
+            )
+            metadata = self._base_lf.config_meta.get_metadata()
+            if metadata:
+                count_lf.config_meta.set(**metadata)
+            return count_lf.select(*exprs, **named_exprs)
+        return self._base_lf.select(*exprs, **named_exprs)
+
+    def __getattr__(self, name):
+        return getattr(self._base_lf, name)
 
 
 class AnnotationLazyFrameWrapper:

@@ -138,7 +138,9 @@ class TestCoolPushdown:
         original = pb.get_option(target_key)
         pb.set_option(target_key, "4")
         try:
-            actual = pb.scan_cool(COOL).select(pl.len()).collect().item()
+            query = pb.scan_cool(COOL).select(pl.len())
+            assert "PYTHON SCAN []" in query.explain()
+            actual = query.collect().item()
         finally:
             pb.set_option(target_key, original)
         assert actual == 4210

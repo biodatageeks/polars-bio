@@ -100,6 +100,7 @@ The pixels table is sorted by `bin1_id` and CSR-indexed by `bin1_offset`, so fir
 
 - Only projected arrays are materialized: e.g. projecting `count` alone never touches `bins`; projecting only first-axis coordinates skips `bin2` lookups and `count`.
 - Empty projection (`count(*)`) reads no pixel data and can serve row counts from `bin1_offset`/`nnz` (per pruned range: offset arithmetic).
+- Polars' Python IO optimizer may replace `select(pl.len())` with an arbitrary physical-column request before invoking the source callback. The Cooler lazy wrapper therefore recognizes the direct count projection before that rewrite and constructs an empty-schema DataFusion scan; ordinary full scans, real projections, and filtered counts continue through the shared callback path.
 - `CoolerExec` implements `DisplayAs` output (e.g. `CoolerExec: projection=[chrom1, start1, count]`) for plan-inspection tests.
 
 ### Parallel execution
