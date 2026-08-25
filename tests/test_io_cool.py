@@ -10,6 +10,7 @@ import polars_bio as pb
 DATA_DIR = Path(__file__).parent / "data" / "io" / "cool"
 COOL = str(DATA_DIR / "test.cool")
 MCOOL = str(DATA_DIR / "test.mcool")
+SINGLE_RESOLUTION_MCOOL = str(DATA_DIR / "test_single_resolution.mcool")
 FLOAT_COOL = str(DATA_DIR / "test_float.cool")
 
 JOINED_COLUMNS = ["chrom1", "start1", "end1", "chrom2", "start2", "end2", "count"]
@@ -74,6 +75,11 @@ class TestCoolScan:
     def test_mcool_uri_syntax(self):
         df = pb.scan_cool(f"{MCOOL}::/resolutions/2000").collect()
         assert df.height == 2560
+
+    def test_single_resolution_mcool_auto_selects_collection(self):
+        actual = pb.scan_cool(SINGLE_RESOLUTION_MCOOL).collect()
+        expected = pb.scan_cool(COOL).collect()
+        assert actual.equals(expected)
 
     def test_mcool_without_resolution_errors(self):
         with pytest.raises(Exception, match="1000.*2000.*5000"):

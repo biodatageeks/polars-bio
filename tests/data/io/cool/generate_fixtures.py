@@ -41,6 +41,12 @@ for res in (1000, 2000, 5000):
     clr = cooler.Cooler(f"test.mcool::/resolutions/{res}")
     cooler.balance_cooler(clr, store=True, min_nnz=2)
 
+# Single-resolution .mcool exercises unambiguous automatic collection
+# selection when no resolution or cooler URI group is supplied.
+cooler.zoomify_cooler(
+    "test.cool", "test_single_resolution.mcool", resolutions=[1000], chunksize=10_000
+)
+
 # float-count variant
 fp = pixels.copy()
 fp["count"] = fp["count"].astype("float64") * 0.5
@@ -134,7 +140,12 @@ with (
         for name in source:
             source.copy(name, target)
 
-for uri in ["test.cool", "test.mcool::/resolutions/2000", "test_float.cool"]:
+for uri in [
+    "test.cool",
+    "test.mcool::/resolutions/2000",
+    "test_single_resolution.mcool::/resolutions/1000",
+    "test_float.cool",
+]:
     c = cooler.Cooler(uri)
     print(uri, c.info["nnz"], c.pixels()[:3].to_dict("list"))
 print(
