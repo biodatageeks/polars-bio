@@ -126,6 +126,11 @@ The cooler table provider SHALL prune pixel row ranges for supported first-axis 
 - **WHEN** a filter references only `chrom2` or `count`
 - **THEN** the scan remains correct with the predicate applied client-side or as residual filtering
 
+#### Scenario: Overflowing converted bound stays exact
+
+- **WHEN** a zero-based UInt64 start bound cannot be converted to the shared 1-based pruning representation without overflow
+- **THEN** the scan remains unpruned and client-side re-filtering returns the exact result without panic or wrapped bounds
+
 ### Requirement: Cooler parallel scan partitions
 
 The cooler table provider SHALL support splitting a scan into DataFusion partitions along bin1 boundaries derived from `bin1_offset` when parallelism is requested, producing the same row set as a single-partition scan.

@@ -40,7 +40,7 @@
 ## 6. Python Tests (cooler as correctness oracle)
 
 - [x] 6.1 Parity tests vs `cooler`: full joined scan vs `Cooler.pixels(join=True)[:]`, raw COO vs `join=False`, weighted mode vs cooler weight columns, per-resolution `.mcool` scans — row-for-row after coordinate/dtype normalization.
-- [x] 6.2 Region-query parity: pushed `chrom1`/`start1`/`end1` filters vs `Cooler.matrix(as_pixels=True, join=True).fetch(region)`, with pushdown on == pushdown off == cooler.
+- [x] 6.2 Region-query parity: pushed `chrom1`/`start1`/`end1` filters vs `Cooler.matrix(as_pixels=True, join=True).fetch(region)`, with pushdown on == pushdown off == cooler, including safe fallback for overflowing UInt64 bounds.
 - [x] 6.3 `describe_cool` vs `cooler.fileops.list_coolers` + `Cooler.info`.
 - [x] 6.4 Coordinate-system tests: `use_zero_based=True`/`False`/global default.
 - [x] 6.5 Projection pushdown tests: projected columns only, plan display shows `CoolerExec` projection, `count(*)` fast path.

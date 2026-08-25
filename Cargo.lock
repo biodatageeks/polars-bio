@@ -1586,7 +1586,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-cooler"
 version = "1.11.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?branch=feat%2Fcooler#858befc7aa7a8294c873cfc77ce4ec9ab2c9fb9b"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?branch=feat%2Fcooler#2d34a10a36998902ebee27ae1a4e759ab6e7edc9"
 dependencies = [
  "async-trait",
  "datafusion",
@@ -1624,7 +1624,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-format-core"
 version = "1.11.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?branch=feat%2Fcooler#858befc7aa7a8294c873cfc77ce4ec9ab2c9fb9b"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?branch=feat%2Fcooler#2d34a10a36998902ebee27ae1a4e759ab6e7edc9"
 dependencies = [
  "async-compression",
  "bytes",

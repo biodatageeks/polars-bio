@@ -125,6 +125,14 @@ class TestCoolPushdown:
         assert df.columns == ["chrom1", "count"]
         assert df.height == 4210
 
+    def test_uint64_max_bound_does_not_overflow_pruning(self):
+        df = (
+            pb.scan_cool(COOL, use_zero_based=True)
+            .filter(pl.col("start1") < pl.lit(2**64 - 1, dtype=pl.UInt64))
+            .collect()
+        )
+        assert df.height == 4210
+
     def test_count_star(self):
         target_key = "datafusion.execution.target_partitions"
         original = pb.get_option(target_key)
