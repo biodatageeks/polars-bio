@@ -43,6 +43,13 @@ fp = pixels.copy()
 fp["count"] = fp["count"].astype("float64") * 0.5
 cooler.create_cooler("fixtures/test_float.cool", bins, fp, dtypes={"count": "float64"})
 
+# cooler <=0.8.x wrote some numeric attrs as JSON strings; mimic that on the
+# float fixture so readers keep tolerating string-typed numeric attributes.
+import h5py
+
+with h5py.File("fixtures/test_float.cool", "r+") as h5:
+    h5.attrs["format-version"] = str(int(h5.attrs["format-version"]))
+
 for uri in [
     "fixtures/test.cool",
     "fixtures/test.mcool::/resolutions/2000",
