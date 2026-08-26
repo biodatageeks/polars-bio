@@ -4473,14 +4473,19 @@ def _lazy_scan(
                 and table_to_query is not None
             )
             if should_register and input_format == InputFormat.Cool:
+                # A LazyFrame may be collected concurrently by separate Polars
+                # plans or Python threads. Give every callback invocation its
+                # own catalog identity so one lease cannot replace or remove
+                # another invocation's provider between registration and lookup.
+                lease_name = f"_pb_cool_collect_{uuid4().hex}"
                 with _registered_table_lease(
                     _ctx,
                     file_path,
-                    table_to_query,
+                    lease_name,
                     input_format,
                     read_options,
                 ):
-                    query_df = py_read_table(_ctx, table_to_query)
+                    query_df = py_read_table(_ctx, lease_name)
             else:
                 if should_register:
                     py_register_table(

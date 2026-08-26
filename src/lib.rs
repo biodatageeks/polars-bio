@@ -755,7 +755,6 @@ fn py_describe_cool(
     use datafusion::arrow::record_batch::RecordBatch;
     use datafusion_bio_format_cooler::CoolerCollectionSum;
     py.detach(|| {
-        let rt = Runtime::new()?;
         let ctx = &py_ctx.ctx;
         let collections = datafusion_bio_format_cooler::list_data_collections(&path)
             .map_err(|e| PyRuntimeError::new_err(format!("Cooler describe failed: {e}")))?;
@@ -880,18 +879,12 @@ fn py_describe_cool(
             ],
         )
         .map_err(|e| PyRuntimeError::new_err(format!("Failed to build describe batch: {e}")))?;
-        let mem_table = MemTable::try_new(schema, vec![vec![rb]])
-            .map_err(|e| PyRuntimeError::new_err(format!("Failed to create memory table: {e}")))?;
-        let table_name = format!("cool_schema_{}", rand::random::<u32>());
-        let df = rt
-            .block_on(async {
-                ctx.register_table(table_name.clone(), Arc::new(mem_table))
-                    .map_err(|e| format!("Failed to register table: {e}"))?;
-                ctx.table(table_name)
-                    .await
-                    .map_err(|e| format!("Failed to get table: {e}"))
-            })
-            .map_err(PyRuntimeError::new_err)?;
+        // Construct the DataFrame directly from its batch. Registering this
+        // one-shot metadata result in the shared SessionContext would retain a
+        // new randomly named table after every describe_cool call.
+        let df = ctx
+            .read_batch(rb)
+            .map_err(|e| PyRuntimeError::new_err(format!("Failed to read describe batch: {e}")))?;
         Ok(PyDataFrame::new(df))
     })
 }
