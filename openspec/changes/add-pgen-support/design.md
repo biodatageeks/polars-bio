@@ -1,9 +1,5 @@
 # Design: PGEN genotype input
 
-Full reasoning is in
-`docs/superpowers/specs/2026-08-17-pgen-polars-bio-binding-design.md`. Recorded
-here are the three decisions that are not evident from the API alone.
-
 ## The Python default narrows the provider default
 
 `resolve_genotype_fields` returns every available field when the requested list
