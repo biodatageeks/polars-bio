@@ -1,6 +1,7 @@
 import json
 import logging
 import weakref as _weakref
+from contextlib import contextmanager
 from typing import Any, Dict, Iterator, NamedTuple, Optional, Sequence, Union
 from uuid import uuid4
 
@@ -4466,15 +4467,26 @@ def _lazy_scan(
         else:
             # Re-register file-backed sources on each execution so every collect()
             # sees a fresh provider state for this LazyFrame.
-            if (
+            should_register = (
                 file_path is not None
                 and not table_refreshed
                 and table_to_query is not None
-            ):
-                py_register_table(
-                    _ctx, file_path, table_to_query, input_format, read_options
-                )
-            query_df = py_read_table(_ctx, table_to_query)
+            )
+            if should_register and input_format == InputFormat.Cool:
+                with _registered_table_lease(
+                    _ctx,
+                    file_path,
+                    table_to_query,
+                    input_format,
+                    read_options,
+                ):
+                    query_df = py_read_table(_ctx, table_to_query)
+            else:
+                if should_register:
+                    py_register_table(
+                        _ctx, file_path, table_to_query, input_format, read_options
+                    )
+                query_df = py_read_table(_ctx, table_to_query)
 
         if force_empty_projection:
             query_df = query_df.select()
@@ -4816,6 +4828,16 @@ def _format_to_string(input_format: InputFormat) -> str:
         return "unknown"
 
 
+@contextmanager
+def _registered_table_lease(context, path, name, input_format, read_options):
+    """Keep a private table registered only while acquiring its query plan."""
+    table = py_register_table(context, path, name, input_format, read_options)
+    try:
+        yield table
+    finally:
+        context.deregister_table(table.name)
+
+
 def _read_file(
     path: str,
     input_format: InputFormat,
@@ -4831,10 +4853,15 @@ def _read_file(
     table_name = (
         f"_pb_cool_scan_{uuid4().hex}" if input_format == InputFormat.Cool else None
     )
-    table = py_register_table(ctx, path, table_name, input_format, read_options)
-
-    # Get schema WITHOUT materializing data - critical for large files!
-    schema = py_get_table_schema(ctx, table.name)
+    if table_name is not None:
+        with _registered_table_lease(
+            ctx, path, table_name, input_format, read_options
+        ) as table:
+            # Get schema WITHOUT materializing data - critical for large files!
+            schema = py_get_table_schema(ctx, table.name)
+    else:
+        table = py_register_table(ctx, path, None, input_format, read_options)
+        schema = py_get_table_schema(ctx, table.name)
 
     # Extract ALL metadata from schema (works for all formats!)
     from polars_bio.metadata_extractors import extract_all_schema_metadata

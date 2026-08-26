@@ -96,6 +96,17 @@ class TestCoolScan:
     def test_concurrent_mcool_resolutions_keep_distinct_providers(self):
         import json
 
+        def private_cooler_tables():
+            tables = pb.sql(
+                "SELECT table_name FROM information_schema.tables"
+            ).collect()
+            return {
+                name
+                for name in tables["table_name"].to_list()
+                if name.startswith("_pb_cool_scan_")
+            }
+
+        tables_before = private_cooler_tables()
         resolutions = [1000, 2000, 5000]
         scans = [
             pb.scan_cool(MCOOL, resolution=resolution, use_zero_based=True)
@@ -108,6 +119,7 @@ class TestCoolScan:
             for scan in scans
         }
         assert len(table_names) == len(scans)
+        assert private_cooler_tables() == tables_before
 
         described = pb.describe_cool(MCOOL)
         expected = dict(zip(described["resolution"], described["nnz"]))
@@ -115,6 +127,7 @@ class TestCoolScan:
         for _ in range(5):
             actual = [frame.item() for frame in pl.collect_all(queries)]
             assert actual == [expected[resolution] for resolution in resolutions]
+            assert private_cooler_tables() == tables_before
 
     def test_single_resolution_mcool_auto_selects_collection(self):
         actual = pb.scan_cool(SINGLE_RESOLUTION_MCOOL).collect()
