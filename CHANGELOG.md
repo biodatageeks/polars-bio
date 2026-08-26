@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-08-26
+
 ### Added
 
 - Cooler Hi-C contact matrix support (`.cool`/`.mcool`): `read_cool()`,
@@ -44,11 +46,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Updated `datafusion-bio-formats` to v1.11.0 and
+- Updated `datafusion-bio-formats` to v1.12.0 and
   `datafusion-bio-functions` to v0.18.0.
 - BigWig and BigBed full scans now use their built-in BBI index to balance
   compressed blocks across `datafusion.execution.target_partitions`. No sidecar
   index is required, and partitioned scans preserve every row exactly once.
+
+### Documentation
+
+- The README now shows the supported Python versions and wheel platforms, and
+  links directly to the Bioconda installation instructions (#441, #444).
+- The format capability matrix now correctly marks indexed GTF scans as parallel
+  and FASTQ reads as supporting projection pushdown (#442).
 
 ## [0.34.0] - 2026-08-20
 
