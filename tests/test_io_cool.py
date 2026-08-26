@@ -93,6 +93,29 @@ class TestCoolScan:
         df = pb.scan_cool(f"{MCOOL}::/resolutions/2000").collect()
         assert df.height == 2560
 
+    def test_concurrent_mcool_resolutions_keep_distinct_providers(self):
+        import json
+
+        resolutions = [1000, 2000, 5000]
+        scans = [
+            pb.scan_cool(MCOOL, resolution=resolution, use_zero_based=True)
+            for resolution in resolutions
+        ]
+        table_names = {
+            json.loads(scan.config_meta.get_metadata()["source_header"])[
+                "_datafusion_table_name"
+            ]
+            for scan in scans
+        }
+        assert len(table_names) == len(scans)
+
+        described = pb.describe_cool(MCOOL)
+        expected = dict(zip(described["resolution"], described["nnz"]))
+        queries = [scan.select(pl.len().alias("n")) for scan in scans]
+        for _ in range(5):
+            actual = [frame.item() for frame in pl.collect_all(queries)]
+            assert actual == [expected[resolution] for resolution in resolutions]
+
     def test_single_resolution_mcool_auto_selects_collection(self):
         actual = pb.scan_cool(SINGLE_RESOLUTION_MCOOL).collect()
         expected = pb.scan_cool(COOL).collect()

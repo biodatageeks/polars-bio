@@ -4824,7 +4824,14 @@ def _read_file(
     predicate_pushdown: bool = False,
     zero_based: bool = True,
 ) -> pl.LazyFrame:
-    table = py_register_table(ctx, path, None, input_format, read_options)
+    # Each Cooler LazyFrame must retain its own provider. Different resolutions
+    # of one .mcool have the same filename-derived default table name and schema,
+    # so re-registering that shared name from concurrent IO callbacks can make
+    # one scan read another scan's resolution without raising an error.
+    table_name = (
+        f"_pb_cool_scan_{uuid4().hex}" if input_format == InputFormat.Cool else None
+    )
+    table = py_register_table(ctx, path, table_name, input_format, read_options)
 
     # Get schema WITHOUT materializing data - critical for large files!
     schema = py_get_table_schema(ctx, table.name)
