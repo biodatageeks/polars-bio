@@ -61,6 +61,10 @@ datafusion-bio-format-gtf = { git = "https://github.com/biodatageeks/datafusion-
 datafusion-bio-format-bbi = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.11.0" }
 datafusion-bio-format-bgen = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.11.0" }
 datafusion-bio-format-pgen = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.11.0" }
+# cooler: branch dep until the crate ships in a tagged datafusion-bio-formats
+# release. RELEASE GATE: repoint to the tag (like the deps above) before any
+# polars-bio release — prepare-release checks must not pass with a branch ref.
+datafusion-bio-format-cooler = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "feat/cooler" }
 
 datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.18.0" }
 datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.18.0", default-features = false }

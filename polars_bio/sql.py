@@ -8,6 +8,7 @@ from polars_bio.polars_bio import (
     BgenReadOptions,
     BigBedReadOptions,
     BigWigReadOptions,
+    CoolReadOptions,
     CramReadOptions,
     FastaReadOptions,
     FastqReadOptions,
@@ -654,6 +655,42 @@ class SQL:
         )
         read_options = ReadOptions(bigbed_read_options=bigbed_read_options)
         py_register_table(ctx, path, name, InputFormat.BigBed, read_options)
+
+    @staticmethod
+    def register_cool(
+        path: str,
+        name: Union[str, None] = None,
+        resolution: Union[int, None] = None,
+        join_bins: bool = True,
+        include_weights: bool = False,
+        use_zero_based: Union[bool, None] = None,
+    ) -> None:
+        """
+        Register a Cooler (`.cool`/`.mcool`) file as a DataFusion table.
+
+        Parameters:
+            path: The path to the `.cool`/`.mcool` file, or a cooler URI (`file.mcool::/resolutions/10000`).
+            name: The name of the table. If *None*, a name is derived from the file name.
+            resolution: Bin size selecting an `.mcool` data collection. Optional for `.cool` files and single-resolution `.mcool` files.
+            join_bins: If *True* (default), join pixels with bin coordinates; if *False*, expose the raw COO triple.
+            include_weights: If *True*, expose balancing weights as `weight1`/`weight2`.
+            use_zero_based: Coordinate system override. Cooler is natively 0-based half-open; set to *False* to emit 1-based closed coordinates, or *None* to use the global default.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.register_cool("contacts.mcool", "hic", resolution=10000)
+            pb.sql("SELECT chrom1, count FROM hic LIMIT 5").collect()
+            ```
+        """
+        cool_read_options = CoolReadOptions(
+            resolution=resolution,
+            join_bins=join_bins,
+            include_weights=include_weights,
+            zero_based=_resolve_zero_based(use_zero_based),
+        )
+        read_options = ReadOptions(cool_read_options=cool_read_options)
+        py_register_table(ctx, path, name, InputFormat.Cool, read_options)
 
     @staticmethod
     def register_view(name: str, query: str) -> None:

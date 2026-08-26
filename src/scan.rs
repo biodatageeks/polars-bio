@@ -25,6 +25,7 @@ use datafusion_bio_format_bgen::{
     BgenOutputMode, BgenProbabilityLayout, BgenReadOptions as NativeBgenReadOptions,
     BgenTableProvider,
 };
+use datafusion_bio_format_cooler::CoolerTableProvider;
 use datafusion_bio_format_core::genotype::{CoordinateSystem, MissingSamplePolicy};
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
 use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
@@ -49,8 +50,8 @@ use tracing::debug;
 use crate::context::PyBioSessionContext;
 use crate::option::{
     BamReadOptions, BedReadOptions, BgenReadOptions, BigBedReadOptions, BigWigReadOptions,
-    CramReadOptions, FastaReadOptions, FastqReadOptions, GffReadOptions, GtfReadOptions,
-    InputFormat, PairsReadOptions, PgenReadOptions, ReadOptions, VcfReadOptions,
+    CoolReadOptions, CramReadOptions, FastaReadOptions, FastqReadOptions, GffReadOptions,
+    GtfReadOptions, InputFormat, PairsReadOptions, PgenReadOptions, ReadOptions, VcfReadOptions,
     VcfZarrReadOptions,
 };
 
@@ -463,6 +464,17 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
     } else {
         path
     };
+    // Cooler URIs address a group inside the file: `x.mcool::/resolutions/N`.
+    // Preserve `::` in ordinary object keys so their actual suffix still
+    // determines the input format.
+    let path = path
+        .split_once("::")
+        .and_then(|(file, _)| {
+            let lowercase_file = file.to_ascii_lowercase();
+            (lowercase_file.ends_with(".cool") || lowercase_file.ends_with(".mcool"))
+                .then_some(file)
+        })
+        .unwrap_or(path);
     let path = path.to_lowercase();
     if path.ends_with(".parquet") {
         InputFormat::Parquet
@@ -474,6 +486,8 @@ pub(crate) fn get_input_format(path: &str) -> InputFormat {
         InputFormat::BigWig
     } else if path.ends_with(".bb") || path.ends_with(".bigbed") {
         InputFormat::BigBed
+    } else if path.ends_with(".cool") || path.ends_with(".mcool") {
+        InputFormat::Cool
     } else if path.ends_with(".vcf")
         || path.ends_with(".vcf.gz")
         || path.ends_with(".vcf.bgz")
@@ -801,6 +815,27 @@ async fn register_table_provider(
                 path.to_string(),
                 bigbed_read_options.zero_based,
                 native_bigbed_schema_mode(&bigbed_read_options.schema)?,
+            )?;
+            ctx.register_table(table_name, Arc::new(table_provider))?;
+        },
+        InputFormat::Cool => {
+            let cool_read_options = match &read_options {
+                Some(options) => match options.clone().cool_read_options {
+                    Some(cool_read_options) => cool_read_options,
+                    _ => CoolReadOptions::default(),
+                },
+                _ => CoolReadOptions::default(),
+            };
+            info!(
+                "Registering Cooler table {} with options: {:?}",
+                table_name, cool_read_options
+            );
+            let table_provider = CoolerTableProvider::new(
+                path.to_string(),
+                cool_read_options.resolution,
+                cool_read_options.join_bins,
+                cool_read_options.include_weights,
+                cool_read_options.zero_based,
             )?;
             ctx.register_table(table_name, Arc::new(table_provider))?;
         },
@@ -1442,5 +1477,21 @@ mod tests {
         );
         assert_eq!(get_input_format("/data/cohort#1.bcf"), InputFormat::Vcf);
         assert_eq!(get_input_format("/data/cohort?1.BCF"), InputFormat::Vcf);
+    }
+
+    #[test]
+    fn cooler_group_suffix_is_stripped_only_for_cooler_files() {
+        assert_eq!(
+            get_input_format("contacts.mcool::/resolutions/10000"),
+            InputFormat::Cool
+        );
+        assert_eq!(
+            get_input_format("s3://bucket/run::lane/variants.vcf"),
+            InputFormat::Vcf
+        );
+        assert_eq!(
+            get_input_format("s3://bucket/run::lane/alignments.cram"),
+            InputFormat::Cram
+        );
     }
 }

@@ -26,6 +26,7 @@
             - read_pairs
             - read_bigwig
             - read_bigbed
+            - read_cool
             - read_table
             - scan_bcf
             - scan_bgen
@@ -43,6 +44,7 @@
             - scan_pairs
             - scan_bigwig
             - scan_bigbed
+            - scan_cool
             - scan_table
             - describe_bcf
             - describe_bgen
@@ -52,4 +54,5 @@
             - describe_bam
             - describe_sam
             - describe_cram
+            - describe_cool
             - from_polars

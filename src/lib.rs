@@ -45,11 +45,11 @@ use crate::operation::do_range_operation;
 use crate::option::{
     pyobject_storage_options_to_object_storage_options, BamReadOptions, BamWriteOptions,
     BedReadOptions, BgenReadOptions, BigBedReadOptions, BigWigReadOptions, BioTable,
-    CramReadOptions, CramWriteOptions, FastaReadOptions, FastaWriteOptions, FastqReadOptions,
-    FastqWriteOptions, FilterOp, GffReadOptions, GtfReadOptions, InputFormat, OutputFormat,
-    OverlapOutputMode, PairsReadOptions, PgenReadOptions, PileupOptions, PyObjectStorageOptions,
-    RangeOp, RangeOptions, ReadOptions, VcfReadOptions, VcfWriteOptions, VcfZarrReadOptions,
-    WriteOptions,
+    CoolReadOptions, CramReadOptions, CramWriteOptions, FastaReadOptions, FastaWriteOptions,
+    FastqReadOptions, FastqWriteOptions, FilterOp, GffReadOptions, GtfReadOptions, InputFormat,
+    OutputFormat, OverlapOutputMode, PairsReadOptions, PgenReadOptions, PileupOptions,
+    PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions, VcfWriteOptions,
+    VcfZarrReadOptions, WriteOptions,
 };
 use crate::scan::{
     maybe_register_table, register_frame, register_frame_from_arrow_stream,
@@ -286,6 +286,14 @@ fn py_register_table(
 
         let table_name = match name {
             Some(name) => name,
+            None if input_format == InputFormat::Cool => {
+                // Cooler URIs address a group inside the file
+                // (contacts.mcool::/resolutions/10000): derive the default
+                // table name from the file component, stripping the whole
+                // .mcool/.cool suffix so the name is SQL-usable (the generic
+                // path would yield "10000" or "contacts_m").
+                cooler_default_table_name(&path)
+            },
             None => {
                 let path = path.to_lowercase();
                 let extension = format!(".{input_format}").to_lowercase();
@@ -326,6 +334,85 @@ fn py_register_table(
             },
         }
     })
+}
+
+fn cooler_default_table_name(path: &str) -> String {
+    let path = path.to_lowercase();
+    let file = path
+        .split_once("::")
+        .map_or(path.as_str(), |(file, _)| file);
+    // Recognize both separators on every host so Windows paths remain usable
+    // even when they arrive through a cross-platform client or test harness.
+    let base = file.rsplit(['/', '\\']).next().unwrap_or(file);
+    let stem = base
+        .strip_suffix(".mcool")
+        .or_else(|| base.strip_suffix(".cool"))
+        .unwrap_or(base);
+    let mut name = String::with_capacity(stem.len());
+    let mut previous_was_underscore = false;
+    for character in stem.chars() {
+        let character = if character.is_ascii_alphanumeric() || character == '_' {
+            character
+        } else {
+            '_'
+        };
+        if character == '_' {
+            if previous_was_underscore {
+                continue;
+            }
+            previous_was_underscore = true;
+        } else {
+            previous_was_underscore = false;
+        }
+        name.push(character);
+    }
+    let mut name = name.trim_matches('_').to_string();
+    if name.is_empty() {
+        return "cooler".to_string();
+    }
+    let starts_with_digit = name.as_bytes()[0].is_ascii_digit();
+    let uppercase = name.to_ascii_uppercase();
+    let is_sql_keyword =
+        datafusion::sql::sqlparser::keywords::ALL_KEYWORDS.contains(&uppercase.as_str());
+    if starts_with_digit || is_sql_keyword {
+        name.insert_str(0, "cool_");
+    }
+    name
+}
+
+#[cfg(test)]
+mod cooler_table_name_tests {
+    use super::cooler_default_table_name;
+
+    #[test]
+    fn derives_name_from_posix_uri_file_component() {
+        assert_eq!(
+            cooler_default_table_name("/data/My-Contacts.mcool::/resolutions/10000"),
+            "my_contacts"
+        );
+    }
+
+    #[test]
+    fn derives_name_from_windows_path() {
+        assert_eq!(
+            cooler_default_table_name(r"C:\data\My-Contacts.cool"),
+            "my_contacts"
+        );
+    }
+
+    #[test]
+    fn sanitizes_invalid_identifier_characters_and_leading_digits() {
+        assert_eq!(
+            cooler_default_table_name("/data/123 contacts! (final).cool"),
+            "cool_123_contacts_final"
+        );
+    }
+
+    #[test]
+    fn avoids_sql_keywords_and_empty_names() {
+        assert_eq!(cooler_default_table_name("select.cool"), "cool_select");
+        assert_eq!(cooler_default_table_name("---.cool"), "cooler");
+    }
 }
 
 /// Test helper: register one Arrow C stream input and return the physical partition count.
@@ -537,6 +624,267 @@ fn py_describe_vcf_zarr(
                     .map_err(|e| format!("Failed to get table: {e}"))
             })
             .map_err(PyRuntimeError::new_err)?;
+        Ok(PyDataFrame::new(df))
+    })
+}
+
+fn finite_f64_decimal_parts(value: f64) -> Option<(i128, u32)> {
+    if !value.is_finite() {
+        return None;
+    }
+    let representation = value.to_string();
+    let (mantissa, exponent) = if let Some((mantissa, exponent)) = representation
+        .split_once('e')
+        .or_else(|| representation.split_once('E'))
+    {
+        (mantissa, exponent.parse::<i32>().ok()?)
+    } else {
+        (representation.as_str(), 0_i32)
+    };
+    let (negative, mantissa) = mantissa
+        .strip_prefix('-')
+        .map_or((false, mantissa), |unsigned| (true, unsigned));
+    let fractional_digits = mantissa
+        .split_once('.')
+        .map_or(0_u32, |(_, fractional)| fractional.len() as u32);
+    let digits = mantissa.replace('.', "");
+    let mut coefficient = digits.parse::<i128>().ok()?;
+    if negative {
+        coefficient = coefficient.checked_neg()?;
+    }
+    let mut scale = i32::try_from(fractional_digits).ok()? - exponent;
+    if scale < 0 {
+        coefficient = coefficient.checked_mul(10_i128.checked_pow(scale.unsigned_abs())?)?;
+        scale = 0;
+    }
+    while scale > 0 && coefficient % 10 == 0 {
+        coefficient /= 10;
+        scale -= 1;
+    }
+    Some((coefficient, u32::try_from(scale).ok()?))
+}
+
+fn cooler_sum_decimal_parts(
+    sum: datafusion_bio_format_cooler::CoolerCollectionSum,
+) -> Option<(i128, u32)> {
+    use datafusion_bio_format_cooler::CoolerCollectionSum;
+    match sum {
+        CoolerCollectionSum::Int64(value) => Some((i128::from(value), 0)),
+        CoolerCollectionSum::UInt64(value) => Some((i128::from(value), 0)),
+        CoolerCollectionSum::Float64(value) => finite_f64_decimal_parts(value),
+    }
+}
+
+fn exact_cooler_sum_decimals(
+    sums: &[Option<datafusion_bio_format_cooler::CoolerCollectionSum>],
+) -> Option<(Vec<Option<i128>>, i8)> {
+    let parts = sums
+        .iter()
+        .map(|sum| match sum {
+            None => Some(None),
+            Some(sum) => cooler_sum_decimal_parts(*sum).map(Some),
+        })
+        .collect::<Option<Vec<_>>>()?;
+    let scale = parts
+        .iter()
+        .filter_map(|parts| parts.map(|(_, scale)| scale))
+        .max()
+        .unwrap_or(0);
+    let scale = i8::try_from(scale).ok()?;
+    let output_scale = u32::try_from(scale).ok()?;
+    let values = parts
+        .into_iter()
+        .map(|parts| match parts {
+            None => Some(None),
+            Some((coefficient, value_scale)) => {
+                let adjustment = output_scale.checked_sub(value_scale)?;
+                coefficient
+                    .checked_mul(10_i128.checked_pow(adjustment)?)
+                    .map(Some)
+            },
+        })
+        .collect::<Option<Vec<_>>>()?;
+    Some((values, scale))
+}
+
+fn cooler_sum_string(sum: datafusion_bio_format_cooler::CoolerCollectionSum) -> String {
+    use datafusion_bio_format_cooler::CoolerCollectionSum;
+    match sum {
+        CoolerCollectionSum::Int64(value) => value.to_string(),
+        CoolerCollectionSum::UInt64(value) => value.to_string(),
+        CoolerCollectionSum::Float64(value) => value.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod cooler_sum_tests {
+    use super::{exact_cooler_sum_decimals, finite_f64_decimal_parts};
+    use datafusion_bio_format_cooler::CoolerCollectionSum;
+
+    #[test]
+    fn converts_finite_floats_to_shortest_exact_decimal_parts() {
+        assert_eq!(finite_f64_decimal_parts(124_193.5), Some((1_241_935, 1)));
+        assert_eq!(finite_f64_decimal_parts(1.25e-7), Some((125, 9)));
+        assert_eq!(finite_f64_decimal_parts(f64::INFINITY), None);
+    }
+
+    #[test]
+    fn aligns_mixed_float_and_wide_integer_sums_without_rounding() {
+        let sums = [
+            Some(CoolerCollectionSum::Float64(124_193.5)),
+            Some(CoolerCollectionSum::Int64(9_007_199_254_740_993)),
+        ];
+        assert_eq!(
+            exact_cooler_sum_decimals(&sums),
+            Some((vec![Some(1_241_935), Some(90_071_992_547_409_930)], 1))
+        );
+    }
+}
+
+#[pyfunction]
+#[pyo3(signature = (py_ctx, path))]
+fn py_describe_cool(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    path: String,
+) -> PyResult<PyDataFrame> {
+    use datafusion::arrow::array::{
+        ArrayRef, Decimal128Array, Float64Array, Int64Array, StringArray, UInt64Array,
+    };
+    use datafusion::arrow::datatypes::{DataType, Field, Schema};
+    use datafusion::arrow::record_batch::RecordBatch;
+    use datafusion_bio_format_cooler::CoolerCollectionSum;
+    py.detach(|| {
+        let ctx = &py_ctx.ctx;
+        let collections = datafusion_bio_format_cooler::list_data_collections(&path)
+            .map_err(|e| PyRuntimeError::new_err(format!("Cooler describe failed: {e}")))?;
+        let has_float_sum = collections.iter().any(|collection| {
+            matches!(collection.sum, Some(CoolerCollectionSum::Float64(_)))
+        });
+        let has_unsigned_sum = collections.iter().any(|collection| {
+            matches!(collection.sum, Some(CoolerCollectionSum::UInt64(_)))
+        });
+        let has_signed_sum = collections.iter().any(|collection| {
+            matches!(collection.sum, Some(CoolerCollectionSum::Int64(_)))
+        });
+        let has_negative_sum = collections.iter().any(|collection| {
+            matches!(collection.sum, Some(CoolerCollectionSum::Int64(value)) if value < 0)
+        });
+        let sums = collections
+            .iter()
+            .map(|collection| collection.sum)
+            .collect::<Vec<_>>();
+        let requires_heterogeneous_sum =
+            (has_float_sum && (has_signed_sum || has_unsigned_sum))
+                || (has_unsigned_sum && has_negative_sum);
+        let (sum_type, sum_array): (DataType, ArrayRef) = if requires_heterogeneous_sum {
+            if let Some((values, scale)) = exact_cooler_sum_decimals(&sums) {
+                match Decimal128Array::from(values).with_precision_and_scale(38, scale) {
+                    Ok(array) => (DataType::Decimal128(38, scale), Arc::new(array)),
+                    Err(_) => {
+                        let values = sums
+                            .iter()
+                            .map(|sum| sum.map(cooler_sum_string))
+                            .collect::<Vec<_>>();
+                        (DataType::Utf8, Arc::new(StringArray::from(values)))
+                    },
+                }
+            } else {
+                let values = sums
+                    .iter()
+                    .map(|sum| sum.map(cooler_sum_string))
+                    .collect::<Vec<_>>();
+                (DataType::Utf8, Arc::new(StringArray::from(values)))
+            }
+        } else if has_float_sum {
+            let values = sums
+                .iter()
+                .map(|sum| match sum {
+                    None => None,
+                    Some(CoolerCollectionSum::Float64(value)) => Some(*value),
+                    Some(_) => unreachable!(),
+                })
+                .collect::<Vec<_>>();
+            (DataType::Float64, Arc::new(Float64Array::from(values)))
+        } else if has_unsigned_sum {
+            let values = collections
+                .iter()
+                .map(|collection| match collection.sum {
+                    None => Ok(None),
+                    Some(CoolerCollectionSum::UInt64(value)) => Ok(Some(value)),
+                    Some(CoolerCollectionSum::Int64(value)) => u64::try_from(value)
+                        .map(Some)
+                        .map_err(|_| {
+                            PyRuntimeError::new_err(format!(
+                                "Cooler describe cannot combine negative sum {value} with unsigned sums"
+                            ))
+                        }),
+                    Some(CoolerCollectionSum::Float64(_)) => unreachable!(),
+                })
+                .collect::<PyResult<Vec<_>>>()?;
+            (DataType::UInt64, Arc::new(UInt64Array::from(values)))
+        } else {
+            let values = collections
+                .iter()
+                .map(|collection| match collection.sum {
+                    None => Ok(None),
+                    Some(CoolerCollectionSum::Int64(value)) => Ok(Some(value)),
+                    Some(CoolerCollectionSum::UInt64(value)) => i64::try_from(value)
+                        .map(Some)
+                        .map_err(|_| {
+                            PyRuntimeError::new_err(format!(
+                                "Cooler sum {value} exceeds the Int64 range"
+                            ))
+                        }),
+                    Some(CoolerCollectionSum::Float64(_)) => unreachable!(),
+                })
+                .collect::<PyResult<Vec<_>>>()?;
+            (DataType::Int64, Arc::new(Int64Array::from(values)))
+        };
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("group_path", DataType::Utf8, false),
+            Field::new("resolution", DataType::Int64, true),
+            Field::new("bin_type", DataType::Utf8, true),
+            Field::new("format_version", DataType::Int64, true),
+            Field::new("assembly", DataType::Utf8, true),
+            Field::new("nbins", DataType::Int64, true),
+            Field::new("nnz", DataType::Int64, true),
+            Field::new("sum", sum_type, true),
+            Field::new("nchroms", DataType::Int64, false),
+        ]));
+        let rb = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(StringArray::from_iter_values(
+                    collections.iter().map(|c| c.group_path.clone()),
+                )),
+                Arc::new(Int64Array::from_iter(
+                    collections.iter().map(|c| c.bin_size),
+                )),
+                Arc::new(StringArray::from_iter(
+                    collections.iter().map(|c| c.bin_type.clone()),
+                )),
+                Arc::new(Int64Array::from_iter(
+                    collections.iter().map(|c| c.format_version),
+                )),
+                Arc::new(StringArray::from_iter(
+                    collections.iter().map(|c| c.assembly.clone()),
+                )),
+                Arc::new(Int64Array::from_iter(collections.iter().map(|c| c.nbins))),
+                Arc::new(Int64Array::from_iter(collections.iter().map(|c| c.nnz))),
+                sum_array,
+                Arc::new(Int64Array::from_iter_values(
+                    collections.iter().map(|c| c.nchroms),
+                )),
+            ],
+        )
+        .map_err(|e| PyRuntimeError::new_err(format!("Failed to build describe batch: {e}")))?;
+        // Construct the DataFrame directly from its batch. Registering this
+        // one-shot metadata result in the shared SessionContext would retain a
+        // new randomly named table after every describe_cool call.
+        let df = ctx
+            .read_batch(rb)
+            .map_err(|e| PyRuntimeError::new_err(format!("Failed to read describe batch: {e}")))?;
         Ok(PyDataFrame::new(df))
     })
 }
@@ -1149,6 +1497,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_get_table_schema, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf_zarr, m)?)?;
+    m.add_function(wrap_pyfunction!(py_describe_cool, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
     m.add_function(wrap_pyfunction!(py_write_table, m)?)?;
@@ -1179,6 +1528,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<CramWriteOptions>()?;
     m.add_class::<BedReadOptions>()?;
     m.add_class::<BigWigReadOptions>()?;
+    m.add_class::<CoolReadOptions>()?;
     m.add_class::<BigBedReadOptions>()?;
     m.add_class::<FastaReadOptions>()?;
     m.add_class::<FastaWriteOptions>()?;

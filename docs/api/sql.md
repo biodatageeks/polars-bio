@@ -24,5 +24,6 @@
             - register_bed
             - register_pairs
             - register_bigwig
+            - register_cool
             - register_bigbed
             - register_view

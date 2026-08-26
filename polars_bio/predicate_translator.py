@@ -50,6 +50,13 @@ PAIRS_STRING_COLUMNS = {"readID", "chr1", "chr2", "strand1", "strand2"}
 PAIRS_UINT32_COLUMNS = {"pos1", "pos2"}
 PAIRS_FLOAT32_COLUMNS: set = set()
 
+# Cooler (.cool/.mcool) joined pixels view. `count` and the weight columns are
+# left untyped on purpose: `count` can use several signed, unsigned, or float
+# dtypes depending on storage, so literal coercion is left to DataFusion.
+COOL_STRING_COLUMNS = {"chrom1", "chrom2"}
+COOL_UINT64_COLUMNS = {"start1", "end1", "start2", "end2"}
+COOL_FLOAT32_COLUMNS: set = set()
+
 # BigWig
 BIGWIG_STRING_COLUMNS = {"chrom"}
 BIGWIG_UINT32_COLUMNS = {"start", "end"}
@@ -103,13 +110,14 @@ def _sql_string(s) -> str:
     return "'" + str(s).replace("'", "''") + "'"
 
 
-def _sql_scalar(value) -> str:
+def _sql_scalar(value, *, float32: bool = False) -> str:
     if isinstance(value, bool):
         return "TRUE" if value else "FALSE"
     if isinstance(value, int):
         return str(value)
     if isinstance(value, float):
-        return repr(value)
+        literal = repr(value)
+        return f"CAST({literal} AS REAL)" if float32 else literal
     if value is None:
         return "NULL"
     return _sql_string(value)
@@ -119,6 +127,21 @@ def _column_name(node: dict) -> str:
     if isinstance(node, dict) and "Column" in node:
         return str(node["Column"])
     raise UnsupportedPredicate(f"expected a column, got: {node!r}")
+
+
+_INT_LITERAL_KINDS = {
+    "Int",
+    "Int8",
+    "Int16",
+    "Int32",
+    "Int64",
+    "Int128",
+    "UInt8",
+    "UInt16",
+    "UInt32",
+    "UInt64",
+}
+_FLOAT_LITERAL_KINDS = {"Float", "Float32", "Float64"}
 
 
 def _emit_literal(body: dict) -> str:
@@ -132,21 +155,25 @@ def _emit_literal(body: dict) -> str:
         return _sql_string(value)
     if kind == "Boolean":
         return "TRUE" if value else "FALSE"
-    if kind == "Int":
+    # "Int"/"Float" are the untyped Dyn kinds of freshly built expressions; the
+    # typed kinds appear after the Polars optimizer casts a literal to the
+    # column dtype (e.g. `start >= 20000000` on a UInt32 column arrives as
+    # {"Scalar": {"UInt32": 20000000}} inside the io-plugin callback).
+    if kind in _INT_LITERAL_KINDS:
         if value is None:
             raise UnsupportedPredicate("null int literal; pushdown unsafe")
         return str(int(value))
-    if kind == "Float":
+    if kind in _FLOAT_LITERAL_KINDS:
         # Polars serializes nan/inf/-inf as a JSON null float; non-finite float
         # comparisons also have IEEE semantics SQL won't faithfully reproduce, so
         # keep them client-side rather than emitting a bogus literal.
         if value is None or not _math.isfinite(float(value)):
             raise UnsupportedPredicate("non-finite float literal; pushdown unsafe")
-        return repr(float(value))
+        return _sql_scalar(float(value), float32=kind == "Float32")
     raise UnsupportedPredicate(f"unsupported literal kind: {kind}")
 
 
-def _decode_is_in_list(list_node: dict) -> list:
+def _decode_is_in_list(list_node: dict) -> tuple[list, object]:
     try:
         blob = list_node["Literal"]["Scalar"]["List"]
     except (KeyError, TypeError):
@@ -158,14 +185,15 @@ def _decode_is_in_list(list_node: dict) -> list:
         table = pa.ipc.open_stream(raw).read_all()
     except Exception as exc:  # decode failure -> safe client-side fallback
         raise UnsupportedPredicate(f"could not decode is_in list: {exc}")
-    return table.column(0).to_pylist()
+    column = table.column(0)
+    return column.to_pylist(), column.type
 
 
 def _emit_is_in(inputs: list) -> str:
     if len(inputs) != 2:
         raise UnsupportedPredicate("is_in expects exactly two inputs")
     col_sql = _quote_ident(_column_name(inputs[0]))
-    values = _decode_is_in_list(inputs[1])
+    values, value_type = _decode_is_in_list(inputs[1])
     if not values:
         # Polars is_in([]) is uniformly False; SQL FALSE matches it faithfully.
         return "FALSE"
@@ -173,7 +201,10 @@ def _emit_is_in(inputs: list) -> str:
         # SQL `IN (..., NULL)` yields UNKNOWN (not FALSE) for non-matching rows,
         # which diverges from Polars' null-aware is_in. Keep it client-side.
         raise UnsupportedPredicate("is_in list contains NULL; pushdown unsafe")
-    items = ", ".join(_sql_scalar(v) for v in values)
+    import pyarrow as pa
+
+    is_float32 = pa.types.is_float32(value_type)
+    items = ", ".join(_sql_scalar(v, float32=is_float32) for v in values)
     return f"({col_sql} IN ({items}))"
 
 

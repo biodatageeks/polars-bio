@@ -1,5 +1,6 @@
 import json
 
+import numpy as np
 import polars as pl
 import pytest
 
@@ -263,3 +264,64 @@ def test_plan_or_is_atomic_not_split():
     )
     assert p.pushdown_sql is None
     assert p.fully_translated is False
+
+
+def test_typed_scalar_literals_from_optimizer_are_emitted():
+    # The Polars optimizer casts literals to the column dtype before the
+    # io-plugin callback sees the predicate, so integer literals arrive as
+    # typed Scalar kinds ({"Scalar": {"UInt32": N}}) rather than Dyn Int.
+    # These must translate — dropping them silently disabled all numeric
+    # pushdown on the scan path (found via the cool region benchmark).
+    for kind in ("UInt8", "UInt16", "UInt32", "UInt64", "Int8", "Int32", "Int64"):
+        node = {
+            "BinaryExpr": {
+                "left": {"Column": "start"},
+                "op": "GtEq",
+                "right": {"Literal": {"Scalar": {kind: 20000000}}},
+            }
+        }
+        assert (
+            _emit_sql(node, {"chrom"}, {"start", "end"}, set())
+            == '("start" >= 20000000)'
+        ), kind
+
+
+def test_typed_float_scalar_literals_are_emitted():
+    node = {
+        "BinaryExpr": {
+            "left": {"Column": "score"},
+            "op": "Gt",
+            "right": {"Literal": {"Scalar": {"Float32": 0.5}}},
+        }
+    }
+    assert _emit_sql(node, set(), set(), {"score"}) == '("score" > CAST(0.5 AS REAL))'
+
+
+def test_float32_literal_cast_preserves_datafusion_equality():
+    import pyarrow as pa
+    from datafusion import SessionContext
+
+    sql = emit(pl.col("score") == pl.lit(0.1, dtype=pl.Float32))
+    assert sql == '("score" = CAST(0.1 AS REAL))'
+
+    ctx = SessionContext()
+    df = ctx.from_pydict({"score": pa.array([0.1, 0.2], type=pa.float32())})
+    batches = df.filter(df.parse_sql_expr(sql)).collect()
+    assert sum(batch.num_rows for batch in batches) == 1
+
+
+def test_float32_is_in_values_retain_their_type():
+    sql = emit(pl.col("score").is_in([np.float32(0.1)]))
+    assert sql == '("score" IN (CAST(0.10000000149011612 AS REAL)))'
+
+
+def test_typed_null_int_scalar_stays_client_side():
+    node = {
+        "BinaryExpr": {
+            "left": {"Column": "start"},
+            "op": "GtEq",
+            "right": {"Literal": {"Scalar": {"UInt32": None}}},
+        }
+    }
+    with pytest.raises(UnsupportedPredicate):
+        _emit_sql(node, set(), {"start"}, set())

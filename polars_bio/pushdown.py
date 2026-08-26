@@ -99,18 +99,38 @@ def _is_identity_projection(with_columns) -> bool:
     return True
 
 
-def apply_projection_pushdown(query_df, with_columns, *, log) -> Tuple[Any, bool]:
+def apply_projection_pushdown(
+    query_df, with_columns, *, log, retain_for_client=None
+) -> Tuple[Any, bool]:
     """Push down the source-column projection. Returns (query_df, needs_client_select).
 
     The pushed-down select reads only the needed *source* columns. The client-side
     select is skipped only when the projection is a complete identity projection
     (plain columns, fully resolvable); any alias or computed expression forces the
-    client reapply so the output names/values are correct.
+    client reapply so the output names/values are correct. ``retain_for_client``
+    identifies expressions that still run before that select (for example, a
+    fallback predicate), so their source columns remain available in the stream.
     """
     if with_columns is None:
         return query_df, False
     cols, complete = extract_source_columns(with_columns)
+    projection_cols = list(cols)
+    retained_cols, retained_complete = extract_source_columns(retain_for_client)
+    if not retained_complete:
+        log.warning("projection pushdown skipped: client-side columns are unknown")
+        return query_df, True
+    for column in retained_cols:
+        if column not in cols:
+            cols.append(column)
+    retained_extra_columns = len(cols) != len(projection_cols)
     if not cols:
+        try:
+            # DataFusion represents a row-count-only projection as a zero-field
+            # RecordBatch that retains its row count. Forward that projection so
+            # providers with metadata-only count paths need not scan any column.
+            query_df = query_df.select()
+        except Exception as exc:
+            log.warning("empty projection pushdown skipped (bind): %s", exc)
         return query_df, True
     try:
         select_exprs = [query_df.parse_sql_expr(f'"{c}"') for c in cols]
@@ -119,4 +139,4 @@ def apply_projection_pushdown(query_df, with_columns, *, log) -> Tuple[Any, bool
         log.warning("projection pushdown skipped (bind): %s", exc)
         return query_df, True
     identity = _is_identity_projection(with_columns)
-    return query_df, not (complete and identity)
+    return query_df, retained_extra_columns or not (complete and identity)

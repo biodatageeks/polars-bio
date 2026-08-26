@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Cooler Hi-C contact matrix support (`.cool`/`.mcool`): `read_cool()`,
+  `scan_cool()`, `describe_cool()`, and `register_cool()`. Both file layouts
+  are handled through a `resolution` argument or the cooler URI syntax
+  (`file.mcool::/resolutions/10000`). Pixels are joined with bin coordinates
+  by default (`chrom1..count`, optional `weight1`/`weight2` balancing
+  weights), with a raw COO mode (`join_bins=False`); the stored `count` dtype
+  is preserved as `Int32`, `Int64`, `UInt32`, `UInt64`, or `Float64`, and
+  joined coordinates use `UInt64` to preserve values beyond the 32-bit range.
+  First-axis predicate pushdown prunes
+  pixel row ranges through the cooler CSR indexes, projection pushdown reads
+  only the needed HDF5 datasets, `count(*)` is served without touching pixel
+  data, and parallel scans split rows along bin1 boundaries. HDF5 is
+  statically linked — no system HDF5 or Python `cooler` required. Outputs are
+  validated row-for-row against the reference `cooler` implementation.
+  Local filesystem paths only in this version. Pixel reads use a
+  direct-chunk fast path (chunk addresses indexed once, then plain file
+  I/O + zlib-rs inflation + unshuffling outside the libhdf5 global lock),
+  so scans parallelize across partitions: a 24.5M-pixel full joined scan
+  runs in 0.91 s serial / 0.27 s at 4 partitions vs 2.06 s for the
+  cooler chunked-pandas equivalent.
+
+### Fixed
+
+- Numeric predicate pushdown now works on the Polars scan path for every
+  format. The Polars optimizer casts filter literals to the column dtype
+  before they reach the io-plugin callback (`{"Scalar": {"UInt32": N}}`
+  instead of the untyped `Dyn` int), and the predicate translator silently
+  kept such conjuncts client-side — so filters like
+  `pl.col("start") >= 20_000_000` never pruned at the reader level (results
+  were still correct via client-side re-filtering). Typed integer and float
+  scalar kinds now translate; a cooler region query went from 1.95 s to
+  0.23 s with the fix.
+
 ### Changed
 
 - Updated `datafusion-bio-formats` to v1.11.0 and

@@ -62,6 +62,7 @@ register_sam = data_processing.register_sam
 register_cram = data_processing.register_cram
 register_bed = data_processing.register_bed
 register_bigwig = data_processing.register_bigwig
+register_cool = data_processing.register_cool
 register_bigbed = data_processing.register_bigbed
 register_pairs = data_processing.register_pairs
 register_view = data_processing.register_view
@@ -72,6 +73,7 @@ describe_vcf = data_input.describe_vcf
 describe_bcf = data_input.describe_bcf
 describe_bgen = data_input.describe_bgen
 describe_pgen = data_input.describe_pgen
+describe_cool = data_input.describe_cool
 describe_vcf_zarr = data_input.describe_vcf_zarr
 describe_bam = data_input.describe_bam
 describe_sam = data_input.describe_sam
@@ -94,6 +96,7 @@ read_vcf_zarr = data_input.read_vcf_zarr
 read_fastq = data_input.read_fastq
 read_bed = data_input.read_bed
 read_bigwig = data_input.read_bigwig
+read_cool = data_input.read_cool
 read_bigbed = data_input.read_bigbed
 read_fasta = data_input.read_fasta
 read_pairs = data_input.read_pairs
@@ -102,6 +105,7 @@ scan_sam = data_input.scan_sam
 scan_cram = data_input.scan_cram
 scan_bed = data_input.scan_bed
 scan_bigwig = data_input.scan_bigwig
+scan_cool = data_input.scan_cool
 scan_bigbed = data_input.scan_bigbed
 scan_fasta = data_input.scan_fasta
 scan_fastq = data_input.scan_fastq
@@ -176,6 +180,7 @@ __all__ = [
     "describe_bgen",
     "describe_pgen",
     "describe_vcf",
+    "describe_cool",
     "describe_vcf_zarr",
     "describe_bam",
     "describe_sam",
@@ -186,6 +191,7 @@ __all__ = [
     "read_cram",
     "read_bed",
     "read_bigwig",
+    "read_cool",
     "read_bigbed",
     "read_fasta",
     "read_fastq",
@@ -206,6 +212,7 @@ __all__ = [
     "scan_cram",
     "scan_bed",
     "scan_bigwig",
+    "scan_cool",
     "scan_bigbed",
     "scan_fasta",
     "scan_fastq",
@@ -244,6 +251,7 @@ __all__ = [
     "register_cram",
     "register_bed",
     "register_bigwig",
+    "register_cool",
     "register_bigbed",
     "register_pairs",
     "register_view",

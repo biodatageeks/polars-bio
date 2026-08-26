@@ -1,7 +1,9 @@
+import json
 import logging
 import weakref as _weakref
-from uuid import uuid4
+from contextlib import contextmanager
 from typing import Any, Dict, Iterator, NamedTuple, Optional, Sequence, Union
+from uuid import uuid4
 
 import polars as pl
 
@@ -17,6 +19,7 @@ from polars_bio.polars_bio import (
     BgenReadOptions,
     BigBedReadOptions,
     BigWigReadOptions,
+    CoolReadOptions,
     CramReadOptions,
     CramWriteOptions,
     FastaReadOptions,
@@ -36,6 +39,7 @@ from polars_bio.polars_bio import (
     VcfZarrReadOptions,
     WriteOptions,
     py_describe_bam,
+    py_describe_cool,
     py_describe_cram,
     py_describe_vcf,
     py_describe_vcf_zarr,
@@ -60,6 +64,9 @@ from .predicate_translator import (
     BIGWIG_FLOAT32_COLUMNS,
     BIGWIG_STRING_COLUMNS,
     BIGWIG_UINT32_COLUMNS,
+    COOL_FLOAT32_COLUMNS,
+    COOL_STRING_COLUMNS,
+    COOL_UINT64_COLUMNS,
     GFF_FLOAT32_COLUMNS,
     GFF_STRING_COLUMNS,
     GFF_UINT32_COLUMNS,
@@ -83,6 +90,7 @@ _FORMAT_COLUMN_TYPES = {
     "Pairs": (PAIRS_STRING_COLUMNS, PAIRS_UINT32_COLUMNS, PAIRS_FLOAT32_COLUMNS),
     "BigWig": (BIGWIG_STRING_COLUMNS, BIGWIG_UINT32_COLUMNS, BIGWIG_FLOAT32_COLUMNS),
     "BigBed": (BIGBED_STRING_COLUMNS, BIGBED_UINT32_COLUMNS, BIGBED_FLOAT32_COLUMNS),
+    "Cool": (COOL_STRING_COLUMNS, COOL_UINT64_COLUMNS, COOL_FLOAT32_COLUMNS),
 }
 
 _VALID_SAM_SCALAR_TYPE_CODES = {"A", "c", "C", "s", "S", "i", "I", "f", "Z", "H"}
@@ -2951,6 +2959,125 @@ class IOOperations:
         )
 
     @staticmethod
+    def read_cool(
+        path: str,
+        resolution: Optional[int] = None,
+        join_bins: bool = True,
+        include_weights: bool = False,
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.DataFrame:
+        """
+        Read a Cooler (`.cool`/`.mcool`) Hi-C contact matrix into a DataFrame.
+
+        See `scan_cool` for parameter semantics.
+
+        Parameters:
+            path: The path to the `.cool`/`.mcool` file, or a cooler URI (`file.mcool::/resolutions/10000`).
+            resolution: Bin size selecting an `.mcool` data collection. Optional for `.cool` files and single-resolution `.mcool` files.
+            join_bins: If *True* (default), join pixels with bin coordinates (`chrom1`, `start1`, `end1`, `chrom2`, `start2`, `end2`, `count`); if *False*, return the raw COO triple (`bin1_id`, `bin2_id`, `count`).
+            include_weights: If *True*, expose balancing weights as `weight1`/`weight2` (requires a balanced cooler).
+            projection_pushdown: Enable column projection pushdown optimization.
+            predicate_pushdown: Enable predicate pushdown on the first-axis genomic columns (`chrom1`, `start1`, `end1`) so range filters prune pixel row ranges through the cooler indexes.
+            use_zero_based: Coordinate system override. Cooler is natively 0-based half-open; set to *False* to emit 1-based closed coordinates, or *None* to use the global default.
+        """
+        lf = IOOperations.scan_cool(
+            path,
+            resolution=resolution,
+            join_bins=join_bins,
+            include_weights=include_weights,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+            use_zero_based=use_zero_based,
+        )
+        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        df = lf.collect()
+        if zero_based is not None:
+            set_coordinate_system(df, zero_based)
+        return df
+
+    @staticmethod
+    def scan_cool(
+        path: str,
+        resolution: Optional[int] = None,
+        join_bins: bool = True,
+        include_weights: bool = False,
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = True,
+        use_zero_based: Optional[bool] = None,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read a Cooler (`.cool`/`.mcool`) Hi-C contact matrix into a LazyFrame.
+
+        One row per stored pixel (upper-triangle contact), joined with bin
+        coordinates by default. `.mcool` files store one data collection per
+        resolution: select one with ``resolution`` or the cooler URI syntax
+        ``file.mcool::/resolutions/10000``; an `.mcool` with several
+        resolutions and no selection raises an error listing the available
+        ones. Only local filesystem paths are supported.
+
+        Cooler is natively 0-based half-open. Set ``use_zero_based=False`` to
+        emit 1-based closed coordinates.
+
+        Parameters:
+            path: The path to the `.cool`/`.mcool` file, or a cooler URI (`file.mcool::/resolutions/10000`).
+            resolution: Bin size selecting an `.mcool` data collection. Optional for `.cool` files and single-resolution `.mcool` files.
+            join_bins: If *True* (default), join pixels with bin coordinates (`chrom1`, `start1`, `end1`, `chrom2`, `start2`, `end2`, `count`); if *False*, return the raw COO triple (`bin1_id`, `bin2_id`, `count`).
+            include_weights: If *True*, expose balancing weights as `weight1`/`weight2` (requires a balanced cooler).
+            projection_pushdown: Enable column projection pushdown optimization. Only HDF5 datasets required by the requested columns are read, and `count(*)` is served from the cooler index without touching pixel data.
+            predicate_pushdown: Enable predicate pushdown on the first-axis genomic columns (`chrom1`, `start1`, `end1`) so range filters prune pixel row ranges through the cooler indexes.
+            use_zero_based: Coordinate system override. Cooler is natively 0-based half-open; set to *False* to emit 1-based closed coordinates, or *None* to use the global default.
+
+        !!! Example
+            ```python
+            import polars as pl
+            import polars_bio as pb
+
+            pb.scan_cool("contacts.mcool", resolution=10000).filter(
+                pl.col("chrom1") == "chr1"
+            ).collect()
+            ```
+        """
+        zero_based = _resolve_zero_based(use_zero_based)
+        cool_read_options = CoolReadOptions(
+            resolution=resolution,
+            join_bins=join_bins,
+            include_weights=include_weights,
+            zero_based=zero_based,
+        )
+        read_options = ReadOptions(cool_read_options=cool_read_options)
+        return _read_file(
+            path,
+            InputFormat.Cool,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+            zero_based=zero_based,
+        )
+
+    @staticmethod
+    def describe_cool(path: str) -> pl.DataFrame:
+        """
+        Describe the data collections of a Cooler (`.cool`/`.mcool`) file.
+
+        Returns one row per stored data collection (one for `.cool`, one per
+        resolution for `.mcool`) with `group_path`, `resolution` (bin size),
+        `bin_type`, `format_version`, `assembly`, `nbins`, `nnz`, `sum`, and
+        `nchroms`, read from file metadata without scanning pixel data. `sum`
+        is Int64/UInt64 for integer-count collections and Float64 for
+        float-count collections. Files mixing those storage classes use an
+        exact Decimal column (or an exact string for values outside Arrow's
+        Decimal128 range), preserving wide integer totals alongside fractions.
+
+        Parameters:
+            path: The path to the `.cool`/`.mcool` file, or a cooler URI
+                (`file.mcool::/resolutions/10000`) to describe a single data
+                collection.
+        """
+        return py_describe_cool(ctx, path).to_polars()
+
+    @staticmethod
     def read_table(path: str, schema: Dict = None, **kwargs) -> pl.DataFrame:
         """
          Read a tab-delimited (i.e. BED) file into a Polars DataFrame.
@@ -3131,9 +3258,7 @@ class IOOperations:
         properties = {
             "layout": metadata.get("bio.bgen.layout"),
             "index": metadata.get("bio.bgen.index"),
-            "sample_names_synthetic": metadata.get(
-                "bio.bgen.sample_names.synthetic"
-            ),
+            "sample_names_synthetic": metadata.get("bio.bgen.sample_names.synthetic"),
             "coordinate_system_zero_based": metadata.get(
                 "bio.coordinate_system_zero_based"
             ),
@@ -4190,6 +4315,7 @@ def _lazy_scan(
     input_format: InputFormat = None,
     file_path: str = None,
     read_options: ReadOptions = None,
+    force_empty_projection: bool = False,
 ) -> pl.LazyFrame:
     # Handle both PyArrow schema (new streaming path) and DataFusion DataFrame (old SQL path)
     import pyarrow as pa
@@ -4226,6 +4352,13 @@ def _lazy_scan(
             dict(schema_or_df) if not isinstance(schema_or_df, dict) else schema_or_df
         )
 
+    if force_empty_projection:
+        # Polars cannot express a zero-column request through the Python IO
+        # callback: count-only plans are represented by an arbitrary physical
+        # source column. Advertise an empty schema so the provider can preserve
+        # row counts without decoding any Cooler datasets.
+        original_schema = {}
+
     def _overlap_source(
         with_columns: Union[pl.Expr, None],
         predicate: Union[pl.Expr, None],
@@ -4235,7 +4368,11 @@ def _lazy_scan(
         from polars_bio.polars_bio import py_read_table, py_register_table
 
         from .context import ctx as _ctx
-        from .pushdown import apply_predicate_pushdown, apply_projection_pushdown
+        from .pushdown import (
+            apply_predicate_pushdown,
+            apply_projection_pushdown,
+            extract_source_columns,
+        )
 
         table_refreshed = False
 
@@ -4330,15 +4467,34 @@ def _lazy_scan(
         else:
             # Re-register file-backed sources on each execution so every collect()
             # sees a fresh provider state for this LazyFrame.
-            if (
+            should_register = (
                 file_path is not None
                 and not table_refreshed
                 and table_to_query is not None
-            ):
-                py_register_table(
-                    _ctx, file_path, table_to_query, input_format, read_options
-                )
-            query_df = py_read_table(_ctx, table_to_query)
+            )
+            if should_register and input_format == InputFormat.Cool:
+                # A LazyFrame may be collected concurrently by separate Polars
+                # plans or Python threads. Give every callback invocation its
+                # own catalog identity so one lease cannot replace or remove
+                # another invocation's provider between registration and lookup.
+                lease_name = f"_pb_cool_collect_{uuid4().hex}"
+                with _registered_table_lease(
+                    _ctx,
+                    file_path,
+                    lease_name,
+                    input_format,
+                    read_options,
+                ):
+                    query_df = py_read_table(_ctx, lease_name)
+            else:
+                if should_register:
+                    py_register_table(
+                        _ctx, file_path, table_to_query, input_format, read_options
+                    )
+                query_df = py_read_table(_ctx, table_to_query)
+
+        if force_empty_projection:
+            query_df = query_df.select()
 
         # 2. Predicate pushdown (optimization only; the client-side filter below
         #    is the source of truth). The shared helper pushes the faithfully
@@ -4359,25 +4515,38 @@ def _lazy_scan(
         needs_client_select = with_columns is not None
         if projection_pushdown and with_columns is not None:
             query_df, needs_client_select = apply_projection_pushdown(
-                query_df, with_columns, log=logger
+                query_df,
+                with_columns,
+                log=logger,
+                retain_for_client=predicate if needs_client_filter else None,
             )
 
+        projection_columns, projection_complete = extract_source_columns(with_columns)
+        rootless_client_projection = (
+            with_columns is not None
+            and needs_client_select
+            and projection_complete
+            and not projection_columns
+        )
+
         # 4. Limit
-        if n_rows and n_rows > 0:
+        # A limit cannot cross a predicate that still runs client-side: doing so
+        # would inspect only the first N unfiltered rows. The loop below instead
+        # keeps consuming batches until it has N matching rows.
+        if n_rows and n_rows > 0 and not needs_client_filter:
             query_df = query_df.limit(int(n_rows))
 
         # 5. Stream with safety net
         df_stream = query_df.execute_stream()
         progress_bar = tqdm(unit="rows")
         remaining = int(n_rows) if n_rows is not None else None
+        rootless_row_count = 0
         for r in df_stream:
             out = pl.DataFrame(r.to_pyarrow())
             # Source of truth: reapply the full predicate/projection client-side
             # unless the helper certified the pushdown was complete.
             if predicate is not None and needs_client_filter:
                 out = out.filter(predicate)
-            if with_columns is not None and needs_client_select:
-                out = out.select(with_columns)
 
             if remaining is not None:
                 if remaining <= 0:
@@ -4386,10 +4555,32 @@ def _lazy_scan(
                     out = out.head(remaining)
                 remaining -= len(out)
 
+            # Rootless projections such as ``pl.len()`` are whole-stream
+            # expressions. Applying them to each RecordBatch would emit partial
+            # aggregates, so retain only the total input height and evaluate once
+            # after the stream is exhausted. Arrow's NullArray has no value
+            # buffer, keeping this metadata-only even for very large counts.
+            if rootless_client_projection:
+                rootless_row_count += len(out)
+                if remaining is not None and remaining <= 0:
+                    break
+                continue
+
+            if with_columns is not None and needs_client_select:
+                out = out.select(with_columns)
+
             progress_bar.update(len(out))
             yield out
             if remaining is not None and remaining <= 0:
                 return
+
+        if rootless_client_projection:
+            virtual_rows = pa.record_batch(
+                [pa.nulls(rootless_row_count)], names=["__polars_bio_row"]
+            ).drop_columns(["__polars_bio_row"])
+            out = pl.DataFrame(virtual_rows).select(with_columns)
+            progress_bar.update(len(out))
+            yield out
 
     return register_io_source(_overlap_source, schema=original_schema)
 
@@ -4628,6 +4819,8 @@ def _format_to_string(input_format: InputFormat) -> str:
         return "bigwig"
     elif "BigBed" in format_str:
         return "bigbed"
+    elif "Cool" in format_str:
+        return "cool"
     elif "Bed" in format_str:
         return "bed"
     elif "Pairs" in format_str:
@@ -4640,6 +4833,16 @@ def _format_to_string(input_format: InputFormat) -> str:
         return "unknown"
 
 
+@contextmanager
+def _registered_table_lease(context, path, name, input_format, read_options):
+    """Keep a private table registered only while acquiring its query plan."""
+    table = py_register_table(context, path, name, input_format, read_options)
+    try:
+        yield table
+    finally:
+        context.deregister_table(table.name)
+
+
 def _read_file(
     path: str,
     input_format: InputFormat,
@@ -4648,10 +4851,22 @@ def _read_file(
     predicate_pushdown: bool = False,
     zero_based: bool = True,
 ) -> pl.LazyFrame:
-    table = py_register_table(ctx, path, None, input_format, read_options)
-
-    # Get schema WITHOUT materializing data - critical for large files!
-    schema = py_get_table_schema(ctx, table.name)
+    # Each Cooler LazyFrame must retain its own provider. Different resolutions
+    # of one .mcool have the same filename-derived default table name and schema,
+    # so re-registering that shared name from concurrent IO callbacks can make
+    # one scan read another scan's resolution without raising an error.
+    table_name = (
+        f"_pb_cool_scan_{uuid4().hex}" if input_format == InputFormat.Cool else None
+    )
+    if table_name is not None:
+        with _registered_table_lease(
+            ctx, path, table_name, input_format, read_options
+        ) as table:
+            # Get schema WITHOUT materializing data - critical for large files!
+            schema = py_get_table_schema(ctx, table.name)
+    else:
+        table = py_register_table(ctx, path, None, input_format, read_options)
+        schema = py_get_table_schema(ctx, table.name)
 
     # Extract ALL metadata from schema (works for all formats!)
     from polars_bio.metadata_extractors import extract_all_schema_metadata
@@ -4697,6 +4912,7 @@ def _read_file(
             "bigbed",
             "bgen",
             "pgen",
+            "cool",
         ]:
             # For other formats (including SAM via "bam" key), include their specific metadata
             header_metadata = format_specific.get(metadata_key, {})
@@ -4739,8 +4955,103 @@ def _read_file(
         return GtfLazyFrameWrapper(
             lf, path, read_options, projection_pushdown, predicate_pushdown
         )
+    if input_format == InputFormat.Cool:
+        return CoolLazyFrameWrapper(
+            lf,
+            schema,
+            table.name,
+            path,
+            read_options,
+            projection_pushdown,
+        )
 
     return lf
+
+
+def _is_len_expr(expr) -> bool:
+    """Return whether an expression is exactly ``pl.len()``, optionally aliased."""
+    if not isinstance(expr, pl.Expr):
+        return False
+    try:
+        serialized = json.loads(expr.meta.serialize(format="json"))
+    except Exception:
+        return False
+    return serialized == "Len" or (
+        isinstance(serialized, dict)
+        and isinstance(serialized.get("Alias"), list)
+        and len(serialized["Alias"]) == 2
+        and serialized["Alias"][0] == "Len"
+    )
+
+
+def _is_len_projection(exprs, named_exprs) -> bool:
+    """Return whether a select consists only of row-count expressions."""
+    items = []
+    for expr in exprs:
+        if isinstance(expr, (list, tuple)):
+            items.extend(expr)
+        else:
+            items.append(expr)
+    items.extend(named_exprs.values())
+    return bool(items) and all(_is_len_expr(expr) for expr in items)
+
+
+class CoolLazyFrameWrapper(pl.LazyFrame):
+    """Preserve Cooler count-only intent before Polars projection rewriting.
+
+    Polars' Python IO optimizer requests an arbitrary physical column for
+    ``select(pl.len())``. By the time the IO callback runs, that request is
+    indistinguishable from a real one-column projection. Intercepting the exact
+    count projection here lets DataFusion execute a zero-column Cooler scan and
+    retain only RecordBatch row counts.
+    """
+
+    def __init__(
+        self,
+        base_lf: pl.LazyFrame,
+        schema,
+        table_name: str,
+        file_path: str,
+        read_options: ReadOptions,
+        projection_pushdown: bool = True,
+    ):
+        # Remain a real LazyFrame so Polars APIs that dispatch by type (for
+        # example, pl.concat) accept Cooler scans without special handling.
+        self._ldf = base_lf._ldf
+        self._base_lf = base_lf
+        self._schema = schema
+        self._table_name = table_name
+        self._file_path = file_path
+        self._read_options = read_options
+        self._projection_pushdown = projection_pushdown
+        metadata = base_lf.config_meta.get_metadata()
+        if metadata:
+            self.config_meta.set(**metadata)
+
+    @classmethod
+    def _from_pyldf(cls, ldf):
+        # Any operation other than the direct select intercepted below returns
+        # an ordinary LazyFrame. Subclass instances constructed by Polars would
+        # otherwise lack the Cooler source state stored by __init__.
+        return pl.LazyFrame._from_pyldf(ldf)
+
+    def select(self, *exprs, **named_exprs):
+        if self._projection_pushdown and _is_len_projection(exprs, named_exprs):
+            count_lf = _lazy_scan(
+                self._schema,
+                False,
+                False,
+                self._table_name,
+                InputFormat.Cool,
+                self._file_path,
+                self._read_options,
+                force_empty_projection=True,
+            )
+            metadata = self.config_meta.get_metadata()
+            if metadata:
+                count_lf.config_meta.set(**metadata)
+            return count_lf.select(*exprs, **named_exprs)
+        return super().select(*exprs, **named_exprs)
 
 
 class AnnotationLazyFrameWrapper:
