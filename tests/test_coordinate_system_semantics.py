@@ -206,6 +206,8 @@ def test_coverage_matches_reference(zero_based):
 
 @pytest.mark.parametrize("zero_based", BOTH_SYSTEMS)
 def test_overlap_matches_reference(zero_based):
+    # Same seed as test_count_overlaps_matches_reference: the two must agree
+    # with the reference -- and so with each other -- on identical pairs.
     for left, right in _random_cases(seed=12):
         a, b = left[0], right[0]
         overlap = pb.overlap(
@@ -218,6 +220,7 @@ def test_overlap_matches_reference(zero_based):
 
 @pytest.mark.parametrize("zero_based", BOTH_SYSTEMS)
 def test_count_overlaps_matches_reference(zero_based):
+    # Same pairs as test_overlap_matches_reference -- see the note there.
     for left, right in _random_cases(seed=12):
         a, b = left[0], right[0]
         counts = pb.count_overlaps(
@@ -337,12 +340,12 @@ def test_coverage_never_exceeds_query_length(zero_based):
 
 
 @pytest.mark.parametrize("zero_based", BOTH_SYSTEMS)
-def test_coverage_of_zero_length_target_is_zero(zero_based):
-    """A zero-length 0-based target covers nothing.
+def test_coverage_of_degenerate_target_follows_the_convention(zero_based):
+    """``[150,150]`` means different things in the two systems, so the answers differ.
 
-    ``get_coverage`` used to floor each contribution at 1, so ``[150,150)``
-    reported one covered base. Under 1-based coordinates ``[150,150]`` is a
-    genuine single base, so the two systems legitimately differ here.
+    Half-open it is empty and covers nothing; 1-based inclusive it is a genuine
+    single base. ``get_coverage`` used to floor each contribution at 1, so the
+    0-based case reported one covered base.
     """
     result = pb.coverage(
         _frame([QUERY], zero_based),
