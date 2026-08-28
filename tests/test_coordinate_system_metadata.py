@@ -622,42 +622,61 @@ class TestDefaultMetadataTracking:
 class TestCoverageCoordinateSystem:
     """Tests for coverage operation with coordinate system metadata."""
 
-    def test_coverage_with_zero_based_metadata(self):
-        """Test that coverage operation works with 0-based coordinates."""
-        df1 = pl.DataFrame(
-            {
-                "chrom": ["chr1", "chr1", "chr1"],
-                "start": [100, 200, 300],
-                "end": [150, 250, 350],
-            }
-        )
-        df2 = pl.DataFrame(
-            {"chrom": ["chr1", "chr1"], "start": [125, 225], "end": [175, 275]}
-        )
-        set_coordinate_system(df1, zero_based=True)
-        set_coordinate_system(df2, zero_based=True)
+    # Each query row below is paired with a target of a different shape --
+    # identical, superset, contained, disjoint -- because the number of clamped
+    # edges is what distinguishes a correct implementation from an off-by-one
+    # one. A fixture of only partially-overlapping pairs cannot tell them apart
+    # (issue #450).
+    QUERIES = {
+        "chrom": ["chr1", "chr1", "chr1", "chr1"],
+        "start": [100, 200, 300, 400],
+        "end": [150, 250, 350, 450],
+    }
+    TARGETS = {
+        "chrom": ["chr1", "chr1", "chr1", "chr1"],
+        "start": [100, 190, 320, 500],  # identical, superset, contained, disjoint
+        "end": [150, 260, 330, 550],
+    }
 
-        # Should work without errors
+    def _coverage(self, zero_based: bool) -> list[int]:
+        df1 = pl.DataFrame(self.QUERIES)
+        df2 = pl.DataFrame(self.TARGETS)
+        set_coordinate_system(df1, zero_based=zero_based)
+        set_coordinate_system(df2, zero_based=zero_based)
         result = pb.coverage(df1, df2, output_type="polars.DataFrame")
-        assert len(result) >= 0
+        return result.sort("start")["coverage"].to_list()
+
+    def test_coverage_with_zero_based_metadata(self):
+        """coverage() on 0-based half-open input counts end - start bases."""
+        # [100,150) is 50 bases; [320,330) contributes 10 of [300,350).
+        assert self._coverage(zero_based=True) == [50, 50, 10, 0]
 
     def test_coverage_with_one_based_metadata(self):
-        """Test that coverage operation works with 1-based coordinates."""
-        df1 = pl.DataFrame(
-            {
-                "chrom": ["chr1", "chr1", "chr1"],
-                "start": [100, 200, 300],
-                "end": [150, 250, 350],
-            }
-        )
-        df2 = pl.DataFrame(
-            {"chrom": ["chr1", "chr1"], "start": [125, 225], "end": [175, 275]}
-        )
-        set_coordinate_system(df1, zero_based=False)
-        set_coordinate_system(df2, zero_based=False)
+        """coverage() on 1-based inclusive input counts end - start + 1 bases."""
+        # [100,150] is 51 bases; [320,330] contributes 11 of [300,350].
+        assert self._coverage(zero_based=False) == [51, 51, 11, 0]
 
-        result = pb.coverage(df1, df2, output_type="polars.DataFrame")
-        assert len(result) >= 0
+    def test_coverage_identical_and_superset_agree(self):
+        """A target identical to the query and one containing it both cover it fully.
+
+        This is the internal inconsistency from issue #450: it needs no
+        cross-library reference to judge, only the query's own length.
+        """
+        for zero_based, query_length in [(True, 50), (False, 51)]:
+            identical, superset, _, _ = self._coverage(zero_based=zero_based)
+            assert identical == superset == query_length, (
+                f"zero_based={zero_based}: identical={identical}, "
+                f"superset={superset}, query length={query_length}"
+            )
+
+    def test_coverage_never_exceeds_query_length(self):
+        """No target can cover more bases than the query itself spans."""
+        for zero_based, query_length in [(True, 50), (False, 51)]:
+            for value in self._coverage(zero_based=zero_based):
+                assert 0 <= value <= query_length, (
+                    f"zero_based={zero_based}: coverage {value} outside "
+                    f"0..={query_length}"
+                )
 
     def test_coverage_mismatch_raises_error(self):
         """Test that coverage raises CoordinateSystemMismatchError on mismatch."""
