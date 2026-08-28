@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.1] - 2026-08-28
+
+### Fixed
+
+- Range operations returned wrong results on the **1-based** coordinate path,
+  which is the path used when DataFrames carry no coordinate-system metadata.
+  Fixed upstream in `datafusion-bio-functions` v0.19.1 and pulled in here
+  (#451; reported as #450).
+
+  - `coverage()` added one base per clamped edge, so a target identical to the
+    query, a target strictly containing it, and the query's own length were
+    three different numbers — a superset could report more covered bases than
+    the query spans.
+  - `subtract()` emitted half-open boundaries, keeping the first and last base
+    of every removed interval.
+  - `complement()` did the same for gap bounds, and reported a spurious
+    zero-length gap between intervals that are contiguous under 1-based
+    coordinates. It also clipped against an explicit `view_df` with half-open
+    comparisons, dropping an interval that ends exactly at the view start or
+    begins exactly at the view end.
+  - `nearest()` reported the distance between neighbours as one base too many.
+
+  0-based half-open results are unchanged throughout.
+
+- `count_overlaps()` and `nearest()` silently missed **0-based** intervals of
+  length 1 or less — a SNV or any point feature. `count_overlaps()` returned 0
+  and `nearest()` returned no match at all, while `overlap()` and `coverage()`
+  correctly reported the shared base on the same input (#451).
+
+### Changed
+
+- `subtract()` is roughly 20-25% faster on larger inputs.
+- Bumped `datafusion-bio-function-ranges`, `-pileup` and `-fastqc` from
+  v0.18.0 to v0.19.1.
+
+### Added
+
+- `tests/test_coordinate_system_semantics.py` covers every range operation on
+  both coordinate paths, against a reference that enumerates the base
+  positions an interval occupies rather than restating the implementation.
+  The 1-based path previously had no value-level coverage: the bioframe
+  comparison tests are pinned to 0-based because bioframe is 0-based, and the
+  partitioned-execution suites compare polars-bio against itself (#451).
+
 ## [0.35.0] - 2026-08-26
 
 ### Added
