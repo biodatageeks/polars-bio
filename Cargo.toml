@@ -1,6 +1,6 @@
 [package]
 name = "polars_bio"
-version = "0.35.0"
+version = "0.35.1"
 edition = "2021"
 
 [features]
