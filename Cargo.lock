@@ -1824,8 +1824,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-fastqc"
-version = "0.17.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.18.0#e937e49ace4b4ba997a53be05da7bd7d6db0d399"
+version = "0.18.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.19.1#c3d4a5d30707ee7bc129364826733e985551bc0f"
 dependencies = [
  "datafusion",
  "futures",
@@ -1834,8 +1834,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-pileup"
-version = "0.18.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.18.0#e937e49ace4b4ba997a53be05da7bd7d6db0d399"
+version = "0.19.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.19.1#c3d4a5d30707ee7bc129364826733e985551bc0f"
 dependencies = [
  "async-trait",
  "datafusion",
@@ -1848,8 +1848,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-ranges"
-version = "0.18.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.18.0#e937e49ace4b4ba997a53be05da7bd7d6db0d399"
+version = "0.19.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.19.1#c3d4a5d30707ee7bc129364826733e985551bc0f"
 dependencies = [
  "ahash",
  "async-trait",
@@ -6392,8 +6392,8 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "superintervals"
-version = "0.20.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.18.0#e937e49ace4b4ba997a53be05da7bd7d6db0d399"
+version = "0.21.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.19.1#c3d4a5d30707ee7bc129364826733e985551bc0f"
 dependencies = [
  "aligned-vec",
  "serde",

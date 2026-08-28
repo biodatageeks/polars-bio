@@ -159,7 +159,9 @@ PD_DF_NEAREST = pd.DataFrame(
         ],
         "pos_start_2": [150, 150, 300, 15000, 22000, 150, 150, 300, 15000, 22000, 234],
         "pos_end_2": [250, 250, 500, 15000, 22300, 250, 250, 501, 15000, 22300, 300],
-        "distance": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 34],
+        # 1-based inclusive: chr3 [100,200] to [234,300] is bases 201..233,
+        # i.e. 33. This read 34 -- the 0-based gap -- until upstream #221.
+        "distance": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 33],
     }
 ).astype(
     {

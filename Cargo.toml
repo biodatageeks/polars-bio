@@ -37,7 +37,7 @@ pyo3-log = "0.13.3"
 
 
 # NOTE: temporarily pinned to 53.0.0 (down from 53.1.0) to match datafusion-bio-formats
-# v1.12.0 / datafusion-bio-functions v0.18.0, which pin datafusion to "=53.0.0".
+# v1.12.0 / datafusion-bio-functions v0.19.1, which pin datafusion to "=53.0.0".
 # Restore 53.1.0 once those crates publish releases built against datafusion 53.1.0.
 datafusion = { version = "53.0.0", default-features = false, features = ["nested_expressions", "crypto_expressions", "datetime_expressions", "encoding_expressions", "regex_expressions", "string_expressions", "unicode_expressions", "parquet", "recursive_protection", "sql"] }
 arrow = "58.3.0"
@@ -63,9 +63,9 @@ datafusion-bio-format-bgen = { git = "https://github.com/biodatageeks/datafusion
 datafusion-bio-format-pgen = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.12.0" }
 datafusion-bio-format-cooler = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.12.0" }
 
-datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.18.0" }
-datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.18.0", default-features = false }
-datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.18.0" }
+datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.19.1" }
+datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.19.1", default-features = false }
+datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.19.1" }
 
 async-trait = "0.1.86"
 futures = "0.3.31"
