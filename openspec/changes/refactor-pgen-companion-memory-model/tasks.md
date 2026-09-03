@@ -1,6 +1,6 @@
 ## 1. Upstream dependency
-- [ ] 1.1 Land `refactor-pgen-companion-memory-model` in datafusion-bio-formats and cut a release tag.
-- [ ] 1.2 Bump every `datafusion-bio-format-*` tag in `Cargo.toml` and regenerate `Cargo.lock`.
+- [x] 1.1 Land `refactor-pgen-companion-memory-model` in datafusion-bio-formats and cut a release tag.
+- [x] 1.2 Bump every `datafusion-bio-format-*` tag in `Cargo.toml` and regenerate `Cargo.lock`.
 
 ## 2. Options plumbing
 - [x] 2.1 Add `max_companion_bytes`, `max_decompressed_companion_bytes`, `max_variants` (`Option<usize>`) to `PgenReadOptions` in `src/option.rs` (fields, constructor signature, `default()`).
