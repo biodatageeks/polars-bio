@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- PGEN entry points (`read_pgen`, `scan_pgen`, `read_pgen_matrix`,
+  `describe_pgen`, `register_pgen`) accept `max_companion_bytes`,
+  `max_decompressed_companion_bytes`, and `max_variants`, forwarded to the
+  provider like the existing range controls (#453).
+
+### Changed
+
+- PGEN companions are streamed and parsed into a columnar variant table
+  upstream (`datafusion-bio-formats`), so production PLINK 2 filesets open
+  without tuning: the PGS Catalog 1000 Genomes GRCh38 panel (75.2M variants,
+  541 MiB `.pvar.zst`) opens in about 4 s within about 4 GB, where the
+  previous per-row representation would have needed ~45 GB. Provider defaults
+  rose to 4 GiB / 16 GiB / 250M variants.
+- `read_pgen_matrix` fills its `positions` array from Rust instead of building
+  a Python list of one integer per variant first.
+
+### Fixed
+
+- `describe_pgen`, `scan_pgen`, `read_pgen`, and `read_pgen_matrix` rejected
+  the published 1000 Genomes PLINK 2 fileset because its `.pvar.zst` exceeded
+  a hard 512 MiB companion cap that no entry point could raise (#453). The
+  limit errors now name the argument to change.
+
 ## [0.35.1] - 2026-08-28
 
 ### Fixed

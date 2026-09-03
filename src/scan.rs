@@ -552,6 +552,13 @@ pub fn native_pgen_options(
         batch_soft_byte_limit: options
             .batch_soft_byte_limit
             .unwrap_or(defaults.batch_soft_byte_limit),
+        max_companion_bytes: options
+            .max_companion_bytes
+            .unwrap_or(defaults.max_companion_bytes),
+        max_decompressed_companion_bytes: options
+            .max_decompressed_companion_bytes
+            .unwrap_or(defaults.max_decompressed_companion_bytes),
+        max_variants: options.max_variants.unwrap_or(defaults.max_variants),
         ..defaults
     })
 }
@@ -1200,9 +1207,33 @@ impl OpenPgenMatrix {
         self.reader.sample_names().to_vec()
     }
 
-    /// Variant start positions, in row order.
-    pub fn positions(&self) -> Vec<u64> {
-        self.reader.positions()
+    /// Fills `out` with the variant start positions, in row order.
+    ///
+    /// The panel-scale filesets have tens of millions of rows, so the
+    /// positions are streamed into the caller's buffer rather than collected.
+    pub fn positions_into(&self, out: &mut [i64]) -> datafusion::common::Result<()> {
+        let (variants, _) = self.shape();
+        if out.len() != variants {
+            return Err(datafusion::error::DataFusionError::Execution(format!(
+                "PGEN positions destination holds {} values; expected {variants}",
+                out.len()
+            )));
+        }
+        let mut filled = 0;
+        for (slot, position) in out.iter_mut().zip(self.reader.positions_iter()) {
+            *slot = i64::try_from(position).map_err(|_| {
+                datafusion::error::DataFusionError::Execution(format!(
+                    "PGEN position {position} does not fit int64"
+                ))
+            })?;
+            filled += 1;
+        }
+        if filled != variants {
+            return Err(datafusion::error::DataFusionError::Execution(format!(
+                "PGEN reported {variants} variants but {filled} positions"
+            )));
+        }
+        Ok(())
     }
 
     /// Decodes into memory the caller owns.

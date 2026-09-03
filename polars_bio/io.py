@@ -2193,6 +2193,9 @@ class IOOperations:
         max_range_gap: Union[int, None] = None,
         max_range_bytes: Union[int, None] = None,
         batch_soft_byte_limit: Union[int, None] = None,
+        max_companion_bytes: Union[int, None] = None,
+        max_decompressed_companion_bytes: Union[int, None] = None,
+        max_variants: Union[int, None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -2222,6 +2225,9 @@ class IOOperations:
             max_range_gap: The largest run of unselected bytes bridged when coalescing reads, in bytes. The provider default is 0, which never bridges a gap and issues one read per contiguous run of selected variants. Raising it trades wasted bytes for fewer requests, which matters most on object storage. If *None*, the provider default is used.
             max_range_bytes: The largest coalesced read, in bytes. If *None*, the provider default is used.
             batch_soft_byte_limit: A soft target for genotype bytes in one RecordBatch. If *None*, the provider default is used.
+            max_companion_bytes: The largest on-disk size accepted for the `.pvar` or `.psam` companion, in bytes. The provider default is 4 GiB. Companions are streamed, so this bounds work rather than memory. If *None*, the provider default is used.
+            max_decompressed_companion_bytes: The largest decoded size accepted for a companion, in bytes. The provider default is 16 GiB. If *None*, the provider default is used.
+            max_variants: The largest PVAR row count accepted. The provider default is 250 million; the parsed variant table costs a few tens of bytes per row, so this is the cap that bounds resident memory. If *None*, the provider default is used.
             chunk_size: The size in MB of a chunk when reading from an object store.
             concurrent_fetches: The number of concurrent fetches when reading from an object store.
             allow_anonymous: Whether to allow anonymous access to object storage.
@@ -2248,6 +2254,9 @@ class IOOperations:
             max_range_gap=max_range_gap,
             max_range_bytes=max_range_bytes,
             batch_soft_byte_limit=batch_soft_byte_limit,
+            max_companion_bytes=max_companion_bytes,
+            max_decompressed_companion_bytes=max_decompressed_companion_bytes,
+            max_variants=max_variants,
             chunk_size=chunk_size,
             concurrent_fetches=concurrent_fetches,
             allow_anonymous=allow_anonymous,
@@ -2278,6 +2287,9 @@ class IOOperations:
         max_range_gap: Union[int, None] = None,
         max_range_bytes: Union[int, None] = None,
         batch_soft_byte_limit: Union[int, None] = None,
+        max_companion_bytes: Union[int, None] = None,
+        max_decompressed_companion_bytes: Union[int, None] = None,
+        max_variants: Union[int, None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -2323,6 +2335,9 @@ class IOOperations:
             max_range_gap=max_range_gap,
             max_range_bytes=max_range_bytes,
             batch_soft_byte_limit=batch_soft_byte_limit,
+            max_companion_bytes=max_companion_bytes,
+            max_decompressed_companion_bytes=max_decompressed_companion_bytes,
+            max_variants=max_variants,
         )
         read_options = ReadOptions(pgen_read_options=pgen_read_options)
         return _read_file(
@@ -2348,6 +2363,9 @@ class IOOperations:
         max_range_gap: Union[int, None] = None,
         max_range_bytes: Union[int, None] = None,
         batch_soft_byte_limit: Union[int, None] = None,
+        max_companion_bytes: Union[int, None] = None,
+        max_decompressed_companion_bytes: Union[int, None] = None,
+        max_variants: Union[int, None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -2481,6 +2499,9 @@ class IOOperations:
             max_range_gap=max_range_gap,
             max_range_bytes=max_range_bytes,
             batch_soft_byte_limit=batch_soft_byte_limit,
+            max_companion_bytes=max_companion_bytes,
+            max_decompressed_companion_bytes=max_decompressed_companion_bytes,
+            max_variants=max_variants,
         )
 
         from polars_bio.context import get_option
@@ -2502,11 +2523,10 @@ class IOOperations:
         # the only place a caller cannot route around.
         reader.read_into(field, values, copy_threads, float(missing))
 
-        positions = np.asarray(reader.positions(), dtype=np.int64)
-        if positions.shape[0] != variants:
-            raise RuntimeError(
-                f"PGEN reported {variants} variants but {positions.shape[0]} positions"
-            )
+        # Filled in place for the same reason as `values`: a list of Python
+        # integers for a panel-scale fileset would cost gigabytes on its own.
+        positions = np.empty(variants, dtype=np.int64)
+        reader.positions_into(positions)
         return PgenMatrix(
             values=values, positions=positions, sample_names=list(reader.sample_names())
         )
@@ -3276,6 +3296,9 @@ class IOOperations:
         pvar_path: Union[str, None] = None,
         psam_path: Union[str, None] = None,
         pgi_path: Union[str, None] = None,
+        max_companion_bytes: Union[int, None] = None,
+        max_decompressed_companion_bytes: Union[int, None] = None,
+        max_variants: Union[int, None] = None,
     ) -> pl.DataFrame:
         """
         Describe the schema a PLINK 2 PGEN fileset produces.
@@ -3294,6 +3317,9 @@ class IOOperations:
             pvar_path: An explicit `.pvar` companion.
             psam_path: An explicit `.psam` companion.
             pgi_path: An explicit `.pgi` index, for a PGEN that uses an external index. Without it, such a fileset cannot be opened here at all.
+            max_companion_bytes: The largest on-disk size accepted for the `.pvar` or `.psam` companion, in bytes. The provider default is 4 GiB. Companions are streamed, so this bounds work rather than memory. If *None*, the provider default is used.
+            max_decompressed_companion_bytes: The largest decoded size accepted for a companion, in bytes. The provider default is 16 GiB. If *None*, the provider default is used.
+            max_variants: The largest PVAR row count accepted. The provider default is 250 million; the parsed variant table costs a few tens of bytes per row, so this is the cap that bounds resident memory. If *None*, the provider default is used.
 
         !!! note
             The reported schema is the one the default `genotype_fields=("GT",)`
@@ -3316,6 +3342,9 @@ class IOOperations:
             pvar_path=pvar_path,
             psam_path=psam_path,
             pgi_path=pgi_path,
+            max_companion_bytes=max_companion_bytes,
+            max_decompressed_companion_bytes=max_decompressed_companion_bytes,
+            max_variants=max_variants,
             zero_based=_resolve_zero_based(None),
         )
         # Registering under the derived name would deregister and replace a

@@ -1015,12 +1015,21 @@ pub struct PgenReadOptions {
     /// Soft target for genotype bytes in one RecordBatch.
     #[pyo3(get, set)]
     pub batch_soft_byte_limit: Option<usize>,
+    /// Maximum on-disk bytes accepted for a PVAR or PSAM companion.
+    #[pyo3(get, set)]
+    pub max_companion_bytes: Option<usize>,
+    /// Maximum decoded bytes accepted for a PVAR or PSAM companion.
+    #[pyo3(get, set)]
+    pub max_decompressed_companion_bytes: Option<usize>,
+    /// Maximum accepted PVAR row count.
+    #[pyo3(get, set)]
+    pub max_variants: Option<usize>,
 }
 
 #[pymethods]
 impl PgenReadOptions {
     #[new]
-    #[pyo3(signature = (object_storage_options=None, genotype_fields=None, zero_based=false, samples=None, missing_sample_policy="error".to_string(), psam_id_mode="iid".to_string(), pvar_path=None, psam_path=None, pgi_path=None, max_range_gap=None, max_range_bytes=None, batch_soft_byte_limit=None))]
+    #[pyo3(signature = (object_storage_options=None, genotype_fields=None, zero_based=false, samples=None, missing_sample_policy="error".to_string(), psam_id_mode="iid".to_string(), pvar_path=None, psam_path=None, pgi_path=None, max_range_gap=None, max_range_bytes=None, batch_soft_byte_limit=None, max_companion_bytes=None, max_decompressed_companion_bytes=None, max_variants=None))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         object_storage_options: Option<PyObjectStorageOptions>,
@@ -1035,6 +1044,9 @@ impl PgenReadOptions {
         max_range_gap: Option<u64>,
         max_range_bytes: Option<u64>,
         batch_soft_byte_limit: Option<usize>,
+        max_companion_bytes: Option<usize>,
+        max_decompressed_companion_bytes: Option<usize>,
+        max_variants: Option<usize>,
     ) -> Self {
         PgenReadOptions {
             object_storage_options: pyobject_storage_options_to_object_storage_options(
@@ -1051,6 +1063,9 @@ impl PgenReadOptions {
             max_range_gap,
             max_range_bytes,
             batch_soft_byte_limit,
+            max_companion_bytes,
+            max_decompressed_companion_bytes,
+            max_variants,
         }
     }
 
@@ -1077,6 +1092,9 @@ impl PgenReadOptions {
             max_range_gap: None,
             max_range_bytes: None,
             batch_soft_byte_limit: None,
+            max_companion_bytes: None,
+            max_decompressed_companion_bytes: None,
+            max_variants: None,
         }
     }
 }
