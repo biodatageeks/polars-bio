@@ -19,6 +19,6 @@
 - [x] 4.3 Full `tests/test_pgen_io.py` green; `cargo clippy` and `cargo fmt` clean.
 
 ## 5. Real-panel verification
-- [x] 5.1 `describe_pgen`, metadata scan, and `read_pgen_matrix(field="ALT_COUNT")` on a region of `pgsc_1000G_v1/GRCh38_1000G_ALL.pgen`; record open time and peak RSS.
+- [x] 5.1 `describe_pgen` and a full metadata scan of `pgsc_1000G_v1/GRCh38_1000G_ALL.pgen`, plus an ALT-count scan on chr22:16.0–16.1M; record open time and peak RSS. Full-panel dense matrix materialization is not claimed.
 - [x] 5.2 ALT-count parity with `pgenlib` on that region; GRCh37 companions open as well.
-- [ ] 5.3 Report the numbers on #453 and in the PR.
+- [x] 5.3 Report the numbers in PR #454 and [on #453](https://github.com/biodatageeks/polars-bio/issues/453#issuecomment-5551736143).

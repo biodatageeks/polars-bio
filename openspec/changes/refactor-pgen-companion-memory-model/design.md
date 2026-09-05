@@ -13,7 +13,8 @@ columnar-table decisions.
 
 ## Goals / Non-Goals
 
-- Goals: the published 1000G panels open with default arguments; every PGEN
+- Goals: the published 1000G panels open for metadata inspection and scans
+  with default arguments; every PGEN
   entry point can raise or lower the companion caps; a limit error tells the
   caller which argument to change.
 - Non-Goals: caching parsed companions across calls; changing the PGEN
@@ -46,8 +47,9 @@ columnar-table decisions.
 
 ## Risks / Trade-offs
 
-- The fix depends on an upstream release; until the tag lands, polars-bio
-  verifies through a local `[patch]` that must not be committed.
+- The fix depends on upstream PR #247. All format crates are pinned to its
+  exact published revision until a release tag lands (tracked in #457);
+  no local `[patch]` paths are part of the published dependency configuration.
 - `read_pgen_matrix` still has no variant selection, so the full panel's
   dense output (224 GiB int8, 896 GiB float32) cannot be requested; that is
   the separate change `add-pgen-matrix-variant-selection`. Repeated opens

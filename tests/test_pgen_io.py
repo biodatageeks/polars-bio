@@ -1021,9 +1021,16 @@ class TestPgenCompanionLimits:
         with pytest.raises(ValueError, match=expected):
             pb.read_pgen(str(ORACLE_PATH), **kwargs)
         with pytest.raises(ValueError, match=expected):
+            pb.scan_pgen(str(ORACLE_PATH), **kwargs).collect()
+        with pytest.raises(ValueError, match=expected):
             pb.describe_pgen(str(ORACLE_PATH), **kwargs)
         with pytest.raises(ValueError, match=expected):
             pb.read_pgen_matrix(str(ORACLE_PATH), field="ALT_COUNT", **kwargs)
+        try:
+            with pytest.raises(ValueError, match=expected):
+                pb.register_pgen(str(ORACLE_PATH), "pgen_lowered_caps", **kwargs)
+        finally:
+            ctx.deregister_table("pgen_lowered_caps")
 
     def test_a_raised_cap_does_not_change_content(self):
         raised = pb.read_pgen(str(ORACLE_PATH), **self.CAPS).sort("start")

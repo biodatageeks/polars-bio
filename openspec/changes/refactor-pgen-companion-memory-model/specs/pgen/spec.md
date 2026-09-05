@@ -6,10 +6,15 @@ The system SHALL let a caller raise or lower the PVAR and PSAM companion caps
 at every PGEN entry point, and SHALL default them to provider values that open
 the published PLINK 2 reference panels.
 
-#### Scenario: Reference panel opens untuned
-- **WHEN** `pgsc_1000G_v1/GRCh38_1000G_ALL.pgen` is described, scanned, read,
-  or read as a matrix with no cap arguments
-- **THEN** the fileset opens and its variant count matches the PGEN header.
+#### Scenario: Reference panel metadata opens untuned
+- **WHEN** `pgsc_1000G_v1/GRCh38_1000G_ALL.pgen` is described with
+  `describe_pgen` and scanned with only metadata columns, with no cap arguments
+- **THEN** describing the fileset returns its schema and file properties
+- **AND** the metadata scan's row count matches the PGEN header's variant count.
+
+This scenario does not require materializing a full-panel dense genotype
+matrix. Its output alone needs about 224 GiB for `ALT_COUNT`; row selection
+remains the separate `add-pgen-matrix-variant-selection` change.
 
 #### Scenario: Caps are accepted at every entry point
 - **WHEN** `max_companion_bytes`, `max_decompressed_companion_bytes`, or

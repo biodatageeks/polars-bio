@@ -2226,9 +2226,6 @@ class IOOperations:
             max_range_gap: The largest run of unselected bytes bridged when coalescing reads, in bytes. The provider default is 0, which never bridges a gap and issues one read per contiguous run of selected variants. Raising it trades wasted bytes for fewer requests, which matters most on object storage. If *None*, the provider default is used.
             max_range_bytes: The largest coalesced read, in bytes. If *None*, the provider default is used.
             batch_soft_byte_limit: A soft target for genotype bytes in one RecordBatch. If *None*, the provider default is used.
-            max_companion_bytes: The largest on-disk size accepted for the `.pvar` or `.psam` companion, in bytes. The provider default is 4 GiB. Companions are streamed, so this bounds work rather than memory. If *None*, the provider default is used.
-            max_decompressed_companion_bytes: The largest decoded size accepted for a companion, in bytes. The provider default is 16 GiB. If *None*, the provider default is used.
-            max_variants: The largest PVAR row count accepted. The provider default is 250 million; the parsed variant table costs a few tens of bytes per row, so this is the cap that bounds resident memory. If *None*, the provider default is used.
             chunk_size: The size in MB of a chunk when reading from an object store.
             concurrent_fetches: The number of concurrent fetches when reading from an object store.
             allow_anonymous: Whether to allow anonymous access to object storage.
@@ -2239,6 +2236,9 @@ class IOOperations:
             projection_pushdown: Enable column projection pushdown. Metadata-only scans do not read genotype records.
             predicate_pushdown: Push `chrom`, `id`, `start`, and `end` predicates into variant selection.
             use_zero_based: If True, output 0-based half-open coordinates. If False, output 1-based closed coordinates. If None (default), uses the global configuration.
+            max_companion_bytes: The largest on-disk size accepted for the `.pvar` or `.psam` companion, in bytes. The provider default is 4 GiB. Companions are streamed, so this bounds work rather than memory. If *None*, the provider default is used.
+            max_decompressed_companion_bytes: The largest decoded size accepted for a companion, in bytes. The provider default is 16 GiB. If *None*, the provider default is used.
+            max_variants: The largest PVAR row count accepted. The provider default is 250 million; the parsed variant table costs a few tens of bytes per row, so this is the cap that bounds resident memory. If *None*, the provider default is used.
 
         !!! note
             PGEN is input-only.
@@ -2413,9 +2413,6 @@ class IOOperations:
             max_range_gap: The largest run of unselected bytes bridged when coalescing reads.
             max_range_bytes: The largest coalesced read, in bytes.
             batch_soft_byte_limit: A soft target for genotype bytes in one RecordBatch.
-            max_companion_bytes: Maximum on-disk companion size in bytes. None uses the provider default (4 GiB).
-            max_decompressed_companion_bytes: Maximum decoded companion size in bytes. None uses the provider default (16 GiB).
-            max_variants: Maximum PVAR row count. None uses the provider default (250 million).
             chunk_size: The size in MB of a chunk when reading from an object store.
             concurrent_fetches: The number of concurrent fetches when reading from an object store.
             allow_anonymous: Whether to allow anonymous access to object storage.
@@ -2425,6 +2422,9 @@ class IOOperations:
             compression_type: The compression override.
             use_zero_based: If True, report 0-based positions. If False, 1-based. If None (default), uses the global configuration.
             copy_threads: How many threads decode into the result. They write disjoint row ranges, so they never contend. If *None* (default), this follows `datafusion.execution.target_partitions`, so a single-partition read stays single-threaded end to end.
+            max_companion_bytes: Maximum on-disk companion size in bytes. None uses the provider default (4 GiB).
+            max_decompressed_companion_bytes: Maximum decoded companion size in bytes. None uses the provider default (16 GiB).
+            max_variants: Maximum PVAR row count. None uses the provider default (250 million).
 
         Returns:
             A `PgenMatrix` of `values` (a C-contiguous `(variants, samples)`
