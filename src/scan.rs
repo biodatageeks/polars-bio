@@ -552,6 +552,13 @@ pub fn native_pgen_options(
         batch_soft_byte_limit: options
             .batch_soft_byte_limit
             .unwrap_or(defaults.batch_soft_byte_limit),
+        max_companion_bytes: options
+            .max_companion_bytes
+            .unwrap_or(defaults.max_companion_bytes),
+        max_decompressed_companion_bytes: options
+            .max_decompressed_companion_bytes
+            .unwrap_or(defaults.max_decompressed_companion_bytes),
+        max_variants: options.max_variants.unwrap_or(defaults.max_variants),
         ..defaults
     })
 }
@@ -1200,9 +1207,19 @@ impl OpenPgenMatrix {
         self.reader.sample_names().to_vec()
     }
 
-    /// Variant start positions, in row order.
-    pub fn positions(&self) -> Vec<u64> {
-        self.reader.positions()
+    /// Fills `out` with the variant start positions, in row order.
+    ///
+    /// The panel-scale filesets have tens of millions of rows, so the
+    /// positions are streamed into the caller's buffer rather than collected.
+    pub fn positions_into(&self, out: &mut [i64]) -> datafusion::common::Result<()> {
+        let (variants, _) = self.shape();
+        if out.len() != variants {
+            return Err(datafusion::error::DataFusionError::Execution(format!(
+                "PGEN positions destination holds {} values; expected {variants}",
+                out.len()
+            )));
+        }
+        fill_pgen_positions(self.reader.positions_iter(), out)
     }
 
     /// Decodes into memory the caller owns.
@@ -1365,6 +1382,30 @@ impl OpenBgenMatrix {
     }
 }
 
+fn fill_pgen_positions(
+    mut positions: impl Iterator<Item = u64>,
+    out: &mut [i64],
+) -> datafusion::common::Result<()> {
+    let variants = out.len();
+    for (filled, slot) in out.iter_mut().enumerate() {
+        let position = positions.next().ok_or_else(|| {
+            DataFusionError::Execution(format!(
+                "PGEN reported {variants} variants but {filled} positions"
+            ))
+        })?;
+        *slot = i64::try_from(position).map_err(|_| {
+            DataFusionError::Execution(format!("PGEN position {position} does not fit int64"))
+        })?;
+    }
+    // One extra next() detects an overlong iterator without rescanning a panel.
+    if positions.next().is_some() {
+        return Err(DataFusionError::Execution(format!(
+            "PGEN reported {variants} variants but more than {variants} positions"
+        )));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -1373,8 +1414,40 @@ mod tests {
     use arrow_schema::{DataType, Field, Schema};
 
     use super::RecordBatch;
-    use super::{get_input_format, partition_record_batches};
+    use super::{fill_pgen_positions, get_input_format, partition_record_batches};
     use crate::option::InputFormat;
+
+    #[test]
+    fn pgen_positions_enforce_exact_iterator_length() {
+        let mut out = [0; 2];
+        fill_pgen_positions([10, 20].into_iter(), &mut out).unwrap();
+        assert_eq!(out, [10, 20]);
+        let short = fill_pgen_positions([10].into_iter(), &mut out).unwrap_err();
+        assert!(short.to_string().contains("2 variants but 1 positions"));
+        let long = fill_pgen_positions([10, 20, 30].into_iter(), &mut out).unwrap_err();
+        assert!(long.to_string().contains("more than 2 positions"));
+        fill_pgen_positions(std::iter::empty(), &mut []).unwrap();
+        assert!(fill_pgen_positions(std::iter::once(10), &mut []).is_err());
+    }
+
+    #[test]
+    fn pgen_positions_reject_int64_overflow() {
+        let error = fill_pgen_positions(std::iter::once(u64::MAX), &mut [0]).unwrap_err();
+        assert!(error.to_string().contains("does not fit int64"));
+    }
+
+    #[test]
+    fn pgen_unset_caps_use_native_provider_defaults() {
+        let options = crate::option::PgenReadOptions::default();
+        let actual = super::native_pgen_options(&options).unwrap();
+        let expected = super::NativePgenReadOptions::default();
+        assert_eq!(actual.max_companion_bytes, expected.max_companion_bytes);
+        assert_eq!(
+            actual.max_decompressed_companion_bytes,
+            expected.max_decompressed_companion_bytes
+        );
+        assert_eq!(actual.max_variants, expected.max_variants);
+    }
 
     fn make_batch(start: i32, len: usize) -> RecordBatch {
         let contigs = StringArray::from_iter_values((0..len).map(|_| "chr1"));

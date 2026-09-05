@@ -1080,6 +1080,10 @@ class SQL:
         enable_request_payer: bool = False,
         compression_type: str = "auto",
         use_zero_based: Optional[bool] = None,
+        *,
+        max_companion_bytes: Union[int, None] = None,
+        max_decompressed_companion_bytes: Union[int, None] = None,
+        max_variants: Union[int, None] = None,
     ) -> None:
         """
         Register a PLINK 2 PGEN fileset as a DataFusion table.
@@ -1105,6 +1109,9 @@ class SQL:
             enable_request_payer: Whether to enable request payer for object storage.
             compression_type: The compression override.
             use_zero_based: If True, register 0-based half-open coordinates. If False, 1-based closed. If None (default), uses the global configuration.
+            max_companion_bytes: The largest on-disk size accepted for the `.pvar` or `.psam` companion, in bytes. The provider default is 4 GiB. Companions are streamed, so this bounds work rather than memory. If *None*, the provider default is used.
+            max_decompressed_companion_bytes: The largest decoded size accepted for a companion, in bytes. The provider default is 16 GiB. If *None*, the provider default is used.
+            max_variants: The largest PVAR row count accepted. The provider default is 250 million; the parsed variant table costs a few tens of bytes per row, so this is the cap that bounds resident memory. If *None*, the provider default is used.
 
         !!! Example
             ```python
@@ -1139,6 +1146,9 @@ class SQL:
             max_range_gap=max_range_gap,
             max_range_bytes=max_range_bytes,
             batch_soft_byte_limit=batch_soft_byte_limit,
+            max_companion_bytes=max_companion_bytes,
+            max_decompressed_companion_bytes=max_decompressed_companion_bytes,
+            max_variants=max_variants,
             zero_based=_resolve_zero_based(use_zero_based),
         )
         read_options = ReadOptions(pgen_read_options=pgen_read_options)

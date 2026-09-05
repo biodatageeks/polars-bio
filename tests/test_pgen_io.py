@@ -1,5 +1,6 @@
 """PGEN read, scan, register, and describe tests."""
 
+import inspect
 import sys
 
 import numpy as np
@@ -850,3 +851,203 @@ class TestPgenMatrix:
                 assert matrix.values.shape == (3, len(ORACLE_SAMPLES))
         finally:
             pb.set_option(TARGET_PARTITIONS, previous)
+
+
+_LEGACY_SCAN_PARAMETERS = (
+    "path genotype_fields samples missing_sample_policy psam_id_mode "
+    "pvar_path psam_path pgi_path max_range_gap max_range_bytes "
+    "batch_soft_byte_limit chunk_size concurrent_fetches allow_anonymous "
+    "enable_request_payer max_retries timeout compression_type "
+    "projection_pushdown predicate_pushdown use_zero_based"
+).split()
+
+_LEGACY_PGEN_PARAMETERS = [
+    (pb.read_pgen, _LEGACY_SCAN_PARAMETERS),
+    (pb.scan_pgen, _LEGACY_SCAN_PARAMETERS),
+    (
+        pb.read_pgen_matrix,
+        (
+            "path field samples missing missing_sample_policy psam_id_mode "
+            "pvar_path psam_path pgi_path max_range_gap max_range_bytes "
+            "batch_soft_byte_limit chunk_size concurrent_fetches allow_anonymous "
+            "enable_request_payer max_retries timeout compression_type "
+            "use_zero_based copy_threads"
+        ).split(),
+    ),
+    (
+        pb.describe_pgen,
+        (
+            "path allow_anonymous enable_request_payer compression_type "
+            "pvar_path psam_path pgi_path"
+        ).split(),
+    ),
+    (
+        pb.register_pgen,
+        (
+            "path name genotype_fields samples missing_sample_policy psam_id_mode "
+            "pvar_path psam_path pgi_path max_range_gap max_range_bytes "
+            "batch_soft_byte_limit chunk_size concurrent_fetches allow_anonymous "
+            "max_retries timeout enable_request_payer compression_type use_zero_based"
+        ).split(),
+    ),
+]
+
+
+@pytest.mark.parametrize("entrypoint, legacy_names", _LEGACY_PGEN_PARAMETERS)
+def test_pgen_legacy_positional_argument_order(entrypoint, legacy_names):
+    # Keep this list independent of the current signature: deriving the order
+    # from it would allow a newly inserted argument to silently remap callers.
+    values = [object() for _ in legacy_names]
+    signature = inspect.signature(entrypoint)
+    assert signature.bind(*values).arguments == dict(zip(legacy_names, values))
+    for name in (
+        "max_companion_bytes",
+        "max_decompressed_companion_bytes",
+        "max_variants",
+    ):
+        parameter = signature.parameters[name]
+        assert parameter.kind == inspect.Parameter.KEYWORD_ONLY
+        assert parameter.default is None
+        assert f"{name}:" in entrypoint.__doc__
+
+
+@pytest.mark.parametrize("entrypoint, legacy_names", _LEGACY_PGEN_PARAMETERS)
+def test_pgen_legacy_positional_calls_match_keyword_calls(entrypoint, legacy_names):
+    signature = inspect.signature(entrypoint)
+    overrides = {
+        "path": str(ORACLE_PATH),
+        "name": "pgen_legacy_positional",
+        "samples": ["s3", "s1"],
+        "genotype_fields": ("ALT_COUNT",),
+        "field": "ALT_COUNT",
+        "chunk_size": 17,
+        "use_zero_based": True,
+        "copy_threads": 1,
+    }
+    kwargs = {
+        name: overrides.get(name, signature.parameters[name].default)
+        for name in legacy_names
+    }
+
+    def materialize(positional):
+        try:
+            result = (
+                entrypoint(*kwargs.values()) if positional else entrypoint(**kwargs)
+            )
+            if entrypoint is pb.register_pgen:
+                return pb.sql(
+                    "SELECT * FROM pgen_legacy_positional ORDER BY start"
+                ).collect()
+            if entrypoint is pb.scan_pgen:
+                return result.collect().sort("start")
+            if entrypoint is pb.read_pgen:
+                return result.sort("start")
+            return result
+        finally:
+            if entrypoint is pb.register_pgen:
+                ctx.deregister_table("pgen_legacy_positional")
+
+    actual = materialize(True)
+    expected = materialize(False)
+    if entrypoint is pb.read_pgen_matrix:
+        np.testing.assert_array_equal(actual.values, expected.values)
+        np.testing.assert_array_equal(actual.positions, expected.positions)
+        assert actual.sample_names == expected.sample_names
+    elif isinstance(actual, pl.DataFrame):
+        assert actual.equals(expected)
+    else:
+        assert actual == expected
+
+
+class TestPgenCompanionLimits:
+    """The companion caps bound what the provider will load (#453).
+
+    The published 1000 Genomes panel is far too large to be a fixture, so
+    these tests prove the caps reach the provider and fail by name, and that a
+    raised cap changes nothing; the real panel is checked outside CI.
+    """
+
+    CAPS = {
+        "max_companion_bytes": 1 << 30,
+        "max_decompressed_companion_bytes": 1 << 31,
+        "max_variants": 12_345,
+    }
+
+    @pytest.mark.parametrize(
+        "module_name, call",
+        [
+            ("io", lambda caps: pb.read_pgen(str(ORACLE_PATH), **caps)),
+            ("io", lambda caps: pb.scan_pgen(str(ORACLE_PATH), **caps).collect()),
+            ("io", lambda caps: pb.describe_pgen(str(ORACLE_PATH), **caps)),
+            (
+                "io",
+                lambda caps: pb.read_pgen_matrix(
+                    str(ORACLE_PATH), field="ALT_COUNT", **caps
+                ),
+            ),
+            (
+                "sql",
+                lambda caps: pb.register_pgen(str(ORACLE_PATH), "pgen_caps", **caps),
+            ),
+        ],
+        ids=["read", "scan", "describe", "matrix", "register"],
+    )
+    def test_caps_reach_the_provider_options(self, module_name, call):
+        module = pb_io if module_name == "io" else pb_sql
+        seen = _captured_pgen_options(module, lambda: call(self.CAPS))
+        if module_name == "sql":
+            ctx.deregister_table("pgen_caps")
+        for name, value in self.CAPS.items():
+            assert seen[name] == value, name
+
+    def test_unset_caps_keep_the_provider_default(self):
+        seen = _captured_pgen_options(pb_io, lambda: pb.read_pgen(str(ORACLE_PATH)))
+        for name in self.CAPS:
+            assert seen[name] is None, name
+
+    @pytest.mark.parametrize(
+        "kwargs, expected",
+        [
+            ({"max_companion_bytes": 1}, "max_companion_bytes 1"),
+            (
+                {"max_decompressed_companion_bytes": 4},
+                "max_decompressed_companion_bytes 4",
+            ),
+            ({"max_variants": 1}, "max_variants 1"),
+        ],
+        ids=["companion", "decompressed", "variants"],
+    )
+    def test_a_lowered_cap_fails_by_name(self, kwargs, expected):
+        with pytest.raises(ValueError, match=expected):
+            pb.read_pgen(str(ORACLE_PATH), **kwargs)
+        with pytest.raises(ValueError, match=expected):
+            pb.scan_pgen(str(ORACLE_PATH), **kwargs).collect()
+        with pytest.raises(ValueError, match=expected):
+            pb.describe_pgen(str(ORACLE_PATH), **kwargs)
+        with pytest.raises(ValueError, match=expected):
+            pb.read_pgen_matrix(str(ORACLE_PATH), field="ALT_COUNT", **kwargs)
+        try:
+            with pytest.raises(ValueError, match=expected):
+                pb.register_pgen(str(ORACLE_PATH), "pgen_lowered_caps", **kwargs)
+        finally:
+            ctx.deregister_table("pgen_lowered_caps")
+
+    def test_a_raised_cap_does_not_change_content(self):
+        raised = pb.read_pgen(str(ORACLE_PATH), **self.CAPS).sort("start")
+        default = pb.read_pgen(str(ORACLE_PATH)).sort("start")
+        assert raised.equals(default)
+        assert raised["id"].to_list() == ORACLE_IDS
+
+
+class TestPgenMatrixPositions:
+    def test_positions_are_filled_into_an_int64_array_from_rust(self):
+        from polars_bio.polars_bio import PgenMatrixReader
+
+        matrix = pb.read_pgen_matrix(str(ORACLE_PATH), field="ALT_COUNT")
+        assert matrix.positions.dtype == np.int64
+        starts = pb.read_pgen(str(ORACLE_PATH)).sort("start")["start"].to_list()
+        assert matrix.positions.tolist() == starts
+        # The reader fills a caller-owned array; a list-returning accessor would
+        # rebuild every position as a Python int first.
+        assert hasattr(PgenMatrixReader, "positions_into")
+        assert not hasattr(PgenMatrixReader, "positions")

@@ -411,6 +411,15 @@ value per sample have no dense form.
   default.
 - **Projection** — a scan that selects only metadata columns never reads
   genotype records.
+- **Companion limits** — the `.pvar` and `.psam` are streamed and parsed into
+  a compact variant table when the fileset opens, so a panel of tens of
+  millions of variants costs a few tens of bytes per variant in memory: the
+  published 1000 Genomes reference panel (75M variants) opens in a few
+  seconds within about 4 GB. `max_companion_bytes` (4 GiB),
+  `max_decompressed_companion_bytes` (16 GiB), and `max_variants` (250
+  million) are sanity bounds on that load, accepted by every PGEN entry
+  point including `describe_pgen` and `register_pgen`; a fileset over one of
+  them fails before any genotype is read, naming the argument to raise.
 
 ```python
 import polars_bio as pb

@@ -1379,9 +1379,21 @@ impl PyPgenMatrixReader {
         self.inner.sample_names()
     }
 
-    /// Variant start positions, in row order.
-    fn positions(&self) -> Vec<u64> {
-        self.inner.positions()
+    /// Fills `destination`, an `int64` NumPy array, with the row positions.
+    fn positions_into(&self, destination: &Bound<'_, PyAny>) -> PyResult<()> {
+        // Keep the GIL through validation and filling, just as in read_into:
+        // releasing it would let another Python thread resize destination with
+        // refcheck=False and invalidate its allocation before the final write.
+        let (variants, _) = self.inner.shape();
+        let address =
+            validated_destination(destination, "int64", std::mem::align_of::<i64>(), variants)?;
+        // SAFETY: `address` came from `destination`, checked just above to hold
+        // `variants` writable, C-contiguous, aligned `int64`s, and the GIL is
+        // held for the fill, so the array cannot be resized or freed meanwhile.
+        let out = unsafe { std::slice::from_raw_parts_mut(address as *mut i64, variants) };
+        self.inner
+            .positions_into(out)
+            .map_err(|error| PyValueError::new_err(error.to_string()))
     }
 
     /// Decodes one genotype field into `destination`, a NumPy array.
