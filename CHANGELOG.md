@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- BED3 files now retain every interval in eager, lazy, and SQL reads, with null
+  names for the missing fourth field. Malformed BED records raise errors instead
+  of silently disappearing (#456). The upstream fixes also cover compression,
+  empty intervals, query row counts, and HTTP sources that deny HEAD requests.
 - `describe_pgen`, `scan_pgen`, `read_pgen`, and `read_pgen_matrix` rejected
   the published 1000 Genomes PLINK 2 fileset because its `.pvar.zst` exceeded
   a hard 512 MiB companion cap that no entry point could raise (#453). The
