@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Updated bio-format dependencies to v1.12.1, restoring release-tag pins after
+  the BED reader and PGEN companion fixes (#457).
 - PGEN companions are streamed and parsed into a columnar variant table
   upstream (`datafusion-bio-formats`), so production PLINK 2 filesets open
   without tuning: the PGS Catalog 1000 Genomes GRCh38 panel (75.2M variants,
