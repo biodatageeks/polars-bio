@@ -40,7 +40,8 @@ pyo3-log = "0.13.3"
 # v1.12.0 / datafusion-bio-functions v0.19.1, which pin datafusion to "=53.0.0".
 # Restore 53.1.0 once those crates publish releases built against datafusion 53.1.0.
 # datafusion-bio-formats is pinned to the master commit carrying PR #247 (PGEN
-# companion streaming, polars-bio #453); switch back to a release tag once one is cut.
+# companion streaming, polars-bio #453). The release-tag transition is tracked
+# in https://github.com/biodatageeks/polars-bio/issues/457.
 datafusion = { version = "53.0.0", default-features = false, features = ["nested_expressions", "crypto_expressions", "datetime_expressions", "encoding_expressions", "regex_expressions", "string_expressions", "unicode_expressions", "parquet", "recursive_protection", "sql"] }
 arrow = "58.3.0"
 arrow-schema = "58.3.0"

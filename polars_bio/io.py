@@ -2193,9 +2193,6 @@ class IOOperations:
         max_range_gap: Union[int, None] = None,
         max_range_bytes: Union[int, None] = None,
         batch_soft_byte_limit: Union[int, None] = None,
-        max_companion_bytes: Union[int, None] = None,
-        max_decompressed_companion_bytes: Union[int, None] = None,
-        max_variants: Union[int, None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -2206,6 +2203,10 @@ class IOOperations:
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
+        *,
+        max_companion_bytes: Union[int, None] = None,
+        max_decompressed_companion_bytes: Union[int, None] = None,
+        max_variants: Union[int, None] = None,
     ) -> pl.DataFrame:
         """
         Read a PLINK 2 PGEN fileset into a DataFrame.
@@ -2287,9 +2288,6 @@ class IOOperations:
         max_range_gap: Union[int, None] = None,
         max_range_bytes: Union[int, None] = None,
         batch_soft_byte_limit: Union[int, None] = None,
-        max_companion_bytes: Union[int, None] = None,
-        max_decompressed_companion_bytes: Union[int, None] = None,
-        max_variants: Union[int, None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -2300,12 +2298,21 @@ class IOOperations:
         projection_pushdown: bool = True,
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
+        *,
+        max_companion_bytes: Union[int, None] = None,
+        max_decompressed_companion_bytes: Union[int, None] = None,
+        max_variants: Union[int, None] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read a PLINK 2 PGEN fileset into a LazyFrame.
 
         Projection pushdown and configured input partition parallelism are
         preserved. See `read_pgen` for the parameters.
+
+        Parameters:
+            max_companion_bytes: Maximum on-disk companion size in bytes. None uses the provider default (4 GiB).
+            max_decompressed_companion_bytes: Maximum decoded companion size in bytes. None uses the provider default (16 GiB).
+            max_variants: Maximum PVAR row count. None uses the provider default (250 million).
         """
         _validate_pgen_input_path(path)
         _validate_pgen_genotype_fields(genotype_fields)
@@ -2363,9 +2370,6 @@ class IOOperations:
         max_range_gap: Union[int, None] = None,
         max_range_bytes: Union[int, None] = None,
         batch_soft_byte_limit: Union[int, None] = None,
-        max_companion_bytes: Union[int, None] = None,
-        max_decompressed_companion_bytes: Union[int, None] = None,
-        max_variants: Union[int, None] = None,
         chunk_size: int = 8,
         concurrent_fetches: int = 1,
         allow_anonymous: bool = True,
@@ -2375,6 +2379,10 @@ class IOOperations:
         compression_type: str = "auto",
         use_zero_based: Optional[bool] = None,
         copy_threads: Union[int, None] = None,
+        *,
+        max_companion_bytes: Union[int, None] = None,
+        max_decompressed_companion_bytes: Union[int, None] = None,
+        max_variants: Union[int, None] = None,
     ) -> "PgenMatrix":
         """
         Read one genotype field of a PGEN fileset into a dense NumPy matrix.
@@ -2405,6 +2413,9 @@ class IOOperations:
             max_range_gap: The largest run of unselected bytes bridged when coalescing reads.
             max_range_bytes: The largest coalesced read, in bytes.
             batch_soft_byte_limit: A soft target for genotype bytes in one RecordBatch.
+            max_companion_bytes: Maximum on-disk companion size in bytes. None uses the provider default (4 GiB).
+            max_decompressed_companion_bytes: Maximum decoded companion size in bytes. None uses the provider default (16 GiB).
+            max_variants: Maximum PVAR row count. None uses the provider default (250 million).
             chunk_size: The size in MB of a chunk when reading from an object store.
             concurrent_fetches: The number of concurrent fetches when reading from an object store.
             allow_anonymous: Whether to allow anonymous access to object storage.
@@ -3296,6 +3307,7 @@ class IOOperations:
         pvar_path: Union[str, None] = None,
         psam_path: Union[str, None] = None,
         pgi_path: Union[str, None] = None,
+        *,
         max_companion_bytes: Union[int, None] = None,
         max_decompressed_companion_bytes: Union[int, None] = None,
         max_variants: Union[int, None] = None,

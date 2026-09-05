@@ -1,6 +1,7 @@
 ## 1. Upstream dependency
-- [x] 1.1 Land `refactor-pgen-companion-memory-model` in datafusion-bio-formats and cut a release tag.
-- [x] 1.2 Bump every `datafusion-bio-format-*` tag in `Cargo.toml` and regenerate `Cargo.lock`.
+- [x] 1.1 Land `refactor-pgen-companion-memory-model` in datafusion-bio-formats (upstream PR #247, commit `1c86f0c`).
+- [x] 1.2 Pin every `datafusion-bio-format-*` crate in `Cargo.toml` to that exact revision and regenerate `Cargo.lock`.
+- [ ] 1.3 Cut an upstream release containing the fix, replace all revision pins with its tag, regenerate the lockfile and rerun integration checks (tracked by polars-bio #457).
 
 ## 2. Options plumbing
 - [x] 2.1 Add `max_companion_bytes`, `max_decompressed_companion_bytes`, `max_variants` (`Option<usize>`) to `PgenReadOptions` in `src/option.rs` (fields, constructor signature, `default()`).

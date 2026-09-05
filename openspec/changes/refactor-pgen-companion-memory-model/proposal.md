@@ -25,9 +25,10 @@ to describe and ~85 GB to scan the full panel.
 - Return `read_pgen_matrix` row positions as a NumPy array built in Rust
   instead of a Python list of integers; on the 75M-variant panel the list
   costs ~2.7 GB before NumPy sees it.
-- Bump the `datafusion-bio-format-*` tag to the release carrying the
-  upstream change; document the caps in `docs/features/reading.md` and the
-  changelog.
+- Pin every `datafusion-bio-format-*` crate to the exact upstream revision
+  carrying the change until a release is available; the release-tag transition
+  remains open in polars-bio #457. Document the caps in
+  `docs/features/reading.md` and the changelog.
 - Verify on the real `GRCh38_1000G_ALL` trio: open time, peak RSS, and ALT
   count parity with `pgenlib` on a region.
 

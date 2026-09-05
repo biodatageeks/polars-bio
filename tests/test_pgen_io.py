@@ -1,5 +1,6 @@
 """PGEN read, scan, register, and describe tests."""
 
+import inspect
 import sys
 
 import numpy as np
@@ -850,6 +851,112 @@ class TestPgenMatrix:
                 assert matrix.values.shape == (3, len(ORACLE_SAMPLES))
         finally:
             pb.set_option(TARGET_PARTITIONS, previous)
+
+
+_LEGACY_SCAN_PARAMETERS = (
+    "path genotype_fields samples missing_sample_policy psam_id_mode "
+    "pvar_path psam_path pgi_path max_range_gap max_range_bytes "
+    "batch_soft_byte_limit chunk_size concurrent_fetches allow_anonymous "
+    "enable_request_payer max_retries timeout compression_type "
+    "projection_pushdown predicate_pushdown use_zero_based"
+).split()
+
+_LEGACY_PGEN_PARAMETERS = [
+    (pb.read_pgen, _LEGACY_SCAN_PARAMETERS),
+    (pb.scan_pgen, _LEGACY_SCAN_PARAMETERS),
+    (
+        pb.read_pgen_matrix,
+        (
+            "path field samples missing missing_sample_policy psam_id_mode "
+            "pvar_path psam_path pgi_path max_range_gap max_range_bytes "
+            "batch_soft_byte_limit chunk_size concurrent_fetches allow_anonymous "
+            "enable_request_payer max_retries timeout compression_type "
+            "use_zero_based copy_threads"
+        ).split(),
+    ),
+    (
+        pb.describe_pgen,
+        (
+            "path allow_anonymous enable_request_payer compression_type "
+            "pvar_path psam_path pgi_path"
+        ).split(),
+    ),
+    (
+        pb.register_pgen,
+        (
+            "path name genotype_fields samples missing_sample_policy psam_id_mode "
+            "pvar_path psam_path pgi_path max_range_gap max_range_bytes "
+            "batch_soft_byte_limit chunk_size concurrent_fetches allow_anonymous "
+            "max_retries timeout enable_request_payer compression_type use_zero_based"
+        ).split(),
+    ),
+]
+
+
+@pytest.mark.parametrize("entrypoint, legacy_names", _LEGACY_PGEN_PARAMETERS)
+def test_pgen_legacy_positional_argument_order(entrypoint, legacy_names):
+    # Keep this list independent of the current signature: deriving the order
+    # from it would allow a newly inserted argument to silently remap callers.
+    values = [object() for _ in legacy_names]
+    signature = inspect.signature(entrypoint)
+    assert signature.bind(*values).arguments == dict(zip(legacy_names, values))
+    for name in (
+        "max_companion_bytes",
+        "max_decompressed_companion_bytes",
+        "max_variants",
+    ):
+        parameter = signature.parameters[name]
+        assert parameter.kind == inspect.Parameter.KEYWORD_ONLY
+        assert parameter.default is None
+        assert f"{name}:" in entrypoint.__doc__
+
+
+@pytest.mark.parametrize("entrypoint, legacy_names", _LEGACY_PGEN_PARAMETERS)
+def test_pgen_legacy_positional_calls_match_keyword_calls(entrypoint, legacy_names):
+    signature = inspect.signature(entrypoint)
+    overrides = {
+        "path": str(ORACLE_PATH),
+        "name": "pgen_legacy_positional",
+        "samples": ["s3", "s1"],
+        "genotype_fields": ("ALT_COUNT",),
+        "field": "ALT_COUNT",
+        "chunk_size": 17,
+        "use_zero_based": True,
+        "copy_threads": 1,
+    }
+    kwargs = {
+        name: overrides.get(name, signature.parameters[name].default)
+        for name in legacy_names
+    }
+
+    def materialize(positional):
+        try:
+            result = (
+                entrypoint(*kwargs.values()) if positional else entrypoint(**kwargs)
+            )
+            if entrypoint is pb.register_pgen:
+                return pb.sql(
+                    "SELECT * FROM pgen_legacy_positional ORDER BY start"
+                ).collect()
+            if entrypoint is pb.scan_pgen:
+                return result.collect().sort("start")
+            if entrypoint is pb.read_pgen:
+                return result.sort("start")
+            return result
+        finally:
+            if entrypoint is pb.register_pgen:
+                ctx.deregister_table("pgen_legacy_positional")
+
+    actual = materialize(True)
+    expected = materialize(False)
+    if entrypoint is pb.read_pgen_matrix:
+        np.testing.assert_array_equal(actual.values, expected.values)
+        np.testing.assert_array_equal(actual.positions, expected.positions)
+        assert actual.sample_names == expected.sample_names
+    elif isinstance(actual, pl.DataFrame):
+        assert actual.equals(expected)
+    else:
+        assert actual == expected
 
 
 class TestPgenCompanionLimits:

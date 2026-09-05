@@ -1381,6 +1381,9 @@ impl PyPgenMatrixReader {
 
     /// Fills `destination`, an `int64` NumPy array, with the row positions.
     fn positions_into(&self, destination: &Bound<'_, PyAny>) -> PyResult<()> {
+        // Keep the GIL through validation and filling, just as in read_into:
+        // releasing it would let another Python thread resize destination with
+        // refcheck=False and invalidate its allocation before the final write.
         let (variants, _) = self.inner.shape();
         let address =
             validated_destination(destination, "int64", std::mem::align_of::<i64>(), variants)?;

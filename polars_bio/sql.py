@@ -1072,9 +1072,6 @@ class SQL:
         max_range_gap: Union[int, None] = None,
         max_range_bytes: Union[int, None] = None,
         batch_soft_byte_limit: Union[int, None] = None,
-        max_companion_bytes: Union[int, None] = None,
-        max_decompressed_companion_bytes: Union[int, None] = None,
-        max_variants: Union[int, None] = None,
         chunk_size: int = 64,
         concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
@@ -1083,6 +1080,10 @@ class SQL:
         enable_request_payer: bool = False,
         compression_type: str = "auto",
         use_zero_based: Optional[bool] = None,
+        *,
+        max_companion_bytes: Union[int, None] = None,
+        max_decompressed_companion_bytes: Union[int, None] = None,
+        max_variants: Union[int, None] = None,
     ) -> None:
         """
         Register a PLINK 2 PGEN fileset as a DataFusion table.
