@@ -17,7 +17,7 @@
 - [x] 2.6 Stockholm partition planning: scan for `//` byte offsets, split alignments across `target_partitions` by cumulative bytes, one partition for single-alignment files; ordinals are assigned globally so `alignment_id` fallback is stable across partitions.
 - [x] 2.7 Provider tests (Rust): 29 integration tests over the fixtures for full scan, projection-only, `count(*)`, `gs_fields`, multi-alignment, interleaved, `#=GR PP`, missing `//`, wrong header, empty file, compressed variants, partition count, ordinal fallback, annotations.
 - [x] 2.8 `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, `cargo test -p datafusion-bio-format-msa` green; committed as `7c5aea0` on `feat/msa-formats` in the companion worktree.
-- [ ] 2.9 Push `feat/msa-formats` and open the upstream PR referencing bio-formats#245 (outward-facing; awaiting go-ahead).
+- [x] 2.9 Pushed `feat/msa-formats` and opened biodatageeks/datafusion-bio-formats#250 (refs #245).
 
 ## 3. Coordinated Dependency Bump (polars-bio)
 
@@ -62,7 +62,7 @@
 ## 8. Release and Follow-up Communication
 
 - [ ] 8.1 Post the final schema and non-goals on polars-bio#459 and bio-formats#245; ask the reporter to validate on their A3M/A2M/STO workloads before release.
-- [ ] 8.2 Open the polars-bio PR referencing #459 once §3.1 lands.
+- [ ] 8.2 polars-bio PR #460 opened as a **draft**; mark ready once §3.1 (pin bump) lands.
 
 ## 9. Deferred Follow-ups (not part of this change)
 
