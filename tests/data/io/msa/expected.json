@@ -1,0 +1,88 @@
+{
+  "generated": "2026-09-08",
+  "stockholm": {
+    "PF00001.sto": [
+      {
+        "n_sequences": 63,
+        "alignment_length": 722
+      }
+    ],
+    "RF00001.sto": [
+      {
+        "n_sequences": 712,
+        "alignment_length": 230
+      }
+    ],
+    "PF00001_pfam.sto": [
+      {
+        "n_sequences": 63,
+        "alignment_length": 722
+      }
+    ],
+    "RF00001_pfam.sto": [
+      {
+        "n_sequences": 712,
+        "alignment_length": 230
+      }
+    ],
+    "PF00001_hmmalign.sto": [
+      {
+        "n_sequences": 63,
+        "alignment_length": 724
+      }
+    ],
+    "multi.sto": [
+      {
+        "n_sequences": 63,
+        "alignment_length": 722
+      },
+      {
+        "n_sequences": 712,
+        "alignment_length": 230
+      }
+    ],
+    "query_hh.sto": [
+      {
+        "n_sequences": 59,
+        "alignment_length": 849
+      }
+    ],
+    "single.sto": [
+      {
+        "n_sequences": 1,
+        "alignment_length": 8
+      }
+    ]
+  },
+  "a3m": {
+    "query.a3m": [
+      {
+        "n_sequences": 59,
+        "alignment_length": 849
+      }
+    ],
+    "query_dotted.a2m": [
+      {
+        "n_sequences": 59,
+        "alignment_length": 849
+      }
+    ],
+    "hdr.a3m": {
+      "same_records_as": "query.a3m"
+    },
+    "test_head.a3m": {
+      "with_pseudo_records": 204,
+      "pseudo_names": [
+        "ss_dssp",
+        "ss_pred",
+        "ss_conf"
+      ],
+      "without_pseudo": [
+        {
+          "n_sequences": 201,
+          "alignment_length": 486
+        }
+      ]
+    }
+  }
+}
