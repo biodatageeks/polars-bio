@@ -216,11 +216,22 @@ The system SHALL stream A2M and A3M records without buffering the whole file, an
 - **AND** the result is identical regardless of `target_partitions`.
 
 ### Requirement: Parity With Reference Implementations
-The system SHALL be verified against independent reference implementations for every fixture: `pyhmmer` (Easel) for Stockholm structure and A2M/A3M alignment semantics, and Biopython for byte-level record parsing.
+The system SHALL be verified against independent reference implementations for every fixture: Easel (HMMER `esl-alistat`/`esl-reformat` at fixture-generation time, `pyhmmer` in-test) for Stockholm structure and A2M/A3M alignment semantics, hh-suite `reformat.pl` for A3M/A2M conversion at fixture-generation time, and Biopython for byte-level record parsing.
 
 #### Scenario: Stockholm parity
 - **WHEN** the Pfam PF00001 seed and the interleaved Rfam RF00001 seed are scanned
-- **THEN** the row count, sequence strings and names equal those produced by `pyhmmer.easel.MSAFile(format="stockholm")`.
+- **THEN** the row count, sequence strings and names equal those produced by `pyhmmer.easel.MSAFile(format="stockholm")`
+- **AND** the per-alignment `n_sequences` and `alignment_length` equal the checked-in `esl-alistat` values.
+
+#### Scenario: De-interleaving parity
+- **WHEN** the interleaved RF00001 seed is scanned
+- **THEN** each row's `sequence`, `gs` and `gr` equal those obtained from the checked-in `esl-reformat pfam` single-block form of the same file
+- **AND** `describe_sto` `#=GF` rows are line-identical to that form for every feature except `GA`, `TC` and `NC`, which are compared numerically.
+
+#### Scenario: Cross-implementation A3M agreement
+- **WHEN** the checked-in dotted A2M expansion of `query.a3m` is regenerated
+- **THEN** the output of hh-suite `reformat.pl a3m a2m` and Easel's A2M reader are byte-identical
+- **AND** the fixture generator fails if they diverge.
 
 #### Scenario: A3M parity
 - **WHEN** an A3M fixture is scanned and its reserved pseudo-sequence rows are excluded

@@ -152,29 +152,57 @@ against real data), polars-bio maintainers, `datafusion-bio-formats` maintainers
 
 ## Test Oracles
 
-Neither `esl-reformat` (HMMER) nor `reformat.pl` (hh-suite) ships wheels, so parity uses
-pip-installable references. Evidence below comes from probes run against the real files
-listed in Context.
+Three independent reference implementations were probed against the real files listed in
+Context. Two of them are the tools that *define* these formats in practice:
+
+- **Easel / HMMER 3.4 CLI** (`esl-alistat`, `esl-reformat`) — Eddy lab, the Stockholm
+  reference implementation. Built from source in ~1 min; `bioconda::hmmer` on CI. Not
+  pip-installable.
+- **hh-suite `scripts/reformat.pl`** — the canonical A3M/A2M converter. Pure Perl
+  (`use strict; use warnings` only), runs standalone with no hh-suite build. GPL-3, so it is
+  **fetched by the fixture generator, never vendored** into this Apache-2.0 repo.
+- **pyhmmer** (Easel bindings, pip wheels) and **Biopython** — the in-test oracles that run on
+  every CI job.
+
+Key cross-check: `reformat.pl a3m a2m` and Easel's A2M reader produce **byte-identical**
+dotted A2M for `query.a3m` (59/59 rows, width 849). Two unrelated implementations agreeing
+exactly is the strongest evidence available that our verbatim A3M passthrough is being
+judged against the right semantics.
 
 | Format | Property | Oracle | Evidence |
 |---|---|---|---|
-| sto | nseq, alignment length, names, block-concatenated sequences, per-seq AC/DE, RF, PP | `pyhmmer.easel.MSAFile(format="stockholm")` (Easel is the reference implementation) | PF00001 → 63/722; interleaved RF00001 → 712/230 |
-| sto | multi-alignment files | pyhmmer and Biopython `AlignIO` | both read a two-alignment file back as two |
-| sto | `#=GR`/`#=GC` per-residue lines, interleaved | fixture **generated** by `pyhmmer.hmmer.hmmalign` (GR `PP`, GC `PP_cons`/`RF`, 200-col blocks) and re-read by pyhmmer | oracle-generated, no hand edits |
+| sto | nseq and alignment length per alignment, multi-alignment files | `esl-alistat` (CLI) and `pyhmmer.easel.MSAFile(format="stockholm")` | PF00001 → 63/722; interleaved RF00001 → 712/230; `multi.sto` → two alignments; `hmmalign` output → 63/724 |
+| sto | **de-interleaving** (block concatenation of sequences, `#=GR`, `#=GC`) | `esl-reformat pfam` rewrites any Stockholm into canonical single-block form; the result is checked in as an expected-output fixture | RF00001: 712 sequence lines out, `#=GC` 4 lines (2 features × 2 blocks) → 2, all 50 `#=GF` lines verbatim and in order |
+| sto | verbatim `#=GF`/`#=GS` lines, order and repeats (`describe_sto`, `gs` bag) | `esl-reformat pfam` output is line-identical for `#=GS` and for 21 of 24 `#=GF` features; Easel **parses and normalises** `GA`/`TC`/`NC` (`30.50 30.50;` → `30.5 30.5`, reordered) and emits `#=GC RF` first | so: line-identical assertion for every feature except `GA`/`TC`/`NC`, which are compared numerically; `#=GC` compared per feature, order-insensitive |
+| sto | `#=GR`/`#=GC` per-residue lines, interleaved | fixture **generated** by `pyhmmer.hmmer.hmmalign` (GR `PP`, GC `PP_cons`/`RF`, 200-col blocks); `gr` PP equals `msa.posterior_probabilities` | oracle-generated, no hand edits |
+| sto | sequences and names of a Stockholm derived from an A3M | `reformat.pl a3m sto` (keeps the first header token as the name, drops the description — Stockholm names cannot contain spaces) | 59/59 names and sequences round-trip `a3m → sto → a3m` byte-identical |
 | sto | named `#=GF`/`#=GC` keys, single-block files | Biopython `Bio.Align` stockholm | works on PF00001; fails on interleaved input, so single-block only |
-| sto | raw `gs`/`gr` bags and `describe_sto` with repeated, ordered GF features | **no library exposes this**; pyhmmer surfaces a fixed tag set, Biopython renames/merges | differential test against a ~15-line line-splitter in the test file, deliberately dumb (no blocks, no streaming) |
-| a3m | match-column count constant per row and equal to Easel's | `pyhmmer.easel.MSAFile(format="a2m")` — Easel reads dotless A2M, i.e. A3M | query.a3m → 59/849; test.a3m (pseudo-seqs stripped) → 2544/1821, 290 match cols on every row |
-| a3m | `ss_*`/`sa_*`/`aa_*` pseudo-sequences | must be stripped before Easel (`ss_conf` digits → "invalid sequence characters"); their passthrough is oracled by Biopython SeqIO | confirms "emit as rows, document the filter" |
+| a3m | alignment semantics: match-column count constant per row and equal to the reference | `esl-alistat --informat a2m` / `pyhmmer.easel.MSAFile(format="a2m")` (Easel reads dotless A2M, i.e. A3M) **and** `reformat.pl a3m a2m` | query.a3m → 59/849 from both; test.a3m (pseudo-seqs stripped) → 2544/1821, 290 match cols on every row |
+| a3m | `ss_*`/`sa_*`/`aa_*` pseudo-sequences | `reformat.pl` keeps them as rows (2547/2547, first four names `ss_dssp`, `ss_pred`, `ss_conf`, `1a7j_A`); Easel rejects the file (`ss_conf` digits → "invalid sequence characters") | confirms "emit as rows, document the filter"; Easel-based checks strip them first |
 | a2m/a3m | name, description, sequence bytes, ragged rows, record count | Biopython `SeqIO.parse(f, "fasta")` | ids identical, ragged on both a3m files |
 | a3m | leading `#A3M#`/`#` lines | Biopython `"fasta-blast"` (plain `"fasta"` refuses such files) | 59 records recovered |
-| a2m (dotted) | rectangular parse | Biopython `Bio.Align` a2m **and** pyhmmer | dotted fixture built from Easel's reconstructed rows (59 × 849) |
+| a2m (dotted) | rectangular parse | expected-output fixture generated by `reformat.pl` **and** Easel (byte-identical); read back by Biopython `Bio.Align` a2m and pyhmmer | 59 × 849 |
 | all | `.gz`/`.bgz` | same oracle on the decompressed bytes | — |
+
+How the two tiers fit together:
+
+1. **Fixture generation** (`tests/data/msa/generate_fixtures.py`, run by a maintainer, output
+   checked in): fetches the source files and `reformat.pl`, requires `esl-reformat`/
+   `esl-alistat` on `PATH`, and asserts the cross-implementation agreements above before
+   writing expected-output files (`*_pfam.sto` canonical single-block forms,
+   `query_dotted.a2m`, `query_hh.sto`, `PF00001_hmmalign.sto`, `multi.sto`, `hdr.a3m`) plus an
+   `expected.json` with per-alignment `n_sequences`/`alignment_length` from `esl-alistat`.
+2. **In-test parity** (`tests/test_msa_io.py`, every CI job): compares our output against the
+   checked-in expected files and against pyhmmer/Biopython live. No Perl, no HMMER binary
+   needed to run the suite.
+3. **Optional live-CLI job**: one CI job installs `bioconda::hmmer` and runs the
+   `esl-alistat`/`esl-reformat` assertions live; tests are `skipif(shutil.which("esl-alistat")
+   is None)` elsewhere.
 
 Fixtures are vendored small under `tests/data/msa/` with their source URL and retrieval
 date in a `README.md`: PF00001 seed (InterPro API), RF00001 seed (rfam.org), hh-suite
 `query.a3m` and a `≤200`-record head of `test.a3m` that keeps the three pseudo-sequences,
-plus the pyhmmer-generated `hmmalign` and multi-alignment files with the generating script
-checked in.
+plus the generated expected-output files above.
 
 ## Risks / Trade-offs
 
