@@ -112,9 +112,9 @@ def write_fasta(records: list[tuple[str, str]]) -> str:
 
 def sto_lines(text: str, prefix: str) -> list[str]:
     return [
-        re.sub(r"\s+", " ", l).strip()
-        for l in text.splitlines()
-        if l.startswith(prefix)
+        re.sub(r"\s+", " ", line).strip()
+        for line in text.splitlines()
+        if line.startswith(prefix)
     ]
 
 
@@ -213,14 +213,14 @@ def main() -> None:
         if sto_lines(original, "#=GS") != sto_lines(canon, "#=GS"):
             die(f"esl-reformat pfam changed #=GS lines of {name}")
         gf_in = [
-            l
-            for l in sto_lines(original, "#=GF")
-            if l.split()[1] not in EASEL_NORMALISED_GF
+            line
+            for line in sto_lines(original, "#=GF")
+            if line.split()[1] not in EASEL_NORMALISED_GF
         ]
         gf_out = [
-            l
-            for l in sto_lines(canon, "#=GF")
-            if l.split()[1] not in EASEL_NORMALISED_GF
+            line
+            for line in sto_lines(canon, "#=GF")
+            if line.split()[1] not in EASEL_NORMALISED_GF
         ]
         if gf_in != gf_out:
             die(f"esl-reformat pfam changed non-normalised #=GF lines of {name}")

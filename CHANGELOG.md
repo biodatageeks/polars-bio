@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Multiple-sequence-alignment readers for A2M, A3M and Stockholm
+  (`read_a2m`/`scan_a2m`/`register_a2m`, `read_a3m`/`scan_a3m`/`register_a3m`,
+  `read_sto`/`scan_sto`/`register_sto`, `describe_sto`). A2M/A3M share the
+  FASTA schema with verbatim, possibly ragged sequences; Stockholm yields one
+  row per sequence per alignment with `alignment_id`, `name`, `sequence` and
+  `gs`/`gr` annotation bags, supports interleaved blocks and multi-alignment
+  files (partitioned on `//`), and promotes `#=GS` features via `gs_fields`.
+  Backed by the new `datafusion-bio-format-msa` crate and parity-tested
+  against Easel (pyhmmer / `esl-*`), hh-suite `reformat.pl` and Biopython
+  (#459, biodatageeks/datafusion-bio-formats#245).
 - PGEN entry points (`read_pgen`, `scan_pgen`, `read_pgen_matrix`,
   `describe_pgen`, `register_pgen`) accept `max_companion_bytes`,
   `max_decompressed_companion_bytes`, and `max_variants`, forwarded to the

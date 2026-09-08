@@ -165,8 +165,8 @@ The system SHALL reject as an error any Stockholm input whose first non-blank li
 The system SHALL provide `describe_sto(path)` returning a Polars `DataFrame` with one row per alignment-level annotation line and columns `alignment_id` (Utf8), `kind` (Utf8, `GF` or `GC`), `feature` (Utf8), `value` (LargeUtf8), `n_sequences` (UInt32) and `alignment_length` (UInt32).
 
 #### Scenario: Repeated GF features are preserved in order
-- **WHEN** an alignment contains eight `#=GF DR` lines and ten `#=GF CC` lines
-- **THEN** `describe_sto` returns eight rows with `feature` `DR` and ten rows with `feature` `CC`
+- **WHEN** an alignment contains eleven `#=GF DR` lines and ten `#=GF CC` lines
+- **THEN** `describe_sto` returns eleven rows with `feature` `DR` and ten rows with `feature` `CC`
 - **AND** they appear in the same relative order as in the file.
 
 #### Scenario: Column annotations

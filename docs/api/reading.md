@@ -20,6 +20,9 @@
             - read_sam
             - read_fastq
             - read_fasta
+            - read_a2m
+            - read_a3m
+            - read_sto
             - read_gff
             - read_gtf
             - read_bed
@@ -38,6 +41,9 @@
             - scan_sam
             - scan_fastq
             - scan_fasta
+            - scan_a2m
+            - scan_a3m
+            - scan_sto
             - scan_gff
             - scan_gtf
             - scan_bed
@@ -55,4 +61,5 @@
             - describe_sam
             - describe_cram
             - describe_cool
+            - describe_sto
             - from_polars

@@ -22,7 +22,7 @@ seed (712 seqs, **interleaved**, two blocks). Findings that shaped the decisions
 - A3M may start with `#A3M#`/`#` lines before the first `>`, and may carry reserved
   `>ss_pred`, `>ss_conf`, `>ss_dssp`, `>sa_dssp`, `>aa_dssp` pseudo-sequence records (the
   hhpred example has three, *ahead of* the query).
-- `#=GF` features **repeat** and are order-significant (PF00001: `DR`×8, `DC`, `WK`×2, ten
+- `#=GF` features **repeat** and are order-significant (PF00001: `DR`×11, `DC`, `WK`×2, ten
   `CC` continuation lines). Any dict-shaped representation silently collapses them.
 - Interleaving is current practice, not legacy: Rfam ships wrapped seeds and Easel writes
   200-column blocks by default. Biopython's newer `Bio.Align` Stockholm parser cannot read
