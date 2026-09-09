@@ -21,7 +21,7 @@
 
 ## 3. Coordinated Dependency Bump (polars-bio)
 
-- [x] 3.1 All 15 `datafusion-bio-format-*` git pins moved together to `rev = 7c5aea0bb423c1a5527efde3460286617120a242` (head of datafusion-bio-formats#250 = v1.12.1 + the MSA crate); `Cargo.lock` regenerated from the git source. Follow-up: switch the pins back to a release tag once #250 is merged and tagged.
+- [x] 3.1 All 15 `datafusion-bio-format-*` git pins moved together to `rev = 8a1f7aec35fd8166e8ab22406d490cf6ac748b1c` (head of datafusion-bio-formats#250 = v1.12.1 + the MSA crate); `Cargo.lock` regenerated from the git source. Follow-up: switch the pins back to a release tag once #250 is merged and tagged.
 - [x] 3.2 `cargo check` and the existing IO suites run green against the patched crates **before** the MSA bindings were exercised (see §6.9 for the post-binding regression run).
 
 ## 4. Rust/PyO3 Integration
