@@ -21,7 +21,7 @@
 
 ## 3. Coordinated Dependency Bump (polars-bio)
 
-- [ ] 3.1 After the upstream PR merges and a tag is cut, move **all** `datafusion-bio-format-*` git pins in `Cargo.toml` to the new tag in one commit (the `datafusion-bio-format-msa` dependency line is already present, currently pointing at `v1.12.1` which does not carry the crate); regenerate `Cargo.lock`. Local development uses an uncommitted `[patch]` in the worktree's `.cargo/config.toml`.
+- [x] 3.1 All 15 `datafusion-bio-format-*` git pins moved together to `rev = 7c5aea0bb423c1a5527efde3460286617120a242` (head of datafusion-bio-formats#250 = v1.12.1 + the MSA crate); `Cargo.lock` regenerated from the git source. Follow-up: switch the pins back to a release tag once #250 is merged and tagged.
 - [x] 3.2 `cargo check` and the existing IO suites run green against the patched crates **before** the MSA bindings were exercised (see §6.9 for the post-binding regression run).
 
 ## 4. Rust/PyO3 Integration
@@ -62,7 +62,7 @@
 ## 8. Release and Follow-up Communication
 
 - [ ] 8.1 Post the final schema and non-goals on polars-bio#459 and bio-formats#245; ask the reporter to validate on their A3M/A2M/STO workloads before release.
-- [ ] 8.2 polars-bio PR #460 opened as a **draft**; mark ready once §3.1 (pin bump) lands.
+- [x] 8.2 polars-bio PR #460 opened; builds from a clean checkout via the rev pin (§3.1).
 
 ## 9. Deferred Follow-ups (not part of this change)
 
