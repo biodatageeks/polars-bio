@@ -414,6 +414,42 @@ def test_describe_sto_preserves_repeated_gf_in_order():
     assert {len(v) for v in gc["value"].to_list()} == {722}
 
 
+def test_describe_sto_keeps_file_order_across_kinds(tmp_path):
+    f = tmp_path / "mixed.sto"
+    f.write_text(
+        "# STOCKHOLM 1.0\n"
+        "#=GF ID mixed\n"
+        "#=GC RF xxxx\n"
+        "#=GF DE after a GC line\n"
+        "#=GC SS_cons ....\n"
+        "#=GF CC trailing\n"
+        "seqA ACGT\n"
+        "#=GC RF yyyy\n"
+        "//\n"
+    )
+    d = pb.describe_sto(str(f))
+    assert d.select("kind", "feature", "value").rows() == [
+        ("GF", "ID", "mixed"),
+        # Repeated across two blocks, reported at its first position.
+        ("GC", "RF", "xxxxyyyy"),
+        ("GF", "DE", "after a GC line"),
+        ("GC", "SS_cons", "...."),
+        ("GF", "CC", "trailing"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "header",
+    ["# STOCKHOLM 2.0", "# STOCKHOLM1.0", "# STOCKHOLM  1.0", "#STOCKHOLM 1.0"],
+)
+def test_sto_rejects_unsupported_headers(tmp_path, header):
+    f = tmp_path / "h.sto"
+    f.write_text(f"{header}\nseqA ACGT\n//\n")
+    with pytest.raises(Exception) as exc:
+        pb.read_sto(str(f))
+    assert "# STOCKHOLM 1.0" in str(exc.value)
+
+
 def test_describe_sto_interleaved_matches_easel_canonical_form():
     """#=GF lines must equal esl-reformat's canonical output except the three
     features Easel parses and normalises; #=GC per feature, order-insensitive."""

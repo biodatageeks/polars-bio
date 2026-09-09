@@ -169,6 +169,11 @@ The system SHALL provide `describe_sto(path)` returning a Polars `DataFrame` wit
 - **THEN** `describe_sto` returns eleven rows with `feature` `DR` and ten rows with `feature` `CC`
 - **AND** they appear in the same relative order as in the file.
 
+#### Scenario: GF and GC rows keep their file order
+- **WHEN** an alignment interleaves `#=GF` and `#=GC` lines
+- **THEN** the rows follow the order of the lines in the file rather than being grouped by `kind`
+- **AND** a `#=GC` feature spread over interleaved blocks appears once, at the position of its first block.
+
 #### Scenario: Column annotations
 - **WHEN** an alignment contains `#=GC RF` and `#=GC seq_cons` lines
 - **THEN** `describe_sto` returns rows with `kind` `GC` and `feature` `RF` and `seq_cons`

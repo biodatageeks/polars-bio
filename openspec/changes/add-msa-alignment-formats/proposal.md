@@ -46,9 +46,12 @@ alignment-aware operation (consensus, profile, column statistics).
 ## Impact
 
 - Affected specs: `msa-io` (new capability)
-- Planning ownership: this polars-bio OpenSpec change is the single authoritative plan for
-  both polars-bio integration and the companion provider-crate work. Do not create a mirrored
-  OpenSpec change in `datafusion-bio-formats`.
+- Planning ownership: this polars-bio OpenSpec change is the original cross-repository
+  feature plan. Following the `add-cool-mcool-support` precedent — and the companion repo's
+  own `openspec/AGENTS.md`, which requires a proposal for a new capability — the provider
+  crate additionally carries `add-msa-format-provider` in `datafusion-bio-formats`, recording
+  its own schema, parsing, partitioning and parity criteria so they can be reviewed and
+  archived there.
 - Affected companion checkout (`biodatageeks/datafusion-bio-formats`):
   - new crate `datafusion/bio-format-msa`
   - workspace `Cargo.toml` member list
