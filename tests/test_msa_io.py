@@ -16,7 +16,9 @@ import json
 import re
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier, Lock
 
 import polars as pl
 import pytest
@@ -346,6 +348,93 @@ def test_sto_gs_fields_promotion_and_sentinel():
     pb.register_sto(p("PF00001.sto"), "pfam_t", gs_fields=["AC"])
     out = pb.sql('SELECT name, "AC" FROM pfam_t LIMIT 1').collect()
     assert out.rows() == [("NPY1R_HUMAN/57-320", "P25929.1")]
+
+
+def _catalog_tables():
+    return set(
+        pb.sql("SELECT table_name FROM information_schema.tables")
+        .collect()["table_name"]
+        .to_list()
+    )
+
+
+@pytest.mark.parametrize("phase", ["schema", "collect", "same_scan"])
+def test_sto_concurrent_scans_keep_their_own_providers(tmp_path, monkeypatch, phase):
+    import polars_bio.io as io_module
+    import polars_bio.polars_bio as native_module
+
+    path = tmp_path / "concurrent.sto"
+    path.write_text(
+        "# STOCKHOLM 1.0\n"
+        "#=GS seqA AC ACC1\n"
+        "#=GS seqA DE description\n"
+        "seqA ACGT\n//\n"
+    )
+    tables_before = _catalog_tables()
+    fields = ["AC", "AC" if phase == "same_scan" else "DE"]
+    scans = []
+    if phase == "same_scan":
+        scans = [pb.scan_sto(str(path), gs_fields=["AC"])] * 2
+    elif phase == "collect":
+        scans = [pb.scan_sto(str(path), gs_fields=[field]) for field in fields]
+
+    original_register = native_module.py_register_table
+    registered_names = []
+    names_lock = Lock()
+    registered = Barrier(2, timeout=10)
+
+    def synchronized_register(context, file_path, name, input_format, read_options):
+        table = original_register(context, file_path, name, input_format, read_options)
+        if input_format == native_module.InputFormat.Sto:
+            with names_lock:
+                registered_names.append(table.name)
+            # Both providers are registered before either lookup can proceed.
+            # Shared names can collide or expose the other scan's GS schema.
+            registered.wait()
+        return table
+
+    monkeypatch.setattr(io_module, "py_register_table", synchronized_register)
+    monkeypatch.setattr(native_module, "py_register_table", synchronized_register)
+
+    def execute(index):
+        if phase == "schema":
+            return pb.scan_sto(str(path), gs_fields=[fields[index]]).collect_schema()
+        return scans[index].select("name", fields[index]).collect()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(execute, range(2)))
+
+    for field, result in zip(fields, results):
+        if phase == "schema":
+            assert list(result) == ["alignment_id", "name", "sequence", field, "gr"]
+        else:
+            expected = "ACC1" if field == "AC" else "description"
+            assert result.columns == ["name", field]
+            assert result.rows() == [("seqA", expected)]
+    assert len(registered_names) == len(set(registered_names)) == 2
+    assert _catalog_tables() == tables_before
+
+
+def test_sto_temporary_tables_are_released_on_errors(tmp_path, monkeypatch):
+    import polars_bio.io as io_module
+
+    path = tmp_path / "failure.sto"
+    path.write_text("invalid header\n")
+    tables_before = _catalog_tables()
+
+    def fail_schema(*args):
+        raise RuntimeError("schema lookup failed")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(io_module, "py_get_table_schema", fail_schema)
+        with pytest.raises(RuntimeError, match="schema lookup failed"):
+            pb.scan_sto(str(path))
+    assert _catalog_tables() == tables_before
+
+    scan = pb.scan_sto(str(path))
+    with pytest.raises(Exception, match="# STOCKHOLM 1.0"):
+        scan.collect()
+    assert _catalog_tables() == tables_before
 
 
 def test_sto_edge_cases():

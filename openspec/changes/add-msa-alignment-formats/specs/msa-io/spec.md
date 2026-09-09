@@ -137,6 +137,12 @@ The system SHALL accept an optional `gs_fields` list on `scan_sto`, `read_sto` a
 - **WHEN** a user passes `gs_fields=["AC", "gs"]`
 - **THEN** the schema contains both the promoted `AC` column and the full `gs` list column.
 
+#### Scenario: Concurrent scans with different promoted fields
+- **WHEN** Stockholm scans of the same path with different `gs_fields` discover their schemas or collect concurrently
+- **THEN** each scan retains its requested schema and annotation values
+- **AND** simultaneous collections of the same LazyFrame do not interfere with one another
+- **AND** temporary catalog registrations are released after acquiring the schema or query plan, including on failure.
+
 ### Requirement: Stockholm Interleaved Blocks
 The system SHALL concatenate sequence lines, `#=GR` values and `#=GC` values that appear in multiple blocks for the same name and feature, in file order, and SHALL treat `//` as the end of an alignment.
 

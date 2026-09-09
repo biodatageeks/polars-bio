@@ -4930,12 +4930,14 @@ def _lazy_scan(
                 and not table_refreshed
                 and table_to_query is not None
             )
-            if should_register and input_format == InputFormat.Cool:
+            if should_register and input_format in (InputFormat.Cool, InputFormat.Sto):
                 # A LazyFrame may be collected concurrently by separate Polars
                 # plans or Python threads. Give every callback invocation its
                 # own catalog identity so one lease cannot replace or remove
                 # another invocation's provider between registration and lookup.
-                lease_name = f"_pb_cool_collect_{uuid4().hex}"
+                lease_name = (
+                    f"_pb_{_format_to_string(input_format)}_collect_{uuid4().hex}"
+                )
                 with _registered_table_lease(
                     _ctx,
                     file_path,
@@ -5315,12 +5317,13 @@ def _read_file(
     predicate_pushdown: bool = False,
     zero_based: bool = True,
 ) -> pl.LazyFrame:
-    # Each Cooler LazyFrame must retain its own provider. Different resolutions
-    # of one .mcool have the same filename-derived default table name and schema,
-    # so re-registering that shared name from concurrent IO callbacks can make
-    # one scan read another scan's resolution without raising an error.
+    # Cooler resolutions and Stockholm gs_fields can configure different
+    # providers for one path. Isolate schema discovery as well as collection so
+    # concurrent scans cannot replace each other's provider in the catalog.
     table_name = (
-        f"_pb_cool_scan_{uuid4().hex}" if input_format == InputFormat.Cool else None
+        f"_pb_{_format_to_string(input_format)}_scan_{uuid4().hex}"
+        if input_format in (InputFormat.Cool, InputFormat.Sto)
+        else None
     )
     if table_name is not None:
         with _registered_table_lease(
