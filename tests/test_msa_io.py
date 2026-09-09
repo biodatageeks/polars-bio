@@ -306,6 +306,15 @@ def test_sto_multi_alignment_counts():
     assert counts == {"7tm_1": exp[0]["n_sequences"], "5S_rRNA": exp[1]["n_sequences"]}
 
 
+def test_sto_comment_after_final_terminator_is_not_an_alignment(tmp_path):
+    f = tmp_path / "tail.sto"
+    f.write_text((DATA / "PF00001.sto").read_text() + "\n# a trailing comment\n   \n")
+    with _target_partitions(4):
+        df = pb.read_sto(str(f))
+    assert df.height == 63
+    assert df["alignment_id"].unique().to_list() == ["7tm_1"]
+
+
 def test_sto_partitioned_scan_matches_single_partition():
     key = ["alignment_id", "name"]
     with _target_partitions(1):
@@ -440,7 +449,15 @@ def test_describe_sto_keeps_file_order_across_kinds(tmp_path):
 
 @pytest.mark.parametrize(
     "header",
-    ["# STOCKHOLM 2.0", "# STOCKHOLM1.0", "# STOCKHOLM  1.0", "#STOCKHOLM 1.0"],
+    [
+        "# STOCKHOLM 2.0",
+        "# STOCKHOLM1.0",
+        "# STOCKHOLM  1.0",
+        "#STOCKHOLM 1.0",
+        # Easel accepts trailing whitespace but rejects leading whitespace.
+        "  # STOCKHOLM 1.0",
+        "\t# STOCKHOLM 1.0",
+    ],
 )
 def test_sto_rejects_unsupported_headers(tmp_path, header):
     f = tmp_path / "h.sto"
