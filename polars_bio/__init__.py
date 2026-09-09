@@ -57,6 +57,9 @@ register_pgen = data_processing.register_pgen
 register_vcf_zarr = data_processing.register_vcf_zarr
 register_fastq = data_processing.register_fastq
 register_fasta = data_processing.register_fasta
+register_a2m = data_processing.register_a2m
+register_a3m = data_processing.register_a3m
+register_sto = data_processing.register_sto
 register_bam = data_processing.register_bam
 register_sam = data_processing.register_sam
 register_cram = data_processing.register_cram
@@ -74,6 +77,7 @@ describe_bcf = data_input.describe_bcf
 describe_bgen = data_input.describe_bgen
 describe_pgen = data_input.describe_pgen
 describe_cool = data_input.describe_cool
+describe_sto = data_input.describe_sto
 describe_vcf_zarr = data_input.describe_vcf_zarr
 describe_bam = data_input.describe_bam
 describe_sam = data_input.describe_sam
@@ -99,6 +103,9 @@ read_bigwig = data_input.read_bigwig
 read_cool = data_input.read_cool
 read_bigbed = data_input.read_bigbed
 read_fasta = data_input.read_fasta
+read_a2m = data_input.read_a2m
+read_a3m = data_input.read_a3m
+read_sto = data_input.read_sto
 read_pairs = data_input.read_pairs
 scan_bam = data_input.scan_bam
 scan_sam = data_input.scan_sam
@@ -108,6 +115,9 @@ scan_bigwig = data_input.scan_bigwig
 scan_cool = data_input.scan_cool
 scan_bigbed = data_input.scan_bigbed
 scan_fasta = data_input.scan_fasta
+scan_a2m = data_input.scan_a2m
+scan_a3m = data_input.scan_a3m
+scan_sto = data_input.scan_sto
 scan_fastq = data_input.scan_fastq
 scan_gff = data_input.scan_gff
 scan_gtf = data_input.scan_gtf
@@ -181,6 +191,7 @@ __all__ = [
     "describe_pgen",
     "describe_vcf",
     "describe_cool",
+    "describe_sto",
     "describe_vcf_zarr",
     "describe_bam",
     "describe_sam",
@@ -194,6 +205,9 @@ __all__ = [
     "read_cool",
     "read_bigbed",
     "read_fasta",
+    "read_a2m",
+    "read_a3m",
+    "read_sto",
     "read_fastq",
     "read_pairs",
     "read_gff",
@@ -215,6 +229,9 @@ __all__ = [
     "scan_cool",
     "scan_bigbed",
     "scan_fasta",
+    "scan_a2m",
+    "scan_a3m",
+    "scan_sto",
     "scan_fastq",
     "scan_gff",
     "scan_gtf",
@@ -246,6 +263,9 @@ __all__ = [
     "register_vcf_zarr",
     "register_fastq",
     "register_fasta",
+    "register_a2m",
+    "register_a3m",
+    "register_sto",
     "register_bam",
     "register_sam",
     "register_cram",

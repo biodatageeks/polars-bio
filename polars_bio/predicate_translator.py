@@ -73,6 +73,12 @@ BIGBED_STRING_COLUMNS = {"chrom", "name", "rest"}
 BIGBED_UINT32_COLUMNS = {"start", "end"}
 BIGBED_FLOAT32_COLUMNS: set = set()
 
+# A2M / A3M share the FASTA schema; Stockholm adds alignment_id. The gs/gr
+# annotation bags (List<Struct>) and any gs_fields-promoted columns are left
+# out so they take the permissive path like BigBed autoSQL fields.
+MSA_STRING_COLUMNS = {"name", "description", "sequence"}
+STO_STRING_COLUMNS = {"alignment_id", "name", "sequence"}
+
 
 class PredicateTranslationError(Exception):
     """Raised when a Polars predicate cannot be translated to DataFusion expression."""

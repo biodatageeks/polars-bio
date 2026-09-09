@@ -27,6 +27,9 @@ The matrix below summarizes which [performance features](#performance-features) 
 | [CRAM](../api/reading.md#polars_bio.data_input.read_cram)   | :white_check_mark: | :white_check_mark: (CRAI) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | [FASTQ](../api/reading.md#polars_bio.data_input.read_fastq) | :white_check_mark: | :white_check_mark: (GZI) | :white_check_mark: |  ❌  | :white_check_mark: |
 | [FASTA](../api/reading.md#polars_bio.data_input.read_fasta) | :white_check_mark: |  ❌  | :white_check_mark: |  ❌  |  ❌   |
+| [A2M](../api/reading.md#polars_bio.data_input.read_a2m)     | :white_check_mark: |  ❌  | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [A3M](../api/reading.md#polars_bio.data_input.read_a3m)     | :white_check_mark: |  ❌  | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [Stockholm](../api/reading.md#polars_bio.data_input.read_sto) | :white_check_mark: | :white_check_mark: (multi-alignment files, on `//`) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | [GFF3](../api/reading.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [GTF](../api/reading.md#polars_bio.data_input.read_gtf)     | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [Pairs](../api/reading.md#polars_bio.data_input.read_pairs) | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
@@ -683,6 +686,71 @@ pb.register_cool("contacts.mcool", "hic", resolution=10000)
 pb.sql(
     "SELECT chrom1, start1, count FROM hic WHERE chrom1 = 'chr2' ORDER BY count DESC LIMIT 10"
 ).collect()
+```
+
+### A2M, A3M and Stockholm (multiple sequence alignments)
+
+Protein and RNA multiple-sequence-alignment formats used by hh-suite, HMMER,
+AlphaFold/ColabFold MSAs and the Pfam/Rfam databases are read through the same
+eager/lazy/register access patterns.
+
+**A2M** (`.a2m`) and **A3M** (`.a3m`) are FASTA at the byte level and share
+the `read_fasta` schema: `name`, `description`, `sequence`. Sequences are
+returned **verbatim** — letter case (lowercase insert states), `-` and `.` are
+preserved and rows may differ in length, because A3M omits insert-state gaps
+and A2M's insert-column dots are optional (Easel's own A2M writer omits them).
+The header is split on the first whitespace only; a comma is *not* a separator,
+so UniRef-style headers keep their identifier intact. `#` lines before the
+first `>` (hh-suite's `#A3M#` marker) are skipped. hh-suite's reserved
+pseudo-sequences (`ss_pred`, `ss_conf`, `ss_dssp`, …) are ordinary rows.
+
+**Stockholm** (`.sto`, `.stk`) yields one row per sequence per alignment:
+`alignment_id` (`#=GF ID`, else `#=GF AC`, else the alignment's 0-based
+ordinal), `name` (verbatim; `name/start-end` is not split), `sequence`
+(concatenated across interleaved blocks) and two annotation bags of
+`list[struct{tag, value}]`: `gs` for the sequence's `#=GS` lines and `gr` for
+its per-residue `#=GR` lines (both null when absent). `gs_fields=["AC", "DE"]`
+promotes named `#=GS` features to string columns; include `"gs"` to keep the
+bag as well. Alignment-level `#=GF` / `#=GC` lines are exposed by
+`describe_sto` as one row per line (repeats such as several `#=GF DR` or
+`#=GF CC` lines are preserved in order) together with `n_sequences` and
+`alignment_length`. A missing trailing `//` is tolerated; a file whose first
+line is not `# STOCKHOLM 1.0` is rejected.
+
+Files with many alignments (`Pfam-A.seed`, `Rfam.seed`) are supported; when
+local and uncompressed they are split across `datafusion.execution.target_partitions`
+on `//` boundaries. A single-alignment file is one partition and holds that
+alignment in memory while it is parsed — interleaving makes that unavoidable —
+so memory is bounded by the largest alignment, not the file. `count(*)` and
+projections that omit `sequence` do not materialize sequence text.
+
+Not covered in this release: writing any of the three formats, A3M→A2M insert
+expansion (`expand_inserts`), and `#=GC` as per-column columns.
+
+```python
+import polars as pl
+import polars_bio as pb
+
+# hh-suite MSA: drop the secondary-structure pseudo-sequences, keep homologs
+homologs = (
+    pb.scan_a3m("query.a3m")
+    .filter(~pl.col("name").str.starts_with("ss_"))
+    .select("name", pl.col("sequence").str.len_chars().alias("len"))
+    .collect()
+)
+
+# Pfam seed: one row per sequence, accession promoted from #=GS
+seed = pb.read_sto("PF00001.sto", gs_fields=["AC"])
+
+# Alignment-level annotations without touching sequences
+pb.describe_sto("PF00001.sto").filter(pl.col("feature").is_in(["ID", "DE", "SQ"]))
+
+# A whole Pfam release: sequences per family, read in parallel
+pb.scan_sto("Pfam-A.seed").group_by("alignment_id").len().collect()
+
+# Register as a DataFusion table for SQL
+pb.register_sto("Rfam.seed", "rfam")
+pb.sql("SELECT alignment_id, count(*) AS n FROM rfam GROUP BY alignment_id ORDER BY n DESC").collect()
 ```
 
 ## Schema inspection

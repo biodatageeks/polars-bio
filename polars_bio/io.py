@@ -8,7 +8,6 @@ from uuid import uuid4
 import polars as pl
 
 logger = logging.getLogger(__name__)
-from datafusion import DataFrame
 from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
 
@@ -29,6 +28,7 @@ from polars_bio.polars_bio import (
     GffReadOptions,
     GtfReadOptions,
     InputFormat,
+    MsaReadOptions,
     OutputFormat,
     PairsReadOptions,
     PgenReadOptions,
@@ -41,6 +41,7 @@ from polars_bio.polars_bio import (
     py_describe_bam,
     py_describe_cool,
     py_describe_cram,
+    py_describe_sto,
     py_describe_vcf,
     py_describe_vcf_zarr,
     py_from_polars,
@@ -51,7 +52,7 @@ from polars_bio.polars_bio import (
     py_write_table,
 )
 
-from ._metadata import get_vcf_metadata, set_coordinate_system, set_vcf_metadata
+from ._metadata import set_coordinate_system
 from ._path_utils import strip_url_parameters
 from .context import _resolve_zero_based, ctx
 from .predicate_translator import (
@@ -70,9 +71,11 @@ from .predicate_translator import (
     GFF_FLOAT32_COLUMNS,
     GFF_STRING_COLUMNS,
     GFF_UINT32_COLUMNS,
+    MSA_STRING_COLUMNS,
     PAIRS_FLOAT32_COLUMNS,
     PAIRS_STRING_COLUMNS,
     PAIRS_UINT32_COLUMNS,
+    STO_STRING_COLUMNS,
     VCF_STRING_COLUMNS,
     VCF_UINT32_COLUMNS,
 )
@@ -91,6 +94,9 @@ _FORMAT_COLUMN_TYPES = {
     "BigWig": (BIGWIG_STRING_COLUMNS, BIGWIG_UINT32_COLUMNS, BIGWIG_FLOAT32_COLUMNS),
     "BigBed": (BIGBED_STRING_COLUMNS, BIGBED_UINT32_COLUMNS, BIGBED_FLOAT32_COLUMNS),
     "Cool": (COOL_STRING_COLUMNS, COOL_UINT64_COLUMNS, COOL_FLOAT32_COLUMNS),
+    "A2m": (MSA_STRING_COLUMNS, None, None),
+    "A3m": (MSA_STRING_COLUMNS, None, None),
+    "Sto": (STO_STRING_COLUMNS, None, None),
 }
 
 _VALID_SAM_SCALAR_TYPE_CODES = {"A", "c", "C", "s", "S", "i", "I", "f", "Z", "H"}
@@ -548,6 +554,421 @@ class IOOperations:
         )
         read_options = ReadOptions(fasta_read_options=fasta_read_options)
         return _read_file(path, InputFormat.Fasta, read_options, projection_pushdown)
+
+    @staticmethod
+    def _scan_msa(
+        path: str,
+        input_format: InputFormat,
+        *,
+        gs_fields: Optional[list[str]],
+        chunk_size: int,
+        concurrent_fetches: int,
+        allow_anonymous: bool,
+        enable_request_payer: bool,
+        max_retries: int,
+        timeout: int,
+        compression_type: str,
+        projection_pushdown: bool,
+        predicate_pushdown: bool,
+    ) -> pl.LazyFrame:
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+        msa_read_options = MsaReadOptions(
+            object_storage_options=object_storage_options,
+            gs_fields=gs_fields,
+        )
+        read_options = ReadOptions(msa_read_options=msa_read_options)
+        return _read_file(
+            path,
+            input_format,
+            read_options,
+            projection_pushdown,
+            predicate_pushdown,
+        )
+
+    @staticmethod
+    def read_a2m(
+        path: str,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = False,
+    ) -> pl.DataFrame:
+        """
+        Read an A2M multiple-sequence-alignment file into a DataFrame.
+
+        A2M is FASTA at the byte level: the result has the same `name`,
+        `description`, `sequence` schema as [`read_fasta`][polars_bio.read_fasta].
+        Sequences are returned **verbatim** — letter case (lowercase insert
+        states), `-` and `.` are preserved and rows may differ in length, because
+        insert-column dots are optional in A2M (and omitted by Easel's own writer).
+        The header is split on the first whitespace only; a comma is not a separator.
+
+        Parameters:
+            path: The path to the A2M file.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the A2M file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            projection_pushdown: Enable column projection pushdown optimization. When True, only requested columns are processed at the DataFusion execution level.
+            predicate_pushdown: Enable predicate pushdown for supported filters on `name`, `description` and `sequence`.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.read_a2m("alignment.a2m").select("name", "sequence")
+            ```
+        """
+        return IOOperations.scan_a2m(
+            path,
+            chunk_size,
+            concurrent_fetches,
+            allow_anonymous,
+            enable_request_payer,
+            max_retries,
+            timeout,
+            compression_type,
+            projection_pushdown,
+            predicate_pushdown,
+        ).collect()
+
+    @staticmethod
+    def scan_a2m(
+        path: str,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = False,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read an A2M multiple-sequence-alignment file into a LazyFrame.
+
+        See [`read_a2m`][polars_bio.read_a2m] for the schema and the verbatim
+        passthrough semantics.
+
+        Parameters:
+            path: The path to the A2M file.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the A2M file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            projection_pushdown: Enable column projection pushdown optimization.
+            predicate_pushdown: Enable predicate pushdown for supported filters on `name`, `description` and `sequence`.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.scan_a2m("alignment.a2m").filter(pl.col("name") == "query").collect()
+            ```
+        """
+        return IOOperations._scan_msa(
+            path,
+            InputFormat.A2m,
+            gs_fields=None,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+        )
+
+    @staticmethod
+    def read_a3m(
+        path: str,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = False,
+    ) -> pl.DataFrame:
+        """
+        Read an A3M (hh-suite) multiple-sequence-alignment file into a DataFrame.
+
+        Same `name`, `description`, `sequence` schema as
+        [`read_fasta`][polars_bio.read_fasta]. Sequences are returned **verbatim**:
+        lowercase insert states are kept and rows are ragged because A3M omits
+        insert-state gaps. `#` lines before the first `>` (hh-suite's `#A3M#`
+        marker) are skipped. Reserved pseudo-sequences such as `ss_pred`,
+        `ss_conf` and `ss_dssp` are ordinary rows; drop them with
+        `.filter(~pl.col("name").str.starts_with("ss_"))`.
+
+        Parameters:
+            path: The path to the A3M file.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the A3M file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            projection_pushdown: Enable column projection pushdown optimization.
+            predicate_pushdown: Enable predicate pushdown for supported filters on `name`, `description` and `sequence`.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            import polars as pl
+            df = pb.read_a3m("query.a3m")
+            homologs = df.filter(~pl.col("name").str.starts_with("ss_"))
+            ```
+        """
+        return IOOperations.scan_a3m(
+            path,
+            chunk_size,
+            concurrent_fetches,
+            allow_anonymous,
+            enable_request_payer,
+            max_retries,
+            timeout,
+            compression_type,
+            projection_pushdown,
+            predicate_pushdown,
+        ).collect()
+
+    @staticmethod
+    def scan_a3m(
+        path: str,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = False,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read an A3M (hh-suite) multiple-sequence-alignment file into a LazyFrame.
+
+        See [`read_a3m`][polars_bio.read_a3m] for the schema and semantics.
+
+        Parameters:
+            path: The path to the A3M file.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the A3M file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            projection_pushdown: Enable column projection pushdown optimization.
+            predicate_pushdown: Enable predicate pushdown for supported filters on `name`, `description` and `sequence`.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.scan_a3m("query.a3m").select("name").collect()
+            ```
+        """
+        return IOOperations._scan_msa(
+            path,
+            InputFormat.A3m,
+            gs_fields=None,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+        )
+
+    @staticmethod
+    def read_sto(
+        path: str,
+        gs_fields: Optional[list[str]] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = False,
+    ) -> pl.DataFrame:
+        """
+        Read a Stockholm (`.sto` / `.stk`) alignment file into a DataFrame.
+
+        One row per sequence per alignment:
+
+        - `alignment_id` (str): `#=GF ID`, else `#=GF AC`, else the alignment's 0-based ordinal in the file.
+        - `name` (str): the sequence name, verbatim (`name/start-end` is not split).
+        - `sequence` (str): the aligned sequence, concatenated across interleaved blocks, `.` and `-` preserved.
+        - `gs` (list of struct{tag, value}): that sequence's `#=GS` lines in file order; null when there are none.
+        - `gr` (list of struct{tag, value}): that sequence's `#=GR` per-residue lines, each concatenated across blocks; null when there are none.
+
+        Files with many alignments (e.g. `Pfam-A.seed`) are supported and, when
+        local and uncompressed, split across DataFusion partitions. Alignment-level
+        `#=GF` / `#=GC` lines are available via [`describe_sto`][polars_bio.describe_sto].
+
+        Parameters:
+            path: The path to the Stockholm file.
+            gs_fields: `#=GS` features to promote to top-level string columns, e.g. `["AC", "DE"]`. The first occurrence per sequence is used. Include `"gs"` to keep the full `gs` column alongside the promoted ones.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the Stockholm file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            projection_pushdown: Enable column projection pushdown optimization. Sequences are not materialized when `sequence` is not requested.
+            predicate_pushdown: Enable predicate pushdown for supported filters on `alignment_id`, `name` and `sequence`.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.read_sto("PF00001.sto", gs_fields=["AC"]).select("alignment_id", "name", "AC")
+            ```
+        """
+        return IOOperations.scan_sto(
+            path,
+            gs_fields,
+            chunk_size,
+            concurrent_fetches,
+            allow_anonymous,
+            enable_request_payer,
+            max_retries,
+            timeout,
+            compression_type,
+            projection_pushdown,
+            predicate_pushdown,
+        ).collect()
+
+    @staticmethod
+    def scan_sto(
+        path: str,
+        gs_fields: Optional[list[str]] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+        projection_pushdown: bool = True,
+        predicate_pushdown: bool = False,
+    ) -> pl.LazyFrame:
+        """
+        Lazily read a Stockholm (`.sto` / `.stk`) alignment file into a LazyFrame.
+
+        See [`read_sto`][polars_bio.read_sto] for the schema.
+
+        Parameters:
+            path: The path to the Stockholm file.
+            gs_fields: `#=GS` features to promote to top-level string columns, e.g. `["AC", "DE"]`. Include `"gs"` to keep the full `gs` column alongside the promoted ones.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the Stockholm file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            projection_pushdown: Enable column projection pushdown optimization.
+            predicate_pushdown: Enable predicate pushdown for supported filters on `alignment_id`, `name` and `sequence`.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.scan_sto("Pfam-A.seed").group_by("alignment_id").len().collect()
+            ```
+        """
+        return IOOperations._scan_msa(
+            path,
+            InputFormat.Sto,
+            gs_fields=gs_fields,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+            projection_pushdown=projection_pushdown,
+            predicate_pushdown=predicate_pushdown,
+        )
+
+    @staticmethod
+    def describe_sto(
+        path: str,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        enable_request_payer: bool = False,
+        max_retries: int = 5,
+        timeout: int = 300,
+        compression_type: str = "auto",
+    ) -> pl.DataFrame:
+        """
+        Describe the alignment-level annotations of a Stockholm file.
+
+        Returns one row per `#=GF` (per-alignment) and `#=GC` (per-column)
+        annotation line, in file order, with `alignment_id`, `kind` (`"GF"` or
+        `"GC"`), `feature`, `value`, `n_sequences` and `alignment_length`.
+        Repeated features (e.g. several `#=GF DR` or `#=GF CC` lines) are kept as
+        separate rows; `#=GC` values are concatenated across interleaved blocks.
+        No sequence data is materialized.
+
+        Parameters:
+            path: The path to the Stockholm file.
+            chunk_size: The size in MB of a chunk when reading from an object store.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage.
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+            compression_type: The compression type of the Stockholm file ('auto', 'bgz', 'gz').
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.describe_sto("PF00001.sto").filter(pl.col("feature") == "DE")
+            ```
+        """
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+        return py_describe_sto(ctx, path, object_storage_options).to_polars()
 
     @staticmethod
     def read_vcf(
@@ -4113,8 +4534,6 @@ def _write_file(
     # This works for filtered/transformed LazyFrames
     # NOTE: Filtering currently materializes all data - predicate pushdown to DataFusion not yet implemented
     if isinstance(df, pl.LazyFrame):
-        import pyarrow as pa
-        import pyarrow.compute as pc
 
         # Get streaming batches from Polars
         batches_iter = df.collect_batches(lazy=True, engine="streaming")
@@ -4213,7 +4632,6 @@ def _apply_combined_pushdown_via_sql(
     projection_pushdown,
 ):
     """Apply both predicate and projection pushdown using SQL approach."""
-    from polars_bio.polars_bio import py_read_sql
 
     # Build SQL query with combined optimizations
     select_clause = "*"
@@ -4225,7 +4643,7 @@ def _apply_combined_pushdown_via_sql(
         try:
             # Use the proven regex-based predicate translation
             where_clause = _build_sql_where_from_predicate_safe(predicate)
-        except Exception as e:
+        except Exception:
             where_clause = ""
 
     # No fallback - if we can't parse to SQL, just use projection only
@@ -4406,7 +4824,7 @@ def _lazy_scan(
         n_rows: Union[int, None],
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
-        from polars_bio.polars_bio import py_read_table, py_register_table
+        from polars_bio.polars_bio import py_register_table
 
         from .context import ctx as _ctx
         from .pushdown import (
@@ -4427,7 +4845,6 @@ def _lazy_scan(
         if input_format in (InputFormat.Gff, InputFormat.Gtf) and file_path is not None:
             from polars_bio.polars_bio import GffReadOptions
             from polars_bio.polars_bio import GtfReadOptions as _GtfReadOptions
-            from polars_bio.polars_bio import PyObjectStorageOptions
             from polars_bio.polars_bio import ReadOptions as _ReadOptions
 
             is_gff = input_format == InputFormat.Gff
@@ -4513,12 +4930,14 @@ def _lazy_scan(
                 and not table_refreshed
                 and table_to_query is not None
             )
-            if should_register and input_format == InputFormat.Cool:
+            if should_register and input_format in (InputFormat.Cool, InputFormat.Sto):
                 # A LazyFrame may be collected concurrently by separate Polars
                 # plans or Python threads. Give every callback invocation its
                 # own catalog identity so one lease cannot replace or remove
                 # another invocation's provider between registration and lookup.
-                lease_name = f"_pb_cool_collect_{uuid4().hex}"
+                lease_name = (
+                    f"_pb_{_format_to_string(input_format)}_collect_{uuid4().hex}"
+                )
                 with _registered_table_lease(
                     _ctx,
                     file_path,
@@ -4870,6 +5289,12 @@ def _format_to_string(input_format: InputFormat) -> str:
         return "bgen"
     elif "Pgen" in format_str:
         return "pgen"
+    elif "A2m" in format_str:
+        return "a2m"
+    elif "A3m" in format_str:
+        return "a3m"
+    elif "Sto" in format_str:
+        return "sto"
     else:
         return "unknown"
 
@@ -4892,12 +5317,13 @@ def _read_file(
     predicate_pushdown: bool = False,
     zero_based: bool = True,
 ) -> pl.LazyFrame:
-    # Each Cooler LazyFrame must retain its own provider. Different resolutions
-    # of one .mcool have the same filename-derived default table name and schema,
-    # so re-registering that shared name from concurrent IO callbacks can make
-    # one scan read another scan's resolution without raising an error.
+    # Cooler resolutions and Stockholm gs_fields can configure different
+    # providers for one path. Isolate schema discovery as well as collection so
+    # concurrent scans cannot replace each other's provider in the catalog.
     table_name = (
-        f"_pb_cool_scan_{uuid4().hex}" if input_format == InputFormat.Cool else None
+        f"_pb_{_format_to_string(input_format)}_scan_{uuid4().hex}"
+        if input_format in (InputFormat.Cool, InputFormat.Sto)
+        else None
     )
     if table_name is not None:
         with _registered_table_lease(
@@ -4954,6 +5380,9 @@ def _read_file(
             "bgen",
             "pgen",
             "cool",
+            "a2m",
+            "a3m",
+            "sto",
         ]:
             # For other formats (including SAM via "bam" key), include their specific metadata
             header_metadata = format_specific.get(metadata_key, {})

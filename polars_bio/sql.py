@@ -15,22 +15,20 @@ from polars_bio.polars_bio import (
     GffReadOptions,
     GtfReadOptions,
     InputFormat,
+    MsaReadOptions,
     PairsReadOptions,
     PgenReadOptions,
     PyObjectStorageOptions,
     ReadOptions,
     VcfReadOptions,
     VcfZarrReadOptions,
-    py_from_polars,
     py_read_sql,
-    py_read_table,
     py_register_table,
     py_register_view,
 )
 
 from .context import _resolve_zero_based, ctx
 from .io import (
-    _cleanse_fields,
     _lazy_scan,
     _normalize_bigbed_schema_mode,
     _normalize_read_tag_type_hints,
@@ -587,6 +585,190 @@ class SQL:
         )
         read_options = ReadOptions(fasta_read_options=fasta_read_options)
         py_register_table(ctx, path, name, InputFormat.Fasta, read_options)
+
+    @staticmethod
+    def _register_msa(
+        path: str,
+        name: Union[str, None],
+        input_format: InputFormat,
+        *,
+        gs_fields: Union[list[str], None],
+        chunk_size: int,
+        concurrent_fetches: int,
+        allow_anonymous: bool,
+        max_retries: int,
+        timeout: int,
+        enable_request_payer: bool,
+        compression_type: str,
+    ) -> None:
+        object_storage_options = PyObjectStorageOptions(
+            allow_anonymous=allow_anonymous,
+            enable_request_payer=enable_request_payer,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            max_retries=max_retries,
+            timeout=timeout,
+            compression_type=compression_type,
+        )
+        msa_read_options = MsaReadOptions(
+            object_storage_options=object_storage_options,
+            gs_fields=gs_fields,
+        )
+        read_options = ReadOptions(msa_read_options=msa_read_options)
+        py_register_table(ctx, path, name, input_format, read_options)
+
+    @staticmethod
+    def register_a2m(
+        path: str,
+        name: Union[str, None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+    ) -> None:
+        """
+        Register an A2M alignment file as a Datafusion table.
+
+        The table has the FASTA schema (`name`, `description`, `sequence`); see
+        [`read_a2m`][polars_bio.read_a2m] for the verbatim-sequence semantics.
+
+        Parameters:
+            path: The path to the A2M file.
+            name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            compression_type: The compression type of the A2M file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.register_a2m("alignment.a2m", "aln")
+            pb.sql("select name, length(sequence) from aln limit 5").collect()
+            ```
+        """
+        SQL._register_msa(
+            path,
+            name,
+            InputFormat.A2m,
+            gs_fields=None,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            max_retries=max_retries,
+            timeout=timeout,
+            enable_request_payer=enable_request_payer,
+            compression_type=compression_type,
+        )
+
+    @staticmethod
+    def register_a3m(
+        path: str,
+        name: Union[str, None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+    ) -> None:
+        """
+        Register an A3M (hh-suite) alignment file as a Datafusion table.
+
+        The table has the FASTA schema (`name`, `description`, `sequence`); see
+        [`read_a3m`][polars_bio.read_a3m] for the verbatim-sequence semantics and
+        the handling of `#` header lines and `ss_*` pseudo-sequences.
+
+        Parameters:
+            path: The path to the A3M file.
+            name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            compression_type: The compression type of the A3M file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.register_a3m("query.a3m", "msa")
+            pb.sql("select count(*) from msa where name not like 'ss_%'").collect()
+            ```
+        """
+        SQL._register_msa(
+            path,
+            name,
+            InputFormat.A3m,
+            gs_fields=None,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            max_retries=max_retries,
+            timeout=timeout,
+            enable_request_payer=enable_request_payer,
+            compression_type=compression_type,
+        )
+
+    @staticmethod
+    def register_sto(
+        path: str,
+        name: Union[str, None] = None,
+        gs_fields: Union[list[str], None] = None,
+        chunk_size: int = 8,
+        concurrent_fetches: int = 1,
+        allow_anonymous: bool = True,
+        max_retries: int = 5,
+        timeout: int = 300,
+        enable_request_payer: bool = False,
+        compression_type: str = "auto",
+    ) -> None:
+        """
+        Register a Stockholm (`.sto` / `.stk`) alignment file as a Datafusion table.
+
+        One row per sequence per alignment with `alignment_id`, `name`,
+        `sequence`, `gs` and `gr`; see [`read_sto`][polars_bio.read_sto].
+
+        Parameters:
+            path: The path to the Stockholm file.
+            name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
+            gs_fields: `#=GS` features to promote to top-level string columns, e.g. `["AC", "DE"]`. Include `"gs"` to keep the full `gs` column alongside the promoted ones.
+            chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
+            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
+            enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
+            compression_type: The compression type of the Stockholm file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
+            max_retries:  The maximum number of retries for reading the file from object storage.
+            timeout: The timeout in seconds for reading the file from object storage.
+
+        !!! Example
+            ```python
+            import polars_bio as pb
+            pb.register_sto("Pfam-A.seed", "pfam", gs_fields=["AC"])
+            pb.sql("select alignment_id, count(*) as n from pfam group by alignment_id").collect()
+            ```
+        """
+        SQL._register_msa(
+            path,
+            name,
+            InputFormat.Sto,
+            gs_fields=gs_fields,
+            chunk_size=chunk_size,
+            concurrent_fetches=concurrent_fetches,
+            allow_anonymous=allow_anonymous,
+            max_retries=max_retries,
+            timeout=timeout,
+            enable_request_payer=enable_request_payer,
+            compression_type=compression_type,
+        )
 
     @staticmethod
     def register_bigwig(

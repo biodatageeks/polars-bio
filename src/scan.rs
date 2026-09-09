@@ -32,6 +32,7 @@ use datafusion_bio_format_fasta::table_provider::FastaTableProvider;
 use datafusion_bio_format_fastq::table_provider::FastqTableProvider;
 use datafusion_bio_format_gff::table_provider::GffTableProvider;
 use datafusion_bio_format_gtf::table_provider::GtfTableProvider;
+use datafusion_bio_format_msa::{FastaLikeTableProvider, MsaFlavor, StockholmTableProvider};
 use datafusion_bio_format_pairs::table_provider::PairsTableProvider;
 use datafusion_bio_format_pgen::matrix::{GenotypeMatrixReader, MatrixData};
 use datafusion_bio_format_pgen::{
@@ -51,8 +52,8 @@ use crate::context::PyBioSessionContext;
 use crate::option::{
     BamReadOptions, BedReadOptions, BgenReadOptions, BigBedReadOptions, BigWigReadOptions,
     CoolReadOptions, CramReadOptions, FastaReadOptions, FastqReadOptions, GffReadOptions,
-    GtfReadOptions, InputFormat, PairsReadOptions, PgenReadOptions, ReadOptions, VcfReadOptions,
-    VcfZarrReadOptions,
+    GtfReadOptions, InputFormat, MsaReadOptions, PairsReadOptions, PgenReadOptions, ReadOptions,
+    VcfReadOptions, VcfZarrReadOptions,
 };
 
 type BatchResultReceiver = Receiver<Result<RecordBatch, DataFusionError>>;
@@ -867,6 +868,43 @@ async fn register_table_provider(
             .unwrap();
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register FASTA table");
+        },
+        InputFormat::A2m | InputFormat::A3m => {
+            let msa_read_options = read_options
+                .as_ref()
+                .and_then(|options| options.msa_read_options.clone())
+                .unwrap_or_else(MsaReadOptions::default);
+            let flavor = if format == InputFormat::A2m {
+                MsaFlavor::A2m
+            } else {
+                MsaFlavor::A3m
+            };
+            info!(
+                "Registering {} table {} with options: {:?}",
+                flavor, table_name, msa_read_options
+            );
+            let table_provider = FastaLikeTableProvider::new(
+                path.to_string(),
+                flavor,
+                msa_read_options.object_storage_options.clone(),
+            )?;
+            ctx.register_table(table_name, Arc::new(table_provider))?;
+        },
+        InputFormat::Sto => {
+            let msa_read_options = read_options
+                .as_ref()
+                .and_then(|options| options.msa_read_options.clone())
+                .unwrap_or_else(MsaReadOptions::default);
+            info!(
+                "Registering Stockholm table {} with options: {:?}",
+                table_name, msa_read_options
+            );
+            let table_provider = StockholmTableProvider::new(
+                path.to_string(),
+                msa_read_options.object_storage_options.clone(),
+                msa_read_options.gs_fields.clone(),
+            )?;
+            ctx.register_table(table_name, Arc::new(table_provider))?;
         },
         InputFormat::Cram => {
             let cram_read_options = match &read_options {
