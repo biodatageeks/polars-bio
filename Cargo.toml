@@ -42,6 +42,9 @@ pyo3-log = "0.13.3"
 # datafusion-bio-formats v1.13.0 adds the datafusion-bio-format-msa crate (#459)
 # and writes GT first in FORMAT (datafusion-bio-formats#254) on top of v1.12.1's
 # BED3/error-propagation (#456) and PGEN companion streaming (#453) fixes.
+# The structure and Foldcomp readers use the same tag: v1.13.0 ships their
+# pure-Rust codecs (datafusion-bio-formats#255), so no native Gemmi or Foldcomp
+# build is involved. Every formats crate has to name one source.
 datafusion = { version = "53.0.0", default-features = false, features = ["nested_expressions", "crypto_expressions", "datetime_expressions", "encoding_expressions", "regex_expressions", "string_expressions", "unicode_expressions", "parquet", "recursive_protection", "sql"] }
 arrow = "58.3.0"
 arrow-schema = "58.3.0"
@@ -66,6 +69,8 @@ datafusion-bio-format-bgen = { git = "https://github.com/biodatageeks/datafusion
 datafusion-bio-format-pgen = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.13.0" }
 datafusion-bio-format-cooler = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.13.0" }
 datafusion-bio-format-msa = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.13.0" }
+datafusion-bio-format-structure = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.13.0" }
+datafusion-bio-format-foldcomp = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.13.0" }
 
 datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.19.1" }
 datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.19.1", default-features = false }

@@ -1,0 +1,174 @@
+{
+  "description": "Hand-audited vector input/output cases for the proposed degree convention. These are geometry-kernel inputs, not physical peptide structures.",
+  "angle_unit": "degree",
+  "coordinate_unit": "angstrom",
+  "cases": [
+    {
+      "name": "right_angle",
+      "points": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ]
+      ],
+      "angle_deg": 90
+    },
+    {
+      "name": "negative_dihedral",
+      "points": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          1
+        ]
+      ],
+      "dihedral_deg": -90
+    },
+    {
+      "name": "positive_dihedral",
+      "points": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          0,
+          1,
+          -1
+        ]
+      ],
+      "dihedral_deg": 90
+    },
+    {
+      "name": "canonical_trans_dihedral",
+      "points": [
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ],
+        [
+          -1,
+          1,
+          0
+        ]
+      ],
+      "dihedral_deg": -180
+    },
+    {
+      "name": "straight_angle",
+      "points": [
+        [
+          -1,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ]
+      ],
+      "angle_deg": 180
+    },
+    {
+      "name": "undefined_dihedral_planes",
+      "points": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          0,
+          0
+        ],
+        [
+          2,
+          0,
+          0
+        ],
+        [
+          3,
+          0,
+          0
+        ]
+      ],
+      "dihedral_deg": null
+    },
+    {
+      "name": "zero_bond_angle",
+      "points": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0,
+          1,
+          0
+        ]
+      ],
+      "angle_deg": null
+    }
+  ]
+}

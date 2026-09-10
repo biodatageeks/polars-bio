@@ -1695,6 +1695,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "datafusion-bio-format-foldcomp"
+version = "0.2.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.13.0#00487b9edf53cbf36918d7d22a03a79fd0acf863"
+dependencies = [
+ "async-trait",
+ "datafusion",
+ "datafusion-bio-format-core",
+ "datafusion-bio-format-structure",
+ "futures",
+]
+
+[[package]]
 name = "datafusion-bio-format-gff"
 version = "1.13.0"
 source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.13.0#00487b9edf53cbf36918d7d22a03a79fd0acf863"
@@ -1808,6 +1820,20 @@ dependencies = [
  "serde_json",
  "tokio",
  "zstd",
+]
+
+[[package]]
+name = "datafusion-bio-format-structure"
+version = "0.2.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.13.0#00487b9edf53cbf36918d7d22a03a79fd0acf863"
+dependencies = [
+ "async-stream",
+ "async-trait",
+ "datafusion",
+ "datafusion-bio-format-core",
+ "flate2",
+ "futures",
+ "glob",
 ]
 
 [[package]]
@@ -5022,11 +5048,13 @@ dependencies = [
  "datafusion-bio-format-cram",
  "datafusion-bio-format-fasta",
  "datafusion-bio-format-fastq",
+ "datafusion-bio-format-foldcomp",
  "datafusion-bio-format-gff",
  "datafusion-bio-format-gtf",
  "datafusion-bio-format-msa",
  "datafusion-bio-format-pairs",
  "datafusion-bio-format-pgen",
+ "datafusion-bio-format-structure",
  "datafusion-bio-format-vcf",
  "datafusion-bio-function-fastqc",
  "datafusion-bio-function-pileup",
