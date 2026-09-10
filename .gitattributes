@@ -1,0 +1,4 @@
+# Structural fixtures are hash-checked exports; retain exact bytes on Windows.
+tests/data/structure/** -text -whitespace linguist-generated
+# Preserve upstream license text verbatim.
+polars_bio/licenses/structure/*.txt -text -whitespace linguist-vendored

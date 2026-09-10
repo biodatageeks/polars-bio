@@ -21,3 +21,5 @@ it/data/polars-bio-it.json
 /docs/notebooks/data/chainRn4/
 /docs/notebooks/data/ex-rna/
 .cache/
+
+!tests/data/structure/*.pdb

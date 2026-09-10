@@ -4,7 +4,10 @@ repos:
     hooks:
       - id: check-ast
       - id: mixed-line-ending
+        exclude: ^(tests/data/structure/|polars_bio/licenses/structure/)
       - id: trailing-whitespace
+        # Frozen scientific fixtures and upstream notices must retain exact bytes.
+        exclude: ^(tests/data/structure/|polars_bio/licenses/structure/)
       - id: check-case-conflict
 
 #  - repo: https://github.com/astral-sh/ruff-pre-commit

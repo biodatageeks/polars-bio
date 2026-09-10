@@ -28,6 +28,18 @@ from .pileup_op import PileupOperations as pileup_operations
 from .range_op import FilterOp
 from .range_op import IntervalOperations as range_operations
 from .sql import SQL as data_processing
+from .structure import (
+    read_foldcomp,
+    read_mmcif,
+    read_pdb,
+    read_structures,
+    register_foldcomp,
+    register_structure,
+    scan_foldcomp,
+    scan_mmcif,
+    scan_pdb,
+    scan_structures,
+)
 
 try:
     from .range_utils import Utils

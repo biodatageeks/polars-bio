@@ -90,3 +90,5 @@ If you use **polars-bio** in your work, please cite:
 ```
 
 Read the [documentation](https://biodatageeks.github.io/polars-bio/)
+
+Protein structures: [PDB, mmCIF and indexed Foldcomp readers](docs/features/structures.md) provide atom and residue tables with backbone geometry.

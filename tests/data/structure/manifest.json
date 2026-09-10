@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "versions": {
+    "gemmi": "0.7.5",
+    "biopython": "1.88",
+    "foldcomp": "1.0.0",
+    "numpy": "2.5.3"
+  },
+  "sources": {
+    "1ubq": "https://files.rcsb.org/download/1UBQ.pdb",
+    "foldcomp_fixture_commit": "89e37195d3c8ade8d40ead91ad82e6cd2964a967"
+  },
+  "inputs": {
+    "1ubq.cif": "056f98710cb2b36f633c45e41902a02eb446e82871da21ff2dd44f74a56ca0f6",
+    "1ubq.fcz": "fe35abab40ff9cb8d6120314585f188bf116ceeb801548328bbe1af4d8d9bff4",
+    "1ubq.pdb": "d4a6812d8951cf6594e6a0763f089e35f5a80b62acb3c117b2c5565228a7b161",
+    "example_db": "fad008ca82e01b1fe9d5a5dbddc4080dfd12565d04ceee21fef7eb52543cd634",
+    "example_db.dbtype": "42f4aeb81c1ef81f771f3de8abca9dcf66901c575530e7672e4b1146474ae650",
+    "example_db.index": "346d7d2cf546cbddca6e8c07320ce46b4fc0bd15035b017438d5110ec7827bf7",
+    "example_db.lookup": "affe92e18bde3723f290e8c12b8c4884f7afbcce1ab1669fae6d2db2099ee47b",
+    "example_db.source": "f1ef532a7c42556c9ac35dc37b39438dbe8d15081356df30369f428ded02c0d7",
+    "example_db.subset": "e2dccc53827892eb93169d2b38920b1d4fb988e4e65c4278e67ca8b31a5836c4"
+  },
+  "outputs": {
+    "1ubq.atoms.json": "de005edbb671abce9beb980eef0b2658a65de52959691e39c99c16ca5557ed13",
+    "1ubq.residues.json": "5cc59ed1e5484db0846db47bf786a55ad653bb75416cbb743bed174baa6e3477",
+    "1ubq.fcz.json": "35e9f2f9183a9d861d3dc9e71ce77dfc58927194c426669ae6428dde55170e33"
+  },
+  "tolerances": {
+    "text_coordinates_angstrom": 1e-09,
+    "angles_circular_degrees": 1e-06,
+    "foldcomp_coordinates_angstrom": 0.0001,
+    "foldcomp_angles_degrees": 0.01
+  }
+}

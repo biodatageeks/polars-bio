@@ -51,6 +51,7 @@ from polars_bio.polars_bio import (
     py_write_table,
 )
 
+from . import structure as _structure
 from ._metadata import get_vcf_metadata, set_coordinate_system, set_vcf_metadata
 from ._path_utils import strip_url_parameters
 from .context import _resolve_zero_based, ctx
@@ -428,6 +429,15 @@ class PgenMatrix(NamedTuple):
 
 
 class IOOperations:
+    scan_structures = staticmethod(_structure.scan_structures)
+    scan_pdb = staticmethod(_structure.scan_pdb)
+    scan_mmcif = staticmethod(_structure.scan_mmcif)
+    scan_foldcomp = staticmethod(_structure.scan_foldcomp)
+    read_structures = staticmethod(_structure.read_structures)
+    read_pdb = staticmethod(_structure.read_pdb)
+    read_mmcif = staticmethod(_structure.read_mmcif)
+    read_foldcomp = staticmethod(_structure.read_foldcomp)
+
     @staticmethod
     def read_fasta(
         path: str,

@@ -1,0 +1,121 @@
+{
+  "observed_date": "2026-09-09",
+  "python": "3.12.2",
+  "versions": {
+    "gemmi": "0.7.5",
+    "biopython": "1.88",
+    "foldcomp": "1.0.0",
+    "numpy": "2.5.3"
+  },
+  "inputs": {
+    "1ubq.pdb": {
+      "url": "https://files.rcsb.org/download/1UBQ.pdb",
+      "bytes": 78570,
+      "sha256": "d4a6812d8951cf6594e6a0763f089e35f5a80b62acb3c117b2c5565228a7b161"
+    },
+    "1ubq.cif": {
+      "url": "https://files.rcsb.org/download/1UBQ.cif",
+      "bytes": 103220,
+      "sha256": "056f98710cb2b36f633c45e41902a02eb446e82871da21ff2dd44f74a56ca0f6"
+    }
+  },
+  "foldcomp_fixture_commit": "89e37195d3c8ade8d40ead91ad82e6cd2964a967",
+  "foldcomp_fixture_hashes": {
+    "example_db": "fad008ca82e01b1fe9d5a5dbddc4080dfd12565d04ceee21fef7eb52543cd634",
+    "example_db.index": "346d7d2cf546cbddca6e8c07320ce46b4fc0bd15035b017438d5110ec7827bf7",
+    "example_db.lookup": "affe92e18bde3723f290e8c12b8c4884f7afbcce1ab1669fae6d2db2099ee47b",
+    "example_db.dbtype": "42f4aeb81c1ef81f771f3de8abca9dcf66901c575530e7672e4b1146474ae650",
+    "example_db.source": "f1ef532a7c42556c9ac35dc37b39438dbe8d15081356df30369f428ded02c0d7"
+  },
+  "pdb_cif": {
+    "atom_rows_exact_equal": true,
+    "atoms": 660,
+    "protein_residues": 76,
+    "geometry_comparisons": 451,
+    "max_gemmi_biopython_float64_difference_deg": 5.9685589803848416e-12,
+    "max_biopython_parser_phi_difference_deg": 0.00018536065653051992
+  },
+  "foldcomp": {
+    "compressed_bytes": 1364,
+    "decoded_name": "1ubq-probe",
+    "get_data_lengths_fcz": {
+      "phi": 76,
+      "psi": 76,
+      "omega": 76,
+      "torsion_angles": 225,
+      "bond_angles": 228,
+      "residues": 76,
+      "b_factors": 76,
+      "coordinates": 602
+    },
+    "get_data_lengths_pdb": {
+      "phi": 75,
+      "psi": 75,
+      "omega": 75,
+      "torsion_angles": 225,
+      "bond_angles": 226,
+      "residues": 76,
+      "b_factors": 76,
+      "coordinates": 602
+    },
+    "first_phi_fcz": [
+      -91.0042724609375,
+      -131.1288604736328,
+      -115.96549224853516
+    ],
+    "first_psi_fcz": [
+      149.6463623046875,
+      138.2888641357422,
+      163.03964233398438
+    ],
+    "first_phi_pdb": [
+      -91.02024841308594,
+      -131.09890747070312,
+      -115.99121856689453
+    ],
+    "first_psi_pdb": [
+      149.6287841796875,
+      138.2641143798828,
+      163.04656982421875
+    ],
+    "gemmi_phi_first_four_residues": [
+      null,
+      -91.02018604276657,
+      -131.09891656868308,
+      -115.99120425237675
+    ],
+    "gemmi_psi_first_four_residues": [
+      149.62875148548056,
+      138.26406631793242,
+      163.04654726832388,
+      140.22603528425634
+    ],
+    "original_protein_atoms": 602,
+    "decoded_atoms": 602,
+    "matching_atom_keys": 602,
+    "unaligned_rmsd_angstrom": 0.19628200693351175,
+    "max_atom_displacement_angstrom": 1.1290110716906159,
+    "get_data_vs_decoded_pdb_max_component_difference_angstrom": 0.0004997406005866623,
+    "subset_raw": [
+      {
+        "bytes": 2306,
+        "magic": "FCMP"
+      },
+      {
+        "bytes": 2249,
+        "magic": "FCMP"
+      }
+    ],
+    "subset_names": [
+      "d1asha_",
+      "d1it2a_"
+    ],
+    "empty_ids_length": 24,
+    "missing_id_error": "KeyError"
+  },
+  "nonnumeric_author_id": {
+    "raw_gemmi_and_mmcif2dict": "X1",
+    "gemmi_structure": "ValueError: not an integer: X",
+    "biopython_structure": "ValueError: invalid literal for int() with base 10: 'X1'"
+  }
+}

@@ -27,3 +27,9 @@
             - register_cool
             - register_bigbed
             - register_view
+
+::: polars_bio.structure
+    options:
+        members:
+            - register_structure
+            - register_foldcomp
