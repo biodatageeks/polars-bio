@@ -78,11 +78,43 @@ jobs:
       - run: make install
       - run: make test
 
-  linux:
-    runs-on: ubuntu-latest
+  # Linux arm64 on a native GitHub arm runner. One interpreter only: the wheel
+  # is abi3, so arch-specific breakage is interpreter-independent.
+  linux_arm64_tests:
+    runs-on: ubuntu-24.04-arm
     strategy:
       matrix:
-        target: [x86_64]
+        python-version: [ "3.12" ]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - name: Set up Rust
+        run: rustup show
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Install system dependencies for pysam build
+        run: sudo apt-get update && sudo apt-get install -y libbz2-dev liblzma-dev libcurl4-openssl-dev zlib1g-dev libdeflate-dev
+      - run: uv lock --check
+      - run: make venv
+      - run: make install
+      - run: make test
+
+  linux:
+    runs-on: ${{ matrix.target == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    strategy:
+      matrix:
+        target: [x86_64, aarch64]
+        include:
+          - target: x86_64
+            cpu_target: "skylake"
+          # Neoverse N1 baseline: AWS Graviton2+, Ampere Altra, Azure Cobalt.
+          - target: aarch64
+            cpu_target: "neoverse-n1"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -96,7 +128,7 @@ jobs:
           sccache: 'true'
           manylinux: auto
         env:
-          RUSTFLAGS: "-Dwarnings -Ctarget-cpu=${{ env.TARGET_CPU }}"
+          RUSTFLAGS: "-Dwarnings -Ctarget-cpu=${{ matrix.cpu_target }}"
 
       - name: Upload wheels
         uses: actions/upload-artifact@v6

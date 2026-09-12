@@ -26,7 +26,7 @@ mamba install -c conda-forge -c bioconda polars-bio
     extras have no conda equivalent, so install `pandas`, `bioframe` or `matplotlib`
     alongside polars-bio if you need them.
 
-There are binary versions for Linux (x86_64), MacOS (x86_64 and arm64) and Windows (x86_64).
+There are binary versions for Linux (x86_64 and arm64), MacOS (x86_64 and arm64) and Windows (x86_64).
 In case of other platforms (or errors indicating incompatibilites between Python's ABI), it is fairly easy to build polars-bio from source with [uv](https://docs.astral.sh/uv/) and [maturin](https://github.com/PyO3/maturin):
 ```shell
 git clone https://github.com/biodatageeks/polars-bio.git

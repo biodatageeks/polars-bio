@@ -44,7 +44,7 @@ We'll be presenting **polars-bio** at [ECCB 2026](https://eccb2026.org) — the 
 * bioinformatics file [formats](https://biodatageeks.org/polars-bio/features/#file-formats-support), including native indexed BCF reads, with [noodles](https://github.com/zaeleus/noodles)
 * VCF Zarr support built on [Analysis-ready VCF at Biobank scale using Zarr](https://doi.org/10.1093/gigascience/giaf049), the [VCF Zarr specification](https://github.com/sgkit-dev/vcf-zarr-spec) and the [zarrs](https://crates.io/crates/zarrs) Rust crate
 * fast overlap operations with [COITrees: Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees)
-* pre-built wheel packages for *Linux*, *Windows* and *MacOS* (*arm64* and *x86_64*) available on [PyPI](https://pypi.org/project/polars-bio/#files)
+* pre-built wheel packages for *Linux* (*x86_64* and *arm64*), *Windows* and *MacOS* (*arm64* and *x86_64*) available on [PyPI](https://pypi.org/project/polars-bio/#files)
 
 ## Performance
 
