@@ -36,6 +36,15 @@ The matrix below summarizes which [performance features](#performance-features) 
 | [BigBed](../api/reading.md#polars_bio.data_input.read_bigbed) | :white_check_mark: | :white_check_mark: (built-in BBI index) | ❌ | :white_check_mark: | :white_check_mark: |
 | [Cooler (.cool/.mcool)](../api/reading.md#polars_bio.data_input.read_cool) | :white_check_mark: | :white_check_mark: (built-in CSR index) | ❌ | :white_check_mark: (first axis) | :white_check_mark: |
 
+## Protein structures
+
+`scan_pdb`, `scan_mmcif`, `scan_structures`, and `scan_foldcomp` provide atom or
+residue tables, with matching eager readers. Residue output includes amino-acid
+identities, backbone coordinates, phi/psi/outgoing omega, and three bond angles.
+Coordinates are Angstroms and angles are degrees, independent of genomic settings.
+See [Protein structures](structures.md) for source/selector examples, missing-value
+and conformer policies, supported formats and memory limits.
+
 ## Performance features
 
 polars-bio applies the same performance machinery — indexing, pushdown, and parallel reads — across most formats. The [capability matrix](#file-formats-support) above shows which format supports what; this section explains each feature and how to use it.

@@ -46,9 +46,13 @@ from .io import (
     _validate_tag_type_hints,
     _validate_variant_input_path,
 )
+from .structure import register_foldcomp, register_structure
 
 
 class SQL:
+    register_structure = staticmethod(register_structure)
+    register_foldcomp = staticmethod(register_foldcomp)
+
     @staticmethod
     def register_vcf(
         path: str,

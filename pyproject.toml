@@ -52,6 +52,7 @@ test = [
 
 [tool.maturin]
 module-name = "polars_bio"
+include = [{ path = "polars_bio/licenses/structure/*", format = ["sdist", "wheel"] }]
 
 [[tool.mypy.overrides]]
 module = "polars.utils.udfs"

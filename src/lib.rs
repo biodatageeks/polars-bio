@@ -1,3 +1,4 @@
+mod structure;
 // Global allocator (issue #402), selected by Cargo features; exactly one is linked.
 // mimalloc is the default (restores the pre-0.32 allocator lost via datafusion-python
 // default-features = false). jemalloc is opt-in and takes precedence when requested,
@@ -1506,6 +1507,8 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<PyPgenMatrixReader>()?;
     m.add_class::<PyBgenMatrixReader>()?;
     m.add_function(wrap_pyfunction!(py_read_sql, m)?)?;
+    m.add_class::<structure::PyStructureReadOptions>()?;
+    m.add_function(wrap_pyfunction!(structure::py_scan_structure, m)?)?;
     m.add_function(wrap_pyfunction!(py_get_table_schema, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf_zarr, m)?)?;

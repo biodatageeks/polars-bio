@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- PDB/mmCIF collection and local Foldcomp subset readers (`scan_*`, `read_*`,
+  `register_structure`, `register_foldcomp`) with atom/residue output, raw author
+  and label identifiers, coherent conformers, backbone coordinates and six angles
+  in physical units (#455). Geometry and decoding run in native format providers.
+
 - PGEN entry points (`read_pgen`, `scan_pgen`, `read_pgen_matrix`,
   `describe_pgen`, `register_pgen`) accept `max_companion_bytes`,
   `max_decompressed_companion_bytes`, and `max_variants`, forwarded to the
