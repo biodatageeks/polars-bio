@@ -71,7 +71,7 @@ class SQL:
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             info_fields: List of INFO field names to register. If *None*, all INFO fields will be detected automatically from the VCF header. Use this to limit registration to specific fields for better performance.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
-            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             compression_type: The compression type of the VCF file. If not specified, it will be detected automatically..
@@ -134,7 +134,7 @@ class SQL:
             samples: Optional sample names to register, in requested order.
             genotype_output: GT representation. `"string"` (default) returns VCF-style calls such as `"0/1"`. `"dosage"` returns the number of ALT alleles per sample as nullable `Int8` (normally 0, 1, or 2 for diploid calls); any missing allele yields null. Dosage requires GT to be the only selected FORMAT field and requires biallelic records. When `format_fields` is *None*, all header-defined FORMAT fields are selected, so pass `format_fields=["GT"]` when the header declares additional fields. Multiallelic records are rejected.
             chunk_size: Object-store chunk size in MB.
-            concurrent_fetches: Number of concurrent object-store fetches.
+            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
             allow_anonymous: Allow anonymous object-store access.
             max_retries: Maximum number of object-store retries.
             timeout: Object-store timeout in seconds.
@@ -270,7 +270,7 @@ class SQL:
             path: The path to the GFF file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
-            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             compression_type: The compression type of the GFF file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compression is supported ('bgz' and 'gz').
@@ -347,7 +347,7 @@ class SQL:
             path: The path to the GTF file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
-            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             compression_type: The compression type of the GTF file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compression is supported ('bgz' and 'gz').
@@ -400,7 +400,7 @@ class SQL:
             path: The path to the FASTQ file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
-            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             compression_type: The compression type of the FASTQ file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compression is supported ('bgz' and 'gz').
@@ -471,7 +471,7 @@ class SQL:
             path: The path to the BED file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
-            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             compression_type: The compression type of the BED file. If not specified, it will be detected automatically..
@@ -541,7 +541,7 @@ class SQL:
         path: str,
         name: Union[str, None] = None,
         chunk_size: int = 8,
-        concurrent_fetches: int = 1,
+        concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
         max_retries: int = 5,
         timeout: int = 300,
@@ -555,7 +555,7 @@ class SQL:
             path: The path to the FASTA file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             compression_type: The compression type of the FASTA file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
@@ -936,7 +936,7 @@ class SQL:
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             tag_fields: List of BAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
-            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -1074,7 +1074,7 @@ class SQL:
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             tag_fields: List of CRAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
             chunk_size: The size in MB of a chunk when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **8-16**.
-            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. Default settings are optimized for large scale operations. For small scale (interactive) operations, it is recommended to decrease this value to **1-2**.
+            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -1136,7 +1136,7 @@ class SQL:
             path: The path to the Pairs file (.pairs, .pairs.gz, .pairs.bgz).
             name: The name of the table. If *None*, the name will be generated automatically from the path.
             chunk_size: The size in MB of a chunk when reading from an object store.
-            concurrent_fetches: The number of concurrent fetches when reading from an object store.
+            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
             allow_anonymous: Whether to allow anonymous access to object storage.
             max_retries: The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
@@ -1202,7 +1202,7 @@ class SQL:
             sample_path: An explicit Oxford `.sample` companion, used only when the BGEN has no embedded sample identifiers.
             bgi_path: An explicit `.bgi` index location.
             chunk_size: The size in MB of a chunk when reading from an object store.
-            concurrent_fetches: The number of concurrent fetches when reading from an object store.
+            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
             allow_anonymous: Whether to allow anonymous access to object storage.
             max_retries: The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.
@@ -1288,7 +1288,7 @@ class SQL:
             max_range_bytes: The largest coalesced read, in bytes. If *None*, the provider default is used.
             batch_soft_byte_limit: A soft target for genotype bytes in one RecordBatch. If *None*, the provider default is used.
             chunk_size: The size in MB of a chunk when reading from an object store.
-            concurrent_fetches: The number of concurrent fetches when reading from an object store.
+            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
             allow_anonymous: Whether to allow anonymous access to object storage.
             max_retries: The maximum number of retries for reading the file from object storage.
             timeout: The timeout in seconds for reading the file from object storage.

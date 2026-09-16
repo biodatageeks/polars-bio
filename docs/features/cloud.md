@@ -1,6 +1,6 @@
 # Cloud storage ☁️
 
-**On this page:** [Example](#example) · [Supported features](#supported-features) · [AWS S3](#aws-s3-configuration) · [Google Cloud Storage](#google-cloud-storage-configuration) · [Azure Blob Storage](#azure-blob-storage-configuration)
+**On this page:** [Example](#example) · [Supported features](#supported-features) · [Tuning concurrent requests](#tuning-concurrent-requests) · [AWS S3](#aws-s3-configuration) · [Google Cloud Storage](#google-cloud-storage-configuration) · [Azure Blob Storage](#azure-blob-storage-configuration)
 
 polars-bio supports direct streamed reading from cloud storages (e.g. S3, GCS) enabling processing large-scale genomics data without materializing in memory.
 It is built upon the [OpenDAL](https://opendal.apache.org/) project, a unified data access layer for cloud storage, which allows to read  bioinformatic file formats from various cloud storage providers. For Apache DataFusion **native** file formats, such as Parquet or CSV please
@@ -27,11 +27,41 @@ It is  especially useful when combined with [SQL](sql.md#sql-processing) support
 | Anonymous access                | :white_check_mark: | :white_check_mark:   |                    |
 | Authenticated access            | :white_check_mark: | :white_check_mark:   | :white_check_mark: |
 | Requester Pays                  | :white_check_mark: |                      |                    |
-| Concurrent requests<sup>1</sup> |                    | :white_check_mark:   |                    |
+| Concurrent requests<sup>1</sup> | :white_check_mark:<sup>2</sup> | :white_check_mark:   |                    |
 | Streaming reads                 | :white_check_mark: | :white_check_mark:   | :white_check_mark: |
 
 !!! note
     <sup>1</sup>For more information on concurrent requests and block size tuning please refer to [issue](https://github.com/biodatageeks/polars-bio/issues/132#issuecomment-2967687947).
+    <sup>2</sup>Parallel ranged reads from S3 need `datafusion-bio-formats` with [#253](https://github.com/biodatageeks/datafusion-bio-formats/pull/253); older builds stream S3 objects over one connection regardless of `concurrent_fetches`.
+
+## Tuning concurrent requests
+
+Every `read_*`, `scan_*`, `describe_*` and `register_*` function takes two
+object-store options:
+
+| Option               | Default | Meaning                                                                                   |
+|----------------------|---------|-------------------------------------------------------------------------------------------|
+| `concurrent_fetches` | `8`     | Number of ranged requests in flight for a whole-object read (S3, GCS, HTTP).              |
+| `chunk_size`         | `8`     | Size in MiB of each ranged request (`register_*` functions default to `64`).             |
+
+The default reads a whole file at the speed of a parallel download such as
+`aws s3 cp`; on a high-latency link one sequential connection can take about
+twice as long. Set `concurrent_fetches=1` to stream the object over a single
+request. That is the right choice for pre-signed URLs that allow `GET` but
+refuse `HEAD` (a chunked read needs the object size first), and it also keeps
+memory lowest, since up to `concurrent_fetches × chunk_size` MiB can be in
+flight per stream.
+
+```python
+import polars as pl
+import polars_bio as pb
+
+# default: 8 concurrent 8 MiB ranged requests
+pb.scan_vcf("s3://bucket/cohort.vcf.bgz").select(pl.len()).collect()
+
+# one sequential request, e.g. for a pre-signed GET-only URL
+pb.scan_vcf("s3://bucket/cohort.vcf.bgz", concurrent_fetches=1)
+```
 
 ## AWS S3 configuration
 Supported environment variables:
