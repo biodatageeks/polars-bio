@@ -727,6 +727,22 @@ projections that omit `sequence` do not materialize sequence text.
 Not covered in this release: writing any of the three formats, A3M→A2M insert
 expansion (`expand_inserts`), and `#=GC` as per-column columns.
 
+!!! tip "Reading alignments from S3"
+    Whole-file scans from object storage are fastest with several concurrent
+    ranged requests:
+
+    ```python
+    lf = pb.scan_a3m(
+        "s3://openfold/pdb/6r83_10a/a3m/bfd_uniclust_hits.a3m",
+        concurrent_fetches=8,
+    )
+    lf.select(pl.len()).collect()
+    ```
+
+    With the default `concurrent_fetches=1` the file is streamed over one
+    connection, which on high-latency links can take about twice as long as
+    `aws s3 cp`. This applies to every format read from S3, not only MSAs.
+
 ```python
 import polars as pl
 import polars_bio as pb

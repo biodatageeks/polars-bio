@@ -639,7 +639,7 @@ class SQL:
             path: The path to the A2M file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            concurrent_fetches: [GCS, AWS S3, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 1 (one sequential request). Set it to 8 to read whole files from S3 at the speed of a parallel download.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             compression_type: The compression type of the A2M file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
@@ -690,7 +690,7 @@ class SQL:
             path: The path to the A3M file.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            concurrent_fetches: [GCS, AWS S3, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 1 (one sequential request). Set it to 8 to read whole files from S3 at the speed of a parallel download.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             compression_type: The compression type of the A3M file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').
@@ -742,7 +742,7 @@ class SQL:
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             gs_fields: `#=GS` features to promote to top-level string columns, e.g. `["AC", "DE"]`. Include `"gs"` to keep the full `gs` column alongside the promoted ones.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
+            concurrent_fetches: [GCS, AWS S3, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 1 (one sequential request). Set it to 8 to read whole files from S3 at the speed of a parallel download.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             compression_type: The compression type of the Stockholm file. If not specified, it will be detected automatically based on the file extension. BGZF and GZIP compressions are supported ('bgz', 'gz').

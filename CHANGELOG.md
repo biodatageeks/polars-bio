@@ -39,6 +39,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- S3 scans of A2M/A3M/Stockholm (and every other text format) can use parallel
+  ranged reads via `concurrent_fetches`, matching `aws s3 cp` speed instead of
+  one sequential GET; the S3 region is no longer re-detected on every open
+  ([#459](https://github.com/biodatageeks/polars-bio/issues/459) comment,
+  upstream datafusion-bio-formats#253).
 - BED3 files now retain every interval in eager, lazy, and SQL reads, with null
   names for the missing fourth field. Malformed BED records raise errors instead
   of silently disappearing (#456). The upstream fixes also cover compression,
