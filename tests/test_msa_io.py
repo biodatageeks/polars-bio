@@ -13,9 +13,11 @@ Parity oracles (see tests/data/io/msa/README.md):
 import contextlib
 import gzip
 import json
+import os
 import re
 import shutil
 import subprocess
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Barrier, Lock
@@ -611,3 +613,30 @@ def test_live_esl_alistat_counts(name):
         .rows()
     ]
     assert sorted(ours) == sorted(nseq)
+
+
+# --- object storage (opt-in, network) ---------------------------------------
+
+OPENFOLD_A3M = "s3://openfold/pdb/6r83_10a/a3m/bfd_uniclust_hits.a3m"
+
+
+@pytest.mark.skipif(
+    os.environ.get("POLARS_BIO_NETWORK_TESTS") != "1",
+    reason="downloads 89 MB from a public S3 bucket; set POLARS_BIO_NETWORK_TESTS=1",
+)
+def test_scan_a3m_public_s3_concurrent_fetches_reads_all_records():
+    # The row count pins correctness; the timing guards the #459 regression
+    # (one sequential GET vs parallel ranged reads) without asserting an
+    # absolute number, since link speed varies between machines.
+    sequential = pb.scan_a3m(OPENFOLD_A3M, concurrent_fetches=1)
+    parallel = pb.scan_a3m(OPENFOLD_A3M, concurrent_fetches=8)
+
+    t = time.perf_counter()
+    n_parallel = parallel.select(pl.len()).collect().item()
+    parallel_s = time.perf_counter() - t
+    t = time.perf_counter()
+    n_sequential = sequential.select(pl.len()).collect().item()
+    sequential_s = time.perf_counter() - t
+
+    assert n_parallel == n_sequential == 26029
+    assert parallel_s <= sequential_s * 1.25, (parallel_s, sequential_s)
