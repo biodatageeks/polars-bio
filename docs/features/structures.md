@@ -35,6 +35,11 @@ Gzip text is detected from its header. Foldcomp accepts one local FCZ/database.
 | max_decoded_bytes | 536870912 | decompressed text limit |
 | max_atoms | 5000000 | per-entry atom limit |
 
+Limits apply to each input file or Foldcomp entry, not to the total collection.
+Exceeding a limit raises an error; it does not silently truncate the output.
+For entries larger than the default 5,000,000 atoms, increase `max_atoms` explicitly
+(and the byte limits if needed), allowing for the memory used by each active worker.
+
 Coordinates are Float64 **Angstroms**, angles Float64 **degrees**. Genomic
 zero/one-based settings do not change these values or attach genomic metadata.
 `pb.get_metadata(frame)` includes the structure schema version and physical units.

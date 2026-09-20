@@ -22,8 +22,11 @@ Sources = str | os.PathLike[str] | Sequence[str | os.PathLike[str]]
 def _paths(sources: Sources) -> list[str]:
     if isinstance(sources, (str, os.PathLike)):
         sources = [sources]
+    # bytes is a Sequence, but its elements are integers rather than paths.
     if not isinstance(sources, Sequence) or isinstance(sources, bytes):
         raise TypeError("sources must be a path or a sequence of paths")
+    if not sources:
+        raise ValueError("structure sources must not be empty")
     result = [os.fspath(path) for path in sources]
     if any(not isinstance(path, str) or not path for path in result):
         raise ValueError("structure paths must be nonempty strings")
@@ -87,13 +90,14 @@ def _provider(
 def _scan(sources: Sources, *, format: str, **options) -> pl.LazyFrame:
     from .io import _lazy_scan
 
-    provider = _provider(sources, format=format, **options)
+    paths = _paths(sources)
+    provider = _provider(paths, format=format, **options)
     frame = _lazy_scan(provider, projection_pushdown=True, predicate_pushdown=True)
     metadata = {
         key.decode(): value.decode()
         for key, value in (provider.schema().metadata or {}).items()
     }
-    set_source_metadata(frame, format=format, path=str(sources), header=metadata)
+    set_source_metadata(frame, format=format, path=", ".join(paths), header=metadata)
     return frame
 
 
