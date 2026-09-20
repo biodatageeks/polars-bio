@@ -31,35 +31,39 @@ concurrency 1: 8–11 s, slower than a single stream.
 - `concurrent_fetches` defaults to `8` in every public `read_*`, `scan_*`,
   `describe_*` and `register_*` function that exposes it (33 signatures:
   32 in `polars_bio/io.py` plus `register_fasta` in `polars_bio/sql.py`).
-  `chunk_size` stays at 8 MiB, so at most 64 MiB is in flight per stream.
+  `chunk_size` stays at 8 MiB for reads/scans/describes and `register_fasta`,
+  or 64 MiB for other registration functions (up to 64 or 512 MiB in flight).
 - Docstrings describe the option uniformly: it applies to S3, GCS and HTTP;
-  `1` selects one sequential request, which is also the choice for backends
-  that refuse HEAD (pre-signed GET-only URLs).
+  `1` disables parallel fetching. S3 whole-object reads then use one
+  sequential request; HTTP/GCS may still use chunks and a HEAD preflight.
+  GET-only HTTP compatibility depends on the reader path, not this value.
 - `docs/features/cloud.md` marks S3 concurrent requests as supported and
   gains a short tuning section.
-- Behaviour change, not breaking: no signature is removed and every caller
-  that passed `concurrent_fetches` explicitly is unaffected. Callers on the
-  default now issue up to 8 parallel ranged requests plus one HEAD per object
-  read instead of one GET.
+- No signature is removed. The new default can add a size preflight and
+  increase requests and memory use. Explicit concurrency values are preserved.
+- The lazy-scan object-storage fallback also defaults to 8 while preserving
+  explicitly stored options.
 
 ## Ordering
 
-The S3 benefit needs the `datafusion-bio-format-*` pin to include
-datafusion-bio-formats#253 (carried by polars-bio#460). On the current pin,
-the new default only changes GCS and HTTP reads, which already honoured it;
-S3 keeps one stream until that pin lands. Merge after #460 or repin here.
+All `datafusion-bio-format-*` dependencies now pin merged upstream revision
+`fd17754c55c63394717967c18b7a45cf8aeb48ee` (datafusion-bio-formats#253).
+This includes S3 concurrent ranged reads and the refused-HEAD fallback in
+the shared full-object stream helper. This PR no longer depends on #460
+merging first. Return to a release tag once one includes this revision.
 
 ## Impact
 
 - Affected specs: `object-storage-io` (new capability)
 - Affected code: `polars_bio/io.py`, `polars_bio/sql.py`,
-  `docs/features/cloud.md`, `CHANGELOG.md`, `tests/test_object_store_defaults.py`
+  `docs/features/cloud.md`, `CHANGELOG.md`, `tests/test_object_store_defaults.py`,
+  `tests/test_object_store_requests.py`, `Cargo.toml`, `Cargo.lock`
 - Not changed: the Rust `ObjectStorageOptions` default (`concurrent_fetches=None`,
   core falls back to 1); Python always passes an explicit value. The internal
   `_describe_variant`, `describe_bgen` and `describe_pgen` header reads keep a
   hard-coded `concurrent_fetches=1` because they read only a header.
 - Not changed: `chunk_size`. `read_*`/`scan_*` default to 8 MiB and
-  `register_*` to 64 MiB, so a `register_*` call on the default now has up to
+  `register_fasta` to 8 MiB and other `register_*` functions to 64 MiB, so a `register_*` call on the default now has up to
   512 MiB in flight per stream on S3 (GCS already behaved this way). Unifying
   `chunk_size` is a follow-up; 8 MiB × 8 measured best on the reference file.
 - Six functions whose docstrings defer to their `read_*` counterpart

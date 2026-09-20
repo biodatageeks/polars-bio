@@ -32,25 +32,33 @@ It is  especially useful when combined with [SQL](sql.md#sql-processing) support
 
 !!! note
     <sup>1</sup>For more information on concurrent requests and block size tuning please refer to [issue](https://github.com/biodatageeks/polars-bio/issues/132#issuecomment-2967687947).
-    <sup>2</sup>Parallel ranged reads from S3 need `datafusion-bio-formats` with [#253](https://github.com/biodatageeks/datafusion-bio-formats/pull/253); older builds stream S3 objects over one connection regardless of `concurrent_fetches`.
+    <sup>2</sup>The pinned `datafusion-bio-formats` revision includes [#253](https://github.com/biodatageeks/datafusion-bio-formats/pull/253). Older builds without that fix stream S3 objects over one connection regardless of `concurrent_fetches`.
 
 ## Tuning concurrent requests
 
-Every `read_*`, `scan_*`, `describe_*` and `register_*` function takes two
-object-store options:
+The `read_*`, `scan_*`, `describe_*` and `register_*` functions that expose
+`concurrent_fetches` and `chunk_size` accept the following object-store options.
+Backend support varies by format and reader path. Check the function signature:
+for example, `describe_vcf`, `describe_bcf`,
+`describe_bgen`, `describe_pgen` and `describe_cool` do not expose them.
 
-| Option               | Default | Meaning                                                                                   |
-|----------------------|---------|-------------------------------------------------------------------------------------------|
-| `concurrent_fetches` | `8`     | Number of ranged requests in flight for a whole-object read (S3, GCS, HTTP).              |
-| `chunk_size`         | `8`     | Size in MiB of each ranged request (`register_*` functions default to `64`).             |
+| Option | Default | Meaning |
+|--------|---------|---------|
+| `concurrent_fetches` | `8` | Maximum number of ranged requests in flight for a whole-object read (S3, GCS, HTTP). |
+| `chunk_size` | `8` MiB for `read_*`, `scan_*`, `describe_*` and `register_fasta`; `64` MiB for other `register_*` functions | Size of each ranged request. |
 
-The default reads a whole file at the speed of a parallel download such as
-`aws s3 cp`; on a high-latency link one sequential connection can take about
-twice as long. Set `concurrent_fetches=1` to stream the object over a single
-request. That is the right choice for pre-signed URLs that allow `GET` but
-refuse `HEAD` (a chunked read needs the object size first), and it also keeps
-memory lowest, since up to `concurrent_fetches × chunk_size` MiB can be in
-flight per stream.
+Parallel ranged requests can improve whole-file throughput on high-latency
+links. Actual throughput depends on the backend, network and file size. Up to
+`concurrent_fetches × chunk_size` MiB can be in flight per stream: 64 MiB for
+an 8 MiB chunk, or 512 MiB for a 64 MiB chunk.
+
+Set `concurrent_fetches=1` to disable parallel fetching. S3 whole-object reads
+then use one sequential request without a size preflight. HTTP and GCS may
+still split the read into chunks and issue a HEAD request; setting concurrency
+to 1 does not guarantee compatibility with GET-only pre-signed HTTP URLs.
+Readers using the core full-object streaming helper retry with one sequential
+GET if the server refuses the HEAD preflight. Indexed and other reader paths
+may still require HEAD support.
 
 ```python
 import polars as pl
@@ -59,7 +67,7 @@ import polars_bio as pb
 # default: 8 concurrent 8 MiB ranged requests
 pb.scan_vcf("s3://bucket/cohort.vcf.bgz").select(pl.len()).collect()
 
-# one sequential request, e.g. for a pre-signed GET-only URL
+# one sequential S3 request
 pb.scan_vcf("s3://bucket/cohort.vcf.bgz", concurrent_fetches=1)
 ```
 

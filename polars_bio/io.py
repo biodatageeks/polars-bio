@@ -463,7 +463,7 @@ class IOOperations:
         Parameters:
             path: The path to the FASTA file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -522,7 +522,7 @@ class IOOperations:
         Parameters:
             path: The path to the FASTA file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -607,7 +607,7 @@ class IOOperations:
     def read_a2m(
         path: str,
         chunk_size: int = 8,
-        concurrent_fetches: int = 1,
+        concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
         enable_request_payer: bool = False,
         max_retries: int = 5,
@@ -629,7 +629,7 @@ class IOOperations:
         Parameters:
             path: The path to the A2M file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [GCS, AWS S3, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 1 (one sequential request). Set it to 8 to read whole files from S3 at the speed of a parallel download.
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -661,7 +661,7 @@ class IOOperations:
     def scan_a2m(
         path: str,
         chunk_size: int = 8,
-        concurrent_fetches: int = 1,
+        concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
         enable_request_payer: bool = False,
         max_retries: int = 5,
@@ -679,7 +679,7 @@ class IOOperations:
         Parameters:
             path: The path to the A2M file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [GCS, AWS S3, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 1 (one sequential request). Set it to 8 to read whole files from S3 at the speed of a parallel download.
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -713,7 +713,7 @@ class IOOperations:
     def read_a3m(
         path: str,
         chunk_size: int = 8,
-        concurrent_fetches: int = 1,
+        concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
         enable_request_payer: bool = False,
         max_retries: int = 5,
@@ -736,7 +736,7 @@ class IOOperations:
         Parameters:
             path: The path to the A3M file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [GCS, AWS S3, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 1 (one sequential request). Set it to 8 to read whole files from S3 at the speed of a parallel download.
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -770,7 +770,7 @@ class IOOperations:
     def scan_a3m(
         path: str,
         chunk_size: int = 8,
-        concurrent_fetches: int = 1,
+        concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
         enable_request_payer: bool = False,
         max_retries: int = 5,
@@ -787,7 +787,7 @@ class IOOperations:
         Parameters:
             path: The path to the A3M file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [GCS, AWS S3, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 1 (one sequential request). Set it to 8 to read whole files from S3 at the speed of a parallel download.
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -822,7 +822,7 @@ class IOOperations:
         path: str,
         gs_fields: Optional[list[str]] = None,
         chunk_size: int = 8,
-        concurrent_fetches: int = 1,
+        concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
         enable_request_payer: bool = False,
         max_retries: int = 5,
@@ -850,7 +850,7 @@ class IOOperations:
             path: The path to the Stockholm file.
             gs_fields: `#=GS` features to promote to top-level string columns, e.g. `["AC", "DE"]`. The first occurrence per sequence is used. Include `"gs"` to keep the full `gs` column alongside the promoted ones.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [GCS, AWS S3, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 1 (one sequential request). Set it to 8 to read whole files from S3 at the speed of a parallel download.
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -884,7 +884,7 @@ class IOOperations:
         path: str,
         gs_fields: Optional[list[str]] = None,
         chunk_size: int = 8,
-        concurrent_fetches: int = 1,
+        concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
         enable_request_payer: bool = False,
         max_retries: int = 5,
@@ -902,7 +902,7 @@ class IOOperations:
             path: The path to the Stockholm file.
             gs_fields: `#=GS` features to promote to top-level string columns, e.g. `["AC", "DE"]`. Include `"gs"` to keep the full `gs` column alongside the promoted ones.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [GCS, AWS S3, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 1 (one sequential request). Set it to 8 to read whole files from S3 at the speed of a parallel download.
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -936,7 +936,7 @@ class IOOperations:
     def describe_sto(
         path: str,
         chunk_size: int = 8,
-        concurrent_fetches: int = 1,
+        concurrent_fetches: int = 8,
         allow_anonymous: bool = True,
         enable_request_payer: bool = False,
         max_retries: int = 5,
@@ -956,7 +956,7 @@ class IOOperations:
         Parameters:
             path: The path to the Stockholm file.
             chunk_size: The size in MB of a chunk when reading from an object store.
-            concurrent_fetches: [GCS, AWS S3, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 1 (one sequential request). Set it to 8 to read whole files from S3 at the speed of a parallel download.
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -1014,7 +1014,7 @@ class IOOperations:
             samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
             preserve_record_layout: Carry each record's own INFO key order and FORMAT key list in two extra string columns, `_vcf_info_keys` and `_vcf_format_keys`, so that `sink_vcf`/`write_vcf` write each record's keys in the source's own order and keep a FORMAT key that is present but missing. A line comes back byte for byte when its values are already in canonical form; a value is still parsed and re-serialized, so `QUAL=50.0` is written `50` and `AF=0.50` as `0.5`. Without them a written record uses the header's key order and omits a FORMAT key that is missing in every sample, which is valid VCF carrying the same data. The columns have to stay in the frame to take effect: a `select()` that drops them falls back to header order. Text VCF only. Refused with an error when a field with either reserved name would be read into the frame; selecting other fields with `info_fields`/`format_fields` leaves the name free and the option usable.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -1114,7 +1114,7 @@ class IOOperations:
             samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
             preserve_record_layout: Carry each record's own INFO key order and FORMAT key list in two extra string columns, `_vcf_info_keys` and `_vcf_format_keys`, so that `sink_vcf`/`write_vcf` write each record's keys in the source's own order and keep a FORMAT key that is present but missing. A line comes back byte for byte when its values are already in canonical form; a value is still parsed and re-serialized, so `QUAL=50.0` is written `50` and `AF=0.50` as `0.5`. Without them a written record uses the header's key order and omits a FORMAT key that is missing in every sample, which is valid VCF carrying the same data. The columns have to stay in the frame to take effect: a `select()` that drops them falls back to header order. Text VCF only. Refused with an error when a field with either reserved name would be read into the frame; selecting other fields with `info_fields`/`format_fields` leaves the name free and the option usable.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -1194,7 +1194,7 @@ class IOOperations:
             format_fields: FORMAT fields to include. Single-sample fields are top-level columns; multisample fields are nested in `genotypes`.
             samples: Optional sample names to include, in requested order.
             chunk_size: Object-store chunk size in MB.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: Allow anonymous object-store access.
             enable_request_payer: Enable AWS request-payer access.
             max_retries: Maximum number of object-store retries.
@@ -1441,7 +1441,7 @@ class IOOperations:
             path: The path to the GFF file.
             attr_fields: List of attribute field names to extract as separate columns. If *None*, attributes will be kept as a nested structure. Use this to extract specific attributes like 'ID', 'gene_name', 'gene_type', etc. as direct columns for easier access.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -1498,7 +1498,7 @@ class IOOperations:
             path: The path to the GFF file.
             attr_fields: List of attribute field names to extract as separate columns. If *None*, attributes will be kept as a nested structure. Use this to extract specific attributes like 'ID', 'gene_name', 'gene_type', etc. as direct columns for easier access.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -1564,7 +1564,7 @@ class IOOperations:
             attr_fields: List of attribute field names to extract as separate columns.
                 If *None*, attributes will be kept as a nested structure.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -1623,7 +1623,7 @@ class IOOperations:
             attr_fields: List of attribute field names to extract as separate columns.
                 If *None*, attributes will be kept as a nested structure.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -1693,7 +1693,7 @@ class IOOperations:
             path: The path to the BAM file.
             tag_fields: List of BAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large-scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -1762,7 +1762,7 @@ class IOOperations:
             path: The path to the BAM file.
             tag_fields: List of BAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -1841,7 +1841,7 @@ class IOOperations:
             reference_path: Optional path to external FASTA reference file (**local path only**, cloud storage not supported). If not provided, the CRAM file must contain embedded reference sequences. The FASTA file must have an accompanying index file (.fai) in the same directory. Create the index using: `samtools faidx reference.fasta`
             tag_fields: List of CRAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries: The maximum number of retries for reading the file from object storage.
@@ -1974,7 +1974,7 @@ class IOOperations:
             reference_path: Optional path to external FASTA reference file (**local path only**, cloud storage not supported). If not provided, the CRAM file must contain embedded reference sequences. The FASTA file must have an accompanying index file (.fai) in the same directory. Create the index using: `samtools faidx reference.fasta`
             tag_fields: List of CRAM tag names to include as columns (e.g., ["NM", "MD", "AS"]). If None, no optional tags are parsed (default). Common tags include: NM (edit distance), MD (mismatch string), AS (alignment score), XS (secondary alignment score), RG (read group), CB (cell barcode), UB (UMI barcode).
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries: The maximum number of retries for reading the file from object storage.
@@ -2116,7 +2116,7 @@ class IOOperations:
             sample_size: Number of records to sample for tag discovery (default: 100).
                 Use higher values for more comprehensive tag discovery.
             chunk_size: The size in MB of a chunk when reading from object storage.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: Whether to allow anonymous access to object storage.
             enable_request_payer: Whether to enable request payer for object storage.
             max_retries: The maximum number of retries for reading the file.
@@ -2208,7 +2208,7 @@ class IOOperations:
             reference_path: Optional path to external FASTA reference file.
             sample_size: Number of records to sample for tag discovery (default: 100).
             chunk_size: The size in MB of a chunk when reading from object storage.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: Whether to allow anonymous access to object storage.
             enable_request_payer: Whether to enable request payer for object storage.
             max_retries: The maximum number of retries for reading the file.
@@ -2292,7 +2292,7 @@ class IOOperations:
         Parameters:
             path: The path to the FASTQ file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -2335,7 +2335,7 @@ class IOOperations:
         Parameters:
             path: The path to the FASTQ file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -2387,7 +2387,7 @@ class IOOperations:
         Parameters:
             path: The path to the Pairs file (.pairs, .pairs.gz, .pairs.bgz).
             chunk_size: The size in MB of a chunk when reading from an object store.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: Whether to allow anonymous access to object storage.
             enable_request_payer: Whether to enable request payer for object storage.
             max_retries: The maximum number of retries for reading the file from object storage.
@@ -2447,7 +2447,7 @@ class IOOperations:
         Parameters:
             path: The path to the Pairs file (.pairs, .pairs.gz, .pairs.bgz).
             chunk_size: The size in MB of a chunk when reading from an object store.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: Whether to allow anonymous access to object storage.
             enable_request_payer: Whether to enable request payer for object storage.
             max_retries: The maximum number of retries for reading the file from object storage.
@@ -2520,7 +2520,7 @@ class IOOperations:
             sample_path: An explicit Oxford `.sample` companion. Used only when the BGEN has no embedded sample identifiers.
             bgi_path: An explicit `.bgi` index. A neighbouring `file.bgen.bgi` is discovered automatically.
             chunk_size: The size in MB of a chunk when reading from an object store.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: Whether to allow anonymous access to object storage.
             enable_request_payer: Whether to enable request payer for object storage.
             max_retries: The maximum number of retries for reading the file from object storage.
@@ -2666,7 +2666,7 @@ class IOOperations:
             max_range_bytes: The largest coalesced read, in bytes. If *None*, the provider default is used.
             batch_soft_byte_limit: A soft target for genotype bytes in one RecordBatch. If *None*, the provider default is used.
             chunk_size: The size in MB of a chunk when reading from an object store.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: Whether to allow anonymous access to object storage.
             enable_request_payer: Whether to enable request payer for object storage.
             max_retries: The maximum number of retries for reading the file from object storage.
@@ -2853,7 +2853,7 @@ class IOOperations:
             max_range_bytes: The largest coalesced read, in bytes.
             batch_soft_byte_limit: A soft target for genotype bytes in one RecordBatch.
             chunk_size: The size in MB of a chunk when reading from an object store.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: Whether to allow anonymous access to object storage.
             enable_request_payer: Whether to enable request payer for object storage.
             max_retries: The maximum number of retries for reading the file from object storage.
@@ -3108,7 +3108,7 @@ class IOOperations:
         Parameters:
             path: The path to the BED file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -3163,7 +3163,7 @@ class IOOperations:
         Parameters:
             path: The path to the BED file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries:  The maximum number of retries for reading the file from object storage.
@@ -3225,7 +3225,7 @@ class IOOperations:
         Parameters:
             path: The path to the BigWig file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries: The maximum number of retries for reading the file from object storage.
@@ -3277,7 +3277,7 @@ class IOOperations:
         Parameters:
             path: The path to the BigWig file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries: The maximum number of retries for reading the file from object storage.
@@ -3336,7 +3336,7 @@ class IOOperations:
         Parameters:
             path: The path to the BigBed file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries: The maximum number of retries for reading the file from object storage.
@@ -3391,7 +3391,7 @@ class IOOperations:
         Parameters:
             path: The path to the BigBed file.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
-            concurrent_fetches: [AWS S3, GCS, HTTP] The number of concurrent ranged fetches when reading from an object store. The default is 8, which reads whole files at the speed of a parallel download; set 1 for a single sequential request (also the choice for pre-signed URLs that refuse HEAD).
+            concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
             enable_request_payer: [AWS S3] Whether to enable request payer for object storage. This is useful for reading files from AWS S3 buckets that require request payer.
             max_retries: The maximum number of retries for reading the file from object storage.
@@ -5117,7 +5117,7 @@ def _extract_py_object_storage_options(read_options):
         allow_anonymous=True,
         enable_request_payer=False,
         chunk_size=8,
-        concurrent_fetches=1,
+        concurrent_fetches=8,
         max_retries=5,
         timeout=300,
         compression_type="auto",
