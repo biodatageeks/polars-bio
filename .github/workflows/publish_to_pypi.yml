@@ -29,7 +29,7 @@ concurrency:
 permissions:
   contents: read
 
-# Make sure CI fails on all warnings, including Clippy lints
+# Windows wheel CPU target; Linux and macOS use per-target matrix settings.
 env:
   TARGET_CPU: skylake
 
@@ -112,9 +112,9 @@ jobs:
         include:
           - target: x86_64
             cpu_target: "skylake"
-          # Neoverse N1 baseline: AWS Graviton2+, Ampere Altra, Azure Cobalt.
+          # Generic ARMv8-A: manylinux aarch64 tags cannot express a newer ISA.
           - target: aarch64
-            cpu_target: "neoverse-n1"
+            cpu_target: "generic"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -206,7 +206,7 @@ jobs:
   release:
     name: Release
     if: "startsWith(github.ref, 'refs/tags/')"
-    needs: [rust_tests, linux, windows, macos, sdist]
+    needs: [rust_tests, linux_arm64_tests, linux, windows, macos, sdist]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
