@@ -19,6 +19,9 @@
             - register_sam
             - register_fastq
             - register_fasta
+            - register_a2m
+            - register_a3m
+            - register_sto
             - register_gff
             - register_gtf
             - register_bed

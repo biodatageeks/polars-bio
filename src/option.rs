@@ -147,6 +147,9 @@ pub enum InputFormat {
     Bgen,
     Pgen,
     Cool,
+    A2m,
+    A3m,
+    Sto,
 }
 
 #[pyclass(eq, get_all, from_py_object)]
@@ -178,6 +181,9 @@ impl fmt::Display for InputFormat {
             InputFormat::Bgen => "BGEN",
             InputFormat::Pgen => "PGEN",
             InputFormat::Cool => "COOL",
+            InputFormat::A2m => "A2M",
+            InputFormat::A3m => "A3M",
+            InputFormat::Sto => "STOCKHOLM",
         };
         write!(f, "{}", text)
     }
@@ -215,12 +221,14 @@ pub struct ReadOptions {
     pub pgen_read_options: Option<PgenReadOptions>,
     #[pyo3(get, set)]
     pub cool_read_options: Option<CoolReadOptions>,
+    #[pyo3(get, set)]
+    pub msa_read_options: Option<MsaReadOptions>,
 }
 
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None, bigwig_read_options=None, bigbed_read_options=None, bgen_read_options=None, pgen_read_options=None, cool_read_options=None))]
+    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None, bigwig_read_options=None, bigbed_read_options=None, bgen_read_options=None, pgen_read_options=None, cool_read_options=None, msa_read_options=None))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
@@ -238,6 +246,7 @@ impl ReadOptions {
         bgen_read_options: Option<BgenReadOptions>,
         pgen_read_options: Option<PgenReadOptions>,
         cool_read_options: Option<CoolReadOptions>,
+        msa_read_options: Option<MsaReadOptions>,
     ) -> Self {
         ReadOptions {
             vcf_read_options,
@@ -255,6 +264,7 @@ impl ReadOptions {
             bgen_read_options,
             pgen_read_options,
             cool_read_options,
+            msa_read_options,
         }
     }
 }
@@ -892,6 +902,49 @@ impl FastaReadOptions {
                 compression_type: Some(CompressionType::AUTO),
             }),
             parallel: true,
+        }
+    }
+}
+
+/// Options shared by the A2M, A3M and Stockholm readers.
+#[pyclass(name = "MsaReadOptions", from_py_object)]
+#[derive(Clone, Debug)]
+pub struct MsaReadOptions {
+    pub object_storage_options: Option<ObjectStorageOptions>,
+    /// Stockholm only: `#=GS` features promoted to top-level columns; `"gs"`
+    /// keeps the full bag alongside them. Ignored for A2M / A3M.
+    #[pyo3(get, set)]
+    pub gs_fields: Option<Vec<String>>,
+}
+
+#[pymethods]
+impl MsaReadOptions {
+    #[new]
+    #[pyo3(signature = (object_storage_options=None, gs_fields=None))]
+    pub fn new(
+        object_storage_options: Option<PyObjectStorageOptions>,
+        gs_fields: Option<Vec<String>>,
+    ) -> Self {
+        MsaReadOptions {
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
+            gs_fields,
+        }
+    }
+    #[staticmethod]
+    pub fn default() -> Self {
+        MsaReadOptions {
+            object_storage_options: Some(ObjectStorageOptions {
+                chunk_size: Some(1024 * 1024), // 1MB
+                concurrent_fetches: Some(4),
+                allow_anonymous: false,
+                enable_request_payer: false,
+                max_retries: Some(5),
+                timeout: Some(300), // 300 seconds
+                compression_type: Some(CompressionType::AUTO),
+            }),
+            gs_fields: None,
         }
     }
 }

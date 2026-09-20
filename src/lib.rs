@@ -47,9 +47,9 @@ use crate::option::{
     BedReadOptions, BgenReadOptions, BigBedReadOptions, BigWigReadOptions, BioTable,
     CoolReadOptions, CramReadOptions, CramWriteOptions, FastaReadOptions, FastaWriteOptions,
     FastqReadOptions, FastqWriteOptions, FilterOp, GffReadOptions, GtfReadOptions, InputFormat,
-    OutputFormat, OverlapOutputMode, PairsReadOptions, PgenReadOptions, PileupOptions,
-    PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions, VcfWriteOptions,
-    VcfZarrReadOptions, WriteOptions,
+    MsaReadOptions, OutputFormat, OverlapOutputMode, PairsReadOptions, PgenReadOptions,
+    PileupOptions, PyObjectStorageOptions, RangeOp, RangeOptions, ReadOptions, VcfReadOptions,
+    VcfWriteOptions, VcfZarrReadOptions, WriteOptions,
 };
 use crate::scan::{
     maybe_register_table, register_frame, register_frame_from_arrow_stream,
@@ -889,6 +889,34 @@ fn py_describe_cool(
     })
 }
 
+/// Alignment-level `#=GF` / `#=GC` annotations of a Stockholm file, one row per
+/// annotation line, without materialising any sequence.
+#[pyfunction]
+#[pyo3(signature = (py_ctx, path, object_storage_options=None))]
+fn py_describe_sto(
+    py: Python<'_>,
+    py_ctx: &PyBioSessionContext,
+    path: String,
+    object_storage_options: Option<PyObjectStorageOptions>,
+) -> PyResult<PyDataFrame> {
+    py.detach(|| {
+        let ctx = &py_ctx.ctx;
+        let opts = pyobject_storage_options_to_object_storage_options(object_storage_options);
+        let rt = Runtime::new().map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
+        let rb = rt
+            .block_on(datafusion_bio_format_msa::read_stockholm_annotations(
+                path, opts,
+            ))
+            .map_err(|e| PyRuntimeError::new_err(format!("Stockholm describe failed: {e}")))?;
+        // Same reasoning as describe_cool: build the DataFrame from the batch
+        // rather than registering a throwaway table in the shared context.
+        let df = ctx
+            .read_batch(rb)
+            .map_err(|e| PyRuntimeError::new_err(format!("Failed to read describe batch: {e}")))?;
+        Ok(PyDataFrame::new(df))
+    })
+}
+
 fn quote_sql_identifier(identifier: &str) -> String {
     format!("\"{}\"", identifier.replace('"', "\"\""))
 }
@@ -1510,6 +1538,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(py_describe_vcf, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_vcf_zarr, m)?)?;
     m.add_function(wrap_pyfunction!(py_describe_cool, m)?)?;
+    m.add_function(wrap_pyfunction!(py_describe_sto, m)?)?;
     m.add_function(wrap_pyfunction!(py_register_view, m)?)?;
     m.add_function(wrap_pyfunction!(py_from_polars, m)?)?;
     m.add_function(wrap_pyfunction!(py_write_table, m)?)?;
@@ -1543,6 +1572,7 @@ fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
     m.add_class::<CoolReadOptions>()?;
     m.add_class::<BigBedReadOptions>()?;
     m.add_class::<FastaReadOptions>()?;
+    m.add_class::<MsaReadOptions>()?;
     m.add_class::<FastaWriteOptions>()?;
     m.add_class::<PairsReadOptions>()?;
     m.add_class::<BgenReadOptions>()?;
