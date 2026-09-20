@@ -4502,6 +4502,9 @@ def _write_file(
         format_fields_json = None
         sample_names_json = None
         contigs_json = None
+        filters_json = None
+        alt_definitions_json = None
+        file_format = None
         if vcf_header:
             if vcf_header.get("info_fields"):
                 info_fields_json = json.dumps(vcf_header["info_fields"])
@@ -4511,6 +4514,11 @@ def _write_file(
                 sample_names_json = json.dumps(vcf_header["sample_names"])
             if vcf_header.get("contigs"):
                 contigs_json = json.dumps(vcf_header["contigs"])
+            if vcf_header.get("filters"):
+                filters_json = json.dumps(vcf_header["filters"])
+            if vcf_header.get("alt_definitions"):
+                alt_definitions_json = json.dumps(vcf_header["alt_definitions"])
+            file_format = vcf_header.get("version")
 
         vcf_opts = VcfWriteOptions(
             zero_based=zero_based,
@@ -4518,6 +4526,9 @@ def _write_file(
             format_fields_metadata=format_fields_json,
             sample_names=sample_names_json,
             contigs_metadata=contigs_json,
+            filters_metadata=filters_json,
+            alt_definitions_metadata=alt_definitions_json,
+            file_format=file_format,
         )
         write_options = WriteOptions(vcf_write_options=vcf_opts)
     elif output_format == OutputFormat.Fasta:

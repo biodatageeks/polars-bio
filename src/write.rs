@@ -23,8 +23,9 @@ use datafusion::physical_plan::{
 };
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_core::metadata::{
-    BAM_TAG_TAG_KEY, BAM_TAG_TYPE_KEY, COORDINATE_SYSTEM_METADATA_KEY, VCF_CONTIGS_KEY,
-    VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
+    BAM_TAG_TAG_KEY, BAM_TAG_TYPE_KEY, COORDINATE_SYSTEM_METADATA_KEY, VCF_ALTERNATIVE_ALLELES_KEY,
+    VCF_CONTIGS_KEY, VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
+    VCF_FILE_FORMAT_KEY, VCF_FILTERS_KEY,
 };
 use datafusion_bio_format_core::tag_registry::format_sam_tag_type;
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
@@ -37,11 +38,13 @@ use log::info;
 use crate::option::{OutputFormat, WriteOptions};
 
 type VcfSchemaParts = (Vec<String>, Vec<String>, Vec<String>, SchemaRef);
+/// INFO, FORMAT and sample metadata, then header-level metadata as
+/// (schema metadata key, JSON or text value) pairs.
 type VcfMetadataJson = (
     Option<String>,
     Option<String>,
     Option<String>,
-    Option<String>,
+    Vec<(&'static str, String)>,
 );
 
 /// Build field metadata HashMap from a VCF meta object.
@@ -525,7 +528,18 @@ async fn write_vcf_streaming(
                     vcf_opts.info_fields_metadata.clone(),
                     vcf_opts.format_fields_metadata.clone(),
                     vcf_opts.sample_names.clone(),
-                    vcf_opts.contigs_metadata.clone(),
+                    [
+                        (VCF_CONTIGS_KEY, &vcf_opts.contigs_metadata),
+                        (VCF_FILTERS_KEY, &vcf_opts.filters_metadata),
+                        (
+                            VCF_ALTERNATIVE_ALLELES_KEY,
+                            &vcf_opts.alt_definitions_metadata,
+                        ),
+                        (VCF_FILE_FORMAT_KEY, &vcf_opts.file_format),
+                    ]
+                    .into_iter()
+                    .filter_map(|(key, value)| value.clone().map(|value| (key, value)))
+                    .collect::<Vec<_>>(),
                 )),
             )
         } else {
@@ -537,6 +551,50 @@ async fn write_vcf_streaming(
 
     // Execute streaming write with VCF metadata for header generation
     execute_vcf_streaming_write(ctx, df, path, zero_based, vcf_metadata).await
+}
+
+/// Output projection for a VCF write, or `None` when the frame holds no renamed
+/// input column.
+///
+/// An input INFO id that matches another column's name reaches the frame as
+/// `INFO_<id>`: an annotation engine keeps the bare name for its own column
+/// (`AF` is VEP's frequency, `INFO_AF` the input's field). Such a column is the
+/// INFO field, and the bare `<id>` column is not. Scoped to ids the header
+/// declares, so a field whose real id starts with `INFO_` is untouched.
+fn vcf_write_projection(
+    schema: &Schema,
+    info_ids: &std::collections::HashSet<String>,
+) -> Option<Vec<(String, String)>> {
+    let renamed: HashMap<&str, &str> = schema
+        .fields()
+        .iter()
+        .filter_map(|field| {
+            let name = field.name().as_str();
+            let id = name.strip_prefix("INFO_")?;
+            (info_ids.contains(id) && !info_ids.contains(name)).then_some((name, id))
+        })
+        .collect();
+    if renamed.is_empty() {
+        return None;
+    }
+    let shadowed: std::collections::HashSet<&str> = renamed.values().copied().collect();
+    Some(
+        schema
+            .fields()
+            .iter()
+            .filter_map(|field| {
+                let name = field.name().as_str();
+                if let Some(id) = renamed.get(name) {
+                    Some((name.to_string(), (*id).to_string()))
+                } else if shadowed.contains(name) {
+                    // The same-named annotation column is not the INFO field.
+                    None
+                } else {
+                    Some((name.to_string(), name.to_string()))
+                }
+            })
+            .collect(),
+    )
 }
 
 /// Execute VCF streaming write with metadata support.
@@ -551,12 +609,34 @@ async fn execute_vcf_streaming_write(
     zero_based: bool,
     vcf_metadata: Option<VcfMetadataJson>,
 ) -> Result<u64, DataFusionError> {
+    // A renamed input column is written under its VCF id; see vcf_write_projection.
+    let info_ids: std::collections::HashSet<String> = vcf_metadata
+        .as_ref()
+        .and_then(|(info_meta, _, _, _)| info_meta.as_deref())
+        .and_then(|json| serde_json::from_str::<HashMap<String, serde_json::Value>>(json).ok())
+        .map(|meta| meta.into_keys().collect())
+        .unwrap_or_default();
+    let df = match vcf_write_projection(df.schema().inner(), &info_ids) {
+        Some(columns) => df.select(
+            columns
+                .into_iter()
+                .map(|(source, output)| {
+                    datafusion::logical_expr::Expr::Column(datafusion::common::Column::from_name(
+                        source,
+                    ))
+                    .alias(output)
+                })
+                .collect::<Vec<_>>(),
+        )?,
+        None => df,
+    };
+
     // Get the schema from the DataFrame
     let schema = df.schema().inner().clone();
 
     // Apply VCF metadata to the converted schema, or fall back to heuristics
-    let (info_fields, format_fields, sample_names, schema_with_metadata, contigs_json) =
-        if let Some((info_meta, format_meta, sample_meta, contigs_meta)) = vcf_metadata {
+    let (info_fields, format_fields, sample_names, schema_with_metadata, header_entries) =
+        if let Some((info_meta, format_meta, sample_meta, header_meta)) = vcf_metadata {
             // Parse metadata and add to schema
             let (info_fields, format_fields, sample_names, schema_with_metadata) =
                 apply_vcf_metadata_to_schema(&schema, info_meta, format_meta, sample_meta)?;
@@ -565,27 +645,30 @@ async fn execute_vcf_streaming_write(
                 format_fields,
                 sample_names,
                 schema_with_metadata,
-                contigs_meta,
+                header_meta,
             )
         } else {
             // Fall back to heuristics
             let (info_fields, format_fields, sample_names) =
                 extract_vcf_fields_from_schema(&schema);
-            (info_fields, format_fields, sample_names, schema, None)
+            (info_fields, format_fields, sample_names, schema, Vec::new())
         };
 
-    // Inject contigs into schema metadata so the upstream header builder emits ##contig lines
-    let schema_with_metadata = if let Some(contigs) = contigs_json {
+    // Header-level metadata the upstream header builder turns into ##contig,
+    // ##FILTER, ##ALT and ##fileformat lines.
+    let schema_with_metadata = if header_entries.is_empty() {
+        schema_with_metadata
+    } else {
         let mut metadata = schema_with_metadata.metadata().clone();
-        metadata.insert(VCF_CONTIGS_KEY.to_string(), contigs);
+        for (key, value) in header_entries {
+            metadata.insert(key.to_string(), value);
+        }
         Arc::new(
             schema_with_metadata
                 .as_ref()
                 .clone()
                 .with_metadata(metadata),
         )
-    } else {
-        schema_with_metadata
     };
 
     info!(
