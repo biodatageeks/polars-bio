@@ -84,5 +84,9 @@ or FCZ into columnar I/O. Geometry is computed before query filters, so a phi-on
 projection or filtering out neighboring residues retains the same values as a
 full scan. Repeated and concurrent `collect()` calls use fresh execution cursors.
 
-The runtime has no Gemmi/Biopython/foldcomp Python dependency. Vendored native
-libraries are built into the extension; building from source needs C++17 and Rust.
+PDB/mmCIF parsing and Foldcomp decoding use repository-owned Rust implementations.
+These readers have no Gemmi/Biopython/foldcomp Python dependency or native codec
+build. The translated Foldcomp algorithms remain MIT licensed; the wheel and
+source distribution include the license and upstream notices in
+`polars_bio/licenses/structure/`. Other polars-bio dependencies retain their own
+build requirements.
