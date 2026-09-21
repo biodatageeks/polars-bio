@@ -102,8 +102,8 @@ For polars-bio 0.36.0, both repositories are pinned to release tags in
 
 ```toml
 # Format crates (all 17 use the same tag)
-datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.13.0" }
-datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.13.0" }
+datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.13.1" }
+datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.13.1" }
 # ... see Cargo.toml for the complete list
 
 # Function crates

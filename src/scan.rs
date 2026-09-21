@@ -906,7 +906,8 @@ async fn register_table_provider(
                 path.to_string(),
                 flavor,
                 msa_read_options.object_storage_options.clone(),
-            )?;
+            )?
+            .with_comment_prefix(msa_read_options.comment_prefix.clone())?;
             ctx.register_table(table_name, Arc::new(table_provider))?;
         },
         InputFormat::Sto => {

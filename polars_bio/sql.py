@@ -604,6 +604,7 @@ class SQL:
         timeout: int,
         enable_request_payer: bool,
         compression_type: str,
+        comment_prefix: Union[str, None] = None,
     ) -> None:
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -617,6 +618,7 @@ class SQL:
         msa_read_options = MsaReadOptions(
             object_storage_options=object_storage_options,
             gs_fields=gs_fields,
+            comment_prefix=comment_prefix,
         )
         read_options = ReadOptions(msa_read_options=msa_read_options)
         py_register_table(ctx, path, name, input_format, read_options)
@@ -632,6 +634,8 @@ class SQL:
         timeout: int = 300,
         enable_request_payer: bool = False,
         compression_type: str = "auto",
+        *,
+        comment_prefix: Union[str, None] = None,
     ) -> None:
         """
         Register an A2M alignment file as a Datafusion table.
@@ -641,6 +645,11 @@ class SQL:
 
         Parameters:
             path: The path to the A2M file.
+            comment_prefix: Literal prefix for full-line comments, e.g. `";"`.
+                Matching lines are skipped anywhere in the file, without trimming
+                whitespace or stripping inline text. May contain multiple characters;
+                empty strings and line breaks are rejected. `None` (default) preserves
+                sequence lines. Leading `#` header lines are always skipped.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
@@ -662,6 +671,7 @@ class SQL:
             name,
             InputFormat.A2m,
             gs_fields=None,
+            comment_prefix=comment_prefix,
             chunk_size=chunk_size,
             concurrent_fetches=concurrent_fetches,
             allow_anonymous=allow_anonymous,
@@ -682,6 +692,8 @@ class SQL:
         timeout: int = 300,
         enable_request_payer: bool = False,
         compression_type: str = "auto",
+        *,
+        comment_prefix: Union[str, None] = None,
     ) -> None:
         """
         Register an A3M (hh-suite) alignment file as a Datafusion table.
@@ -692,6 +704,11 @@ class SQL:
 
         Parameters:
             path: The path to the A3M file.
+            comment_prefix: Literal prefix for full-line comments, e.g. `";"`.
+                Matching lines are skipped anywhere in the file, without trimming
+                whitespace or stripping inline text. May contain multiple characters;
+                empty strings and line breaks are rejected. `None` (default) preserves
+                sequence lines. Leading `#` header lines are always skipped.
             name: The name of the table. If *None*, the name of the table will be generated automatically based on the path.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
@@ -713,6 +730,7 @@ class SQL:
             name,
             InputFormat.A3m,
             gs_fields=None,
+            comment_prefix=comment_prefix,
             chunk_size=chunk_size,
             concurrent_fetches=concurrent_fetches,
             allow_anonymous=allow_anonymous,

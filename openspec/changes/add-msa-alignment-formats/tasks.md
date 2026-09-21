@@ -69,3 +69,11 @@
 - [ ] 9.1 `expand_inserts=True` for A3M→A2M rectangular expansion (requires whole-alignment buffering).
 - [ ] 9.2 `skip_pseudo_sequences=True` for A3M.
 - [ ] 9.3 `write_*`/`sink_*` for A2M/A3M (near-free via the FASTA writer) and Stockholm (block width and annotation round-trip decisions).
+
+## 10. Comment-prefix Follow-up
+
+- [x] 10.1 Add optional, keyword-only `comment_prefix` to the A2M/A3M scan, read, and registration APIs; forward it through `MsaReadOptions` to the native parser. Preserve existing parsing when omitted and reject empty or multiline prefixes.
+- [x] 10.2 Pin the bio-formats crates consistently to the `v1.13.1` release tag, which includes the parser fix in bio-formats PR #257.
+- [x] 10.3 Isolate A2M/A3M scan table registrations so concurrent scans of one path retain their own comment prefixes; verify with a deterministic concurrency regression test.
+- [x] 10.4 Add 46 Python regression cases covering eager/lazy/SQL APIs, plain/gzip/BGZF input, literal matching, default behavior, invalid prefixes, and concurrent scans. Focused MSA and object-store suites: 164 passed, 4 optional skips. Native library tests: 21 passed.
+- [x] 10.5 Document the option in all six API references, the reading guide, the MSA spec, and the 0.36.0 changelog; verify the rendered signatures and parameter tables with a strict documentation build.
