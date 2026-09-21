@@ -65,6 +65,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `concurrent_fetches` now defaults to `8` in every `read_*`, `scan_*`,
+  `describe_*` and `register_*` function that exposes it (43 signatures were still at `1`;
+  the SQL `register_*` functions already used `8`). Whole-object reads from
+  S3, GCS and HTTP are split into parallel ranged requests by default instead
+  of one sequential connection, which on high-latency links took about twice
+  as long as `aws s3 cp` ([#459](https://github.com/biodatageeks/polars-bio/issues/459)
+  comment). Pass `concurrent_fetches=1` to disable parallel fetching (one
+  sequential request for S3; HTTP/GCS may still use HEAD and chunked reads).
+  The bio-format v1.13.0 release includes datafusion-bio-formats#253, so S3
+  honors the default in this change.
 - Updated bio-format dependencies to v1.12.1, restoring release-tag pins after
   the BED reader and PGEN companion fixes (#457).
 - PGEN companions are streamed and parsed into a columnar variant table
