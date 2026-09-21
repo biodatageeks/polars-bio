@@ -56,3 +56,10 @@ FORMAT field, and SHALL NOT treat it as record layout.
 - **WHEN** that file is read with `preserve_record_layout=True`
 - **THEN** the read fails with an error that names the conflicting field,
   instead of producing two columns with one name.
+
+#### Scenario: The carry is refused for a nested FORMAT field too
+- **WHEN** a multi-sample VCF declares `##FORMAT=<ID=_vcf_format_keys,...>`, so
+  the field is a child of `genotypes` rather than a top-level column
+- **AND** the file is read with `preserve_record_layout=True`
+- **THEN** the read fails with an error that names the conflicting field
+- **AND** read without the option, the field is written back as ordinary data.

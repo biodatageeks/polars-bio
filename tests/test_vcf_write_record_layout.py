@@ -116,3 +116,28 @@ def test_the_carry_restores_key_layout_not_how_a_value_was_spelled(tmp_path):
     out = tmp_path / "out.vcf"
     pb.sink_vcf(pb.scan_vcf(str(src), preserve_record_layout=True), str(out))
     assert _records(out) == ["chr1\t100\t.\tA\tG\t50\tPASS\tAF=0.5;DP=1\tGT:DP\t0/1:25"]
+
+
+def test_the_carry_is_refused_for_a_reserved_format_name_in_a_multisample_file(
+    tmp_path,
+):
+    # With several samples a FORMAT field is a child of `genotypes`, not a
+    # top-level column, so a collision has to be looked for there as well.
+    import pytest
+
+    src = tmp_path / "in.vcf"
+    src.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1,length=248956422>\n"
+        '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n'
+        '##FORMAT=<ID=_vcf_format_keys,Number=1,Type=String,Description="Real">\n'
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\tS2\n"
+        "chr1\t100\t.\tA\tG\t50\tPASS\t.\t_vcf_format_keys:GT\tx:0/1\ty:1/1\n"
+    )
+    with pytest.raises(Exception, match="_vcf_format_keys"):
+        pb.scan_vcf(str(src), preserve_record_layout=True).collect()
+
+    # Read without the carry, the field is ordinary data.
+    out = tmp_path / "out.vcf"
+    pb.sink_vcf(pb.scan_vcf(str(src)), str(out))
+    assert _records(out)[0].split("\t")[8:] == ["GT:_vcf_format_keys", "0/1:x", "1/1:y"]

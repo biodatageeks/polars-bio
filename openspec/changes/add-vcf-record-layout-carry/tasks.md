@@ -21,7 +21,8 @@
   the eager pair, and after a row filter.
 - [x] 3.2 The layout columns never appear in the written file.
 - [x] 3.3 A file declaring a reserved name keeps that field as data on a default
-  read and write, and the carry is refused for it.
+  read and write, and the carry is refused for it. The refusal also covers a FORMAT
+  field nested under `genotypes` in a multi-sample file.
 - [x] 3.4 Values are re-serialized canonically with the carry on.
 - [x] 3.5 Without the option the frame and the output are unchanged.
 - [x] 3.6 GIAB HG002 chr22 (50,861 records): every record byte-identical with
