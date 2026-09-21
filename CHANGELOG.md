@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A2M/A3M `scan_*`, `read_*`, and `register_*` functions accept the keyword-only
+  `comment_prefix` option (#459), allowing semicolon comments in files such as
+  OpenProteinSet alignments. Matching full lines are skipped throughout the file,
+  including compressed inputs. The default `None` preserves current behavior;
+  leading `#` headers are still handled automatically.
 - `scan_vcf`/`read_vcf(preserve_record_layout=True)` (#468): carries each
   record's own INFO key order and FORMAT key list in `_vcf_info_keys` and
   `_vcf_format_keys`, and `sink_vcf`/`write_vcf` use them to write each
@@ -51,7 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   sequential request for S3; HTTP/GCS may still use HEAD and chunked reads).
   The bio-format v1.13.0 release includes datafusion-bio-formats#253, so S3
   honors the default in this change.
-- Updated all `datafusion-bio-format-*` dependencies to v1.13.0 and
+- Updated all `datafusion-bio-format-*` dependencies to v1.13.1 and
   `datafusion-bio-function-ranges`, `-pileup`, and `-fastqc` to the
   `datafusion-bio-functions` v0.22.2 tag. All format crates share one source;
   DataFusion remains on 53.0.0 for upstream compatibility.

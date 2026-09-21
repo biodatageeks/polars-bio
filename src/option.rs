@@ -923,21 +923,26 @@ pub struct MsaReadOptions {
     /// keeps the full bag alongside them. Ignored for A2M / A3M.
     #[pyo3(get, set)]
     pub gs_fields: Option<Vec<String>>,
+    /// A2M/A3M only: skip lines starting with this literal prefix.
+    #[pyo3(get, set)]
+    pub comment_prefix: Option<String>,
 }
 
 #[pymethods]
 impl MsaReadOptions {
     #[new]
-    #[pyo3(signature = (object_storage_options=None, gs_fields=None))]
+    #[pyo3(signature = (object_storage_options=None, gs_fields=None, comment_prefix=None))]
     pub fn new(
         object_storage_options: Option<PyObjectStorageOptions>,
         gs_fields: Option<Vec<String>>,
+        comment_prefix: Option<String>,
     ) -> Self {
         MsaReadOptions {
             object_storage_options: pyobject_storage_options_to_object_storage_options(
                 object_storage_options,
             ),
             gs_fields,
+            comment_prefix,
         }
     }
     #[staticmethod]
@@ -953,6 +958,7 @@ impl MsaReadOptions {
                 compression_type: Some(CompressionType::AUTO),
             }),
             gs_fields: None,
+            comment_prefix: None,
         }
     }
 }

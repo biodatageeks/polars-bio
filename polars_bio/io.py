@@ -580,6 +580,7 @@ class IOOperations:
         compression_type: str,
         projection_pushdown: bool,
         predicate_pushdown: bool,
+        comment_prefix: Optional[str] = None,
     ) -> pl.LazyFrame:
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -593,6 +594,7 @@ class IOOperations:
         msa_read_options = MsaReadOptions(
             object_storage_options=object_storage_options,
             gs_fields=gs_fields,
+            comment_prefix=comment_prefix,
         )
         read_options = ReadOptions(msa_read_options=msa_read_options)
         return _read_file(
@@ -615,6 +617,8 @@ class IOOperations:
         compression_type: str = "auto",
         projection_pushdown: bool = True,
         predicate_pushdown: bool = False,
+        *,
+        comment_prefix: Optional[str] = None,
     ) -> pl.DataFrame:
         """
         Read an A2M multiple-sequence-alignment file into a DataFrame.
@@ -628,6 +632,11 @@ class IOOperations:
 
         Parameters:
             path: The path to the A2M file.
+            comment_prefix: Literal prefix for full-line comments, e.g. `";"`.
+                Matching lines are skipped anywhere in the file, without trimming
+                whitespace or stripping inline text. May contain multiple characters;
+                empty strings and line breaks are rejected. `None` (default) preserves
+                sequence lines. Leading `#` header lines are always skipped.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -655,6 +664,7 @@ class IOOperations:
             compression_type,
             projection_pushdown,
             predicate_pushdown,
+            comment_prefix=comment_prefix,
         ).collect()
 
     @staticmethod
@@ -669,6 +679,8 @@ class IOOperations:
         compression_type: str = "auto",
         projection_pushdown: bool = True,
         predicate_pushdown: bool = False,
+        *,
+        comment_prefix: Optional[str] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read an A2M multiple-sequence-alignment file into a LazyFrame.
@@ -678,6 +690,11 @@ class IOOperations:
 
         Parameters:
             path: The path to the A2M file.
+            comment_prefix: Literal prefix for full-line comments, e.g. `";"`.
+                Matching lines are skipped anywhere in the file, without trimming
+                whitespace or stripping inline text. May contain multiple characters;
+                empty strings and line breaks are rejected. `None` (default) preserves
+                sequence lines. Leading `#` header lines are always skipped.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -698,6 +715,7 @@ class IOOperations:
             path,
             InputFormat.A2m,
             gs_fields=None,
+            comment_prefix=comment_prefix,
             chunk_size=chunk_size,
             concurrent_fetches=concurrent_fetches,
             allow_anonymous=allow_anonymous,
@@ -721,6 +739,8 @@ class IOOperations:
         compression_type: str = "auto",
         projection_pushdown: bool = True,
         predicate_pushdown: bool = False,
+        *,
+        comment_prefix: Optional[str] = None,
     ) -> pl.DataFrame:
         """
         Read an A3M (hh-suite) multiple-sequence-alignment file into a DataFrame.
@@ -735,6 +755,11 @@ class IOOperations:
 
         Parameters:
             path: The path to the A3M file.
+            comment_prefix: Literal prefix for full-line comments, e.g. `";"`.
+                Matching lines are skipped anywhere in the file, without trimming
+                whitespace or stripping inline text. May contain multiple characters;
+                empty strings and line breaks are rejected. `None` (default) preserves
+                sequence lines. Leading `#` header lines are always skipped.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -764,6 +789,7 @@ class IOOperations:
             compression_type,
             projection_pushdown,
             predicate_pushdown,
+            comment_prefix=comment_prefix,
         ).collect()
 
     @staticmethod
@@ -778,6 +804,8 @@ class IOOperations:
         compression_type: str = "auto",
         projection_pushdown: bool = True,
         predicate_pushdown: bool = False,
+        *,
+        comment_prefix: Optional[str] = None,
     ) -> pl.LazyFrame:
         """
         Lazily read an A3M (hh-suite) multiple-sequence-alignment file into a LazyFrame.
@@ -786,6 +814,11 @@ class IOOperations:
 
         Parameters:
             path: The path to the A3M file.
+            comment_prefix: Literal prefix for full-line comments, e.g. `";"`.
+                Matching lines are skipped anywhere in the file, without trimming
+                whitespace or stripping inline text. May contain multiple characters;
+                empty strings and line breaks are rejected. `None` (default) preserves
+                sequence lines. Leading `#` header lines are always skipped.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [AWS S3, GCS, HTTP, where supported by the reader] The maximum number of concurrent ranged fetches when reading from an object store (default: 8). Set 1 to disable parallel fetching; S3 whole-object reads then use one sequential request. HTTP and GCS may still issue chunked requests and a HEAD preflight.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -806,6 +839,7 @@ class IOOperations:
             path,
             InputFormat.A3m,
             gs_fields=None,
+            comment_prefix=comment_prefix,
             chunk_size=chunk_size,
             concurrent_fetches=concurrent_fetches,
             allow_anonymous=allow_anonymous,
@@ -4972,7 +5006,12 @@ def _lazy_scan(
                 and not table_refreshed
                 and table_to_query is not None
             )
-            if should_register and input_format in (InputFormat.Cool, InputFormat.Sto):
+            if should_register and input_format in (
+                InputFormat.Cool,
+                InputFormat.Sto,
+                InputFormat.A2m,
+                InputFormat.A3m,
+            ):
                 # A LazyFrame may be collected concurrently by separate Polars
                 # plans or Python threads. Give every callback invocation its
                 # own catalog identity so one lease cannot replace or remove
@@ -5359,12 +5398,13 @@ def _read_file(
     predicate_pushdown: bool = False,
     zero_based: bool = True,
 ) -> pl.LazyFrame:
-    # Cooler resolutions and Stockholm gs_fields can configure different
-    # providers for one path. Isolate schema discovery as well as collection so
-    # concurrent scans cannot replace each other's provider in the catalog.
+    # Cooler resolutions, Stockholm gs_fields, and A2M/A3M comment prefixes can
+    # configure different providers for one path. Isolate schema discovery and
+    # collection so concurrent scans cannot replace each other's provider.
     table_name = (
         f"_pb_{_format_to_string(input_format)}_scan_{uuid4().hex}"
-        if input_format in (InputFormat.Cool, InputFormat.Sto)
+        if input_format
+        in (InputFormat.Cool, InputFormat.Sto, InputFormat.A2m, InputFormat.A3m)
         else None
     )
     if table_name is not None:

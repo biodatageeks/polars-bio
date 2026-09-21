@@ -735,6 +735,20 @@ so UniRef-style headers keep their identifier intact. `#` lines before the
 first `>` (hh-suite's `#A3M#` marker) are skipped. hh-suite's reserved
 pseudo-sequences (`ss_pred`, `ss_conf`, `ss_dssp`, …) are ordinary rows.
 
+For files with non-standard comments, pass `comment_prefix=";"` to
+`scan_a2m`, `read_a2m`, `register_a2m`, or their A3M counterparts. This skips
+lines beginning with the literal prefix anywhere in the file, including between
+wrapped sequence lines. It works with plain, GZIP and BGZF input. Matching does
+not trim whitespace or remove inline occurrences; multi-character prefixes are
+supported. Empty prefixes and prefixes containing line breaks are rejected.
+The default `None` keeps sequence lines verbatim, and leading `#` headers are
+always skipped independently of this setting.
+
+```python
+lf = pb.scan_a3m("alignment.a3m.gz", comment_prefix=";")
+lf.select("name", "sequence").collect()
+```
+
 **Stockholm** (`.sto`, `.stk`) yields one row per sequence per alignment:
 `alignment_id` (`#=GF ID`, else `#=GF AC`, else the alignment's 0-based
 ordinal), `name` (verbatim; `name/start-end` is not split), `sequence`
@@ -773,7 +787,7 @@ expansion (`expand_inserts`), and `#=GC` as per-column columns.
     lf.select(pl.len()).collect()
     ```
 
-    With the default `concurrent_fetches=1` the file is streamed over one
+    With `concurrent_fetches=1` the file is streamed over one
     connection, which on high-latency links can take about twice as long as
     `aws s3 cp`. This applies to every format read from S3, not only MSAs.
 

@@ -68,7 +68,7 @@ The system SHALL expose A2M and A3M records with the same schema as FASTA: `name
 - **AND** the identifier is split on whitespace only, not on the comma.
 
 ### Requirement: Verbatim Sequence Passthrough
-The system SHALL return the `sequence` column of A2M and A3M records as the exact concatenation of the record's sequence lines, preserving letter case, `-` and `.` characters, and MUST NOT expand, pad, or validate the alignment.
+The system SHALL return the `sequence` column of A2M and A3M records as the exact concatenation of the record's non-comment sequence lines, preserving letter case, `-` and `.` characters, and MUST NOT expand, pad, or validate the alignment.
 
 #### Scenario: Ragged A3M rows are preserved
 - **WHEN** an A3M file contains records whose sequence lengths differ because insert-state gaps are omitted
@@ -252,3 +252,29 @@ The system SHALL be verified against independent reference implementations for e
 #### Scenario: Byte-level parity
 - **WHEN** any A2M or A3M fixture is scanned
 - **THEN** `name` and `sequence` per record equal `record.id` and `str(record.seq)` from Biopython `SeqIO.parse(..., "fasta-blast")`.
+
+### Requirement: Configurable A2M and A3M comment prefixes
+
+The A2M/A3M readers SHALL accept an optional literal `comment_prefix`, defaulting to `None`, and skip lines beginning with that prefix anywhere in the input before parsing records. Matching SHALL preserve inline occurrences and SHALL NOT trim leading whitespace. Prefixes MAY contain multiple UTF-8 characters; empty prefixes and prefixes containing line breaks SHALL be rejected. Leading `#` header lines SHALL continue to be skipped independently of this option.
+
+#### Scenario: Semicolon comments
+- **WHEN** an A2M or A3M input has semicolon-prefixed comments before, within, or after records and `comment_prefix=";"` is supplied
+- **THEN** the returned sequences contain only the remaining sequence lines
+- **AND** eager, lazy, SQL, projected, and row-count queries agree for plain, GZIP, and BGZF input
+
+#### Scenario: Default preserves existing behavior
+- **WHEN** `comment_prefix` is omitted or `None`
+- **THEN** sequence lines remain verbatim and only the existing leading `#` header handling applies
+
+#### Scenario: Literal prefix matching
+- **WHEN** `comment_prefix=";;"` is supplied
+- **THEN** only lines starting with exactly `;;` are skipped, while inline or indented occurrences are preserved
+
+#### Scenario: Invalid prefix
+- **WHEN** a prefix is empty or contains a carriage return or newline
+- **THEN** constructing the reader fails with an error naming `comment_prefix`
+
+#### Scenario: Concurrent scans use their own prefixes
+- **WHEN** two scans of one file with different comment prefixes are collected concurrently
+- **THEN** each scan uses its own prefix and repeated collections preserve the same results
+- **AND** temporary table registrations are released after schema discovery and query planning
