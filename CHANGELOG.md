@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-09-21
+
+### Added
+
+- `scan_vcf`/`read_vcf(preserve_record_layout=True)` (#468): carries each
+  record's own INFO key order and FORMAT key list in `_vcf_info_keys` and
+  `_vcf_format_keys`, and `sink_vcf`/`write_vcf` use them to write each
+  record's keys in the source's own order. Values are still re-serialized in
+  canonical form (`50.0` → `50`), so a line is byte-identical when its values
+  already are. Without it a written record follows the header's
+  key order (with `GT` first in FORMAT) and omits a FORMAT key that is missing in every sample, which is
+  valid VCF with the same content but does not diff cleanly against its input.
+  Off by default; text VCF only; the two columns have to stay in the frame.
+- Multiple-sequence-alignment readers for A2M, A3M and Stockholm
+  (`read_a2m`/`scan_a2m`/`register_a2m`, `read_a3m`/`scan_a3m`/`register_a3m`,
+  `read_sto`/`scan_sto`/`register_sto`, `describe_sto`). A2M/A3M share the
+  FASTA schema with verbatim, possibly ragged sequences; Stockholm yields one
+  row per sequence per alignment with `alignment_id`, `name`, `sequence` and
+  `gs`/`gr` annotation bags, supports interleaved blocks and multi-alignment
+  files (partitioned on `//`), and promotes `#=GS` features via `gs_fields`.
+  Backed by the new `datafusion-bio-format-msa` crate and parity-tested
+  against Easel (pyhmmer / `esl-*`), hh-suite `reformat.pl` and Biopython
+  (#459, biodatageeks/datafusion-bio-formats#245).
+- PDB/mmCIF collection and local Foldcomp subset readers (`scan_*`, `read_*`,
+  `register_structure`, `register_foldcomp`) with atom/residue output, raw author
+  and label identifiers, coherent conformers, backbone coordinates and six angles
+  in physical units (#455). Geometry and decoding run in native format providers.
+- PGEN entry points (`read_pgen`, `scan_pgen`, `read_pgen_matrix`,
+  `describe_pgen`, `register_pgen`) accept `max_companion_bytes`,
+  `max_decompressed_companion_bytes`, and `max_variants`, forwarded to the
+  provider like the existing range controls (#453).
+
+### Changed
+
+- `concurrent_fetches` now defaults to `8` in every `read_*`, `scan_*`,
+  `describe_*` and `register_*` function that exposes it (43 signatures were still at `1`;
+  the SQL `register_*` functions already used `8`). Whole-object reads from
+  S3, GCS and HTTP are split into parallel ranged requests by default instead
+  of one sequential connection, which on high-latency links took about twice
+  as long as `aws s3 cp` ([#459](https://github.com/biodatageeks/polars-bio/issues/459)
+  comment). Pass `concurrent_fetches=1` to disable parallel fetching (one
+  sequential request for S3; HTTP/GCS may still use HEAD and chunked reads).
+  The bio-format v1.13.0 release includes datafusion-bio-formats#253, so S3
+  honors the default in this change.
+- Updated all `datafusion-bio-format-*` dependencies to v1.13.0 and
+  `datafusion-bio-function-ranges`, `-pileup`, and `-fastqc` to the
+  `datafusion-bio-functions` v0.22.2 tag. All format crates share one source;
+  DataFusion remains on 53.0.0 for upstream compatibility.
+- PGEN companions are streamed and parsed into a columnar variant table
+  upstream (`datafusion-bio-formats`), so production PLINK 2 filesets open
+  without tuning: the PGS Catalog 1000 Genomes GRCh38 panel (75.2M variants,
+  541 MiB `.pvar.zst`) opens in about 4 s within about 4 GB, where the
+  previous per-row representation would have needed ~45 GB. Provider defaults
+  rose to 4 GiB / 16 GiB / 250M variants.
+- `read_pgen_matrix` fills its `positions` array from Rust instead of building
+  a Python list of one integer per variant first.
+- Linux arm64 wheels are built and tested on native ARM runners, including
+  the Python test suite and installed-wheel structure-reader smoke tests (#462).
+
 ### Fixed
 
 - `sink_vcf`/`write_vcf`: `GT` is written first in FORMAT, as the VCF
@@ -31,63 +90,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drop a frame's metadata on `collect()`, so `read_vcf()` and the other eager
   readers returned a DataFrame without its source header, and a following
   `write_vcf()` rebuilt the header from nothing.
-
-### Added
-
-- `scan_vcf`/`read_vcf(preserve_record_layout=True)` (#468): carries each
-  record's own INFO key order and FORMAT key list in `_vcf_info_keys` and
-  `_vcf_format_keys`, and `sink_vcf`/`write_vcf` use them to write each
-  record's keys in the source's own order. Values are still re-serialized in
-  canonical form (`50.0` → `50`), so a line is byte-identical when its values
-  already are. Without it a written record follows the header's
-  key order and omits a FORMAT key that is missing in every sample, which is
-  valid VCF with the same content but does not diff cleanly against its input.
-  Off by default; text VCF only; the two columns have to stay in the frame.
-- Multiple-sequence-alignment readers for A2M, A3M and Stockholm
-  (`read_a2m`/`scan_a2m`/`register_a2m`, `read_a3m`/`scan_a3m`/`register_a3m`,
-  `read_sto`/`scan_sto`/`register_sto`, `describe_sto`). A2M/A3M share the
-  FASTA schema with verbatim, possibly ragged sequences; Stockholm yields one
-  row per sequence per alignment with `alignment_id`, `name`, `sequence` and
-  `gs`/`gr` annotation bags, supports interleaved blocks and multi-alignment
-  files (partitioned on `//`), and promotes `#=GS` features via `gs_fields`.
-  Backed by the new `datafusion-bio-format-msa` crate and parity-tested
-  against Easel (pyhmmer / `esl-*`), hh-suite `reformat.pl` and Biopython
-  (#459, biodatageeks/datafusion-bio-formats#245).
-- PDB/mmCIF collection and local Foldcomp subset readers (`scan_*`, `read_*`,
-  `register_structure`, `register_foldcomp`) with atom/residue output, raw author
-  and label identifiers, coherent conformers, backbone coordinates and six angles
-  in physical units (#455). Geometry and decoding run in native format providers.
-
-- PGEN entry points (`read_pgen`, `scan_pgen`, `read_pgen_matrix`,
-  `describe_pgen`, `register_pgen`) accept `max_companion_bytes`,
-  `max_decompressed_companion_bytes`, and `max_variants`, forwarded to the
-  provider like the existing range controls (#453).
-
-### Changed
-
-- `concurrent_fetches` now defaults to `8` in every `read_*`, `scan_*`,
-  `describe_*` and `register_*` function that exposes it (43 signatures were still at `1`;
-  the SQL `register_*` functions already used `8`). Whole-object reads from
-  S3, GCS and HTTP are split into parallel ranged requests by default instead
-  of one sequential connection, which on high-latency links took about twice
-  as long as `aws s3 cp` ([#459](https://github.com/biodatageeks/polars-bio/issues/459)
-  comment). Pass `concurrent_fetches=1` to disable parallel fetching (one
-  sequential request for S3; HTTP/GCS may still use HEAD and chunked reads).
-  The bio-format v1.13.0 release includes datafusion-bio-formats#253, so S3
-  honors the default in this change.
-- Updated bio-format dependencies to v1.12.1, restoring release-tag pins after
-  the BED reader and PGEN companion fixes (#457).
-- PGEN companions are streamed and parsed into a columnar variant table
-  upstream (`datafusion-bio-formats`), so production PLINK 2 filesets open
-  without tuning: the PGS Catalog 1000 Genomes GRCh38 panel (75.2M variants,
-  541 MiB `.pvar.zst`) opens in about 4 s within about 4 GB, where the
-  previous per-row representation would have needed ~45 GB. Provider defaults
-  rose to 4 GiB / 16 GiB / 250M variants.
-- `read_pgen_matrix` fills its `positions` array from Rust instead of building
-  a Python list of one integer per variant first.
-
-### Fixed
-
 - S3 scans of A2M/A3M/Stockholm (and every other text format) can use parallel
   ranged reads via `concurrent_fetches`, matching `aws s3 cp` speed instead of
   one sequential GET; the S3 region is no longer re-detected on every open
@@ -101,6 +103,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the published 1000 Genomes PLINK 2 fileset because its `.pvar.zst` exceeded
   a hard 512 MiB companion cap that no entry point could raise (#453). The
   limit errors now name the argument to change.
+
+### Documentation
+
+- Added alignment and structure readers to the feature overview and home pages;
+  refreshed the developer dependency guide and documented VCF `GT` ordering
+  and `INFO_<id>` handling. Fixed alignment API cross-references, stale
+  format-guide links, and docstring warnings found by the strict docs build.
+- Synchronized the conda recipe's `polars-config-meta>=0.3.2` requirement with
+  the Python package so eager reads retain source metadata.
 
 ## [0.35.1] - 2026-08-28
 

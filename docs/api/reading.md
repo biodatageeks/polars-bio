@@ -68,6 +68,8 @@
 
 ::: polars_bio.structure
     options:
+        show_root_heading: false
+        show_root_toc_entry: false
         members:
             - scan_pdb
             - scan_mmcif

@@ -1,6 +1,6 @@
 [package]
 name = "polars_bio"
-version = "0.35.1"
+version = "0.36.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -38,7 +38,7 @@ pyo3-log = "0.13.3"
 
 
 # NOTE: temporarily pinned to 53.0.0 (down from 53.1.0) to match datafusion-bio-formats
-# v1.13.0 / datafusion-bio-functions v0.19.1, which pin datafusion to "=53.0.0".
+# v1.13.0 / datafusion-bio-functions v0.22.2, which pin datafusion to "=53.0.0".
 # Restore 53.1.0 once those crates publish releases built against datafusion 53.1.0.
 # datafusion-bio-formats v1.13.0 adds the datafusion-bio-format-msa crate (#459)
 # and writes GT first in FORMAT (datafusion-bio-formats#254) on top of v1.12.1's
@@ -74,9 +74,9 @@ datafusion-bio-format-msa = { git = "https://github.com/biodatageeks/datafusion-
 datafusion-bio-format-structure = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.13.0" }
 datafusion-bio-format-foldcomp = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.13.0" }
 
-datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.19.1" }
-datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.19.1", default-features = false }
-datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.19.1" }
+datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.22.2" }
+datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.22.2", default-features = false }
+datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.22.2" }
 
 async-trait = "0.1.86"
 futures = "0.3.31"

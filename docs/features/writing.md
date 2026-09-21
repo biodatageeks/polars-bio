@@ -25,6 +25,7 @@ polars-bio supports writing DataFrames back to bioinformatic file formats. Two m
 ### Basic usage
 
 ```python
+import polars as pl
 import polars_bio as pb
 
 # Read, transform, and write back
@@ -51,7 +52,8 @@ come through unchanged, and only fields you added or redefined are declared anew
     filter, or contig attributes other than `ID` and `length`.
 
 Records carry the same data as their source lines but, by default, not the same
-bytes: INFO and FORMAT keys follow the header's order, and a FORMAT key that is
+bytes: INFO keys follow the header's order; FORMAT writes `GT` first when present,
+then the remaining keys in header order. A FORMAT key that is
 missing in every sample (`PS` in `GT:PS:DP  0/1:.:25`) is left out. To keep each
 record's own key layout, read with `preserve_record_layout=True`:
 
@@ -75,6 +77,11 @@ since one frame cannot hold two columns of one name. Selecting other fields with
 `info_fields`/`format_fields` leaves the name free, and the option then works.
 Read without the option, such a field is ordinary data and is written back as
 such.
+
+When writing an annotated frame, a column named `INFO_<id>` is used for the
+source INFO field `<id>` if the header declares it. A same-named unprefixed
+column is then excluded from that field. For example, `INFO_AF` retains the
+input allele frequency when an annotation tool adds its own `AF` column.
 
 ### Sorted output with `sort_on_write`
 
@@ -286,5 +293,4 @@ lf.pb.sink_fastq("output.fastq.bgz")
 ## Compression
 *polars-bio* supports **GZIP** (default file extension `*.gz`) and **Block GZIP** (BGZIP, default file extension `*.bgz`) when reading files from local and cloud storages.
 For BGZIP-compressed FASTQ files, parallel decoding of compressed blocks is **automatic** — see [Automatic parallel partitioning](reading.md#parallel-reads-partitioning) and [Index file generation](reading.md#generating-index-files) for details. Please take a look at the following [GitHub discussion](https://github.com/biodatageeks/polars-bio/issues/132).
-
 

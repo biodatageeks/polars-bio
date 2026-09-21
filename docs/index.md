@@ -3,7 +3,7 @@
 <p style="text-align: center;"><img src="assets/logo-large.png#only-light" alt="logo" style="height:420px"/><img src="assets/logo-large-dark.png#only-dark" alt="logo" style="height:420px"/></p>
 
 
-polars-bio is a :rocket:blazing [fast](performance.md#results-summary-) Python DataFrame library for genomics🧬  built on top of [Apache DataFusion](https://datafusion.apache.org/), [Apache Arrow](https://arrow.apache.org/)
+polars-bio is a :rocket:blazing [fast](performance.md#results-summary) Python DataFrame library for genomics🧬  built on top of [Apache DataFusion](https://datafusion.apache.org/), [Apache Arrow](https://arrow.apache.org/)
 and  [polars](https://pola.rs/).
 It is designed to be easy to use, fast and memory efficient with a focus on genomics data.
 
@@ -17,7 +17,7 @@ We'll be presenting **polars-bio** at [ECCB 2026](https://eccb2026.org) — the 
 
 
 ## Key Features
-* optimized for [performance](performance.md#results-summary-) and memory [efficiency](performance.md#memory-characteristics) for large-scale genomics datasets analyses both when reading input data and performing operations
+* optimized for [performance](performance.md#results-summary) and memory [efficiency](performance.md#memory-characteristics) for large-scale genomics datasets analyses both when reading input data and performing operations
 * popular genomics [operations](features/operations.md#genomic-ranges-operations) with a DataFrame API (both [Pandas](https://pandas.pydata.org/) and [polars](https://pola.rs/))
 * [SQL](features/sql.md#sql-processing)-powered bioinformatic data querying or manipulation/pre-processing
 * native parallel engine powered by Apache DataFusion and [datafusion-bio-functions](https://github.com/biodatageeks/datafusion-bio-functions)
@@ -25,13 +25,14 @@ We'll be presenting **polars-bio** at [ECCB 2026](https://eccb2026.org) — the 
 * support for *federated* and *streamed* reading data from [cloud storages](features/cloud.md#cloud-storage) (e.g. S3, GCS) with [Apache OpenDAL](https://github.com/apache/opendal)  enabling processing large-scale genomics data without materializing in memory
 * zero-copy data exchange with [Apache Arrow](https://arrow.apache.org/)
 * bioinformatics file [formats](features/reading.md#file-formats-support), including native indexed BCF reads, with [noodles](https://github.com/zaeleus/noodles)
+* multiple-sequence alignments in A2M, A3M and Stockholm, plus [PDB/mmCIF and Foldcomp structures](features/structures.md) as atom or residue tables
 * VCF Zarr support built on [Analysis-ready VCF at Biobank scale using Zarr](https://doi.org/10.1093/gigascience/giaf049), the [VCF Zarr specification](https://github.com/sgkit-dev/vcf-zarr-spec) and the [zarrs](https://crates.io/crates/zarrs) Rust crate
 * fast overlap operations with [COITrees: Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees)
 * pre-built wheel packages for *Linux* (*x86_64* and *arm64*), *Windows* and *MacOS* (*arm64* and *x86_64*) available on [PyPI](https://pypi.org/project/polars-bio/#files)
 
 ## Performance
 
-polars-bio is optimized for both **genomic interval operations** and **reading genomic file formats**. See the full [performance results](performance.md#results-summary-).
+polars-bio is optimized for both **genomic interval operations** and **reading genomic file formats**. See the full [performance results](performance.md#results-summary).
 
 **Genomic interval operations** — speedups vs. other Python libraries:
 

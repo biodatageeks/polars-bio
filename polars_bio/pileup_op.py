@@ -95,9 +95,9 @@ class PileupOperations:
             DataFrame with columns depending on ``per_base``:
 
             - Block mode (default): ``contig`` (Utf8), ``pos_start`` (Int32),
-              ``pos_end`` (Int32), ``coverage`` (Int16).
+                ``pos_end`` (Int32), ``coverage`` (Int16).
             - Per-base mode: ``contig`` (Utf8), ``pos`` (Int32),
-              ``coverage`` (Int16).
+                ``coverage`` (Int16).
 
         Example:
             ```python

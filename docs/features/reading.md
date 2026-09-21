@@ -6,7 +6,12 @@ This page covers how polars-bio loads bioinformatics files — the supported for
 
 ## File formats support
 
-For every bioinformatic format there are always three methods available: `read_*` (eager), `scan_*` (lazy) and `register_*` that can be used to either read the file into a Polars DataFrame/LazyFrame or register it as a DataFusion table for further processing using SQL or built-in interval methods. In either case, local and/or cloud storage files can be used as an input. Please refer to the [cloud storage](cloud.md#cloud-storage) section for more details.
+The supported formats expose `read_*` (eager), `scan_*` (lazy) and `register_*`
+entry points for Polars DataFrames/LazyFrames or DataFusion tables queried with
+SQL. Source support varies by format: Cooler and Foldcomp currently require
+local paths. See the format-specific notes and [cloud storage](cloud.md#cloud-storage)
+for supported remote sources. Protein structures use physical coordinates rather
+than genomic intervals and have a [separate guide](structures.md).
 
 !!! tip "Prefer lazy scans"
     Reach for `scan_*` over `read_*` whenever you can. A lazy scan lets polars-bio push filters and
@@ -253,6 +258,23 @@ df = pb.read_fastq("reads.fastq.bgz")  # parallel BGZF decoding when .gzi index 
 | BGZF (`.fastq.bgz`) | No | 1 (sequential read) |
 | GZIP (`.fastq.gz`) | N/A | 1 (sequential — GZIP cannot be parallelized) |
 | Uncompressed (`.fastq`) | N/A | up to target_partitions (byte-range parallel) |
+
+#### Alignment and structure scaling limits
+
+`target_partitions` is a requested count; actual reader parallelism depends on
+the format and available sources:
+
+| Format | Current partition granularity and limits |
+|---|---|
+| A2M / A3M | One parsing partition per scan, regardless of the requested count. |
+| Stockholm | Whole alignments in local, uncompressed files. Parallel planning first scans the complete file serially to find alignment boundaries; this discovery is repeated for each physical plan. One alignment remains indivisible. |
+| PDB / mmCIF | Whole input sources, capped by their count. One large structure is not split into atom ranges. |
+| Foldcomp | Indexed entries can decode independently; final Polars materialization also contributes to total runtime. |
+
+For mmCIF, more simultaneous sources can improve throughput while increasing
+peak memory; see [structure memory limits](structures.md#performance-and-memory-limits).
+These limitations are tracked in [polars-bio #471](https://github.com/biodatageeks/polars-bio/issues/471),
+with profiling evidence in [bio-formats #256](https://github.com/biodatageeks/datafusion-bio-formats/issues/256).
 
 ### Generating index files
 
@@ -732,6 +754,9 @@ on `//` boundaries. A single-alignment file is one partition and holds that
 alignment in memory while it is parsed — interleaving makes that unavoidable —
 so memory is bounded by the largest alignment, not the file. `count(*)` and
 projections that omit `sequence` do not materialize sequence text.
+
+See [alignment scaling limits](#alignment-and-structure-scaling-limits) for the
+serial boundary-discovery cost and A2M/A3M's single parsing partition.
 
 Not covered in this release: writing any of the three formats, A3M→A2M insert
 expansion (`expand_inserts`), and `#=GC` as per-column columns.

@@ -22,4 +22,7 @@ The same setting drives both:
 - **Input reads** — files are split into partitions that are decoded in parallel (index-based region splitting, parallel BGZF decoding). See [Parallel reads & partitioning](reading.md#parallel-reads-partitioning) for the per-format behavior.
 - **Range operations** — `overlap`, `nearest`, `count_overlaps`, `coverage`, and the other [genomic operations](operations.md) process partitions across threads.
 
-So raising `target_partitions` speeds up the whole pipeline — from scanning the input files through to producing the interval-operation results — without any per-call configuration.
+Raising `target_partitions` allows more parallel work when the reader and input
+support it. It does not guarantee more source partitions or a speedup, and it can
+increase memory use. See [alignment and structure scaling limits](reading.md#alignment-and-structure-scaling-limits)
+for format-specific constraints.

@@ -620,7 +620,7 @@ class IOOperations:
         Read an A2M multiple-sequence-alignment file into a DataFrame.
 
         A2M is FASTA at the byte level: the result has the same `name`,
-        `description`, `sequence` schema as [`read_fasta`][polars_bio.read_fasta].
+        `description`, `sequence` schema as [`read_fasta`][polars_bio.data_input.read_fasta].
         Sequences are returned **verbatim** — letter case (lowercase insert
         states), `-` and `.` are preserved and rows may differ in length, because
         insert-column dots are optional in A2M (and omitted by Easel's own writer).
@@ -673,7 +673,7 @@ class IOOperations:
         """
         Lazily read an A2M multiple-sequence-alignment file into a LazyFrame.
 
-        See [`read_a2m`][polars_bio.read_a2m] for the schema and the verbatim
+        See [`read_a2m`][polars_bio.data_input.read_a2m] for the schema and the verbatim
         passthrough semantics.
 
         Parameters:
@@ -726,7 +726,7 @@ class IOOperations:
         Read an A3M (hh-suite) multiple-sequence-alignment file into a DataFrame.
 
         Same `name`, `description`, `sequence` schema as
-        [`read_fasta`][polars_bio.read_fasta]. Sequences are returned **verbatim**:
+        [`read_fasta`][polars_bio.data_input.read_fasta]. Sequences are returned **verbatim**:
         lowercase insert states are kept and rows are ragged because A3M omits
         insert-state gaps. `#` lines before the first `>` (hh-suite's `#A3M#`
         marker) are skipped. Reserved pseudo-sequences such as `ss_pred`,
@@ -782,7 +782,7 @@ class IOOperations:
         """
         Lazily read an A3M (hh-suite) multiple-sequence-alignment file into a LazyFrame.
 
-        See [`read_a3m`][polars_bio.read_a3m] for the schema and semantics.
+        See [`read_a3m`][polars_bio.data_input.read_a3m] for the schema and semantics.
 
         Parameters:
             path: The path to the A3M file.
@@ -844,7 +844,7 @@ class IOOperations:
 
         Files with many alignments (e.g. `Pfam-A.seed`) are supported and, when
         local and uncompressed, split across DataFusion partitions. Alignment-level
-        `#=GF` / `#=GC` lines are available via [`describe_sto`][polars_bio.describe_sto].
+        `#=GF` / `#=GC` lines are available via [`describe_sto`][polars_bio.data_input.describe_sto].
 
         Parameters:
             path: The path to the Stockholm file.
@@ -896,7 +896,7 @@ class IOOperations:
         """
         Lazily read a Stockholm (`.sto` / `.stk`) alignment file into a LazyFrame.
 
-        See [`read_sto`][polars_bio.read_sto] for the schema.
+        See [`read_sto`][polars_bio.data_input.read_sto] for the schema.
 
         Parameters:
             path: The path to the Stockholm file.
@@ -1003,9 +1003,9 @@ class IOOperations:
 
         !!! hint "Parallelism & Indexed Reads"
             Indexed parallel reads and predicate pushdown are automatic when a VCF TBI/CSI
-            index is present. See [File formats support](/polars-bio/features/#file-formats-support),
-            [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
-            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
+            index is present. See [File formats support](/polars-bio/features/reading/#file-formats-support),
+            [Indexed reads](/polars-bio/features/reading/#indexed-reads-random-access),
+            and [Automatic parallel partitioning](/polars-bio/features/reading/#parallel-reads-partitioning) for details.
 
         Parameters:
             path: The path to the VCF file.
@@ -1103,9 +1103,9 @@ class IOOperations:
 
         !!! hint "Parallelism & Indexed Reads"
             Indexed parallel reads and predicate pushdown are automatic when a VCF TBI/CSI
-            index is present. See [File formats support](/polars-bio/features/#file-formats-support),
-            [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
-            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
+            index is present. See [File formats support](/polars-bio/features/reading/#file-formats-support),
+            [Indexed reads](/polars-bio/features/reading/#indexed-reads-random-access),
+            and [Automatic parallel partitioning](/polars-bio/features/reading/#parallel-reads-partitioning) for details.
 
         Parameters:
             path: The path to the VCF file.
@@ -1685,9 +1685,9 @@ class IOOperations:
 
         !!! hint "Parallelism & Indexed Reads"
             Indexed parallel reads and predicate pushdown are automatic when a BAI/CSI index
-            is present. See [File formats support](/polars-bio/features/#file-formats-support),
-            [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
-            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
+            is present. See [File formats support](/polars-bio/features/reading/#file-formats-support),
+            [Indexed reads](/polars-bio/features/reading/#indexed-reads-random-access),
+            and [Automatic parallel partitioning](/polars-bio/features/reading/#parallel-reads-partitioning) for details.
 
         Parameters:
             path: The path to the BAM file.
@@ -1754,9 +1754,9 @@ class IOOperations:
 
         !!! hint "Parallelism & Indexed Reads"
             Indexed parallel reads and predicate pushdown are automatic when a BAI/CSI index
-            is present. See [File formats support](/polars-bio/features/#file-formats-support),
-            [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
-            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
+            is present. See [File formats support](/polars-bio/features/reading/#file-formats-support),
+            [Indexed reads](/polars-bio/features/reading/#indexed-reads-random-access),
+            and [Automatic parallel partitioning](/polars-bio/features/reading/#parallel-reads-partitioning) for details.
 
         Parameters:
             path: The path to the BAM file.
@@ -1832,9 +1832,9 @@ class IOOperations:
 
         !!! hint "Parallelism & Indexed Reads"
             Indexed parallel reads and predicate pushdown are automatic when a CRAI index
-            is present. See [File formats support](/polars-bio/features/#file-formats-support),
-            [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
-            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
+            is present. See [File formats support](/polars-bio/features/reading/#file-formats-support),
+            [Indexed reads](/polars-bio/features/reading/#indexed-reads-random-access),
+            and [Automatic parallel partitioning](/polars-bio/features/reading/#parallel-reads-partitioning) for details.
 
         Parameters:
             path: The path to the CRAM file (local or cloud storage: S3, GCS, Azure Blob).
@@ -1965,9 +1965,9 @@ class IOOperations:
 
         !!! hint "Parallelism & Indexed Reads"
             Indexed parallel reads and predicate pushdown are automatic when a CRAI index
-            is present. See [File formats support](/polars-bio/features/#file-formats-support),
-            [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown),
-            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details.
+            is present. See [File formats support](/polars-bio/features/reading/#file-formats-support),
+            [Indexed reads](/polars-bio/features/reading/#indexed-reads-random-access),
+            and [Automatic parallel partitioning](/polars-bio/features/reading/#parallel-reads-partitioning) for details.
 
         Parameters:
             path: The path to the CRAM file (local or cloud storage: S3, GCS, Azure Blob).
@@ -2285,9 +2285,9 @@ class IOOperations:
         Read a FASTQ file into a DataFrame.
 
         !!! hint "Parallelism & Compression"
-            See [File formats support](/polars-bio/features/#file-formats-support),
-            [Compression](/polars-bio/features/#compression),
-            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details on parallel reads and supported compression types.
+            See [File formats support](/polars-bio/features/reading/#file-formats-support),
+            [Compression](/polars-bio/features/writing/#compression),
+            and [Automatic parallel partitioning](/polars-bio/features/reading/#parallel-reads-partitioning) for details on parallel reads and supported compression types.
 
         Parameters:
             path: The path to the FASTQ file.
@@ -2328,9 +2328,9 @@ class IOOperations:
         Lazily read a FASTQ file into a LazyFrame.
 
         !!! hint "Parallelism & Compression"
-            See [File formats support](/polars-bio/features/#file-formats-support),
-            [Compression](/polars-bio/features/#compression),
-            and [Automatic parallel partitioning](/polars-bio/features/#automatic-parallel-partitioning) for details on parallel reads and supported compression types.
+            See [File formats support](/polars-bio/features/reading/#file-formats-support),
+            [Compression](/polars-bio/features/writing/#compression),
+            and [Automatic parallel partitioning](/polars-bio/features/reading/#parallel-reads-partitioning) for details on parallel reads and supported compression types.
 
         Parameters:
             path: The path to the FASTQ file.
@@ -2381,8 +2381,8 @@ class IOOperations:
 
         !!! hint "Parallelism & Indexed Reads"
             Indexed parallel reads and predicate pushdown are automatic when a TBI index
-            is present. See [File formats support](/polars-bio/features/#file-formats-support)
-            and [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown) for details.
+            is present. See [File formats support](/polars-bio/features/reading/#file-formats-support)
+            and [Indexed reads](/polars-bio/features/reading/#indexed-reads-random-access) for details.
 
         Parameters:
             path: The path to the Pairs file (.pairs, .pairs.gz, .pairs.bgz).
@@ -2441,8 +2441,8 @@ class IOOperations:
 
         !!! hint "Parallelism & Indexed Reads"
             Indexed parallel reads and predicate pushdown are automatic when a TBI index
-            is present. See [File formats support](/polars-bio/features/#file-formats-support)
-            and [Indexed reads](/polars-bio/features/#indexed-reads-predicate-pushdown) for details.
+            is present. See [File formats support](/polars-bio/features/reading/#file-formats-support)
+            and [Indexed reads](/polars-bio/features/reading/#indexed-reads-random-access) for details.
 
         Parameters:
             path: The path to the Pairs file (.pairs, .pairs.gz, .pairs.bgz).

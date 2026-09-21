@@ -84,8 +84,8 @@ def set_option(key, value):
     """Set a configuration option.
 
     Args:
-        key: The configuration key.
-        value: The value to set (bool values are converted to "true"/"false").
+        key (str): The configuration key.
+        value (str | bool): The value to set (bool values are converted to "true"/"false").
 
     Example:
         ```python
@@ -100,10 +100,10 @@ def get_option(key):
     """Get the value of a configuration option.
 
     Args:
-        key: The configuration key.
+        key (str): The configuration key.
 
     Returns:
-        The current value of the option as a string, or None if not set.
+        (str | None): The current option value, or None if not set.
 
     Example:
         ```python

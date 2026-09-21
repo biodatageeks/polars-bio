@@ -28,8 +28,8 @@ flowchart TB
 
     subgraph Upstream["Upstream Crates"]
         direction LR
-        formats["datafusion-bio-formats<br/>(9 sub-crates)"]
-        functions["datafusion-bio-functions<br/>(ranges + pileup)"]
+        formats["datafusion-bio-formats<br/>(format providers + core)"]
+        functions["datafusion-bio-functions<br/>(ranges + pileup + FastQC)"]
     end
 
     subgraph Storage["Data Sources"]
@@ -66,42 +66,57 @@ Provides DataFusion `TableProvider` implementations for bioinformatics file form
 |-------|--------|----------|
 | `datafusion-bio-format-bam` | BAM | Indexed reads (BAI/CSI), predicate & projection pushdown, parallel partitioning |
 | `datafusion-bio-format-cram` | CRAM | Indexed reads (CRAI), predicate & projection pushdown, reference-based compression |
-| `datafusion-bio-format-vcf` | VCF | Indexed reads (TBI/CSI), predicate & projection pushdown, INFO/FORMAT field extraction |
+| `datafusion-bio-format-vcf` | VCF, BCF, VCF Zarr | Indexed and region-pruned reads, INFO/FORMAT field extraction, genotype selection |
 | `datafusion-bio-format-gff` | GFF3 | Indexed reads (TBI/CSI), predicate & projection pushdown, attribute field extraction |
 | `datafusion-bio-format-bed` | BED | Single-threaded reads, limit pushdown |
 | `datafusion-bio-format-fastq` | FASTQ | GZI-indexed parallel BGZF decoding, limit pushdown |
 | `datafusion-bio-format-fasta` | FASTA | Single-threaded reads, limit pushdown |
 | `datafusion-bio-format-pairs` | Pairs | Indexed reads (TBI/CSI), predicate & projection pushdown |
+| `datafusion-bio-format-gtf` | GTF | Indexed reads (TBI/CSI), predicate & projection pushdown |
+| `datafusion-bio-format-bbi` | BigWig, BigBed | Built-in BBI indexes, parallel scans, predicate & projection pushdown |
+| `datafusion-bio-format-bgen` | BGEN | BGI-indexed genotype reads and dense dosage matrices |
+| `datafusion-bio-format-pgen` | PGEN | PLINK 2 companion handling, sample selection and dense genotype matrices |
+| `datafusion-bio-format-cooler` | Cooler .cool/.mcool | Local HDF5 contact matrices, CSR-indexed reads and parallel scans |
+| `datafusion-bio-format-msa` | A2M, A3M, Stockholm | Verbatim alignment sequences, Stockholm annotations and multi-alignment parallel scans |
+| `datafusion-bio-format-structure` | PDB, mmCIF | Rust atom/residue readers, conformer selection and backbone geometry |
+| `datafusion-bio-format-foldcomp` | Foldcomp | Rust decoding of local FCZ files and selected database entries |
 | `datafusion-bio-format-core` | Core | Shared utilities, coordinate system metadata, OpenDAL cloud storage integration |
 
 ### datafusion-bio-functions
 
 **Repository**: [github.com/biodatageeks/datafusion-bio-functions](https://github.com/biodatageeks/datafusion-bio-functions)
 
-Provides DataFusion extensions for genomic range operations and pileup computation.
+Provides DataFusion extensions for genomic range operations, pileup computation
+and FASTQ quality control.
 
 | Crate | Purpose | Mechanism |
 |-------|---------|-----------|
 | `datafusion-bio-function-ranges` | Overlap, nearest, coverage, count-overlaps | `PhysicalOptimizerRule` for interval join rewriting + UDTF for coverage/count-overlaps |
 | `datafusion-bio-function-pileup` | Per-base read depth (pileup) | UDTF registered as `depth()` in SQL |
+| `datafusion-bio-function-fastqc` | FASTQ quality-control modules | Streaming module aggregation exposed through `fastqc()` |
 
 ### Dependency pinning
 
-Both repositories are pinned to specific git revisions in `Cargo.toml`:
+For polars-bio 0.36.0, both repositories are pinned to release tags in
+`Cargo.toml`; `Cargo.lock` records the resolved commit hashes:
 
 ```toml
-# Format crates (all pinned to the same revision)
-datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "..." }
-datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "..." }
-# ... (9 sub-crates total)
+# Format crates (all 17 use the same tag)
+datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.13.0" }
+datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.13.0" }
+# ... see Cargo.toml for the complete list
 
 # Function crates
-datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "..." }
-datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "...", default-features = false }
+datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.22.2" }
+datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.22.2", default-features = false }
+datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.22.2" }
 ```
 
 !!! note
-    `datafusion-bio-function-pileup` uses `default-features = false` to avoid a duplicate BAM dependency conflict with `datafusion-bio-format-bam`.
+    Keep every crate from the same repository on one tag to avoid duplicate
+    provider types. `datafusion-bio-function-pileup` uses `default-features = false`
+    because polars-bio supplies the BAM provider. DataFusion stays on 53.0.0 to
+    match the upstream crates' exact dependency constraint.
 
 
 ## I/O Pipeline & Polars IO Plugin
@@ -626,7 +641,7 @@ flowchart TB
 
 ```
 
-The basic concept is that each operation consists of two sides: the **probe** side and the **build** side. The **probe** side is the one that is streamed, while the **build** side is the one that is implemented as a search data structure (for generic *overlap* operation the search structure can be changed using [algorithm](/polars-bio/api/#polars_bio.range_operations.overlap) parameter, for other operations is always [Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees) as according to the [benchmark](https://github.com/dcjones/coitrees?tab=readme-ov-file#benchmarks) COITrees outperforms other data structures). In the case of *nearest* operation there is an additional sorted list of intervals used for searching for closest intervals in the case of non-existing overlaps.
+The basic concept is that each operation consists of two sides: the **probe** side and the **build** side. The **probe** side is the one that is streamed, while the **build** side is the one that is implemented as a search data structure (for generic *overlap* operation the search structure can be changed using [algorithm](/polars-bio/api/operations/#polars_bio.range_operations.overlap) parameter, for other operations is always [Cache Oblivious Interval Trees](https://github.com/dcjones/coitrees) as according to the [benchmark](https://github.com/dcjones/coitrees?tab=readme-ov-file#benchmarks) COITrees outperforms other data structures). In the case of *nearest* operation there is an additional sorted list of intervals used for searching for closest intervals in the case of non-existing overlaps.
 
 !!! note
     Available search structure implementations for overlap operation:
