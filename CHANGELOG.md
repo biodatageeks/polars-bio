@@ -21,8 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The header used to be rebuilt from typed metadata, which cannot hold
   `##fileDate`, `##source`, tool provenance such as `##bcftools_*`, the `PASS`
   filter, or contig attributes other than `ID` and `length`, so a plain
-  `scan_vcf` → `sink_vcf` round trip dropped them all. The reader already
-  captured the header as text; it is now carried in the frame's metadata as
+  `scan_vcf` → `sink_vcf` round trip dropped them all. For a local file the
+  reader already captured the header as text (a remote one still has its header
+  rebuilt); it is now carried in the frame's metadata as
   `header["raw_lines"]` and handed to the writer, which re-declares only the
   fields whose definition changed and appends new ones. A caller can extend
   the list through `set_source_metadata`, e.g. to record what annotated a file.
@@ -31,8 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `scan_vcf`/`read_vcf(preserve_record_layout=True)` (#468): carries each
   record's own INFO key order and FORMAT key list in `_vcf_info_keys` and
-  `_vcf_format_keys`, and `sink_vcf`/`write_vcf` use them to reproduce the
-  source line byte for byte. Without it a written record follows the header's
+  `_vcf_format_keys`, and `sink_vcf`/`write_vcf` use them to write each
+  record's keys in the source's own order. Values are still re-serialized in
+  canonical form (`50.0` → `50`), so a line is byte-identical when its values
+  already are. Without it a written record follows the header's
   key order and omits a FORMAT key that is missing in every sample, which is
   valid VCF with the same content but does not diff cleanly against its input.
   Off by default; text VCF only; the two columns have to stay in the frame.

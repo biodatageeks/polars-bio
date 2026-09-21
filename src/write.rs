@@ -385,14 +385,12 @@ fn apply_vcf_metadata_to_schema(
 
         // The record layout columns. The writer finds them by field metadata,
         // which a Polars frame does not keep, so restore the marker by name.
-        let layout_role = if name == VCF_INFO_KEYS_COLUMN {
-            Some(VCF_RECORD_LAYOUT_INFO_KEYS)
-        } else if name == VCF_FORMAT_KEYS_COLUMN {
-            Some(VCF_RECORD_LAYOUT_FORMAT_KEYS)
-        } else {
-            None
-        };
-        if let Some(role) = layout_role {
+        //
+        // A name the header declares is that file's own INFO or FORMAT field and
+        // stays data: the reader refuses the layout carry for such a file, so the
+        // two can never be the same column.
+        let declared = info_meta.contains_key(name) || format_meta.contains_key(name);
+        if let Some(role) = (!declared).then(|| record_layout_role(name)).flatten() {
             let mut field_metadata = field.metadata().clone();
             field_metadata.insert(VCF_RECORD_LAYOUT_KEY.to_string(), role.to_string());
             new_fields.push(field.as_ref().clone().with_metadata(field_metadata));
@@ -494,6 +492,17 @@ fn apply_vcf_metadata_to_schema(
     ));
 
     Ok((info_fields, format_fields, sample_names, new_schema))
+}
+
+/// The record layout role of a reserved column name, if it is one.
+fn record_layout_role(name: &str) -> Option<&'static str> {
+    if name == VCF_INFO_KEYS_COLUMN {
+        Some(VCF_RECORD_LAYOUT_INFO_KEYS)
+    } else if name == VCF_FORMAT_KEYS_COLUMN {
+        Some(VCF_RECORD_LAYOUT_FORMAT_KEYS)
+    } else {
+        None
+    }
 }
 
 /// Write a DataFrame to a file in the specified format using streaming.
@@ -903,6 +912,12 @@ fn extract_vcf_fields_from_schema(schema: &SchemaRef) -> (Vec<String>, Vec<Strin
 
         // Skip core columns
         if core_columns.contains(name.as_str()) {
+            continue;
+        }
+
+        // Record layout plumbing is never an INFO or FORMAT field. With no
+        // header to say otherwise, a reserved name can only be that.
+        if record_layout_role(name).is_some() {
             continue;
         }
 
@@ -1485,6 +1500,20 @@ fn add_bam_tag_metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn heuristics_never_offer_the_record_layout_columns_as_info() {
+        use datafusion::arrow::datatypes::{DataType, Field, Schema};
+        let schema = std::sync::Arc::new(Schema::new(vec![
+            Field::new("chrom", DataType::Utf8, false),
+            Field::new("DP", DataType::Int32, true),
+            Field::new(VCF_INFO_KEYS_COLUMN, DataType::Utf8, true),
+            Field::new(VCF_FORMAT_KEYS_COLUMN, DataType::Utf8, true),
+        ]));
+        let (info, format, _) = extract_vcf_fields_from_schema(&schema);
+        assert!(!info.iter().any(|f| f.starts_with("_vcf_")), "{info:?}");
+        assert!(!format.iter().any(|f| f.starts_with("_vcf_")), "{format:?}");
+    }
 
     #[test]
     fn test_parse_format_column_name() {

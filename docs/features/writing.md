@@ -39,24 +39,38 @@ pb.sink_vcf(lf.filter(pl.col("qual") > 30), "filtered.vcf.bgz")
 
 ### What a VCF round trip preserves
 
-The header is written back line for line: `##fileDate`, tool provenance such as
-`##bcftools_*`, the `PASS` filter and every contig attribute come through
-unchanged, and only fields you added or redefined are declared anew.
+For a local file the header is written back line for line: `##fileDate`, tool
+provenance such as `##bcftools_*`, the `PASS` filter and every contig attribute
+come through unchanged, and only fields you added or redefined are declared anew.
+
+!!! note "Remote inputs"
+    The header is captured as text only when the VCF is read from the local
+    filesystem. For a file read from S3, GCS, Azure or HTTP the header is rebuilt
+    from typed metadata instead, which keeps every INFO, FORMAT, FILTER, ALT and
+    contig declaration but not free-form lines such as `##fileDate`, the `PASS`
+    filter, or contig attributes other than `ID` and `length`.
 
 Records carry the same data as their source lines but, by default, not the same
 bytes: INFO and FORMAT keys follow the header's order, and a FORMAT key that is
-missing in every sample (`PS` in `GT:PS:DP  0/1:.:25`) is left out. To reproduce
-each line exactly, read with `preserve_record_layout=True`:
+missing in every sample (`PS` in `GT:PS:DP  0/1:.:25`) is left out. To keep each
+record's own key layout, read with `preserve_record_layout=True`:
 
 ```python
 lf = pb.scan_vcf("variants.vcf.gz", preserve_record_layout=True)
-pb.sink_vcf(lf.filter(pl.col("qual") > 30), "filtered.vcf")  # remaining lines are byte-identical
+pb.sink_vcf(lf.filter(pl.col("qual") > 30), "filtered.vcf")
 ```
+
+What this restores is the layout of the keys, not the spelling of the values:
+values are parsed into typed columns and written back in canonical form, so
+`QUAL=50.0` becomes `50` and `AF=0.50` becomes `0.5`. A line whose values are
+already canonical, which is what variant callers normally write, comes back
+byte for byte.
 
 This adds two string columns, `_vcf_info_keys` and `_vcf_format_keys`, which
 have to stay in the frame: a `select()` that drops them falls back to header
-order. It is available for text VCF only, and not when the file declares a field
-with either of those names.
+order. It is available for text VCF only, and is refused with an error when the
+file declares an INFO or FORMAT field with either of those names. Read without
+the option, such a field is ordinary data and is written back as such.
 
 ### Sorted output with `sort_on_write`
 

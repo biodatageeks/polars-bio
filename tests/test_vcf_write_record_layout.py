@@ -69,6 +69,50 @@ def test_without_the_carry_the_frame_and_the_output_are_as_before(tmp_path):
     assert not [c for c in lf.collect_schema().names() if c.startswith("_vcf_")]
     pb.sink_vcf(lf, str(out))
     first = _records(out)[0].split("\t")
-    # Header order, and a key missing in every sample is not written.
+    # The source line reads `AF=0.5;DP=10` and `GT:PS:DP  0/1:.:25`. Without the
+    # carry the writer follows the header's order, and a key that is missing in
+    # every sample is not written.
     assert first[7] == "DP=10;AF=0.5"
     assert first[8:10] == ["GT:DP", "0/1:25"]
+
+
+# A file is free to declare a field with either reserved name. Then the column
+# is data, and nothing about the layout carry may touch it.
+RESERVED_NAME_VCF = (
+    "##fileformat=VCFv4.2\n"
+    "##contig=<ID=chr1,length=248956422>\n"
+    '##INFO=<ID=DP,Number=1,Type=Integer,Description="Depth">\n'
+    '##INFO=<ID=_vcf_info_keys,Number=1,Type=String,Description="A real field">\n'
+    "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+    "chr1\t100\t.\tA\tG\t50\tPASS\tDP=10;_vcf_info_keys=mine\n"
+)
+
+
+def test_a_real_field_with_a_reserved_name_is_written_as_data(tmp_path):
+    src = tmp_path / "in.vcf"
+    src.write_text(RESERVED_NAME_VCF)
+    out = tmp_path / "out.vcf"
+    pb.sink_vcf(pb.scan_vcf(str(src)), str(out))
+    assert "_vcf_info_keys=mine" in _records(out)[0].split("\t")[7]
+    assert "##INFO=<ID=_vcf_info_keys," in out.read_text()
+
+
+def test_the_carry_is_refused_when_the_file_uses_a_reserved_name(tmp_path):
+    import pytest
+
+    src = tmp_path / "in.vcf"
+    src.write_text(RESERVED_NAME_VCF)
+    with pytest.raises(Exception, match="_vcf_info_keys"):
+        pb.scan_vcf(str(src), preserve_record_layout=True).collect()
+
+
+def test_the_carry_restores_key_layout_not_how_a_value_was_spelled(tmp_path):
+    # Values are parsed into typed columns and written back canonically, with or
+    # without the carry.
+    src = tmp_path / "in.vcf"
+    src.write_text(
+        HEADER + "chr1\t100\t.\tA\tG\t50.0\tPASS\tAF=0.50;DP=01\tGT:DP\t0/1:25\n"
+    )
+    out = tmp_path / "out.vcf"
+    pb.sink_vcf(pb.scan_vcf(str(src), preserve_record_layout=True), str(out))
+    assert _records(out) == ["chr1\t100\t.\tA\tG\t50\tPASS\tAF=0.5;DP=1\tGT:DP\t0/1:25"]
