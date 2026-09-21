@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `header["raw_lines"]` and handed to the writer, which re-declares only the
   fields whose definition changed and appends new ones. A caller can extend
   the list through `set_source_metadata`, e.g. to record what annotated a file.
+- `polars-config-meta>=0.3.2` is now required (was `>=0.3.0`). Older versions
+  drop a frame's metadata on `collect()`, so `read_vcf()` and the other eager
+  readers returned a DataFrame without its source header, and a following
+  `write_vcf()` rebuilt the header from nothing.
 
 ### Added
 
