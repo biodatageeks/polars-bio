@@ -4531,11 +4531,15 @@ def _write_file(
                 format_fields_json = json.dumps(vcf_header["format_fields"])
             if vcf_header.get("sample_names"):
                 sample_names_json = json.dumps(vcf_header["sample_names"])
-            if vcf_header.get("contigs"):
+            # Forwarded whenever present, empty included. With the source header
+            # passed through as text, these lists are what tells the writer which
+            # FILTER / contig / ALT declarations still belong in it, so `[]` has
+            # to arrive as "none" rather than go missing and mean "unknown".
+            if vcf_header.get("contigs") is not None:
                 contigs_json = json.dumps(vcf_header["contigs"])
-            if vcf_header.get("filters"):
+            if vcf_header.get("filters") is not None:
                 filters_json = json.dumps(vcf_header["filters"])
-            if vcf_header.get("alt_definitions"):
+            if vcf_header.get("alt_definitions") is not None:
                 alt_definitions_json = json.dumps(vcf_header["alt_definitions"])
             file_format = vcf_header.get("version")
             # The source header as text. The writer re-emits it verbatim and only

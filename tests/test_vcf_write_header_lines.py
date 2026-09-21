@@ -142,3 +142,21 @@ def test_a_field_added_downstream_is_declared_after_the_source_header(tmp_path):
     )
     record = [l for l in out.read_text().splitlines() if not l.startswith("#")][0]
     assert "NEW=7" in record.split("\t")[7]
+
+
+def test_clearing_a_declaration_list_removes_it_from_the_written_header(tmp_path):
+    # The typed lists say which FILTER / contig / ALT declarations the header
+    # should carry. An empty list is a statement too: all of them were removed.
+    src = _write_full(tmp_path)
+    out = tmp_path / "out.vcf"
+    lf = pb.scan_vcf(str(src))
+    header = dict(pb.get_metadata(lf)["header"])
+    header["filters"] = []
+    pb.set_source_metadata(lf, format="vcf", path=str(src), header=header)
+    pb.sink_vcf(lf, str(out))
+    lines = _meta_lines(out)
+    assert not [line for line in lines if line.startswith("##FILTER=")]
+    # Everything else is still the source's.
+    assert [l for l in lines if not l.startswith("##FILTER=")] == [
+        l for l in FULL_HEADER if not l.startswith("##FILTER=")
+    ]
