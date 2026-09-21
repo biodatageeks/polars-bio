@@ -1286,18 +1286,31 @@ pub struct VcfWriteOptions {
     /// Contig metadata as JSON string: [{"id": "chr1", "length": 248956422}, ...]
     #[pyo3(get, set)]
     pub contigs_metadata: Option<String>,
+    /// FILTER definitions as JSON string: [{"id": "LowQual", "description": "..."}]
+    #[pyo3(get, set)]
+    pub filters_metadata: Option<String>,
+    /// ALT definitions as JSON string: [{"id": "DEL", "description": "..."}]
+    #[pyo3(get, set)]
+    pub alt_definitions_metadata: Option<String>,
+    /// Source `##fileformat` value, e.g. "VCFv4.2"
+    #[pyo3(get, set)]
+    pub file_format: Option<String>,
 }
 
 #[pymethods]
 impl VcfWriteOptions {
     #[new]
-    #[pyo3(signature = (zero_based=true, info_fields_metadata=None, format_fields_metadata=None, sample_names=None, contigs_metadata=None))]
+    #[pyo3(signature = (zero_based=true, info_fields_metadata=None, format_fields_metadata=None, sample_names=None, contigs_metadata=None, filters_metadata=None, alt_definitions_metadata=None, file_format=None))]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         zero_based: bool,
         info_fields_metadata: Option<String>,
         format_fields_metadata: Option<String>,
         sample_names: Option<String>,
         contigs_metadata: Option<String>,
+        filters_metadata: Option<String>,
+        alt_definitions_metadata: Option<String>,
+        file_format: Option<String>,
     ) -> Self {
         VcfWriteOptions {
             zero_based,
@@ -1305,6 +1318,9 @@ impl VcfWriteOptions {
             format_fields_metadata,
             sample_names,
             contigs_metadata,
+            filters_metadata,
+            alt_definitions_metadata,
+            file_format,
         }
     }
 
@@ -1316,6 +1332,9 @@ impl VcfWriteOptions {
             format_fields_metadata: None,
             sample_names: None,
             contigs_metadata: None,
+            filters_metadata: None,
+            alt_definitions_metadata: None,
+            file_format: None,
         }
     }
 }

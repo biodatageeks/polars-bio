@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `sink_vcf`/`write_vcf`: `GT` is written first in FORMAT, as the VCF
+  specification requires (a header declaring `DP` before `GT` produced `DP:GT`);
+  the source's `##FILTER` and `##ALT` lines and its `##fileformat` are kept
+  instead of being dropped; and a column named `INFO_<id>` is written under
+  `<id>` when the header declares `<id>`, with a same-named non-INFO column left
+  out. The last one is what a frame from `vepyr.annotate` looks like: `AF` is
+  VEP's frequency and `INFO_AF` the input's field, and the annotation value was
+  being written under the input's key.
+
 ### Added
 
 - Multiple-sequence-alignment readers for A2M, A3M and Stockholm
