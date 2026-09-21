@@ -52,10 +52,18 @@ FORMAT field, and SHALL NOT treat it as record layout.
 - **THEN** the written record still carries `_vcf_info_keys=mine`
 - **AND** the declaration is kept in the header.
 
-#### Scenario: The carry is refused for such a file
-- **WHEN** that file is read with `preserve_record_layout=True`
+#### Scenario: The carry is refused when the field would be in the frame
+- **WHEN** that file is read with `preserve_record_layout=True` and the
+  conflicting field is among the fields read
 - **THEN** the read fails with an error that names the conflicting field,
   instead of producing two columns with one name.
+
+#### Scenario: The carry is accepted when the field is not read
+- **WHEN** that file is read with `preserve_record_layout=True` and
+  `info_fields` / `format_fields` select only other fields
+- **THEN** the read succeeds, because the reserved name is free in the frame
+- **AND** the written records keep the source's key layout
+- **AND** the file's declaration of the unread field is kept in the header.
 
 #### Scenario: The carry is refused for a nested FORMAT field too
 - **WHEN** a multi-sample VCF declares `##FORMAT=<ID=_vcf_format_keys,...>`, so

@@ -28,8 +28,9 @@ does not keep.
   name, so the serializer writes each record's keys in the source's own order
   and keeps a carried FORMAT key whose value is missing.
 - A column whose name the VCF header declares as an INFO or FORMAT field is that
-  file's own data and is never treated as layout plumbing. The reader refuses
-  the carry for such a file with an error naming the field.
+  file's own data and is never treated as layout plumbing. The carry is refused,
+  with an error naming the field, when that field would be read into the frame;
+  a read that does not select it leaves the name free and is accepted.
 - Off by default. Without the option neither the frame nor the written output
   changes.
 - Not offered on `read_bcf` / `scan_bcf`: a BCF record has no source text.

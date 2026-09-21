@@ -68,9 +68,12 @@ byte for byte.
 
 This adds two string columns, `_vcf_info_keys` and `_vcf_format_keys`, which
 have to stay in the frame: a `select()` that drops them falls back to header
-order. It is available for text VCF only, and is refused with an error when the
-file declares an INFO or FORMAT field with either of those names. Read without
-the option, such a field is ordinary data and is written back as such.
+order. It is available for text VCF only, and is refused with an error when an
+INFO or FORMAT field with either of those names would be read into the frame,
+since one frame cannot hold two columns of one name. Selecting other fields with
+`info_fields`/`format_fields` leaves the name free, and the option then works.
+Read without the option, such a field is ordinary data and is written back as
+such.
 
 ### Sorted output with `sort_on_write`
 

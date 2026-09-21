@@ -141,3 +141,34 @@ def test_the_carry_is_refused_for_a_reserved_format_name_in_a_multisample_file(
     out = tmp_path / "out.vcf"
     pb.sink_vcf(pb.scan_vcf(str(src)), str(out))
     assert _records(out)[0].split("\t")[8:] == ["GT:_vcf_format_keys", "0/1:x", "1/1:y"]
+
+
+def test_the_carry_works_when_the_reserved_field_is_not_selected(tmp_path):
+    # The conflict is between two columns of one frame. A read that leaves the
+    # field out has no such conflict, so the carry is accepted and honoured, for
+    # one sample (top-level FORMAT columns) and for several (nested).
+    declarations = (
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1,length=248956422>\n"
+        '##INFO=<ID=DP,Number=1,Type=Integer,Description="Depth">\n'
+        '##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency">\n'
+        '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n'
+        '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Depth">\n'
+        '##FORMAT=<ID=_vcf_format_keys,Number=1,Type=String,Description="Real">\n'
+    )
+    for samples, values in (("S1", "7:0/1"), ("S1\tS2", "7:0/1\t9:1/1")):
+        record = f"chr1\t100\t.\tA\tG\t50\tPASS\tAF=0.5;DP=10\tDP:GT\t{values}"
+        src = tmp_path / "in.vcf"
+        src.write_text(
+            declarations
+            + f"#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{samples}\n"
+            + record
+            + "\n"
+        )
+        out = tmp_path / "out.vcf"
+        lf = pb.scan_vcf(
+            str(src), format_fields=["GT", "DP"], preserve_record_layout=True
+        )
+        pb.sink_vcf(lf, str(out))
+        assert _records(out) == [record]
+        assert "##FORMAT=<ID=_vcf_format_keys," in out.read_text()
