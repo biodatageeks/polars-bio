@@ -637,7 +637,7 @@ class SQL:
         Register an A2M alignment file as a Datafusion table.
 
         The table has the FASTA schema (`name`, `description`, `sequence`); see
-        [`read_a2m`][polars_bio.read_a2m] for the verbatim-sequence semantics.
+        [`read_a2m`][polars_bio.data_input.read_a2m] for the verbatim-sequence semantics.
 
         Parameters:
             path: The path to the A2M file.
@@ -687,7 +687,7 @@ class SQL:
         Register an A3M (hh-suite) alignment file as a Datafusion table.
 
         The table has the FASTA schema (`name`, `description`, `sequence`); see
-        [`read_a3m`][polars_bio.read_a3m] for the verbatim-sequence semantics and
+        [`read_a3m`][polars_bio.data_input.read_a3m] for the verbatim-sequence semantics and
         the handling of `#` header lines and `ss_*` pseudo-sequences.
 
         Parameters:
@@ -739,7 +739,7 @@ class SQL:
         Register a Stockholm (`.sto` / `.stk`) alignment file as a Datafusion table.
 
         One row per sequence per alignment with `alignment_id`, `name`,
-        `sequence`, `gs` and `gr`; see [`read_sto`][polars_bio.read_sto].
+        `sequence`, `gs` and `gr`; see [`read_sto`][polars_bio.data_input.read_sto].
 
         Parameters:
             path: The path to the Stockholm file.

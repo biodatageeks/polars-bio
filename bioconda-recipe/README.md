@@ -9,19 +9,18 @@ before being copied there.
 | Path | Target repository | Purpose |
 | --- | --- | --- |
 | `meta.yaml`, `build.sh`, `test_overlap.py` | `bioconda/bioconda-recipes` → `recipes/polars-bio/` | The polars-bio package |
-| `conda-forge-recipes/polars-config-meta/recipe.yaml` | `conda-forge/staged-recipes` → `recipes/polars-config-meta/` | A dependency that is not yet packaged for conda |
+| `conda-forge-recipes/polars-config-meta/recipe.yaml` | `conda-forge/staged-recipes` → `recipes/polars-config-meta/` | Initial submission recipe for the dependency now available on conda-forge |
 
 The two recipes deliberately use different formats. conda-forge deprecated the
 v0 `meta.yaml` format for new recipes, so `polars-config-meta` is a v1
 `recipe.yaml` built with `rattler-build`. Bioconda has not migrated, so the
 polars-bio recipe stays on v0.
 
-## Ordering constraint
+## Runtime dependencies
 
-`polars-config-meta` must land on conda-forge **before** the bioconda recipe can
-build, because it is a hard runtime dependency of polars-bio (imported
-unconditionally from `polars_bio/__init__.py`). Everything else polars-bio needs
-is already on conda-forge:
+All runtime dependencies are available on conda-forge. `polars-config-meta` is
+imported unconditionally from `polars_bio/__init__.py`; 0.36.0 requires at least
+0.3.2 to retain source metadata when collecting a LazyFrame.
 
 | Dependency | Required | conda-forge |
 | --- | --- | --- |
@@ -29,7 +28,7 @@ is already on conda-forge:
 | `pyarrow` | `>=23.0.1,<25` | yes |
 | `datafusion` | `>=53.0.0,<54` | yes (53.0.0) |
 | `tqdm` | `>=4.67.0,<5` | yes |
-| `polars-config-meta` | `>=0.3.0,<1` | **no — submit first** |
+| `polars-config-meta` | `>=0.3.2,<1` | yes |
 
 Note that `polars-config-meta` declares `dependencies = []` in its
 `pyproject.toml` and lists polars only as an optional extra, but imports polars
@@ -93,11 +92,8 @@ bioconda-utils build --docker --mulled-test --packages polars-bio
 
 Bioconda builds `linux-64` and `osx-64` by default; `osx-arm64` and
 `linux-aarch64` require an explicit `extra: additional-platforms:` entry. The
-recipe opts in to `osx-arm64` only. Both ARM targets are built natively on
-CircleCI (`osx-arm64` on an Apple Silicon runner, `linux-aarch64` on ARM Linux) —
-there is no cross-compilation involved. `osx-arm64` is safe because polars-bio's
-own CI already builds macOS aarch64 wheels from the same crate graph;
-`linux-aarch64` is left out because nothing upstream exercises ARM Linux.
+recipe opts in to both ARM targets. polars-bio's own CI builds macOS arm64
+and Linux arm64 wheels and runs the Python suite on a native Linux arm64 runner.
 Bioconda does not build Windows packages at all; Windows users continue to
 install from PyPI.
 
@@ -117,6 +113,11 @@ deterministically on release-published, but it duplicated the bot and needed a
 dependencies. If a release changes the pins in `pyproject.toml`, the `run:`
 section here has to be updated by hand — the bot only rewrites version, sha256
 and build number.
+
+For 0.36.0, copy the `polars-config-meta>=0.3.2` runtime requirement to the
+upstream Bioconda recipe as well; earlier versions lose source metadata on
+`collect()`. The local recipe's version and SHA256 remain paired with an
+existing published sdist until the new PyPI artifact is available.
 
 ## Maintainers
 

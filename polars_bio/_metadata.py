@@ -537,7 +537,7 @@ def set_source_metadata(df, format: str, path: str = "", header: dict = None):
     formats (VCF, FASTQ, BAM, GFF, BED, FASTA, CRAM).
 
     Args:
-        df: Polars DataFrame or LazyFrame (or Pandas DataFrame)
+        df (object): Polars DataFrame or LazyFrame (or Pandas DataFrame)
         format: File format identifier (e.g., "vcf", "fastq", "bam")
         path: Original file path (default: "")
         header: Format-specific header data as dict (default: None)
@@ -578,7 +578,7 @@ def get_metadata(df) -> dict:
     - Comprehensive Arrow schema metadata (if available)
 
     Args:
-        df: Polars DataFrame or LazyFrame (or Pandas DataFrame)
+        df (object): Polars DataFrame or LazyFrame (or Pandas DataFrame)
 
     Returns:
         Dict with keys:

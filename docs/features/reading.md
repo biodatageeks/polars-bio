@@ -6,7 +6,12 @@ This page covers how polars-bio loads bioinformatics files — the supported for
 
 ## File formats support
 
-For every bioinformatic format there are always three methods available: `read_*` (eager), `scan_*` (lazy) and `register_*` that can be used to either read the file into a Polars DataFrame/LazyFrame or register it as a DataFusion table for further processing using SQL or built-in interval methods. In either case, local and/or cloud storage files can be used as an input. Please refer to the [cloud storage](cloud.md#cloud-storage) section for more details.
+The supported formats expose `read_*` (eager), `scan_*` (lazy) and `register_*`
+entry points for Polars DataFrames/LazyFrames or DataFusion tables queried with
+SQL. Source support varies by format: Cooler and Foldcomp currently require
+local paths. See the format-specific notes and [cloud storage](cloud.md#cloud-storage)
+for supported remote sources. Protein structures use physical coordinates rather
+than genomic intervals and have a [separate guide](structures.md).
 
 !!! tip "Prefer lazy scans"
     Reach for `scan_*` over `read_*` whenever you can. A lazy scan lets polars-bio push filters and

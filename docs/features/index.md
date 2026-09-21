@@ -45,10 +45,18 @@ and [writing files](writing.md).
 ## [Reading files](reading.md)
 
 Eager (`read_*`), lazy (`scan_*`), and SQL-ready (`register_*`) access to all supported input
-formats (BED, VCF, BCF, VCF Zarr, BAM, CRAM, FASTQ, FASTA, GFF3, GTF, Pairs, BigWig, BigBed, Cooler .cool/.mcool). Prefer
+formats (BED, VCF, BCF, VCF Zarr, BGEN, PGEN, BAM, SAM, CRAM, FASTQ, FASTA,
+A2M, A3M, Stockholm, GFF3, GTF, Pairs, BigWig, BigBed, Cooler .cool/.mcool). Prefer
 `scan_*` — it enables indexed reads with predicate and projection pushdown. Also covers optional
 BAM tags, schema inspection, coordinate-system handling, and the metadata attached to every
 DataFrame.
+
+## [Protein structures](structures.md)
+
+Read PDB/mmCIF collections and local Foldcomp files or database subsets as atom
+or residue tables. Residue output includes backbone coordinates and six angles,
+with coordinates in Angstroms and angles in degrees. Lazy, eager and SQL access
+use native Rust readers without a Python codec dependency.
 
 ## [Writing files](writing.md)
 
