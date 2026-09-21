@@ -78,11 +78,23 @@ Foldcomp coordinates are lossy reconstructions. All angles are recomputed from
 those coordinates; codec torsion arrays are not assumed to align with output rows.
 B factors are not automatically interpreted as pLDDT.
 
+## Performance and memory limits
+
 Scans retain one complete structure file/entry per active worker before emitting
 bounded Arrow batches. Projection reduces Arrow allocation; it does not turn text
 or FCZ into columnar I/O. Geometry is computed before query filters, so a phi-only
 projection or filtering out neighboring residues retains the same values as a
 full scan. Repeated and concurrent `collect()` calls use fresh execution cursors.
+
+mmCIF parsing builds and normalizes an owned atom model before producing Arrow
+columns. Intermediate rows and strings can consume substantially more memory
+than the input file. The byte and atom limits above are per-entry safeguards,
+not a cap on total process memory. Lower `target_partitions` when simultaneous
+large entries exceed the available memory budget.
+
+PDB/mmCIF parallelism is capped by the number of input sources; a single large
+file stays in one parsing partition. See [partition granularity and known limits](reading.md#alignment-and-structure-scaling-limits)
+and the follow-up in [polars-bio #471](https://github.com/biodatageeks/polars-bio/issues/471).
 
 PDB/mmCIF parsing and Foldcomp decoding use repository-owned Rust implementations.
 These readers have no Gemmi/Biopython/foldcomp Python dependency or native codec

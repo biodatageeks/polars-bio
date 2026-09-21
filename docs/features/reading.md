@@ -259,6 +259,23 @@ df = pb.read_fastq("reads.fastq.bgz")  # parallel BGZF decoding when .gzi index 
 | GZIP (`.fastq.gz`) | N/A | 1 (sequential — GZIP cannot be parallelized) |
 | Uncompressed (`.fastq`) | N/A | up to target_partitions (byte-range parallel) |
 
+#### Alignment and structure scaling limits
+
+`target_partitions` is a requested count; actual reader parallelism depends on
+the format and available sources:
+
+| Format | Current partition granularity and limits |
+|---|---|
+| A2M / A3M | One parsing partition per scan, regardless of the requested count. |
+| Stockholm | Whole alignments in local, uncompressed files. Parallel planning first scans the complete file serially to find alignment boundaries; this discovery is repeated for each physical plan. One alignment remains indivisible. |
+| PDB / mmCIF | Whole input sources, capped by their count. One large structure is not split into atom ranges. |
+| Foldcomp | Indexed entries can decode independently; final Polars materialization also contributes to total runtime. |
+
+For mmCIF, more simultaneous sources can improve throughput while increasing
+peak memory; see [structure memory limits](structures.md#performance-and-memory-limits).
+These limitations are tracked in [polars-bio #471](https://github.com/biodatageeks/polars-bio/issues/471),
+with profiling evidence in [bio-formats #256](https://github.com/biodatageeks/datafusion-bio-formats/issues/256).
+
 ### Generating index files
 
 !!! tip "Creating index files"
@@ -737,6 +754,9 @@ on `//` boundaries. A single-alignment file is one partition and holds that
 alignment in memory while it is parsed — interleaving makes that unavoidable —
 so memory is bounded by the largest alignment, not the file. `count(*)` and
 projections that omit `sequence` do not materialize sequence text.
+
+See [alignment scaling limits](#alignment-and-structure-scaling-limits) for the
+serial boundary-discovery cost and A2M/A3M's single parsing partition.
 
 Not covered in this release: writing any of the three formats, A3M→A2M insert
 expansion (`expand_inserts`), and `#=GC` as per-column columns.
