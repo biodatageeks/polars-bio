@@ -2,6 +2,7 @@
 name = "polars_bio"
 version = "0.35.1"
 edition = "2021"
+license = "Apache-2.0"
 
 [features]
 # Global allocator selection (issue #402). Exactly one is compiled in.
@@ -45,6 +46,7 @@ pyo3-log = "0.13.3"
 # The structure and Foldcomp readers use the same tag: v1.13.0 ships their
 # pure-Rust codecs (datafusion-bio-formats#255), so no native Gemmi or Foldcomp
 # build is involved. Every formats crate has to name one source.
+# The bundled Foldcomp MIT notices stay: its format and tables are still used.
 datafusion = { version = "53.0.0", default-features = false, features = ["nested_expressions", "crypto_expressions", "datetime_expressions", "encoding_expressions", "regex_expressions", "string_expressions", "unicode_expressions", "parquet", "recursive_protection", "sql"] }
 arrow = "58.3.0"
 arrow-schema = "58.3.0"
