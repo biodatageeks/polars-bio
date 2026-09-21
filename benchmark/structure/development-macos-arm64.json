@@ -1,0 +1,303 @@
+{
+  "build": "development",
+  "platform": "macOS-15.7.9-arm64-arm-64bit",
+  "python": "3.12.2",
+  "versions": {
+    "polars": "1.44.2",
+    "pyarrow": "24.0.0",
+    "datafusion": "53.0.0"
+  },
+  "workload": "32 repeated 1UBQ paths or database keys [0,7]; full schema; all rows collected",
+  "cache": "first execution and two repeats; filesystem caches are not flushed",
+  "rss": "fresh process per case, includes Python/Arrow/DataFusion imports and allocations",
+  "results": [
+    {
+      "format": "pdb",
+      "level": "atom",
+      "workers": 1,
+      "rows": 21120,
+      "seconds": [
+        0.23899604193866253,
+        0.14047362515702844,
+        0.1367977918125689
+      ],
+      "peak_process_rss_bytes": 248594432
+    },
+    {
+      "format": "pdb",
+      "level": "atom",
+      "workers": 2,
+      "rows": 21120,
+      "seconds": [
+        0.07674829103052616,
+        0.06641949992626905,
+        0.0657567079178989
+      ],
+      "peak_process_rss_bytes": 254164992
+    },
+    {
+      "format": "pdb",
+      "level": "atom",
+      "workers": 4,
+      "rows": 21120,
+      "seconds": [
+        0.043979791924357414,
+        0.03535408293828368,
+        0.035158833023160696
+      ],
+      "peak_process_rss_bytes": 261029888
+    },
+    {
+      "format": "pdb",
+      "level": "atom",
+      "workers": 8,
+      "rows": 21120,
+      "seconds": [
+        0.036336875054985285,
+        0.021478916984051466,
+        0.02061733417212963
+      ],
+      "peak_process_rss_bytes": 278773760
+    },
+    {
+      "format": "pdb",
+      "level": "residue",
+      "workers": 1,
+      "rows": 2432,
+      "seconds": [
+        0.1746290409937501,
+        0.15504375007003546,
+        0.1544094590935856
+      ],
+      "peak_process_rss_bytes": 238452736
+    },
+    {
+      "format": "pdb",
+      "level": "residue",
+      "workers": 2,
+      "rows": 2432,
+      "seconds": [
+        0.08166491705924273,
+        0.07362266606651247,
+        0.0738180831540376
+      ],
+      "peak_process_rss_bytes": 243777536
+    },
+    {
+      "format": "pdb",
+      "level": "residue",
+      "workers": 4,
+      "rows": 2432,
+      "seconds": [
+        0.047334541101008654,
+        0.03912833402864635,
+        0.03874816722236574
+      ],
+      "peak_process_rss_bytes": 255246336
+    },
+    {
+      "format": "pdb",
+      "level": "residue",
+      "workers": 8,
+      "rows": 2432,
+      "seconds": [
+        0.03299774997867644,
+        0.022532207891345024,
+        0.022685499861836433
+      ],
+      "peak_process_rss_bytes": 271794176
+    },
+    {
+      "format": "mmcif",
+      "level": "atom",
+      "workers": 1,
+      "rows": 21120,
+      "seconds": [
+        0.8961613331921399,
+        0.8722887919284403,
+        0.8710369160398841
+      ],
+      "peak_process_rss_bytes": 266895360
+    },
+    {
+      "format": "mmcif",
+      "level": "atom",
+      "workers": 2,
+      "rows": 21120,
+      "seconds": [
+        0.4410809581167996,
+        0.4346184579189867,
+        0.43291216692887247
+      ],
+      "peak_process_rss_bytes": 274497536
+    },
+    {
+      "format": "mmcif",
+      "level": "atom",
+      "workers": 4,
+      "rows": 21120,
+      "seconds": [
+        0.2277797081042081,
+        0.2175007089972496,
+        0.2188309170305729
+      ],
+      "peak_process_rss_bytes": 283164672
+    },
+    {
+      "format": "mmcif",
+      "level": "atom",
+      "workers": 8,
+      "rows": 21120,
+      "seconds": [
+        0.13977104192599654,
+        0.12559937499463558,
+        0.11605758289806545
+      ],
+      "peak_process_rss_bytes": 311099392
+    },
+    {
+      "format": "mmcif",
+      "level": "residue",
+      "workers": 1,
+      "rows": 2432,
+      "seconds": [
+        0.9076156250666827,
+        0.888349249958992,
+        0.9053370840847492
+      ],
+      "peak_process_rss_bytes": 255639552
+    },
+    {
+      "format": "mmcif",
+      "level": "residue",
+      "workers": 2,
+      "rows": 2432,
+      "seconds": [
+        0.5285624999087304,
+        0.4423073339276016,
+        0.46761966589838266
+      ],
+      "peak_process_rss_bytes": 266862592
+    },
+    {
+      "format": "mmcif",
+      "level": "residue",
+      "workers": 4,
+      "rows": 2432,
+      "seconds": [
+        0.2685184159781784,
+        0.22440066700801253,
+        0.2769712081644684
+      ],
+      "peak_process_rss_bytes": 276299776
+    },
+    {
+      "format": "mmcif",
+      "level": "residue",
+      "workers": 8,
+      "rows": 2432,
+      "seconds": [
+        0.13900583400391042,
+        0.11654800013639033,
+        0.11475524981506169
+      ],
+      "peak_process_rss_bytes": 295141376
+    },
+    {
+      "format": "foldcomp",
+      "level": "atom",
+      "workers": 1,
+      "rows": 2429,
+      "seconds": [
+        0.03928458318114281,
+        0.019771083956584334,
+        0.01965512498281896
+      ],
+      "peak_process_rss_bytes": 237076480
+    },
+    {
+      "format": "foldcomp",
+      "level": "atom",
+      "workers": 2,
+      "rows": 2429,
+      "seconds": [
+        0.019286249997094274,
+        0.011451042024418712,
+        0.010896916035562754
+      ],
+      "peak_process_rss_bytes": 241041408
+    },
+    {
+      "format": "foldcomp",
+      "level": "atom",
+      "workers": 4,
+      "rows": 2429,
+      "seconds": [
+        0.04401375004090369,
+        0.019529000157490373,
+        0.013757082866504788
+      ],
+      "peak_process_rss_bytes": 243892224
+    },
+    {
+      "format": "foldcomp",
+      "level": "atom",
+      "workers": 8,
+      "rows": 2429,
+      "seconds": [
+        0.0620300411246717,
+        0.019011375028640032,
+        0.026599999982863665
+      ],
+      "peak_process_rss_bytes": 244137984
+    },
+    {
+      "format": "foldcomp",
+      "level": "residue",
+      "workers": 1,
+      "rows": 293,
+      "seconds": [
+        0.04695950006134808,
+        0.023076959187164903,
+        0.03164237504824996
+      ],
+      "peak_process_rss_bytes": 238043136
+    },
+    {
+      "format": "foldcomp",
+      "level": "residue",
+      "workers": 2,
+      "rows": 293,
+      "seconds": [
+        0.02232879097573459,
+        0.012669999850913882,
+        0.01246283296495676
+      ],
+      "peak_process_rss_bytes": 241778688
+    },
+    {
+      "format": "foldcomp",
+      "level": "residue",
+      "workers": 4,
+      "rows": 293,
+      "seconds": [
+        0.026838791090995073,
+        0.023210457991808653,
+        0.02122504194267094
+      ],
+      "peak_process_rss_bytes": 242614272
+    },
+    {
+      "format": "foldcomp",
+      "level": "residue",
+      "workers": 8,
+      "rows": 293,
+      "seconds": [
+        0.022155167069286108,
+        0.012860666960477829,
+        0.012266875011846423
+      ],
+      "peak_process_rss_bytes": 239419392
+    }
+  ]
+}

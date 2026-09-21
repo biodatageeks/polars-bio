@@ -30,6 +30,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Backed by the new `datafusion-bio-format-msa` crate and parity-tested
   against Easel (pyhmmer / `esl-*`), hh-suite `reformat.pl` and Biopython
   (#459, biodatageeks/datafusion-bio-formats#245).
+- PDB/mmCIF collection and local Foldcomp subset readers (`scan_*`, `read_*`,
+  `register_structure`, `register_foldcomp`) with atom/residue output, raw author
+  and label identifiers, coherent conformers, backbone coordinates and six angles
+  in physical units (#455). Geometry and decoding run in native format providers.
+
 - PGEN entry points (`read_pgen`, `scan_pgen`, `read_pgen_matrix`,
   `describe_pgen`, `register_pgen`) accept `max_companion_bytes`,
   `max_decompressed_companion_bytes`, and `max_variants`, forwarded to the

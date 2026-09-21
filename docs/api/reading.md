@@ -63,3 +63,17 @@
             - describe_cool
             - describe_sto
             - from_polars
+
+## Protein structures
+
+::: polars_bio.structure
+    options:
+        members:
+            - scan_pdb
+            - scan_mmcif
+            - scan_structures
+            - scan_foldcomp
+            - read_pdb
+            - read_mmcif
+            - read_structures
+            - read_foldcomp

@@ -1,0 +1,4 @@
+gemmi==0.7.5
+biopython==1.88
+foldcomp==1.0.0
+numpy==2.5.3

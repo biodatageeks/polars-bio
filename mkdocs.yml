@@ -13,6 +13,7 @@ nav:
       - Overview: features/index.md
       - Genomic operations: features/operations.md
       - Reading files: features/reading.md
+      - Protein structures: features/structures.md
       - Writing files: features/writing.md
       - SQL processing: features/sql.md
       - DataFrames support: features/dataframes.md

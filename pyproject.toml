@@ -56,6 +56,10 @@ test = [
 
 [tool.maturin]
 module-name = "polars_bio"
+include = [
+  { path = "polars_bio/licenses/structure/FOLDCOMP-LICENSE.txt", format = ["sdist", "wheel"] },
+  { path = "polars_bio/licenses/structure/README.md", format = ["sdist", "wheel"] },
+]
 
 [[tool.mypy.overrides]]
 module = "polars.utils.udfs"

@@ -28,6 +28,18 @@ from .pileup_op import PileupOperations as pileup_operations
 from .range_op import FilterOp
 from .range_op import IntervalOperations as range_operations
 from .sql import SQL as data_processing
+from .structure import (
+    read_foldcomp,
+    read_mmcif,
+    read_pdb,
+    read_structures,
+    register_foldcomp,
+    register_structure,
+    scan_foldcomp,
+    scan_mmcif,
+    scan_pdb,
+    scan_structures,
+)
 
 try:
     from .range_utils import Utils
@@ -221,6 +233,10 @@ __all__ = [
     "PgenMatrix",
     "read_vcf",
     "read_vcf_zarr",
+    "read_pdb",
+    "read_mmcif",
+    "read_structures",
+    "read_foldcomp",
     "scan_bam",
     "scan_sam",
     "scan_cram",
@@ -242,6 +258,10 @@ __all__ = [
     "scan_pgen",
     "scan_vcf",
     "scan_vcf_zarr",
+    "scan_pdb",
+    "scan_mmcif",
+    "scan_structures",
+    "scan_foldcomp",
     "write_vcf",
     "sink_vcf",
     "write_fasta",
@@ -275,6 +295,8 @@ __all__ = [
     "register_bigbed",
     "register_pairs",
     "register_view",
+    "register_structure",
+    "register_foldcomp",
     "sql",
     "depth",
     "fastqc",
