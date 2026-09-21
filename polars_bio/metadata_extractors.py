@@ -10,9 +10,12 @@ The extraction is non-destructive - all metadata is preserved.
 """
 
 import json
+import logging
 from typing import Any, Dict, List, Optional
 
 import pyarrow as pa
+
+logger = logging.getLogger(__name__)
 
 
 def _decode_metadata_value(value: Any) -> Any:
@@ -278,6 +281,8 @@ def _extract_vcf_specific_metadata(
         "info_fields": {},
         "format_fields": {},
         "sample_names": [],
+        "raw_lines": None,
+        "record_layout": False,
     }
 
     # Extract schema-level metadata
@@ -298,6 +303,26 @@ def _extract_vcf_specific_metadata(
                 vcf_meta[target_key] = parsed if parsed else []
             except (json.JSONDecodeError, TypeError):
                 vcf_meta[target_key] = []
+
+    # The source header's `##` lines, captured verbatim by the reader. It does so
+    # for local text VCFs only: a file read from S3, GCS, Azure or HTTP has no
+    # such key, and a write then rebuilds the header from the typed metadata.
+    raw_lines = schema_meta.get("bio.vcf.header.raw_lines")
+    if raw_lines:
+        try:
+            parsed = json.loads(raw_lines)
+            if isinstance(parsed, list) and parsed:
+                vcf_meta["raw_lines"] = parsed
+        except (json.JSONDecodeError, TypeError) as error:
+            logger.debug("ignoring malformed bio.vcf.header.raw_lines: %s", error)
+
+    # The reader marks the two record layout columns when it was asked to carry
+    # them. A Polars frame drops field metadata, so note it here: on write this
+    # is what tells `_vcf_info_keys` the layout column from a column of that name.
+    vcf_meta["record_layout"] = any(
+        field.metadata and b"bio.vcf.record_layout" in field.metadata
+        for field in schema
+    )
 
     def _vcf_type_from_arrow(arrow_type: pa.DataType) -> str:
         if pa.types.is_integer(arrow_type) or pa.types.is_unsigned_integer(arrow_type):

@@ -25,7 +25,9 @@ use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_core::metadata::{
     BAM_TAG_TAG_KEY, BAM_TAG_TYPE_KEY, COORDINATE_SYSTEM_METADATA_KEY, VCF_ALTERNATIVE_ALLELES_KEY,
     VCF_CONTIGS_KEY, VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
-    VCF_FILE_FORMAT_KEY, VCF_FILTERS_KEY,
+    VCF_FILE_FORMAT_KEY, VCF_FILTERS_KEY, VCF_FORMAT_KEYS_COLUMN, VCF_HEADER_RAW_LINES_KEY,
+    VCF_INFO_KEYS_COLUMN, VCF_RECORD_LAYOUT_FORMAT_KEYS, VCF_RECORD_LAYOUT_INFO_KEYS,
+    VCF_RECORD_LAYOUT_KEY,
 };
 use datafusion_bio_format_core::tag_registry::format_sam_tag_type;
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
@@ -197,6 +199,7 @@ fn apply_vcf_metadata_to_schema(
     info_meta_json: Option<String>,
     format_meta_json: Option<String>,
     sample_names_json: Option<String>,
+    carries_record_layout: bool,
 ) -> Result<VcfSchemaParts, DataFusionError> {
     use serde_json::Value;
 
@@ -381,6 +384,23 @@ fn apply_vcf_metadata_to_schema(
             }
         }
 
+        // The record layout columns. The writer finds them by field metadata,
+        // which a Polars frame does not keep, so restore the marker by name.
+        //
+        // Only for a frame that says it was read with the carry: a name alone is
+        // not evidence, and a caller may build a frame with a column of its own
+        // called `_vcf_info_keys`. A name the header declares is likewise that
+        // file's own INFO or FORMAT field and stays data; the reader refuses the
+        // carry when such a field would be read, so the two are never one column.
+        let declared = info_meta.contains_key(name) || format_meta.contains_key(name);
+        let is_layout = carries_record_layout && !declared;
+        if let Some(role) = is_layout.then(|| record_layout_role(name)).flatten() {
+            let mut field_metadata = field.metadata().clone();
+            field_metadata.insert(VCF_RECORD_LAYOUT_KEY.to_string(), role.to_string());
+            new_fields.push(field.as_ref().clone().with_metadata(field_metadata));
+            continue;
+        }
+
         // Check if this is an INFO field
         if let Some(Value::Object(meta_obj)) = info_meta.get(name) {
             let field_metadata = build_field_metadata_from_vcf_meta(meta_obj);
@@ -478,6 +498,17 @@ fn apply_vcf_metadata_to_schema(
     Ok((info_fields, format_fields, sample_names, new_schema))
 }
 
+/// The record layout role of a reserved column name, if it is one.
+fn record_layout_role(name: &str) -> Option<&'static str> {
+    if name == VCF_INFO_KEYS_COLUMN {
+        Some(VCF_RECORD_LAYOUT_INFO_KEYS)
+    } else if name == VCF_FORMAT_KEYS_COLUMN {
+        Some(VCF_RECORD_LAYOUT_FORMAT_KEYS)
+    } else {
+        None
+    }
+}
+
 /// Write a DataFrame to a file in the specified format using streaming.
 ///
 /// This function uses datafusion-bio-formats' `insert_into()` API for true streaming writes,
@@ -519,6 +550,11 @@ async fn write_vcf_streaming(
     path: &str,
     write_options: Option<WriteOptions>,
 ) -> Result<u64, DataFusionError> {
+    let carries_record_layout = write_options
+        .as_ref()
+        .and_then(|options| options.vcf_write_options.as_ref())
+        .is_some_and(|vcf| vcf.record_layout);
+
     // Extract VCF-specific options
     let (zero_based, vcf_metadata) = if let Some(opts) = &write_options {
         if let Some(vcf_opts) = &opts.vcf_write_options {
@@ -536,6 +572,7 @@ async fn write_vcf_streaming(
                             &vcf_opts.alt_definitions_metadata,
                         ),
                         (VCF_FILE_FORMAT_KEY, &vcf_opts.file_format),
+                        (VCF_HEADER_RAW_LINES_KEY, &vcf_opts.header_raw_lines),
                     ]
                     .into_iter()
                     .filter_map(|(key, value)| value.clone().map(|value| (key, value)))
@@ -550,7 +587,15 @@ async fn write_vcf_streaming(
     };
 
     // Execute streaming write with VCF metadata for header generation
-    execute_vcf_streaming_write(ctx, df, path, zero_based, vcf_metadata).await
+    execute_vcf_streaming_write(
+        ctx,
+        df,
+        path,
+        zero_based,
+        vcf_metadata,
+        carries_record_layout,
+    )
+    .await
 }
 
 /// Output projection for a VCF write, or `None` when the frame holds no renamed
@@ -608,6 +653,7 @@ async fn execute_vcf_streaming_write(
     path: &str,
     zero_based: bool,
     vcf_metadata: Option<VcfMetadataJson>,
+    carries_record_layout: bool,
 ) -> Result<u64, DataFusionError> {
     // A renamed input column is written under its VCF id; see vcf_write_projection.
     let info_ids: std::collections::HashSet<String> = vcf_metadata
@@ -639,7 +685,13 @@ async fn execute_vcf_streaming_write(
         if let Some((info_meta, format_meta, sample_meta, header_meta)) = vcf_metadata {
             // Parse metadata and add to schema
             let (info_fields, format_fields, sample_names, schema_with_metadata) =
-                apply_vcf_metadata_to_schema(&schema, info_meta, format_meta, sample_meta)?;
+                apply_vcf_metadata_to_schema(
+                    &schema,
+                    info_meta,
+                    format_meta,
+                    sample_meta,
+                    carries_record_layout,
+                )?;
             (
                 info_fields,
                 format_fields,
@@ -884,6 +936,12 @@ fn extract_vcf_fields_from_schema(schema: &SchemaRef) -> (Vec<String>, Vec<Strin
 
         // Skip core columns
         if core_columns.contains(name.as_str()) {
+            continue;
+        }
+
+        // Record layout plumbing is never an INFO or FORMAT field. With no
+        // header to say otherwise, a reserved name can only be that.
+        if record_layout_role(name).is_some() {
             continue;
         }
 
@@ -1466,6 +1524,20 @@ fn add_bam_tag_metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn heuristics_never_offer_the_record_layout_columns_as_info() {
+        use datafusion::arrow::datatypes::{DataType, Field, Schema};
+        let schema = std::sync::Arc::new(Schema::new(vec![
+            Field::new("chrom", DataType::Utf8, false),
+            Field::new("DP", DataType::Int32, true),
+            Field::new(VCF_INFO_KEYS_COLUMN, DataType::Utf8, true),
+            Field::new(VCF_FORMAT_KEYS_COLUMN, DataType::Utf8, true),
+        ]));
+        let (info, format, _) = extract_vcf_fields_from_schema(&schema);
+        assert!(!info.iter().any(|f| f.starts_with("_vcf_")), "{info:?}");
+        assert!(!format.iter().any(|f| f.starts_with("_vcf_")), "{format:?}");
+    }
 
     #[test]
     fn test_parse_format_column_name() {

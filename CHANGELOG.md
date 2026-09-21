@@ -17,9 +17,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   out. The last one is what a frame from `vepyr.annotate` looks like: `AF` is
   VEP's frequency and `INFO_AF` the input's field, and the annotation value was
   being written under the input's key.
+- `sink_vcf`/`write_vcf` write the source header back line for line (#467).
+  The header used to be rebuilt from typed metadata, which cannot hold
+  `##fileDate`, `##source`, tool provenance such as `##bcftools_*`, the `PASS`
+  filter, or contig attributes other than `ID` and `length`, so a plain
+  `scan_vcf` → `sink_vcf` round trip dropped them all. For a local file the
+  reader already captured the header as text (a remote one still has its header
+  rebuilt); it is now carried in the frame's metadata as
+  `header["raw_lines"]` and handed to the writer, which re-declares only the
+  fields whose definition changed and appends new ones. A caller can extend
+  the list through `set_source_metadata`, e.g. to record what annotated a file.
+- `polars-config-meta>=0.3.2` is now required (was `>=0.3.0`). Older versions
+  drop a frame's metadata on `collect()`, so `read_vcf()` and the other eager
+  readers returned a DataFrame without its source header, and a following
+  `write_vcf()` rebuilt the header from nothing.
 
 ### Added
 
+- `scan_vcf`/`read_vcf(preserve_record_layout=True)` (#468): carries each
+  record's own INFO key order and FORMAT key list in `_vcf_info_keys` and
+  `_vcf_format_keys`, and `sink_vcf`/`write_vcf` use them to write each
+  record's keys in the source's own order. Values are still re-serialized in
+  canonical form (`50.0` → `50`), so a line is byte-identical when its values
+  already are. Without it a written record follows the header's
+  key order and omits a FORMAT key that is missing in every sample, which is
+  valid VCF with the same content but does not diff cleanly against its input.
+  Off by default; text VCF only; the two columns have to stay in the frame.
 - Multiple-sequence-alignment readers for A2M, A3M and Stockholm
   (`read_a2m`/`scan_a2m`/`register_a2m`, `read_a3m`/`scan_a3m`/`register_a3m`,
   `read_sto`/`scan_sto`/`register_sto`, `describe_sto`). A2M/A3M share the

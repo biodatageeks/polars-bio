@@ -996,6 +996,7 @@ class IOOperations:
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
         samples: Union[list[str], None] = None,
+        preserve_record_layout: bool = False,
     ) -> pl.DataFrame:
         """
         Read a text VCF file into a DataFrame.
@@ -1011,6 +1012,7 @@ class IOOperations:
             info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
             format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`) with sample names in `meta["header"]["sample_names"]`.
             samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
+            preserve_record_layout: Carry each record's own INFO key order and FORMAT key list in two extra string columns, `_vcf_info_keys` and `_vcf_format_keys`, so that `sink_vcf`/`write_vcf` write each record's keys in the source's own order and keep a FORMAT key that is present but missing. A line comes back byte for byte when its values are already in canonical form; a value is still parsed and re-serialized, so `QUAL=50.0` is written `50` and `AF=0.50` as `0.5`. Without them a written record uses the header's key order and omits a FORMAT key that is missing in every sample, which is valid VCF carrying the same data. The columns have to stay in the frame to take effect: a `select()` that drops them falls back to header order. Text VCF only. Refused with an error when a field with either reserved name would be read into the frame; selecting other fields with `info_fields`/`format_fields` leaves the name free and the option usable.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -1068,6 +1070,7 @@ class IOOperations:
             predicate_pushdown=predicate_pushdown,
             use_zero_based=use_zero_based,
             samples=samples,
+            preserve_record_layout=preserve_record_layout,
         )
         # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
         zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
@@ -1093,6 +1096,7 @@ class IOOperations:
         predicate_pushdown: bool = True,
         use_zero_based: Optional[bool] = None,
         samples: Union[list[str], None] = None,
+        preserve_record_layout: bool = False,
     ) -> pl.LazyFrame:
         """
         Lazily read a text VCF file into a LazyFrame.
@@ -1108,6 +1112,7 @@ class IOOperations:
             info_fields: List of INFO field names to include. If *None*, all INFO fields from the VCF header are included by default. Use this to limit fields for better performance.
             format_fields: List of FORMAT field names to include (per-sample genotype data). If *None*, all FORMAT fields are included by default. For **single-sample** VCFs, FORMAT fields are top-level columns (e.g., `GT`, `DP`). For **multi-sample** VCFs, FORMAT data is exposed as a nested `genotypes` column (`struct<GT: list, DP: list, ...>`) with sample names in `meta["header"]["sample_names"]`.
             samples: Optional list of sample names to include from the VCF header. Matching is exact and case-sensitive. Missing sample names are skipped with a warning. The output follows the requested sample order.
+            preserve_record_layout: Carry each record's own INFO key order and FORMAT key list in two extra string columns, `_vcf_info_keys` and `_vcf_format_keys`, so that `sink_vcf`/`write_vcf` write each record's keys in the source's own order and keep a FORMAT key that is present but missing. A line comes back byte for byte when its values are already in canonical form; a value is still parsed and re-serialized, so `QUAL=50.0` is written `50` and `AF=0.50` as `0.5`. Without them a written record uses the header's key order and omits a FORMAT key that is missing in every sample, which is valid VCF carrying the same data. The columns have to stay in the frame to take effect: a `select()` that drops them falls back to header order. Text VCF only. Refused with an error when a field with either reserved name would be read into the frame; selecting other fields with `info_fields`/`format_fields` leaves the name free and the option usable.
             chunk_size: The size in MB of a chunk when reading from an object store. The default is 8 MB. For large scale operations, it is recommended to increase this value to 64.
             concurrent_fetches: [GCS] The number of concurrent fetches when reading from an object store. The default is 1. For large scale operations, it is recommended to increase this value to 8 or even more.
             allow_anonymous: [GCS, AWS S3] Whether to allow anonymous access to object storage.
@@ -1160,6 +1165,7 @@ class IOOperations:
             samples=samples,
             genotype_output="string",
             source_format="vcf",
+            preserve_record_layout=preserve_record_layout,
         )
 
     @staticmethod
@@ -1294,6 +1300,7 @@ class IOOperations:
         samples: Union[list[str], None],
         genotype_output: str,
         source_format: str,
+        preserve_record_layout: bool = False,
     ) -> pl.LazyFrame:
         object_storage_options = PyObjectStorageOptions(
             allow_anonymous=allow_anonymous,
@@ -1316,6 +1323,7 @@ class IOOperations:
             object_storage_options=object_storage_options,
             zero_based=zero_based,
             genotype_output=genotype_output,
+            preserve_record_layout=preserve_record_layout,
         )
         read_options = ReadOptions(vcf_read_options=vcf_read_options)
         lf = _read_file(
@@ -4515,6 +4523,7 @@ def _write_file(
         filters_json = None
         alt_definitions_json = None
         file_format = None
+        header_raw_lines_json = None
         if vcf_header:
             if vcf_header.get("info_fields"):
                 info_fields_json = json.dumps(vcf_header["info_fields"])
@@ -4522,13 +4531,23 @@ def _write_file(
                 format_fields_json = json.dumps(vcf_header["format_fields"])
             if vcf_header.get("sample_names"):
                 sample_names_json = json.dumps(vcf_header["sample_names"])
-            if vcf_header.get("contigs"):
+            # Forwarded whenever present, empty included. With the source header
+            # passed through as text, these lists are what tells the writer which
+            # FILTER / contig / ALT declarations still belong in it, so `[]` has
+            # to arrive as "none" rather than go missing and mean "unknown".
+            if vcf_header.get("contigs") is not None:
                 contigs_json = json.dumps(vcf_header["contigs"])
-            if vcf_header.get("filters"):
+            if vcf_header.get("filters") is not None:
                 filters_json = json.dumps(vcf_header["filters"])
-            if vcf_header.get("alt_definitions"):
+            if vcf_header.get("alt_definitions") is not None:
                 alt_definitions_json = json.dumps(vcf_header["alt_definitions"])
             file_format = vcf_header.get("version")
+            # The source header as text. The writer re-emits it verbatim and only
+            # re-declares fields whose definition changed, which keeps what the
+            # typed metadata cannot hold: ##fileDate, tool provenance, the PASS
+            # filter, contig attributes other than ID and length.
+            if vcf_header.get("raw_lines"):
+                header_raw_lines_json = json.dumps(vcf_header["raw_lines"])
 
         vcf_opts = VcfWriteOptions(
             zero_based=zero_based,
@@ -4539,6 +4558,8 @@ def _write_file(
             filters_metadata=filters_json,
             alt_definitions_metadata=alt_definitions_json,
             file_format=file_format,
+            header_raw_lines=header_raw_lines_json,
+            record_layout=bool(vcf_header and vcf_header.get("record_layout")),
         )
         write_options = WriteOptions(vcf_write_options=vcf_opts)
     elif output_format == OutputFormat.Fasta:
@@ -5387,6 +5408,8 @@ def _read_file(
                 "contigs": vcf_meta.get("contigs"),
                 "filters": vcf_meta.get("filters"),
                 "alt_definitions": vcf_meta.get("alt_definitions"),
+                "raw_lines": vcf_meta.get("raw_lines"),
+                "record_layout": vcf_meta.get("record_layout", False),
             }
         elif metadata_key in [
             "fastq",

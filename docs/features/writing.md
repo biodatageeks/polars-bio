@@ -37,6 +37,45 @@ lf = pb.scan_vcf("variants.vcf")
 pb.sink_vcf(lf.filter(pl.col("qual") > 30), "filtered.vcf.bgz")
 ```
 
+### What a VCF round trip preserves
+
+For a file read from a local path the header is written back line for line: `##fileDate`, tool
+provenance such as `##bcftools_*`, the `PASS` filter and every contig attribute
+come through unchanged, and only fields you added or redefined are declared anew.
+
+!!! note "Remote inputs"
+    The header is captured as text only when the VCF is read from a local path.
+    For a file read from S3, GCS, Azure or HTTP the header is rebuilt
+    from typed metadata instead, which keeps every INFO, FORMAT, FILTER, ALT and
+    contig declaration but not free-form lines such as `##fileDate`, the `PASS`
+    filter, or contig attributes other than `ID` and `length`.
+
+Records carry the same data as their source lines but, by default, not the same
+bytes: INFO and FORMAT keys follow the header's order, and a FORMAT key that is
+missing in every sample (`PS` in `GT:PS:DP  0/1:.:25`) is left out. To keep each
+record's own key layout, read with `preserve_record_layout=True`:
+
+```python
+lf = pb.scan_vcf("variants.vcf.gz", preserve_record_layout=True)
+pb.sink_vcf(lf.filter(pl.col("qual") > 30), "filtered.vcf")
+```
+
+What this restores is the layout of the keys, not the spelling of the values:
+values are parsed into typed columns and written back in canonical form, so
+`QUAL=50.0` becomes `50` and `AF=0.50` becomes `0.5`. A line whose values are
+already canonical, which is what variant callers normally write, comes back
+byte for byte.
+
+This adds two string columns, `_vcf_info_keys` and `_vcf_format_keys`, and
+records in the frame's metadata (`header["record_layout"]`) that they are layout
+rather than data. Both the columns and that metadata have to stay with the frame: a `select()` that drops them falls back to header
+order. It is available for text VCF only, and is refused with an error when an
+INFO or FORMAT field with either of those names would be read into the frame,
+since one frame cannot hold two columns of one name. Selecting other fields with
+`info_fields`/`format_fields` leaves the name free, and the option then works.
+Read without the option, such a field is ordinary data and is written back as
+such.
+
 ### Sorted output with `sort_on_write`
 
 BAM, SAM, and CRAM write functions support the `sort_on_write` parameter to produce coordinate-sorted output:

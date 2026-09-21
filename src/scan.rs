@@ -693,6 +693,25 @@ async fn register_table_provider(
                 vcf_read_options.zero_based,
             )?
             .with_genotype_output_mode(genotype_output_mode)?;
+            let table_provider = if vcf_read_options.preserve_record_layout {
+                // `with_record_layout()` refuses a source that declares a field
+                // with either reserved name, but looks at top-level columns only.
+                // With several samples a FORMAT field is a child of `genotypes`.
+                let nested = nested_record_layout_collisions(
+                    datafusion::datasource::TableProvider::schema(&table_provider).as_ref(),
+                );
+                if !nested.is_empty() {
+                    return Err(DataFusionError::Plan(format!(
+                        "the source VCF declares {} as its own FORMAT field, and carrying \
+                         the record layout needs that name; read it without \
+                         preserve_record_layout",
+                        nested.join(" and ")
+                    )));
+                }
+                table_provider.with_record_layout()?
+            } else {
+                table_provider
+            };
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register VCF table");
         },
@@ -1444,8 +1463,71 @@ fn fill_pgen_positions(
     Ok(())
 }
 
+/// Reserved record-layout names used by a field nested below the top level of
+/// a VCF schema, which is where a multi-sample file keeps its FORMAT fields.
+fn nested_record_layout_collisions(schema: &arrow_schema::Schema) -> Vec<String> {
+    use arrow_schema::{DataType, Field};
+    use datafusion_bio_format_core::metadata::{VCF_FORMAT_KEYS_COLUMN, VCF_INFO_KEYS_COLUMN};
+
+    fn walk(field: &Field, top_level: bool, found: &mut Vec<String>) {
+        let name = field.name().as_str();
+        if !top_level
+            && (name == VCF_INFO_KEYS_COLUMN || name == VCF_FORMAT_KEYS_COLUMN)
+            && !found.iter().any(|seen| seen == name)
+        {
+            found.push(name.to_string());
+        }
+        match field.data_type() {
+            DataType::Struct(children) => {
+                children.iter().for_each(|child| walk(child, false, found))
+            },
+            DataType::List(item)
+            | DataType::LargeList(item)
+            | DataType::FixedSizeList(item, _)
+            | DataType::Map(item, _) => walk(item, false, found),
+            _ => {},
+        }
+    }
+
+    let mut found = Vec::new();
+    schema
+        .fields()
+        .iter()
+        .for_each(|field| walk(field, true, &mut found));
+    found
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn nested_layout_collisions_are_found_below_the_top_level_only() {
+        use arrow_schema::{DataType, Field, Fields, Schema};
+        use datafusion_bio_format_core::metadata::{VCF_FORMAT_KEYS_COLUMN, VCF_INFO_KEYS_COLUMN};
+
+        let values = DataType::Struct(Fields::from(vec![
+            Field::new("GT", DataType::Utf8, true),
+            Field::new(VCF_FORMAT_KEYS_COLUMN, DataType::Utf8, true),
+        ]));
+        let sample = DataType::Struct(Fields::from(vec![
+            Field::new("sample_id", DataType::Utf8, false),
+            Field::new("values", values, true),
+        ]));
+        let schema = Schema::new(vec![
+            Field::new("chrom", DataType::Utf8, false),
+            // A top-level use is `with_record_layout()`'s to refuse, not ours.
+            Field::new(VCF_INFO_KEYS_COLUMN, DataType::Utf8, true),
+            Field::new(
+                "genotypes",
+                DataType::List(std::sync::Arc::new(Field::new("item", sample, true))),
+                true,
+            ),
+        ]);
+        assert_eq!(
+            super::nested_record_layout_collisions(&schema),
+            vec![VCF_FORMAT_KEYS_COLUMN.to_string()]
+        );
+    }
+
     use std::sync::Arc;
 
     use arrow::array::{Int32Array, StringArray};
