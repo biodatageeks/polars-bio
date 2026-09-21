@@ -693,6 +693,11 @@ async fn register_table_provider(
                 vcf_read_options.zero_based,
             )?
             .with_genotype_output_mode(genotype_output_mode)?;
+            let table_provider = if vcf_read_options.preserve_record_layout {
+                table_provider.with_record_layout()?
+            } else {
+                table_provider
+            };
             ctx.register_table(table_name, Arc::new(table_provider))
                 .expect("Failed to register VCF table");
         },

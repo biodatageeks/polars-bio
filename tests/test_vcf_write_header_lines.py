@@ -59,3 +59,86 @@ def test_gt_is_the_first_format_key_for_several_samples(tmp_path):
         line for line in out.read_text().splitlines() if not line.startswith("#")
     ][0].split("\t")
     assert record[8:11] == ["GT:DP", "0/1:25", "1/1:30"]
+
+
+# Everything below the typed model: a date, the caller, a tool's command line,
+# the PASS filter, and contig attributes other than ID and length.
+FULL_HEADER = [
+    "##fileformat=VCFv4.2",
+    "##fileDate=20160824",
+    "##source=myCaller-1.2",
+    '##FILTER=<ID=PASS,Description="All filters passed">',
+    '##FILTER=<ID=LowQual,Description="Low quality">',
+    "##contig=<ID=chr1,length=248956422,assembly=GRCh38,md5=abc123>",
+    '##INFO=<ID=DP,Number=1,Type=Integer,Description="Depth">',
+    '##INFO=<ID=AF,Number=A,Type=Float,Description="Allele frequency">',
+    '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">',
+    '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Depth">',
+    "##bcftools_normCommand=norm -m -both in.vcf",
+]
+FULL_BODY = (
+    "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\n"
+    "chr1\t100\t.\tA\tG\t50\tPASS\tDP=10;AF=0.5\tGT:DP\t0/1:25\n"
+)
+
+
+def _write_full(tmp_path):
+    src = tmp_path / "in.vcf"
+    src.write_text("\n".join(FULL_HEADER) + "\n" + FULL_BODY)
+    return src
+
+
+def _meta_lines(path):
+    return [line for line in path.read_text().splitlines() if line.startswith("##")]
+
+
+def test_the_source_header_is_written_back_line_for_line(tmp_path):
+    src = _write_full(tmp_path)
+    out = tmp_path / "out.vcf"
+    pb.sink_vcf(pb.scan_vcf(str(src)), str(out))
+    assert _meta_lines(out) == FULL_HEADER
+
+
+def test_the_source_header_survives_a_row_filter_and_a_collect(tmp_path):
+    import polars as pl
+
+    src = _write_full(tmp_path)
+    out = tmp_path / "out.vcf"
+    pb.write_vcf(pb.scan_vcf(str(src)).filter(pl.col("DP") == 10).collect(), str(out))
+    assert _meta_lines(out) == FULL_HEADER
+
+
+def test_a_caller_can_add_header_lines_of_its_own(tmp_path):
+    # An annotator records what produced the fields it adds.
+    src = _write_full(tmp_path)
+    out = tmp_path / "out.vcf"
+    lf = pb.scan_vcf(str(src))
+    header = dict(pb.get_metadata(lf)["header"])
+    header["raw_lines"] = header["raw_lines"] + ['##myAnnotator="1.0" cache="x"']
+    pb.set_source_metadata(lf, format="vcf", path=str(src), header=header)
+    pb.sink_vcf(lf, str(out))
+    assert _meta_lines(out) == FULL_HEADER + ['##myAnnotator="1.0" cache="x"']
+
+
+def test_a_field_added_downstream_is_declared_after_the_source_header(tmp_path):
+    import polars as pl
+
+    src = _write_full(tmp_path)
+    out = tmp_path / "out.vcf"
+    lf = pb.scan_vcf(str(src))
+    header = dict(pb.get_metadata(lf)["header"])
+    header["info_fields"] = {
+        **header["info_fields"],
+        "NEW": {"number": "1", "type": "Integer", "description": "Added downstream"},
+    }
+    lf = lf.with_columns(pl.lit(7, dtype=pl.Int32).alias("NEW"))
+    pb.set_source_metadata(lf, format="vcf", path=str(src), header=header)
+    pb.sink_vcf(lf, str(out))
+    lines = _meta_lines(out)
+    assert lines[: len(FULL_HEADER)] == FULL_HEADER
+    assert (
+        '##INFO=<ID=NEW,Number=1,Type=Integer,Description="Added downstream">'
+        in lines[len(FULL_HEADER) :]
+    )
+    record = [l for l in out.read_text().splitlines() if not l.startswith("#")][0]
+    assert "NEW=7" in record.split("\t")[7]

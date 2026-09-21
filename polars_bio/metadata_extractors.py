@@ -278,6 +278,7 @@ def _extract_vcf_specific_metadata(
         "info_fields": {},
         "format_fields": {},
         "sample_names": [],
+        "raw_lines": None,
     }
 
     # Extract schema-level metadata
@@ -298,6 +299,17 @@ def _extract_vcf_specific_metadata(
                 vcf_meta[target_key] = parsed if parsed else []
             except (json.JSONDecodeError, TypeError):
                 vcf_meta[target_key] = []
+
+    # The source header's `##` lines, captured verbatim by the reader for local
+    # text VCFs. None when the source has no text header to capture.
+    raw_lines = schema_meta.get("bio.vcf.header.raw_lines")
+    if raw_lines:
+        try:
+            parsed = json.loads(raw_lines)
+            if isinstance(parsed, list) and parsed:
+                vcf_meta["raw_lines"] = parsed
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     def _vcf_type_from_arrow(arrow_type: pa.DataType) -> str:
         if pa.types.is_integer(arrow_type) or pa.types.is_unsigned_integer(arrow_type):

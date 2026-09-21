@@ -25,7 +25,9 @@ use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_core::metadata::{
     BAM_TAG_TAG_KEY, BAM_TAG_TYPE_KEY, COORDINATE_SYSTEM_METADATA_KEY, VCF_ALTERNATIVE_ALLELES_KEY,
     VCF_CONTIGS_KEY, VCF_FIELD_DESCRIPTION_KEY, VCF_FIELD_NUMBER_KEY, VCF_FIELD_TYPE_KEY,
-    VCF_FILE_FORMAT_KEY, VCF_FILTERS_KEY,
+    VCF_FILE_FORMAT_KEY, VCF_FILTERS_KEY, VCF_FORMAT_KEYS_COLUMN, VCF_HEADER_RAW_LINES_KEY,
+    VCF_INFO_KEYS_COLUMN, VCF_RECORD_LAYOUT_FORMAT_KEYS, VCF_RECORD_LAYOUT_INFO_KEYS,
+    VCF_RECORD_LAYOUT_KEY,
 };
 use datafusion_bio_format_core::tag_registry::format_sam_tag_type;
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
@@ -381,6 +383,22 @@ fn apply_vcf_metadata_to_schema(
             }
         }
 
+        // The record layout columns. The writer finds them by field metadata,
+        // which a Polars frame does not keep, so restore the marker by name.
+        let layout_role = if name == VCF_INFO_KEYS_COLUMN {
+            Some(VCF_RECORD_LAYOUT_INFO_KEYS)
+        } else if name == VCF_FORMAT_KEYS_COLUMN {
+            Some(VCF_RECORD_LAYOUT_FORMAT_KEYS)
+        } else {
+            None
+        };
+        if let Some(role) = layout_role {
+            let mut field_metadata = field.metadata().clone();
+            field_metadata.insert(VCF_RECORD_LAYOUT_KEY.to_string(), role.to_string());
+            new_fields.push(field.as_ref().clone().with_metadata(field_metadata));
+            continue;
+        }
+
         // Check if this is an INFO field
         if let Some(Value::Object(meta_obj)) = info_meta.get(name) {
             let field_metadata = build_field_metadata_from_vcf_meta(meta_obj);
@@ -536,6 +554,7 @@ async fn write_vcf_streaming(
                             &vcf_opts.alt_definitions_metadata,
                         ),
                         (VCF_FILE_FORMAT_KEY, &vcf_opts.file_format),
+                        (VCF_HEADER_RAW_LINES_KEY, &vcf_opts.header_raw_lines),
                     ]
                     .into_iter()
                     .filter_map(|(key, value)| value.clone().map(|value| (key, value)))

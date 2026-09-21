@@ -376,12 +376,17 @@ pub struct VcfReadOptions {
     /// Physical representation for BCF GT: "string" (default) or "dosage".
     #[pyo3(get, set)]
     pub genotype_output: String,
+    /// Carry each record's own INFO key order and FORMAT key list in
+    /// `_vcf_info_keys` / `_vcf_format_keys`, so a write can reproduce the
+    /// source line. Off by default; text VCF only.
+    #[pyo3(get, set)]
+    pub preserve_record_layout: bool,
 }
 
 #[pymethods]
 impl VcfReadOptions {
     #[new]
-    #[pyo3(signature = (info_fields=None, format_fields=None, object_storage_options=None, zero_based=true, samples=None, genotype_output="string".to_string()))]
+    #[pyo3(signature = (info_fields=None, format_fields=None, object_storage_options=None, zero_based=true, samples=None, genotype_output="string".to_string(), preserve_record_layout=false))]
     pub fn new(
         info_fields: Option<Vec<String>>,
         format_fields: Option<Vec<String>>,
@@ -389,6 +394,7 @@ impl VcfReadOptions {
         zero_based: bool,
         samples: Option<Vec<String>>,
         genotype_output: String,
+        preserve_record_layout: bool,
     ) -> Self {
         VcfReadOptions {
             info_fields,
@@ -399,6 +405,7 @@ impl VcfReadOptions {
             ),
             zero_based,
             genotype_output,
+            preserve_record_layout,
         }
     }
     #[staticmethod]
@@ -418,6 +425,7 @@ impl VcfReadOptions {
             }),
             zero_based: true,
             genotype_output: "string".to_string(),
+            preserve_record_layout: false,
         }
     }
 }
@@ -1295,12 +1303,18 @@ pub struct VcfWriteOptions {
     /// Source `##fileformat` value, e.g. "VCFv4.2"
     #[pyo3(get, set)]
     pub file_format: Option<String>,
+    /// The source header's `##` lines as a JSON array of strings. When set, the
+    /// writer re-emits them verbatim instead of rebuilding the header from the
+    /// typed metadata above, which cannot hold `##fileDate`, tool provenance,
+    /// the PASS filter or contig attributes other than ID and length.
+    #[pyo3(get, set)]
+    pub header_raw_lines: Option<String>,
 }
 
 #[pymethods]
 impl VcfWriteOptions {
     #[new]
-    #[pyo3(signature = (zero_based=true, info_fields_metadata=None, format_fields_metadata=None, sample_names=None, contigs_metadata=None, filters_metadata=None, alt_definitions_metadata=None, file_format=None))]
+    #[pyo3(signature = (zero_based=true, info_fields_metadata=None, format_fields_metadata=None, sample_names=None, contigs_metadata=None, filters_metadata=None, alt_definitions_metadata=None, file_format=None, header_raw_lines=None))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         zero_based: bool,
@@ -1311,6 +1325,7 @@ impl VcfWriteOptions {
         filters_metadata: Option<String>,
         alt_definitions_metadata: Option<String>,
         file_format: Option<String>,
+        header_raw_lines: Option<String>,
     ) -> Self {
         VcfWriteOptions {
             zero_based,
@@ -1321,6 +1336,7 @@ impl VcfWriteOptions {
             filters_metadata,
             alt_definitions_metadata,
             file_format,
+            header_raw_lines,
         }
     }
 
@@ -1335,6 +1351,7 @@ impl VcfWriteOptions {
             filters_metadata: None,
             alt_definitions_metadata: None,
             file_format: None,
+            header_raw_lines: None,
         }
     }
 }
