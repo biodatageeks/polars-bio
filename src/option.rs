@@ -1309,12 +1309,17 @@ pub struct VcfWriteOptions {
     /// the PASS filter or contig attributes other than ID and length.
     #[pyo3(get, set)]
     pub header_raw_lines: Option<String>,
+    /// True when the frame was read with the record layout carry, so its
+    /// `_vcf_info_keys` / `_vcf_format_keys` columns are layout and not data.
+    /// Without it a column with either name is left alone.
+    #[pyo3(get, set)]
+    pub record_layout: bool,
 }
 
 #[pymethods]
 impl VcfWriteOptions {
     #[new]
-    #[pyo3(signature = (zero_based=true, info_fields_metadata=None, format_fields_metadata=None, sample_names=None, contigs_metadata=None, filters_metadata=None, alt_definitions_metadata=None, file_format=None, header_raw_lines=None))]
+    #[pyo3(signature = (zero_based=true, info_fields_metadata=None, format_fields_metadata=None, sample_names=None, contigs_metadata=None, filters_metadata=None, alt_definitions_metadata=None, file_format=None, header_raw_lines=None, record_layout=false))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         zero_based: bool,
@@ -1326,6 +1331,7 @@ impl VcfWriteOptions {
         alt_definitions_metadata: Option<String>,
         file_format: Option<String>,
         header_raw_lines: Option<String>,
+        record_layout: bool,
     ) -> Self {
         VcfWriteOptions {
             zero_based,
@@ -1337,6 +1343,7 @@ impl VcfWriteOptions {
             alt_definitions_metadata,
             file_format,
             header_raw_lines,
+            record_layout,
         }
     }
 
@@ -1352,6 +1359,7 @@ impl VcfWriteOptions {
             alt_definitions_metadata: None,
             file_format: None,
             header_raw_lines: None,
+            record_layout: false,
         }
     }
 }

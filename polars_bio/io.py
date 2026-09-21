@@ -4555,6 +4555,7 @@ def _write_file(
             alt_definitions_metadata=alt_definitions_json,
             file_format=file_format,
             header_raw_lines=header_raw_lines_json,
+            record_layout=bool(vcf_header and vcf_header.get("record_layout")),
         )
         write_options = WriteOptions(vcf_write_options=vcf_opts)
     elif output_format == OutputFormat.Fasta:
@@ -5404,6 +5405,7 @@ def _read_file(
                 "filters": vcf_meta.get("filters"),
                 "alt_definitions": vcf_meta.get("alt_definitions"),
                 "raw_lines": vcf_meta.get("raw_lines"),
+                "record_layout": vcf_meta.get("record_layout", False),
             }
         elif metadata_key in [
             "fastq",

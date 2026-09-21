@@ -24,9 +24,12 @@ does not keep.
 - Add `preserve_record_layout: bool = False` to `read_vcf` and `scan_vcf`. When
   set, the frame gains two `String` columns, `_vcf_info_keys` and
   `_vcf_format_keys`.
-- `write_vcf` / `sink_vcf` restore the layout marker on those two columns by
-  name, so the serializer writes each record's keys in the source's own order
-  and keeps a carried FORMAT key whose value is missing.
+- The frame's metadata records that it was read with the carry
+  (`header["record_layout"]`). For such a frame `write_vcf` / `sink_vcf` restore
+  the layout marker on the two columns, so the serializer writes each record's
+  keys in the source's own order and keeps a carried FORMAT key whose value is
+  missing. A column with either name in any other frame is left alone: the name
+  alone is not evidence.
 - A column whose name the VCF header declares as an INFO or FORMAT field is that
   file's own data and is never treated as layout plumbing. The carry is refused,
   with an error naming the field, when that field would be read into the frame;

@@ -7,8 +7,9 @@
 
 ## 2. Writing
 
-- [x] 2.1 Restore the `bio.vcf.record_layout` marker on `_vcf_info_keys` and
-  `_vcf_format_keys` by column name in `apply_vcf_metadata_to_schema`.
+- [x] 2.1 Record the carry in the frame's metadata on read, and restore the
+  `bio.vcf.record_layout` marker on `_vcf_info_keys` and `_vcf_format_keys` in
+  `apply_vcf_metadata_to_schema` only for a frame that records it.
 - [x] 2.2 Leave a column alone when the header declares its name as an INFO or
   FORMAT field.
 - [x] 2.3 Never offer the two names as INFO in the metadata-less heuristic

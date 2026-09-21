@@ -66,8 +66,9 @@ values are parsed into typed columns and written back in canonical form, so
 already canonical, which is what variant callers normally write, comes back
 byte for byte.
 
-This adds two string columns, `_vcf_info_keys` and `_vcf_format_keys`, which
-have to stay in the frame: a `select()` that drops them falls back to header
+This adds two string columns, `_vcf_info_keys` and `_vcf_format_keys`, and
+records in the frame's metadata (`header["record_layout"]`) that they are layout
+rather than data. Both the columns and that metadata have to stay with the frame: a `select()` that drops them falls back to header
 order. It is available for text VCF only, and is refused with an error when an
 INFO or FORMAT field with either of those names would be read into the frame,
 since one frame cannot hold two columns of one name. Selecting other fields with

@@ -39,6 +39,23 @@ key list be carried in the frame, and SHALL use them in `write_vcf` and
 - **THEN** the value is written in canonical form (`50`, `0.5`) with or without
   the option, because values round-trip through typed columns.
 
+### Requirement: Layout Columns Are Recognised by Provenance
+
+The system SHALL treat `_vcf_info_keys` and `_vcf_format_keys` as record layout
+only in a frame whose metadata records that it was read with
+`preserve_record_layout=True`, and SHALL NOT infer it from the column names.
+
+#### Scenario: A frame that does not claim the carry
+- **WHEN** a frame has a column named `_vcf_info_keys` but its metadata does not
+  record the layout carry
+- **THEN** the column is not used as record layout when the frame is written
+- **AND** records are written in the header's key order.
+
+#### Scenario: The carry is recorded on read
+- **WHEN** a VCF is read with `preserve_record_layout=True`
+- **THEN** the frame's metadata `header["record_layout"]` is true
+- **AND** it is false for a read without the option.
+
 ### Requirement: Reserved Layout Names Stay Data When the File Declares Them
 
 The system SHALL treat a column named `_vcf_info_keys` or `_vcf_format_keys` as

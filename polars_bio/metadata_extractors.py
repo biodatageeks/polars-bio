@@ -282,6 +282,7 @@ def _extract_vcf_specific_metadata(
         "format_fields": {},
         "sample_names": [],
         "raw_lines": None,
+        "record_layout": False,
     }
 
     # Extract schema-level metadata
@@ -314,6 +315,14 @@ def _extract_vcf_specific_metadata(
                 vcf_meta["raw_lines"] = parsed
         except (json.JSONDecodeError, TypeError) as error:
             logger.debug("ignoring malformed bio.vcf.header.raw_lines: %s", error)
+
+    # The reader marks the two record layout columns when it was asked to carry
+    # them. A Polars frame drops field metadata, so note it here: on write this
+    # is what tells `_vcf_info_keys` the layout column from a column of that name.
+    vcf_meta["record_layout"] = any(
+        field.metadata and b"bio.vcf.record_layout" in field.metadata
+        for field in schema
+    )
 
     def _vcf_type_from_arrow(arrow_type: pa.DataType) -> str:
         if pa.types.is_integer(arrow_type) or pa.types.is_unsigned_integer(arrow_type):

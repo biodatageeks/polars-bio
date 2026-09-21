@@ -172,3 +172,27 @@ def test_the_carry_works_when_the_reserved_field_is_not_selected(tmp_path):
         pb.sink_vcf(lf, str(out))
         assert _records(out) == [record]
         assert "##FORMAT=<ID=_vcf_format_keys," in out.read_text()
+
+
+def test_layout_columns_are_recognised_by_provenance_not_by_name(tmp_path):
+    # The frame's metadata records that it was read with the carry. A frame
+    # that does not say so may have a column of its own with either name, so
+    # the name alone never makes a column layout.
+    lf = pb.scan_vcf(str(_source(tmp_path)), preserve_record_layout=True)
+    header = dict(pb.get_metadata(lf)["header"])
+    assert header["record_layout"] is True
+    assert (
+        pb.get_metadata(pb.scan_vcf(str(_source(tmp_path))))["header"]["record_layout"]
+        is False
+    )
+
+    header["record_layout"] = False
+    pb.set_source_metadata(lf, format="vcf", path="", header=header)
+    out = tmp_path / "out.vcf"
+    pb.sink_vcf(lf, str(out))
+    first = _records(out)[0].split("\t")
+    # Not treated as layout: header order, as in a read without the carry ...
+    assert first[7] == "DP=10;AF=0.5"
+    assert first[8:10] == ["GT:DP", "0/1:25"]
+    # ... and, not being declared fields either, not written as INFO.
+    assert "_vcf_info_keys" not in out.read_text()

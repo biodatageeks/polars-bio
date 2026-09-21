@@ -199,6 +199,7 @@ fn apply_vcf_metadata_to_schema(
     info_meta_json: Option<String>,
     format_meta_json: Option<String>,
     sample_names_json: Option<String>,
+    carries_record_layout: bool,
 ) -> Result<VcfSchemaParts, DataFusionError> {
     use serde_json::Value;
 
@@ -386,11 +387,14 @@ fn apply_vcf_metadata_to_schema(
         // The record layout columns. The writer finds them by field metadata,
         // which a Polars frame does not keep, so restore the marker by name.
         //
-        // A name the header declares is that file's own INFO or FORMAT field and
-        // stays data: the reader refuses the layout carry for such a file, so the
-        // two can never be the same column.
+        // Only for a frame that says it was read with the carry: a name alone is
+        // not evidence, and a caller may build a frame with a column of its own
+        // called `_vcf_info_keys`. A name the header declares is likewise that
+        // file's own INFO or FORMAT field and stays data; the reader refuses the
+        // carry when such a field would be read, so the two are never one column.
         let declared = info_meta.contains_key(name) || format_meta.contains_key(name);
-        if let Some(role) = (!declared).then(|| record_layout_role(name)).flatten() {
+        let is_layout = carries_record_layout && !declared;
+        if let Some(role) = is_layout.then(|| record_layout_role(name)).flatten() {
             let mut field_metadata = field.metadata().clone();
             field_metadata.insert(VCF_RECORD_LAYOUT_KEY.to_string(), role.to_string());
             new_fields.push(field.as_ref().clone().with_metadata(field_metadata));
@@ -546,6 +550,11 @@ async fn write_vcf_streaming(
     path: &str,
     write_options: Option<WriteOptions>,
 ) -> Result<u64, DataFusionError> {
+    let carries_record_layout = write_options
+        .as_ref()
+        .and_then(|options| options.vcf_write_options.as_ref())
+        .is_some_and(|vcf| vcf.record_layout);
+
     // Extract VCF-specific options
     let (zero_based, vcf_metadata) = if let Some(opts) = &write_options {
         if let Some(vcf_opts) = &opts.vcf_write_options {
@@ -578,7 +587,15 @@ async fn write_vcf_streaming(
     };
 
     // Execute streaming write with VCF metadata for header generation
-    execute_vcf_streaming_write(ctx, df, path, zero_based, vcf_metadata).await
+    execute_vcf_streaming_write(
+        ctx,
+        df,
+        path,
+        zero_based,
+        vcf_metadata,
+        carries_record_layout,
+    )
+    .await
 }
 
 /// Output projection for a VCF write, or `None` when the frame holds no renamed
@@ -636,6 +653,7 @@ async fn execute_vcf_streaming_write(
     path: &str,
     zero_based: bool,
     vcf_metadata: Option<VcfMetadataJson>,
+    carries_record_layout: bool,
 ) -> Result<u64, DataFusionError> {
     // A renamed input column is written under its VCF id; see vcf_write_projection.
     let info_ids: std::collections::HashSet<String> = vcf_metadata
@@ -667,7 +685,13 @@ async fn execute_vcf_streaming_write(
         if let Some((info_meta, format_meta, sample_meta, header_meta)) = vcf_metadata {
             // Parse metadata and add to schema
             let (info_fields, format_fields, sample_names, schema_with_metadata) =
-                apply_vcf_metadata_to_schema(&schema, info_meta, format_meta, sample_meta)?;
+                apply_vcf_metadata_to_schema(
+                    &schema,
+                    info_meta,
+                    format_meta,
+                    sample_meta,
+                    carries_record_layout,
+                )?;
             (
                 info_fields,
                 format_fields,
