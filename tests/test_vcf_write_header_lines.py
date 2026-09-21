@@ -39,3 +39,23 @@ def test_gt_is_the_first_format_key(tmp_path):
         line for line in out.read_text().splitlines() if not line.startswith("#")
     ][0].split("\t")
     assert record[8:10] == ["GT:DP", "0/1:25"]
+
+
+def test_gt_is_the_first_format_key_for_several_samples(tmp_path):
+    # Several samples are read into a nested `genotypes` struct, which the
+    # serializer writes through a different path from the single-sample one.
+    src = tmp_path / "in.vcf"
+    src.write_text(
+        "##fileformat=VCFv4.2\n"
+        "##contig=<ID=chr1,length=248956422>\n"
+        '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Depth">\n'
+        '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n'
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tS1\tS2\n"
+        "chr1\t100\t.\tA\tG\t50\tPASS\t.\tGT:DP\t0/1:25\t1/1:30\n"
+    )
+    out = tmp_path / "out.vcf"
+    pb.sink_vcf(pb.scan_vcf(str(src)), str(out))
+    record = [
+        line for line in out.read_text().splitlines() if not line.startswith("#")
+    ][0].split("\t")
+    assert record[8:11] == ["GT:DP", "0/1:25", "1/1:30"]
