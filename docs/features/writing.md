@@ -39,13 +39,13 @@ pb.sink_vcf(lf.filter(pl.col("qual") > 30), "filtered.vcf.bgz")
 
 ### What a VCF round trip preserves
 
-For a local file the header is written back line for line: `##fileDate`, tool
+For a file read from a local path the header is written back line for line: `##fileDate`, tool
 provenance such as `##bcftools_*`, the `PASS` filter and every contig attribute
 come through unchanged, and only fields you added or redefined are declared anew.
 
 !!! note "Remote inputs"
-    The header is captured as text only when the VCF is read from the local
-    filesystem. For a file read from S3, GCS, Azure or HTTP the header is rebuilt
+    The header is captured as text only when the VCF is read from a local path.
+    For a file read from S3, GCS, Azure or HTTP the header is rebuilt
     from typed metadata instead, which keeps every INFO, FORMAT, FILTER, ALT and
     contig declaration but not free-form lines such as `##fileDate`, the `PASS`
     filter, or contig attributes other than `ID` and `length`.

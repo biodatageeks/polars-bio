@@ -1481,9 +1481,10 @@ fn nested_record_layout_collisions(schema: &arrow_schema::Schema) -> Vec<String>
             DataType::Struct(children) => {
                 children.iter().for_each(|child| walk(child, false, found))
             },
-            DataType::List(item) | DataType::LargeList(item) | DataType::FixedSizeList(item, _) => {
-                walk(item, false, found)
-            },
+            DataType::List(item)
+            | DataType::LargeList(item)
+            | DataType::FixedSizeList(item, _)
+            | DataType::Map(item, _) => walk(item, false, found),
             _ => {},
         }
     }
@@ -1498,6 +1499,35 @@ fn nested_record_layout_collisions(schema: &arrow_schema::Schema) -> Vec<String>
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn nested_layout_collisions_are_found_below_the_top_level_only() {
+        use arrow_schema::{DataType, Field, Fields, Schema};
+        use datafusion_bio_format_core::metadata::{VCF_FORMAT_KEYS_COLUMN, VCF_INFO_KEYS_COLUMN};
+
+        let values = DataType::Struct(Fields::from(vec![
+            Field::new("GT", DataType::Utf8, true),
+            Field::new(VCF_FORMAT_KEYS_COLUMN, DataType::Utf8, true),
+        ]));
+        let sample = DataType::Struct(Fields::from(vec![
+            Field::new("sample_id", DataType::Utf8, false),
+            Field::new("values", values, true),
+        ]));
+        let schema = Schema::new(vec![
+            Field::new("chrom", DataType::Utf8, false),
+            // A top-level use is `with_record_layout()`'s to refuse, not ours.
+            Field::new(VCF_INFO_KEYS_COLUMN, DataType::Utf8, true),
+            Field::new(
+                "genotypes",
+                DataType::List(std::sync::Arc::new(Field::new("item", sample, true))),
+                true,
+            ),
+        ]);
+        assert_eq!(
+            super::nested_record_layout_collisions(&schema),
+            vec![VCF_FORMAT_KEYS_COLUMN.to_string()]
+        );
+    }
+
     use std::sync::Arc;
 
     use arrow::array::{Int32Array, StringArray};
