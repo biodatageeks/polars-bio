@@ -17,7 +17,7 @@ pub struct RangeOptions {
     #[pyo3(get, set)]
     pub columns_2: Option<Vec<String>>,
     #[pyo3(get, set)]
-    on_cols: Option<Vec<String>>,
+    pub on_cols: Option<Vec<String>>,
     #[pyo3(get, set)]
     pub overlap_alg: Option<String>,
     #[pyo3(get, set)]
