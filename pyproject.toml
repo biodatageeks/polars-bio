@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "polars-bio"
-version = "0.36.0"
+version = "0.36.1"
 description = "Blazing fast genomic operations on large Python dataframes"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -23,7 +23,7 @@ classifiers = [
   "Operating System :: Microsoft :: Windows",
 ]
 dependencies = [
-  "polars>=1.37.1",
+  "polars>=1.37.1,<2",
   "pyarrow>=23.0.1,<25",
   "datafusion>=53.0.0,<54",
   "tqdm>=4.67.0,<5",
