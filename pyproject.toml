@@ -23,7 +23,7 @@ classifiers = [
   "Operating System :: Microsoft :: Windows",
 ]
 dependencies = [
-  "polars>=1.37.1,<2",
+  "polars>=1.40.0,<2",
   "pyarrow>=23.0.1,<25",
   "datafusion>=53.0.0,<54",
   "tqdm>=4.67.0,<5",
