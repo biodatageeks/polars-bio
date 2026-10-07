@@ -7,15 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.36.1] - 2026-10-07
+## [0.36.2] - 2026-10-07
 
 ### Fixed
-- Pin `polars<2`. Polars 2.0.0 (released 2026-10-06) was being pulled in by fresh installs and breaks polars-bio: `scan_table`/`read_table` with a `schema` fail with `ColumnNotFoundError` because headerless CSV columns are now named from `column_0` instead of `column_1`. Polars 2.0 support is planned for 0.37.0.
 - `pb.depth(...).select([...])` returned every depth column instead of the selected ones on polars >= 1.41. The depth table provider ignored DataFusion's projection and emitted all columns, which older polars versions silently trimmed. It now applies the projection itself.
 
 ### Changed
 - Raised the minimum polars to 1.40.0 (was 1.37.1). On polars < 1.40, `count(*)` over `.cool`/`.mcool` scans returned 0 instead of the real counts.
 - `uv.lock` now pins polars 1.44.2 (was 1.40.1), so CI tests the newest polars 1.x that users install.
+
+## [0.36.1] - 2026-10-07
+
+### Fixed
+- Pin `polars<2`. Polars 2.0.0 (released 2026-10-06) was being pulled in by fresh installs and breaks polars-bio: `scan_table`/`read_table` with a `schema` fail with `ColumnNotFoundError` because headerless CSV columns are now named from `column_0` instead of `column_1`. Polars 2.0 support is planned for 0.37.0.
 
 ## [0.36.0] - 2026-09-21
 
