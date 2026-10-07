@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.1] - 2026-10-07
+
+### Fixed
+- Pin `polars<2`. Polars 2.0.0 (released 2026-10-06) was being pulled in by fresh installs and breaks polars-bio: `scan_table`/`read_table` with a `schema` fail with `ColumnNotFoundError` because headerless CSV columns are now named from `column_0` instead of `column_1`. Polars 2.0 support is planned for 0.37.0.
+
 ## [0.36.0] - 2026-09-21
 
 ### Added

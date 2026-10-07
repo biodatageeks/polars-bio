@@ -3157,7 +3157,7 @@ wheels = [
 
 [[package]]
 name = "polars-bio"
-version = "0.36.0"
+version = "0.36.1"
 source = { editable = "." }
 dependencies = [
     { name = "datafusion" },
@@ -3262,7 +3262,7 @@ requires-dist = [
     { name = "datafusion", specifier = ">=53.0.0,<54" },
     { name = "matplotlib", marker = "extra == 'viz'" },
     { name = "pandas", marker = "extra == 'pandas'", specifier = ">=3.0.0" },
-    { name = "polars", specifier = ">=1.37.1" },
+    { name = "polars", specifier = ">=1.37.1,<2" },
     { name = "polars-config-meta", specifier = ">=0.3.2,<1" },
     { name = "pyarrow", specifier = ">=23.0.1,<25" },
     { name = "pybigwig", marker = "python_full_version < '3.14' and extra == 'test'", specifier = ">=0.3.22" },
