@@ -7,6 +7,9 @@ use datafusion::catalog::TableFunctionImpl;
 use datafusion::common::Result;
 use datafusion::datasource::{TableProvider, TableType};
 use datafusion::logical_expr::Expr;
+use datafusion::physical_expr::expressions::Column;
+use datafusion::physical_expr::PhysicalExpr;
+use datafusion::physical_plan::projection::ProjectionExec;
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion_bio_format_bam::table_provider::BamTableProvider;
 use datafusion_bio_format_cram::table_provider::CramTableProvider;
@@ -82,7 +85,7 @@ impl TableProvider for DepthTableProvider {
     async fn scan(
         &self,
         state: &dyn Session,
-        _projection: Option<&Vec<usize>>,
+        projection: Option<&Vec<usize>>,
         _filters: &[Expr],
         _limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
@@ -90,14 +93,35 @@ impl TableProvider for DepthTableProvider {
         // These correspond to indices in the BAM/CRAM provider schema
         let input_schema = self.input.schema();
         let needed_cols = ["chrom", "start", "flags", "cigar", "mapping_quality"];
-        let projection: Vec<usize> = needed_cols
+        let input_projection: Vec<usize> = needed_cols
             .iter()
             .filter_map(|name| input_schema.index_of(name).ok())
             .collect();
 
-        let input_plan = self.input.scan(state, Some(&projection), &[], None).await?;
+        let input_plan = self
+            .input
+            .scan(state, Some(&input_projection), &[], None)
+            .await?;
 
-        Ok(Arc::new(PileupExec::new(input_plan, self.config.clone())))
+        let pileup: Arc<dyn ExecutionPlan> =
+            Arc::new(PileupExec::new(input_plan, self.config.clone()));
+
+        // PileupExec always emits every output column, so honour the requested
+        // projection here; otherwise batches carry more columns than the plan declares.
+        match projection {
+            Some(indices) => {
+                let schema = pileup.schema();
+                let exprs = indices.iter().map(|&i| {
+                    let name = schema.field(i).name().clone();
+                    (
+                        Arc::new(Column::new(&name, i)) as Arc<dyn PhysicalExpr>,
+                        name,
+                    )
+                });
+                Ok(Arc::new(ProjectionExec::try_new(exprs, pileup)?))
+            },
+            None => Ok(pileup),
+        }
     }
 }
 
