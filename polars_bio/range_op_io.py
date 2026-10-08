@@ -5,7 +5,6 @@ import datafusion
 import polars as pl
 import pyarrow as pa
 from datafusion import DataFrame
-from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
 
 from polars_bio.polars_bio import (
@@ -20,6 +19,7 @@ from polars_bio.polars_bio import (
     range_operation_scan,
 )
 
+from ._io_source import register_io_source
 from ._path_utils import path_suffixes
 
 try:
@@ -197,8 +197,9 @@ def _prepare_lazy_stream_input(
     can only be consumed once. This allows the returned LazyFrame to be collected
     multiple times - each collect() will create a fresh stream.
 
-    For LazyFrames, this uses Polars' ArrowStreamExportable feature (>= 1.37.0)
-    via collect_batches(lazy=True)._inner, enabling GIL-free streaming:
+    For LazyFrames, this uses Polars' ArrowStreamExportable feature: the object
+    returned by collect_batches(lazy=True) implements __arrow_c_stream__ itself,
+    enabling GIL-free streaming:
     - Single GIL acquisition when exporting the stream to Rust
     - All subsequent batch processing happens in pure Rust without GIL
     - True streaming execution - batches are computed on-demand
@@ -232,7 +233,7 @@ def _prepare_lazy_stream_input(
             batches = lazy_df.collect_batches(
                 lazy=True, engine="streaming", chunk_size=batch_size
             )
-            return batches._inner
+            return batches
 
         return arrow_schema, stream_factory
 
@@ -246,7 +247,7 @@ def _prepare_lazy_stream_input(
             batches = df.collect_batches(
                 lazy=True, engine="streaming", chunk_size=batch_size
             )
-            return batches._inner
+            return batches
 
         return arrow_schema, stream_factory
 

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Polars 2.x support. The polars requirement is now `>=1.40.0,<3`, so polars 1.x and 2.x both work. CI tests polars 2 on every Python version and the newest polars 1.x on Python 3.12.
+
+### Fixed
+- `scan_table`/`read_table` with a `schema` failed on polars 2 with `ColumnNotFoundError`. Polars 2 names headerless CSV columns from `column_0` instead of `column_1`; columns are now renamed by position.
+- Errors raised while scanning (for example a DataFusion execution error) surface as `pl.exceptions.ComputeError` again on polars 2. Polars 1.x wrapped them automatically, but polars 2.x does not.
+
+### Changed
+- LazyFrame inputs to range operations are exported through the public `collect_batches().__arrow_c_stream__()` instead of the private `_inner` attribute.
+- `uv.lock` now pins polars 2.0.0.
+
 ## [0.36.1] - 2026-10-07
 
 ### Fixed

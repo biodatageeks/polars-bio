@@ -8,7 +8,6 @@ from uuid import uuid4
 import polars as pl
 
 logger = logging.getLogger(__name__)
-from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
 
 from polars_bio.polars_bio import (
@@ -53,6 +52,7 @@ from polars_bio.polars_bio import (
 )
 
 from . import structure as _structure
+from ._io_source import register_io_source
 from ._metadata import set_coordinate_system
 from ._path_utils import strip_url_parameters
 from .context import _resolve_zero_based, ctx
@@ -3612,8 +3612,9 @@ class IOOperations:
                 raise ValueError(
                     f"Schema incompatible with the input. Expected {len(columns)} columns in a schema, got {len(df.collect_schema())} in the input data file. Please provide a valid schema."
                 )
-            for i, c in enumerate(columns):
-                df = df.rename({f"column_{i + 1}": c})
+            # Rename by position: auto-generated names start at column_1 on
+            # polars 1.x but at column_0 on polars 2.x.
+            df = df.rename(dict(zip(df.collect_schema().names(), columns)))
         return df
 
     @staticmethod

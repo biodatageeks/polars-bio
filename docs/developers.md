@@ -328,7 +328,7 @@ flowchart LR
 
 When you pass a Polars LazyFrame to range operations like `overlap()` or `nearest()`:
 
-1. **Stream Export**: The LazyFrame exports itself as an Arrow C Stream via `collect_batches(lazy=True)._inner.__arrow_c_stream__()` (Polars >= 1.37.0)
+1. **Stream Export**: The LazyFrame exports itself as an Arrow C Stream via `collect_batches(lazy=True).__arrow_c_stream__()`
 2. **Zero-Copy Transfer**: The stream pointer is passed directly to Rust - no data copying or Python object conversion
 3. **GIL-Free Execution**: Once the stream is exported, all data processing happens in Rust without holding Python's GIL
 4. **Streaming Execution**: Data flows through DataFusion's streaming engine, processing batches on-demand
@@ -344,7 +344,7 @@ When you pass a Polars LazyFrame to range operations like `overlap()` or `neares
 
 ### Requirements
 
-- **Polars >= 1.37.0** (required for `ArrowStreamExportable`)
+- **Polars >= 1.40.0, < 3** (polars 1.x and 2.x are both supported)
 
 ### Batch Size Configuration
 
