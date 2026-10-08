@@ -2,9 +2,9 @@ from typing import Iterator, List, Optional, Union
 
 import polars as pl
 import pyarrow as pa
-from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
 
+from ._io_source import register_io_source
 from ._metadata import set_coordinate_system
 from .context import _resolve_zero_based, ctx
 from .logging import logger

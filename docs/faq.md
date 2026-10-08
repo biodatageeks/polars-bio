@@ -1,8 +1,8 @@
 1. What versions of Polars are supported?
 
-    Short answer: Polars >= **1.37.0** is required.
+    Short answer: Polars **1.x (>= 1.40.0) and 2.x** are both supported.
 
-    Long answer: polars-bio requires Polars 1.37.1 or later because it uses the `ArrowStreamExportable` feature ([PR #25994](https://github.com/pola-rs/polars/pull/25994)) for efficient zero-copy data exchange between Polars LazyFrames and the Rust-based genomic operations engine. This feature provides:
+    Long answer: polars-bio requires Polars 1.40.0 or later. It uses the `ArrowStreamExportable` feature, added in Polars 1.37 ([PR #25994](https://github.com/pola-rs/polars/pull/25994)), for efficient zero-copy data exchange between Polars LazyFrames and the Rust-based genomic operations engine. This feature provides:
 
     - **Arrow C Stream FFI**: LazyFrames export data via `__arrow_c_stream__()`, enabling direct Arrow FFI transfer to Rust without Python object conversions
     - **GIL-free streaming**: The GIL is only acquired once when exporting the stream; all subsequent batch processing happens in pure Rust
