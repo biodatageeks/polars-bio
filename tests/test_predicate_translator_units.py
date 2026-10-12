@@ -56,9 +56,16 @@ def test_integer_bitwise_and_or_are_not_translated_as_logical_operators():
             _emit_sql(_ast(expr), GFF_STR, GFF_U32, GFF_F32)
 
 
+def test_integer_bitwise_not_is_not_translated_as_boolean_not():
+    expr = (~pl.col("flags")) == 4294967295
+    with pytest.raises(UnsupportedPredicate):
+        _emit_sql(_ast(expr), GFF_STR, GFF_U32, GFF_F32)
+
+
 def test_boolean_and_or_still_translate():
     expr = (pl.col("start") >= 10) & (pl.col("start") < 20)
     assert emit(expr) == '(("start" >= 10) AND ("start" < 20))'
+    assert emit(~(pl.col("start") >= 10)) == '(NOT ("start" >= 10))'
 
 
 def test_is_in_strings_decoded_from_arrow_blob():

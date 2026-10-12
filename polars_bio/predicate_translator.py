@@ -332,6 +332,15 @@ def _emit_sql(node: dict, string_cols, uint32_cols, float32_cols, depth=0) -> st
             return f"({left} {_COMPARISON_SQL[op]} {right})"
         raise UnsupportedPredicate(f"unsupported binary op: {op}")
     if key == "Function":
+        function = body.get("function")
+        if (
+            isinstance(function, dict)
+            and function.get("Boolean") == "Not"
+            and not _is_boolean_expression(node)
+        ):
+            raise UnsupportedPredicate(
+                "Boolean Not may be integer bitwise inversion; keep predicate client-side"
+            )
         return _emit_function(body, string_cols, uint32_cols, float32_cols, depth + 1)
     raise UnsupportedPredicate(f"unsupported node type: {key}")
 
