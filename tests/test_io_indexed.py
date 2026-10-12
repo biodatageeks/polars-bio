@@ -156,6 +156,38 @@ class TestIndexedBAMPredicate:
         assert len(df_push) == len(df_no)
         assert len(df_push) == BAM_CHR1
 
+    @pytest.mark.parametrize(
+        "format_name,path,scan",
+        [
+            ("BAM", BAM_PATH, pb.scan_bam),
+            ("SAM", f"{DATA_DIR}/io/sam/test.sam", pb.scan_sam),
+            ("CRAM", CRAM_PATH, pb.scan_cram),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "predicate",
+        [
+            (pl.col("flags") & 4) == 0,
+            (pl.col("flags") & 2) != 0,
+            (pl.col("flags") | 4) != 0,
+        ],
+        ids=["and-unmapped", "and-paired", "or-flags"],
+    )
+    def test_integer_bitwise_flag_filters_match_client_side(
+        self, format_name, path, scan, predicate
+    ):
+        """Bitwise SAM flags must not be serialized as SQL logical AND/OR."""
+        if format_name == "SAM":
+            # The text SAM scanner has no predicate_pushdown option; these
+            # filters are evaluated by Polars after the scan.
+            actual_scan = expected_scan = scan(path)
+        else:
+            actual_scan = scan(path, predicate_pushdown=True)
+            expected_scan = scan(path, predicate_pushdown=False)
+        actual = actual_scan.filter(predicate).select(pl.len()).collect().item()
+        expected = expected_scan.filter(predicate).select(pl.len()).collect().item()
+        assert actual == expected, format_name
+
 
 class TestIndexedVCFPredicate:
     def test_scan_filter_pushdown(self):

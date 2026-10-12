@@ -46,6 +46,21 @@ def test_and_or_nesting():
     assert emit(e2) == "((\"type\" = 'exon') OR (\"type\" = 'gene'))"
 
 
+def test_integer_bitwise_and_or_are_not_translated_as_logical_operators():
+    for expr in (
+        (pl.col("flags") & 4) == 0,
+        (pl.col("flags") & 2) != 0,
+        (pl.col("flags") | 4) != 0,
+    ):
+        with pytest.raises(UnsupportedPredicate):
+            _emit_sql(_ast(expr), GFF_STR, GFF_U32, GFF_F32)
+
+
+def test_boolean_and_or_still_translate():
+    expr = (pl.col("start") >= 10) & (pl.col("start") < 20)
+    assert emit(expr) == '(("start" >= 10) AND ("start" < 20))'
+
+
 def test_is_in_strings_decoded_from_arrow_blob():
     assert (
         emit(pl.col("chrom").is_in(["chr1", "chr2"]))

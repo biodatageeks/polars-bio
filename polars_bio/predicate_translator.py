@@ -259,6 +259,44 @@ def _validate_comparison(left: dict, op: str, string_cols) -> None:
 _MAX_EMIT_DEPTH = 200
 
 
+def _is_boolean_expression(node: dict, depth: int = 0) -> bool:
+    """Return whether an AST node is structurally known to produce a bool.
+
+    Polars serializes integer bitwise ``&``/``|`` and boolean conjunction/
+    disjunction using the same ``And``/``Or`` operators. Only translate those
+    operators to SQL logical operators when both children are known boolean
+    expressions; otherwise leave the containing predicate for Polars.
+    """
+    if depth > _MAX_EMIT_DEPTH or not isinstance(node, dict) or len(node) != 1:
+        return False
+    key, body = next(iter(node.items()))
+    if key == "Literal":
+        wrapper = body.get("Scalar") or body.get("Dyn")
+        return isinstance(wrapper, dict) and "Boolean" in wrapper
+    if key == "BinaryExpr":
+        op = body.get("op")
+        if op in _COMPARISON_SQL:
+            return True
+        if op in ("And", "Or"):
+            return _is_boolean_expression(
+                body.get("left"), depth + 1
+            ) and _is_boolean_expression(body.get("right"), depth + 1)
+        return False
+    if key == "Function":
+        fn = body.get("function")
+        inputs = body.get("input", [])
+        if not isinstance(fn, dict) or "Boolean" not in fn:
+            return False
+        boolean_fn = fn["Boolean"]
+        if boolean_fn in ("IsNull", "IsNotNull"):
+            return len(inputs) == 1
+        if boolean_fn == "Not":
+            return len(inputs) == 1 and _is_boolean_expression(inputs[0], depth + 1)
+        if isinstance(boolean_fn, dict) and "IsIn" in boolean_fn:
+            return len(inputs) == 2
+    return False
+
+
 def _emit_sql(node: dict, string_cols, uint32_cols, float32_cols, depth=0) -> str:
     if depth > _MAX_EMIT_DEPTH:
         raise UnsupportedPredicate("predicate nesting too deep for pushdown")
@@ -273,6 +311,13 @@ def _emit_sql(node: dict, string_cols, uint32_cols, float32_cols, depth=0) -> st
         op = body["op"]
         d = depth + 1
         if op in ("And", "Or"):
+            if not (
+                _is_boolean_expression(body["left"])
+                and _is_boolean_expression(body["right"])
+            ):
+                raise UnsupportedPredicate(
+                    f"{op} may be integer bitwise operation; keep predicate client-side"
+                )
             left = _emit_sql(body["left"], string_cols, uint32_cols, float32_cols, d)
             right = _emit_sql(body["right"], string_cols, uint32_cols, float32_cols, d)
             joiner = "AND" if op == "And" else "OR"
