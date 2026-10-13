@@ -156,6 +156,72 @@ class TestIndexedBAMPredicate:
         assert len(df_push) == len(df_no)
         assert len(df_push) == BAM_CHR1
 
+    @pytest.mark.parametrize(
+        "format_name,path,scan",
+        [
+            ("BAM", BAM_PATH, pb.scan_bam),
+            ("SAM", f"{DATA_DIR}/io/sam/test.sam", pb.scan_sam),
+            ("CRAM", CRAM_PATH, pb.scan_cram),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "predicate",
+        [
+            (pl.col("flags") & 4) == 0,
+            (pl.col("flags") & 2) != 0,
+            (pl.col("flags") | 4) != 0,
+            (~pl.col("flags")) == 4294967295,
+        ],
+        ids=["and-unmapped", "and-paired", "or-flags", "bitwise-not"],
+    )
+    def test_integer_bitwise_flag_filters_match_client_side(
+        self, format_name, path, scan, predicate
+    ):
+        """Bitwise SAM flags must not be serialized as SQL logical AND/OR."""
+        if format_name == "SAM":
+            # The text SAM scanner has no predicate_pushdown option; these
+            # filters are evaluated by Polars after the scan.
+            actual_scan = expected_scan = scan(path)
+        else:
+            actual_scan = scan(path, predicate_pushdown=True)
+            expected_scan = scan(path, predicate_pushdown=False)
+        actual = actual_scan.filter(predicate).select(pl.len()).collect().item()
+        expected = expected_scan.filter(predicate).select(pl.len()).collect().item()
+        assert actual == expected, format_name
+
+    def test_integer_bitwise_not_keeps_its_semantics(self, tmp_path):
+        """Integer ``~`` must fall back instead of becoming SQL ``NOT``."""
+        import pysam
+
+        bam_path = str(tmp_path / "bitwise_not_flags.bam")
+        header = {
+            "HD": {"VN": "1.6"},
+            "SQ": [{"SN": "chr1", "LN": 1000}],
+        }
+        with pysam.AlignmentFile(bam_path, "wb", header=header) as out:
+            for name, flag in (("zero", 0), ("unmapped", 4)):
+                record = pysam.AlignedSegment()
+                record.query_name = name
+                record.query_sequence = "A"
+                record.flag = flag
+                record.reference_id = 0 if flag == 0 else -1
+                record.reference_start = 10 if flag == 0 else -1
+                record.mapping_quality = 60 if flag == 0 else 0
+                record.cigarstring = "1M" if flag == 0 else None
+                record.next_reference_id = -1
+                record.next_reference_start = -1
+                record.template_length = 0
+                record.query_qualities = pysam.qualitystring_to_array("F")
+                out.write(record)
+
+        result = (
+            pb.scan_bam(bam_path)
+            .filter((~pl.col("flags")) == 4294967295)
+            .select("name")
+            .collect()
+        )
+        assert result["name"].to_list() == ["zero"]
+
 
 class TestIndexedVCFPredicate:
     def test_scan_filter_pushdown(self):
