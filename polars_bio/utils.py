@@ -3,8 +3,9 @@ from typing import Iterator, Union
 
 import polars as pl
 from datafusion import DataFrame
-from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
+
+from ._io_source import register_io_source
 
 logger = logging.getLogger(__name__)
 

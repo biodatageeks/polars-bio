@@ -78,6 +78,29 @@ jobs:
       - run: make install
       - run: make test
 
+  # polars-bio supports polars 1.x and 2.x, but uv.lock resolves polars 2.
+  # Run the suite once more on the newest polars 1.x.
+  linux_tests_polars1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Set up Rust
+        run: rustup show
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Install system dependencies for pysam build
+        run: sudo apt-get update && sudo apt-get install -y libbz2-dev liblzma-dev libcurl4-openssl-dev zlib1g-dev libdeflate-dev
+      - run: make install
+      - name: Install polars 1.x
+        run: uv pip install --python .venv "polars>=1.40.0,<2" && uv run --no-sync python -c "import polars; assert polars.__version__.startswith('1.'), polars.__version__; print(polars.__version__)"
+      - run: make test-no-sync
+
   # Linux arm64 on a native GitHub arm runner. One interpreter only: the wheel
   # is abi3, so arch-specific breakage is interpreter-independent.
   linux_arm64_tests:
@@ -239,7 +262,7 @@ jobs:
   release:
     name: Release
     if: "startsWith(github.ref, 'refs/tags/')"
-    needs: [rust_tests, linux_arm64_tests, linux, windows, macos, sdist]
+    needs: [rust_tests, linux_arm64_tests, linux_tests_polars1, linux, windows, macos, sdist]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

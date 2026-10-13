@@ -17,13 +17,15 @@ pre-commit: venv
 	uv run ruff check polars_bio tests --fix --exit-non-zero-on-fix
 	uv run ruff format polars_bio tests
 
-test: venv
-	uv run pytest tests/ \
+test: venv test-no-sync
+
+test-no-sync:  ## Run tests in the current environment without re-syncing it to uv.lock
+	uv run --no-sync pytest tests/ \
 		--ignore=tests/test_overlap_algorithms.py \
 		--ignore=tests/test_streaming.py \
-	&& uv run pytest tests/test_overlap_algorithms.py \
-	&& uv run pytest tests/test_warnings.py \
-	&& uv run pytest tests/test_streaming.py
+	&& uv run --no-sync pytest tests/test_overlap_algorithms.py \
+	&& uv run --no-sync pytest tests/test_warnings.py \
+	&& uv run --no-sync pytest tests/test_streaming.py
 
 run: install
 	uv run python run.py
