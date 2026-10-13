@@ -273,6 +273,13 @@ def test_plan_partial_pushes_translatable_conjunct_only():
     assert p.fully_translated is False
 
 
+def test_plan_bitwise_conjunct_dropped_boolean_sibling_still_pushed():
+    p = plan(((pl.col("flags") & 4) == 0) & (pl.col("start") >= 10))
+
+    assert p.pushdown_sql == '("start" >= 10)'
+    assert p.fully_translated is False
+
+
 def test_plan_nothing_translatable():
     p = plan(pl.col("gene_biotype").str.contains("pseudogene"))
     assert p.pushdown_sql is None
