@@ -1,6 +1,6 @@
 [package]
 name = "polars_bio"
-version = "0.36.1"
+version = "0.36.2"
 edition = "2021"
 license = "Apache-2.0"
 

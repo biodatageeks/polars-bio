@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.36.2] - 2026-10-13
+
+### Fixed
+- Preserve integer bitwise semantics in SAM/BAM/CRAM flag predicates instead of translating bitwise operators as boolean logic (#480).
+- Keep predicate pushdown faithful to Polars for unsupported, nullable, and floating-point predicates, including empty `is_in` lists and Float32 comparisons (#481).
+
 ## [0.36.1] - 2026-10-07
 
 ### Fixed
