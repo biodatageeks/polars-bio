@@ -518,6 +518,18 @@ class TestPredicatePushdownEndToEnd:
 class TestPredicatePushdownEdgeCases:
     """Test edge cases and error handling."""
 
+    def test_predicate_serialization_failure_falls_back(self, monkeypatch):
+        predicate = pl.col("start") > 10
+
+        def fail_serialize(self, *args, **kwargs):
+            raise pl.exceptions.ComputeError("cloudpickle unavailable")
+
+        monkeypatch.setattr(type(predicate.meta), "serialize", fail_serialize)
+
+        with pytest.raises(SqlPredicateBuildError, match="could not serialize"):
+            polars_predicate_to_sql(predicate)
+        assert _build_sql_where_from_predicate_safe(predicate) == ""
+
     def test_unsupported_predicate_fallback(self):
         """Test that unsupported predicates fall back gracefully."""
         # This should return empty string and trigger fallback

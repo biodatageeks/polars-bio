@@ -97,8 +97,16 @@ def polars_predicate_to_sql(predicate: pl.Expr) -> str:
     if not isinstance(predicate, pl.Expr):
         raise SqlPredicateBuildError("predicate must be a Polars expression")
     try:
-        ast = json.loads(predicate.meta.serialize(format="json"))
-        _validate_logical_operators(ast)
+        serialized_ast = predicate.meta.serialize(format="json")
+        ast = json.loads(serialized_ast)
+    except Exception as exc:
+        # Polars may fail to serialize unsupported expressions (for example,
+        # map_elements without cloudpickle). Keep this catch scoped to the
+        # serialization/decode step so callers can safely fall back.
+        raise SqlPredicateBuildError(f"could not serialize predicate: {exc}") from exc
+
+    _validate_logical_operators(ast)
+    try:
         # TODO: pass the validated AST to the planner to avoid serializing it twice.
         plan = plan_predicate_pushdown(
             predicate,
