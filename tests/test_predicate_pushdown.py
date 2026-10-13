@@ -20,9 +20,67 @@ from polars_bio.sql_predicate_builder import (
 
 
 def _conditions(sql_where):
-    return {
-        condition.strip().removeprefix("(").removesuffix(")")
-        for condition in sql_where.split(" AND ")
+    conditions = []
+    start = depth = 0
+    quote = None
+    index = 0
+
+    while index < len(sql_where):
+        char = sql_where[index]
+        if quote:
+            if char == quote:
+                if index + 1 < len(sql_where) and sql_where[index + 1] == quote:
+                    index += 1
+                else:
+                    quote = None
+        elif char in ("'", '"'):
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif depth == 0 and sql_where.startswith(" AND ", index):
+            conditions.append(sql_where[start:index].strip())
+            index += len(" AND ") - 1
+            start = index + 1
+        index += 1
+
+    conditions.append(sql_where[start:].strip())
+    return {_strip_outer_parentheses(condition) for condition in conditions}
+
+
+def _strip_outer_parentheses(condition):
+    while condition.startswith("(") and condition.endswith(")"):
+        depth = 0
+        quote = None
+        wraps_entire_condition = True
+        for index, char in enumerate(condition):
+            if quote:
+                if char == quote and (
+                    index + 1 == len(condition) or condition[index + 1] != quote
+                ):
+                    quote = None
+            elif char in ("'", '"'):
+                quote = char
+            elif char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0 and index < len(condition) - 1:
+                    wraps_entire_condition = False
+                    break
+        if not wraps_entire_condition:
+            break
+        condition = condition[1:-1].strip()
+    return condition
+
+
+def test_conditions_respects_parentheses_and_quoted_and():
+    sql_where = '(("start" = 100) OR ("end" = 200)) AND ("chrom" = \'chr1 AND chr2\')'
+
+    assert _conditions(sql_where) == {
+        '("start" = 100) OR ("end" = 200)',
+        "\"chrom\" = 'chr1 AND chr2'",
     }
 
 
@@ -490,9 +548,7 @@ class TestPredicatePushdownEdgeCases:
 
         for predicate, expected_sql in test_cases:
             sql_where = _build_sql_where_from_predicate_safe(predicate)
-            # Note: Current implementation may not support != - check if it returns empty
-            if sql_where:
-                assert sql_where == f"({expected_sql})"
+            assert sql_where == f"({expected_sql})"
 
     def test_four_condition_complex_predicate(self):
         """Test very complex predicate with 4+ conditions like in user's notebook."""

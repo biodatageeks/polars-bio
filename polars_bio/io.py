@@ -4718,7 +4718,8 @@ def _apply_combined_pushdown_via_sql(
         where_clause = _build_sql_where_from_predicate_safe(predicate)
         if not where_clause:
             raise ValueError(
-                "Cannot safely translate predicate for the SQL pushdown path"
+                "Cannot safely translate predicate for the SQL pushdown path: "
+                f"{predicate}"
             )
 
     # Construct optimized SQL query

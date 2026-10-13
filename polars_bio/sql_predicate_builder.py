@@ -10,6 +10,7 @@ from .predicate_translator import (
     GFF_FLOAT32_COLUMNS,
     GFF_STRING_COLUMNS,
     GFF_UINT32_COLUMNS,
+    PredicateTranslationError,
     plan_predicate_pushdown,
 )
 
@@ -98,6 +99,7 @@ def polars_predicate_to_sql(predicate: pl.Expr) -> str:
     try:
         ast = json.loads(predicate.meta.serialize(format="json"))
         _validate_logical_operators(ast)
+        # TODO: pass the validated AST to the planner to avoid serializing it twice.
         plan = plan_predicate_pushdown(
             predicate,
             string_cols=GFF_STRING_COLUMNS,
@@ -106,7 +108,7 @@ def polars_predicate_to_sql(predicate: pl.Expr) -> str:
         )
     except SqlPredicateBuildError:
         raise
-    except Exception as exc:
+    except PredicateTranslationError as exc:
         raise SqlPredicateBuildError(f"could not translate predicate: {exc}") from exc
 
     if not plan.fully_translated or not plan.pushdown_sql:
