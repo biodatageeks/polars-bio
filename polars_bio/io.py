@@ -4706,7 +4706,11 @@ def _apply_combined_pushdown_via_sql(
     predicate_pushdown,
     projection_pushdown,
 ):
-    """Apply both predicate and projection pushdown using SQL approach."""
+    """Apply legacy combined SQL pushdown; production scans use ``pushdown.py``.
+
+    Retained for direct regression tests and the legacy SQL path. Production
+    scans use the structured planner in ``pushdown.py`` instead.
+    """
 
     # Build SQL query with combined optimizations
     select_clause = "*"

@@ -108,9 +108,39 @@ def test_plan_negated_is_in_nulls_equal_not_pushed():
     assert p.fully_translated is False
 
 
-def test_is_in_empty_list_is_false():
-    # Empty is_in is all-False in Polars, which SQL FALSE matches faithfully.
-    assert emit(pl.col("type").is_in([])) == "FALSE"
+def test_is_in_empty_list_is_unsupported_for_nullable_semantics():
+    # Polars preserves nulls for nullable inputs; SQL FALSE would differ when
+    # this predicate is negated, so empty-list membership must stay client-side.
+    with pytest.raises(UnsupportedPredicate):
+        emit(pl.col("type").is_in([]))
+
+
+def test_plan_negated_is_in_empty_list_not_pushed():
+    p = plan_predicate_pushdown(
+        ~pl.col("type").is_in([]),
+        string_cols=GFF_STR,
+        uint32_cols=GFF_U32,
+        float32_cols=GFF_F32,
+    )
+    assert p.pushdown_sql is None
+    assert p.fully_translated is False
+
+
+def test_is_in_non_finite_float_is_unsupported():
+    for value in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(UnsupportedPredicate):
+            emit(pl.col("score").is_in([value]))
+
+
+def test_plan_is_in_non_finite_float_degrades_gracefully():
+    p = plan_predicate_pushdown(
+        pl.col("score").is_in([float("nan")]),
+        string_cols=GFF_STR,
+        uint32_cols=GFF_U32,
+        float32_cols=GFF_F32,
+    )
+    assert p.pushdown_sql is None
+    assert p.fully_translated is False
 
 
 def test_not_with_empty_inputs_raises():

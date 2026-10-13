@@ -201,12 +201,18 @@ def _emit_is_in(inputs: list) -> str:
     col_sql = _quote_ident(_column_name(inputs[0]))
     values, value_type = _decode_is_in_list(inputs[1])
     if not values:
-        # Polars is_in([]) is uniformly False; SQL FALSE matches it faithfully.
-        return "FALSE"
+        # On nullable inputs Polars returns null for is_in([]), which differs
+        # from SQL FALSE when this expression is negated or nested in a boolean
+        # expression. The input column's nullability is not known here.
+        raise UnsupportedPredicate("is_in([]) pushdown unsafe on nullable columns")
     if any(v is None for v in values):
         # SQL `IN (..., NULL)` yields UNKNOWN (not FALSE) for non-matching rows,
         # which diverges from Polars' null-aware is_in. Keep it client-side.
         raise UnsupportedPredicate("is_in list contains NULL; pushdown unsafe")
+    if any(isinstance(v, float) and not _math.isfinite(v) for v in values):
+        raise UnsupportedPredicate(
+            "is_in list contains non-finite float; pushdown unsafe"
+        )
     import pyarrow as pa
 
     is_float32 = pa.types.is_float32(value_type)
