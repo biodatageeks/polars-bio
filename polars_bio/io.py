@@ -4610,7 +4610,6 @@ def _write_file(
     # This works for filtered/transformed LazyFrames
     # NOTE: Filtering currently materializes all data - predicate pushdown to DataFusion not yet implemented
     if isinstance(df, pl.LazyFrame):
-
         # Get streaming batches from Polars
         batches_iter = df.collect_batches(lazy=True, engine="streaming")
         stream = batches_iter._inner
@@ -4707,7 +4706,11 @@ def _apply_combined_pushdown_via_sql(
     predicate_pushdown,
     projection_pushdown,
 ):
-    """Apply both predicate and projection pushdown using SQL approach."""
+    """Apply legacy combined SQL pushdown; production scans use ``pushdown.py``.
+
+    Retained for direct regression tests and the legacy SQL path. Production
+    scans use the structured planner in ``pushdown.py`` instead.
+    """
 
     # Build SQL query with combined optimizations
     select_clause = "*"
@@ -4716,14 +4719,12 @@ def _apply_combined_pushdown_via_sql(
 
     where_clause = ""
     if predicate_pushdown and predicate is not None:
-        try:
-            # Use the proven regex-based predicate translation
-            where_clause = _build_sql_where_from_predicate_safe(predicate)
-        except Exception:
-            where_clause = ""
-
-    # No fallback - if we can't parse to SQL, just use projection only
-    # This keeps us in pure SQL mode for maximum performance
+        where_clause = _build_sql_where_from_predicate_safe(predicate)
+        if not where_clause:
+            raise ValueError(
+                "Cannot safely translate predicate for the SQL pushdown path: "
+                f"{predicate}"
+            )
 
     # Construct optimized SQL query
     quoted_table = _quote_sql_identifier(table_name)
@@ -4737,109 +4738,16 @@ def _apply_combined_pushdown_via_sql(
 
 
 def _build_sql_where_from_predicate_safe(predicate):
-    """Build SQL WHERE clause by parsing all individual conditions and connecting with AND."""
-    import re
+    """Return a complete, faithful SQL predicate or an empty string."""
+    if predicate is None:
+        return ""
 
-    pred_str = str(predicate).strip("[]")
+    from .sql_predicate_builder import SqlPredicateBuildError, polars_predicate_to_sql
 
-    # Find all individual conditions in the nested structure
-    conditions = []
-
-    # String equality/inequality patterns (including empty strings)
-    # Accept both with and without surrounding parentheses in Polars repr
-    str_eq_patterns = [
-        r'\(col\("([^"]+)"\)\)\s*==\s*\("([^"]*)"\)',  # (col("x")) == ("v")
-        r'col\("([^"]+)"\)\s*==\s*"([^"]*)"',  # col("x") == "v"
-    ]
-    for pat in str_eq_patterns:
-        for column, value in re.findall(pat, pred_str):
-            conditions.append(f"\"{column}\" = '{value}'")
-
-    # Numeric comparison patterns (handle both formats: with and without "dyn int:")
-    numeric_patterns = [
-        (r'\(col\("([^"]+)"\)\)\s*>\s*\((?:dyn int:\s*)?(\d+)\)', ">"),
-        (r'\(col\("([^"]+)"\)\)\s*<\s*\((?:dyn int:\s*)?(\d+)\)', "<"),
-        (r'\(col\("([^"]+)"\)\)\s*>=\s*\((?:dyn int:\s*)?(\d+)\)', ">="),
-        (r'\(col\("([^"]+)"\)\)\s*<=\s*\((?:dyn int:\s*)?(\d+)\)', "<="),
-        (r'\(col\("([^"]+)"\)\)\s*!=\s*\((?:dyn int:\s*)?(\d+)\)', "!="),
-        (r'\(col\("([^"]+)"\)\)\s*==\s*\((?:dyn int:\s*)?(\d+)\)', "="),
-        (r'col\("([^"]+)"\)\s*>\s*(\d+)', ">"),
-        (r'col\("([^"]+)"\)\s*<\s*(\d+)', "<"),
-        (r'col\("([^"]+)"\)\s*>=\s*(\d+)', ">="),
-        (r'col\("([^"]+)"\)\s*<=\s*(\d+)', "<="),
-        (r'col\("([^"]+)"\)\s*!=\s*(\d+)', "!="),
-        (r'col\("([^"]+)"\)\s*==\s*(\d+)', "="),
-    ]
-
-    for pattern, op in numeric_patterns:
-        matches = re.findall(pattern, pred_str)
-        for column, value in matches:
-            conditions.append(f'"{column}" {op} {value}')
-
-    # Float comparison patterns (handle both formats: with and without "dyn float:")
-    float_patterns = [
-        (r'\(col\("([^"]+)"\)\)\s*>\s*\((?:dyn float:\s*)?([\d.]+)\)', ">"),
-        (r'\(col\("([^"]+)"\)\)\s*<\s*\((?:dyn float:\s*)?([\d.]+)\)', "<"),
-        (r'\(col\("([^"]+)"\)\)\s*>=\s*\((?:dyn float:\s*)?([\d.]+)\)', ">="),
-        (r'\(col\("([^"]+)"\)\)\s*<=\s*\((?:dyn float:\s*)?([\d.]+)\)', "<="),
-        (r'\(col\("([^"]+)"\)\)\s*!=\s*\((?:dyn float:\s*)?([\d.]+)\)', "!="),
-        (r'\(col\("([^"]+)"\)\)\s*==\s*\((?:dyn float:\s*)?([\d.]+)\)', "="),
-        (r'col\("([^"]+)"\)\s*>\s*([\d.]+)', ">"),
-        (r'col\("([^"]+)"\)\s*<\s*([\d.]+)', "<"),
-        (r'col\("([^"]+)"\)\s*>=\s*([\d.]+)', ">="),
-        (r'col\("([^"]+)"\)\s*<=\s*([\d.]+)', "<="),
-        (r'col\("([^"]+)"\)\s*!=\s*([\d.]+)', "!="),
-        (r'col\("([^"]+)"\)\s*==\s*([\d.]+)', "="),
-    ]
-
-    for pattern, op in float_patterns:
-        matches = re.findall(pattern, pred_str)
-        for column, value in matches:
-            conditions.append(f'"{column}" {op} {value}')
-
-    # IN list pattern: col("x").is_in([v1, v2, ...])
-    in_matches = re.findall(r'col\("([^"]+)"\)\.is_in\(\[(.*?)\]\)', pred_str)
-    for column, values_str in in_matches:
-        # Tokenize values: quoted strings or numbers
-        tokens = re.findall(r"'(?:[^']*)'|\"(?:[^\"]*)\"|\d+(?:\.\d+)?", values_str)
-        items = []
-        for t in tokens:
-            if t.startswith('"') and t.endswith('"'):
-                items.append("'" + t[1:-1] + "'")
-            else:
-                items.append(t)
-        if items:
-            conditions.append(f'"{column}" IN ({", ".join(items)})')
-
-    # Join all conditions with AND
-    if conditions:
-        where = " AND ".join(conditions)
-        # Clean up any residual bracketed list formatting from IN clause (defensive)
-        where = (
-            where.replace("IN ([", "IN (")
-            .replace("])", ")")
-            .replace("[ ", "")
-            .replace(" ]", "")
-        )
-        # Collapse simple >= and <= pairs into BETWEEN when possible
-        try:
-            import re as _re
-
-            where = _re.sub(
-                r'"([^"]+)"\s*>=\s*([\d.]+)\s*AND\s*"\1"\s*<=\s*([\d.]+)',
-                r'"\1" BETWEEN \2 AND \3',
-                where,
-            )
-            where = _re.sub(
-                r'"([^"]+)"\s*<=\s*([\d.]+)\s*AND\s*"\1"\s*>=\s*([\d.]+)',
-                r'"\1" BETWEEN \3 AND \2',
-                where,
-            )
-        except Exception:
-            pass
-        return where
-
-    return ""
+    try:
+        return polars_predicate_to_sql(predicate)
+    except SqlPredicateBuildError:
+        return ""
 
 
 def _lazy_scan(

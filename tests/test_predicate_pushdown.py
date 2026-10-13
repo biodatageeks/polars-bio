@@ -9,7 +9,79 @@ import polars as pl
 import pytest
 
 import polars_bio as pb
-from polars_bio.io import _build_sql_where_from_predicate_safe
+from polars_bio.io import (
+    _apply_combined_pushdown_via_sql,
+    _build_sql_where_from_predicate_safe,
+)
+from polars_bio.sql_predicate_builder import (
+    SqlPredicateBuildError,
+    polars_predicate_to_sql,
+)
+
+
+def _conditions(sql_where):
+    conditions = []
+    start = depth = 0
+    quote = None
+    index = 0
+
+    while index < len(sql_where):
+        char = sql_where[index]
+        if quote:
+            if char == quote:
+                if index + 1 < len(sql_where) and sql_where[index + 1] == quote:
+                    index += 1
+                else:
+                    quote = None
+        elif char in ("'", '"'):
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif depth == 0 and sql_where.startswith(" AND ", index):
+            conditions.append(sql_where[start:index].strip())
+            index += len(" AND ") - 1
+            start = index + 1
+        index += 1
+
+    conditions.append(sql_where[start:].strip())
+    return {_strip_outer_parentheses(condition) for condition in conditions}
+
+
+def _strip_outer_parentheses(condition):
+    while condition.startswith("(") and condition.endswith(")"):
+        depth = 0
+        quote = None
+        wraps_entire_condition = True
+        for index, char in enumerate(condition):
+            if quote:
+                if char == quote and (
+                    index + 1 == len(condition) or condition[index + 1] != quote
+                ):
+                    quote = None
+            elif char in ("'", '"'):
+                quote = char
+            elif char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0 and index < len(condition) - 1:
+                    wraps_entire_condition = False
+                    break
+        if not wraps_entire_condition:
+            break
+        condition = condition[1:-1].strip()
+    return condition
+
+
+def test_conditions_respects_parentheses_and_quoted_and():
+    sql_where = '(("start" = 100) OR ("end" = 200)) AND ("chrom" = \'chr1 AND chr2\')'
+
+    assert _conditions(sql_where) == {
+        '("start" = 100) OR ("end" = 200)',
+        "\"chrom\" = 'chr1 AND chr2'",
+    }
 
 
 class TestPredicatePushdownSQLGeneration:
@@ -19,7 +91,7 @@ class TestPredicatePushdownSQLGeneration:
         """Test simple string equality predicate."""
         predicate = pl.col("chrom") == "chr22"
         sql_where = _build_sql_where_from_predicate_safe(predicate)
-        assert sql_where == "\"chrom\" = 'chr22'"
+        assert sql_where == "(\"chrom\" = 'chr22')"
 
     def test_simple_numeric_comparison(self):
         """Test simple numeric comparison predicates."""
@@ -34,22 +106,22 @@ class TestPredicatePushdownSQLGeneration:
 
         for predicate, expected_sql in test_cases:
             sql_where = _build_sql_where_from_predicate_safe(predicate)
-            assert sql_where == expected_sql
+            assert sql_where == f"({expected_sql})"
 
     def test_simple_float_comparison(self):
         """Test simple float comparison predicates."""
         test_cases = [
-            (pl.col("score") > 50.5, '"score" > 50.5'),
+            (pl.col("score") > 50.5, '"score" > CAST(50.5 AS REAL)'),
             (
                 pl.col("score") <= 100.0,
-                '"score" <= 100',
-            ),  # Trailing .0 is removed by parser
-            (pl.col("score") == 75.25, '"score" = 75.25'),
+                '"score" <= CAST(100.0 AS REAL)',
+            ),
+            (pl.col("score") == 75.25, '"score" = CAST(75.25 AS REAL)'),
         ]
 
         for predicate, expected_sql in test_cases:
             sql_where = _build_sql_where_from_predicate_safe(predicate)
-            assert sql_where == expected_sql
+            assert sql_where == f"({expected_sql})"
 
     def test_complex_and_predicates(self):
         """Test complex AND predicates with multiple conditions."""
@@ -57,8 +129,7 @@ class TestPredicatePushdownSQLGeneration:
         predicate = (pl.col("chrom") == "chrY") & (pl.col("start") < 500000)
         sql_where = _build_sql_where_from_predicate_safe(predicate)
         expected_conditions = {"\"chrom\" = 'chrY'", '"start" < 500000'}
-        actual_conditions = set(sql_where.split(" AND "))
-        assert actual_conditions == expected_conditions
+        assert _conditions(sql_where) == expected_conditions
 
         # Three conditions (the failing case we fixed)
         predicate = (
@@ -72,8 +143,7 @@ class TestPredicatePushdownSQLGeneration:
             '"start" < 500000',
             '"end" > 510000',
         }
-        actual_conditions = set(sql_where.split(" AND "))
-        assert actual_conditions == expected_conditions
+        assert _conditions(sql_where) == expected_conditions
 
         # Four conditions with mixed types
         predicate = (
@@ -89,14 +159,13 @@ class TestPredicatePushdownSQLGeneration:
             '"end" < 5000',
             "\"type\" = 'gene'",
         }
-        actual_conditions = set(sql_where.split(" AND "))
-        assert actual_conditions == expected_conditions
+        assert _conditions(sql_where) == expected_conditions
 
     def test_attribute_field_predicates(self):
         """Test predicates on attribute fields like ID."""
         predicate = pl.col("ID") == "ENSG00000292349.2"
         sql_where = _build_sql_where_from_predicate_safe(predicate)
-        assert sql_where == "\"ID\" = 'ENSG00000292349.2'"
+        assert sql_where == "(\"ID\" = 'ENSG00000292349.2')"
 
     def test_mixed_string_and_numeric_predicates(self):
         """Test mixed string and numeric predicates."""
@@ -111,8 +180,7 @@ class TestPredicatePushdownSQLGeneration:
             '"start" >= 100000',
             '"end" <= 200000',
         }
-        actual_conditions = set(sql_where.split(" AND "))
-        assert actual_conditions == expected_conditions
+        assert _conditions(sql_where) == expected_conditions
 
     def test_empty_predicate(self):
         """Test handling of unsupported or empty predicates."""
@@ -450,6 +518,18 @@ class TestPredicatePushdownEndToEnd:
 class TestPredicatePushdownEdgeCases:
     """Test edge cases and error handling."""
 
+    def test_predicate_serialization_failure_falls_back(self, monkeypatch):
+        predicate = pl.col("start") > 10
+
+        def fail_serialize(self, *args, **kwargs):
+            raise pl.exceptions.ComputeError("cloudpickle unavailable")
+
+        monkeypatch.setattr(type(predicate.meta), "serialize", fail_serialize)
+
+        with pytest.raises(SqlPredicateBuildError, match="could not serialize"):
+            polars_predicate_to_sql(predicate)
+        assert _build_sql_where_from_predicate_safe(predicate) == ""
+
     def test_unsupported_predicate_fallback(self):
         """Test that unsupported predicates fall back gracefully."""
         # This should return empty string and trigger fallback
@@ -468,7 +548,7 @@ class TestPredicatePushdownEdgeCases:
         """Test predicates with empty string values."""
         predicate = pl.col("chrom") == ""
         sql_where = _build_sql_where_from_predicate_safe(predicate)
-        assert sql_where == "\"chrom\" = ''"
+        assert sql_where == "(\"chrom\" = '')"
 
     def test_inequality_predicates(self):
         """Test inequality predicates (!=)."""
@@ -480,9 +560,7 @@ class TestPredicatePushdownEdgeCases:
 
         for predicate, expected_sql in test_cases:
             sql_where = _build_sql_where_from_predicate_safe(predicate)
-            # Note: Current implementation may not support != - check if it returns empty
-            if sql_where:
-                assert sql_where == expected_sql
+            assert sql_where == f"({expected_sql})"
 
     def test_four_condition_complex_predicate(self):
         """Test very complex predicate with 4+ conditions like in user's notebook."""
@@ -501,14 +579,53 @@ class TestPredicatePushdownEdgeCases:
             '"end" > 510000',
             "\"type\" = 'gene'",
         }
-        actual_conditions = set(sql_where.split(" AND "))
-        assert actual_conditions == expected_conditions
+        assert _conditions(sql_where) == expected_conditions
 
-    def test_special_characters_in_values(self):
-        """Test predicates with special characters in values."""
+    def test_quotes_in_values_are_escaped(self):
+        """String literals must be SQL-escaped before emitting a predicate."""
         predicate = pl.col("type") == "5'UTR"  # GFF often has special characters
         sql_where = _build_sql_where_from_predicate_safe(predicate)
-        assert sql_where == "\"type\" = '5'UTR'"
+        assert sql_where == "(\"type\" = '5''UTR')"
+
+    def test_or_predicate_preserves_boolean_structure(self):
+        predicate = (pl.col("chrom") == "chr1") | (pl.col("chrom") == "chrY")
+        sql_where = _build_sql_where_from_predicate_safe(predicate)
+        assert sql_where == "((\"chrom\" = 'chr1') OR (\"chrom\" = 'chrY'))"
+
+    def test_boolean_not_is_preserved(self):
+        predicate = ~(pl.col("start") >= 10)
+        sql_where = _build_sql_where_from_predicate_safe(predicate)
+        assert sql_where == '(NOT ("start" >= 10))'
+
+    @pytest.mark.parametrize(
+        "predicate",
+        [
+            (pl.col("flags") & 4) == 0,
+            (pl.col("flags") | 4) != 0,
+            (~pl.col("flags")) == 4294967295,
+            ((pl.col("chrom") == "chr1") | (pl.col("chrom") == "chrY"))
+            & ((pl.col("flags") & 4) == 0),
+        ],
+    )
+    def test_integer_bitwise_predicates_are_not_emitted(self, predicate):
+        assert _build_sql_where_from_predicate_safe(predicate) == ""
+        with pytest.raises(SqlPredicateBuildError):
+            polars_predicate_to_sql(predicate)
+
+    def test_combined_sql_path_refuses_to_drop_unsupported_filter(self):
+        predicate = ((pl.col("chrom") == "chr1") | (pl.col("chrom") == "chrY")) & (
+            (pl.col("flags") & 4) == 0
+        )
+        with pytest.raises(ValueError, match="Cannot safely translate predicate"):
+            _apply_combined_pushdown_via_sql(
+                ctx=None,
+                table_name="unused",
+                original_df=None,
+                predicate=predicate,
+                projected_columns=None,
+                predicate_pushdown=True,
+                projection_pushdown=False,
+            )
 
 
 @pytest.mark.skipif(

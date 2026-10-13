@@ -32,7 +32,7 @@ def test_int_comparison_uses_dyn_literal():
 
 
 def test_float_comparison():
-    assert emit(pl.col("score") > 1.5) == '("score" > 1.5)'
+    assert emit(pl.col("score") > 1.5) == '("score" > CAST(1.5 AS REAL))'
 
 
 def test_boolean_literal():
@@ -108,9 +108,39 @@ def test_plan_negated_is_in_nulls_equal_not_pushed():
     assert p.fully_translated is False
 
 
-def test_is_in_empty_list_is_false():
-    # Empty is_in is all-False in Polars, which SQL FALSE matches faithfully.
-    assert emit(pl.col("type").is_in([])) == "FALSE"
+def test_is_in_empty_list_is_unsupported_for_nullable_semantics():
+    # Polars preserves nulls for nullable inputs; SQL FALSE would differ when
+    # this predicate is negated, so empty-list membership must stay client-side.
+    with pytest.raises(UnsupportedPredicate):
+        emit(pl.col("type").is_in([]))
+
+
+def test_plan_negated_is_in_empty_list_not_pushed():
+    p = plan_predicate_pushdown(
+        ~pl.col("type").is_in([]),
+        string_cols=GFF_STR,
+        uint32_cols=GFF_U32,
+        float32_cols=GFF_F32,
+    )
+    assert p.pushdown_sql is None
+    assert p.fully_translated is False
+
+
+def test_is_in_non_finite_float_is_unsupported():
+    for value in (float("nan"), float("inf"), float("-inf")):
+        with pytest.raises(UnsupportedPredicate):
+            emit(pl.col("score").is_in([value]))
+
+
+def test_plan_is_in_non_finite_float_degrades_gracefully():
+    p = plan_predicate_pushdown(
+        pl.col("score").is_in([float("nan")]),
+        string_cols=GFF_STR,
+        uint32_cols=GFF_U32,
+        float32_cols=GFF_F32,
+    )
+    assert p.pushdown_sql is None
+    assert p.fully_translated is False
 
 
 def test_not_with_empty_inputs_raises():
@@ -308,6 +338,40 @@ def test_float32_literal_cast_preserves_datafusion_equality():
     df = ctx.from_pydict({"score": pa.array([0.1, 0.2], type=pa.float32())})
     batches = df.filter(df.parse_sql_expr(sql)).collect()
     assert sum(batch.num_rows for batch in batches) == 1
+
+
+def test_dynamic_float_literal_cast_preserves_datafusion_equality():
+    import pyarrow as pa
+    from datafusion import SessionContext
+
+    sql = emit(pl.col("score") == 0.1)
+    assert sql == '("score" = CAST(0.1 AS REAL))'
+
+    ctx = SessionContext()
+    df = ctx.from_pydict({"score": pa.array([0.1, 0.2], type=pa.float32())})
+    batches = df.filter(df.parse_sql_expr(sql)).collect()
+    assert sum(batch.num_rows for batch in batches) == 1
+
+
+def test_dynamic_float_literal_cast_when_literal_is_on_left():
+    assert emit(pl.lit(1.5) > pl.col("score")) == '(CAST(1.5 AS REAL) > "score")'
+
+
+def test_float64_literal_keeps_its_type_for_float32_column():
+    import pyarrow as pa
+    from datafusion import SessionContext
+
+    predicate = pl.col("score") == pl.lit(0.1, dtype=pl.Float64)
+    sql = emit(predicate)
+    assert sql == '("score" = 0.1)'
+
+    ctx = SessionContext()
+    df = ctx.from_pydict({"score": pa.array([0.1, 0.2], type=pa.float32())})
+    batches = df.filter(df.parse_sql_expr(sql)).collect()
+    assert sum(batch.num_rows for batch in batches) == 0
+
+    polars_df = pl.DataFrame({"score": pl.Series([0.1, 0.2], dtype=pl.Float32)})
+    assert polars_df.filter(predicate).height == 0
 
 
 def test_float32_is_in_values_retain_their_type():

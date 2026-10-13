@@ -1,293 +1,126 @@
-"""
-Polars predicate -> SQL WHERE builder for DataFusion.
-
-Supports GFF pushdown operators:
-- Strings (chrom, source, type, strand, attribute fields): =, !=, IN, NOT IN
-- UInt32 (start, end, phase): =, !=, <, <=, >, >=, BETWEEN
-- Float32 (score): same as numeric
-- AND combinations
-- IS NULL / IS NOT NULL
-"""
+"""Safely translate supported GFF Polars predicates to DataFusion SQL."""
 
 from __future__ import annotations
 
-import re
-from typing import Any, List, Tuple
+import json
 
 import polars as pl
 
-GFF_STRING_COLUMNS = {"chrom", "source", "type", "strand"}
-GFF_UINT32_COLUMNS = {"start", "end", "phase"}
-GFF_FLOAT32_COLUMNS = {"score"}
-GFF_STATIC_COLUMNS = (
-    GFF_STRING_COLUMNS | GFF_UINT32_COLUMNS | GFF_FLOAT32_COLUMNS | {"attributes"}
+from .predicate_translator import (
+    GFF_FLOAT32_COLUMNS,
+    GFF_STRING_COLUMNS,
+    GFF_UINT32_COLUMNS,
+    PredicateTranslationError,
+    plan_predicate_pushdown,
 )
 
 
 class SqlPredicateBuildError(Exception):
-    pass
+    """A predicate cannot be translated without changing its meaning."""
+
+
+_COMPARISON_OPS = {"Eq", "NotEq", "Lt", "LtEq", "Gt", "GtEq"}
+_MAX_VALIDATION_DEPTH = 200
+
+
+def _is_boolean_expression(node: dict, depth: int = 0) -> bool:
+    """Conservatively recognize boolean AST nodes, including logical operators."""
+    if depth > _MAX_VALIDATION_DEPTH or not isinstance(node, dict) or len(node) != 1:
+        return False
+
+    key, body = next(iter(node.items()))
+    if key == "Literal":
+        wrapper = body.get("Scalar") or body.get("Dyn")
+        return isinstance(wrapper, dict) and "Boolean" in wrapper
+    if key == "BinaryExpr":
+        op = body.get("op")
+        if op in _COMPARISON_OPS:
+            return True
+        if op in ("And", "Or"):
+            return _is_boolean_expression(
+                body.get("left"), depth + 1
+            ) and _is_boolean_expression(body.get("right"), depth + 1)
+        return False
+    if key == "Function":
+        function = body.get("function")
+        inputs = body.get("input", [])
+        if not isinstance(function, dict) or "Boolean" not in function:
+            return False
+        boolean_fn = function["Boolean"]
+        if boolean_fn in ("IsNull", "IsNotNull"):
+            return len(inputs) == 1
+        if boolean_fn == "Not":
+            return len(inputs) == 1 and _is_boolean_expression(inputs[0], depth + 1)
+        if isinstance(boolean_fn, dict) and "IsIn" in boolean_fn:
+            return len(inputs) == 2
+    return False
+
+
+def _validate_logical_operators(node: dict, depth: int = 0) -> None:
+    """Reject ambiguous bitwise nodes before the shared emitter maps them to SQL."""
+    if depth > _MAX_VALIDATION_DEPTH:
+        raise SqlPredicateBuildError("predicate nesting too deep")
+    if not isinstance(node, dict) or len(node) != 1:
+        raise SqlPredicateBuildError("malformed predicate AST")
+
+    key, body = next(iter(node.items()))
+    if key == "BinaryExpr":
+        op = body.get("op")
+        if op in ("And", "Or") and not _is_boolean_expression(node):
+            raise SqlPredicateBuildError(
+                f"{op} may be integer bitwise operation; refusing SQL translation"
+            )
+        _validate_logical_operators(body.get("left"), depth + 1)
+        _validate_logical_operators(body.get("right"), depth + 1)
+    elif key == "Function":
+        function = body.get("function")
+        inputs = body.get("input", [])
+        if (
+            isinstance(function, dict)
+            and function.get("Boolean") == "Not"
+            and not _is_boolean_expression(node)
+        ):
+            raise SqlPredicateBuildError(
+                "Boolean Not may be integer bitwise inversion; refusing SQL translation"
+            )
+        for child in inputs:
+            _validate_logical_operators(child, depth + 1)
 
 
 def polars_predicate_to_sql(predicate: pl.Expr) -> str:
-    expr_str = str(predicate)
+    """Return SQL only when the complete predicate has a faithful translation.
 
-    # Binary comparisons
-    if _is_binary_expr(expr_str):
-        return _translate_binary_expr(expr_str)
-
-    # AND combinations
-    if _is_and_expr(expr_str):
-        return _translate_and_expr(expr_str)
-
-    # IN / NOT IN
-    if _is_in_expr(expr_str):
-        return _translate_in_expr(expr_str)
-    if _is_not_in_expr(expr_str):
-        return _translate_not_in_expr(expr_str)
-
-    # BETWEEN via range combination
-    if _is_between_expr(expr_str):
-        return _translate_between_expr(expr_str)
-
-    # IS NULL / IS NOT NULL
-    if _is_not_null_expr(expr_str):
-        return _translate_not_null_expr(expr_str)
-    if _is_null_expr(expr_str):
-        return _translate_null_expr(expr_str)
-
-    raise SqlPredicateBuildError(f"Unsupported predicate: {expr_str}")
-
-
-def _is_binary_expr(expr_str: str) -> bool:
-    return any(op in expr_str for op in [" == ", " != ", " <= ", " >= ", " < ", " > "])
-
-
-def _translate_binary_expr(expr_str: str) -> str:
-    patterns: List[Tuple[str, str]] = [
-        (r"(.+?)\s==\s(.+)", "="),
-        (r"(.+?)\s!=\s(.+)", "!="),
-        (r"(.+?)\s<=\s(.+)", "<="),
-        (r"(.+?)\s>=\s(.+)", ">="),
-        (r"(.+?)\s<\s(.+)", "<"),
-        (r"(.+?)\s>\s(.+)", ">"),
-    ]
-    for pattern, op in patterns:
-        m = re.search(pattern, expr_str)
-        if m:
-            left = m.group(1).strip()
-            right = m.group(2).strip()
-            col = _extract_column_name(left)
-            lit = _extract_sql_literal(right)
-            _validate_column_operator(col, op)
-            return f'"{col}" {op} {lit}'
-    raise SqlPredicateBuildError(f"Cannot parse binary expr: {expr_str}")
-
-
-def _is_and_expr(expr_str: str) -> bool:
-    return " & " in expr_str
-
-
-def _translate_and_expr(expr_str: str) -> str:
-    parts = _split_on(expr_str, " & ")
-    if len(parts) != 2:
-        raise SqlPredicateBuildError(f"Cannot parse AND expression: {expr_str}")
-    left = polars_predicate_to_sql(_mock_expr(parts[0]))
-    right = polars_predicate_to_sql(_mock_expr(parts[1]))
-    return f"({left}) AND ({right})"
-
-
-def _is_in_expr(expr_str: str) -> bool:
-    return ".is_in([" in expr_str
-
-
-def _translate_in_expr(expr_str: str) -> str:
-    m = re.search(r"(.+?)\.is_in\(\[(.+?)\]\)", expr_str)
-    if not m:
-        raise SqlPredicateBuildError(f"Cannot parse IN expr: {expr_str}")
-    col_part = m.group(1).strip()
-    vals_part = m.group(2).strip()
-    col = _extract_column_name(col_part)
-    _validate_column_operator(col, "IN")
-    vals = [_extract_sql_literal(v.strip()) for v in vals_part.split(",") if v.strip()]
-    return f'"{col}" IN ({", ".join(vals)})'
-
-
-def _is_not_in_expr(expr_str: str) -> bool:
-    s = expr_str.replace(" ", "")
-    return (
-        (s.startswith("~(") and ".is_in([" in s and s.endswith(")"))
-        or ".is_in([" in s
-        and ").not()" in s
-    )
-
-
-def _translate_not_in_expr(expr_str: str) -> str:
-    s = expr_str.strip()
-    inner = s
-    if s.startswith("~(") and s.endswith(")"):
-        inner = s[2:-1]
-    in_sql = _translate_in_expr(inner)
-    # turn 'col IN (...)' into 'col NOT IN (...)'
-    return in_sql.replace(" IN ", " NOT IN ")
-
-
-def _is_between_expr(expr_str: str) -> bool:
-    return (
-        (" & " in expr_str)
-        and any(op in expr_str for op in [" >= ", " > "])
-        and any(op in expr_str for op in [" <= ", " < "])
-    )
-
-
-def _translate_between_expr(expr_str: str) -> str:
-    parts = _split_on(expr_str, " & ")
-    if len(parts) != 2:
-        raise SqlPredicateBuildError(f"Cannot parse BETWEEN: {expr_str}")
-    l_col, l_op, l_val = _parse_comparison(parts[0])
-    r_col, r_op, r_val = _parse_comparison(parts[1])
-    if l_col != r_col:
-        raise SqlPredicateBuildError("BETWEEN parts refer to different columns")
-    col = l_col
-    _validate_column_operator(col, "BETWEEN")
-    # Determine bounds regardless of ordering
-    lower = l_val if l_op in (">", ">=") else r_val
-    upper = r_val if r_op in ("<", "<=") else l_val
-    return (
-        f'"{col}" BETWEEN {_to_sql_number(col, lower)} AND {_to_sql_number(col, upper)}'
-    )
-
-
-def _is_not_null_expr(expr_str: str) -> bool:
-    return ".is_not_null()" in expr_str
-
-
-def _translate_not_null_expr(expr_str: str) -> str:
-    col = _extract_column_name(expr_str.split(".is_not_null()", 1)[0])
-    return f'"{col}" IS NOT NULL'
-
-
-def _is_null_expr(expr_str: str) -> bool:
-    return ".is_null()" in expr_str
-
-
-def _translate_null_expr(expr_str: str) -> str:
-    col = _extract_column_name(expr_str.split(".is_null()", 1)[0])
-    return f'"{col}" IS NULL'
-
-
-# Helpers
-
-
-def _extract_column_name(col_expr: str) -> str:
-    s = col_expr.strip().strip("()").strip()
-    for pat in [r'col\("([^"]+)"\)', r"col\('([^']+)'\)"]:
-        m = re.search(pat, s)
-        if m:
-            return m.group(1)
-    # Sometimes string form may already be bare column
-    return s
-
-
-def _extract_sql_literal(literal_expr: str) -> str:
-    s = literal_expr.strip()
-    # Strip parentheses
-    if s.startswith("(") and s.endswith(")"):
-        s = s[1:-1].strip()
-    # Strip Polars debug prefixes like 'dyn int:'
-    if ":" in s:
-        head, tail = s.split(":", 1)
-        head_l = head.strip().lower()
-        if head_l.startswith("dyn ") or head_l in {
-            "int",
-            "float",
-            "string",
-            "lit",
-            "literal",
-        }:
-            s = tail.strip()
-    # String literal
-    if (s.startswith('"') and s.endswith('"')) or (
-        s.startswith("'") and s.endswith("'")
-    ):
-        return _quote_string(s[1:-1])
-    # Boolean
-    if s.lower() in ("true", "false"):
-        return s.upper()
-    # Numeric (leave unquoted)
+    Polars uses the same serialized ``And``/``Or``/``Not`` nodes for boolean
+    logic and integer bitwise operations. Validate those nodes first, then use
+    the shared structured translator rather than parsing ``str(predicate)``.
+    """
+    if not isinstance(predicate, pl.Expr):
+        raise SqlPredicateBuildError("predicate must be a Polars expression")
     try:
-        float(s)  # validate numeric
-        return s
-    except Exception:
-        pass
-    # Fallback: quote as string
-    return _quote_string(s)
+        serialized_ast = predicate.meta.serialize(format="json")
+        ast = json.loads(serialized_ast)
+    except Exception as exc:
+        # Polars may fail to serialize unsupported expressions (for example,
+        # map_elements without cloudpickle). Keep this catch scoped to the
+        # serialization/decode step so callers can safely fall back.
+        raise SqlPredicateBuildError(f"could not serialize predicate: {exc}") from exc
 
-
-def _to_sql_number(column: str, value: Any) -> str:
-    # value may already be numeric; ensure output is numeric literal (no quotes)
-    if isinstance(value, (int, float)):
-        return str(value)
+    _validate_logical_operators(ast)
     try:
-        return str(int(value)) if "." not in str(value) else str(float(value))
-    except Exception:
-        return str(value)
+        # TODO: pass the validated AST to the planner to avoid serializing it twice.
+        plan = plan_predicate_pushdown(
+            predicate,
+            string_cols=GFF_STRING_COLUMNS,
+            uint32_cols=GFF_UINT32_COLUMNS,
+            float32_cols=GFF_FLOAT32_COLUMNS,
+        )
+    except SqlPredicateBuildError:
+        raise
+    except PredicateTranslationError as exc:
+        raise SqlPredicateBuildError(f"could not translate predicate: {exc}") from exc
 
-
-def _quote_string(val: str) -> str:
-    return "'" + val.replace("'", "''") + "'"
-
-
-def _validate_column_operator(column: str, operator: str) -> None:
-    if column in GFF_STRING_COLUMNS or column not in GFF_STATIC_COLUMNS:
-        if operator not in ("=", "!=", "IN", "NOT IN"):
-            raise SqlPredicateBuildError(
-                f"Column '{column}' (String) unsupported op '{operator}'"
-            )
-    elif column in GFF_UINT32_COLUMNS or column in GFF_FLOAT32_COLUMNS:
-        if operator not in ("=", "!=", "<", "<=", ">", ">=", "BETWEEN"):
-            raise SqlPredicateBuildError(
-                f"Column '{column}' (Numeric) unsupported op '{operator}'"
-            )
-
-
-def _parse_comparison(comp_str: str) -> tuple[str, str, Any]:
-    s = comp_str.strip().strip("()")
-    for op in [" >= ", " <= ", " > ", " < ", " == ", " != "]:
-        if op in s:
-            left, right = s.split(op, 1)
-            col = _extract_column_name(left)
-            lit = _extract_sql_literal(right)
-            return col, op.strip(), lit
-    raise SqlPredicateBuildError(f"Cannot parse comparison: {comp_str}")
-
-
-def _split_on(expr: str, sep: str) -> List[str]:
-    parts: List[str] = []
-    cur = ""
-    depth = 0
-    i = 0
-    while i < len(expr):
-        if expr[i] == "(":
-            depth += 1
-        elif expr[i] == ")":
-            depth -= 1
-        if depth == 0 and expr[i : i + len(sep)] == sep:
-            parts.append(cur)
-            cur = ""
-            i += len(sep)
-            continue
-        cur += expr[i]
-        i += 1
-    parts.append(cur)
-    return [p.strip().strip("()") for p in parts if p.strip()]
-
-
-def _mock_expr(s: str) -> pl.Expr:
-    class E:
-        def __init__(self, expr_str: str) -> None:
-            self._s = expr_str
-
-        def __str__(self) -> str:
-            return self._s
-
-    return E(s)
+    if not plan.fully_translated or not plan.pushdown_sql:
+        raise SqlPredicateBuildError(
+            "predicate is not fully supported for SQL pushdown"
+        )
+    return plan.pushdown_sql

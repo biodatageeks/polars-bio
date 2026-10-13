@@ -19,6 +19,8 @@ def test_sql_translation_in_and_between():
     # BETWEEN collapsing from >= and <=
     between_pred = (pl.col("start") >= 1000) & (pl.col("start") <= 2000)
     where2 = _build_sql_where_from_predicate_safe(between_pred)
+    # The AST translator currently keeps this as two comparisons; the old builder
+    # collapsed them to BETWEEN, which could be revisited as an optimization.
     assert ("BETWEEN" in where2) or ('"start" >=' in where2 and '"start" <=' in where2)
 
 
