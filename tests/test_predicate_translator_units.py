@@ -353,6 +353,27 @@ def test_dynamic_float_literal_cast_preserves_datafusion_equality():
     assert sum(batch.num_rows for batch in batches) == 1
 
 
+def test_dynamic_float_literal_cast_when_literal_is_on_left():
+    assert emit(pl.lit(1.5) > pl.col("score")) == '(CAST(1.5 AS REAL) > "score")'
+
+
+def test_float64_literal_keeps_its_type_for_float32_column():
+    import pyarrow as pa
+    from datafusion import SessionContext
+
+    predicate = pl.col("score") == pl.lit(0.1, dtype=pl.Float64)
+    sql = emit(predicate)
+    assert sql == '("score" = 0.1)'
+
+    ctx = SessionContext()
+    df = ctx.from_pydict({"score": pa.array([0.1, 0.2], type=pa.float32())})
+    batches = df.filter(df.parse_sql_expr(sql)).collect()
+    assert sum(batch.num_rows for batch in batches) == 0
+
+    polars_df = pl.DataFrame({"score": pl.Series([0.1, 0.2], dtype=pl.Float32)})
+    assert polars_df.filter(predicate).height == 0
+
+
 def test_float32_is_in_values_retain_their_type():
     sql = emit(pl.col("score").is_in([np.float32(0.1)]))
     assert sql == '("score" IN (CAST(0.10000000149011612 AS REAL)))'

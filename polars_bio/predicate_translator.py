@@ -266,6 +266,13 @@ def _is_float32_column(node: dict, float32_cols) -> bool:
     )
 
 
+def _literal_kind(body: dict) -> Optional[str]:
+    wrapper = body.get("Scalar") or body.get("Dyn")
+    if not isinstance(wrapper, dict) or len(wrapper) != 1:
+        return None
+    return next(iter(wrapper))
+
+
 def _emit_comparison_operand(
     node: dict,
     other: dict,
@@ -279,6 +286,7 @@ def _emit_comparison_operand(
         and len(node) == 1
         and "Literal" in node
         and _is_float32_column(other, float32_cols)
+        and _literal_kind(node["Literal"]) == "Float"
     ):
         return _emit_literal(node["Literal"], float32=True)
     return _emit_sql(node, string_cols, uint32_cols, float32_cols, depth)
