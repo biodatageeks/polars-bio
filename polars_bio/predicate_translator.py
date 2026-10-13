@@ -150,7 +150,7 @@ _INT_LITERAL_KINDS = {
 _FLOAT_LITERAL_KINDS = {"Float", "Float32", "Float64"}
 
 
-def _emit_literal(body: dict) -> str:
+def _emit_literal(body: dict, *, float32: bool = False) -> str:
     wrapper = body.get("Scalar")
     if wrapper is None:
         wrapper = body.get("Dyn")
@@ -175,7 +175,7 @@ def _emit_literal(body: dict) -> str:
         # keep them client-side rather than emitting a bogus literal.
         if value is None or not _math.isfinite(float(value)):
             raise UnsupportedPredicate("non-finite float literal; pushdown unsafe")
-        return _sql_scalar(float(value), float32=kind == "Float32")
+        return _sql_scalar(float(value), float32=float32 or kind == "Float32")
     raise UnsupportedPredicate(f"unsupported literal kind: {kind}")
 
 
@@ -257,6 +257,33 @@ def _validate_comparison(left: dict, op: str, string_cols) -> None:
         )
 
 
+def _is_float32_column(node: dict, float32_cols) -> bool:
+    return (
+        bool(float32_cols)
+        and isinstance(node, dict)
+        and isinstance(node.get("Column"), str)
+        and node["Column"] in float32_cols
+    )
+
+
+def _emit_comparison_operand(
+    node: dict,
+    other: dict,
+    string_cols,
+    uint32_cols,
+    float32_cols,
+    depth: int,
+) -> str:
+    if (
+        isinstance(node, dict)
+        and len(node) == 1
+        and "Literal" in node
+        and _is_float32_column(other, float32_cols)
+    ):
+        return _emit_literal(node["Literal"], float32=True)
+    return _emit_sql(node, string_cols, uint32_cols, float32_cols, depth)
+
+
 # Cap recursion depth well below Python's default limit (~1000): a deeply
 # nested OR/comparison tree (which _flatten_and cannot split) would otherwise
 # recurse here until RecursionError, which escapes the planner and crashes
@@ -288,8 +315,24 @@ def _emit_sql(node: dict, string_cols, uint32_cols, float32_cols, depth=0) -> st
             # (e.g. pl.lit("a") > pl.col("chrom")).
             _validate_comparison(body["left"], op, string_cols)
             _validate_comparison(body["right"], op, string_cols)
-            left = _emit_sql(body["left"], string_cols, uint32_cols, float32_cols, d)
-            right = _emit_sql(body["right"], string_cols, uint32_cols, float32_cols, d)
+            left_node = body["left"]
+            right_node = body["right"]
+            left = _emit_comparison_operand(
+                left_node,
+                right_node,
+                string_cols,
+                uint32_cols,
+                float32_cols,
+                d,
+            )
+            right = _emit_comparison_operand(
+                right_node,
+                left_node,
+                string_cols,
+                uint32_cols,
+                float32_cols,
+                d,
+            )
             return f"({left} {_COMPARISON_SQL[op]} {right})"
         raise UnsupportedPredicate(f"unsupported binary op: {op}")
     if key == "Function":

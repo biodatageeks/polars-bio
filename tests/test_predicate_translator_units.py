@@ -32,7 +32,7 @@ def test_int_comparison_uses_dyn_literal():
 
 
 def test_float_comparison():
-    assert emit(pl.col("score") > 1.5) == '("score" > 1.5)'
+    assert emit(pl.col("score") > 1.5) == '("score" > CAST(1.5 AS REAL))'
 
 
 def test_boolean_literal():
@@ -332,6 +332,19 @@ def test_float32_literal_cast_preserves_datafusion_equality():
     from datafusion import SessionContext
 
     sql = emit(pl.col("score") == pl.lit(0.1, dtype=pl.Float32))
+    assert sql == '("score" = CAST(0.1 AS REAL))'
+
+    ctx = SessionContext()
+    df = ctx.from_pydict({"score": pa.array([0.1, 0.2], type=pa.float32())})
+    batches = df.filter(df.parse_sql_expr(sql)).collect()
+    assert sum(batch.num_rows for batch in batches) == 1
+
+
+def test_dynamic_float_literal_cast_preserves_datafusion_equality():
+    import pyarrow as pa
+    from datafusion import SessionContext
+
+    sql = emit(pl.col("score") == 0.1)
     assert sql == '("score" = CAST(0.1 AS REAL))'
 
     ctx = SessionContext()

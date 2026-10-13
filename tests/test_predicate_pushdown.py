@@ -111,12 +111,12 @@ class TestPredicatePushdownSQLGeneration:
     def test_simple_float_comparison(self):
         """Test simple float comparison predicates."""
         test_cases = [
-            (pl.col("score") > 50.5, '"score" > 50.5'),
+            (pl.col("score") > 50.5, '"score" > CAST(50.5 AS REAL)'),
             (
                 pl.col("score") <= 100.0,
-                '"score" <= 100.0',
+                '"score" <= CAST(100.0 AS REAL)',
             ),
-            (pl.col("score") == 75.25, '"score" = 75.25'),
+            (pl.col("score") == 75.25, '"score" = CAST(75.25 AS REAL)'),
         ]
 
         for predicate, expected_sql in test_cases:
