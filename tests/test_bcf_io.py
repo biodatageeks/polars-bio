@@ -3,6 +3,7 @@
 import inspect
 import json
 import shutil
+import warnings
 from contextlib import contextmanager
 
 import polars as pl
@@ -439,10 +440,14 @@ def test_bcf_path_is_supported_by_range_operations(tmp_path, extension: str):
     vcf_path = str(VCF_DIR / "ensembl.vcf")
     bcf_path = tmp_path / f"cohort{extension}"
     shutil.copyfile(BCF_DIR / "ensembl.bcf", bcf_path)
-    with pytest.warns(UserWarning, match="Coordinate system metadata is missing"):
+    # VCF/BCF paths are read with the global setting, so no warning is expected.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         expected = pb.overlap(vcf_path, vcf_path).collect()
-    with pytest.warns(UserWarning, match="Coordinate system metadata is missing"):
         actual = pb.overlap(str(bcf_path), str(bcf_path)).collect()
+    assert not [
+        w for w in caught if "Coordinate system metadata is missing" in str(w.message)
+    ]
 
     assert_frame_equal(actual.sort(actual.columns), expected.sort(expected.columns))
 
