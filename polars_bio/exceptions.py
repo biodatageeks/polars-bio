@@ -10,8 +10,8 @@ class CoordinateSystemMismatchError(Exception):
 
     Example:
         ```python
-        df1 = pb.scan_vcf("file1.vcf", one_based=False)  # 0-based
-        df2 = pb.scan_vcf("file2.vcf", one_based=True)   # 1-based
+        df1 = pb.scan_vcf("file1.vcf", use_zero_based=True)   # 0-based
+        df2 = pb.scan_vcf("file2.vcf", use_zero_based=False)  # 1-based
         pb.overlap(df1, df2)  # Raises CoordinateSystemMismatchError
         ```
     """

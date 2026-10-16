@@ -359,6 +359,23 @@ class TestCoordinateSystemMismatchError:
         assert "0-based" in str(exc_info.value)
         assert "1-based" in str(exc_info.value)
 
+    def test_mismatch_hint_names_existing_parameter(self):
+        """The suggested fix must name a parameter the scan_* functions accept."""
+        import inspect
+
+        vcf_path = "tests/data/io/vcf/ensembl.vcf"
+
+        lf_zero = pb.scan_vcf(vcf_path, use_zero_based=True)
+        lf_one = pb.scan_vcf(vcf_path, use_zero_based=False)
+
+        with pytest.raises(CoordinateSystemMismatchError) as exc_info:
+            validate_coordinate_systems(lf_zero, lf_one)
+
+        message = str(exc_info.value)
+        assert "use_zero_based" in message
+        assert "one_based" not in message.replace("use_zero_based", "")
+        assert "use_zero_based" in inspect.signature(pb.scan_vcf).parameters
+
     def test_validate_matching_coordinates(self):
         """Test that validate_coordinate_systems succeeds when coordinates match."""
         vcf_path = "tests/data/io/vcf/ensembl.vcf"
