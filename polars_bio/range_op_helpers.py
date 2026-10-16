@@ -423,12 +423,6 @@ def _validate_input_formats(df1, df2, output_type: str) -> None:
             _is_lazyframe_like(frames[0])
             and not set(path_suffixes(paths[0])) & _STREAMABLE_PATH_SUFFIXES
         ):
-            # Two inputs that are both known and disagree are a genuine
-            # coordinate-system mismatch; leave that for the coordinate check.
-            cs1, _ = _resolve_coordinate_system(df1)
-            cs2, _ = _resolve_coordinate_system(df2)
-            if cs1 is not None and cs2 is not None and cs1 != cs2:
-                return
             raise ValueError(
                 "Mixed LazyFrame + path streaming is only supported for CSV and Parquet inputs."
             )
