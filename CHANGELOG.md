@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `pb.scan_csv`, `pb.scan_parquet`, `pb.read_csv` and `pb.read_parquet`: wrap the Polars readers and record the coordinate system (`zero_based=` required), rename interval columns to `chrom`/`start`/`end`, derive `end` for point data (`end=None`) and optionally convert (`use_zero_based=`) (#486).
+- `scan_table` / `read_table` accept `zero_based=` and `use_zero_based=` (#486).
+
+### Changed
+- Range operations raise `MissingCoordinateSystemError` when one input carries coordinate-system metadata and the other does not (an untagged frame or a CSV/Parquet path), also in the default lenient mode. Previously the untagged input was assumed to use the global setting, which shifted results by one position for 0-based data (#486).
+- VCF/BCF paths passed to range operations are treated as using the global coordinate-system setting: no missing-metadata warning, and no error in strict mode.
+- Missing-metadata errors and warnings name the input, the assumed or conflicting system and the readers to use; unsupported inputs (BED paths, a LazyFrame combined with a VCF path) are reported before coordinate checks.
+
 ## [0.36.2] - 2026-10-13
 
 ### Fixed
