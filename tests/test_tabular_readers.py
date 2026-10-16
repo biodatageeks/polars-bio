@@ -205,3 +205,40 @@ def test_read_keeps_tag_after_collect(files):
     df = pb.read_csv(str(files / "bed.csv"), zero_based=True)
     assert get_coordinate_system(df) is True
     assert get_coordinate_system(df.lazy()) is True
+
+
+@pytest.fixture
+def bed_file(tmp_path):
+    path = tmp_path / "r.bed"
+    path.write_text("1\t101\t200\n1\t300\t400\n")
+    return str(path)
+
+
+def test_table_untagged_by_default(bed_file):
+    assert get_coordinate_system(pb.scan_table(bed_file, schema="bed3")) is None
+    assert get_coordinate_system(pb.read_table(bed_file, schema="bed3")) is None
+
+
+@pytest.mark.parametrize("reader", ["scan_table", "read_table"])
+def test_table_tagged_and_converted(bed_file, reader):
+    frame = getattr(pb, reader)(
+        bed_file, schema="bed3", zero_based=True, use_zero_based=False
+    )
+    assert get_coordinate_system(frame) is False
+    assert _rows(frame)["start"].to_list() == [102, 301]
+
+
+def test_table_tagged_without_conversion(bed_file):
+    lf = pb.scan_table(bed_file, schema="bed3", zero_based=True)
+    assert get_coordinate_system(lf) is True
+    assert _rows(lf)["start"].to_list() == [101, 300]
+
+
+def test_table_use_zero_based_requires_zero_based(bed_file):
+    with pytest.raises(ValueError, match="use_zero_based requires zero_based"):
+        pb.scan_table(bed_file, schema="bed3", use_zero_based=False)
+
+
+def test_table_zero_based_without_schema(bed_file):
+    with pytest.raises(ValueError, match="needs a 'start' column"):
+        pb.scan_table(bed_file, zero_based=True)
