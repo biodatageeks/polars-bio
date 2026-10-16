@@ -62,10 +62,11 @@ def _get_filter_op_from_metadata(
     Reads coordinate system from DataFrame metadata set at I/O time.
     Validates that both inputs have the same coordinate system.
 
-    The behavior when metadata is missing is controlled by the session parameter
-    `datafusion.bio.coordinate_system_check`:
-    - When "true" (default): Raises MissingCoordinateSystemError
-    - When "false": Falls back to `datafusion.bio.coordinate_system_zero_based` and emits a warning
+    Missing metadata is resolved by ``validate_coordinate_systems`` /
+    ``validate_coordinate_system_single``: lenient mode (the default,
+    ``datafusion.bio.coordinate_system_check = "false"``) falls back to
+    ``datafusion.bio.coordinate_system_zero_based`` with a warning, except that a
+    tagged input paired with an unknown one always raises; strict mode raises.
 
     Args:
         df1: First input DataFrame, LazyFrame, or file path.
@@ -77,7 +78,7 @@ def _get_filter_op_from_metadata(
 
     Raises:
         MissingCoordinateSystemError: If either input lacks coordinate system metadata
-            and datafusion.bio.coordinate_system_check is "true".
+            (see validate_coordinate_systems).
         CoordinateSystemMismatchError: If inputs have different coordinate systems.
     """
     zero_based = validate_coordinate_systems(df1, df2, ctx)
@@ -91,10 +92,11 @@ def _get_filter_op_from_metadata_single(
 
     Reads coordinate system from DataFrame metadata set at I/O time.
 
-    The behavior when metadata is missing is controlled by the session parameter
-    `datafusion.bio.coordinate_system_check`:
-    - When "true" (default): Raises MissingCoordinateSystemError
-    - When "false": Falls back to `datafusion.bio.coordinate_system_zero_based` and emits a warning
+    Missing metadata is resolved by ``validate_coordinate_systems`` /
+    ``validate_coordinate_system_single``: lenient mode (the default,
+    ``datafusion.bio.coordinate_system_check = "false"``) falls back to
+    ``datafusion.bio.coordinate_system_zero_based`` with a warning, except that a
+    tagged input paired with an unknown one always raises; strict mode raises.
 
     Args:
         df: Input DataFrame, LazyFrame, or file path.
@@ -105,7 +107,7 @@ def _get_filter_op_from_metadata_single(
 
     Raises:
         MissingCoordinateSystemError: If input lacks coordinate system metadata
-            and datafusion.bio.coordinate_system_check is "true".
+            (see validate_coordinate_systems).
     """
     zero_based = validate_coordinate_system_single(df, ctx)
     return FilterOp.Strict if zero_based else FilterOp.Weak
