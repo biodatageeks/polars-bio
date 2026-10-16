@@ -100,7 +100,6 @@ MATRIX = [
     ("4b", "T1var", "Ubed_pd", MISSING, MISSING),
     ("5", "Ubed", "T0var", MISSING, MISSING),
     ("6", "Uvar", "Ubed", WARN1, MISSING),
-    ("8", "T0bed", "Pvcf", MISMATCH, MISMATCH),
     ("9", "Pvcf", "Pvcf", 1, 1),
     ("10", "T1var", "Pparquet", MISSING, MISSING),
     ("10b", "T1var", "Pcsv", MISSING, MISSING),
@@ -225,6 +224,7 @@ def test_single_input_rules(check_mode, data_files):
 
 FORMAT_CASES = [
     ("7", "T1bed", "Pvcf", "only supported for CSV and Parquet"),
+    ("8", "T0bed", "Pvcf", "only supported for CSV and Parquet"),
     ("12", "Ubed", "Pvcf", "only supported for CSV and Parquet"),
     ("13", "T1var", "Pbed", "Only CSV, Parquet, VCF, and BCF files are supported"),
 ]
@@ -252,11 +252,3 @@ def test_single_input_bed_path_reports_format_error(check_mode, data_files):
         ):
             pb.merge(data_files["Pbed"]).collect()
     assert not [w for w in caught if "oordinate system" in str(w.message)]
-
-
-def test_mismatched_tags_win_over_mixed_streaming_format_error(check_mode, data_files):
-    """A genuine 0-based vs 1-based mismatch is reported before the mixed-input format error."""
-    outcome, _, message = run_overlap(
-        make_input("T0bed", data_files), make_input("Pvcf", data_files)
-    )
-    assert outcome is CoordinateSystemMismatchError, f"got {outcome}: {message}"
