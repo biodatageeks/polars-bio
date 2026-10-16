@@ -13,6 +13,7 @@ from ._metadata import (
     print_metadata_summary,
     set_source_metadata,
 )
+from ._tabular_io import read_csv, read_parquet, scan_csv, scan_parquet
 from .constants import (
     POLARS_BIO_COORDINATE_SYSTEM_CHECK,
     POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED,
@@ -224,6 +225,8 @@ __all__ = [
     "read_pairs",
     "read_gff",
     "read_gtf",
+    "read_csv",
+    "read_parquet",
     "read_table",
     "read_bcf",
     "read_bgen",
@@ -252,6 +255,8 @@ __all__ = [
     "scan_gff",
     "scan_gtf",
     "scan_pairs",
+    "scan_csv",
+    "scan_parquet",
     "scan_table",
     "scan_bcf",
     "scan_bgen",
