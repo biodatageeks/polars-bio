@@ -56,9 +56,9 @@ log = "0.4.22"
 tracing = { version = "0.1.41", features = ["log"] }
 futures-util = "0.3.31"
 
-datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "840ee8283dc9b677b5d3527eafe33254ed57b1da" }
 # Temporarily pinned to biodatageeks/datafusion-bio-formats#260 for CSI-aware BAM index discovery.
 # Switch back to a published release once #260 merges and the next release is available.
+datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "840ee8283dc9b677b5d3527eafe33254ed57b1da" }
 datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "840ee8283dc9b677b5d3527eafe33254ed57b1da" }
 datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "840ee8283dc9b677b5d3527eafe33254ed57b1da" }
 datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "840ee8283dc9b677b5d3527eafe33254ed57b1da" }
