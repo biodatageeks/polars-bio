@@ -499,3 +499,23 @@ def test_tagged_vcf_frame_with_same_vcf_path_is_rejected_up_front(
             with pytest.raises(ValueError, match="only supported"):
                 pb.overlap(scanned, vcf, output_type=out)
         assert not [w for w in caught if "oordinate system" in str(w.message)]
+
+
+@pytest.mark.parametrize(
+    "path_key, reader, absent",
+    [
+        ("Pbed", "pb.scan_bed(path)", "pb.scan_parquet"),
+        ("Pcsv", "pb.scan_csv(path, zero_based=", "pb.scan_parquet"),
+        ("Pparquet", "pb.scan_parquet(path, zero_based=", "pb.scan_bed"),
+    ],
+)
+def test_path_hint_matches_file_format(
+    check_mode, data_files, path_key, reader, absent
+):
+    # count_overlaps has no format pre-check, so a BED path reaches the hint.
+    with pytest.raises(MissingCoordinateSystemError) as excinfo:
+        pb.count_overlaps(_lf(VAR1, False), data_files[path_key]).collect()
+    message = str(excinfo.value)
+    assert "instead of the path" in message
+    assert reader in message
+    assert absent not in message

@@ -187,7 +187,7 @@ def get_coordinate_system(
 
 
 def _get_input_type_name(
-    df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str]
+    df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str],
 ) -> str:
     """Get a human-readable name for the input type."""
     if isinstance(df, pl.LazyFrame):
@@ -213,6 +213,24 @@ _READER_HINT = (
 )
 
 
+_ZERO_BASED_NOTE = "  (zero_based=True: 0-based half-open, e.g. BED; False: 1-based closed, e.g. VCF/GFF)"
+
+
+def _path_reader_hint(path: str) -> str:
+    """Reader suggestion for a file path, chosen by its suffix."""
+    suffixes = set(path_suffixes(path))
+    if ".bed" in suffixes:
+        return "  pb.scan_bed(path)   # BED intervals are 0-based half-open"
+    if ".csv" in suffixes:
+        return f"  pb.scan_csv(path, zero_based=True)   # or pb.read_csv\n{_ZERO_BASED_NOTE}"
+    if ".parquet" in suffixes:
+        return (
+            f"  pb.scan_parquet(path, zero_based=True)   # or pb.read_parquet\n"
+            f"{_ZERO_BASED_NOTE}"
+        )
+    return _READER_HINT
+
+
 def _get_metadata_hint(df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str]) -> str:
     """Get a hint on how to record the coordinate system for the given input type."""
     if isinstance(df, (pl.DataFrame, pl.LazyFrame)) or _has_config_meta(df):
@@ -233,7 +251,7 @@ def _get_metadata_hint(df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str])
         return (
             "This file is read without coordinate handling. Load it with a polars-bio reader "
             "that records the coordinate system and pass the frame instead of the path:\n"
-            f"{_READER_HINT}"
+            f"{_path_reader_hint(df)}"
         )
     if isinstance(df, str):
         return (
