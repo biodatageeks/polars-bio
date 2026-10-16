@@ -221,3 +221,42 @@ def test_single_input_rules(check_mode, data_files):
     else:
         with pytest.warns(UserWarning, match="Assuming 1-based"):
             pb.merge(_lf(BEDRAW)).collect()
+
+
+FORMAT_CASES = [
+    ("7", "T1bed", "Pvcf", "only supported for CSV and Parquet"),
+    ("12", "Ubed", "Pvcf", "only supported for CSV and Parquet"),
+    ("13", "T1var", "Pbed", "Only CSV, Parquet, VCF, and BCF files are supported"),
+]
+
+
+@pytest.mark.parametrize(
+    "case_id, left, right, match", FORMAT_CASES, ids=[c[0] for c in FORMAT_CASES]
+)
+def test_unsupported_inputs_report_format_error_first(
+    check_mode, data_files, case_id, left, right, match
+):
+    outcome, coord_warnings, message = run_overlap(
+        make_input(left, data_files), make_input(right, data_files)
+    )
+    assert outcome is ValueError, f"got {outcome}: {message}"
+    assert match in message
+    assert not coord_warnings, coord_warnings
+
+
+def test_single_input_bed_path_reports_format_error(check_mode, data_files):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(
+            ValueError, match="Only CSV, Parquet, VCF, and BCF files are supported"
+        ):
+            pb.merge(data_files["Pbed"]).collect()
+    assert not [w for w in caught if "oordinate system" in str(w.message)]
+
+
+def test_mismatched_tags_win_over_mixed_streaming_format_error(check_mode, data_files):
+    """A genuine 0-based vs 1-based mismatch is reported before the mixed-input format error."""
+    outcome, _, message = run_overlap(
+        make_input("T0bed", data_files), make_input("Pvcf", data_files)
+    )
+    assert outcome is CoordinateSystemMismatchError, f"got {outcome}: {message}"

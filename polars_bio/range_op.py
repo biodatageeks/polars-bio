@@ -19,7 +19,11 @@ from .interval_op_helpers import (
     read_df_to_datafusion,
 )
 from .logging import logger
-from .range_op_helpers import _validate_overlap_input, range_operation
+from .range_op_helpers import (
+    _validate_input_formats,
+    _validate_overlap_input,
+    range_operation,
+)
 
 try:
     import pandas as pd
@@ -228,6 +232,7 @@ class IntervalOperations:
         """
 
         _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type)
+        _validate_input_formats(df1, df2, output_type)
 
         # Get filter_op from DataFrame metadata
         filter_op = _get_filter_op_from_metadata(df1, df2)
@@ -315,6 +320,7 @@ class IntervalOperations:
         """
 
         _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type)
+        _validate_input_formats(df1, df2, output_type)
 
         # Get filter_op from DataFrame metadata
         filter_op = _get_filter_op_from_metadata(df1, df2)
@@ -393,6 +399,7 @@ class IntervalOperations:
         """
 
         _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type)
+        _validate_input_formats(df1, df2, output_type)
 
         # Get filter_op from DataFrame metadata
         filter_op = _get_filter_op_from_metadata(df1, df2)
@@ -636,6 +643,7 @@ class IntervalOperations:
         """
         suffixes = ("_1", "_2")
         _validate_overlap_input(cols, cols, on_cols, suffixes, output_type)
+        _validate_input_formats(df, None, output_type)
 
         # Get filter_op from DataFrame metadata
         filter_op = _get_filter_op_from_metadata_single(df)
@@ -696,6 +704,7 @@ class IntervalOperations:
         """
         suffixes = ("_1", "_2")
         _validate_overlap_input(cols, cols, None, suffixes, output_type)
+        _validate_input_formats(df, None, output_type)
 
         filter_op = _get_filter_op_from_metadata_single(df)
 
@@ -758,6 +767,7 @@ class IntervalOperations:
         """
         suffixes = ("_1", "_2")
         _validate_overlap_input(cols, cols, None, suffixes, output_type)
+        _validate_input_formats(df, None, output_type)
 
         filter_op = _get_filter_op_from_metadata_single(df)
 
@@ -835,6 +845,7 @@ class IntervalOperations:
         """
         suffixes = ("_1", "_2")
         _validate_overlap_input(cols1, cols2, None, suffixes, output_type)
+        _validate_input_formats(df1, df2, output_type)
 
         filter_op = _get_filter_op_from_metadata(df1, df2)
 

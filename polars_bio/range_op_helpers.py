@@ -13,10 +13,10 @@ from polars_bio.polars_bio import (
     range_operation_scan,
 )
 
-from ._metadata import set_coordinate_system
+from ._metadata import _is_file_path, _resolve_coordinate_system, set_coordinate_system
 from ._path_utils import path_suffixes
 from .logging import logger
-from .range_op_io import _df_to_reader, _get_schema, range_lazy_scan
+from .range_op_io import _df_to_reader, _get_schema, _is_lazyframe_like, range_lazy_scan
 
 try:
     import pandas as pd
@@ -397,3 +397,38 @@ def _validate_overlap_input(
     ], (
         "Only polars.LazyFrame, polars.DataFrame and pandas DataFrame are " "supported"
     )
+
+
+_SUPPORTED_PATH_SUFFIXES = frozenset({".parquet", ".csv", ".vcf", ".bcf"})
+_STREAMABLE_PATH_SUFFIXES = frozenset({".parquet", ".csv"})
+
+
+def _validate_input_formats(df1, df2, output_type: str) -> None:
+    """Reject unsupported input combinations before coordinate validation.
+
+    Mirrors the checks that would otherwise fail later in ``range_op_io`` so that
+    the real cause is reported instead of a coordinate-system error or warning.
+    ``df2`` is None for single-input operations.
+    """
+    inputs = [df for df in (df1, df2) if df is not None]
+    for df in inputs:
+        if isinstance(df, str) and _is_file_path(df):
+            suffixes = set(path_suffixes(df))
+            if suffixes and not suffixes & _SUPPORTED_PATH_SUFFIXES:
+                raise ValueError("Only CSV, Parquet, VCF, and BCF files are supported")
+    paths = [df for df in inputs if isinstance(df, str)]
+    frames = [df for df in inputs if not isinstance(df, str)]
+    if output_type == "polars.LazyFrame" and len(paths) == 1 and len(frames) == 1:
+        if (
+            _is_lazyframe_like(frames[0])
+            and not set(path_suffixes(paths[0])) & _STREAMABLE_PATH_SUFFIXES
+        ):
+            # Two inputs that are both known and disagree are a genuine
+            # coordinate-system mismatch; leave that for the coordinate check.
+            cs1, _ = _resolve_coordinate_system(df1)
+            cs2, _ = _resolve_coordinate_system(df2)
+            if cs1 is not None and cs2 is not None and cs1 != cs2:
+                return
+            raise ValueError(
+                "Mixed LazyFrame + path streaming is only supported for CSV and Parquet inputs."
+            )
