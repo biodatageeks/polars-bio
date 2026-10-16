@@ -1031,17 +1031,17 @@ hits = pb.overlap(pb.scan_vcf("variants.vcf"), regions)
 
 ### How range operations resolve coordinate systems
 
-Each input of a range operation is **tagged** (it carries coordinate-system metadata: polars-bio readers, results of range operations, frames tagged by hand), a **VCF/BCF path** (read with the global `datafusion.bio.coordinate_system_zero_based` setting) or **unknown** (an untagged frame, a CSV/Parquet path, a table without metadata).
+Each input of a range operation is **tagged** (it carries coordinate-system metadata: polars-bio readers, results of range operations, frames tagged by hand), a **VCF/BCF path** (read by the native VCF reader in the system it actually applies: the `zero_based` of the `VcfReadOptions` passed for that input through `read_options`/`read_options1`/`read_options2`, otherwise 0-based, the reader default; the global `datafusion.bio.coordinate_system_zero_based` setting does not apply) or **unknown** (an untagged frame, a CSV/Parquet path, a table without metadata).
 
 | Inputs | Lenient (default) | Strict |
 |---|---|---|
 | both known, same system | runs | runs |
 | both known, different systems | `CoordinateSystemMismatchError` | `CoordinateSystemMismatchError` |
 | one tagged, one unknown | `MissingCoordinateSystemError` | `MissingCoordinateSystemError` |
-| one VCF/BCF path, one unknown | warning, global setting | `MissingCoordinateSystemError` |
+| one VCF/BCF path, one unknown | warning; the unknown input assumes the global setting and must match the path's system, else `CoordinateSystemMismatchError` | `MissingCoordinateSystemError` |
 | both unknown | warning, global setting | `MissingCoordinateSystemError` |
 
-A tagged input paired with an unknown one always raises: polars-bio cannot tell whether the unknown input is 0-based or 1-based, and guessing would shift overlaps by one position. Unsupported inputs (for example a BED path, or a LazyFrame combined with a VCF path) are reported before any coordinate check.
+A tagged input paired with an unknown one always raises: polars-bio cannot tell whether the unknown input is 0-based or 1-based, and guessing would shift overlaps by one position. Unsupported inputs are reported before any coordinate check: BED paths (load them with `pb.scan_bed`), and any frame combined with a file path except a Polars LazyFrame with a CSV or Parquet path and `output_type="polars.LazyFrame"` (load the file with a polars-bio reader and pass the frame).
 
 ### Error handling
 

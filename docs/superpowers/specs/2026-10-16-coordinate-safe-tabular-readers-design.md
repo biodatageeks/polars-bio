@@ -37,8 +37,10 @@ recorded; the test suite carries its own helpers for this
 
 - Automatic coordinate conversion inside range operations (a mismatch stays an error).
 - Changing the default of `coordinate_system_check`.
-- Support for BED paths as range-op inputs (currently `ValueError: Only CSV, Parquet, VCF, and
-  BCF files are supported`); filed separately.
+- Support for BED paths as range-op inputs; filed separately. Two-input operations and
+  `cluster` already rejected them; `merge` and `complement` accepted them and computed results
+  with mismatched coordinates. All of them now raise `ValueError: Only CSV, Parquet, VCF, and BCF
+  files are supported` (the `merge`/`complement` change is called out in the changelog).
 - Preserving the tag through `group_by().agg()` and `pl.concat` (both drop it; with this design
   that surfaces as an error rather than a silent guess).
 
@@ -51,33 +53,51 @@ Each input resolves to one of three states:
 | Input | State |
 |---|---|
 | Polars/pandas frame with `coordinate_system_zero_based` metadata; registered table whose Arrow schema carries it | **tagged** (its value) |
-| VCF/BCF path (read by the native reader, which applies the global setting) | **native path** (global setting) |
+| VCF/BCF path (read by the native reader) | **native path** (the `zero_based` of the VCF read options passed for that input, else `True`, the reader default) |
 | Untagged frame; CSV/Parquet path (read by plain `pl.read_*`, no coordinate handling); registered table without metadata | **unknown** |
 
-A new private `_resolve_coordinate_system(df, ctx) -> tuple[Optional[bool], Optional[str]]`
-returns the value and the evidence (`"tag"`, `"native-path"`, or `None`). `get_coordinate_system`
-is unchanged (it reports metadata only).
+A new private `_resolve_coordinate_system(df, ctx=None, read_options=None) ->
+tuple[Optional[bool], Optional[str]]` returns the value and the evidence (`"tag"`,
+`"native-path"`, or `None`). `get_coordinate_system` is unchanged (it reports metadata only).
 
-`validate_coordinate_systems(df1, df2, ctx)` applies:
+A native path resolves to what the native reader actually applies, not to the global setting:
+range operations read VCF/BCF paths with the `VcfReadOptions` passed for that input, falling
+back to `VcfReadOptions::default()` (`zero_based = true`, `src/option.rs`), and the reader never
+consults `datafusion.bio.coordinate_system_zero_based`. Range operations therefore pass each
+input's read options to resolution, mirroring how `range_operation` applies them: `overlap`
+(`read_options1` → `df1`, `read_options2` → `df2`), `nearest` (`read_options` → `df1`),
+`coverage` (`read_options` → `df2`, since it calls `range_operation(df2, df1, ...)`);
+`count_overlaps`, `subtract`, `merge`, `cluster` and `complement` take no read options.
+Bare file names (`x.vcf.gz`, `x.bcf`) count as native paths.
+
+`validate_coordinate_systems(df1, df2, ctx=None, read_options1=None, read_options2=None)` applies:
 
 | Inputs | Lenient (default) | Strict |
 |---|---|---|
 | both known, same system | that system | that system |
 | both known, different | `CoordinateSystemMismatchError` | same |
 | one **tagged**, other unknown | **`MissingCoordinateSystemError`** (new) | same |
-| one **native path**, other unknown | `UserWarning`, global setting | `MissingCoordinateSystemError` |
+| one **native path**, other unknown | `UserWarning`; the unknown input assumes the global setting and must match the path, else `CoordinateSystemMismatchError` | `MissingCoordinateSystemError` |
 | both unknown | `UserWarning`, global setting | `MissingCoordinateSystemError` |
 
-A native path is known but carries no evidence beyond the global setting, so it does not trigger
-the mixed-case error. In strict mode a native path is no longer reported as missing (today
-`pb.overlap("a.vcf", "a.vcf")` raises in strict mode).
+A native path does not trigger the mixed-case error: the unknown side keeps the lenient
+fallback (warning, global setting), but the assumed system is still compared with the reader's,
+so the fallback can no longer filter 0-based VCF data as 1-based. In strict mode a native path is
+no longer reported as missing (today `pb.overlap("a.vcf", "a.vcf")` raises in strict mode), and a
+0-based registered VCF table paired with its own path no longer reports a false mismatch.
 
-`validate_coordinate_system_single(df, ctx)` uses the same resolution: tagged or native path →
-its value; unknown → warning (lenient) or error (strict).
+`validate_coordinate_system_single(df, ctx=None, read_options=None)` uses the same resolution:
+tagged or native path → its value; unknown → warning (lenient) or error (strict).
 
 **Ordering.** Input-format validation in the range-op path (unsupported extensions such as
-`.bed`, frame combined with a VCF path) must run before coordinate validation, so the reported
-error is the real cause. Today `_get_filter_op_from_metadata` runs first; the format checks that
+`.bed`, and every frame + path combination that fails later regardless of coordinates) must run
+before coordinate validation, so the reported error is the real cause. Probing every frame kind
+(Polars LazyFrame, Polars DataFrame, pandas) × path kind (CSV, Parquet, VCF) × output type for
+`overlap` and `nearest` showed that only a LazyFrame(-like) frame with a CSV or Parquet path and
+`output_type="polars.LazyFrame"` runs; the LazyFrame-output case with another path keeps
+"Mixed LazyFrame + path streaming is only supported for CSV and Parquet inputs.", every other
+combination raises "A frame combined with a file path is only supported for a Polars LazyFrame
+with a CSV or Parquet path and output_type='polars.LazyFrame'; ...". Today `_get_filter_op_from_metadata` runs first; the format checks that
 currently live in `range_op_helpers.py` / `range_op_io.py` are moved or duplicated ahead of it.
 
 ### 2. Tabular readers (new `polars_bio/_tabular_io.py`)
@@ -146,7 +166,7 @@ Hints by input type (`_get_metadata_hint`):
 |---|---|
 | Polars frame | `pb.scan_parquet`/`scan_csv`/`read_*` with `zero_based=`, or `df.config_meta.set(...)` |
 | pandas frame | `pb.read_csv`/`read_parquet` with `zero_based=`, or `df.attrs["coordinate_system_zero_based"]` |
-| CSV/Parquet path | pass `pb.scan_parquet(path, zero_based=...)` / `pb.scan_csv(...)` instead of the path |
+| file path | by suffix, instead of the path: `.bed` → `pb.scan_bed(path)`, `.csv` → `pb.scan_csv(path, zero_based=...)`, `.parquet` → `pb.scan_parquet(path, zero_based=...)`, other → the generic reader hint |
 | registered table | unchanged |
 
 **Lenient `UserWarning`:**
@@ -196,6 +216,11 @@ New `tests/test_coordinate_system_resolution.py`:
   | 7 | T1 | VCF path | ValueError (unsupported combination) | same |
   | 8 | T0 | VCF path | ValueError (unsupported combination) | same |
   | 9 | VCF path | VCF path | 1 row, no warning | 1 row |
+
+  Row 9 resolves both paths to the reader's system (0-based without VCF read options) under
+  either global setting; a separate test overlaps two adjacent SNVs (POS 101, 102) with
+  themselves and expects exactly 2 rows in both modes and under both global settings, and with
+  explicit `VcfReadOptions(zero_based=...)` on both sides.
   | 10 | T1 | Parquet path | Missing | Missing |
   | 10b | T1 | CSV path | Missing | Missing |
   | 11 | Parquet path | CSV path | warning, 1 row | Missing |
@@ -230,5 +255,9 @@ intended changes listed here).
 
 ## Release
 
-Ships as a `feat:` PR closing #486, in the next minor release. The behaviour change is limited
-to inputs whose result was ambiguous (rows 4, 4b, 5, 10, 10b) and is called out in the changelog.
+Ships as a `feat:` PR closing #486, in the next minor release. The behaviour changes are called
+out in the changelog: inputs whose result was ambiguous (rows 4, 4b, 5, 10, 10b) now raise; VCF/BCF
+paths resolve to the reader's coordinate system (0-based by default) instead of the global
+setting, which fixes self-overlaps and VCF-path pairings that were shifted by one position under
+the default 1-based setting; `merge` and `complement` no longer accept BED paths; unsupported
+frame + path combinations fail with a format error before any coordinate check.

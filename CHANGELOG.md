@@ -13,8 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Range operations raise `MissingCoordinateSystemError` when one input carries coordinate-system metadata and the other does not (an untagged frame or a CSV/Parquet path), also in the default lenient mode. Previously the untagged input was assumed to use the global setting, which shifted results by one position for 0-based data (#486).
-- VCF/BCF paths passed to range operations are treated as using the global coordinate-system setting: no missing-metadata warning, and no error in strict mode.
-- Missing-metadata errors and warnings name the input, the assumed or conflicting system and the readers to use; unsupported inputs (BED paths, a LazyFrame combined with a VCF path) are reported before coordinate checks.
+- VCF/BCF paths passed to range operations resolve to the coordinate system the native reader applies: the `zero_based` of the VCF read options passed for that input, otherwise 0-based (the reader default), independent of the global setting. No missing-metadata warning, and no error in strict mode. Previously a VCF path paired with itself or a 1-based input under the default 1-based setting was filtered as 1-based while read 0-based, shifting results by one position (#486).
+- `merge` and `complement` no longer accept BED file paths (their results were computed with mismatched coordinates); load the file with `pb.scan_bed` and pass the frame (#486).
+- Missing-metadata errors and warnings name the input, the assumed or conflicting system and the reader that matches the input's format; unsupported inputs (BED paths, and every frame + path combination other than a LazyFrame with a CSV/Parquet path and `output_type="polars.LazyFrame"`) are reported before coordinate checks (#486).
 
 ## [0.36.2] - 2026-10-13
 
