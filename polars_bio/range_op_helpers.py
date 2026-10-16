@@ -13,7 +13,7 @@ from polars_bio.polars_bio import (
     range_operation_scan,
 )
 
-from ._metadata import _is_file_path, _resolve_coordinate_system, set_coordinate_system
+from ._metadata import _is_file_path, set_coordinate_system
 from ._path_utils import path_suffixes
 from .logging import logger
 from .range_op_io import _df_to_reader, _get_schema, _is_lazyframe_like, range_lazy_scan
