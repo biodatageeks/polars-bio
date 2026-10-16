@@ -216,10 +216,13 @@ New `tests/test_coordinate_system_resolution.py`:
   - `tests/test_bcf_io.py::test_bcf_path_is_supported_by_range_operations` — no warning is
     expected for VCF/BCF paths any more.
   - `tests/test_lazyframe_partitioning.py::test_partitioned_lazy_stream_supports_mixed_lazy_and_path_inputs`
-    — tagged lazy frame + CSV path now raises; the test asserts the error and is extended with
-    the supported route (`pb.scan_csv(..., zero_based=False)` instead of the path). Its local
-    `_scan_csv_with_metadata`/`_read_csv_with_metadata` helpers are replaced by the public
-    readers.
+    — tagged lazy frame + CSV path now raises. The streaming test keeps its coverage by using an
+    untagged lazy side (both inputs unknown, lenient fallback), and a new test asserts that the
+    tagged combination raises. The local `_scan_csv_with_metadata`/`_read_csv_with_metadata`
+    helpers stay: they keep the files' `contig`/`pos_start`/`pos_end` names, which the public
+    readers would rename.
+  - Format pre-checks are not applied to `count_overlaps`, whose non-naive branch reads inputs
+    through `read_df_to_datafusion` with different rules.
 
 A throwaway prototype of sections 1, 2 (without `use_zero_based`) and 4 reproduced the matrix
 above and left the rest of the suite passing (1,908 passed; the four failures were the
