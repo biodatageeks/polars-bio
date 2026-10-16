@@ -252,3 +252,17 @@ def test_single_input_bed_path_reports_format_error(check_mode, data_files):
         ):
             pb.merge(data_files["Pbed"]).collect()
     assert not [w for w in caught if "oordinate system" in str(w.message)]
+
+
+def test_vepyr_style_flow(check_mode, tmp_path):
+    """A 1-based tagged frame (as vepyr produces) against a BED-like CSV."""
+    bed_csv = tmp_path / "regions.csv"
+    pl.DataFrame(BEDRAW).write_csv(bed_csv)
+    variants = _lf(VAR1, False)
+
+    with pytest.raises(MissingCoordinateSystemError, match="pb.scan_parquet"):
+        pb.overlap(variants, pl.read_csv(bed_csv)).collect()
+    with pytest.raises(CoordinateSystemMismatchError, match="use_zero_based"):
+        pb.overlap(variants, pb.scan_csv(str(bed_csv), zero_based=True)).collect()
+    regions = pb.scan_csv(str(bed_csv), zero_based=True, use_zero_based=False)
+    assert len(pb.overlap(variants, regions).collect()) == 0

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `pb.scan_csv`, `pb.scan_parquet`, `pb.read_csv` and `pb.read_parquet`: wrap the Polars readers and record the coordinate system (`zero_based=` required), rename interval columns to `chrom`/`start`/`end`, derive `end` for point data (`end=None`) and optionally convert (`use_zero_based=`) (#486).
+- `scan_table` / `read_table` accept `zero_based=` and `use_zero_based=` (#486).
+
+### Changed
+- Range operations raise `MissingCoordinateSystemError` when one input carries coordinate-system metadata and the other does not (an untagged frame or a CSV/Parquet path), also in the default lenient mode. Previously the untagged input was assumed to use the global setting, which shifted results by one position for 0-based data (#486).
+- VCF/BCF paths passed to range operations are treated as using the global coordinate-system setting: no missing-metadata warning, and no error in strict mode.
+- Missing-metadata errors and warnings name the input, the assumed or conflicting system and the readers to use; unsupported inputs (BED paths, a LazyFrame combined with a VCF path) are reported before coordinate checks.
+
 ### Fixed
 - `pb.set_option("datafusion.runtime.memory_limit", ...)` (and the other `datafusion.runtime.*` options) panicked the interpreter, and setting it on the Rust context was silently ignored. Runtime options now reconfigure the DataFusion `RuntimeEnv`, so sorts and aggregates spill or fail with `ResourcesExhausted` under the limit. The memory limit and temp directory also apply to `count_overlaps(..., naive_query=False)`. `pb.get_option()` reports the active runtime value (#484).
 - `pb.set_option()` raises `ValueError` for unknown or invalid `datafusion.*` options (outside `datafusion.bio.*`) instead of panicking (#484).

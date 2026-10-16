@@ -194,7 +194,7 @@ New `tests/test_coordinate_system_resolution.py`:
   | 5 | U | T0 | Missing | Missing |
   | 6 | U | U | warning, 1 row | Missing |
   | 7 | T1 | VCF path | ValueError (unsupported combination) | same |
-  | 8 | T0 | VCF path | Mismatch | Mismatch |
+  | 8 | T0 | VCF path | ValueError (unsupported combination) | same |
   | 9 | VCF path | VCF path | 1 row, no warning | 1 row |
   | 10 | T1 | Parquet path | Missing | Missing |
   | 10b | T1 | CSV path | Missing | Missing |
