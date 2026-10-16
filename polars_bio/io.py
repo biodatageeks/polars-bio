@@ -3582,7 +3582,14 @@ class IOOperations:
         return py_describe_cool(ctx, path).to_polars()
 
     @staticmethod
-    def read_table(path: str, schema: Dict = None, **kwargs) -> pl.DataFrame:
+    def read_table(
+        path: str,
+        schema: Dict = None,
+        *,
+        zero_based: Optional[bool] = None,
+        use_zero_based: Optional[bool] = None,
+        **kwargs,
+    ) -> pl.DataFrame:
         """
          Read a tab-delimited (i.e. BED) file into a Polars DataFrame.
          Tries to be compatible with Bioframe's [read_table](https://bioframe.readthedocs.io/en/latest/guide-io.html)
@@ -3591,11 +3598,30 @@ class IOOperations:
         Parameters:
             path: The path to the file.
             schema: Schema should follow the Bioframe's schema [format](https://github.com/open2c/bioframe/blob/2b685eebef393c2c9e6220dcf550b3630d87518e/bioframe/io/schemas.py#L174).
+            zero_based: Coordinate system of the data in the file (True: 0-based half-open, e.g. BED; False: 1-based closed). None (default) leaves the result untagged.
+            use_zero_based: Coordinate system of the result when `zero_based` is given. None keeps the source system; otherwise `start` is converted.
         """
-        return IOOperations.scan_table(path, schema, **kwargs).collect()
+        from ._tabular_io import _collect_with_metadata
+
+        return _collect_with_metadata(
+            IOOperations.scan_table(
+                path,
+                schema,
+                zero_based=zero_based,
+                use_zero_based=use_zero_based,
+                **kwargs,
+            )
+        )
 
     @staticmethod
-    def scan_table(path: str, schema: Dict = None, **kwargs) -> pl.LazyFrame:
+    def scan_table(
+        path: str,
+        schema: Dict = None,
+        *,
+        zero_based: Optional[bool] = None,
+        use_zero_based: Optional[bool] = None,
+        **kwargs,
+    ) -> pl.LazyFrame:
         """
          Lazily read a tab-delimited (i.e. BED) file into a Polars LazyFrame.
          Tries to be compatible with Bioframe's [read_table](https://bioframe.readthedocs.io/en/latest/guide-io.html)
@@ -3604,6 +3630,8 @@ class IOOperations:
         Parameters:
             path: The path to the file.
             schema: Schema should follow the Bioframe's schema [format](https://github.com/open2c/bioframe/blob/2b685eebef393c2c9e6220dcf550b3630d87518e/bioframe/io/schemas.py#L174).
+            zero_based: Coordinate system of the data in the file (True: 0-based half-open, e.g. BED; False: 1-based closed). None (default) leaves the result untagged.
+            use_zero_based: Coordinate system of the result when `zero_based` is given. None keeps the source system; otherwise `start` is converted.
         """
         df = pl.scan_csv(path, separator="\t", has_header=False, **kwargs)
         if schema is not None:
@@ -3614,7 +3642,21 @@ class IOOperations:
                 )
             for i, c in enumerate(columns):
                 df = df.rename({f"column_{i + 1}": c})
-        return df
+        if zero_based is None:
+            if use_zero_based is not None:
+                raise ValueError(
+                    "use_zero_based requires zero_based: declare the coordinate system of the file first."
+                )
+            return df
+        from ._tabular_io import _apply_coordinate_system
+
+        return _apply_coordinate_system(
+            df,
+            zero_based=zero_based,
+            use_zero_based=use_zero_based,
+            fmt="table",
+            source=path,
+        )
 
     @staticmethod
     def describe_vcf(
