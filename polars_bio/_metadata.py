@@ -12,6 +12,9 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import polars as pl
 
+from ._path_utils import path_suffixes
+from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemError
+
 if TYPE_CHECKING:
     import pandas as pd
 
@@ -25,9 +28,6 @@ def _is_pandas_dataframe(obj: Any) -> bool:
     except ImportError:
         return False
 
-
-from ._path_utils import path_suffixes
-from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemError
 
 # Metadata key used for coordinate system
 COORDINATE_SYSTEM_KEY = "coordinate_system_zero_based"
@@ -271,27 +271,48 @@ def _get_coordinate_system_check() -> bool:
     return value is not None and value.lower() == "true"
 
 
-# Paths read by polars-bio's native readers, which apply the global
-# datafusion.bio.coordinate_system_zero_based setting.
+# Paths read by polars-bio's native VCF/BCF reader in range operations.
 _NATIVE_PATH_SUFFIXES = frozenset({".vcf", ".bcf"})
 
 
+def _native_reader_zero_based(read_options=None) -> bool:
+    """Coordinate system the native VCF/BCF reader applies to a range-op path.
+
+    The reader uses the ``zero_based`` of the VCF read options passed for that
+    input; without them it falls back to ``VcfReadOptions::default()``, which is
+    0-based (src/option.rs). The global setting is not consulted.
+    """
+    vcf_options = getattr(read_options, "vcf_read_options", None)
+    if vcf_options is None:
+        return True
+    return bool(vcf_options.zero_based)
+
+
 def _resolve_coordinate_system(
-    df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str], ctx=None
+    df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str],
+    ctx=None,
+    read_options=None,
 ) -> tuple[Optional[bool], Optional[str]]:
     """Resolve an input's coordinate system for a range operation.
 
+    Args:
+        df: The range-operation input.
+        ctx: DataFusion context used to look up registered tables.
+        read_options: The ``ReadOptions`` the range operation passes for this input.
+
     Returns:
         ``(zero_based, evidence)``. ``evidence`` is ``"tag"`` for inputs carrying
-        coordinate-system metadata, ``"native-path"`` for VCF/BCF paths (read with
-        the global setting), or ``None`` when the system is unknown (untagged
+        coordinate-system metadata, ``"native-path"`` for VCF/BCF paths (resolved
+        to the ``zero_based`` of their VCF read options, or ``True``, the reader
+        default, without them), or ``None`` when the system is unknown (untagged
         frames, CSV/Parquet paths, tables without metadata); ``zero_based`` is
         ``None`` exactly when ``evidence`` is ``None``.
     """
-    if isinstance(df, str) and _is_file_path(df):
+    if isinstance(df, str):
         if _NATIVE_PATH_SUFFIXES.intersection(path_suffixes(df)):
-            return _get_global_zero_based(), "native-path"
-        return None, None
+            return _native_reader_zero_based(read_options), "native-path"
+        if _is_file_path(df):
+            return None, None
     zero_based = get_coordinate_system(df, ctx)
     return zero_based, ("tag" if zero_based is not None else None)
 
@@ -338,12 +359,17 @@ def validate_coordinate_systems(
     df1: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str],
     df2: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str],
     ctx=None,
+    read_options1=None,
+    read_options2=None,
 ) -> bool:
     """Resolve the shared coordinate system of two range-operation inputs.
 
     Each input is *tagged* (coordinate-system metadata), a *native path*
-    (VCF/BCF file, read with the global ``datafusion.bio.coordinate_system_zero_based``
-    setting) or *unknown* (untagged frame, CSV/Parquet path, table without metadata).
+    (VCF/BCF file, resolved to the ``zero_based`` of the VCF read options the
+    range operation passes for it, or 0-based, the reader default, without them)
+    or *unknown* (untagged frame, CSV/Parquet path, table without metadata).
+    ``read_options1``/``read_options2`` are the read options applied to
+    ``df1``/``df2``.
 
     - Both known: they must agree, otherwise ``CoordinateSystemMismatchError``.
     - One tagged, the other unknown: ``MissingCoordinateSystemError`` in every mode,
@@ -360,8 +386,8 @@ def validate_coordinate_systems(
         MissingCoordinateSystemError: See the rules above.
         CoordinateSystemMismatchError: If the inputs use different coordinate systems.
     """
-    cs1, evidence1 = _resolve_coordinate_system(df1, ctx)
-    cs2, evidence2 = _resolve_coordinate_system(df2, ctx)
+    cs1, evidence1 = _resolve_coordinate_system(df1, ctx, read_options1)
+    cs2, evidence2 = _resolve_coordinate_system(df2, ctx, read_options2)
     strict = _get_coordinate_system_check()
 
     if cs1 is None and cs2 is None:
@@ -373,8 +399,10 @@ def validate_coordinate_systems(
         missing_df, position = (df1, "first") if cs1 is None else (df2, "second")
         if strict or known_evidence == "tag":
             raise _missing_error(missing_df, known_cs, position)
-        # The known side is only a native path: no evidence beyond the global setting.
-        cs1 = cs2 = _warn_assumed([missing_df])
+        # The known side is a native path: the unknown side is assumed to use the
+        # global setting (with a warning) and must still agree with the reader.
+        assumed = _warn_assumed([missing_df])
+        cs1, cs2 = (assumed, cs2) if cs1 is None else (cs1, assumed)
 
     if cs1 != cs2:
         raise CoordinateSystemMismatchError(
@@ -389,17 +417,19 @@ def validate_coordinate_systems(
 def validate_coordinate_system_single(
     df: Union[pl.DataFrame, pl.LazyFrame, pd.DataFrame, str],
     ctx=None,
+    read_options=None,
 ) -> bool:
     """Resolve the coordinate system of a single range-operation input.
 
-    Tagged inputs and native (VCF/BCF) paths resolve to their system. An unknown
+    Tagged inputs and native (VCF/BCF) paths resolve to their system (for a
+    path, the ``zero_based`` of ``read_options``' VCF options, else 0-based). An unknown
     input uses the global setting with a ``UserWarning`` in lenient mode (the
     default) and raises ``MissingCoordinateSystemError`` in strict mode.
 
     Returns:
         True if 0-based coordinates, False if 1-based coordinates.
     """
-    zero_based, _ = _resolve_coordinate_system(df, ctx)
+    zero_based, _ = _resolve_coordinate_system(df, ctx, read_options)
     if zero_based is None:
         if _get_coordinate_system_check():
             raise _missing_error(df)

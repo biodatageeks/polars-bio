@@ -185,6 +185,9 @@ class TestMessages:
         ("/d/a.vcf.gz", "native-path"),
         ("/d/A.BCF", "native-path"),
         ("s3://bucket/a.vcf.gz?versionId=1", "native-path"),
+        ("x.vcf", "native-path"),
+        ("x.vcf.gz", "native-path"),
+        ("x.bcf", "native-path"),
         ("/d/a.csv", None),
         ("/d/a.csv.gz", None),
         ("/d/a.parquet", None),
@@ -195,7 +198,8 @@ def test_path_classification(path, evidence):
     pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, False)
     value, got = _resolve_coordinate_system(path)
     assert got == evidence
-    assert value == (False if evidence else None)
+    # Native paths resolve to the VCF reader default (0-based), not the global setting.
+    assert value == (True if evidence else None)
 
 
 def test_concat_drops_tag_and_raises_with_hint(check_mode, data_files):
@@ -266,3 +270,111 @@ def test_vepyr_style_flow(check_mode, tmp_path):
         pb.overlap(variants, pb.scan_csv(str(bed_csv), zero_based=True)).collect()
     regions = pb.scan_csv(str(bed_csv), zero_based=True, use_zero_based=False)
     assert len(pb.overlap(variants, regions).collect()) == 0
+
+
+# --- VCF/BCF paths resolve to the coordinate system the native reader applies ---
+
+ADJACENT_VCF_TEXT = (
+    "##fileformat=VCFv4.2\n##contig=<ID=1,length=1000>\n"
+    "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+    "1\t101\t.\tA\tG\t.\tPASS\t.\n"
+    "1\t102\t.\tC\tT\t.\tPASS\t.\n"
+)
+
+
+@pytest.fixture(scope="module")
+def adjacent_vcf(tmp_path_factory):
+    """Two adjacent, non-overlapping SNVs: a self-overlap must return exactly 2 rows."""
+    path = tmp_path_factory.mktemp("adjacent") / "adjacent.vcf"
+    path.write_text(ADJACENT_VCF_TEXT)
+    return str(path)
+
+
+def _vcf_options(zero_based):
+    return pb.ReadOptions(vcf_read_options=pb.VcfReadOptions(zero_based=zero_based))
+
+
+@pytest.fixture(params=[False, True], ids=["global-1based", "global-0based"])
+def global_zero_based(request):
+    pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, request.param)
+    yield request.param
+    pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, False)
+
+
+def test_vcf_path_self_overlap_is_not_shifted(
+    check_mode, global_zero_based, adjacent_vcf
+):
+    outcome, coord_warnings, message = run_overlap(adjacent_vcf, adjacent_vcf)
+    assert outcome == 2, message
+    assert not coord_warnings, coord_warnings
+
+
+@pytest.mark.parametrize("zero_based", [False, True])
+def test_vcf_path_follows_read_options(
+    check_mode, global_zero_based, adjacent_vcf, zero_based
+):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = pb.overlap(
+            adjacent_vcf,
+            adjacent_vcf,
+            read_options1=_vcf_options(zero_based),
+            read_options2=_vcf_options(zero_based),
+        ).collect()
+    assert len(result) == 2
+    assert sorted(result["start_1"].to_list()) == (
+        [100, 101] if zero_based else [101, 102]
+    )
+    assert not [w for w in caught if "oordinate system" in str(w.message)]
+
+
+@pytest.mark.parametrize(
+    "op",
+    [
+        lambda p, ro: pb.overlap(p, p, read_options1=ro),
+        lambda p, ro: pb.overlap(p, p, read_options2=ro),
+        lambda p, ro: pb.nearest(p, p, read_options=ro),
+        lambda p, ro: pb.coverage(p, p, read_options=ro),
+    ],
+    ids=["overlap-ro1", "overlap-ro2", "nearest", "coverage"],
+)
+def test_vcf_read_options_apply_per_input(check_mode, adjacent_vcf, op):
+    """Read options reach only one input, so the two VCF reads really disagree."""
+    with pytest.raises(CoordinateSystemMismatchError):
+        op(adjacent_vcf, _vcf_options(False))
+
+
+@pytest.mark.parametrize(
+    "path, expected", [("x.vcf", True), ("x.vcf.gz", True), ("x.bcf", True)]
+)
+def test_vcf_path_resolution_uses_reader_default(global_zero_based, path, expected):
+    assert _resolve_coordinate_system(path) == (expected, "native-path")
+    assert _resolve_coordinate_system(path, read_options=_vcf_options(False)) == (
+        False,
+        "native-path",
+    )
+    assert _resolve_coordinate_system(path, read_options=pb.ReadOptions()) == (
+        True,
+        "native-path",
+    )
+
+
+def test_registered_vcf_table_with_same_path(check_mode, adjacent_vcf):
+    pb.register_vcf(adjacent_vcf, "adjacent_vcf_table")
+    outcome, coord_warnings, message = run_overlap("adjacent_vcf_table", adjacent_vcf)
+    assert outcome == 2, message
+    assert not coord_warnings, coord_warnings
+
+
+@pytest.mark.parametrize("order", ["vcf-first", "vcf-second"])
+def test_vcf_path_with_unknown_path_lenient(global_zero_based, data_files, order):
+    """Lenient: the unknown side assumes the global setting and must agree with the reader."""
+    pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
+    pair = (data_files["Pvcf"], data_files["Pcsv"])
+    left, right = pair if order == "vcf-first" else pair[::-1]
+    outcome, coord_warnings, message = run_overlap(left, right)
+    assert coord_warnings, "expected a coordinate-system warning"
+    if global_zero_based:
+        assert outcome == 0, message
+    else:
+        assert outcome is CoordinateSystemMismatchError, f"got {outcome}: {message}"
