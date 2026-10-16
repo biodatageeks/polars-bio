@@ -356,7 +356,7 @@ def validate_coordinate_systems(
             f"first input uses {cs1_str} coordinates, "
             f"second input uses {cs2_str} coordinates. "
             f"Re-read one of the inputs with matching coordinate system "
-            f"(e.g., use one_based=True or one_based=False parameter)."
+            f"(e.g., use_zero_based=True or use_zero_based=False in scan_*/read_*)."
         )
 
     return cs1
