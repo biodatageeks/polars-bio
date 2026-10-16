@@ -418,11 +418,19 @@ def _validate_input_formats(df1, df2, output_type: str) -> None:
                 raise ValueError("Only CSV, Parquet, VCF, and BCF files are supported")
     paths = [df for df in inputs if isinstance(df, str)]
     frames = [df for df in inputs if not isinstance(df, str)]
-    if output_type == "polars.LazyFrame" and len(paths) == 1 and len(frames) == 1:
-        if (
-            _is_lazyframe_like(frames[0])
-            and not set(path_suffixes(paths[0])) & _STREAMABLE_PATH_SUFFIXES
-        ):
+    if len(paths) == 1 and len(frames) == 1:
+        # Only LazyFrame + CSV/Parquet path with LazyFrame output is streamed;
+        # every other frame + path combination fails later in range_operation.
+        lazy_output = output_type == "polars.LazyFrame"
+        if lazy_output and _is_lazyframe_like(frames[0]):
+            if not set(path_suffixes(paths[0])) & _STREAMABLE_PATH_SUFFIXES:
+                raise ValueError(
+                    "Mixed LazyFrame + path streaming is only supported for CSV and Parquet inputs."
+                )
+        else:
             raise ValueError(
-                "Mixed LazyFrame + path streaming is only supported for CSV and Parquet inputs."
+                "A frame combined with a file path is only supported for a Polars "
+                "LazyFrame with a CSV or Parquet path and output_type='polars.LazyFrame'; "
+                "load the file with a polars-bio reader (pb.scan_*/pb.read_*) and pass "
+                "the frame instead of the path."
             )

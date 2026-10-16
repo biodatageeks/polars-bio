@@ -378,3 +378,124 @@ def test_vcf_path_with_unknown_path_lenient(global_zero_based, data_files, order
         assert outcome == 0, message
     else:
         assert outcome is CoordinateSystemMismatchError, f"got {outcome}: {message}"
+
+
+# --- frame + path combinations: only LazyFrame + CSV/Parquet path with LazyFrame output ---
+
+# "chr1" contigs: a CSV column of "1" values would be inferred as Int64.
+CHR_BED = {"chrom": ["chr1"], "start": [101], "end": [200]}
+FRAME_KINDS = {
+    "pl.LazyFrame": lambda: pl.LazyFrame(CHR_BED, schema=SCHEMA),
+    "pl.DataFrame": lambda: pl.DataFrame(CHR_BED, schema=SCHEMA),
+    "pandas.DataFrame": lambda: pd.DataFrame(CHR_BED),
+}
+PATH_KINDS = {".csv": "csv", ".parquet": "parquet", ".vcf": "vcf"}
+OUTPUT_TYPES = ["polars.LazyFrame", "polars.DataFrame", "pandas.DataFrame"]
+FRAME_PATH_COMBOS = [
+    (frame, path, out, order)
+    for frame in FRAME_KINDS
+    for path in PATH_KINDS
+    for out in OUTPUT_TYPES
+    for order in ("frame-path", "path-frame")
+]
+
+
+def _frame_path_supported(frame, path, out):
+    return (
+        frame == "pl.LazyFrame"
+        and path in (".csv", ".parquet")
+        and out == OUTPUT_TYPES[0]
+    )
+
+
+@pytest.fixture(scope="module")
+def chr_files(tmp_path_factory):
+    d = tmp_path_factory.mktemp("frame_path")
+    pl.DataFrame(CHR_BED).write_csv(d / "r.csv")
+    pl.DataFrame(CHR_BED).write_parquet(d / "r.parquet")
+    (d / "v.vcf").write_text(
+        VCF_TEXT.replace("ID=1,", "ID=chr1,").replace("\n1\t101", "\nchr1\t150")
+    )
+    return {
+        "csv": str(d / "r.csv"),
+        "parquet": str(d / "r.parquet"),
+        "vcf": str(d / "v.vcf"),
+    }
+
+
+def _run_frame_path(op, files, frame, path, out, order):
+    left, right = FRAME_KINDS[frame](), files[PATH_KINDS[path]]
+    if order == "path-frame":
+        left, right = right, left
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        try:
+            result = getattr(pb, op)(left, right, output_type=out)
+            result = result.collect() if isinstance(result, pl.LazyFrame) else result
+            outcome, message = len(result), ""
+        except Exception as e:  # noqa: BLE001 - the outcome is the exception type
+            outcome, message = type(e), str(e)
+    coord_warnings = [
+        str(w.message) for w in caught if "oordinate system" in str(w.message)
+    ]
+    return outcome, coord_warnings, message
+
+
+REJECTED_FRAME_PATH = [
+    c for c in FRAME_PATH_COMBOS if not _frame_path_supported(*c[:3])
+]
+ALLOWED_FRAME_PATH = [c for c in FRAME_PATH_COMBOS if _frame_path_supported(*c[:3])]
+
+
+@pytest.mark.parametrize("op", ["overlap", "nearest"])
+@pytest.mark.parametrize(
+    "frame, path, out, order",
+    REJECTED_FRAME_PATH,
+    ids=["-".join(c) for c in REJECTED_FRAME_PATH],
+)
+def test_unsupported_frame_path_rejected_up_front(
+    check_mode, chr_files, op, frame, path, out, order
+):
+    outcome, coord_warnings, message = _run_frame_path(
+        op, chr_files, frame, path, out, order
+    )
+    assert outcome is ValueError, f"got {outcome}: {message}"
+    if frame == "pl.LazyFrame" and out == "polars.LazyFrame":
+        assert (
+            "Mixed LazyFrame + path streaming is only supported for CSV and Parquet"
+            in message
+        )
+    else:
+        assert "A frame combined with a file path is only supported" in message
+        assert "pb.scan_" in message
+    assert not coord_warnings, coord_warnings
+
+
+@pytest.mark.parametrize("op", ["overlap", "nearest"])
+@pytest.mark.parametrize(
+    "frame, path, out, order",
+    ALLOWED_FRAME_PATH,
+    ids=["-".join(c) for c in ALLOWED_FRAME_PATH],
+)
+def test_supported_frame_path_runs(chr_files, op, frame, path, out, order):
+    pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED, False)
+    pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_CHECK, False)
+    outcome, coord_warnings, message = _run_frame_path(
+        op, chr_files, frame, path, out, order
+    )
+    assert outcome == 1, message
+    assert coord_warnings, "untagged inputs warn in lenient mode"
+
+
+def test_tagged_vcf_frame_with_same_vcf_path_is_rejected_up_front(
+    check_mode, data_files
+):
+    """A 0-based scanned VCF plus its own path fails on the format, not on coordinates."""
+    vcf = data_files["Pvcf"]
+    scanned = pb.scan_vcf(vcf, use_zero_based=True)
+    for out in ("polars.LazyFrame", "polars.DataFrame"):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with pytest.raises(ValueError, match="only supported"):
+                pb.overlap(scanned, vcf, output_type=out)
+        assert not [w for w in caught if "oordinate system" in str(w.message)]
