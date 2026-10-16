@@ -180,6 +180,15 @@ class TestIOBAM:
         assert df.height == 3
         assert df["chrom"].to_list() == ["chr1", "chr1", "chr1"]
 
+        region_df = (
+            pb.scan_bam(str(bam_path), predicate_pushdown=True)
+            .filter(pl.col("chrom") == "chr1")
+            .select("name")
+            .collect()
+        )
+        assert region_df.height == 2
+        assert set(region_df["name"].to_list()) == {"r1", "r2"}
+
     def test_bam_sql_with_tags(self):
         """Test SQL queries with tags"""
         pb.register_bam(
