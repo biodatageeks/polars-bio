@@ -186,8 +186,8 @@ class TestIOBAM:
             .select("name")
             .collect()
         )
-        assert region_df.height == 2
-        assert set(region_df["name"].to_list()) == {"r1", "r2"}
+        assert region_df.height == 3
+        assert set(region_df["name"].to_list()) == {"r1", "r2", "r3"}
 
     def test_bam_sql_with_tags(self):
         """Test SQL queries with tags"""
