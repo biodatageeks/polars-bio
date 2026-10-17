@@ -26,10 +26,16 @@ class TestIOGTF:
             str(gtf_path), preset="gff", csi=True, force=True
         )
 
-        result = (
-            pb.scan_gtf(compressed_path).filter(pl.col("chrom") == "chr1").collect()
-        )
+        query = pb.scan_gtf(compressed_path).filter(pl.col("chrom") == "chr1")
+        result = query.collect()
         assert result["chrom"].to_list() == ["chr1"]
+
+        # The query provider discovers and opens the CSI index when the scan is
+        # constructed. Removing it before a second execution must fail instead
+        # of silently passing through the sequential-scan fallback.
+        Path(f"{compressed_path}.csi").unlink()
+        with pytest.raises(Exception, match="Failed to open indexed GTF"):
+            query.collect()
 
     def test_count(self):
         assert len(self.df) == 23
