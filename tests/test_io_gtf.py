@@ -1,4 +1,5 @@
 import gzip
+import logging
 import shutil
 
 import polars as pl
@@ -12,6 +13,26 @@ GTF_PATH = f"{DATA_DIR}/io/gtf/test.gtf"
 
 class TestIOGTF:
     df = pb.read_gtf(GTF_PATH)
+
+    def test_csi_index_region_scan(self, tmp_path, caplog):
+        """GTF CSI indexes are used for region-filtered scans."""
+        import pysam
+
+        gtf_path = tmp_path / "csi.gtf"
+        gtf_path.write_text(
+            'chr1\ttest\texon\t1\t10\t.\t+\t.\tgene_id "g1";\n'
+            'chr2\ttest\texon\t1\t10\t.\t+\t.\tgene_id "g2";\n'
+        )
+        compressed_path = pysam.tabix_index(
+            str(gtf_path), preset="gff", csi=True, force=True
+        )
+
+        caplog.set_level(logging.DEBUG)
+        result = (
+            pb.scan_gtf(compressed_path).filter(pl.col("chrom") == "chr1").collect()
+        )
+        assert result["chrom"].to_list() == ["chr1"]
+        assert "Indexed GTF scan:" in caplog.text
 
     def test_count(self):
         assert len(self.df) == 23
