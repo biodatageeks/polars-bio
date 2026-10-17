@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `pb.scan_csv`, `pb.scan_parquet`, `pb.read_csv` and `pb.read_parquet`: wrap the Polars readers and record the coordinate system (`zero_based=` required), rename interval columns to `chrom`/`start`/`end`, derive `end` for point data (`end=None`) and optionally convert (`use_zero_based=`) (#486).
+- `scan_table` / `read_table` accept `zero_based=` and `use_zero_based=` (#486).
+
+### Changed
+- Range operations raise `MissingCoordinateSystemError` when one input carries coordinate-system metadata and the other does not (an untagged frame or a CSV/Parquet path), also in the default lenient mode. Previously the untagged input was assumed to use the global setting, which shifted results by one position for 0-based data (#486).
+- VCF/BCF paths passed to range operations resolve to the coordinate system the native reader applies: the `zero_based` of the VCF read options passed for that input, otherwise 0-based (the reader default), independent of the global setting. No missing-metadata warning, and no error in strict mode. When a VCF/BCF path is paired with an input of unknown coordinate system (a CSV/Parquet path) in lenient mode, the unknown input is still assumed to use the global setting with a warning, so under the default 1-based setting the pair now raises `CoordinateSystemMismatchError` instead of returning shifted results. Previously a VCF path paired with itself or a 1-based input under the default 1-based setting was filtered as 1-based while read 0-based, shifting results by one position (#486).
+- `merge` and `complement` no longer accept BED file paths (their results were computed with mismatched coordinates); load the file with `pb.scan_bed` and pass the frame (#486).
+- Missing-metadata errors and warnings name the input, the assumed or conflicting system and the reader that matches the input's format; unsupported inputs (BED paths, and every frame + path combination other than a LazyFrame with a CSV/Parquet path and `output_type="polars.LazyFrame"`) are reported before coordinate checks (#486).
+
 ## [0.36.2] - 2026-10-13
 
 ### Fixed

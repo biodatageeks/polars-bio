@@ -19,7 +19,11 @@ from .interval_op_helpers import (
     read_df_to_datafusion,
 )
 from .logging import logger
-from .range_op_helpers import _validate_overlap_input, range_operation
+from .range_op_helpers import (
+    _validate_input_formats,
+    _validate_overlap_input,
+    range_operation,
+)
 
 try:
     import pandas as pd
@@ -56,20 +60,25 @@ def _parse_overlap_output_mode(
 def _get_filter_op_from_metadata(
     df1: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
     df2: Union[str, pl.DataFrame, pl.LazyFrame, "pd.DataFrame"],
+    read_options1: Union[ReadOptions, None] = None,
+    read_options2: Union[ReadOptions, None] = None,
 ) -> FilterOp:
     """Determine FilterOp based on coordinate system metadata from both inputs.
 
     Reads coordinate system from DataFrame metadata set at I/O time.
     Validates that both inputs have the same coordinate system.
 
-    The behavior when metadata is missing is controlled by the session parameter
-    `datafusion.bio.coordinate_system_check`:
-    - When "true" (default): Raises MissingCoordinateSystemError
-    - When "false": Falls back to `datafusion.bio.coordinate_system_zero_based` and emits a warning
+    Missing metadata is resolved by ``validate_coordinate_systems`` /
+    ``validate_coordinate_system_single``: lenient mode (the default,
+    ``datafusion.bio.coordinate_system_check = "false"``) falls back to
+    ``datafusion.bio.coordinate_system_zero_based`` with a warning, except that a
+    tagged input paired with an unknown one always raises; strict mode raises.
 
     Args:
         df1: First input DataFrame, LazyFrame, or file path.
         df2: Second input DataFrame, LazyFrame, or file path.
+        read_options1: Read options the range operation applies to df1.
+        read_options2: Read options the range operation applies to df2.
 
     Returns:
         FilterOp.Strict if inputs use 0-based coordinates,
@@ -77,10 +86,12 @@ def _get_filter_op_from_metadata(
 
     Raises:
         MissingCoordinateSystemError: If either input lacks coordinate system metadata
-            and datafusion.bio.coordinate_system_check is "true".
+            (see validate_coordinate_systems).
         CoordinateSystemMismatchError: If inputs have different coordinate systems.
     """
-    zero_based = validate_coordinate_systems(df1, df2, ctx)
+    zero_based = validate_coordinate_systems(
+        df1, df2, ctx, read_options1, read_options2
+    )
     return FilterOp.Strict if zero_based else FilterOp.Weak
 
 
@@ -91,10 +102,11 @@ def _get_filter_op_from_metadata_single(
 
     Reads coordinate system from DataFrame metadata set at I/O time.
 
-    The behavior when metadata is missing is controlled by the session parameter
-    `datafusion.bio.coordinate_system_check`:
-    - When "true" (default): Raises MissingCoordinateSystemError
-    - When "false": Falls back to `datafusion.bio.coordinate_system_zero_based` and emits a warning
+    Missing metadata is resolved by ``validate_coordinate_systems`` /
+    ``validate_coordinate_system_single``: lenient mode (the default,
+    ``datafusion.bio.coordinate_system_check = "false"``) falls back to
+    ``datafusion.bio.coordinate_system_zero_based`` with a warning, except that a
+    tagged input paired with an unknown one always raises; strict mode raises.
 
     Args:
         df: Input DataFrame, LazyFrame, or file path.
@@ -105,7 +117,7 @@ def _get_filter_op_from_metadata_single(
 
     Raises:
         MissingCoordinateSystemError: If input lacks coordinate system metadata
-            and datafusion.bio.coordinate_system_check is "true".
+            (see validate_coordinate_systems).
     """
     zero_based = validate_coordinate_system_single(df, ctx)
     return FilterOp.Strict if zero_based else FilterOp.Weak
@@ -226,9 +238,10 @@ class IntervalOperations:
         """
 
         _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type)
+        _validate_input_formats(df1, df2, output_type)
 
         # Get filter_op from DataFrame metadata
-        filter_op = _get_filter_op_from_metadata(df1, df2)
+        filter_op = _get_filter_op_from_metadata(df1, df2, read_options1, read_options2)
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
         cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
@@ -313,9 +326,11 @@ class IntervalOperations:
         """
 
         _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type)
+        _validate_input_formats(df1, df2, output_type)
 
-        # Get filter_op from DataFrame metadata
-        filter_op = _get_filter_op_from_metadata(df1, df2)
+        # Get filter_op from DataFrame metadata; read_options applies to df1
+        # (range_operation's first input).
+        filter_op = _get_filter_op_from_metadata(df1, df2, read_options, None)
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
         cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
@@ -391,9 +406,11 @@ class IntervalOperations:
         """
 
         _validate_overlap_input(cols1, cols2, on_cols, suffixes, output_type)
+        _validate_input_formats(df1, df2, output_type)
 
-        # Get filter_op from DataFrame metadata
-        filter_op = _get_filter_op_from_metadata(df1, df2)
+        # Get filter_op from DataFrame metadata; range_operation receives
+        # (df2, df1), so read_options applies to df2.
+        filter_op = _get_filter_op_from_metadata(df1, df2, None, read_options)
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
         cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
@@ -634,6 +651,7 @@ class IntervalOperations:
         """
         suffixes = ("_1", "_2")
         _validate_overlap_input(cols, cols, on_cols, suffixes, output_type)
+        _validate_input_formats(df, None, output_type)
 
         # Get filter_op from DataFrame metadata
         filter_op = _get_filter_op_from_metadata_single(df)
@@ -694,6 +712,7 @@ class IntervalOperations:
         """
         suffixes = ("_1", "_2")
         _validate_overlap_input(cols, cols, None, suffixes, output_type)
+        _validate_input_formats(df, None, output_type)
 
         filter_op = _get_filter_op_from_metadata_single(df)
 
@@ -756,6 +775,7 @@ class IntervalOperations:
         """
         suffixes = ("_1", "_2")
         _validate_overlap_input(cols, cols, None, suffixes, output_type)
+        _validate_input_formats(df, None, output_type)
 
         filter_op = _get_filter_op_from_metadata_single(df)
 
@@ -833,6 +853,7 @@ class IntervalOperations:
         """
         suffixes = ("_1", "_2")
         _validate_overlap_input(cols1, cols2, None, suffixes, output_type)
+        _validate_input_formats(df1, df2, output_type)
 
         filter_op = _get_filter_op_from_metadata(df1, df2)
 

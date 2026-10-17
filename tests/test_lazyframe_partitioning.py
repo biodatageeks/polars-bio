@@ -155,16 +155,11 @@ def _build_mixed_lazy_path_overlap_case(left_lazy: bool):
     )
 
     def factory() -> pl.LazyFrame:
-        left = (
-            _scan_csv_with_metadata(DF_OVER_PATH1, zero_based=False)
-            if left_lazy
-            else DF_OVER_PATH1
-        )
-        right = (
-            DF_OVER_PATH2
-            if left_lazy
-            else _scan_csv_with_metadata(DF_OVER_PATH2, zero_based=False)
-        )
+        # Untagged lazy side: a tagged frame paired with a CSV path raises
+        # MissingCoordinateSystemError (see test below), so both sides are unknown
+        # and the lenient fallback applies.
+        left = pl.scan_csv(DF_OVER_PATH1) if left_lazy else DF_OVER_PATH1
+        right = DF_OVER_PATH2 if left_lazy else pl.scan_csv(DF_OVER_PATH2)
         return pb.overlap(
             left,
             right,
@@ -456,6 +451,18 @@ def test_partitioned_lazy_stream_supports_mixed_lazy_and_path_inputs(left_lazy):
     _assert_same_rows(expected, result_single)
     _assert_same_rows(expected, result_partitioned)
     _assert_same_rows(result_single, result_partitioned)
+
+
+@pytest.mark.parametrize("left_lazy", [True, False], ids=["lazy+path", "path+lazy"])
+def test_tagged_lazy_with_csv_path_raises(left_lazy):
+    tagged = _scan_csv_with_metadata(
+        DF_OVER_PATH1 if left_lazy else DF_OVER_PATH2, zero_based=False
+    )
+    left, right = (tagged, DF_OVER_PATH2) if left_lazy else (DF_OVER_PATH1, tagged)
+    with pytest.raises(pb.MissingCoordinateSystemError, match="instead of the path"):
+        pb.overlap(
+            left, right, cols1=COLUMNS, cols2=COLUMNS, output_type="polars.LazyFrame"
+        )
 
 
 @pytest.mark.parametrize(
