@@ -147,6 +147,48 @@ class TestIOBAM:
         assert set(df["CB"].to_list()) == {"CELL1", "CELL2"}
         assert set(df["CR"].to_list()) == {"RAW1", "RAW2"}
 
+    def test_bam_scan_with_csi_only_index(self, tmp_path):
+        """A discovered CSI sidecar should be parsed as CSI, not BAI."""
+        bam_path = tmp_path / "csi_only.bam"
+        header = {
+            "HD": {"VN": "1.6", "SO": "coordinate"},
+            "SQ": [{"SN": "chr1", "LN": 10_000}],
+        }
+
+        with pysam.AlignmentFile(str(bam_path), "wb", header=header) as out:
+            reads = [("r1", 99, 0), ("r2", 199, 16), ("r3", 299, 0)]
+            for name, start, flag in reads:
+                record = pysam.AlignedSegment()
+                record.query_name = name
+                record.query_sequence = "ACGTACGTAC"
+                record.flag = flag
+                record.reference_id = 0
+                record.reference_start = start
+                record.mapping_quality = 30
+                record.cigarstring = "10M"
+                record.next_reference_id = -1
+                record.next_reference_start = -1
+                record.template_length = 0
+                record.query_qualities = pysam.qualitystring_to_array("IIIIIIIIII")
+                out.write(record)
+
+        pysam.index("-c", str(bam_path))
+        assert Path(f"{bam_path}.csi").exists()
+        assert not Path(f"{bam_path}.bai").exists()
+
+        df = pb.scan_bam(str(bam_path)).select("chrom").collect()
+        assert df.height == 3
+        assert df["chrom"].to_list() == ["chr1", "chr1", "chr1"]
+
+        region_df = (
+            pb.scan_bam(str(bam_path), predicate_pushdown=True)
+            .filter(pl.col("chrom") == "chr1")
+            .select("name")
+            .collect()
+        )
+        assert region_df.height == 3
+        assert set(region_df["name"].to_list()) == {"r1", "r2", "r3"}
+
     def test_bam_sql_with_tags(self):
         """Test SQL queries with tags"""
         pb.register_bam(
