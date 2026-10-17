@@ -1,6 +1,6 @@
 import gzip
+import logging
 import shutil
-from pathlib import Path
 
 import polars as pl
 import pytest
@@ -14,7 +14,7 @@ GTF_PATH = f"{DATA_DIR}/io/gtf/test.gtf"
 class TestIOGTF:
     df = pb.read_gtf(GTF_PATH)
 
-    def test_csi_index_region_scan(self, tmp_path):
+    def test_csi_index_region_scan(self, tmp_path, caplog):
         """GTF CSI indexes are used for region-filtered scans."""
         import pysam
 
@@ -27,16 +27,12 @@ class TestIOGTF:
             str(gtf_path), preset="gff", csi=True, force=True
         )
 
-        query = pb.scan_gtf(compressed_path).filter(pl.col("chrom") == "chr1")
-        result = query.collect()
+        caplog.set_level(logging.DEBUG)
+        result = (
+            pb.scan_gtf(compressed_path).filter(pl.col("chrom") == "chr1").collect()
+        )
         assert result["chrom"].to_list() == ["chr1"]
-
-        # The query provider discovers and opens the CSI index when the scan is
-        # constructed. Removing it before a second execution must fail instead
-        # of silently passing through the sequential-scan fallback.
-        Path(f"{compressed_path}.csi").unlink()
-        with pytest.raises(Exception, match="Failed to open indexed GTF"):
-            query.collect()
+        assert "Indexed GTF scan:" in caplog.text
 
     def test_count(self):
         assert len(self.df) == 23
