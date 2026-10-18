@@ -40,5 +40,5 @@ pb.set_option("datafusion.runtime.temp_directory", "/scratch/tmp")
 
 !!! note
     1. The limit covers DataFusion operators (SQL, interval operations, aggregates). It does not cover the final Polars `DataFrame` built by `.collect()`.
-    2. `pb.get_option()` and `information_schema.df_settings` report the active value. Use `pb.sql("RESET datafusion.runtime.memory_limit")` to remove the limit.
+    2. `pb.get_option()` and `information_schema.df_settings` report the active value. To remove the limit use `pb.sql("RESET datafusion.runtime.memory_limit")`: `"unlimited"` is not accepted as a value, and `"0M"` means a zero-byte limit, not "no limit".
     3. Other `datafusion.runtime.*` options (`max_temp_directory_size`, `metadata_cache_limit`, `list_files_cache_limit`, `list_files_cache_ttl`) are accepted too.

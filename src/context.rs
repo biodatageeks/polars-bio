@@ -94,6 +94,21 @@ impl PyBioSessionContext {
         }
     }
 
+    /// Returns the temp directories the session's disk manager currently
+    /// uses for spill files (empty until any exist in OS temp-dir mode).
+    ///
+    /// Reflects `SET`/`RESET datafusion.runtime.temp_directory` too.
+    #[pyo3(signature = ())]
+    pub fn runtime_temp_directories(&self) -> Vec<String> {
+        self.ctx
+            .runtime_env()
+            .disk_manager
+            .temp_dir_paths()
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect()
+    }
+
     /// Removes a previously registered table by name.
     #[pyo3(signature = (name))]
     pub fn deregister_table(&self, name: &str) -> PyResult<()> {
@@ -159,8 +174,9 @@ fn apply_option(ctx: &SessionContext, key: &str, value: &str) -> Result<()> {
         )));
     }
     let stmt = format!("SET {key} = '{}'", value.replace('\'', "''"));
-    // SET is executed eagerly while planning and does no I/O, so a plain
-    // executor is enough and is safe to use inside or outside a Tokio runtime.
+    // SET is executed eagerly while planning and needs no Tokio reactor, so a
+    // plain executor is enough. Unlike `Runtime::block_on`, it does not panic
+    // when the caller is already inside a Tokio runtime (see tests below).
     futures::executor::block_on(ctx.sql(&stmt)).map(|_| ())
 }
 
@@ -202,4 +218,43 @@ fn create_context() -> SessionContext {
     ctx.register_udtf("fastqc", std::sync::Arc::new(crate::fastqc::FastqcFunction));
 
     ctx
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn memory_limit(ctx: &SessionContext) -> Option<usize> {
+        match ctx.runtime_env().memory_pool.memory_limit() {
+            MemoryLimit::Finite(limit) => Some(limit),
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn runtime_option_reconfigures_runtime_env() {
+        let ctx = create_context();
+        assert_eq!(memory_limit(&ctx), None);
+        apply_option(&ctx, "datafusion.runtime.memory_limit", "64M").unwrap();
+        assert_eq!(memory_limit(&ctx), Some(64 * 1024 * 1024));
+    }
+
+    #[test]
+    fn runtime_option_can_be_set_from_inside_a_tokio_runtime() {
+        let ctx = create_context();
+        let rt = Runtime::new().unwrap();
+        rt.block_on(async {
+            apply_option(&ctx, "datafusion.runtime.memory_limit", "2M").unwrap();
+        });
+        assert_eq!(memory_limit(&ctx), Some(2 * 1024 * 1024));
+    }
+
+    #[test]
+    fn invalid_runtime_options_are_rejected() {
+        let ctx = create_context();
+        assert!(apply_option(&ctx, "datafusion.runtime.memory_limit", "64X").is_err());
+        assert!(apply_option(&ctx, "datafusion.runtime.no_such_option", "1").is_err());
+        assert!(apply_option(&ctx, "datafusion.runtime.memory_limit; DROP", "1").is_err());
+        assert_eq!(memory_limit(&ctx), None);
+    }
 }

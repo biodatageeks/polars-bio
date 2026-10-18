@@ -1,3 +1,6 @@
+import re
+from pathlib import Path
+
 import polars as pl
 import pytest
 
@@ -32,7 +35,6 @@ def reset_runtime():
     yield
     pb.sql(f"RESET {MEMORY_LIMIT}").collect()
     pb.sql(f"RESET {TEMP_DIRECTORY}").collect()
-    Context()._temp_directory = None
 
 
 def _df_setting(name):
@@ -66,7 +68,9 @@ def test_runtime_memory_limit_spills(reset_runtime):
     pb.set_option(MEMORY_LIMIT, "2M")
     plan = pb.sql(f"EXPLAIN ANALYZE {GROUP_BY_QUERY}").collect()
     metrics = plan[plan.columns[-1]][0]
-    assert "spill_count=0," not in metrics
+    spill_counts = [int(n) for n in re.findall(r"spill_count=(\d+)", metrics)]
+    assert spill_counts, f"no spill_count metric in EXPLAIN ANALYZE output:\n{metrics}"
+    assert max(spill_counts) > 0
     assert pb.sql(GROUP_BY_QUERY).collect().height == 1_000_000
 
 
@@ -94,6 +98,31 @@ def test_runtime_temp_directory(tmp_path, reset_runtime):
     pb.set_option(TEMP_DIRECTORY, str(tmp_path))
     # DataFusion creates its own `datafusion-XXXX` directory inside the path.
     assert pb.get_option(TEMP_DIRECTORY).startswith(str(tmp_path))
+
+
+def _py_ctx_spill_dirs(root):
+    """datafusion-python working dirs nested in the main context's ones."""
+    return list(Path(root).glob("datafusion-*/datafusion-*"))
+
+
+@pytest.mark.parametrize("via_sql", [False, True])
+def test_runtime_temp_directory_applies_to_interval_ctx(
+    tmp_path, via_sql, reset_runtime
+):
+    from polars_bio.interval_op_helpers import get_py_ctx
+
+    old_dir, new_dir = tmp_path / "old", tmp_path / "new"
+    old_dir.mkdir()
+    new_dir.mkdir()
+    pb.set_option(TEMP_DIRECTORY, str(old_dir))
+    if via_sql:
+        pb.sql(f"SET {TEMP_DIRECTORY} = '{new_dir}'").collect()
+    else:
+        pb.set_option(TEMP_DIRECTORY, str(new_dir))
+    py_ctx = get_py_ctx()  # holds its disk manager's working dir open
+    assert _py_ctx_spill_dirs(new_dir)
+    assert not _py_ctx_spill_dirs(old_dir)
+    del py_ctx
 
 
 def _intervals(n):

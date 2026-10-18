@@ -51,7 +51,6 @@ class Context:
 
         self.ctx.set_option("bio.interval_join_algorithm", "coitrees")
         self.config = datafusion.context.SessionConfig(datafusion_conf)
-        self._temp_directory = None
 
     def set_option(self, key, value):
         # The Rust/PyO3 binding expects option values as strings.
@@ -62,10 +61,6 @@ class Context:
             value = str(value)
         # Raises ValueError for unknown or invalid standard DataFusion options.
         self.ctx.set_option(key, value)
-        if key == _RUNTIME_PREFIX + "temp_directory":
-            # Track only an explicit setting: the live value reported by the
-            # RuntimeEnv also includes the OS temp dir once anything has spilled.
-            self._temp_directory = value
         # Only mirror standard DataFusion options to the Python SessionConfig.
         # Extension namespaces (e.g., `bio.*`, `datafusion.bio.*`) are handled
         # by the Rust context and are not recognized by Python bindings, which would panic.
@@ -82,17 +77,21 @@ class Context:
     def runtime_env_builder(self) -> datafusion.RuntimeEnvBuilder:
         """Build a datafusion-python RuntimeEnvBuilder mirroring the Rust context.
 
-        Only the memory limit and temp directory (when set via `set_option`)
-        are mirrored; the remaining `datafusion.runtime.*` options have no
-        datafusion-python equivalent.
+        Only the memory limit and temp directories are mirrored; the remaining
+        `datafusion.runtime.*` options have no datafusion-python equivalent.
+        Both are read from the live RuntimeEnv, so changes made through
+        `pb.sql("SET/RESET ...")` are picked up as well.
         """
         builder = datafusion.RuntimeEnvBuilder()
         memory_limit = self.ctx.runtime_memory_limit()
         if memory_limit is not None:
             # Same pool kind as DataFusion's `SET datafusion.runtime.memory_limit`.
             builder = builder.with_greedy_memory_pool(memory_limit)
-        if self._temp_directory is not None:
-            builder = builder.with_temp_file_path(self._temp_directory)
+        # The disk manager's own working dirs: `<temp_directory>/datafusion-XXXX`
+        # when one is set, or the OS temp-dir one once the session has spilled.
+        temp_directories = self.ctx.runtime_temp_directories()
+        if temp_directories:
+            builder = builder.with_disk_manager_specified(*temp_directories)
         return builder
 
     def get_option(self, key):
