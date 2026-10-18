@@ -119,7 +119,9 @@ def test_runtime_temp_directory_applies_to_interval_ctx(
         pb.sql(f"SET {TEMP_DIRECTORY} = '{new_dir}'").collect()
     else:
         pb.set_option(TEMP_DIRECTORY, str(new_dir))
-    py_ctx = get_py_ctx()  # holds its disk manager's working dir open
+    # A DiskManager in specified-directories mode creates its working dir
+    # eagerly on construction; holding py_ctx keeps that dir alive.
+    py_ctx = get_py_ctx()
     assert _py_ctx_spill_dirs(new_dir)
     assert not _py_ctx_spill_dirs(old_dir)
     del py_ctx

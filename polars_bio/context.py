@@ -89,6 +89,7 @@ class Context:
             builder = builder.with_greedy_memory_pool(memory_limit)
         # The disk manager's own working dirs: `<temp_directory>/datafusion-XXXX`
         # when one is set, or the OS temp-dir one once the session has spilled.
+        # The secondary context nests its own `datafusion-YYYY` dir inside them.
         temp_directories = self.ctx.runtime_temp_directories()
         if temp_directories:
             builder = builder.with_disk_manager_specified(*temp_directories)
