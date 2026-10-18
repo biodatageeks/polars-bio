@@ -32,6 +32,8 @@ class TestIOGTF:
             pb.scan_gtf(compressed_path).filter(pl.col("chrom") == "chr1").collect()
         )
         assert result["chrom"].to_list() == ["chr1"]
+        # Emitted at DEBUG by datafusion-bio-format-gtf's indexed scan path
+        # (physical_exec.rs, datafusion-bio-formats#261).
         assert "Indexed GTF scan:" in caplog.text
 
     def test_count(self):

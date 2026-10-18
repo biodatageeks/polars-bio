@@ -56,8 +56,9 @@ log = "0.4.22"
 tracing = { version = "0.1.41", features = ["log"] }
 futures-util = "0.3.31"
 
-# Pinned to merged biodatageeks/datafusion-bio-formats#261 for CSI-aware GTF index discovery.
-# Update to the next published release once it includes this merge.
+# Pinned to merged biodatageeks/datafusion-bio-formats#261 for CSI-aware GTF index discovery
+# (on top of #260, CSI-aware BAM index discovery).
+# Update to the next published release once it includes these merges.
 datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "4b58ea637ae572c7230659abaf4fa297220b3a93" }
 datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "4b58ea637ae572c7230659abaf4fa297220b3a93" }
 datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", rev = "4b58ea637ae572c7230659abaf4fa297220b3a93" }
