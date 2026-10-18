@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `pb.set_option("datafusion.runtime.memory_limit", ...)` (and the other `datafusion.runtime.*` options) panicked the interpreter, and setting it on the Rust context was silently ignored. Runtime options now reconfigure the DataFusion `RuntimeEnv`, so sorts and aggregates spill or fail with `ResourcesExhausted` under the limit. The memory limit and temp directory also apply to `count_overlaps(..., naive_query=False)`. `pb.get_option()` reports the active runtime value (#484).
+- `pb.set_option()` raises `ValueError` for unknown or invalid `datafusion.*` options (outside `datafusion.bio.*`) instead of panicking (#484).
+
 ## [0.36.2] - 2026-10-13
 
 ### Fixed

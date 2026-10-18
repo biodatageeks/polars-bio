@@ -29,7 +29,10 @@ def prevent_column_collision(
 
 
 def get_py_ctx() -> datafusion.context.SessionContext:
-    return datafusion.context.SessionContext(Context().config)
+    context = Context()
+    return datafusion.context.SessionContext(
+        context.config, context.runtime_env_builder()
+    )
 
 
 def read_df_to_datafusion(
