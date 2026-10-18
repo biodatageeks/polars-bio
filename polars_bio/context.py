@@ -12,6 +12,8 @@ from .constants import (
 )
 from .logging import logger
 
+_RUNTIME_PREFIX = "datafusion.runtime."
+
 
 def singleton(cls):
     """Decorator to make a class a singleton."""
@@ -57,16 +59,41 @@ class Context:
             value = "true" if value else "false"
         elif isinstance(value, numbers.Number):
             value = str(value)
+        # Raises ValueError for unknown or invalid standard DataFusion options.
         self.ctx.set_option(key, value)
         # Only mirror standard DataFusion options to the Python SessionConfig.
         # Extension namespaces (e.g., `bio.*`, `datafusion.bio.*`) are handled
         # by the Rust context and are not recognized by Python bindings, which would panic.
+        # `datafusion.runtime.*` options live on the RuntimeEnv, not SessionConfig;
+        # see `runtime_env_builder()`.
         if (
             isinstance(key, str)
             and key.startswith("datafusion.")
             and not key.startswith("datafusion.bio.")
+            and not key.startswith(_RUNTIME_PREFIX)
         ):
             self.config.set(key, value)
+
+    def runtime_env_builder(self) -> datafusion.RuntimeEnvBuilder:
+        """Build a datafusion-python RuntimeEnvBuilder mirroring the Rust context.
+
+        Only the memory limit and temp directories are mirrored; the remaining
+        `datafusion.runtime.*` options have no datafusion-python equivalent.
+        Both are read from the live RuntimeEnv, so changes made through
+        `pb.sql("SET/RESET ...")` are picked up as well.
+        """
+        builder = datafusion.RuntimeEnvBuilder()
+        memory_limit = self.ctx.runtime_memory_limit()
+        if memory_limit is not None:
+            # Same pool kind as DataFusion's `SET datafusion.runtime.memory_limit`.
+            builder = builder.with_greedy_memory_pool(memory_limit)
+        # The disk manager's own working dirs: `<temp_directory>/datafusion-XXXX`
+        # when one is set, or the OS temp-dir one once the session has spilled.
+        # The secondary context nests its own `datafusion-YYYY` dir inside them.
+        temp_directories = self.ctx.runtime_temp_directories()
+        if temp_directories:
+            builder = builder.with_disk_manager_specified(*temp_directories)
+        return builder
 
     def get_option(self, key):
         """Get the value of a configuration option.
@@ -87,10 +114,21 @@ def set_option(key, value):
         key (str): The configuration key.
         value (str | bool): The value to set (bool values are converted to "true"/"false").
 
+    Raises:
+        ValueError: If a standard DataFusion option (`datafusion.*` outside
+            `datafusion.bio.*`) is unknown or its value is invalid.
+
+    Note:
+        `datafusion.runtime.*` options (e.g. `datafusion.runtime.memory_limit`)
+        reconfigure the runtime environment, so memory-hungry operators such as
+        sorts and grouped aggregates spill to disk or fail with
+        `ResourcesExhausted` instead of growing without bound.
+
     Example:
         ```python
         import polars_bio as pb
         pb.set_option("datafusion.bio.coordinate_system_zero_based", False)
+        pb.set_option("datafusion.runtime.memory_limit", "4G")
         ```
     """
     Context().set_option(key, value)

@@ -26,3 +26,19 @@ Raising `target_partitions` allows more parallel work when the reader and input
 support it. It does not guarantee more source partitions or a speedup, and it can
 increase memory use. See [alignment and structure scaling limits](reading.md#alignment-and-structure-scaling-limits)
 for format-specific constraints.
+
+## Limiting memory
+
+By default the engine's memory pool is unbounded. Set `datafusion.runtime.memory_limit` to cap it, so memory-hungry operators such as sorts and grouped aggregates spill to disk instead of growing without bound (or fail with `ResourcesExhausted` when they cannot spill):
+
+```python
+import polars_bio as pb
+pb.set_option("datafusion.runtime.memory_limit", "4G")
+# Optional: where spill files go (defaults to the OS temp directory)
+pb.set_option("datafusion.runtime.temp_directory", "/scratch/tmp")
+```
+
+!!! note
+    1. The limit covers DataFusion operators (SQL, interval operations, aggregates). It does not cover the final Polars `DataFrame` built by `.collect()`.
+    2. `pb.get_option()` and `information_schema.df_settings` report the active value. To remove the limit use `pb.sql("RESET datafusion.runtime.memory_limit")`: `"unlimited"` is not accepted as a value, and `"0M"` means a zero-byte limit, not "no limit".
+    3. Other `datafusion.runtime.*` options (`max_temp_directory_size`, `metadata_cache_limit`, `list_files_cache_limit`, `list_files_cache_ttl`) are accepted too.
