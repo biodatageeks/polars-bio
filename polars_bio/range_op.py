@@ -189,13 +189,13 @@ class IntervalOperations:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
         Raises:
-            MissingCoordinateSystemError: If either input lacks coordinate system metadata
-                and `datafusion.bio.coordinate_system_check` is "true" (default). Use polars-bio
+            MissingCoordinateSystemError: If one tagged input is paired with an input whose
+                coordinate system is unknown (in any mode), or if any input's system is unknown
+                while strict checking is enabled
+                (`datafusion.bio.coordinate_system_check=true`; default is false). Use polars-bio
                 I/O functions (scan_*, read_*) which automatically set metadata, or set it manually
                 on Polars DataFrames via `df.config_meta.set(coordinate_system_zero_based=True/False)`
                 or on Pandas DataFrames via `df.attrs["coordinate_system_zero_based"] = True/False`.
-                Set `pb.set_option("datafusion.bio.coordinate_system_check", False)` to disable
-                strict checking and fall back to global coordinate system setting.
             CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
         Note:
@@ -304,15 +304,17 @@ class IntervalOperations:
             overlap: If True (default), include overlapping intervals in results. If False, only return non-overlapping nearest neighbors.
             distance: If True (default), include a `distance` column in the output. If False, omit it.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
-            read_options: Additional options for reading the input files.
+            read_options: Additional options for reading df1 (the first input).
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
         Raises:
-            MissingCoordinateSystemError: If either input lacks coordinate system metadata
-                and `datafusion.bio.coordinate_system_check` is "true" (default).
+            MissingCoordinateSystemError: If one tagged input is paired with an input whose
+                coordinate system is unknown (in any mode), or if any input's system is unknown
+                while strict checking is enabled
+                (`datafusion.bio.coordinate_system_check=true`; default is false).
             CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
         Note:
@@ -384,15 +386,17 @@ class IntervalOperations:
             suffixes: Suffixes for the columns of the two overlapped sets.
             on_cols: List of additional column names to join on. default is None.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
-            read_options: Additional options for reading the input files.
+            read_options: Additional options for reading df2 (the second input).
             projection_pushdown: Enable column projection pushdown to optimize query performance by only reading the necessary columns at the DataFusion level.
 
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
         Raises:
-            MissingCoordinateSystemError: If either input lacks coordinate system metadata
-                and `datafusion.bio.coordinate_system_check` is "true" (default).
+            MissingCoordinateSystemError: If one tagged input is paired with an input whose
+                coordinate system is unknown (in any mode), or if any input's system is unknown
+                while strict checking is enabled
+                (`datafusion.bio.coordinate_system_check=true`; default is false).
             CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
         Note:
@@ -468,8 +472,10 @@ class IntervalOperations:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
         Raises:
-            MissingCoordinateSystemError: If either input lacks coordinate system metadata
-                and `datafusion.bio.coordinate_system_check` is "true" (default).
+            MissingCoordinateSystemError: If one tagged input is paired with an input whose
+                coordinate system is unknown (in any mode), or if any input's system is unknown
+                while strict checking is enabled
+                (`datafusion.bio.coordinate_system_check=true`; default is false).
             CoordinateSystemMismatchError: If inputs have different coordinate systems.
 
         Example:
@@ -641,8 +647,8 @@ class IntervalOperations:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the overlapping intervals.
 
         Raises:
-            MissingCoordinateSystemError: If input lacks coordinate system metadata
-                and `datafusion.bio.coordinate_system_check` is "true" (default).
+            MissingCoordinateSystemError: If the input's coordinate system is unknown and strict
+                checking is enabled (`datafusion.bio.coordinate_system_check=true`; default is false).
 
         Example:
 
@@ -707,8 +713,8 @@ class IntervalOperations:
             interval columns plus ``cluster``, ``cluster_start``, ``cluster_end``.
 
         Raises:
-            MissingCoordinateSystemError: If input lacks coordinate system metadata
-                and ``datafusion.bio.coordinate_system_check`` is "true" (default).
+            MissingCoordinateSystemError: If the input's coordinate system is unknown and strict
+                checking is enabled (``datafusion.bio.coordinate_system_check=true``; default is false).
         """
         suffixes = ("_1", "_2")
         _validate_overlap_input(cols, cols, None, suffixes, output_type)
@@ -770,8 +776,8 @@ class IntervalOperations:
             intervals (contig, start, end).
 
         Raises:
-            MissingCoordinateSystemError: If input lacks coordinate system metadata
-                and ``datafusion.bio.coordinate_system_check`` is "true" (default).
+            MissingCoordinateSystemError: If the input's coordinate system is unknown and strict
+                checking is enabled (``datafusion.bio.coordinate_system_check=true``; default is false).
         """
         suffixes = ("_1", "_2")
         _validate_overlap_input(cols, cols, None, suffixes, output_type)
@@ -847,8 +853,10 @@ class IntervalOperations:
             remaining interval fragments (contig, start, end).
 
         Raises:
-            MissingCoordinateSystemError: If either input lacks coordinate system metadata
-                and ``datafusion.bio.coordinate_system_check`` is "true" (default).
+            MissingCoordinateSystemError: If one tagged input is paired with an input whose
+                coordinate system is unknown (in any mode), or if any input's system is unknown
+                while strict checking is enabled
+                (``datafusion.bio.coordinate_system_check=true``; default is false).
             CoordinateSystemMismatchError: If inputs have different coordinate systems.
         """
         suffixes = ("_1", "_2")

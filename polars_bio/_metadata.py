@@ -55,13 +55,14 @@ def _is_file_path(s: str) -> bool:
     Detects file paths by checking for:
     - Path separators (/, \\)
     - Relative path prefixes (./, ../)
-    - Common bioinformatics file extensions
+    - Common bioinformatics file extensions, including compressed files
     """
     import os
 
     common_extensions = {
         ".bed",
         ".vcf",
+        ".bcf",
         ".gff",
         ".gff3",
         ".bam",
@@ -69,12 +70,15 @@ def _is_file_path(s: str) -> bool:
         ".parquet",
         ".csv",
     }
-    _, ext = os.path.splitext(s.lower())
+    extensions = path_suffixes(s)
+    extension = extensions[-1] if extensions else None
+    if extension in {".gz", ".bgz"} and len(extensions) > 1:
+        extension = extensions[-2]
     return (
         os.path.sep in s
         or s.startswith("./")
         or s.startswith("../")
-        or ext in common_extensions
+        or extension in common_extensions
     )
 
 

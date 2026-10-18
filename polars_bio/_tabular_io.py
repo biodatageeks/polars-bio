@@ -26,7 +26,8 @@ def _check_bool(name: str, value, allow_none: bool = False) -> None:
 def _rename_interval_columns(
     lf: pl.LazyFrame, *, zero_based: bool, chrom: str, start: str, end, source
 ):
-    names = lf.collect_schema().names()
+    schema = lf.collect_schema()
+    names = schema.names()
     wanted = [("chrom", chrom), ("start", start)] + (
         [("end", end)] if end is not None else []
     )
@@ -52,7 +53,7 @@ def _rename_interval_columns(
     if renames:
         lf = lf.rename(renames)
     if end is None:
-        start_dtype = lf.collect_schema()["start"]
+        start_dtype = schema[start]
         derived = pl.col("start") + 1 if zero_based else pl.col("start")
         lf = lf.with_columns(derived.cast(start_dtype).alias("end"))
     return lf
@@ -71,8 +72,6 @@ def _apply_coordinate_system(
     ``zero_based`` declares the source system; ``use_zero_based`` selects the output
     system (``None`` keeps the source system). The tag records the output system.
     """
-    _check_bool("zero_based", zero_based)
-    _check_bool("use_zero_based", use_zero_based, allow_none=True)
     schema = lf.collect_schema()
     if "start" not in schema:
         raise ValueError(

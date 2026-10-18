@@ -13,7 +13,7 @@ from polars_bio.polars_bio import (
     range_operation_scan,
 )
 
-from ._metadata import _is_file_path, set_coordinate_system
+from ._metadata import set_coordinate_system
 from ._path_utils import path_suffixes
 from .logging import logger
 from .range_op_io import _df_to_reader, _get_schema, _is_lazyframe_like, range_lazy_scan
@@ -401,6 +401,16 @@ def _validate_overlap_input(
 
 _SUPPORTED_PATH_SUFFIXES = frozenset({".parquet", ".csv", ".vcf", ".bcf"})
 _STREAMABLE_PATH_SUFFIXES = frozenset({".parquet", ".csv"})
+_RECOGNIZED_PATH_SUFFIXES = (
+    frozenset({".bed", ".gff", ".gff3", ".bam", ".cram"}) | _SUPPORTED_PATH_SUFFIXES
+)
+_COMPRESSED_PATH_SUFFIXES = frozenset({".gz", ".bgz"})
+
+
+def _path_format_suffix(suffixes: tuple[str, ...]) -> str | None:
+    if suffixes and suffixes[-1] in _COMPRESSED_PATH_SUFFIXES and len(suffixes) > 1:
+        return suffixes[-2]
+    return suffixes[-1] if suffixes else None
 
 
 def _validate_input_formats(df1, df2, output_type: str) -> None:
@@ -412,9 +422,18 @@ def _validate_input_formats(df1, df2, output_type: str) -> None:
     """
     inputs = [df for df in (df1, df2) if df is not None]
     for df in inputs:
-        if isinstance(df, str) and _is_file_path(df):
-            suffixes = set(path_suffixes(df))
-            if suffixes and not suffixes & _SUPPORTED_PATH_SUFFIXES:
+        if isinstance(df, str):
+            suffixes = path_suffixes(df)
+            format_suffix = _path_format_suffix(suffixes)
+            has_path_separator = "/" in df or "\\" in df
+            looks_like_path = (
+                has_path_separator or format_suffix in _RECOGNIZED_PATH_SUFFIXES
+            )
+            if (
+                looks_like_path
+                and format_suffix is not None
+                and format_suffix not in _SUPPORTED_PATH_SUFFIXES
+            ):
                 raise ValueError("Only CSV, Parquet, VCF, and BCF files are supported")
     paths = [df for df in inputs if isinstance(df, str)]
     frames = [df for df in inputs if not isinstance(df, str)]
