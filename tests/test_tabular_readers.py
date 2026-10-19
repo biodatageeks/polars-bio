@@ -218,6 +218,18 @@ def test_128_bit_start_rejected(tmp_path, dtype):
         pb.scan_parquet(str(path), zero_based=True)
 
 
+@pytest.mark.parametrize("end_dtype", [pl.Int128, pl.UInt128, pl.Float64])
+def test_invalid_end_dtype_rejected(tmp_path, end_dtype):
+    path = tmp_path / "invalid_end.parquet"
+    pl.DataFrame(
+        {"chrom": ["1"], "start": [1], "end": [2]},
+        schema={"chrom": pl.String, "start": pl.Int64, "end": end_dtype},
+    ).write_parquet(path)
+
+    with pytest.raises(TypeError, match="Column 'end' must be an integer column"):
+        pb.scan_parquet(str(path), zero_based=True)
+
+
 def test_numeric_chromosome_is_cast_to_string(tmp_path):
     path = tmp_path / "numeric_chrom.csv"
     path.write_text("chrom,start,end\n1,10,11\n22,20,21\n")

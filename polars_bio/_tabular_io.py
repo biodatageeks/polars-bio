@@ -23,6 +23,13 @@ def _check_bool(name: str, value, allow_none: bool = False) -> None:
         raise TypeError(_BOOL_MESSAGE.format(name=name) + suffix + f"; got {value!r}")
 
 
+def _check_coordinate_dtype(name: str, dtype, source) -> None:
+    if not dtype.is_integer() or dtype in (pl.Int128, pl.UInt128):
+        raise TypeError(
+            f"Column '{name}' must be an integer column no wider than 64 bits, got {dtype} in {source!r}."
+        )
+
+
 def _rename_interval_columns(
     lf: pl.LazyFrame, *, zero_based: bool, chrom: str, start: str, end, source
 ):
@@ -66,7 +73,10 @@ def _rename_interval_columns(
         start_dtype = schema[start]
         derived = pl.col("start").cast(pl.Int128) + 1 if zero_based else pl.col("start")
         lf = lf.with_columns(derived.cast(start_dtype, strict=True).alias("end"))
-    return lf, schema[start]
+        end_dtype = start_dtype
+    else:
+        end_dtype = schema[end]
+    return lf, schema[start], end_dtype
 
 
 def _apply_coordinate_system(
@@ -77,23 +87,26 @@ def _apply_coordinate_system(
     fmt: str,
     source,
     start_dtype=None,
+    end_dtype=None,
 ) -> pl.LazyFrame:
     """Convert ``start`` to the requested output system and tag the frame.
 
     ``zero_based`` declares the source system; ``use_zero_based`` selects the output
     system (``None`` keeps the source system). The tag records the output system.
     """
-    if start_dtype is None:
+    if start_dtype is None or end_dtype is None:
         schema = lf.collect_schema()
-        if "start" not in schema:
+        if start_dtype is None and "start" not in schema:
             raise ValueError(
                 f"Recording a coordinate system needs a 'start' column; {source!r} has {schema.names()}."
             )
-        start_dtype = schema["start"]
-    if not start_dtype.is_integer() or start_dtype in (pl.Int128, pl.UInt128):
-        raise TypeError(
-            f"Column 'start' must be an integer column no wider than 64 bits, got {start_dtype} in {source!r}."
-        )
+        if start_dtype is None:
+            start_dtype = schema["start"]
+        if end_dtype is None and "end" in schema:
+            end_dtype = schema["end"]
+    _check_coordinate_dtype("start", start_dtype, source)
+    if end_dtype is not None:
+        _check_coordinate_dtype("end", end_dtype, source)
     lf = lf.with_columns(pl.col("chrom").cast(pl.String))
     out_zero_based = zero_based if use_zero_based is None else use_zero_based
     if out_zero_based != zero_based:
@@ -119,7 +132,7 @@ def _scan(
     _check_bool("zero_based", zero_based)
     _check_bool("use_zero_based", use_zero_based, allow_none=True)
     lf = reader(source, **polars_kwargs)
-    lf, start_dtype = _rename_interval_columns(
+    lf, start_dtype, end_dtype = _rename_interval_columns(
         lf, zero_based=zero_based, chrom=chrom, start=start, end=end, source=source
     )
     return _apply_coordinate_system(
@@ -129,6 +142,7 @@ def _scan(
         fmt=fmt,
         source=source,
         start_dtype=start_dtype,
+        end_dtype=end_dtype,
     )
 
 
