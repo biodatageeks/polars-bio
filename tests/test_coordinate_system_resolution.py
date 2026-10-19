@@ -261,6 +261,21 @@ def test_single_input_bed_path_reports_format_error(check_mode, data_files):
     assert not [w for w in caught if "oordinate system" in str(w.message)]
 
 
+@pytest.mark.parametrize(
+    "invoke",
+    [
+        lambda: pb.merge("regions.tsv"),
+        lambda: pb.overlap("regions.csv", "regions.tsv"),
+    ],
+    ids=["single-input", "two-paths"],
+)
+def test_bare_unsupported_suffix_reports_format_error_first(check_mode, invoke):
+    with pytest.raises(
+        ValueError, match="Only CSV, Parquet, VCF, and BCF files are supported"
+    ):
+        invoke()
+
+
 def test_vepyr_style_flow(check_mode, tmp_path):
     """A 1-based tagged frame (as vepyr produces) against a BED-like CSV."""
     bed_csv = tmp_path / "regions.csv"

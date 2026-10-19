@@ -154,6 +154,21 @@ def test_rename_clash(files):
         )
 
 
+@pytest.mark.parametrize(
+    "chrom, start, end",
+    [("start", "start", "end"), ("chrom", "start", "start")],
+)
+def test_interval_source_columns_must_be_distinct(files, chrom, start, end):
+    with pytest.raises(ValueError, match="Interval source columns must be distinct"):
+        pb.scan_csv(
+            str(files / "bed.csv"),
+            zero_based=True,
+            chrom=chrom,
+            start=start,
+            end=end,
+        )
+
+
 def test_end_none_with_existing_end_column(files):
     with pytest.raises(ValueError, match="already has one"):
         pb.scan_csv(str(files / "bed.csv"), zero_based=True, end=None)

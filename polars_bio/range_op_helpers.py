@@ -401,9 +401,6 @@ def _validate_overlap_input(
 
 _SUPPORTED_PATH_SUFFIXES = frozenset({".parquet", ".csv", ".vcf", ".bcf"})
 _STREAMABLE_PATH_SUFFIXES = frozenset({".parquet", ".csv"})
-_RECOGNIZED_PATH_SUFFIXES = (
-    frozenset({".bed", ".gff", ".gff3", ".bam", ".cram"}) | _SUPPORTED_PATH_SUFFIXES
-)
 
 
 def _validate_input_formats(df1, df2, output_type: str) -> None:
@@ -418,9 +415,7 @@ def _validate_input_formats(df1, df2, output_type: str) -> None:
         if isinstance(df, str):
             format_suffix = path_format_suffix(df)
             has_path_separator = "/" in df or "\\" in df
-            looks_like_path = (
-                has_path_separator or format_suffix in _RECOGNIZED_PATH_SUFFIXES
-            )
+            looks_like_path = has_path_separator or format_suffix is not None
             if (
                 looks_like_path
                 and format_suffix is not None

@@ -26,6 +26,16 @@ def _check_bool(name: str, value, allow_none: bool = False) -> None:
 def _rename_interval_columns(
     lf: pl.LazyFrame, *, zero_based: bool, chrom: str, start: str, end, source
 ):
+    interval_sources = [chrom, start] + ([end] if end is not None else [])
+    if len(interval_sources) != len(set(interval_sources)):
+        duplicates = sorted(
+            column
+            for column in set(interval_sources)
+            if interval_sources.count(column) > 1
+        )
+        raise ValueError(
+            f"Interval source columns must be distinct; duplicate column(s): {duplicates}."
+        )
     schema = lf.collect_schema()
     names = schema.names()
     wanted = [("chrom", chrom), ("start", start)] + (
