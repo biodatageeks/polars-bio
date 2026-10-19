@@ -20,7 +20,7 @@ from polars_bio.polars_bio import (
     range_operation_scan,
 )
 
-from ._path_utils import path_suffixes
+from ._path_utils import path_format_suffix
 
 try:
     import pandas as pd
@@ -215,11 +215,11 @@ def _prepare_lazy_stream_input(
     so we do not have to build and consume a temporary Arrow stream just to inspect it.
     """
     if isinstance(df, str):
-        suffixes = path_suffixes(df)
+        suffix = path_format_suffix(df)
 
-        if ".parquet" in suffixes:
+        if suffix == ".parquet":
             lazy_df = pl.scan_parquet(df)
-        elif ".csv" in suffixes:
+        elif suffix == ".csv":
             lazy_df = pl.scan_csv(df)
         else:
             raise ValueError(
@@ -344,8 +344,8 @@ def _get_schema(
             else schema
         )
 
-    ext = path_suffixes(path)
-    if len(ext) == 0:
+    ext = path_format_suffix(path)
+    if ext is None:
         df: DataFrame = py_read_table(ctx, path)
         arrow_schema = df.schema()
         empty_table = pa.Table.from_arrays(
@@ -354,11 +354,11 @@ def _get_schema(
         )
         df = pl.from_arrow(empty_table)
 
-    elif ext[-1] == ".parquet":
+    elif ext == ".parquet":
         df = pl.read_parquet(path)
-    elif ".csv" in ext:
+    elif ext == ".csv":
         df = pl.read_csv(path)
-    elif ".vcf" in ext or ".bcf" in ext:
+    elif ext in {".vcf", ".bcf"}:
         table = py_register_table(ctx, path, None, InputFormat.Vcf, read_options)
         df: DataFrame = py_read_table(ctx, table.name)
         arrow_schema = df.schema()

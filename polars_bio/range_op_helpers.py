@@ -14,7 +14,7 @@ from polars_bio.polars_bio import (
 )
 
 from ._metadata import set_coordinate_system
-from ._path_utils import path_suffixes
+from ._path_utils import path_format_suffix
 from .logging import logger
 from .range_op_io import _df_to_reader, _get_schema, _is_lazyframe_like, range_lazy_scan
 
@@ -191,13 +191,13 @@ def range_operation(
 
     if isinstance(df1, str) and isinstance(df2, str):
         supported_exts = {".parquet", ".csv", ".bed", ".vcf", ".bcf"}
-        ext1 = set(path_suffixes(df1))
+        ext1 = path_format_suffix(df1)
         assert (
-            len(supported_exts.intersection(ext1)) > 0 or len(ext1) == 0
+            ext1 in supported_exts or ext1 is None
         ), "Dataframe1 must be a Parquet, BED, CSV, VCF or BCF file"
-        ext2 = set(path_suffixes(df2))
+        ext2 = path_format_suffix(df2)
         assert (
-            len(supported_exts.intersection(ext2)) > 0 or len(ext2) == 0
+            ext2 in supported_exts or ext2 is None
         ), "Dataframe2 must be a Parquet, BED, CSV, VCF or BCF file"
         # use suffixes to avoid column name conflicts
 
@@ -404,13 +404,6 @@ _STREAMABLE_PATH_SUFFIXES = frozenset({".parquet", ".csv"})
 _RECOGNIZED_PATH_SUFFIXES = (
     frozenset({".bed", ".gff", ".gff3", ".bam", ".cram"}) | _SUPPORTED_PATH_SUFFIXES
 )
-_COMPRESSED_PATH_SUFFIXES = frozenset({".gz", ".bgz"})
-
-
-def _path_format_suffix(suffixes: tuple[str, ...]) -> str | None:
-    if suffixes and suffixes[-1] in _COMPRESSED_PATH_SUFFIXES and len(suffixes) > 1:
-        return suffixes[-2]
-    return suffixes[-1] if suffixes else None
 
 
 def _validate_input_formats(df1, df2, output_type: str) -> None:
@@ -423,8 +416,7 @@ def _validate_input_formats(df1, df2, output_type: str) -> None:
     inputs = [df for df in (df1, df2) if df is not None]
     for df in inputs:
         if isinstance(df, str):
-            suffixes = path_suffixes(df)
-            format_suffix = _path_format_suffix(suffixes)
+            format_suffix = path_format_suffix(df)
             has_path_separator = "/" in df or "\\" in df
             looks_like_path = (
                 has_path_separator or format_suffix in _RECOGNIZED_PATH_SUFFIXES
@@ -442,7 +434,7 @@ def _validate_input_formats(df1, df2, output_type: str) -> None:
         # every other frame + path combination fails later in range_operation.
         lazy_output = output_type == "polars.LazyFrame"
         if lazy_output and _is_lazyframe_like(frames[0]):
-            if not set(path_suffixes(paths[0])) & _STREAMABLE_PATH_SUFFIXES:
+            if path_format_suffix(paths[0]) not in _STREAMABLE_PATH_SUFFIXES:
                 raise ValueError(
                     "Mixed LazyFrame + path streaming is only supported for CSV and Parquet inputs."
                 )

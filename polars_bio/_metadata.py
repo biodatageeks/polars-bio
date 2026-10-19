@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import polars as pl
 
-from ._path_utils import path_suffixes
+from ._path_utils import path_format_suffix
 from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemError
 
 if TYPE_CHECKING:
@@ -70,10 +70,7 @@ def _is_file_path(s: str) -> bool:
         ".parquet",
         ".csv",
     }
-    extensions = path_suffixes(s)
-    extension = extensions[-1] if extensions else None
-    if extension in {".gz", ".bgz"} and len(extensions) > 1:
-        extension = extensions[-2]
+    extension = path_format_suffix(s)
     return (
         os.path.sep in s
         or s.startswith("./")
@@ -222,12 +219,12 @@ _ZERO_BASED_NOTE = "  (zero_based=True: 0-based half-open, e.g. BED; False: 1-ba
 
 def _path_reader_hint(path: str) -> str:
     """Reader suggestion for a file path, chosen by its suffix."""
-    suffixes = set(path_suffixes(path))
-    if ".bed" in suffixes:
+    suffix = path_format_suffix(path)
+    if suffix == ".bed":
         return "  pb.scan_bed(path)   # BED intervals are 0-based half-open"
-    if ".csv" in suffixes:
+    if suffix == ".csv":
         return f"  pb.scan_csv(path, zero_based=True)   # or pb.read_csv\n{_ZERO_BASED_NOTE}"
-    if ".parquet" in suffixes:
+    if suffix == ".parquet":
         return (
             f"  pb.scan_parquet(path, zero_based=True)   # or pb.read_parquet\n"
             f"{_ZERO_BASED_NOTE}"
@@ -331,7 +328,7 @@ def _resolve_coordinate_system(
         ``None`` exactly when ``evidence`` is ``None``.
     """
     if isinstance(df, str):
-        if _NATIVE_PATH_SUFFIXES.intersection(path_suffixes(df)):
+        if path_format_suffix(df) in _NATIVE_PATH_SUFFIXES:
             return _native_reader_zero_based(read_options), "native-path"
         if _is_file_path(df):
             return None, None
