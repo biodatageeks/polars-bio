@@ -206,6 +206,18 @@ def test_non_integer_start_rejected(files):
         pb.scan_csv(str(files / "text_start.csv"), zero_based=True)
 
 
+@pytest.mark.parametrize("dtype", [pl.Int128, pl.UInt128])
+def test_128_bit_start_rejected(tmp_path, dtype):
+    path = tmp_path / "wide_start.parquet"
+    pl.DataFrame(
+        {"chrom": ["1"], "start": [1], "end": [2]},
+        schema={"chrom": pl.String, "start": dtype, "end": dtype},
+    ).write_parquet(path)
+
+    with pytest.raises(TypeError, match="no wider than 64 bits"):
+        pb.scan_parquet(str(path), zero_based=True)
+
+
 def test_numeric_chromosome_is_cast_to_string(tmp_path):
     path = tmp_path / "numeric_chrom.csv"
     path.write_text("chrom,start,end\n1,10,11\n22,20,21\n")

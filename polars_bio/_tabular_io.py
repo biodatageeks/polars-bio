@@ -90,7 +90,7 @@ def _apply_coordinate_system(
                 f"Recording a coordinate system needs a 'start' column; {source!r} has {schema.names()}."
             )
         start_dtype = schema["start"]
-    if not start_dtype.is_integer() or start_dtype == pl.Int128:
+    if not start_dtype.is_integer() or start_dtype in (pl.Int128, pl.UInt128):
         raise TypeError(
             f"Column 'start' must be an integer column no wider than 64 bits, got {start_dtype} in {source!r}."
         )
