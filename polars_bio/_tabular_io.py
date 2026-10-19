@@ -62,7 +62,6 @@ def _rename_interval_columns(
         )
     if renames:
         lf = lf.rename(renames)
-    lf = lf.with_columns(pl.col("chrom").cast(pl.String))
     if end is None:
         start_dtype = schema[start]
         derived = pl.col("start").cast(pl.Int128) + 1 if zero_based else pl.col("start")
@@ -95,6 +94,7 @@ def _apply_coordinate_system(
         raise TypeError(
             f"Column 'start' must be an integer column no wider than 64 bits, got {start_dtype} in {source!r}."
         )
+    lf = lf.with_columns(pl.col("chrom").cast(pl.String))
     out_zero_based = zero_based if use_zero_based is None else use_zero_based
     if out_zero_based != zero_based:
         shift = (

@@ -284,6 +284,15 @@ def test_table_tagged_without_conversion(bed_file):
     assert _rows(lf)["start"].to_list() == [101, 300]
 
 
+@pytest.mark.parametrize("reader", ["scan_table", "read_table"])
+def test_table_numeric_chromosome_is_cast_to_string(bed_file, reader):
+    frame = getattr(pb, reader)(bed_file, schema="bed3", zero_based=True)
+    rows = _rows(frame)
+
+    assert rows.schema["chrom"] == pl.String
+    assert rows["chrom"].to_list() == ["1", "1"]
+
+
 def test_table_use_zero_based_requires_zero_based(bed_file):
     with pytest.raises(ValueError, match="use_zero_based requires zero_based"):
         pb.scan_table(bed_file, schema="bed3", use_zero_based=False)
