@@ -206,6 +206,41 @@ def test_non_integer_start_rejected(files):
         pb.scan_csv(str(files / "text_start.csv"), zero_based=True)
 
 
+def test_numeric_chromosome_is_cast_to_string(tmp_path):
+    path = tmp_path / "numeric_chrom.csv"
+    path.write_text("chrom,start,end\n1,10,11\n22,20,21\n")
+
+    rows = pb.read_csv(str(path), zero_based=True)
+
+    assert rows.schema["chrom"] == pl.String
+    assert rows["chrom"].to_list() == ["1", "22"]
+
+
+@pytest.mark.parametrize(
+    "start, zero_based, use_zero_based, end",
+    [
+        (2**63 - 1, True, False, "end"),
+        (-(2**63), False, True, "end"),
+        (2**63 - 1, True, None, None),
+    ],
+)
+def test_coordinate_shift_overflow_raises(
+    tmp_path, start, zero_based, use_zero_based, end
+):
+    path = tmp_path / "boundary.parquet"
+    data = {"chrom": ["1"], "start": [start]}
+    schema = {"chrom": pl.String, "start": pl.Int64}
+    if end is not None:
+        data["end"] = [start]
+        schema["end"] = pl.Int64
+    pl.DataFrame(data, schema=schema).write_parquet(path)
+
+    with pytest.raises(pl.exceptions.InvalidOperationError):
+        pb.read_parquet(
+            str(path), zero_based=zero_based, use_zero_based=use_zero_based, end=end
+        )
+
+
 def test_parquet_glob_and_list_sources(files):
     glob_lf = pb.scan_parquet(str(files / "part*.parquet"), zero_based=True)
     list_lf = pb.scan_parquet(

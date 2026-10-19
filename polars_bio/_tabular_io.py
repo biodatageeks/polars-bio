@@ -62,10 +62,11 @@ def _rename_interval_columns(
         )
     if renames:
         lf = lf.rename(renames)
+    lf = lf.with_columns(pl.col("chrom").cast(pl.String))
     if end is None:
         start_dtype = schema[start]
-        derived = pl.col("start") + 1 if zero_based else pl.col("start")
-        lf = lf.with_columns(derived.cast(start_dtype).alias("end"))
+        derived = pl.col("start").cast(pl.Int128) + 1 if zero_based else pl.col("start")
+        lf = lf.with_columns(derived.cast(start_dtype, strict=True).alias("end"))
     return lf, schema[start]
 
 
@@ -90,16 +91,17 @@ def _apply_coordinate_system(
                 f"Recording a coordinate system needs a 'start' column; {source!r} has {schema.names()}."
             )
         start_dtype = schema["start"]
-    if not start_dtype.is_integer():
+    if not start_dtype.is_integer() or start_dtype == pl.Int128:
         raise TypeError(
-            f"Column 'start' must be an integer column, got {start_dtype} in {source!r}."
+            f"Column 'start' must be an integer column no wider than 64 bits, got {start_dtype} in {source!r}."
         )
     out_zero_based = zero_based if use_zero_based is None else use_zero_based
     if out_zero_based != zero_based:
         shift = (
             1 if zero_based else -1
         )  # 0-based -> 1-based: +1; 1-based -> 0-based: -1
-        lf = lf.with_columns((pl.col("start") + shift).cast(start_dtype, strict=True))
+        shifted = pl.col("start").cast(pl.Int128) + shift
+        lf = lf.with_columns(shifted.cast(start_dtype, strict=True))
     set_source_metadata(lf, format=fmt, path=str(source))
     set_coordinate_system(lf, out_zero_based)
     return lf
