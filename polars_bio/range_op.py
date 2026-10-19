@@ -825,6 +825,8 @@ class IntervalOperations:
         cols2: Union[list[str], None] = ["chrom", "start", "end"],
         output_type: str = "polars.LazyFrame",
         projection_pushdown: bool = True,
+        read_options1: Union[ReadOptions, None] = None,
+        read_options2: Union[ReadOptions, None] = None,
     ) -> Union[pl.LazyFrame, pl.DataFrame, "pd.DataFrame", datafusion.DataFrame]:
         """
         Subtract the second set of intervals from the first.
@@ -847,6 +849,8 @@ class IntervalOperations:
                 genomic intervals for the second set.
             output_type: Type of the output. default is "polars.LazyFrame", "polars.DataFrame", or "pandas.DataFrame" or "datafusion.DataFrame" are also supported.
             projection_pushdown: Enable column projection pushdown.
+            read_options1: Additional options for reading df1.
+            read_options2: Additional options for reading df2.
 
         Returns:
             **polars.LazyFrame** or polars.DataFrame or pandas.DataFrame of the
@@ -863,7 +867,7 @@ class IntervalOperations:
         _validate_overlap_input(cols1, cols2, None, suffixes, output_type)
         _validate_input_formats(df1, df2, output_type)
 
-        filter_op = _get_filter_op_from_metadata(df1, df2)
+        filter_op = _get_filter_op_from_metadata(df1, df2, read_options1, read_options2)
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
         cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
@@ -880,6 +884,8 @@ class IntervalOperations:
             range_options,
             output_type,
             ctx,
+            read_options1=read_options1,
+            read_options2=read_options2,
             projection_pushdown=projection_pushdown,
         )
 

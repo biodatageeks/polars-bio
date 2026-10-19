@@ -56,7 +56,7 @@ def _rename_interval_columns(
         start_dtype = schema[start]
         derived = pl.col("start") + 1 if zero_based else pl.col("start")
         lf = lf.with_columns(derived.cast(start_dtype).alias("end"))
-    return lf
+    return lf, schema[start]
 
 
 def _apply_coordinate_system(
@@ -66,29 +66,30 @@ def _apply_coordinate_system(
     use_zero_based: Optional[bool],
     fmt: str,
     source,
+    start_dtype=None,
 ) -> pl.LazyFrame:
     """Convert ``start`` to the requested output system and tag the frame.
 
     ``zero_based`` declares the source system; ``use_zero_based`` selects the output
     system (``None`` keeps the source system). The tag records the output system.
     """
-    schema = lf.collect_schema()
-    if "start" not in schema:
-        raise ValueError(
-            f"Recording a coordinate system needs a 'start' column; {source!r} has {schema.names()}."
-        )
-    if not schema["start"].is_integer():
+    if start_dtype is None:
+        schema = lf.collect_schema()
+        if "start" not in schema:
+            raise ValueError(
+                f"Recording a coordinate system needs a 'start' column; {source!r} has {schema.names()}."
+            )
+        start_dtype = schema["start"]
+    if not start_dtype.is_integer():
         raise TypeError(
-            f"Column 'start' must be an integer column, got {schema['start']} in {source!r}."
+            f"Column 'start' must be an integer column, got {start_dtype} in {source!r}."
         )
     out_zero_based = zero_based if use_zero_based is None else use_zero_based
     if out_zero_based != zero_based:
         shift = (
             1 if zero_based else -1
         )  # 0-based -> 1-based: +1; 1-based -> 0-based: -1
-        lf = lf.with_columns(
-            (pl.col("start") + shift).cast(schema["start"], strict=True)
-        )
+        lf = lf.with_columns((pl.col("start") + shift).cast(start_dtype, strict=True))
     set_source_metadata(lf, format=fmt, path=str(source))
     set_coordinate_system(lf, out_zero_based)
     return lf
@@ -106,11 +107,16 @@ def _scan(
     _check_bool("zero_based", zero_based)
     _check_bool("use_zero_based", use_zero_based, allow_none=True)
     lf = reader(source, **polars_kwargs)
-    lf = _rename_interval_columns(
+    lf, start_dtype = _rename_interval_columns(
         lf, zero_based=zero_based, chrom=chrom, start=start, end=end, source=source
     )
     return _apply_coordinate_system(
-        lf, zero_based=zero_based, use_zero_based=use_zero_based, fmt=fmt, source=source
+        lf,
+        zero_based=zero_based,
+        use_zero_based=use_zero_based,
+        fmt=fmt,
+        source=source,
+        start_dtype=start_dtype,
     )
 
 

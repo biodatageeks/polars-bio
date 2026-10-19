@@ -239,6 +239,18 @@ def test_table_use_zero_based_requires_zero_based(bed_file):
         pb.scan_table(bed_file, schema="bed3", use_zero_based=False)
 
 
+@pytest.mark.parametrize(
+    "kwargs, parameter",
+    [
+        ({"zero_based": "yes"}, "zero_based"),
+        ({"zero_based": True, "use_zero_based": "yes"}, "use_zero_based"),
+    ],
+)
+def test_table_coordinate_options_must_be_bool(bed_file, kwargs, parameter):
+    with pytest.raises(TypeError, match=f"{parameter} must be True"):
+        pb.scan_table(bed_file, schema="bed3", **kwargs)
+
+
 def test_table_zero_based_without_schema(bed_file):
     with pytest.raises(ValueError, match="needs a 'start' column"):
         pb.scan_table(bed_file, zero_based=True)

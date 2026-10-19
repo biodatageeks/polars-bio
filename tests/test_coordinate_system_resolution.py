@@ -335,13 +335,32 @@ def test_vcf_path_follows_read_options(
         lambda p, ro: pb.overlap(p, p, read_options2=ro),
         lambda p, ro: pb.nearest(p, p, read_options=ro),
         lambda p, ro: pb.coverage(p, p, read_options=ro),
+        lambda p, ro: pb.subtract(p, p, read_options1=ro),
+        lambda p, ro: pb.subtract(p, p, read_options2=ro),
     ],
-    ids=["overlap-ro1", "overlap-ro2", "nearest", "coverage"],
+    ids=[
+        "overlap-ro1",
+        "overlap-ro2",
+        "nearest",
+        "coverage",
+        "subtract-ro1",
+        "subtract-ro2",
+    ],
 )
 def test_vcf_read_options_apply_per_input(check_mode, adjacent_vcf, op):
     """Read options reach only one input, so the two VCF reads really disagree."""
     with pytest.raises(CoordinateSystemMismatchError):
         op(adjacent_vcf, _vcf_options(False))
+
+
+def test_subtract_vcf_path_accepts_read_options(check_mode, adjacent_vcf):
+    result = pb.subtract(
+        adjacent_vcf,
+        adjacent_vcf,
+        read_options1=_vcf_options(False),
+        read_options2=_vcf_options(False),
+    ).collect()
+    assert len(result) == 0
 
 
 @pytest.mark.parametrize(

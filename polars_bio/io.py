@@ -3633,6 +3633,11 @@ class IOOperations:
             zero_based: Coordinate system of the data in the file (True: 0-based half-open, e.g. BED; False: 1-based closed). None (default) leaves the result untagged.
             use_zero_based: Coordinate system of the result when `zero_based` is given. None keeps the source system; otherwise `start` is converted.
         """
+        if zero_based is not None:
+            from ._tabular_io import _check_bool
+
+            _check_bool("zero_based", zero_based)
+            _check_bool("use_zero_based", use_zero_based, allow_none=True)
         df = pl.scan_csv(path, separator="\t", has_header=False, **kwargs)
         if schema is not None:
             columns = SCHEMAS[schema]
