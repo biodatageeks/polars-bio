@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `pb.set_option("datafusion.runtime.memory_limit", ...)` (and the other `datafusion.runtime.*` options) panicked the interpreter, and setting it on the Rust context was silently ignored. Runtime options now reconfigure the DataFusion `RuntimeEnv`, so sorts and aggregates spill or fail with `ResourcesExhausted` under the limit. The memory limit and temp directory also apply to `count_overlaps(..., naive_query=False)`. `pb.get_option()` reports the active runtime value (#484).
 - `pb.set_option()` raises `ValueError` for unknown or invalid `datafusion.*` options (outside `datafusion.bio.*`) instead of panicking (#484).
+- Collecting the same file-backed scan more than once at a time, for example a self-join on one `scan_vcf()` LazyFrame, `pl.collect_all()`, or several threads, panicked with `Failed to register <format> table: ... already exists` or failed with `Failed to read table`. Every collect now registers its provider under a private name, for all formats, and so does `select()` of GFF/GTF attribute columns.
 
 ## [0.36.2] - 2026-10-13
 
