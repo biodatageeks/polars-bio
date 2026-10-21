@@ -14,9 +14,9 @@ from polars_bio.polars_bio import (
 )
 
 from ._metadata import set_coordinate_system
-from ._path_utils import path_suffixes
+from ._path_utils import path_format_suffix
 from .logging import logger
-from .range_op_io import _df_to_reader, _get_schema, range_lazy_scan
+from .range_op_io import _df_to_reader, _get_schema, _is_lazyframe_like, range_lazy_scan
 
 try:
     import pandas as pd
@@ -191,13 +191,13 @@ def range_operation(
 
     if isinstance(df1, str) and isinstance(df2, str):
         supported_exts = {".parquet", ".csv", ".bed", ".vcf", ".bcf"}
-        ext1 = set(path_suffixes(df1))
+        ext1 = path_format_suffix(df1)
         assert (
-            len(supported_exts.intersection(ext1)) > 0 or len(ext1) == 0
+            ext1 in supported_exts or ext1 is None
         ), "Dataframe1 must be a Parquet, BED, CSV, VCF or BCF file"
-        ext2 = set(path_suffixes(df2))
+        ext2 = path_format_suffix(df2)
         assert (
-            len(supported_exts.intersection(ext2)) > 0 or len(ext2) == 0
+            ext2 in supported_exts or ext2 is None
         ), "Dataframe2 must be a Parquet, BED, CSV, VCF or BCF file"
         # use suffixes to avoid column name conflicts
 
@@ -397,3 +397,46 @@ def _validate_overlap_input(
     ], (
         "Only polars.LazyFrame, polars.DataFrame and pandas DataFrame are " "supported"
     )
+
+
+_SUPPORTED_PATH_SUFFIXES = frozenset({".parquet", ".csv", ".vcf", ".bcf"})
+_STREAMABLE_PATH_SUFFIXES = frozenset({".parquet", ".csv"})
+
+
+def _validate_input_formats(df1, df2, output_type: str) -> None:
+    """Reject unsupported input combinations before coordinate validation.
+
+    Mirrors the checks that would otherwise fail later in ``range_op_io`` so that
+    the real cause is reported instead of a coordinate-system error or warning.
+    ``df2`` is None for single-input operations.
+    """
+    inputs = [df for df in (df1, df2) if df is not None]
+    for df in inputs:
+        if isinstance(df, str):
+            format_suffix = path_format_suffix(df)
+            has_path_separator = "/" in df or "\\" in df
+            looks_like_path = has_path_separator or format_suffix is not None
+            if (
+                looks_like_path
+                and format_suffix is not None
+                and format_suffix not in _SUPPORTED_PATH_SUFFIXES
+            ):
+                raise ValueError("Only CSV, Parquet, VCF, and BCF files are supported")
+    paths = [df for df in inputs if isinstance(df, str)]
+    frames = [df for df in inputs if not isinstance(df, str)]
+    if len(paths) == 1 and len(frames) == 1:
+        # Only LazyFrame + CSV/Parquet path with LazyFrame output is streamed;
+        # every other frame + path combination fails later in range_operation.
+        lazy_output = output_type == "polars.LazyFrame"
+        if lazy_output and _is_lazyframe_like(frames[0]):
+            if path_format_suffix(paths[0]) not in _STREAMABLE_PATH_SUFFIXES:
+                raise ValueError(
+                    "Mixed LazyFrame + path streaming is only supported for CSV and Parquet inputs."
+                )
+        else:
+            raise ValueError(
+                "A frame combined with a file path is only supported for a Polars "
+                "LazyFrame with a CSV or Parquet path and output_type='polars.LazyFrame'; "
+                "load the file with a polars-bio reader (pb.scan_*/pb.read_*) and pass "
+                "the frame instead of the path."
+            )

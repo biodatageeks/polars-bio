@@ -79,3 +79,18 @@
             - read_mmcif
             - read_structures
             - read_foldcomp
+
+## CSV and Parquet with a coordinate system
+
+::: polars_bio._tabular_io
+    handler: python
+    options:
+        show_root_heading: false
+        show_root_toc_entry: false
+        heading_level: 3
+        docstring_section_style: table
+        members:
+            - scan_csv
+            - scan_parquet
+            - read_csv
+            - read_parquet
