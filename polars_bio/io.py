@@ -4808,8 +4808,6 @@ def _lazy_scan(
         n_rows: Union[int, None],
         _batch_size: Union[int, None],
     ) -> Iterator[pl.DataFrame]:
-        from polars_bio.polars_bio import py_register_table
-
         from .context import ctx as _ctx
         from .pushdown import (
             apply_predicate_pushdown,
@@ -4817,15 +4815,14 @@ def _lazy_scan(
             extract_source_columns,
         )
 
-        table_refreshed = False
+        collect_read_options = read_options
 
         # === GFF/GTF pre-step ===
         # GFF/GTF "attributes" column contains semi-structured key=value pairs
         # that can be parsed into individual columns. Unlike BAM/VCF/CRAM which
         # have fixed schemas, attribute columns must be configured at table
         # registration time. If projection requests specific attribute columns
-        # we must re-register the table with those attr_fields.
-        table_to_query = table_name
+        # the collect below registers the table with those attr_fields.
         if input_format in (InputFormat.Gff, InputFormat.Gtf) and file_path is not None:
             from polars_bio.polars_bio import GffReadOptions
             from polars_bio.polars_bio import GtfReadOptions as _GtfReadOptions
@@ -4895,11 +4892,7 @@ def _lazy_scan(
                 ropts = _ReadOptions(gtf_read_options=fmt_opts)
 
             if projection_pushdown and requested_cols:
-                table_obj = py_register_table(
-                    _ctx, file_path, table_name, input_format, ropts
-                )
-                table_to_query = table_obj.name
-                table_refreshed = True
+                collect_read_options = ropts
 
         # === Unified path for ALL formats ===
 
@@ -4909,17 +4902,8 @@ def _lazy_scan(
         else:
             # Re-register file-backed sources on each execution so every collect()
             # sees a fresh provider state for this LazyFrame.
-            should_register = (
-                file_path is not None
-                and not table_refreshed
-                and table_to_query is not None
-            )
-            if should_register and input_format in (
-                InputFormat.Cool,
-                InputFormat.Sto,
-                InputFormat.A2m,
-                InputFormat.A3m,
-            ):
+            should_register = file_path is not None and table_name is not None
+            if should_register:
                 # A LazyFrame may be collected concurrently by separate Polars
                 # plans or Python threads. Give every callback invocation its
                 # own catalog identity so one lease cannot replace or remove
@@ -4932,15 +4916,11 @@ def _lazy_scan(
                     file_path,
                     lease_name,
                     input_format,
-                    read_options,
+                    collect_read_options,
                 ):
                     query_df = py_read_table(_ctx, lease_name)
             else:
-                if should_register:
-                    py_register_table(
-                        _ctx, file_path, table_to_query, input_format, read_options
-                    )
-                query_df = py_read_table(_ctx, table_to_query)
+                query_df = py_read_table(_ctx, table_name)
 
         if force_empty_projection:
             query_df = query_df.select()
@@ -5619,7 +5599,7 @@ class AnnotationLazyFrameWrapper:
             from polars_bio.polars_bio import GtfReadOptions as _GtfReadOptions
             from polars_bio.polars_bio import InputFormat as _InputFormat
             from polars_bio.polars_bio import ReadOptions as _ReadOptions
-            from polars_bio.polars_bio import py_read_table, py_register_table
+            from polars_bio.polars_bio import py_read_table
 
             from .context import ctx
 
@@ -5672,9 +5652,16 @@ class AnnotationLazyFrameWrapper:
                 )
                 ropts = _ReadOptions(gtf_read_options=fmt_opts)
 
-            table = py_register_table(ctx, self._file_path, None, input_fmt, ropts)
-
-            query_df = py_read_table(ctx, table.name)
+            # A private name per select(), so concurrent selects on the same file
+            # cannot replace or remove each other's provider.
+            with _registered_table_lease(
+                ctx,
+                self._file_path,
+                f"{self._config['view_prefix']}{uuid4().hex}",
+                input_fmt,
+                ropts,
+            ) as table:
+                query_df = py_read_table(ctx, table.name)
             datafusion_predicate_applied = False
             if self._predicate_pushdown and self._deferred_predicate is not None:
                 from .pushdown import apply_predicate_pushdown

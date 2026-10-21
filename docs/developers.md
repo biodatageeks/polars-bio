@@ -248,7 +248,7 @@ This propagates through the DataFusion plan to the `TableProvider`, where **pars
 
 - **BAM**: Unprojected fields (sequence, quality scores, CIGAR, tags) are not decoded
 - **VCF**: Unprojected INFO/FORMAT fields are not parsed
-- **GFF**: Attribute fields are only parsed if requested (GFF re-registers the table with `attr_fields` when specific attribute columns are projected)
+- **GFF/GTF**: Attribute fields are only parsed if requested (the collect registers its table with `attr_fields` when specific attribute columns are projected)
 
 **Safety net** — If DataFusion projection fails, client-side select is applied:
 
@@ -282,16 +282,20 @@ for r in df_stream:
 
 Each yielded `pl.DataFrame` batch becomes part of the Polars LazyFrame execution graph. Polars can then apply further operations (joins, aggregations, sinks) on the stream.
 
+### Concurrent collects
+
+The callback registers a fresh `TableProvider` on every collect, under a private name (`_pb_<format>_collect_<uuid>`) leased through `_registered_table_lease()`. The lease is released as soon as the DataFusion `DataFrame` has been created, since the plan already holds the provider. The same LazyFrame can therefore be collected concurrently, for example in a self-join, with `pl.collect_all()`, or from several threads, without one collect replacing or removing another's table.
+
 ### GFF special handling
 
-GFF is the only format where projection affects table registration. GFF files have a semi-structured `attributes` column containing `key=value` pairs. When specific attribute columns are projected (e.g., `gene_id`, `transcript_id`), the callback **re-registers the table** with those `attr_fields` so the TableProvider parses them into individual columns:
+GFF and GTF are the only formats where projection affects table registration. Their files have a semi-structured `attributes` column containing `key=value` pairs. When specific attribute columns are projected (e.g., `gene_id`, `transcript_id`), the callback registers its table with those `attr_fields` so the TableProvider parses them into individual columns:
 
 ```python
-if input_format == InputFormat.Gff and attr_fields:
-    gff_opts = GffReadOptions(attr_fields=attr_fields, ...)
-    table_obj = py_register_table(_ctx, file_path, None, InputFormat.Gff, ropts)
-    table_to_query = table_obj.name
+if projection_pushdown and requested_cols:
+    collect_read_options = ropts  # GffReadOptions / GtfReadOptions(attr_fields=...)
 ```
+
+These options go to the per-collect lease described in [Concurrent collects](#concurrent-collects), so the table registered by `scan_gff()` / `scan_gtf()` keeps its schema.
 
 
 ## Polars Integration
