@@ -22,6 +22,8 @@ from polars_bio.polars_bio import (
 
 from ._path_utils import path_suffixes
 
+logger = logging.getLogger(__name__)
+
 try:
     import pandas as pd
 except ImportError:
@@ -92,7 +94,7 @@ def range_lazy_scan(
         try:
             alg = getattr(modified_range_options, "overlap_alg", None)
             if alg is not None:
-                logging.info(
+                logger.info(
                     "Optimizing into IntervalJoinExec using %s algorithm",
                     alg,
                 )

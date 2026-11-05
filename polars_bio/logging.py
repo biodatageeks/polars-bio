@@ -1,7 +1,7 @@
 import logging
 
 logger = logging.getLogger("polars_bio")
-logger.setLevel(logging.WARN)
+logger.setLevel(logging.WARNING)
 
 
 def set_loglevel(level: str):
@@ -33,6 +33,6 @@ def set_loglevel(level: str):
     elif level == "info":
         logger.setLevel(logging.INFO)
     elif level == "warn" or level == "warning":
-        logger.setLevel(logging.WARN)
+        logger.setLevel(logging.WARNING)
     else:
         raise ValueError(f"{level} is not a valid log level")

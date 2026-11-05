@@ -161,6 +161,49 @@ def test_application_handler_receives_python_and_rust_logs_once():
     assert result.stderr == ""
 
 
+@pytest.mark.parametrize(
+    ("level", "configured"), [("info", True), ("warning", True), ("warning", False)]
+)
+def test_overlap_announcement_respects_library_level(level, configured):
+    _run_logging_script(
+        f"""
+        import logging
+        import polars as pl
+        import polars_bio as pb
+
+        records = []
+        class CaptureHandler(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        root = logging.getLogger()
+        handler = CaptureHandler()
+        if {configured}:
+            root.addHandler(handler)
+        root.setLevel(logging.INFO)
+        handlers = list(root.handlers)
+        pb.set_loglevel({level!r})
+
+        left = pl.DataFrame({{"chrom": ["chr1"], "start": [1], "end": [3]}})
+        right = pl.DataFrame({{"chrom": ["chr1"], "start": [2], "end": [4]}})
+        left.config_meta.set(coordinate_system_zero_based=True)
+        right.config_meta.set(coordinate_system_zero_based=True)
+        assert pb.overlap(left, right, algorithm="Coitrees").collect().shape == (1, 6)
+
+        announcement = "Optimizing into IntervalJoinExec using Coitrees algorithm"
+        messages = [record for record in records if record.getMessage() == announcement]
+        assert len(messages) == (1 if {level!r} == "info" else 0)
+        if messages:
+            assert messages[0].name == "polars_bio.range_op_io"
+        if {configured}:
+            root.info("Application information")
+            assert sum(record.getMessage() == "Application information" for record in records) == 1
+        assert root.level == logging.INFO
+        assert root.handlers == handlers
+        """
+    )
+
+
 def test_warning_remains_visible_without_application_handlers():
     result = _run_logging_script(
         """
