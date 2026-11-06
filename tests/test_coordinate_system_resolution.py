@@ -262,18 +262,34 @@ def test_single_input_bed_path_reports_format_error(check_mode, data_files):
 
 
 @pytest.mark.parametrize(
+    "path",
+    [
+        "regions.tsv",
+        "/tmp/regions",
+        "./regions",
+        r"C:\data\regions",
+        "s3://bucket/regions",
+        "gs://bucket/regions?versionId=1#fragment",
+    ],
+)
+@pytest.mark.parametrize(
     "invoke",
     [
-        lambda: pb.merge("regions.tsv"),
-        lambda: pb.overlap("regions.csv", "regions.tsv"),
+        pb.merge,
+        pb.complement,
+        lambda path: pb.overlap(path, "regions.csv"),
+        lambda path: pb.overlap("regions.csv", path),
     ],
-    ids=["single-input", "two-paths"],
+    ids=["merge", "complement", "first-path", "second-path"],
 )
-def test_bare_unsupported_suffix_reports_format_error_first(check_mode, invoke):
-    with pytest.raises(
-        ValueError, match="Only CSV, Parquet, VCF, and BCF files are supported"
-    ):
-        invoke()
+def test_unsupported_path_reports_format_error_first(check_mode, invoke, path):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        with pytest.raises(
+            ValueError, match="Only CSV, Parquet, VCF, and BCF files are supported"
+        ):
+            invoke(path)
+    assert not [w for w in caught if "oordinate system" in str(w.message)]
 
 
 def test_vepyr_style_flow(check_mode, tmp_path):

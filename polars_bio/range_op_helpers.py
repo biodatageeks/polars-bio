@@ -416,11 +416,7 @@ def _validate_input_formats(df1, df2, output_type: str) -> None:
             format_suffix = path_format_suffix(df)
             has_path_separator = "/" in df or "\\" in df
             looks_like_path = has_path_separator or format_suffix is not None
-            if (
-                looks_like_path
-                and format_suffix is not None
-                and format_suffix not in _SUPPORTED_PATH_SUFFIXES
-            ):
+            if looks_like_path and format_suffix not in _SUPPORTED_PATH_SUFFIXES:
                 raise ValueError("Only CSV, Parquet, VCF, and BCF files are supported")
     paths = [df for df in inputs if isinstance(df, str)]
     frames = [df for df in inputs if not isinstance(df, str)]
