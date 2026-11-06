@@ -2,7 +2,7 @@
 
 This page covers how polars-bio loads bioinformatics files — the supported formats, the performance machinery shared across them (indexed reads, predicate/projection pushdown, parallel reads), per-format specifics, coordinate-system handling, and the metadata attached to every DataFrame. Files can be read from local disk or streamed directly from [cloud storage](cloud.md#cloud-storage).
 
-**On this page:** [File formats](#file-formats-support) · [Performance features](#performance-features) · [Format-specific notes](#format-specific-notes) · [Schema inspection](#schema-inspection) · [Coordinate systems](#coordinate-systems-support) · [File metadata](#file-metadata)
+**On this page:** [File formats](#file-formats-support) · [Performance features](#performance-features) · [Format-specific notes](#format-specific-notes) · [Schema inspection](#schema-inspection) · [Coordinate systems](#coordinate-systems-support) · [Migrating to 0.37.0](#migrating-from-0362-to-0370) · [File metadata](#file-metadata)
 
 ## File formats support
 
@@ -860,6 +860,44 @@ format_fields = vcf_schema.filter(pl.col("field_type") == "FORMAT")
 
 polars-bio supports both **0-based half-open** and **1-based closed** coordinate systems for genomic ranges operations. By **default**, it uses **1-based closed** coordinates, which is the native format for VCF, GFF, and SAM/BAM files.
 
+### Migrating from 0.36.2 to 0.37.0
+
+The coordinate-safety changes planned for **0.37.0** make missing coordinate
+information explicit and add readers that record it. The session defaults remain
+**1-based closed** coordinates and **lenient** validation. In this table, a
+**tagged** input carries coordinate-system metadata; an **unknown** input is an
+untagged frame, a CSV/Parquet path, or a registered table without that metadata.
+
+| Use case | 0.36.2 | 0.37.0 |
+|---|---|---|
+| Read CSV or Parquet intervals | Plain Polars readers leave the coordinate system unknown; conversion and tagging are manual. | Use `pb.scan_csv`, `pb.scan_parquet`, `pb.read_csv`, or `pb.read_parquet` with required `zero_based=` to declare the stored system. Optional `use_zero_based=` converts the output. |
+| Read a tab-delimited table | `pb.scan_table` / `pb.read_table` return untagged frames. | Optional `zero_based=` records the source system and `use_zero_based=` converts it. Omitting both keeps the existing untagged behavior. |
+| Pair a tagged input with an unknown input | Lenient mode warns and assumes the global setting for the unknown input. Matching assumptions can hide an off-by-one error; different systems raise `CoordinateSystemMismatchError`. Strict mode raises `MissingCoordinateSystemError`. | Raises `MissingCoordinateSystemError` in **both** modes. Load or tag the unknown input with its actual system, converting when needed. |
+| Pair two unknown inputs | Lenient mode warns and uses the global setting; strict mode raises `MissingCoordinateSystemError`. | Unchanged. Use coordinate-aware readers to avoid the assumption. |
+| Pair two tagged inputs | Matching systems run; different systems raise `CoordinateSystemMismatchError`. | Unchanged. Range operations use the recorded system. |
+| Pass VCF/BCF paths directly, e.g. `pb.overlap("a.vcf", "b.vcf")` | Paths are treated as unknown: lenient mode warns and applies the global setting, which can disagree with the native reader and shift results. Strict mode raises `MissingCoordinateSystemError`. | Uses each native reader's `zero_based` read option, or **0-based** by default. Matching systems run without a missing-metadata warning, including in strict mode. |
+| Pair a VCF/BCF path with a CSV/Parquet path | Lenient mode assumes the global system for both paths, potentially filtering native VCF/BCF coordinates incorrectly. | The native path uses its reader's system; the unknown path uses the global setting with a warning. Different systems raise `CoordinateSystemMismatchError`—including with the default settings. Strict mode still rejects the unknown input. |
+| Pass a BED path to `merge` or `complement` | Accepted, but could use mismatched coordinates. | Raises a format error. Pass `pb.scan_bed(path, use_zero_based=...)` instead. |
+| Pass an unsupported format or an explicit path without an extension | A coordinate warning or error could mask the unsupported input. | Reports the format error before coordinate validation. Bare registered table names remain supported. |
+
+For example, migrate a BED-like CSV containing **0-based** intervals to a frame
+that can be compared with **1-based** variants:
+
+```python
+import polars_bio as pb
+
+variants = pb.scan_vcf("variants.vcf", use_zero_based=False)
+# Replace pl.scan_csv("regions.csv"), which leaves coordinates unknown:
+regions = pb.scan_csv("regions.csv", zero_based=True, use_zero_based=False)
+hits = pb.overlap(variants, regions).collect()
+```
+
+Here `zero_based=True` declares what the CSV contains, while
+`use_zero_based=False` shifts `start` to 1-based and records the output system.
+Setting metadata by hand only labels existing values; use it when those values
+already use the declared system. See the [resolution rules](#how-range-operations-resolve-coordinate-systems)
+for the full lenient/strict matrix.
+
 ### How it works
 
 The coordinate system is managed through **DataFrame metadata** that is set at I/O time and read by range operations. This ensures consistency throughout your analysis pipeline.
@@ -923,7 +961,8 @@ flowchart TB
     complement --> validate
     subtract --> validate
 
-    validate --> |"metadata missing"| check
+    validate --> |"tagged + unknown"| error1
+    validate --> |"unknown without tagged partner"| check
     validate --> |"metadata mismatch"| error2
     check --> |"true (strict)"| error1
     check --> |"false (lenient)"| fallback
@@ -937,7 +976,7 @@ polars-bio provides two session parameters to control coordinate system behavior
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `datafusion.bio.coordinate_system_zero_based` | `"false"` (1-based) | Default coordinate system for I/O operations when `use_zero_based` is not specified |
-| `datafusion.bio.coordinate_system_check` | `"false"` (lenient) | Whether to raise an error when DataFrame metadata is missing |
+| `datafusion.bio.coordinate_system_check` | `"false"` (lenient) | Strict mode rejects every unknown input; a tagged input paired with an unknown one raises in either mode |
 
 ```python
 import polars_bio as pb
@@ -1074,7 +1113,7 @@ pb.overlap(df1, df2)  # CoordinateSystemMismatchError
 
 ### Default behavior (lenient validation)
 
-By default (`coordinate_system_check=false`), when **neither** input carries metadata, polars-bio uses the global `coordinate_system_zero_based` setting and emits a warning that names the assumed system:
+By default (`coordinate_system_check=false`), when **both inputs are unknown** (for example, two untagged frames), polars-bio uses the global `coordinate_system_zero_based` setting and emits a warning that names the assumed system:
 
 ```python
 a = pl.DataFrame({"chrom": ["chr1"], "start": [100], "end": [200]})
@@ -1095,9 +1134,11 @@ pb.set_option(pb.POLARS_BIO_COORDINATE_SYSTEM_CHECK, True)
 !!! tip
     Enable strict mode in production pipelines so that no input is ever interpreted with an assumed coordinate system.
 
-### Migration from previous versions
+### Migration from the older coordinate-argument API { #migration-from-previous-versions }
 
-If you're upgrading from a previous version of polars-bio:
+These API changes predate 0.37.0. Use this section when upgrading from a release
+that still accepted coordinate arguments on range operations; for 0.36.2, use
+the [0.37.0 migration table](#migrating-from-0362-to-0370) above.
 
 1. **Range operations no longer accept `use_zero_based` parameter** - coordinate system is read from DataFrame metadata
 2. **I/O functions use `use_zero_based` parameter** (renamed from `one_based` with inverted logic)

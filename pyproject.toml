@@ -81,6 +81,8 @@ dev = [
   "mkdocstrings-python>=1.12.2",
   "mkdocs-table-reader-plugin>=3.1.0",
   "mkdocstrings==0.27.0",
+  # pymdown 12.2 changed Highlight's constructor; mkdocstrings 0.27 needs the old API.
+  "pymdown-extensions>=10.2,<12.2",
   "markdown-exec>=1.10.0",
   "mkdocs-with-pdf>=0.9.3",
   "mypy>=1.13.0",
