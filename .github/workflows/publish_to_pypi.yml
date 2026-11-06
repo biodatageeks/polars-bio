@@ -183,7 +183,8 @@ jobs:
           path: dist
 
   macos:
-    runs-on: ${{ matrix.target == 'aarch64' && 'macos-latest' || 'macos-15-intel' }}
+    # Cross-compile Intel wheels on ARM, as with the former macos-14 runner.
+    runs-on: ${{ matrix.target == 'aarch64' && 'macos-latest' || 'macos-15' }}
     strategy:
       matrix:
         target: [x86_64, aarch64]
