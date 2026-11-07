@@ -1,8 +1,8 @@
 {% set name = "polars-bio" %}
 {% set version = "0.33.1" %}
 
-# Runtime requirements and licenses below are staged for the owned-metadata
-# release. Update the source version and SHA256 together before publishing.
+# Runtime requirements and licenses below are staged for 0.37.0.
+# Update the source version and SHA256 together after its sdist is published.
 
 package:
   name: {{ name|lower }}

@@ -158,7 +158,7 @@ def scan_csv(
     """Lazily read a CSV file with its coordinate system recorded.
 
     Parameters:
-        source: Path(s) accepted by ``pl.scan_csv``.
+        source (Any): Path(s) accepted by ``pl.scan_csv``.
         zero_based: Coordinate system of the data in the file: True for 0-based
             half-open (e.g. BED), False for 1-based closed (e.g. VCF/GFF). Required.
         use_zero_based: Coordinate system of the result. None (default) keeps the
@@ -167,7 +167,7 @@ def scan_csv(
         start: Name of the start column; renamed to ``start``.
         end: Name of the end column; renamed to ``end``. None for point data:
             ``end`` is derived from ``start`` in the source system.
-        **polars_kwargs: Passed to ``pl.scan_csv`` unchanged.
+        **polars_kwargs (Any): Passed to ``pl.scan_csv`` unchanged.
     """
     return _scan(
         pl.scan_csv,
