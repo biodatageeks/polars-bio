@@ -1,0 +1,37 @@
+{
+  "main_excluding_untracked_pgen": {
+    "passed": 2547,
+    "summary": "2547 passed, 1 skipped, 25 warnings in 61.48s (0:01:01)"
+  },
+  "overlap_isolated": {
+    "passed": 15,
+    "summary": "15 passed in 1.16s"
+  },
+  "warnings_isolated": {
+    "passed": 11,
+    "summary": "11 passed in 0.81s"
+  },
+  "streaming_isolated": {
+    "passed": 37,
+    "summary": "37 passed, 1 warning in 0.77s"
+  },
+  "make_test_initial": {
+    "failed": 54,
+    "passed": 2543,
+    "skipped": 1,
+    "note": "Before six additional Parquet regression cases were added; failures exclusively in the pre-existing untracked tests/test_pgen_query_paths.py, which is absent from HEAD and clean CI checkouts. The baseline comparison explicitly copied this local test file into the HEAD export.",
+    "all_failure_ids_match_unmodified_HEAD_with_local_test_added": true
+  },
+  "make_test_after_cleanup": {
+    "command": "make test",
+    "exit_code": 0,
+    "summaries": [
+      "2547 passed, 1 skipped, 25 warnings in 64.23s (0:01:04)",
+      "15 passed in 1.21s",
+      "11 passed in 0.81s",
+      "37 passed, 1 warning in 0.76s"
+    ],
+    "log": "/tmp/polars-bio-metadata-clean-make-test.log",
+    "cleanup": "Deleted the local untracked tests/test_pgen_query_paths.py at the user's request; no additional pytest exclusions"
+  }
+}

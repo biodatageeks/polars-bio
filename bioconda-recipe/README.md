@@ -9,7 +9,7 @@ before being copied there.
 | Path | Target repository | Purpose |
 | --- | --- | --- |
 | `meta.yaml`, `build.sh`, `test_overlap.py` | `bioconda/bioconda-recipes` → `recipes/polars-bio/` | The polars-bio package |
-| `conda-forge-recipes/polars-config-meta/recipe.yaml` | `conda-forge/staged-recipes` → `recipes/polars-config-meta/` | Initial submission recipe for the dependency now available on conda-forge |
+| `conda-forge-recipes/polars-config-meta/recipe.yaml` | `conda-forge/staged-recipes` → `recipes/polars-config-meta/` | Historical standalone plugin recipe; no longer a polars-bio dependency |
 
 The two recipes deliberately use different formats. conda-forge deprecated the
 v0 `meta.yaml` format for new recipes, so `polars-config-meta` is a v1
@@ -18,22 +18,16 @@ polars-bio recipe stays on v0.
 
 ## Runtime dependencies
 
-All runtime dependencies are available on conda-forge. `polars-config-meta` is
-imported unconditionally from `polars_bio/__init__.py`; 0.36.0 requires at least
-0.3.2 to retain source metadata when collecting a LazyFrame.
+All runtime dependencies are available on conda-forge. Frame metadata is now
+provided by polars-bio itself; the external `polars-config-meta` distribution is
+not required. Its standalone recipe is retained as historical packaging work.
 
 | Dependency | Required | conda-forge |
 | --- | --- | --- |
-| `polars` | `>=1.37.1` | yes |
+| `polars` | `>=1.40.0,<2` | yes |
 | `pyarrow` | `>=23.0.1,<25` | yes |
 | `datafusion` | `>=53.0.0,<54` | yes (53.0.0) |
 | `tqdm` | `>=4.67.0,<5` | yes |
-| `polars-config-meta` | `>=0.3.2,<1` | yes |
-
-Note that `polars-config-meta` declares `dependencies = []` in its
-`pyproject.toml` and lists polars only as an optional extra, but imports polars
-at module scope. The conda recipe therefore declares polars as a hard run
-dependency; without it the package installs but fails on import.
 
 ## Build notes
 
@@ -63,20 +57,9 @@ This does not affect bioconda, which pins the target well below the runner.
 ## Local verification
 
 ```bash
-conda create -n cbuild -c conda-forge conda-build rattler-build
+conda create -n cbuild -c conda-forge conda-build
 conda activate cbuild
-
-# polars-config-meta (noarch, v1 recipe -> rattler-build).
-# python_min comes from conda-forge's global pinning on CI, so a local build
-# has to supply it or the recipe fails to render.
-printf 'python_min:\n  - "3.10"\n' > /tmp/variant-pymin.yaml
-rattler-build build \
-  --recipe conda-forge-recipes/polars-config-meta/recipe.yaml \
-  --variant-config /tmp/variant-pymin.yaml \
-  --output-dir ./output
-
-# polars-bio, picking the dependency up from rattler-build's output channel
-conda-build . -c ./output -c conda-forge --override-channels --python 3.12
+conda-build . -c conda-forge --override-channels --python 3.12
 ```
 
 For a build that matches bioconda CI more closely:
@@ -114,10 +97,11 @@ dependencies. If a release changes the pins in `pyproject.toml`, the `run:`
 section here has to be updated by hand — the bot only rewrites version, sha256
 and build number.
 
-For 0.36.0, copy the `polars-config-meta>=0.3.2` runtime requirement to the
-upstream Bioconda recipe as well; earlier versions lose source metadata on
-`collect()`. The local recipe's version and SHA256 remain paired with an
-existing published sdist until the new PyPI artifact is available.
+For the owned-metadata migration release, remove the `polars-config-meta` runtime
+requirement in the upstream recipe together with the new source artifact. Older
+released sdists still need the dependency. The local version and SHA256 remain
+paired with a published sdist until the migration artifact is available; the
+updated runtime requirements are staged for that release.
 
 ## Maintainers
 

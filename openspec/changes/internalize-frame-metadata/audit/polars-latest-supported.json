@@ -1,0 +1,172 @@
+{
+  "note": "Distribution version may differ from source selected using PYTHONPATH.",
+  "observations": {
+    "duplicate_namespace": {
+      "new_frame": {
+        "coordinate_system_zero_based": false
+      },
+      "new_frame_clone": {},
+      "old_frame": {
+        "coordinate_system_zero_based": true,
+        "source_format": "bed",
+        "source_header": "{\"tag_types\":{\"X\":\"A\"}}",
+        "source_path": "source.bed"
+      },
+      "old_frame_clone": {},
+      "warnings": [
+        "overriding existing custom namespace 'config_meta' (on Series)",
+        "overriding existing custom namespace 'config_meta' (on LazyFrame)",
+        "overriding existing custom namespace 'config_meta' (on DataFrame)"
+      ]
+    },
+    "instance_storage": {
+      "DataFrame": {
+        "native_unchanged": true,
+        "private_dictionary": {
+          "coordinate_system_zero_based": true
+        },
+        "released": true
+      },
+      "LazyFrame": {
+        "native_unchanged": true,
+        "private_dictionary": {
+          "coordinate_system_zero_based": true
+        },
+        "released": true
+      }
+    },
+    "multi_input": {
+      "join": {
+        "coordinate_system_zero_based": true,
+        "source_format": "bed",
+        "source_header": "{\"tag_types\":{\"X\":\"A\"}}",
+        "source_path": "source.bed"
+      },
+      "left": {
+        "coordinate_system_zero_based": true,
+        "source_format": "bed",
+        "source_header": "{\"tag_types\":{\"X\":\"A\"}}",
+        "source_path": "source.bed"
+      },
+      "right": {
+        "coordinate_system_zero_based": false,
+        "source_path": "other.vcf"
+      },
+      "vstack": {
+        "coordinate_system_zero_based": true,
+        "source_format": "bed",
+        "source_header": "{\"tag_types\":{\"X\":\"A\"}}",
+        "source_path": "source.bed"
+      }
+    },
+    "mutable_values": {
+      "child": {
+        "coordinate_system_zero_based": true,
+        "extra": {
+          "samples": [
+            "S1",
+            "S2"
+          ]
+        },
+        "source_format": "bed",
+        "source_header": "{\"tag_types\":{\"X\":\"A\"}}",
+        "source_path": "source.bed"
+      },
+      "parent": {
+        "coordinate_system_zero_based": false,
+        "extra": {
+          "samples": [
+            "S1",
+            "S2"
+          ]
+        },
+        "source_format": "bed",
+        "source_header": "{\"tag_types\":{\"X\":\"A\"}}",
+        "source_path": "source.bed"
+      }
+    },
+    "propagation": {
+      "clone": {
+        "coordinate_system_zero_based": true,
+        "source_format": "bed",
+        "source_header": "{\"tag_types\":{\"X\":\"A\"}}",
+        "source_path": "source.bed"
+      },
+      "collect_batches": {},
+      "concat": {},
+      "filter": {
+        "coordinate_system_zero_based": true,
+        "source_format": "bed",
+        "source_header": "{\"tag_types\":{\"X\":\"A\"}}",
+        "source_path": "source.bed"
+      },
+      "getitem_frame": {},
+      "group_by_agg": {},
+      "head": {
+        "coordinate_system_zero_based": true,
+        "source_format": "bed",
+        "source_header": "{\"tag_types\":{\"X\":\"A\"}}",
+        "source_path": "source.bed"
+      },
+      "iter_slices": {
+        "coordinate_system_zero_based": true,
+        "source_format": "bed",
+        "source_header": "{\"tag_types\":{\"X\":\"A\"}}",
+        "source_path": "source.bed"
+      },
+      "lazy_collect": {
+        "coordinate_system_zero_based": true,
+        "source_format": "bed",
+        "source_header": "{\"tag_types\":{\"X\":\"A\"}}",
+        "source_path": "source.bed"
+      },
+      "partition_by": {},
+      "select": {
+        "coordinate_system_zero_based": true,
+        "source_format": "bed",
+        "source_header": "{\"tag_types\":{\"X\":\"A\"}}",
+        "source_path": "source.bed"
+      },
+      "with_columns": {
+        "coordinate_system_zero_based": true,
+        "source_format": "bed",
+        "source_header": "{\"tag_types\":{\"X\":\"A\"}}",
+        "source_path": "source.bed"
+      }
+    },
+    "set_return": {
+      "set_returns": null
+    },
+    "signature": {
+      "after": "(self, *args, **kwargs)",
+      "before": "(self, *predicates: 'IntoExprColumn | Iterable[IntoExprColumn] | bool | list[bool] | np.ndarray[Any, Any]', **constraints: 'Any') -> 'DataFrame'",
+      "has_wrapped_attribute": false,
+      "patched_methods": 332
+    },
+    "stale_copy": {
+      "clone_metadata": {
+        "coordinate_system_zero_based": false,
+        "source_path": "dead-frame.vcf"
+      },
+      "source_after_read": {
+        "coordinate_system_zero_based": false,
+        "source_path": "dead-frame.vcf"
+      }
+    },
+    "stale_read": {
+      "fresh_metadata": {
+        "coordinate_system_zero_based": false,
+        "source_path": "dead-frame.vcf"
+      }
+    },
+    "stream_interface": {
+      "has_inner": true,
+      "inner_exports_arrow_stream": true,
+      "iterator_type": "_CollectBatches"
+    }
+  },
+  "plugin_distribution_version": "0.3.4",
+  "plugin_source_sha256": "d3ea1989b316439a0c95d35930fff22f37943141c63e5fd4aec0bcd9b40ee407",
+  "polars": "1.44.2",
+  "python": "3.12.2"
+}

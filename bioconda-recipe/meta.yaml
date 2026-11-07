@@ -1,6 +1,9 @@
 {% set name = "polars-bio" %}
 {% set version = "0.33.1" %}
 
+# Runtime requirements and licenses below are staged for the owned-metadata
+# release. Update the source version and SHA256 together before publishing.
+
 package:
   name: {{ name|lower }}
   version: {{ version }}
@@ -42,7 +45,6 @@ requirements:
     - pyarrow >=23.0.1,<25
     - datafusion >=53.0.0,<54
     - tqdm >=4.67.0,<5
-    - polars-config-meta >=0.3.2,<1
 
 test:
   imports:
@@ -74,6 +76,7 @@ about:
   license_file:
     - LICENSE
     - THIRDPARTY.yml
+    - polars_bio/licenses/polars-config-meta/LICENSE
   summary: 'Blazing fast genomic operations on large Python dataframes'
   description: |
     polars-bio is a Python library for genomics built on top of Polars,

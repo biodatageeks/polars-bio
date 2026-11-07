@@ -10,6 +10,7 @@ from typing import Optional
 
 import polars as pl
 
+from ._frame_metadata import copy_metadata
 from ._metadata import set_coordinate_system, set_source_metadata
 
 _BOOL_MESSAGE = "{name} must be True (0-based half-open, e.g. BED) or False (1-based closed, e.g. VCF/GFF)"
@@ -122,7 +123,7 @@ def _apply_coordinate_system(
 
 def _collect_with_metadata(lf: pl.LazyFrame) -> pl.DataFrame:
     df = lf.collect()
-    df.config_meta.set(**lf.config_meta.get_metadata())
+    copy_metadata(lf, df)
     return df
 
 

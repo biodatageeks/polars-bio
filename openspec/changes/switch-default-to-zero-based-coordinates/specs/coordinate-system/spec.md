@@ -87,7 +87,7 @@ The library SHALL track coordinate system metadata consistently across all suppo
 
 #### Scenario: Polars DataFrame/LazyFrame metadata
 - **WHEN** a Polars DataFrame or LazyFrame is created via I/O functions
-- **THEN** the coordinate system SHALL be stored using [polars-config-meta](https://github.com/lmmx/polars-config-meta) via `df.config_meta.set()`
+- **THEN** the coordinate system SHALL be stored by polars-bio's owned metadata provider via `df.config_meta.set()`
 
 #### Scenario: Pandas DataFrame metadata
 - **WHEN** a Pandas DataFrame is used as input or returned as output
@@ -99,7 +99,7 @@ The library SHALL track coordinate system metadata consistently across all suppo
 
 #### Scenario: Metadata propagation through Polars transformations
 - **WHEN** a user applies Polars transformations like `filter()`, `with_columns()`, `select()`
-- **THEN** the coordinate system metadata SHALL be automatically propagated to the result (via polars-config-meta)
+- **THEN** the coordinate system metadata SHALL be automatically propagated to the result within the owned provider's supported operation scope
 
 #### Scenario: Metadata persistence to Parquet
 - **WHEN** a user saves a DataFrame with `df.config_meta.write_parquet()`

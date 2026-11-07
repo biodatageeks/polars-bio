@@ -1,0 +1,66 @@
+[
+  {
+    "label": "311-min",
+    "python": "3.11.13",
+    "polars": "1.40.0",
+    "pyarrow": "24.0.0",
+    "passed": 205,
+    "legacy_import_order_tests": "included"
+  },
+  {
+    "label": "311-latest",
+    "python": "3.11.13",
+    "polars": "1.44.2",
+    "pyarrow": "24.0.0",
+    "passed": 205,
+    "legacy_import_order_tests": "included"
+  },
+  {
+    "label": "312-min",
+    "python": "3.12.8",
+    "polars": "1.40.0",
+    "pyarrow": "24.0.0",
+    "passed": 205,
+    "legacy_import_order_tests": "included"
+  },
+  {
+    "label": "312-latest",
+    "python": "3.12.8",
+    "polars": "1.44.2",
+    "pyarrow": "24.0.0",
+    "passed": 205,
+    "legacy_import_order_tests": "included"
+  },
+  {
+    "label": "313-min",
+    "python": "3.13.5",
+    "polars": "1.40.0",
+    "pyarrow": "24.0.0",
+    "passed": 205,
+    "legacy_import_order_tests": "included"
+  },
+  {
+    "label": "313-latest",
+    "python": "3.13.5",
+    "polars": "1.44.2",
+    "pyarrow": "24.0.0",
+    "passed": 205,
+    "legacy_import_order_tests": "included"
+  },
+  {
+    "label": "314-min",
+    "python": "3.14.7",
+    "polars": "1.40.0",
+    "pyarrow": "24.0.0",
+    "passed": 205,
+    "legacy_import_order_tests": "included"
+  },
+  {
+    "label": "314-latest",
+    "python": "3.14.7",
+    "polars": "1.44.2",
+    "pyarrow": "24.0.0",
+    "passed": 205,
+    "legacy_import_order_tests": "included"
+  }
+]

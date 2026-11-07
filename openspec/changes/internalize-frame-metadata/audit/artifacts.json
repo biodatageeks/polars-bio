@@ -1,0 +1,17 @@
+{
+  "wheel": {
+    "required_files_match_workspace": true,
+    "legacy_runtime_dependency_absent": true,
+    "path": "/tmp/polars-bio-metadata-dist/polars_bio-0.36.2-cp310-abi3-macosx_11_0_arm64.whl",
+    "size": 82466572,
+    "sha256": "c21f6359c280b20e400b164622c0e72fb82a852703ddb249911b2979470030d4"
+  },
+  "sdist": {
+    "required_files_match_workspace": true,
+    "legacy_runtime_dependency_absent": true,
+    "unrelated_untracked_tests_absent": true,
+    "path": "/tmp/polars-bio-metadata-dist/polars_bio-0.36.2.tar.gz",
+    "size": 49851325,
+    "sha256": "e345bf106764c0d3839a045980fc80dafc89fb37407ffa38b7de7bf4e6a74d09"
+  }
+}

@@ -3193,7 +3193,6 @@ source = { editable = "." }
 dependencies = [
     { name = "datafusion" },
     { name = "polars" },
-    { name = "polars-config-meta" },
     { name = "pyarrow" },
     { name = "tqdm" },
 ]
@@ -3296,7 +3295,6 @@ requires-dist = [
     { name = "matplotlib", marker = "extra == 'viz'" },
     { name = "pandas", marker = "extra == 'pandas'", specifier = ">=3.0.0" },
     { name = "polars", specifier = ">=1.40.0,<2" },
-    { name = "polars-config-meta", specifier = ">=0.3.2,<1" },
     { name = "pyarrow", specifier = ">=23.0.1,<25" },
     { name = "pybigwig", marker = "python_full_version < '3.14' and extra == 'test'", specifier = ">=0.3.22" },
     { name = "pyhmmer", marker = "extra == 'test'", specifier = ">=0.10.0" },
@@ -3376,15 +3374,6 @@ dev = [
     { name = "rich", specifier = ">=13.9.4" },
     { name = "ruff", specifier = ">=0.8.2" },
     { name = "weasyprint", specifier = ">=68.0" },
-]
-
-[[package]]
-name = "polars-config-meta"
-version = "0.3.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/84/43/efd31df9fc34c9cd906e9a252366f37ecf37b6e07fe349455c77f3b2d010/polars_config_meta-0.3.4.tar.gz", hash = "sha256:5ca11dac1e61cbb0cbecd5928e37b96c728cb416cddf9b5efd949ca060864c25", size = 10487, upload-time = "2026-04-15T18:10:01.998Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/6e/ae/76fb528c6112a3df5a581a18f1a2ceee5983d54977d7f2b6bc883637fe4c/polars_config_meta-0.3.4-py3-none-any.whl", hash = "sha256:fa53bab8326a17cee5155296e830dc479398b8e705f126df82c51bed38e43ce9", size = 12185, upload-time = "2026-04-15T18:10:00.538Z" },
 ]
 
 [[package]]

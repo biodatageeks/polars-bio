@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 import polars as pl
 
+from ._frame_metadata import get_metadata as _get_frame_metadata
+from ._frame_metadata import set_metadata as _set_frame_metadata
 from ._path_utils import path_format_suffix
 from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemError
 
@@ -46,7 +48,7 @@ VCF_SAMPLE_NAMES_KEY = "vcf_sample_names"
 
 def _has_config_meta(df) -> bool:
     """Check if object has config_meta attribute (Polars or wrapper types)."""
-    return hasattr(df, "config_meta")
+    return isinstance(df, (pl.DataFrame, pl.LazyFrame)) or hasattr(df, "config_meta")
 
 
 def _is_file_path(s: str) -> bool:
@@ -103,10 +105,10 @@ def set_coordinate_system(
         ```
     """
     if isinstance(df, (pl.DataFrame, pl.LazyFrame)):
-        df.config_meta.set(**{COORDINATE_SYSTEM_KEY: zero_based})
+        _set_frame_metadata(df, **{COORDINATE_SYSTEM_KEY: zero_based})
     elif _has_config_meta(df):
         # Wrapper types like GffLazyFrameWrapper that delegate to underlying LazyFrame
-        df.config_meta.set(**{COORDINATE_SYSTEM_KEY: zero_based})
+        _set_frame_metadata(df, **{COORDINATE_SYSTEM_KEY: zero_based})
     elif _is_pandas_dataframe(df):
         df.attrs[COORDINATE_SYSTEM_KEY] = zero_based
     else:
@@ -142,11 +144,11 @@ def get_coordinate_system(
         ```
     """
     if isinstance(df, (pl.DataFrame, pl.LazyFrame)):
-        metadata = df.config_meta.get_metadata()
+        metadata = _get_frame_metadata(df)
         return metadata.get(COORDINATE_SYSTEM_KEY)
     elif _has_config_meta(df):
         # Wrapper types like GffLazyFrameWrapper that delegate to underlying LazyFrame
-        metadata = df.config_meta.get_metadata()
+        metadata = _get_frame_metadata(df)
         return metadata.get(COORDINATE_SYSTEM_KEY)
     elif _is_pandas_dataframe(df):
         return df.attrs.get(COORDINATE_SYSTEM_KEY)
@@ -600,7 +602,7 @@ def set_source_metadata(df, format: str, path: str = "", header: dict = None):
             SOURCE_PATH_KEY: path,
             SOURCE_HEADER_KEY: json.dumps(header) if header else "",
         }
-        df.config_meta.set(**metadata_updates)
+        _set_frame_metadata(df, **metadata_updates)
     elif _is_pandas_dataframe(df):
         # Pandas DataFrame
         if not hasattr(df, "attrs"):
@@ -666,7 +668,7 @@ def get_metadata(df) -> dict:
     if _has_config_meta(df):
         # Polars DataFrame/LazyFrame
         try:
-            metadata = df.config_meta.get_metadata()
+            metadata = _get_frame_metadata(df)
         except (KeyError, AttributeError, TypeError):
             return result
 

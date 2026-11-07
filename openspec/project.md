@@ -116,7 +116,7 @@
 - **Session parameters**:
   - `datafusion.bio.coordinate_system_zero_based` - Default coordinate system (default: `"false"` = 1-based)
   - `datafusion.bio.coordinate_system_check` - Metadata validation behavior (default: `"true"` = strict)
-- **DataFrame metadata**: Coordinate system is stored as metadata on DataFrames via `polars-config-meta`
+- **DataFrame metadata**: Polars frames use polars-bio's instance-owned `config_meta` provider with bounded propagation; see `changes/internalize-frame-metadata`. Pandas/DataFusion paths remain separate.
 - **Range operations**: Read coordinate system from DataFrame metadata (no explicit parameter)
 
 ### Key Operations
