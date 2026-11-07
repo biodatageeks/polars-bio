@@ -121,9 +121,8 @@ def _apply_coordinate_system(
 
 
 def _collect_with_metadata(lf: pl.LazyFrame) -> pl.DataFrame:
-    df = lf.collect()
-    df.config_meta.set(**lf.config_meta.get_metadata())
-    return df
+    # These readers return native frames; the collect wrapper preserves metadata.
+    return lf.collect()
 
 
 def _scan(

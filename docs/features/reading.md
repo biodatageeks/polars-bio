@@ -1010,12 +1010,20 @@ result = pb.overlap(df, df_zero, ...)  # Raises CoordinateSystemMismatchError!
 
 ### Setting metadata on DataFrames
 
-For DataFrames not created via polars-bio I/O functions, you must set the coordinate system metadata manually:
+For genomic interval CSV and Parquet inputs, use `pb.scan_csv()` or
+`pb.scan_parquet()` with an explicit `zero_based=` declaration. Their eager
+equivalents are `pb.read_csv()` and `pb.read_parquet()`. Use `use_zero_based=` when
+the output convention should differ from the source convention.
+
+For existing frames created outside these readers, set the coordinate convention
+manually. Tagging alone does not validate or convert the coordinates. See
+[Frame metadata](metadata.md) for supported transformations and aggregation.
 
 === "Polars DataFrame/LazyFrame"
 
     ```python
     import polars as pl
+    import polars_bio as pb
 
     # Create a DataFrame
     df = pl.DataFrame({
@@ -1024,8 +1032,8 @@ For DataFrames not created via polars-bio I/O functions, you must set the coordi
         "end": [150, 250]
     }).lazy()
 
-    # Set coordinate system metadata (requires polars-config-meta)
-    df = df.config_meta.set(coordinate_system_zero_based=False)  # 1-based
+    # polars-bio initializes config_meta; set() returns None.
+    df.config_meta.set(coordinate_system_zero_based=False)  # 1-based
 
     # Now it can be used with range operations
     result = pb.overlap(df, other_df, ...)

@@ -1,12 +1,16 @@
+# Metadata must initialize before imports that construct or tag frames.
+# ruff: noqa: E402
 import os
 
-import polars_config_meta  # noqa: F401 - initializes DataFrame metadata support
+from ._frame_metadata import initialize as _initialize_frame_metadata
+
+_initialize_frame_metadata()
 
 from polars_bio.polars_bio import BigBedReadOptions, BigWigReadOptions, InputFormat
 from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions, VcfZarrReadOptions
 
-from . import polars_ext  # registers pl.LazyFrame.pb namespace
+from . import polars_ext as polars_ext  # registers pl.LazyFrame.pb namespace
 from ._metadata import (
     get_metadata,
     print_metadata_json,

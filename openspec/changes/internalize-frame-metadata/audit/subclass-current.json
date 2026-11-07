@@ -1,0 +1,29 @@
+{
+  "polars": "1.40.1",
+  "normal_chain": "passed",
+  "eager_chain": "passed",
+  "is_lazyframe": true,
+  "exact_lazyframe_type": false,
+  "same_native_plan_on_adoption": true,
+  "base_methods_unchanged": true,
+  "signature_preserved": true,
+  "native_stream_retained": true,
+  "boundaries": {
+    "concat": {
+      "type": "LazyFrame",
+      "metadata": null
+    },
+    "group_by_agg": {
+      "type": "LazyFrame",
+      "metadata": null
+    },
+    "collect_all": {
+      "type": "DataFrame",
+      "metadata": null
+    },
+    "unoverridden_sort": {
+      "type": "BioLazyFrame",
+      "metadata": null
+    }
+  }
+}

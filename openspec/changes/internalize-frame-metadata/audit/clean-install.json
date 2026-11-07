@@ -1,0 +1,12 @@
+{
+  "python": "3.12.2",
+  "polars": "1.44.2",
+  "polars_bio": "0.36.2",
+  "provider_sha256": "29dc3b3f69e980ef87f4a28fde4f0e3377bdc9f3159809a58e808e64f8dd8bd6",
+  "legacy_distribution_absent": true,
+  "installed_source_matches_workspace": true,
+  "attribution_present": true,
+  "csv_group_range_parquet": "passed",
+  "nested_schema_metadata": "passed",
+  "vcf_roundtrip": "passed"
+}

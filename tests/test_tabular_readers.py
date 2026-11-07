@@ -337,3 +337,47 @@ def test_table_coordinate_options_must_be_bool(bed_file, kwargs, parameter):
 def test_table_zero_based_without_schema(bed_file):
     with pytest.raises(ValueError, match="needs a 'start' column"):
         pb.scan_table(bed_file, zero_based=True)
+
+
+@pytest.mark.parametrize("reader, name", READERS)
+def test_grouped_interval_workflow_preserves_metadata(files, reader, name):
+    source = getattr(pb, reader)(files / name, zero_based=False)
+    header = {"samples": ["S1"], "tag_types": {"XI": "i"}}
+    pb.set_source_metadata(source, format="test", path=str(files / name), header=header)
+    spans = (
+        source.group_by("chrom")
+        .agg(pl.col("start").min(), pl.col("end").max())
+        .filter(pl.col("start") > 0)
+    )
+    assert type(spans) is type(source)
+    assert get_metadata(spans) == get_metadata(source)
+    rows = _rows(spans)
+    assert get_metadata(rows)["header"] == header
+    assert rows.select("chrom", "start", "end").to_dicts() == [
+        {"chrom": "1", "start": 101, "end": 400}
+    ]
+    output = pb.overlap(spans, source).collect()
+    assert output.height == 2
+    assert get_coordinate_system(output) is False
+    summary = source.group_by("chrom").len()
+    with pytest.raises(pl.exceptions.ComputeError, match="No field named.*(start|end)"):
+        pb.overlap(summary, source).collect()
+
+
+@pytest.mark.parametrize("reader", [pb.scan_parquet, pb.read_parquet])
+def test_embedded_metadata_does_not_override_explicit_source_declaration(
+    tmp_path, reader
+):
+    source = pl.DataFrame({"chrom": ["1"], "start": [101], "end": [200]})
+    source.config_meta.set(
+        coordinate_system_zero_based=True,
+        source_format="vcf",
+        source_header='{"samples":["original"]}',
+    )
+    path = tmp_path / "embedded.parquet"
+    source.config_meta.write_parquet(path)
+    restored = reader(path, zero_based=False)
+    assert get_coordinate_system(restored) is False
+    assert _rows(restored)["start"].to_list() == [101]
+    assert get_metadata(restored)["format"] == "parquet"
+    assert get_metadata(restored)["header"] is None

@@ -1,0 +1,134 @@
+{
+  "python": "3.12.2",
+  "polars": "1.44.2",
+  "group_wrappers": 10,
+  "collect_bridge": true,
+  "results": [
+    {
+      "frame": "DataFrame",
+      "tagged": false,
+      "operation": "agg",
+      "result": "passed"
+    },
+    {
+      "frame": "DataFrame",
+      "tagged": false,
+      "operation": "len",
+      "result": "passed"
+    },
+    {
+      "frame": "DataFrame",
+      "tagged": false,
+      "operation": "head",
+      "result": "passed"
+    },
+    {
+      "frame": "DataFrame",
+      "tagged": false,
+      "operation": "tail",
+      "result": "passed"
+    },
+    {
+      "frame": "DataFrame",
+      "tagged": false,
+      "operation": "having_agg",
+      "result": "passed"
+    },
+    {
+      "frame": "DataFrame",
+      "tagged": true,
+      "operation": "agg",
+      "result": "passed"
+    },
+    {
+      "frame": "DataFrame",
+      "tagged": true,
+      "operation": "len",
+      "result": "passed"
+    },
+    {
+      "frame": "DataFrame",
+      "tagged": true,
+      "operation": "head",
+      "result": "passed"
+    },
+    {
+      "frame": "DataFrame",
+      "tagged": true,
+      "operation": "tail",
+      "result": "passed"
+    },
+    {
+      "frame": "DataFrame",
+      "tagged": true,
+      "operation": "having_agg",
+      "result": "passed"
+    },
+    {
+      "frame": "LazyFrame",
+      "tagged": false,
+      "operation": "agg",
+      "result": "passed"
+    },
+    {
+      "frame": "LazyFrame",
+      "tagged": false,
+      "operation": "len",
+      "result": "passed"
+    },
+    {
+      "frame": "LazyFrame",
+      "tagged": false,
+      "operation": "head",
+      "result": "passed"
+    },
+    {
+      "frame": "LazyFrame",
+      "tagged": false,
+      "operation": "tail",
+      "result": "passed"
+    },
+    {
+      "frame": "LazyFrame",
+      "tagged": false,
+      "operation": "having_agg",
+      "result": "passed"
+    },
+    {
+      "frame": "LazyFrame",
+      "tagged": true,
+      "operation": "agg",
+      "result": "passed"
+    },
+    {
+      "frame": "LazyFrame",
+      "tagged": true,
+      "operation": "len",
+      "result": "passed"
+    },
+    {
+      "frame": "LazyFrame",
+      "tagged": true,
+      "operation": "head",
+      "result": "passed"
+    },
+    {
+      "frame": "LazyFrame",
+      "tagged": true,
+      "operation": "tail",
+      "result": "passed"
+    },
+    {
+      "frame": "LazyFrame",
+      "tagged": true,
+      "operation": "having_agg",
+      "result": "passed"
+    }
+  ],
+  "snapshot_isolation": "passed",
+  "having_identity": "passed",
+  "original_errors": "passed",
+  "signatures": "passed",
+  "lazy_execution": "passed",
+  "limitations": "Feasibility only; no application integration, namespace ownership, or complete patch manifest tested."
+}

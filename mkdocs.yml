@@ -17,6 +17,7 @@ nav:
       - Writing files: features/writing.md
       - SQL processing: features/sql.md
       - DataFrames support: features/dataframes.md
+      - Frame metadata: features/metadata.md
       - Cloud storage: features/cloud.md
       - Parallel processing: features/parallel.md
   - 📚 Tutorial: notebooks/tutorial.ipynb

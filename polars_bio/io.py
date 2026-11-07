@@ -6,8 +6,6 @@ from typing import Any, Dict, Iterator, NamedTuple, Optional, Sequence, Union
 from uuid import uuid4
 
 import polars as pl
-
-logger = logging.getLogger(__name__)
 from polars.io.plugins import register_io_source
 from tqdm.auto import tqdm
 
@@ -53,6 +51,8 @@ from polars_bio.polars_bio import (
 )
 
 from . import structure as _structure
+from ._frame_metadata import get_metadata as _get_frame_metadata
+from ._frame_metadata import set_metadata as _set_frame_metadata
 from ._metadata import set_coordinate_system
 from ._path_utils import strip_url_parameters
 from .context import _resolve_zero_based, ctx
@@ -80,6 +80,8 @@ from .predicate_translator import (
     VCF_STRING_COLUMNS,
     VCF_UINT32_COLUMNS,
 )
+
+logger = logging.getLogger(__name__)
 
 # Mapping from format name to (string_cols, uint32_cols, float32_cols) for predicate validation.
 # Uses string keys because PyO3 InputFormat is not hashable.
@@ -1106,8 +1108,8 @@ class IOOperations:
             samples=samples,
             preserve_record_layout=preserve_record_layout,
         )
-        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        # Retain the explicit reader metadata copy for source adapters.
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         # Set metadata on the collected DataFrame
         if zero_based is not None:
@@ -1259,7 +1261,7 @@ class IOOperations:
             samples=samples,
             genotype_output=genotype_output,
         )
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         if zero_based is not None:
             set_coordinate_system(df, zero_based)
@@ -1368,7 +1370,7 @@ class IOOperations:
             predicate_pushdown,
             zero_based=zero_based,
         )
-        lf.config_meta.set(source_format=source_format)
+        _set_frame_metadata(lf, source_format=source_format)
         return lf
 
     @staticmethod
@@ -1405,7 +1407,7 @@ class IOOperations:
             samples=samples,
             genotype_encoding_raw=genotype_encoding_raw,
         )
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         if zero_based is not None:
             set_coordinate_system(df, zero_based)
@@ -1502,8 +1504,8 @@ class IOOperations:
             predicate_pushdown,
             use_zero_based,
         )
-        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        # Retain the explicit reader metadata copy for source adapters.
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         # Set metadata on the collected DataFrame
         if zero_based is not None:
@@ -1625,7 +1627,7 @@ class IOOperations:
             predicate_pushdown,
             use_zero_based,
         )
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         if zero_based is not None:
             set_coordinate_system(df, zero_based)
@@ -1758,8 +1760,8 @@ class IOOperations:
             infer_tag_sample_size,
             tag_type_hints,
         )
-        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        # Retain the explicit reader metadata copy for source adapters.
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         # Set metadata on the collected DataFrame
         if zero_based is not None:
@@ -1968,8 +1970,8 @@ class IOOperations:
             infer_tag_sample_size,
             tag_type_hints,
         )
-        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        # Retain the explicit reader metadata copy for source adapters.
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         # Set metadata on the collected DataFrame
         if zero_based is not None:
@@ -2447,7 +2449,7 @@ class IOOperations:
             predicate_pushdown,
             use_zero_based,
         )
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         if zero_based is not None:
             set_coordinate_system(df, zero_based)
@@ -2586,7 +2588,7 @@ class IOOperations:
             predicate_pushdown=predicate_pushdown,
             use_zero_based=use_zero_based,
         )
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         if zero_based is not None:
             set_coordinate_system(df, zero_based)
@@ -2742,7 +2744,7 @@ class IOOperations:
             predicate_pushdown=predicate_pushdown,
             use_zero_based=use_zero_based,
         )
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         if zero_based is not None:
             set_coordinate_system(df, zero_based)
@@ -3170,8 +3172,8 @@ class IOOperations:
             projection_pushdown,
             use_zero_based,
         )
-        # Get metadata before collecting (polars-config-meta doesn't preserve through collect)
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        # Retain the explicit reader metadata copy for source adapters.
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         # Set metadata on the collected DataFrame
         if zero_based is not None:
@@ -3282,7 +3284,7 @@ class IOOperations:
             predicate_pushdown,
             use_zero_based,
         )
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         if zero_based is not None:
             set_coordinate_system(df, zero_based)
@@ -3395,7 +3397,7 @@ class IOOperations:
             use_zero_based,
             schema,
         )
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         if zero_based is not None:
             set_coordinate_system(df, zero_based)
@@ -3495,7 +3497,7 @@ class IOOperations:
             predicate_pushdown=predicate_pushdown,
             use_zero_based=use_zero_based,
         )
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         if zero_based is not None:
             set_coordinate_system(df, zero_based)
@@ -4262,7 +4264,7 @@ class IOOperations:
             infer_tag_sample_size,
             tag_type_hints,
         )
-        zero_based = lf.config_meta.get_metadata().get("coordinate_system_zero_based")
+        zero_based = _get_frame_metadata(lf).get("coordinate_system_zero_based")
         df = lf.collect()
         if zero_based is not None:
             set_coordinate_system(df, zero_based)
@@ -5513,9 +5515,9 @@ class CoolLazyFrameWrapper(pl.LazyFrame):
         self._file_path = file_path
         self._read_options = read_options
         self._projection_pushdown = projection_pushdown
-        metadata = base_lf.config_meta.get_metadata()
+        metadata = _get_frame_metadata(base_lf)
         if metadata:
-            self.config_meta.set(**metadata)
+            _set_frame_metadata(self, **metadata)
 
     @classmethod
     def _from_pyldf(cls, ldf):
@@ -5536,9 +5538,9 @@ class CoolLazyFrameWrapper(pl.LazyFrame):
                 self._read_options,
                 force_empty_projection=True,
             )
-            metadata = self.config_meta.get_metadata()
+            metadata = _get_frame_metadata(self)
             if metadata:
-                count_lf.config_meta.set(**metadata)
+                _set_frame_metadata(count_lf, **metadata)
             return count_lf.select(*exprs, **named_exprs)
         return super().select(*exprs, **named_exprs)
 

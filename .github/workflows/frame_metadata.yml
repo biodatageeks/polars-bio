@@ -1,0 +1,46 @@
+name: Frame metadata compatibility
+
+on:
+  pull_request:
+    paths:
+      - 'polars_bio/_frame_metadata.py'
+      - 'tests/test_frame_metadata.py'
+      - 'tests/conftest.py'
+      - 'pyproject.toml'
+      - '.github/workflows/frame_metadata.yml'
+  push:
+    branches: [main, master]
+    paths:
+      - 'polars_bio/_frame_metadata.py'
+      - 'tests/test_frame_metadata.py'
+      - 'tests/conftest.py'
+      - 'pyproject.toml'
+      - '.github/workflows/frame_metadata.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provider:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14']
+        # Polars 2 jobs test the standalone provider ahead of application PR #478.
+        polars: ['polars==1.40.0', 'polars>=1.40.0,<2', 'polars==2.0.0', 'polars>=2.1,<2.2']
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Test provider without building the Rust extension
+        env:
+          POLARS_REQUIREMENT: ${{ matrix.polars }}
+        # The old plugin is a test-only dependency for both import-order cases.
+        run: >-
+          uv run --no-project --isolated
+          --with "$POLARS_REQUIREMENT" --with 'pyarrow>=23.0.1,<25'
+          --with pytest --with 'polars-config-meta==0.3.4'
+          python -m pytest -q tests/test_frame_metadata.py

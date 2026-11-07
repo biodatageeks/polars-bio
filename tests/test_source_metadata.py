@@ -15,6 +15,19 @@ TEST_DIR = Path(__file__).parent
 DATA_DIR = TEST_DIR / "data"
 
 
+@pytest.mark.parametrize("error", [KeyError, AttributeError, TypeError])
+def test_broken_metadata_accessor_is_not_treated_as_missing(error):
+    class Accessor:
+        def get_metadata(self):
+            raise error("broken metadata accessor")
+
+    class Adapter:
+        config_meta = Accessor()
+
+    with pytest.raises(error, match="broken metadata accessor"):
+        pb.get_metadata(Adapter())
+
+
 class TestSourceMetadataBasics:
     """Basic tests for set_source_metadata and get_source_metadata functions."""
 
@@ -50,14 +63,21 @@ class TestSourceMetadataBasics:
         """Test that source metadata survives collect() operation."""
         lf = pl.LazyFrame({"a": [1, 2, 3]})
 
-        set_source_metadata(lf, format="fastq", path="/path/to/file.fastq")
+        header = {
+            "info_fields": {"AF": {"number": "A", "type": "Float"}},
+            "sample_names": ["S1", "S2"],
+            "layout": {"format": ["GT", "DP"]},
+        }
+        set_source_metadata(lf, format="vcf", path="/path/to/file.vcf", header=header)
+        lf.config_meta.set(coordinate_system_zero_based=True)
 
         # Collect to DataFrame
         df = lf.collect()
 
-        # Metadata should NOT survive collect without explicit preservation
-        # (this is expected Polars behavior - metadata is lost on collect)
-        # The io.py code handles this by preserving metadata explicitly
+        assert get_source_metadata(df) == get_source_metadata(lf)
+        assert get_source_metadata(df)["header"] == header
+        df.config_meta.set(source_path="changed.vcf")
+        assert get_source_metadata(lf)["path"] == "/path/to/file.vcf"
 
     def test_empty_header_stored_as_none(self):
         """Test that empty header dict is stored as empty string."""
@@ -282,7 +302,7 @@ class TestVCFConvenienceWrappers:
 
     def test_vcf_wrapper_backward_compatible(self):
         """Test that VCF wrapper maintains backward compatibility."""
-        from polars_bio._metadata import get_vcf_metadata, set_vcf_metadata
+        from polars_bio._metadata import get_vcf_metadata
 
         vcf_path = f"{DATA_DIR}/io/vcf/vep.vcf"
         df = pb.read_vcf(vcf_path)

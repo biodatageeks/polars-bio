@@ -379,13 +379,9 @@ pb.set_option("datafusion.execution.batch_size", "8192")
 import polars as pl
 import polars_bio as pb
 
-# Create a LazyFrame from a large file
-lf1 = pl.scan_parquet("variants.parquet")
-lf2 = pl.scan_parquet("regions.parquet")
-
-# Set coordinate system metadata
-lf1 = lf1.config_meta.set(coordinate_system_zero_based=True)
-lf2 = lf2.config_meta.set(coordinate_system_zero_based=True)
+# Declare source conventions while scanning interval tables.
+lf1 = pb.scan_parquet("variants.parquet", zero_based=True)
+lf2 = pb.scan_parquet("regions.parquet", zero_based=True)
 
 # Range operation uses Arrow C Stream for efficient data transfer
 result = pb.overlap(
@@ -454,7 +450,12 @@ The Arrow schema is extracted **without materializing any data** via `py_get_tab
 
 ### Polars-side metadata (Python)
 
-On the Python side, metadata is stored using the [polars-config-meta](https://github.com/ion-elgreco/polars-config-meta) library, which attaches key-value pairs to Polars DataFrames and LazyFrames via `config_meta`:
+On the Python side, polars-bio stores metadata on each Polars DataFrame/LazyFrame
+instance through its owned `config_meta` namespace. A fixed set of 57 method
+wrappers preserves metadata through supported transformations and grouping, or
+invalidates it after generic multi-input operations. There is no frame-ID registry
+or dependency on `polars-config-meta`. See [Frame metadata](features/metadata.md)
+for the propagation contract and migration notes.
 
 | Key | Type | Description |
 |-----|------|-------------|
@@ -493,7 +494,8 @@ When writing files (e.g., `write_vcf()`, `sink_bam()`), metadata flows back from
 
 ### Metadata preservation
 
-Polars metadata set via `config_meta` is preserved through most Polars operations:
+Metadata set via `config_meta` is copied through the
+[supported transformations and grouping methods](features/metadata.md#supported-transformations):
 
 ```python
 lf = pb.scan_vcf("variants.vcf")
@@ -501,7 +503,7 @@ filtered = lf.filter(pl.col("qual") > 30)    # metadata preserved
 selected = lf.select(["chrom", "start"])       # metadata preserved
 limited = lf.head(100)                         # metadata preserved
 
-# All share the same metadata
+# Metadata values agree; top-level dictionaries are independent.
 assert pb.get_metadata(lf)["format"] == pb.get_metadata(filtered)["format"]  # "vcf"
 ```
 
@@ -576,7 +578,7 @@ The coordinate system is stored in different places depending on the context:
 
 | Context | Storage | Key |
 |---------|---------|-----|
-| Polars DataFrame/LazyFrame | `config_meta` (polars-config-meta) | `coordinate_system_zero_based` |
+| Polars DataFrame/LazyFrame | polars-bio-owned `config_meta` | `coordinate_system_zero_based` |
 | Pandas DataFrame | `df.attrs` | `coordinate_system_zero_based` |
 | DataFusion registered table | Arrow schema metadata | `bio.coordinate_system_zero_based` |
 | Session default | DataFusion config | `datafusion.bio.coordinate_system_zero_based` |
