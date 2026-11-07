@@ -1,0 +1,105 @@
+{
+  "pr_478_head": "b325911cca43395a579c582f91a6ad617f4b05c5",
+  "migration_initial_head": "2b09a41b8b881b0cd5238d9188814a4bd388fe23",
+  "provider_sha256": "db443aeed40f3f1a49e471409707d09179150469804822583341cc53136164d5",
+  "cases_per_environment": 200,
+  "note": "Polars 2 removed with_context, so its five invalidation-input variants are absent; all remaining provider contracts run, including both legacy import orders.",
+  "jobs": [
+    {
+      "requested_python": "3.11",
+      "polars": "2.0.0",
+      "versions": [
+        "3.11.13",
+        "2.0.0",
+        "24.0.0"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/polars-bio-meta-pr478-provider-3.11-2.0.0.log",
+      "summary": "200 passed in 4.13s"
+    },
+    {
+      "requested_python": "3.11",
+      "polars": "2.1.0",
+      "versions": [
+        "3.11.13",
+        "2.1.0",
+        "24.0.0"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/polars-bio-meta-pr478-provider-3.11-2.1.0.log",
+      "summary": "200 passed in 4.91s"
+    },
+    {
+      "requested_python": "3.12",
+      "polars": "2.0.0",
+      "versions": [
+        "3.12.8",
+        "2.0.0",
+        "24.0.0"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/polars-bio-meta-pr478-provider-3.12-2.0.0.log",
+      "summary": "200 passed in 1.52s"
+    },
+    {
+      "requested_python": "3.12",
+      "polars": "2.1.0",
+      "versions": [
+        "3.12.8",
+        "2.1.0",
+        "24.0.0"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/polars-bio-meta-pr478-provider-3.12-2.1.0.log",
+      "summary": "200 passed in 1.73s"
+    },
+    {
+      "requested_python": "3.13",
+      "polars": "2.0.0",
+      "versions": [
+        "3.13.5",
+        "2.0.0",
+        "24.0.0"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/polars-bio-meta-pr478-provider-3.13-2.0.0.log",
+      "summary": "200 passed in 4.95s"
+    },
+    {
+      "requested_python": "3.13",
+      "polars": "2.1.0",
+      "versions": [
+        "3.13.5",
+        "2.1.0",
+        "24.0.0"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/polars-bio-meta-pr478-provider-3.13-2.1.0.log",
+      "summary": "200 passed in 4.50s"
+    },
+    {
+      "requested_python": "3.14",
+      "polars": "2.0.0",
+      "versions": [
+        "3.14.7",
+        "2.0.0",
+        "24.0.0"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/polars-bio-meta-pr478-provider-3.14-2.0.0.log",
+      "summary": "200 passed in 4.94s"
+    },
+    {
+      "requested_python": "3.14",
+      "polars": "2.1.0",
+      "versions": [
+        "3.14.7",
+        "2.1.0",
+        "24.0.0"
+      ],
+      "exit_code": 0,
+      "log": "/tmp/polars-bio-meta-pr478-provider-3.14-2.1.0.log",
+      "summary": "200 passed in 4.64s"
+    }
+  ]
+}

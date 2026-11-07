@@ -205,13 +205,19 @@ Wrap this separate, explicit list and clear metadata on successful results:
 | --- | --- | --- |
 | DataFrame and LazyFrame | `join`, `join_asof`, `join_where`, `update`, `merge_sorted` | 10 |
 | DataFrame | `vstack`, `hstack`, `extend` | 3 |
-| LazyFrame | `with_context` | 1 |
+| LazyFrame (Polars 1 only) | `with_context` | 1 |
 
 These **14 class/method pairs** bring the manifest to **57**: 33 frame-preserving,
 10 grouping, and 14 invalidating. The original frame manifest was checked for
 callable availability on local Polars 1.40.1; the grouping extension has its own
 versioned feasibility evidence. The production implementation must test the
 complete manifest at the supported-version endpoints.
+
+Forward compatibility with PR #478 additionally tests Polars 2.0 and 2.1. Those
+versions removed `LazyFrame.with_context`, so the manifest explicitly omits that
+single entry by major version: 56 entries, including 13 invalidating operations.
+Every remaining entry is still required. Do not replace this rule with generic
+method-availability filtering, which could silently reduce supported behavior.
 
 Invalidate even if tags match, one input is untagged, or internal eager/lazy calls
 temporarily copied metadata. Clearing includes source headers as well as coordinate
@@ -233,7 +239,7 @@ external reconstruction or single-input concat discards metadata.
 Initialize from `polars_bio/__init__.py` before modules that attach metadata.
 Use Polars' registration API for the compatibility namespace.
 
-1. Preflight all 57 required method attributes and both namespace slots. Capture
+1. Preflight all 57 required method attributes (56 on Polars 2) and both namespace slots. Capture
    originals and ownership markers. Missing methods or foreign namespaces produce
    actionable errors before installation changes any classes; do not silently skip.
 2. Serialize initialization and make repeated initialization idempotent. A repeat
@@ -278,8 +284,9 @@ Preserve Cooler count projection and GFF/GTF attribute projection/deferred
 predicates. Keep their existing class hierarchy and explicit metadata copies until
 tests prove a copy redundant. Verify full source headers, not just coordinates.
 
-`range_op_io.py` and writers consume `collect_batches(lazy=True)._inner` and its
-native Arrow C stream. Leave that method, object, and interface unchanged. Read
+The current integration consumes `collect_batches(lazy=True)._inner`; PR #478
+uses the batch object's public `__arrow_c_stream__` interface on all versions.
+Leave the collection method and native stream object unpatched. Read
 metadata before passing the stream to Rust; individual batches need no namespace
 wrapper. Test repeated collection and existing streaming writer paths.
 

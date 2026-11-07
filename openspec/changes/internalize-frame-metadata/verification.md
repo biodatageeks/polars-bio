@@ -4,6 +4,10 @@ Verified on 2026-11-07. The approved bounded migration is implemented, with
 ordinary Polars frame types and ordinary grouping syntax. No Rust source was
 changed. No release was published.
 
+Subsequent review fixes and compatibility testing with Polars 2.0/2.1 and PR #478
+are recorded in [the follow-up verification](polars2-verification.md). Counts and
+artifact hashes below describe the initial migration verification.
+
 ## Delivered behavior
 
 - `polars_bio/_frame_metadata.py` owns instance metadata, the three-method

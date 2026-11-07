@@ -104,10 +104,7 @@ def set_coordinate_system(
         set_coordinate_system(df, zero_based=True)
         ```
     """
-    if isinstance(df, (pl.DataFrame, pl.LazyFrame)):
-        _set_frame_metadata(df, **{COORDINATE_SYSTEM_KEY: zero_based})
-    elif _has_config_meta(df):
-        # Wrapper types like GffLazyFrameWrapper that delegate to underlying LazyFrame
+    if _has_config_meta(df):
         _set_frame_metadata(df, **{COORDINATE_SYSTEM_KEY: zero_based})
     elif _is_pandas_dataframe(df):
         df.attrs[COORDINATE_SYSTEM_KEY] = zero_based
@@ -143,11 +140,7 @@ def get_coordinate_system(
         get_coordinate_system(lf)  # Returns: True
         ```
     """
-    if isinstance(df, (pl.DataFrame, pl.LazyFrame)):
-        metadata = _get_frame_metadata(df)
-        return metadata.get(COORDINATE_SYSTEM_KEY)
-    elif _has_config_meta(df):
-        # Wrapper types like GffLazyFrameWrapper that delegate to underlying LazyFrame
+    if _has_config_meta(df):
         metadata = _get_frame_metadata(df)
         return metadata.get(COORDINATE_SYSTEM_KEY)
     elif _is_pandas_dataframe(df):
@@ -666,11 +659,8 @@ def get_metadata(df) -> dict:
     }
 
     if _has_config_meta(df):
-        # Polars DataFrame/LazyFrame
-        try:
-            metadata = _get_frame_metadata(df)
-        except (KeyError, AttributeError, TypeError):
-            return result
+        # An accessor failure is not equivalent to absent coordinate metadata.
+        metadata = _get_frame_metadata(df)
 
         result["format"] = metadata.get(SOURCE_FORMAT_KEY)
         result["path"] = metadata.get(SOURCE_PATH_KEY)

@@ -23,11 +23,11 @@ observable behavior, including failures that the upstream suite did not cover.
 | Invalidating manifest | Each of 14 entries covered with matching/conflicting/missing tags; no left/right metadata leaks; in-place receiver invalidation; unchanged non-mutated inputs and original errors |
 | Installation | Exact changed-method set; signatures and `__wrapped__`; repeat/concurrent initialization; preflight and injected mid-install failure; rollback without overwriting foreign edits |
 | Conflicts | Original plugin first/later; old/new frames and existing grouped queries; cached accessors; actionable errors; installed-but-unused distribution succeeds |
-| Native boundaries | `collect_batches` method identity and `_inner` Arrow export intact; Series, `map_groups`, rolling/dynamic grouping entry points, module functions, and unlisted methods not patched |
+| Native boundaries | `collect_batches` method identity and public Arrow export intact, plus existing `_inner` export on Polars 1; Series, `map_groups`, rolling/dynamic grouping entry points, module functions, and unlisted methods not patched |
 | Parquet | Native/fallback paths, paths/buffers, default compression and representative options/errors; identical JSON in file/schema metadata; unrelated schema metadata where available; nested/categorical schema fallback and temporal/list/struct value roundtrips |
 | Lifetime/concurrency | Weakref-based observations in tests confirm frames are collectible; concurrent independent-frame creation/collection has no cross-frame state; no guarantee for concurrent mutation of one frame |
 
-The exact 57-entry manifest belongs in one runtime constant and an independent
+The exact 57-entry manifest (56 on Polars 2, omitting only `with_context`) belongs in one runtime constant and an independent
 expected test set derived from the design. Do not derive test expectations from
 the constant under test. Give each entry a valid operation and metadata assertion;
 checking that methods exist is insufficient. Exercise invalidating methods on
@@ -93,6 +93,9 @@ into one pytest process.
   not a floating claim about the latest version.
 - Exercise applicable Python 3.11–3.14 jobs using supported wheel combinations.
   Record resolver/wheel incompatibilities separately from provider failures.
+- Also run standalone provider checks on Polars 2.0/2.1 and application tests in
+  an isolated worktree combining this migration with PR #478. The application
+  dependency bound stays unchanged in this migration PR.
 - Run the complete manifest and Parquet checks at both Polars endpoints. A missing
   method or metadata-writing API blocks the selected version claim; resolve the
   compatibility issue explicitly instead of silently reducing behavior.

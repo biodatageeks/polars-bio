@@ -54,6 +54,7 @@ ROWS = {"chrom": ["1", "1", "2"], "start": [1, 3, 5], "end": [2, 4, 6]}
 # Independent expectations: do not build these from the implementation manifest.
 FRAME_METHODS = "filter select with_columns drop rename sort slice head tail limit clone cast unique reverse explode".split()
 COMBINING = "join join_asof join_where update merge_sorted".split()
+POLARS_1 = pl.__version__.startswith("1.")
 EXPECTED_PAIRS = (
     {
         (cls, name)
@@ -64,7 +65,8 @@ EXPECTED_PAIRS = (
         (pl.DataFrame, name)
         for name in ("lazy", "__getitem__", "vstack", "hstack", "extend")
     }
-    | {(pl.LazyFrame, name) for name in ("collect", "with_context")}
+    | {(pl.LazyFrame, "collect")}
+    | ({(pl.LazyFrame, "with_context")} if POLARS_1 else set())
     | {
         (cls, name)
         for cls in (GroupBy, LazyGroupBy)
@@ -90,7 +92,7 @@ def tagged(cls=pl.DataFrame, metadata=META):
 
 
 def test_manifest_signatures_and_reinitialization():
-    assert len(EXPECTED_PAIRS) == 57
+    assert len(EXPECTED_PAIRS) == (57 if POLARS_1 else 56)
     assert set(fm._installed_methods) == EXPECTED_PAIRS
     before = {pair: getattr(*pair) for pair in EXPECTED_PAIRS}
     fm.initialize()
@@ -114,7 +116,8 @@ def test_exact_patch_scope_in_fresh_process():
         changed = {(cls, name) for cls in classes for name, value in before[cls].items()
                    if vars(cls).get(name) is not value}
         assert changed == set(fm._installed_methods)
-        assert len(changed) == 57
+        assert len(changed) == (57 if pl.__version__.startswith("1.") else 56)
+        assert hasattr(pl.LazyFrame, "with_context") == pl.__version__.startswith("1.")
         assert (pl.concat, pl.collect_all) == functions
         assert not hasattr(pl.Series, "config_meta")
     """
@@ -289,8 +292,9 @@ COMBINE_CASES = [
     (pl.DataFrame, "vstack"),
     (pl.DataFrame, "hstack"),
     (pl.DataFrame, "extend"),
-    (pl.LazyFrame, "with_context"),
 ]
+if POLARS_1:
+    COMBINE_CASES.append((pl.LazyFrame, "with_context"))
 
 
 @pytest.mark.parametrize("cls,method", COMBINE_CASES)
@@ -341,7 +345,9 @@ def test_failed_combinations_leave_metadata_and_concat_remains_untagged():
     assert fm.get_metadata(left) == fm.get_metadata(right) == META
     assert fm.get_metadata(pl.concat([left.lazy(), right.lazy()])) == {}
     stream = left.lazy().collect_batches(lazy=True)
-    assert hasattr(stream._inner, "__arrow_c_stream__")
+    assert hasattr(stream, "__arrow_c_stream__")
+    if POLARS_1:
+        assert hasattr(stream._inner, "__arrow_c_stream__")
 
 
 @pytest.mark.parametrize("cls", [pl.DataFrame, pl.LazyFrame])
@@ -528,7 +534,7 @@ def test_installation_failure_and_owned_rollback(failure):
         real_register = pl.api.register_lazyframe_namespace
         real_setattr = setattr
         if failure == "preflight":
-            pl.LazyFrame.with_context = None
+            pl.LazyFrame.join = None
         elif failure in ("namespace", "reentrant", "foreign"):
             def register(name):
                 def apply(namespace):
@@ -552,7 +558,7 @@ def test_installation_failure_and_owned_rollback(failure):
         else: raise AssertionError("injected failure did not fire")
         assert not fm._initialized and not fm._installed_methods
         for (cls, name), value in original.items():
-            if failure == "preflight" and cls is pl.LazyFrame and name == "with_context":
+            if failure == "preflight" and cls is pl.LazyFrame and name == "join":
                 real_setattr(cls, name, value)
             else:
                 assert getattr(cls, name) is value, (cls, name)

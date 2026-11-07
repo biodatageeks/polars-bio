@@ -22,11 +22,13 @@ are not part of the migration.
   returning `None`, `get_metadata()`, and the legacy `write_parquet()` method.
   Preserve the coordinate flag, source format/path, and complete serialized source
   header, including VCF layout and BAM/SAM tag types.
-- Wrap exactly 57 class/method pairs: 33 preserve metadata through common frame
+- Wrap exactly 57 class/method pairs on Polars 1: 33 preserve metadata through common frame
   operations, 10 carry it through ordinary grouping, and 14 invalidate it after
   generic multi-input operations. Grouped `agg`, `len`, `head`, `tail`, and `having`
   retain normal syntax and types, with per-group metadata snapshots.
   The [design](design.md) contains the complete manifest.
+  Forward compatibility tests for PR #478 cover Polars 2.0/2.1 with 56 entries,
+  omitting only `LazyFrame.with_context`, which those versions removed.
 - Preserve original result types, signatures, exceptions, and lazy execution.
   Recommend `pb.scan_csv()` / `pb.scan_parquet()` for genomic interval data,
   with explicit `zero_based=` and optional output conversion via `use_zero_based=`.
@@ -70,8 +72,10 @@ are not part of the migration.
   `bioconda-recipe/meta.yaml`. PyArrow remains an existing dependency.
 - Include required upstream MIT attribution for adapted code/tests in wheel and
   sdist. Leave unrelated generated files and historical artifacts alone.
-- Stay within Polars `>=1.40.0,<2`. Polars 2 adoption and Arrow coordinate
-  extension types are separate work.
+- Keep the application dependency within Polars `>=1.40.0,<2` in this PR, while
+  testing the provider and its combination with PR #478 on Polars 2.0/2.1.
+  The application dependency change belongs to #478. Arrow coordinate extension
+  types remain separate work.
 
 ## Delivery
 
@@ -90,7 +94,7 @@ license changes are staged for the migration release: its source version and
 checksum must be updated together when that release exists. No release has
 been published.
 
-The accepted tradeoff is process-wide wrapping of 57 Polars methods. Untagged
+The accepted tradeoff is process-wide wrapping of 57 Polars methods (56 on Polars 2). Untagged
 frames still pass through those wrappers, so compatibility and overhead checks
 are release gates. Owning a small manifest limits that cost; it does not eliminate
 the effects of patching.

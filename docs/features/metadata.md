@@ -92,7 +92,7 @@ Generic multi-input methods clear all result metadata, even when input tags agre
 | --- | --- |
 | DataFrame and LazyFrame | `join`, `join_asof`, `join_where`, `update`, `merge_sorted` |
 | DataFrame | `vstack`, `hstack`, `extend` |
-| LazyFrame | `with_context` |
+| LazyFrame (Polars 1 only) | `with_context` |
 
 Successful in-place combinations clear the receiver's metadata. Other inputs
 retain their metadata. After checking and normalizing a combined result, explicitly
@@ -143,7 +143,11 @@ forwarding, `merge`, `update`, `clear_metadata`, `ConfigMetaOpts`, diagnostics, 
 standalone upstream metadata-reader imports are not provided. Replace mutation
 of the old live metadata dictionary with `set()`.
 
-The implementation wraps exactly 57 class/method pairs process-wide: 33 frame
-transformations, 10 grouping boundaries, and 14 invalidating operations. Untagged
-Polars frames pass through those wrappers too. Compatibility tests cover the
+The implementation wraps exactly 57 class/method pairs process-wide on Polars 1:
+33 frame transformations, 10 grouping boundaries, and 14 invalidating operations.
+The provider also tests Polars 2.0/2.1 compatibility: those versions removed
+`with_context`, so their manifest has 56 entries. Application-level Polars 2
+support requires the separate IO/streaming compatibility changes in
+[PR #478](https://github.com/biodatageeks/polars-bio/pull/478).
+Untagged Polars frames pass through those wrappers too. Compatibility tests cover the
 supported Polars versions; this is not native Polars propagation for every API.

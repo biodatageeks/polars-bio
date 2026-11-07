@@ -1,0 +1,55 @@
+{
+  "pr_478_head": "b325911cca43395a579c582f91a6ad617f4b05c5",
+  "migration_initial_head": "2b09a41b8b881b0cd5238d9188814a4bd388fe23",
+  "python": "3.12.2",
+  "platform": "macOS arm64",
+  "native_sources_identical_to_migration": true,
+  "native_extension": "Reused existing extension after verifying Cargo.toml, Cargo.lock, and src are identical between both branches.",
+  "runs": [
+    {
+      "polars": "1.44.2",
+      "combines_pr_478": false,
+      "command": "make test",
+      "exit_code": 0,
+      "summaries": [
+        "2550 passed, 1 skipped, 25 warnings in 71.39s (0:01:11)",
+        "15 passed in 1.49s",
+        "11 passed in 0.84s",
+        "37 passed, 1 warning in 0.80s"
+      ],
+      "log": "/tmp/polars-bio-meta-pr500-review-make-test.log"
+    },
+    {
+      "polars": "2.1.0",
+      "combines_pr_478": true,
+      "command": "PYTHONPATH=. make test-no-sync",
+      "exit_code": 0,
+      "summaries": [
+        "2601 passed, 6 skipped, 10 warnings in 73.70s (0:01:13)",
+        "15 passed in 1.17s",
+        "11 passed in 0.81s",
+        "37 passed, 1 warning in 0.79s"
+      ],
+      "log": "/tmp/polars-bio-meta-pr478-combined210.log"
+    },
+    {
+      "polars": "2.0.0",
+      "combines_pr_478": true,
+      "command": "PYTHONPATH=. make test-no-sync",
+      "exit_code": 0,
+      "summaries": [
+        "2601 passed, 6 skipped, 10 warnings in 63.60s (0:01:03)",
+        "15 passed in 1.16s",
+        "11 passed in 0.81s",
+        "37 passed, 1 warning in 0.74s"
+      ],
+      "log": "/tmp/polars-bio-meta-pr478-combined200.log"
+    }
+  ],
+  "source_sha256": {
+    "polars_bio/_frame_metadata.py": "db443aeed40f3f1a49e471409707d09179150469804822583341cc53136164d5",
+    "polars_bio/_metadata.py": "3d885be22bc7ff9fd2f17a9ee8c7dd8c69726f170ab53634fd14a334f6992c47",
+    "polars_bio/_tabular_io.py": "6788b7f9e6475dfbadb887cbadda1d2173254067976bfbe1e64b1be3ad908eda"
+  },
+  "combined_tree": "8eb2027a2ff48daf77842f83c25f21330d1f136f"
+}

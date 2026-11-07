@@ -134,8 +134,10 @@ frames as an interoperability path.
 
 The provider SHALL invalidate result metadata after successful `join`, `join_asof`,
 `join_where`, `update`, and `merge_sorted` calls on DataFrame/LazyFrame; DataFrame
-`vstack`, `hstack`, and `extend`; and LazyFrame `with_context`. These 14
-class/method pairs SHALL preserve existing domain-specific coordinate validation
+`vstack`, `hstack`, and `extend`; and LazyFrame `with_context` on Polars 1.
+Polars 2 removed `with_context`; it SHALL NOT be installed or required there.
+These 14 class/method pairs on Polars 1 (13 on Polars 2) SHALL preserve existing
+domain-specific coordinate validation
 and output tagging in polars-bio operations without generic source-header merging.
 
 #### Scenario: Generic combination
@@ -158,11 +160,18 @@ and output tagging in polars-bio operations without generic source-header mergin
 
 ### Requirement: Bounded patch installation
 
-The provider SHALL wrap exactly the 57 class/method pairs listed by the frame
-propagation, grouped propagation, and invalidation requirements and SHALL NOT
+The provider SHALL wrap exactly the 57 class/method pairs on Polars 1, or 56 on
+Polars 2, listed by the frame propagation, grouped propagation, and invalidation
+requirements and SHALL NOT
 discover additional methods from annotations. Installation SHALL preflight all
 required methods and namespace ownership, preserve originals, serialize
 initialization, and avoid duplicate wrapping.
+
+#### Scenario: Removed Polars 2 method
+- **WHEN** the provider initializes on Polars 2.0 or 2.1
+- **THEN** the manifest SHALL omit only the removed `LazyFrame.with_context` entry
+- **AND** every other method SHALL remain mandatory during preflight
+- **AND** the provider SHALL NOT introduce a replacement `with_context` method
 
 #### Scenario: Inspect patch scope and signatures
 - **WHEN** initialization completes
@@ -188,7 +197,7 @@ writers and range operations SHALL obtain source metadata before passing streams
 to Rust.
 
 #### Scenario: Stream into native operations
-- **WHEN** an operation accesses `collect_batches(lazy=True)._inner`
+- **WHEN** an operation accesses `collect_batches(lazy=True)` for public Arrow C stream export, or its existing `_inner` export on Polars 1
 - **THEN** the object SHALL remain native and Arrow-stream exportable
 - **AND** metadata support SHALL NOT replace it with a Python generator or eagerly materialize rows
 

@@ -45,11 +45,18 @@ PATCH_MANIFEST = (
     (pl.DataFrame, "__getitem__", "preserve"),
     (pl.LazyFrame, "collect", "preserve"),
     *((cls, "group_by", "group") for cls in _FRAMES),
+    # GroupBy.len delegates to agg in tested Polars versions. Contract tests
+    # cover len explicitly so a changed upstream implementation fails CI.
     *((cls, name, "aggregate") for cls in _GROUPS for name in ("agg", "head", "tail")),
     *((cls, "having", "having") for cls in _GROUPS),
     *((cls, name, "invalidate") for cls in _FRAMES for name in _COMBINING),
     *((pl.DataFrame, name, "invalidate") for name in ("vstack", "hstack", "extend")),
-    (pl.LazyFrame, "with_context", "invalidate"),
+    # Removed in Polars 2; keep every other manifest entry mandatory.
+    *(
+        ((pl.LazyFrame, "with_context", "invalidate"),)
+        if pl.__version__.startswith("1.")
+        else ()
+    ),
 )
 
 _lock = threading.RLock()
@@ -321,6 +328,8 @@ def initialize() -> None:
                     setattr(cls, name, originals[cls, name])
             for cls in _FRAMES:
                 descriptor = cls.__dict__.get(_NAMESPACE)
+                # Polars' namespace descriptor stores the registered class in
+                # private _ns; rollback tests guard this upstream coupling.
                 if getattr(descriptor, "_ns", None) is FrameMetadata:
                     delattr(cls, _NAMESPACE)
                     cls._accessors.discard(_NAMESPACE)

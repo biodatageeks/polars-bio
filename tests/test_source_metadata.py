@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 import polars_bio as pb
 
@@ -12,6 +13,19 @@ from polars_bio import set_source_metadata
 
 TEST_DIR = Path(__file__).parent
 DATA_DIR = TEST_DIR / "data"
+
+
+@pytest.mark.parametrize("error", [KeyError, AttributeError, TypeError])
+def test_broken_metadata_accessor_is_not_treated_as_missing(error):
+    class Accessor:
+        def get_metadata(self):
+            raise error("broken metadata accessor")
+
+    class Adapter:
+        config_meta = Accessor()
+
+    with pytest.raises(error, match="broken metadata accessor"):
+        pb.get_metadata(Adapter())
 
 
 class TestSourceMetadataBasics:
