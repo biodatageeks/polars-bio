@@ -24,7 +24,7 @@ not required. Its standalone recipe is retained as historical packaging work.
 
 | Dependency | Required | conda-forge |
 | --- | --- | --- |
-| `polars` | `>=1.40.0,<2` | yes |
+| `polars` | `>=1.40.0,<2.2` | yes |
 | `pyarrow` | `>=23.0.1,<25` | yes |
 | `datafusion` | `>=53.0.0,<54` | yes (53.0.0) |
 | `tqdm` | `>=4.67.0,<5` | yes |
@@ -82,7 +82,7 @@ install from PyPI.
 
 ## Release automation
 
-Nothing to do, and no secret required. Bioconda's autobump bot watches the
+For releases without recipe changes, Bioconda's autobump bot watches the
 recipe: its source URL matches the bot's PyPI hoster, so a new release on PyPI
 is picked up automatically, and Mergify auto-approves and merges the bot's
 bump PR once the tests pass (its rule requires `commits[*].author=BiocondaBot`
@@ -94,14 +94,31 @@ deterministically on release-published, but it duplicated the bot and needed a
 
 **One thing the automation cannot do:** autobump does not track changed
 dependencies. If a release changes the pins in `pyproject.toml`, the `run:`
-section here has to be updated by hand — the bot only rewrites version, sha256
-and build number.
+section here and in the upstream Bioconda recipe has to be updated by hand —
+the bot only rewrites version, sha256 and build number.
 
-For the owned-metadata migration release, remove the `polars-config-meta` runtime
-requirement in the upstream recipe together with the new source artifact. Older
-released sdists still need the dependency. The local version and SHA256 remain
-paired with a published sdist until the migration artifact is available; the
-updated runtime requirements are staged for that release.
+### 0.37.0 handoff
+
+The runtime requirements and license entry in `meta.yaml` are already staged for
+0.37.0. Once its sdist is published, update the
+[upstream Bioconda recipe](https://github.com/bioconda/bioconda-recipes/blob/master/recipes/polars-bio/meta.yaml)
+in the same PR as the source bump:
+
+1. Set `version` to `0.37.0`, use the published sdist's SHA256, and reset the
+   build number to `0`. Update the local source version and checksum together too.
+2. Remove `polars-config-meta` from `requirements.run`. Older released sdists
+   still require it, so apply the removal together with the new source artifact.
+3. Set the Polars runtime requirement to `>=1.40.0,<2.2` and remove the obsolete
+   comment that Polars 2 is unsupported.
+4. Add `polars_bio/licenses/polars-config-meta/LICENSE` to `about.license_file`
+   to retain attribution for the adapted metadata provider.
+5. Run the recipe's `pip check` and overlap smoke test in a fresh build/test
+   environment without `polars-config-meta`.
+
+No `build.sh` change or removal of the standalone conda-forge package is needed.
+The local version and SHA256 remain paired with a published sdist until the
+0.37.0 artifact is available; this staged recipe must not be built against that
+older source.
 
 ## Maintainers
 
