@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html class="no-js" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<link href="https://biodatageeks.org/polars-bio/superpowers/specs/2026-10-16-coordinate-safe-tabular-readers-design/" rel="canonical"/>
+<link href="../../../assets/logo.png" rel="icon"/>
+<meta content="mkdocs-1.6.1, mkdocs-material-9.7.7" name="generator"/>
+<title>Coordinate-safe range operations and tabular readers - polars-bio</title>
+<link href="../../../assets/stylesheets/main.ec1eaa64.min.css" rel="stylesheet"/>
+<link href="../../../assets/stylesheets/palette.ab4e12ef.min.css" rel="stylesheet"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
+<style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+<link href="../../../assets/_markdown_exec_pyodide.css" rel="stylesheet"/>
+<link href="../../../assets/_mkdocstrings.css" rel="stylesheet"/>
+<link href="../../../stylesheets/extra.css" rel="stylesheet"/>
+<script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+<script id="__analytics">function __md_analytics(){function e(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],e("js",new Date),e("config","G-1M9PLLGBYS"),document.addEventListener("DOMContentLoaded",(function(){document.forms.search&&document.forms.search.query.addEventListener("blur",(function(){this.value&&e("event","search",{search_term:this.value})}));document$.subscribe((function(){var t=document.forms.feedback;if(void 0!==t)for(var a of t.querySelectorAll("[type=submit]"))a.addEventListener("click",(function(a){a.preventDefault();var n=document.location.pathname,d=this.getAttribute("data-md-value");e("event","feedback",{page:n,data:d}),t.firstElementChild.disabled=!0;var r=t.querySelector(".md-feedback__note [data-md-value='"+d+"']");r&&(r.hidden=!1)})),t.hidden=!1})),location$.subscribe((function(t){e("config","G-1M9PLLGBYS",{page_path:t.pathname})}))}));var t=document.createElement("script");t.async=!0,t.src="https://www.googletagmanager.com/gtag/js?id=G-1M9PLLGBYS",document.getElementById("__analytics").insertAdjacentElement("afterEnd",t)}</script>
+<script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
+<meta content="website" property="og:type"/>
+<meta content="Coordinate-safe range operations and tabular readers - polars-bio" property="og:title"/>
+<meta content="https://biodatageeks.org/polars-bio/assets/images/social/superpowers/specs/2026-10-16-coordinate-safe-tabular-readers-design.png" property="og:image"/>
+<meta content="image/png" property="og:image:type"/>
+<meta content="1200" property="og:image:width"/>
+<meta content="630" property="og:image:height"/>
+<meta content="https://biodatageeks.org/polars-bio/superpowers/specs/2026-10-16-coordinate-safe-tabular-readers-design/" property="og:url"/>
+<meta content="summary_large_image" property="twitter:card"/>
+<meta content="Coordinate-safe range operations and tabular readers - polars-bio" property="twitter:title"/>
+<meta content="https://biodatageeks.org/polars-bio/assets/images/social/superpowers/specs/2026-10-16-coordinate-safe-tabular-readers-design.png" property="twitter:image"/>
+<link href="../../../assets/stylesheets/glightbox.min.css" rel="stylesheet"/><script src="../../../assets/javascripts/glightbox.min.js"></script><style id="glightbox-style">
+            html.glightbox-open { overflow: initial; height: 100%; }
+            .gslide-title { margin-top: 0px; user-select: text; }
+            .gslide-desc { color: #666; user-select: text; }
+            .gslide-image img { background: white; }
+            .gscrollbar-fixer { padding-right: 15px; }
+            .gdesc-inner { font-size: 0.75rem; }
+            body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color); }
+            body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color); }
+            body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color); }
+        </style></head>
+<body data-md-color-accent="indigo" data-md-color-primary="indigo" data-md-color-scheme="default" dir="ltr">
+<input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
+<input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
+<label class="md-overlay" for="__drawer"></label>
+<div data-md-component="skip">
+<a class="md-skip" href="#coordinate-safe-range-operations-and-tabular-readers">
+          Skip to content
+        </a>
+</div>
+<div data-md-component="announce">
+</div>
+<div data-md-color-scheme="default" data-md-component="outdated" hidden="">
+</div>
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+<nav aria-label="Header" class="md-header__inner md-grid">
+<a aria-label="polars-bio" class="md-header__button md-logo" data-md-component="logo" href="../../.." title="polars-bio">
+<img alt="logo" src="../../../assets/logo.png"/>
+</a>
+<label class="md-header__button md-icon" for="__drawer">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+</label>
+<div class="md-header__title" data-md-component="header-title">
+<div class="md-header__ellipsis">
+<div class="md-header__topic">
+<span class="md-ellipsis">
+            polars-bio
+          </span>
+</div>
+<div class="md-header__topic" data-md-component="header-topic">
+<span class="md-ellipsis">
+            
+              Coordinate-safe range operations and tabular readers
+            
+          </span>
+</div>
+</div>
+</div>
+<form class="md-header__option" data-md-component="palette">
+<input aria-label="Switch to dark mode" class="md-option" data-md-color-accent="indigo" data-md-color-media="(prefers-color-scheme: light)" data-md-color-primary="indigo" data-md-color-scheme="default" id="__palette_0" name="__palette" type="radio"/>
+<label class="md-header__button md-icon" for="__palette_1" hidden="" title="Switch to dark mode">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"></path></svg>
+</label>
+<input aria-label="Switch to light mode" class="md-option" data-md-color-accent="indigo" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-primary="indigo" data-md-color-scheme="slate" id="__palette_1" name="__palette" type="radio"/>
+<label class="md-header__button md-icon" for="__palette_0" hidden="" title="Switch to light mode">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"></path></svg>
+</label>
+</form>
+<script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+<a class="md-header__button md-icon" href="https://discord.gg/bpxQ4Yxhk5" rel="noopener" target="_blank" title="Discord">
+<svg viewbox="0 0 576 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M492.5 69.8c-.2-.3-.4-.6-.8-.7-38.1-17.5-78.4-30-119.7-37.1-.4-.1-.8 0-1.1.1s-.6.4-.8.8c-5.5 9.9-10.5 20.2-14.9 30.6-44.6-6.8-89.9-6.8-134.4 0-4.5-10.5-9.5-20.7-15.1-30.6-.2-.3-.5-.6-.8-.8s-.7-.2-1.1-.2C162.5 39 122.2 51.5 84.1 69c-.3.1-.6.4-.8.7C7.1 183.5-13.8 294.6-3.6 404.2c0 .3.1.5.2.8s.3.4.5.6c44.4 32.9 94 58 146.8 74.2.4.1.8.1 1.1 0s.7-.4.9-.7c11.3-15.4 21.4-31.8 30-48.8.1-.2.2-.5.2-.8s0-.5-.1-.8-.2-.5-.4-.6-.4-.3-.7-.4c-15.8-6.1-31.2-13.4-45.9-21.9-.3-.2-.5-.4-.7-.6s-.3-.6-.3-.9 0-.6.2-.9.3-.5.6-.7c3.1-2.3 6.2-4.7 9.1-7.1.3-.2.6-.4.9-.4s.7 0 1 .1c96.2 43.9 200.4 43.9 295.5 0 .3-.1.7-.2 1-.2s.7.2.9.4c2.9 2.4 6 4.9 9.1 7.2.2.2.4.4.6.7s.2.6.2.9-.1.6-.3.9-.4.5-.6.6c-14.7 8.6-30 15.9-45.9 21.8-.2.1-.5.2-.7.4s-.3.4-.4.7-.1.5-.1.8.1.5.2.8c8.8 17 18.8 33.3 30 48.8.2.3.6.6.9.7s.8.1 1.1 0c52.9-16.2 102.6-41.3 147.1-74.2.2-.2.4-.4.5-.6s.2-.5.2-.8c12.3-126.8-20.5-236.9-86.9-334.5zm-302 267.7c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.4 59.2-52.8 59.2m195.4 0c-29 0-52.8-26.6-52.8-59.2s23.4-59.2 52.8-59.2c29.7 0 53.3 26.8 52.8 59.2 0 32.7-23.2 59.2-52.8 59.2"></path></svg>
+</a>
+<a class="md-header__button md-icon" href="https://www.linkedin.com/company/polars-bio" rel="noopener" target="_blank" title="LinkedIn">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M416 32H31.9C14.3 32 0 46.5 0 64.3v383.4C0 465.5 14.3 480 31.9 480H416c17.6 0 32-14.5 32-32.3V64.3c0-17.8-14.4-32.3-32-32.3M135.4 416H69V202.2h66.5V416zM102.2 96a38.5 38.5 0 1 1 0 77 38.5 38.5 0 1 1 0-77m282.1 320h-66.4V312c0-24.8-.5-56.7-34.5-56.7-34.6 0-39.9 27-39.9 54.9V416h-66.4V202.2h63.7v29.2h.9c8.9-16.8 30.6-34.5 62.9-34.5 67.2 0 79.7 44.3 79.7 101.9z"></path></svg>
+</a>
+<label class="md-header__button md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+</label>
+<div class="md-search" data-md-component="search" role="dialog">
+<label class="md-search__overlay" for="__search"></label>
+<div class="md-search__inner" role="search">
+<form class="md-search__form" name="search">
+<input aria-label="Search" autocapitalize="off" autocomplete="off" autocorrect="off" class="md-search__input" data-md-component="search-query" name="query" placeholder="Search" required="" spellcheck="false" type="text"/>
+<label class="md-search__icon md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+</label>
+<nav aria-label="Search" class="md-search__options">
+<button aria-label="Clear" class="md-search__icon md-icon" tabindex="-1" title="Clear" type="reset">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+</button>
+</nav>
+</form>
+<div class="md-search__output">
+<div class="md-search__scrollwrap" data-md-scrollfix="" tabindex="0">
+<div class="md-search-result" data-md-component="search-result">
+<div class="md-search-result__meta">
+            Initializing search
+          </div>
+<ol class="md-search-result__list" role="presentation"></ol>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="md-header__source">
+<a class="md-source" data-md-component="source" href="https://github.com/biodatageeks/polars-bio" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+</div>
+<div class="md-source__repository">
+    biodatageeks/polars-bio
+  </div>
+</a>
+</div>
+</nav>
+<nav aria-label="Tabs" class="md-tabs" data-md-component="tabs">
+<div class="md-grid">
+<ul class="md-tabs__list">
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../..">
+        
+  
+  
+    
+  
+  🏠 Home
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../quickstart/">
+        
+  
+  
+    
+  
+  🏃🏼‍♂️ Quick start
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../features/">
+          
+  
+  
+  🔨 Features
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../notebooks/tutorial/">
+        
+  
+  
+    
+  
+  📚 Tutorial
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../api/">
+          
+  
+  
+  ⚙️ API reference
+
+        </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../faq/">
+        
+  
+  
+    
+  
+  ❓ FAQ
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../supplement/">
+        
+  
+  
+    
+  
+  🚀 Performance
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../developers/">
+        
+  
+  
+    
+  
+  🛠️ Developers guide
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../talks/">
+        
+  
+  
+    
+  
+  🎤 Talks &amp; presentations
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../contact/">
+        
+  
+  
+    
+  
+  📡 Contact
+
+      </a>
+</li>
+<li class="md-tabs__item">
+<a class="md-tabs__link" href="../../../blog/">
+          
+  
+  
+  📖 Blog
+
+        </a>
+</li>
+</ul>
+</div>
+</nav>
+</header>
+<div class="md-container" data-md-component="container">
+<main class="md-main" data-md-component="main">
+<div class="md-main__inner md-grid">
+<div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Navigation" class="md-nav md-nav--primary md-nav--lifted" data-md-level="0">
+<label class="md-nav__title" for="__drawer">
+<a aria-label="polars-bio" class="md-nav__button md-logo" data-md-component="logo" href="../../.." title="polars-bio">
+<img alt="logo" src="../../../assets/logo.png"/>
+</a>
+    polars-bio
+  </label>
+<div class="md-nav__source">
+<a class="md-source" data-md-component="source" href="https://github.com/biodatageeks/polars-bio" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 512 512" xmlns="http://www.w3.org/2000/svg"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"></path></svg>
+</div>
+<div class="md-source__repository">
+    biodatageeks/polars-bio
+  </div>
+</a>
+</div>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../..">
+<span class="md-ellipsis">
+    
+  
+    🏠 Home
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../quickstart/">
+<span class="md-ellipsis">
+    
+  
+    🏃🏼‍♂️ Quick start
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3" type="checkbox"/>
+<label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+<span class="md-ellipsis">
+    
+  
+    🔨 Features
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_3_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_3">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    🔨 Features
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/">
+<span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/operations/">
+<span class="md-ellipsis">
+    
+  
+    Genomic operations
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/reading/">
+<span class="md-ellipsis">
+    
+  
+    Reading files
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/structures/">
+<span class="md-ellipsis">
+    
+  
+    Protein structures
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/writing/">
+<span class="md-ellipsis">
+    
+  
+    Writing files
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/sql/">
+<span class="md-ellipsis">
+    
+  
+    SQL processing
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/dataframes/">
+<span class="md-ellipsis">
+    
+  
+    DataFrames support
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/metadata/">
+<span class="md-ellipsis">
+    
+  
+    Frame metadata
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/cloud/">
+<span class="md-ellipsis">
+    
+  
+    Cloud storage
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../features/parallel/">
+<span class="md-ellipsis">
+    
+  
+    Parallel processing
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../notebooks/tutorial/">
+<span class="md-ellipsis">
+    
+  
+    📚 Tutorial
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_5" type="checkbox"/>
+<label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+<span class="md-ellipsis">
+    
+  
+    ⚙️ API reference
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_5_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_5">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    ⚙️ API reference
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/">
+<span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/reading/">
+<span class="md-ellipsis">
+    
+  
+    Reading files
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/operations/">
+<span class="md-ellipsis">
+    
+  
+    Genomic operations
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/writing/">
+<span class="md-ellipsis">
+    
+  
+    Writing files
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/sql/">
+<span class="md-ellipsis">
+    
+  
+    SQL interface
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../api/auxiliary/">
+<span class="md-ellipsis">
+    
+  
+    Auxiliary
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../faq/">
+<span class="md-ellipsis">
+    
+  
+    ❓ FAQ
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../supplement/">
+<span class="md-ellipsis">
+    
+  
+    🚀 Performance
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../developers/">
+<span class="md-ellipsis">
+    
+  
+    🛠️ Developers guide
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../talks/">
+<span class="md-ellipsis">
+    
+  
+    🎤 Talks &amp; presentations
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../contact/">
+<span class="md-ellipsis">
+    
+  
+    📡 Contact
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_11" type="checkbox"/>
+<label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+<span class="md-ellipsis">
+    
+  
+    📖 Blog
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_11_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_11">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    📖 Blog
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/">
+<span class="md-ellipsis">
+    
+  
+    Blog
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_11_2" type="checkbox"/>
+<label class="md-nav__link" for="__nav_11_2" id="__nav_11_2_label" tabindex="0">
+<span class="md-ellipsis">
+    
+  
+    Categories
+  
+
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_11_2_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_11_2">
+<span class="md-nav__icon md-icon"></span>
+            
+  
+    Categories
+  
+
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/architecture/">
+<span class="md-ellipsis">
+    
+  
+    architecture
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/benchmarks/">
+<span class="md-ellipsis">
+    
+  
+    benchmarks
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/file-formats/">
+<span class="md-ellipsis">
+    
+  
+    file formats
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/opinion/">
+<span class="md-ellipsis">
+    
+  
+    opinion
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/pandas/">
+<span class="md-ellipsis">
+    
+  
+    pandas
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/performance/">
+<span class="md-ellipsis">
+    
+  
+    performance
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/postmortem/">
+<span class="md-ellipsis">
+    
+  
+    postmortem
+  
+
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../blog/category/releases/">
+<span class="md-ellipsis">
+    
+  
+    releases
+  
+
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#problem">
+<span class="md-ellipsis">
+      
+        Problem
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#goals">
+<span class="md-ellipsis">
+      
+        Goals
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#non-goals">
+<span class="md-ellipsis">
+      
+        Non-goals
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#design">
+<span class="md-ellipsis">
+      
+        Design
+      
+    </span>
+</a>
+<nav aria-label="Design" class="md-nav">
+<ul class="md-nav__list">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#1-coordinate-system-resolution-polars_bio_metadatapy">
+<span class="md-ellipsis">
+      
+        1. Coordinate-system resolution (polars_bio/_metadata.py)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2-tabular-readers-new-polars_bio_tabular_iopy">
+<span class="md-ellipsis">
+      
+        2. Tabular readers (new polars_bio/_tabular_io.py)
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#3-scan_table-read_table">
+<span class="md-ellipsis">
+      
+        3. scan_table / read_table
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#4-messages">
+<span class="md-ellipsis">
+      
+        4. Messages
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#5-documentation">
+<span class="md-ellipsis">
+      
+        5. Documentation
+      
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#6-testing">
+<span class="md-ellipsis">
+      
+        6. Testing
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#release">
+<span class="md-ellipsis">
+      
+        Release
+      
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-content" data-md-component="content">
+<article class="md-content__inner md-typeset">
+<a class="md-content__button md-icon" href="https://github.com/biodatageeks/polars-bio/edit/master/docs/superpowers/specs/2026-10-16-coordinate-safe-tabular-readers-design.md" rel="edit" title="Edit this page">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"></path></svg>
+</a>
+<h1 id="coordinate-safe-range-operations-and-tabular-readers">Coordinate-safe range operations and tabular readers<a class="headerlink" href="#coordinate-safe-range-operations-and-tabular-readers" title="Permanent link"></a></h1>
+<ul>
+<li><strong>Date:</strong> 2026-10-16</li>
+<li><strong>Issue:</strong> <a href="https://github.com/biodatageeks/polars-bio/issues/486">#486</a> — range ops silently assume 1-based when only one input has coordinate-system metadata</li>
+<li><strong>Related:</strong> #483 (fixed in #487), #278</li>
+<li><strong>Status:</strong> design approved; spec under review</li>
+</ul>
+<h2 id="problem">Problem<a class="headerlink" href="#problem" title="Permanent link"></a></h2>
+<p>Range operations (<code>overlap</code>, <code>nearest</code>, <code>count_overlaps</code>, <code>coverage</code>, <code>merge</code>) read the
+coordinate system of each input from metadata. In the default lenient mode
+(<code>datafusion.bio.coordinate_system_check = "false"</code>), an input without metadata is assumed to
+use the global <code>datafusion.bio.coordinate_system_zero_based</code> setting (default 1-based), with a
+<code>UserWarning</code>. When that input actually holds 0-based half-open coordinates — typically a BED
+file read with <code>pl.read_csv</code>, or a CSV/Parquet path passed directly — results are shifted by one
+position and nothing fails.</p>
+<p>Verified on 0.36.2 with a variant at 1-based position 101 and BED interval <code>[101, 200)</code>
+(1-based <code>102..200</code>, so the correct overlap is 0 rows): the untagged BED returns <strong>1 row</strong>
+whenever it is paired with a tagged 1-based frame (vepyr, <code>scan_vcf</code>), as a frame or as a
+CSV/Parquet path.</p>
+<p>There is no public way to load an arbitrary CSV or Parquet table with its coordinate system
+recorded; the test suite carries its own helpers for this
+(<code>tests/test_lazyframe_partitioning.py::_scan_csv_with_metadata</code>, <code>_read_csv_with_metadata</code>).</p>
+<h2 id="goals">Goals<a class="headerlink" href="#goals" title="Permanent link"></a></h2>
+<ol>
+<li>When one input's coordinate system is known and the other's is not, range operations raise
+   instead of guessing.</li>
+<li>Users can load CSV and Parquet data with the coordinate system declared, renamed to the
+   standard interval columns, and optionally converted.</li>
+<li>Every missing-metadata error and warning points to the fix.</li>
+<li>The default stays lenient: code that pairs two untagged inputs keeps working.</li>
+</ol>
+<h2 id="non-goals">Non-goals<a class="headerlink" href="#non-goals" title="Permanent link"></a></h2>
+<ul>
+<li>Automatic coordinate conversion inside range operations (a mismatch stays an error).</li>
+<li>Changing the default of <code>coordinate_system_check</code>.</li>
+<li>Support for BED paths as range-op inputs; filed separately. Two-input operations and
+  <code>cluster</code> already rejected them; <code>merge</code> and <code>complement</code> accepted them and computed results
+  with mismatched coordinates. All of them now raise <code>ValueError: Only CSV, Parquet, VCF, and BCF
+  files are supported</code> (the <code>merge</code>/<code>complement</code> change is called out in the changelog).</li>
+<li>Preserving the tag through <code>group_by().agg()</code> and <code>pl.concat</code> (both drop it; with this design
+  that surfaces as an error rather than a silent guess).</li>
+</ul>
+<h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link"></a></h2>
+<h3 id="1-coordinate-system-resolution-polars_bio_metadatapy">1. Coordinate-system resolution (<code>polars_bio/_metadata.py</code>)<a class="headerlink" href="#1-coordinate-system-resolution-polars_bio_metadatapy" title="Permanent link"></a></h3>
+<p>Each input resolves to one of three states:</p>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>State</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Polars/pandas frame with <code>coordinate_system_zero_based</code> metadata; registered table whose Arrow schema carries it</td>
+<td><strong>tagged</strong> (its value)</td>
+</tr>
+<tr>
+<td>VCF/BCF path (read by the native reader)</td>
+<td><strong>native path</strong> (the <code>zero_based</code> of the VCF read options passed for that input, else <code>True</code>, the reader default)</td>
+</tr>
+<tr>
+<td>Untagged frame; CSV/Parquet path (read by plain <code>pl.read_*</code>, no coordinate handling); registered table without metadata</td>
+<td><strong>unknown</strong></td>
+</tr>
+</tbody>
+</table>
+<p>A new private <code>_resolve_coordinate_system(df, ctx=None, read_options=None) -&gt;
+tuple[Optional[bool], Optional[str]]</code> returns the value and the evidence (<code>"tag"</code>,
+<code>"native-path"</code>, or <code>None</code>). <code>get_coordinate_system</code> is unchanged (it reports metadata only).</p>
+<p>A native path resolves to what the native reader actually applies, not to the global setting:
+range operations read VCF/BCF paths with the <code>VcfReadOptions</code> passed for that input, falling
+back to <code>VcfReadOptions::default()</code> (<code>zero_based = true</code>, <code>src/option.rs</code>), and the reader never
+consults <code>datafusion.bio.coordinate_system_zero_based</code>. Range operations therefore pass each
+input's read options to resolution, mirroring how <code>range_operation</code> applies them: <code>overlap</code>
+(<code>read_options1</code> → <code>df1</code>, <code>read_options2</code> → <code>df2</code>), <code>nearest</code> (<code>read_options</code> → <code>df1</code>),
+<code>coverage</code> (<code>read_options</code> → <code>df2</code>, since it calls <code>range_operation(df2, df1, ...)</code>);
+<code>count_overlaps</code>, <code>subtract</code>, <code>merge</code>, <code>cluster</code> and <code>complement</code> take no read options.
+Bare file names (<code>x.vcf.gz</code>, <code>x.bcf</code>) count as native paths.</p>
+<p><code>validate_coordinate_systems(df1, df2, ctx=None, read_options1=None, read_options2=None)</code> applies:</p>
+<table>
+<thead>
+<tr>
+<th>Inputs</th>
+<th>Lenient (default)</th>
+<th>Strict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>both known, same system</td>
+<td>that system</td>
+<td>that system</td>
+</tr>
+<tr>
+<td>both known, different</td>
+<td><code>CoordinateSystemMismatchError</code></td>
+<td>same</td>
+</tr>
+<tr>
+<td>one <strong>tagged</strong>, other unknown</td>
+<td><strong><code>MissingCoordinateSystemError</code></strong> (new)</td>
+<td>same</td>
+</tr>
+<tr>
+<td>one <strong>native path</strong>, other unknown</td>
+<td><code>UserWarning</code>; the unknown input assumes the global setting and must match the path, else <code>CoordinateSystemMismatchError</code></td>
+<td><code>MissingCoordinateSystemError</code></td>
+</tr>
+<tr>
+<td>both unknown</td>
+<td><code>UserWarning</code>, global setting</td>
+<td><code>MissingCoordinateSystemError</code></td>
+</tr>
+</tbody>
+</table>
+<p>A native path does not trigger the mixed-case error: the unknown side keeps the lenient
+fallback (warning, global setting), but the assumed system is still compared with the reader's,
+so the fallback can no longer filter 0-based VCF data as 1-based. In strict mode a native path is
+no longer reported as missing (today <code>pb.overlap("a.vcf", "a.vcf")</code> raises in strict mode), and a
+0-based registered VCF table paired with its own path no longer reports a false mismatch.</p>
+<p><code>validate_coordinate_system_single(df, ctx=None, read_options=None)</code> uses the same resolution:
+tagged or native path → its value; unknown → warning (lenient) or error (strict).</p>
+<p><strong>Ordering.</strong> Input-format validation in the range-op path (unsupported extensions such as
+<code>.bed</code>, and every frame + path combination that fails later regardless of coordinates) must run
+before coordinate validation, so the reported error is the real cause. Probing every frame kind
+(Polars LazyFrame, Polars DataFrame, pandas) × path kind (CSV, Parquet, VCF) × output type for
+<code>overlap</code> and <code>nearest</code> showed that only a LazyFrame(-like) frame with a CSV or Parquet path and
+<code>output_type="polars.LazyFrame"</code> runs; the LazyFrame-output case with another path keeps
+"Mixed LazyFrame + path streaming is only supported for CSV and Parquet inputs.", every other
+combination raises "A frame combined with a file path is only supported for a Polars LazyFrame
+with a CSV or Parquet path and output_type='polars.LazyFrame'; ...". Today <code>_get_filter_op_from_metadata</code> runs first; the format checks that
+currently live in <code>range_op_helpers.py</code> / <code>range_op_io.py</code> are moved or duplicated ahead of it.</p>
+<h3 id="2-tabular-readers-new-polars_bio_tabular_iopy">2. Tabular readers (new <code>polars_bio/_tabular_io.py</code>)<a class="headerlink" href="#2-tabular-readers-new-polars_bio_tabular_iopy" title="Permanent link"></a></h3>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a href="#__codelineno-0-1" id="__codelineno-0-1" name="__codelineno-0-1"></a><span class="n">pb</span><span class="o">.</span><span class="n">scan_csv</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">zero_based</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">use_zero_based</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-2"><a href="#__codelineno-0-2" id="__codelineno-0-2" name="__codelineno-0-2"></a>            <span class="n">chrom</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"chrom"</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"start"</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">"end"</span><span class="p">,</span>
+</span><span id="__span-0-3"><a href="#__codelineno-0-3" id="__codelineno-0-3" name="__codelineno-0-3"></a>            <span class="o">**</span><span class="n">polars_kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">LazyFrame</span>
+</span><span id="__span-0-4"><a href="#__codelineno-0-4" id="__codelineno-0-4" name="__codelineno-0-4"></a><span class="n">pb</span><span class="o">.</span><span class="n">scan_parquet</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">zero_based</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span> <span class="n">use_zero_based</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-5"><a href="#__codelineno-0-5" id="__codelineno-0-5" name="__codelineno-0-5"></a>                <span class="n">chrom</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"chrom"</span><span class="p">,</span> <span class="n">start</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"start"</span><span class="p">,</span> <span class="n">end</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="s2">"end"</span><span class="p">,</span>
+</span><span id="__span-0-6"><a href="#__codelineno-0-6" id="__codelineno-0-6" name="__codelineno-0-6"></a>                <span class="o">**</span><span class="n">polars_kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pl</span><span class="o">.</span><span class="n">LazyFrame</span>
+</span><span id="__span-0-7"><a href="#__codelineno-0-7" id="__codelineno-0-7" name="__codelineno-0-7"></a><span class="n">pb</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>      <span class="c1"># same signature as scan_csv  -&gt; pl.DataFrame</span>
+</span><span id="__span-0-8"><a href="#__codelineno-0-8" id="__codelineno-0-8" name="__codelineno-0-8"></a><span class="n">pb</span><span class="o">.</span><span class="n">read_parquet</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>  <span class="c1"># same signature as scan_parquet -&gt; pl.DataFrame</span>
+</span></code></pre></div>
+<p>Behaviour, in order:</p>
+<ol>
+<li>Delegate to <code>pl.scan_csv</code> / <code>pl.scan_parquet</code> with <code>**polars_kwargs</code> unchanged.</li>
+<li><code>zero_based</code> is keyword-only and required; it <strong>declares</strong> the coordinate system of the
+   source. Omitting it raises Python's <code>TypeError</code>; a non-<code>bool</code> raises <code>TypeError</code> explaining
+   <code>True</code> = 0-based half-open (e.g. BED), <code>False</code> = 1-based closed (e.g. VCF/GFF).</li>
+<li>Validate the named columns against <code>collect_schema()</code>. Missing columns raise <code>ValueError</code>
+   listing the available columns; if only the default <code>end</code> is missing, the message suggests
+   <code>end=None</code>.</li>
+<li>Rename <code>chrom</code>/<code>start</code>/<code>end</code> sources to <code>chrom</code>/<code>start</code>/<code>end</code>. Renaming onto a name that
+   already exists as another column raises <code>ValueError</code>.</li>
+<li><code>end=None</code> (point data): derive <code>end</code> in the <strong>source</strong> system — <code>end = start</code> (1-based) or
+   <code>end = start + 1</code> (0-based). If an <code>end</code> column already exists, raise <code>ValueError</code>.</li>
+<li>Conversion: <code>use_zero_based=None</code> keeps the source system. Otherwise convert to the requested
+   output system: 0-based → 1-based <code>start + 1</code>; 1-based → 0-based <code>start - 1</code>; <code>end</code> unchanged.</li>
+<li>Tag the frame with the <strong>output</strong> system (<code>set_coordinate_system</code>) and record source metadata
+   (<code>set_source_metadata(format="csv"|"parquet", path=str(source))</code>).</li>
+<li><code>read_*</code> = <code>scan_*(...).collect()</code>, keeping the metadata on the <code>DataFrame</code>.</li>
+</ol>
+<p><code>zero_based</code>/<code>use_zero_based</code> follow the existing convention: <code>use_zero_based</code> selects the
+output representation, as in <code>scan_bed</code>/<code>scan_vcf</code>; <code>zero_based</code> is the declaration that those
+readers do not need because their formats define it.</p>
+<h3 id="3-scan_table-read_table">3. <code>scan_table</code> / <code>read_table</code><a class="headerlink" href="#3-scan_table-read_table" title="Permanent link"></a></h3>
+<p>Gain the same optional <code>zero_based: bool | None = None</code> and <code>use_zero_based: bool | None = None</code>
+keywords. <code>zero_based=None</code> keeps today's behaviour (untagged result), so existing callers are
+not broken; untagged results fall under the resolution rules above. Supplying <code>zero_based</code>
+applies steps 6–7 of the readers (no column renaming: the bioframe schema already names them).</p>
+<h3 id="4-messages">4. Messages<a class="headerlink" href="#4-messages" title="Permanent link"></a></h3>
+<p><strong><code>MissingCoordinateSystemError</code></strong> names the position and type of the untagged input and, in
+the mixed case, the other input's system:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a href="#__codelineno-1-1" id="__codelineno-1-1" name="__codelineno-1-1"></a>Second input (Polars LazyFrame) is missing coordinate system metadata, while the other input is
+</span><span id="__span-1-2"><a href="#__codelineno-1-2" id="__codelineno-1-2" name="__codelineno-1-2"></a>1-based. polars-bio cannot tell whether this input is 0-based or 1-based, and guessing would
+</span><span id="__span-1-3"><a href="#__codelineno-1-3" id="__codelineno-1-3" name="__codelineno-1-3"></a>shift overlaps by one position.
+</span><span id="__span-1-4"><a href="#__codelineno-1-4" id="__codelineno-1-4" name="__codelineno-1-4"></a>
+</span><span id="__span-1-5"><a href="#__codelineno-1-5" id="__codelineno-1-5" name="__codelineno-1-5"></a>Load the data with a polars-bio reader that records the coordinate system:
+</span><span id="__span-1-6"><a href="#__codelineno-1-6" id="__codelineno-1-6" name="__codelineno-1-6"></a>  pb.scan_parquet(path, zero_based=True)   # or pb.scan_csv / pb.read_parquet / pb.read_csv
+</span><span id="__span-1-7"><a href="#__codelineno-1-7" id="__codelineno-1-7" name="__codelineno-1-7"></a>  (zero_based=True: 0-based half-open, e.g. BED; False: 1-based closed, e.g. VCF/GFF)
+</span><span id="__span-1-8"><a href="#__codelineno-1-8" id="__codelineno-1-8" name="__codelineno-1-8"></a>or tag an existing frame:
+</span><span id="__span-1-9"><a href="#__codelineno-1-9" id="__codelineno-1-9" name="__codelineno-1-9"></a>  df.config_meta.set(coordinate_system_zero_based=True)
+</span></code></pre></div>
+<p>Hints by input type (<code>_get_metadata_hint</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Input</th>
+<th>Hint</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Polars frame</td>
+<td><code>pb.scan_parquet</code>/<code>scan_csv</code>/<code>read_*</code> with <code>zero_based=</code>, or <code>df.config_meta.set(...)</code></td>
+</tr>
+<tr>
+<td>pandas frame</td>
+<td><code>pb.read_csv</code>/<code>read_parquet</code> with <code>zero_based=</code>, or <code>df.attrs["coordinate_system_zero_based"]</code></td>
+</tr>
+<tr>
+<td>file path</td>
+<td>by suffix, instead of the path: <code>.bed</code> → <code>pb.scan_bed(path)</code>, <code>.csv</code> → <code>pb.scan_csv(path, zero_based=...)</code>, <code>.parquet</code> → <code>pb.scan_parquet(path, zero_based=...)</code>, other → the generic reader hint</td>
+</tr>
+<tr>
+<td>registered table</td>
+<td>unchanged</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Lenient <code>UserWarning</code>:</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a href="#__codelineno-2-1" id="__codelineno-2-1" name="__codelineno-2-1"></a>Coordinate system metadata is missing for: &lt;inputs&gt;. Assuming 1-based (global
+</span><span id="__span-2-2"><a href="#__codelineno-2-2" id="__codelineno-2-2" name="__codelineno-2-2"></a>POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED). If that is wrong, overlaps are shifted by one
+</span><span id="__span-2-3"><a href="#__codelineno-2-3" id="__codelineno-2-3" name="__codelineno-2-3"></a>position. Load the data with pb.scan_csv/pb.scan_parquet(..., zero_based=True|False) (or
+</span><span id="__span-2-4"><a href="#__codelineno-2-4" id="__codelineno-2-4" name="__codelineno-2-4"></a>read_csv/read_parquet) to record the coordinate system and silence this warning.
+</span></code></pre></div>
+<p><strong><code>CoordinateSystemMismatchError</code>:</strong> the hint names the conversion route that exists for every
+input kind: "Re-read one of the inputs with <code>use_zero_based=True|False</code> (<code>scan_*</code>/<code>read_*</code>,
+including <code>pb.scan_csv</code>/<code>pb.scan_parquet(..., zero_based=..., use_zero_based=...)</code>)."</p>
+<h3 id="5-documentation">5. Documentation<a class="headerlink" href="#5-documentation" title="Permanent link"></a></h3>
+<ul>
+<li><code>docs/features/reading.md</code>, "Coordinate systems support": replace the lenient/strict
+  description with the resolution table; add a "Reading CSV and Parquet" subsection with
+  <code>scan_csv</code>/<code>scan_parquet</code> examples (declaration, renaming, <code>end=None</code>, conversion); update
+  "Error handling" with the new messages.</li>
+<li>Docstrings of <code>_get_filter_op_from_metadata*</code> (<code>range_op.py</code>), <code>validate_coordinate_systems</code>,
+  <code>validate_coordinate_system_single</code> (<code>_metadata.py</code>): state that lenient is the default and
+  describe the mixed-case rule (they currently claim strict is the default).</li>
+<li>API reference: add the four readers to <code>docs/api</code> alongside <code>scan_table</code>.</li>
+<li><code>CHANGELOG.md</code> <code>[Unreleased]</code>: <strong>Added</strong> the readers and <code>scan_table</code>/<code>read_table</code> keywords;
+  <strong>Changed</strong> (behaviour) mixed tagged/untagged inputs and tagged frame + CSV/Parquet path now
+  raise <code>MissingCoordinateSystemError</code> in lenient mode; VCF/BCF paths no longer warn and no
+  longer fail in strict mode.</li>
+</ul>
+<h3 id="6-testing">6. Testing<a class="headerlink" href="#6-testing" title="Permanent link"></a></h3>
+<p>New <code>tests/test_coordinate_system_resolution.py</code>:</p>
+<ul>
+<li><strong>Case matrix</strong>, parametrised over lenient and strict, using a variant at 1-based 101 and BED
+  <code>[101, 200)</code>; expected outcomes:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>left</th>
+<th>right</th>
+<th>lenient</th>
+<th>strict</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>T1</td>
+<td>T1</td>
+<td>0 rows</td>
+<td>0 rows</td>
+</tr>
+<tr>
+<td>2</td>
+<td>T0</td>
+<td>T0</td>
+<td>0 rows</td>
+<td>0 rows</td>
+</tr>
+<tr>
+<td>3</td>
+<td>T1</td>
+<td>T0</td>
+<td>Mismatch</td>
+<td>Mismatch</td>
+</tr>
+<tr>
+<td>4</td>
+<td>T1</td>
+<td>U (polars)</td>
+<td>Missing</td>
+<td>Missing</td>
+</tr>
+<tr>
+<td>4b</td>
+<td>T1</td>
+<td>U (pandas)</td>
+<td>Missing</td>
+<td>Missing</td>
+</tr>
+<tr>
+<td>5</td>
+<td>U</td>
+<td>T0</td>
+<td>Missing</td>
+<td>Missing</td>
+</tr>
+<tr>
+<td>6</td>
+<td>U</td>
+<td>U</td>
+<td>warning, 1 row</td>
+<td>Missing</td>
+</tr>
+<tr>
+<td>7</td>
+<td>T1</td>
+<td>VCF path</td>
+<td>ValueError (unsupported combination)</td>
+<td>same</td>
+</tr>
+<tr>
+<td>8</td>
+<td>T0</td>
+<td>VCF path</td>
+<td>ValueError (unsupported combination)</td>
+<td>same</td>
+</tr>
+<tr>
+<td>9</td>
+<td>VCF path</td>
+<td>VCF path</td>
+<td>1 row, no warning</td>
+<td>1 row</td>
+</tr>
+</tbody>
+</table>
+<p>Row 9 resolves both paths to the reader's system (0-based without VCF read options) under
+  either global setting; a separate test overlaps two adjacent SNVs (POS 101, 102) with
+  themselves and expects exactly 2 rows in both modes and under both global settings, and with
+  explicit <code>VcfReadOptions(zero_based=...)</code> on both sides.
+  | 10 | T1 | Parquet path | Missing | Missing |
+  | 10b | T1 | CSV path | Missing | Missing |
+  | 11 | Parquet path | CSV path | warning, 1 row | Missing |
+  | 11b | U | Parquet path | warning, 1 row | Missing |
+  | 12 | U | VCF path | ValueError (unsupported combination) | same |
+  | 13 | T1 | BED path | ValueError (unsupported format) | same |</p>
+<p>Error tests also assert the message names the untagged input and contains the reader hint.
+- <strong>Readers:</strong> required <code>zero_based</code>; non-<code>bool</code> rejected; renaming; missing column (with the
+  <code>end=None</code> hint); rename clash; <code>end=None</code> in both systems; conversion 0→1 and 1→0 (values and
+  tag); <code>use_zero_based</code> equal to the source is a no-op; <code>read_*</code> keeps the tag; <code>polars_kwargs</code>
+  pass through; CSV and Parquet.
+- <strong>End-to-end:</strong> a 1-based tagged frame (as produced by vepyr) overlapped with
+  <code>pb.scan_csv(bed, zero_based=True, use_zero_based=False)</code> returns 0 rows; the same BED via
+  <code>pl.read_csv</code> raises Missing.
+- <strong><code>scan_table</code>/<code>read_table</code>:</strong> untagged by default; tagged and converted with the keywords.
+- <strong>Existing tests updated for intended changes:</strong>
+  - <code>tests/test_bcf_io.py::test_bcf_path_is_supported_by_range_operations</code> — no warning is
+    expected for VCF/BCF paths any more.
+  - <code>tests/test_lazyframe_partitioning.py::test_partitioned_lazy_stream_supports_mixed_lazy_and_path_inputs</code>
+    — tagged lazy frame + CSV path now raises. The streaming test keeps its coverage by using an
+    untagged lazy side (both inputs unknown, lenient fallback), and a new test asserts that the
+    tagged combination raises. The local <code>_scan_csv_with_metadata</code>/<code>_read_csv_with_metadata</code>
+    helpers stay: they keep the files' <code>contig</code>/<code>pos_start</code>/<code>pos_end</code> names, which the public
+    readers would rename.
+  - Format pre-checks are not applied to <code>count_overlaps</code>, whose non-naive branch reads inputs
+    through <code>read_df_to_datafusion</code> with different rules.</p>
+<p>A throwaway prototype of sections 1, 2 (without <code>use_zero_based</code>) and 4 reproduced the matrix
+above and left the rest of the suite passing (1,908 passed; the four failures were the
+intended changes listed here).</p>
+<h2 id="release">Release<a class="headerlink" href="#release" title="Permanent link"></a></h2>
+<p>Ships as a <code>feat:</code> PR closing #486, in the next minor release. The behaviour changes are called
+out in the changelog: inputs whose result was ambiguous (rows 4, 4b, 5, 10, 10b) now raise; VCF/BCF
+paths resolve to the reader's coordinate system (0-based by default) instead of the global
+setting, which fixes self-overlaps and VCF-path pairings that were shifted by one position under
+the default 1-based setting; <code>merge</code> and <code>complement</code> no longer accept BED paths; unsupported
+frame + path combinations fail with a format error before any coordinate check.</p>
+</article>
+</div>
+<script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+</div>
+<button class="md-top md-icon" data-md-component="top" hidden="" type="button">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"></path></svg>
+  Back to top
+</button>
+</main>
+<footer class="md-footer">
+<div class="md-footer-meta md-typeset">
+<div class="md-footer-meta__inner md-grid">
+<div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener" target="_blank">
+      Material for MkDocs
+    </a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+<div class="md-dialog" data-md-component="dialog">
+<div class="md-dialog__inner md-typeset"></div>
+</div>
+<script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["content.code.copy", "content.code.select", "content.code.annotate", "content.tabs.link", "content.action.edit", "content.tooltips", "toc.follow", "navigation.top", "navigation.tabs", "navigation.tabs.sticky", "navigation.footer", "navigation.tracking", "navigation.instant", "content.footnote.tooltips"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": ["latest"], "provider": "mike"}}</script>
+<script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+<script src="../../../assets/_markdown_exec_pyodide.js"></script>
+<script id="init-glightbox">const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});
+document$.subscribe(()=>{ lightbox.reload(); });
+</script></body></html>
