@@ -56,19 +56,16 @@ class TestArrowCStreamSupport:
     """Test that LazyFrames support Arrow C Stream via ArrowStreamExportable."""
 
     def test_lazyframe_collect_batches_has_arrow_c_stream(self):
-        """Verify collect_batches()._inner supports __arrow_c_stream__ (Polars >= 1.37.0).
+        """Verify the public collect_batches() object supports __arrow_c_stream__.
 
         This uses Polars' ArrowStreamExportable feature (PR #25994) which enables
         GIL-free streaming from LazyFrames to Rust via Arrow C Data Interface.
         """
         lf = pl.scan_csv(DF_OVER_PATH1)
         batches = lf.collect_batches(lazy=True, engine="streaming")
-        assert hasattr(
-            batches, "_inner"
-        ), "collect_batches() must return an object with _inner attribute."
-        assert hasattr(batches._inner, "__arrow_c_stream__"), (
-            "collect_batches()._inner must support __arrow_c_stream__ for Arrow C Stream export. "
-            "This requires Polars >= 1.37.0 with ArrowStreamExportable feature."
+        assert hasattr(batches, "__arrow_c_stream__"), (
+            "collect_batches() must support __arrow_c_stream__ for Arrow C Stream export. "
+            "This requires Polars >= 1.40.0."
         )
 
     def test_dataframe_to_arrow_has_arrow_c_stream(self):
