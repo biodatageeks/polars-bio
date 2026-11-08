@@ -8,7 +8,7 @@ before being copied there.
 
 | Path | Target repository | Purpose |
 | --- | --- | --- |
-| `meta.yaml`, `build.sh`, `test_overlap.py` | `bioconda/bioconda-recipes` → `recipes/polars-bio/` | The polars-bio package |
+| `meta.yaml`, `build.sh` | `bioconda/bioconda-recipes` → `recipes/polars-bio/` | The polars-bio package |
 | `conda-forge-recipes/polars-config-meta/recipe.yaml` | `conda-forge/staged-recipes` → `recipes/polars-config-meta/` | Historical standalone plugin recipe; no longer a polars-bio dependency |
 
 The two recipes deliberately use different formats. conda-forge deprecated the
@@ -75,10 +75,12 @@ bioconda-utils build --docker --mulled-test --packages polars-bio
 
 Bioconda builds `linux-64` and `osx-64` by default; `osx-arm64` and
 `linux-aarch64` require an explicit `extra: additional-platforms:` entry. The
-recipe opts in to both ARM targets. polars-bio's own CI builds macOS arm64
-and Linux arm64 wheels and runs the Python suite on a native Linux arm64 runner.
-Bioconda does not build Windows packages at all; Windows users continue to
-install from PyPI.
+recipe opts in to `osx-arm64` only. polars-bio's own CI builds macOS arm64
+and Linux arm64 wheels and runs the Python suite on a native Linux arm64 runner,
+but bioconda has never built the recipe for `linux-aarch64`. Enable it in a
+recipe-only PR rather than alongside a version bump, so a failure there cannot
+block a release. Bioconda does not build Windows packages at all; Windows users
+continue to install from PyPI.
 
 ## Release automation
 
@@ -97,28 +99,21 @@ dependencies. If a release changes the pins in `pyproject.toml`, the `run:`
 section here and in the upstream Bioconda recipe has to be updated by hand —
 the bot only rewrites version, sha256 and build number.
 
-### 0.37.0 handoff
+When the run dependencies change, the bot's bump PR still opens with the old
+pins and Mergify will merge it once it builds. Open a replacement PR from a fork
+that carries the version, sha256 and dependency changes together, and comment on
+the bot's PR that it is superseded. The bot closes its own PR once the
+replacement merges. 0.37.0 went this way: bioconda-recipes#71352 replaced
+autobump #71351, allowing `polars >=1.40.0,<2.2` and dropping
+`polars-config-meta`.
 
-The runtime requirements and license entry in `meta.yaml` are already staged for
-0.37.0. Once its sdist is published, update the
-[upstream Bioconda recipe](https://github.com/bioconda/bioconda-recipes/blob/master/recipes/polars-bio/meta.yaml)
-in the same PR as the source bump:
+A quick check before opening such a PR, without a full build: install the
+published wheel in a fresh venv at each end of the new dependency range, run
+`pip check`, and run each rendered `test/commands` entry through
+`bash -c <shlex.quote(cmd)>` to reproduce the mulled-container re-quoting.
 
-1. Set `version` to `0.37.0`, use the published sdist's SHA256, and reset the
-   build number to `0`. Update the local source version and checksum together too.
-2. Remove `polars-config-meta` from `requirements.run`. Older released sdists
-   still require it, so apply the removal together with the new source artifact.
-3. Set the Polars runtime requirement to `>=1.40.0,<2.2` and remove the obsolete
-   comment that Polars 2 is unsupported.
-4. Add `polars_bio/licenses/polars-config-meta/LICENSE` to `about.license_file`
-   to retain attribution for the adapted metadata provider.
-5. Run the recipe's `pip check` and overlap smoke test in a fresh build/test
-   environment without `polars-config-meta`.
-
-No `build.sh` change or removal of the standalone conda-forge package is needed.
-The local version and SHA256 remain paired with a published sdist until the
-0.37.0 artifact is available; this staged recipe must not be built against that
-older source.
+`meta.yaml` here matches the upstream recipe except for comment wording. Sync
+it after each manual upstream change.
 
 ## Maintainers
 
