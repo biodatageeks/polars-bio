@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Accessing `df.config_meta` no longer keeps the frame alive until the cyclic garbage collector runs. Polars cached the accessor on the frame, and the accessor referenced the frame, so loops over large tagged frames accumulated native memory (in a 10 × 160 MB loop the peak memory fell from 1.7 GB to 0.33 GB). The accessor is now created on each access and is not stored on the frame, so `df.config_meta is df.config_meta` is `False` (#503).
+
 ## [0.37.0] - 2026-11-07
 
 ### Added
