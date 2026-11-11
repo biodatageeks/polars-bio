@@ -17,6 +17,7 @@ from ._metadata import (
     print_metadata_summary,
     set_source_metadata,
 )
+from ._progress import set_progress_bar
 from ._tabular_io import read_csv, read_parquet, scan_csv, scan_parquet
 from .constants import (
     POLARS_BIO_COORDINATE_SYSTEM_CHECK,
@@ -196,6 +197,7 @@ __all__ = [
     "get_option",
     "set_option",
     "set_loglevel",
+    "set_progress_bar",
     # Exceptions
     "CoordinateSystemMismatchError",
     "MissingCoordinateSystemError",

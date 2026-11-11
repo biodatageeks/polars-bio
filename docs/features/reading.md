@@ -61,14 +61,17 @@ polars-bio applies the same performance machinery — indexing, pushdown, and pa
 
 When polars-bio streams batches from DataFusion into Polars, it displays the
 number of processed rows and throughput on stderr, once for every collected
-LazyFrame. To turn this progress bar off, set the
-`datafusion.bio.progress_bar` session option to `False`:
+LazyFrame. To turn this progress bar off, call `pb.set_progress_bar(False)`:
 
 ```python
 import polars_bio as pb
 
-pb.set_option(pb.POLARS_BIO_PROGRESS_BAR, False)
+pb.set_progress_bar(False)
 ```
+
+This sets the `datafusion.bio.progress_bar` session option, so
+`pb.set_option(pb.POLARS_BIO_PROGRESS_BAR, False)` is equivalent and
+`pb.get_option(pb.POLARS_BIO_PROGRESS_BAR)` returns the current value.
 
 The option affects only polars-bio's own progress bars: bars of your application
 and of other libraries that use `tqdm` are still displayed. It is read each time

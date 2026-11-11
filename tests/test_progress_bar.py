@@ -118,6 +118,27 @@ def test_option_rejects_other_values(value):
     assert pb.get_option(pb.POLARS_BIO_PROGRESS_BAR) == "false"
 
 
+def test_set_progress_bar_sets_the_option(capsys):
+    pb.set_progress_bar(False)
+    assert pb.get_option(pb.POLARS_BIO_PROGRESS_BAR) == "false"
+    _sql().collect()
+    assert BAR_MARKER not in capsys.readouterr().err
+
+    pb.set_progress_bar(True)
+    assert pb.get_option(pb.POLARS_BIO_PROGRESS_BAR) == "true"
+    _sql().collect()
+    assert BAR_MARKER in capsys.readouterr().err
+
+
+def test_set_progress_bar_rejects_non_boolean_values():
+    pb.set_progress_bar(False)
+
+    with pytest.raises(ValueError, match="datafusion.bio.progress_bar"):
+        pb.set_progress_bar("off")
+
+    assert pb.get_option(pb.POLARS_BIO_PROGRESS_BAR) == "false"
+
+
 def test_other_tqdm_progress_bars_are_not_affected(capsys):
     pb.set_option(pb.POLARS_BIO_PROGRESS_BAR, False)
 

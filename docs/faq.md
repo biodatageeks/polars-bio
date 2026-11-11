@@ -12,7 +12,7 @@
 
 2. How can I suppress the processed-row progress output?
 
-    Call `pb.set_option(pb.POLARS_BIO_PROGRESS_BAR, False)`. It turns off only
+    Call `pb.set_progress_bar(False)`. It turns off only
     polars-bio's own progress bar and can be called at any time. To suppress the
     progress output of every library that uses `tqdm`, set the `TQDM_DISABLE`
     environment variable to `1` before importing `polars_bio` or `tqdm`. See

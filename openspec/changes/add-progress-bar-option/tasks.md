@@ -7,11 +7,12 @@
 - [x] 2.1 `POLARS_BIO_PROGRESS_BAR` in `polars_bio/constants.py`, exported from `polars_bio/__init__.py`, default `"true"` set in `Context.__init__`
 - [x] 2.2 Validate the value in `Context.set_option`
 - [x] 2.3 `polars_bio/_progress.py` with `row_progress_bar()`; use it in `io.py`, `utils.py`, `range_op_io.py` and `pileup_op.py`
-- [x] 2.4 Run 1.1 and see it pass; confirm by mutation that the tests fail when the option is ignored and when `disable=False` is passed explicitly
+- [x] 2.4 `set_progress_bar()` in `polars_bio/_progress.py`, exported from `polars_bio/__init__.py`, with tests written first
+- [x] 2.5 Run 1.1 and see it pass; confirm by mutation that the tests fail when the option is ignored and when `disable=False` is passed explicitly
 
 ## 3. Docs
 - [x] 3.1 `docs/features/reading.md` Progress output section and `docs/faq.md`
-- [x] 3.2 `set_option` docstring
+- [x] 3.2 `set_option` docstring; `set_progress_bar` in `docs/api/auxiliary.md`
 - [x] 3.3 CHANGELOG `[Unreleased]` → `### Added`
 
 ## 4. Validation

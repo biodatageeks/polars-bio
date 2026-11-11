@@ -26,6 +26,24 @@ batches into Polars: file readers, `pb.sql`, range operations and `pb.depth`.
 - **THEN** no processed-rows progress bar SHALL be written
 - **AND** setting the option back to `True` SHALL show the bar on the next collect
 
+### Requirement: Shorthand function for the progress bar option
+
+polars-bio SHALL provide `pb.set_progress_bar(enabled)` as a shorthand for
+`pb.set_option(pb.POLARS_BIO_PROGRESS_BAR, enabled)`. The function SHALL store
+its setting in the session option and nowhere else, and SHALL apply the same
+validation as `pb.set_option`.
+
+#### Scenario: Shorthand turns the progress bar off and on
+- **WHEN** a user calls `pb.set_progress_bar(False)`
+- **THEN** `pb.get_option(pb.POLARS_BIO_PROGRESS_BAR)` SHALL return `"false"`
+- **AND** collecting a LazyFrame returned by polars-bio SHALL NOT write the progress bar
+- **AND** `pb.set_progress_bar(True)` SHALL show the bar on the next collect
+
+#### Scenario: Shorthand rejects a non-boolean value
+- **WHEN** a user calls `pb.set_progress_bar("off")`
+- **THEN** `ValueError` SHALL be raised
+- **AND** the option SHALL keep its previous value
+
 ### Requirement: Progress bar option is scoped to polars-bio
 
 The option SHALL affect only progress bars created by polars-bio. It SHALL take

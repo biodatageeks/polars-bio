@@ -26,7 +26,10 @@ alone.
 - New session option `datafusion.bio.progress_bar`, exported as
   `pb.POLARS_BIO_PROGRESS_BAR`, default `"true"`. It is set and read with the
   existing `pb.set_option` / `pb.get_option`, next to the coordinate-system
-  options, so no new function is added to the public API.
+  options.
+- New function `pb.set_progress_bar(enabled)`, next to `pb.set_loglevel`, as a
+  shorthand for `pb.set_option(pb.POLARS_BIO_PROGRESS_BAR, enabled)`. The option
+  stays the single source of truth, so both spellings always agree.
 - The four `tqdm(unit="rows")` calls (`io.py`, `utils.py`, `range_op_io.py`,
   `pileup_op.py`) are replaced by one helper, `polars_bio/_progress.py`, which
   reads the option when a LazyFrame starts streaming. The option can therefore
@@ -39,8 +42,9 @@ alone.
   (any case) for this option and raises `ValueError` for anything else.
   Extension options are otherwise stored without validation, so a typo such as
   `"flase"` would be accepted and silently leave the bar on.
-- Docs: `docs/features/reading.md` (Progress output), `docs/faq.md`, the
-  `set_option` docstring and the changelog.
+- Docs: `docs/features/reading.md` (Progress output), `docs/faq.md`, the API
+  reference (`docs/api/auxiliary.md`), the `set_option` docstring and the
+  changelog.
 
 Not included: making the bar disappear automatically when stderr is not a TTY
 (tqdm's `disable=None`). The issue lists it as an optional, separate change of

@@ -28,6 +28,7 @@
             - set_option
             - get_option
             - set_loglevel
+            - set_progress_bar
 
 ## Errors
 
