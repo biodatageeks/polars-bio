@@ -113,7 +113,7 @@ def copy_metadata(source, result):
 
 
 def clear_metadata(frame) -> None:
-    """Invalidate a native frame's metadata, including cached accessors."""
+    """Invalidate a native frame's metadata; live accessors read it per call."""
     _check_namespace_ownership()
     frame.__dict__.pop(_FRAME_ATTR, None)
 
@@ -330,6 +330,11 @@ def initialize() -> None:
                 raise _conflict()
             pl.api.register_lazyframe_namespace(_NAMESPACE)(FrameMetadata)
             for cls in _FRAMES:
+                # Load-bearing, not defensive: Polars' NameSpace keeps the
+                # registered class in private _ns, the same coupling as the
+                # rollback below. It proves the descriptor is ours before it is
+                # swapped for the non-caching one (#503). If Polars renames _ns,
+                # initialize() fails on import and the provider CI matrix fails.
                 if (
                     getattr(cls.__dict__.get(_NAMESPACE), "_ns", None)
                     is not FrameMetadata
