@@ -5,7 +5,6 @@ import datafusion
 import polars as pl
 import pyarrow as pa
 from datafusion import DataFrame
-from tqdm.auto import tqdm
 
 from polars_bio.polars_bio import (
     BioSessionContext,
@@ -21,6 +20,7 @@ from polars_bio.polars_bio import (
 
 from ._io_source import register_io_source
 from ._path_utils import path_format_suffix
+from ._progress import row_progress_bar
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +158,7 @@ def range_lazy_scan(
 
         df_lazy.schema()
         df_stream = df_lazy.execute_stream()
-        progress_bar = tqdm(unit="rows")
+        progress_bar = row_progress_bar()
         for r in df_stream:
             py_df = r.to_pyarrow()
             df = pl.DataFrame(py_df)

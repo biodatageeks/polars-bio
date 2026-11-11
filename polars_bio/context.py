@@ -9,10 +9,25 @@ from polars_bio.polars_bio import BioSessionContext
 from .constants import (
     POLARS_BIO_COORDINATE_SYSTEM_CHECK,
     POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED,
+    POLARS_BIO_PROGRESS_BAR,
 )
 from .logging import logger
 
 _RUNTIME_PREFIX = "datafusion.runtime."
+
+
+def _normalize_bool_option(key, value) -> str:
+    """Return "true" or "false" for a stringified boolean option value.
+
+    Extension options are stored without validation by the Rust context, so
+    a mistyped value would otherwise be accepted and silently ignored.
+    """
+    normalized = value.strip().lower() if isinstance(value, str) else None
+    if normalized not in ("true", "false"):
+        raise ValueError(
+            f"Failed to set option {key} = {value!r}: expected True or False"
+        )
+    return normalized
 
 
 def singleton(cls):
@@ -49,6 +64,9 @@ class Context:
         # Default to lenient coordinate system check (warn if metadata is missing, use global config)
         self.ctx.set_option(POLARS_BIO_COORDINATE_SYSTEM_CHECK, "false")
 
+        # Show the processed-rows progress bar while LazyFrames are collected
+        self.ctx.set_option(POLARS_BIO_PROGRESS_BAR, "true")
+
         self.ctx.set_option("bio.interval_join_algorithm", "coitrees")
         self.config = datafusion.context.SessionConfig(datafusion_conf)
 
@@ -59,6 +77,8 @@ class Context:
             value = "true" if value else "false"
         elif isinstance(value, numbers.Number):
             value = str(value)
+        if key == POLARS_BIO_PROGRESS_BAR:
+            value = _normalize_bool_option(key, value)
         # Raises ValueError for unknown or invalid standard DataFusion options.
         self.ctx.set_option(key, value)
         # Only mirror standard DataFusion options to the Python SessionConfig.
@@ -116,7 +136,8 @@ def set_option(key, value):
 
     Raises:
         ValueError: If a standard DataFusion option (`datafusion.*` outside
-            `datafusion.bio.*`) is unknown or its value is invalid.
+            `datafusion.bio.*`) is unknown or its value is invalid, or if
+            `datafusion.bio.progress_bar` is set to anything but a boolean.
 
     Note:
         `datafusion.runtime.*` options (e.g. `datafusion.runtime.memory_limit`)
@@ -124,11 +145,17 @@ def set_option(key, value):
         sorts and grouped aggregates spill to disk or fail with
         `ResourcesExhausted` instead of growing without bound.
 
+        `datafusion.bio.progress_bar` (`pb.POLARS_BIO_PROGRESS_BAR`, default
+        `True`) controls the processed-rows progress bar printed while a
+        LazyFrame returned by polars-bio is collected. It affects only
+        polars-bio's own bars and can be changed at any time.
+
     Example:
         ```python
         import polars_bio as pb
         pb.set_option("datafusion.bio.coordinate_system_zero_based", False)
         pb.set_option("datafusion.runtime.memory_limit", "4G")
+        pb.set_option(pb.POLARS_BIO_PROGRESS_BAR, False)
         ```
     """
     Context().set_option(key, value)

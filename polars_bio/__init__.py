@@ -21,6 +21,7 @@ from ._tabular_io import read_csv, read_parquet, scan_csv, scan_parquet
 from .constants import (
     POLARS_BIO_COORDINATE_SYSTEM_CHECK,
     POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED,
+    POLARS_BIO_PROGRESS_BAR,
 )
 from .context import ctx, get_option, set_option
 from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemError
@@ -191,6 +192,7 @@ __all__ = [
     "ObjectStorageOptions",
     "POLARS_BIO_COORDINATE_SYSTEM_CHECK",
     "POLARS_BIO_COORDINATE_SYSTEM_ZERO_BASED",
+    "POLARS_BIO_PROGRESS_BAR",
     "get_option",
     "set_option",
     "set_loglevel",

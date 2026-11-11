@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `datafusion.bio.progress_bar` session option (`pb.POLARS_BIO_PROGRESS_BAR`, default `True`): `pb.set_option(pb.POLARS_BIO_PROGRESS_BAR, False)` turns off the processed-rows progress bar printed while a LazyFrame returned by a reader, `pb.sql`, a range operation or `pb.depth` is collected. Unlike `TQDM_DISABLE`, it affects only polars-bio's own bars and can be changed at any time, also after `polars_bio` is imported. `TQDM_DISABLE=1` still suppresses the bar (#504).
+
 ## [0.37.0] - 2026-11-07
 
 ### Added
