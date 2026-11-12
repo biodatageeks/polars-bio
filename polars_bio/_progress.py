@@ -17,7 +17,8 @@ def set_progress_bar(enabled: bool):
         enabled: `True` (the default state) shows the bar, `False` hides it.
 
     Raises:
-        ValueError: If `enabled` is not a boolean.
+        ValueError: If `enabled` is neither `True`/`False` nor one of the
+            strings `"true"`/`"false"` (in any letter case).
 
     !!! note
         Only polars-bio's own progress bars are affected; bars of the

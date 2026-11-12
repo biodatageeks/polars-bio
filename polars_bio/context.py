@@ -149,6 +149,8 @@ def set_option(key, value):
         `True`) controls the processed-rows progress bar printed while a
         LazyFrame returned by polars-bio is collected. It affects only
         polars-bio's own bars and can be changed at any time.
+        `pb.get_option` returns its value as the string `"true"` or
+        `"false"`.
         `pb.set_progress_bar` is a shorthand for setting it.
 
     Example:

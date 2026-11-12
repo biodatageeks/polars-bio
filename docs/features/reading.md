@@ -70,8 +70,13 @@ pb.set_progress_bar(False)
 ```
 
 This sets the `datafusion.bio.progress_bar` session option, so
-`pb.set_option(pb.POLARS_BIO_PROGRESS_BAR, False)` is equivalent and
-`pb.get_option(pb.POLARS_BIO_PROGRESS_BAR)` returns the current value.
+`pb.set_option(pb.POLARS_BIO_PROGRESS_BAR, False)` is equivalent.
+`pb.get_option(pb.POLARS_BIO_PROGRESS_BAR)` returns the current value as the
+string `"true"` or `"false"`, not as a boolean, so compare it with a string:
+
+```python
+pb.get_option(pb.POLARS_BIO_PROGRESS_BAR) == "true"
+```
 
 The option affects only polars-bio's own progress bars: bars of your application
 and of other libraries that use `tqdm` are still displayed. It is read each time
