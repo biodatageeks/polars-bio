@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::sync::Arc;
 
 use arrow_array::Array;
@@ -37,10 +36,6 @@ impl std::fmt::Debug for FastqcTableProvider {
 
 #[async_trait]
 impl TableProvider for FastqcTableProvider {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn schema(&self) -> arrow_schema::SchemaRef {
         tidy_schema()
     }

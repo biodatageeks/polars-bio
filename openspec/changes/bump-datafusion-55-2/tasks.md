@@ -1,0 +1,11 @@
+## 1. Implementation
+- [x] 1.1 Update Rust DataFusion, Arrow, datafusion-python, PyO3 and pyo3-log dependencies.
+- [x] 1.2 Update the Rust toolchain to DataFusion 55.2.0's MSRV (1.94.0).
+- [x] 1.3 Update the Python runtime dependency range for `datafusion` (pyproject and bioconda recipe).
+- [x] 1.4 Pin datafusion-bio-formats and datafusion-bio-functions to their DataFusion 55 commits.
+- [x] 1.5 Regenerate `Cargo.lock` and `uv.lock`.
+- [x] 1.6 Update Rust wrapper code for the DataFusion 55 API changes (`as_any` removed, `apply_expressions` required).
+- [x] 1.7 Run `cargo fmt`, `cargo clippy --all-targets`.
+- [x] 1.8 Build the Python extension with maturin and run the Python test suite.
+- [x] 1.9 Raise `test_runtime_memory_limit_spills` from a 2 MB to an 8 MB pool: DataFusion 55's aggregate spill needs more headroom than 53's (2 MB fails, 4 MB spills 31 times, 8 MB 15 times).
+- [ ] 1.10 Re-pin datafusion-bio-formats and datafusion-bio-functions to release tags once they are published.

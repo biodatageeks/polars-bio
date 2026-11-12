@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -66,10 +65,6 @@ impl std::fmt::Debug for DepthTableProvider {
 
 #[async_trait]
 impl TableProvider for DepthTableProvider {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     fn schema(&self) -> arrow_schema::SchemaRef {
         if self.config.per_base {
             datafusion_bio_function_pileup::schema::per_base_output_schema(self.config.zero_based)

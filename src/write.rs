@@ -751,7 +751,6 @@ use datafusion::physical_plan::{
     execution_plan::{Boundedness, EmissionType},
     DisplayAs, DisplayFormatType, PlanProperties,
 };
-use std::any::Any;
 
 #[derive(Debug)]
 struct SchemaOverrideExec {
@@ -787,10 +786,16 @@ impl ExecutionPlan for SchemaOverrideExec {
         "SchemaOverrideExec"
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn apply_expressions(
+        &self,
+        _f: &mut dyn FnMut(
+            &std::sync::Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+        ) -> datafusion::common::Result<
+            datafusion::common::tree_node::TreeNodeRecursion,
+        >,
+    ) -> datafusion::common::Result<datafusion::common::tree_node::TreeNodeRecursion> {
+        Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
     }
-
     fn properties(&self) -> &Arc<PlanProperties> {
         &self.cache
     }

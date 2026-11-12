@@ -65,7 +65,7 @@ def test_runtime_memory_limit_is_enforced(reset_runtime):
 
 
 def test_runtime_memory_limit_spills(reset_runtime):
-    pb.set_option(MEMORY_LIMIT, "2M")
+    pb.set_option(MEMORY_LIMIT, "8M")
     plan = pb.sql(f"EXPLAIN ANALYZE {GROUP_BY_QUERY}").collect()
     metrics = plan[plan.columns[-1]][0]
     spill_counts = [int(n) for n in re.findall(r"spill_count=(\d+)", metrics)]
