@@ -8,4 +8,5 @@
 - [x] 1.7 Run `cargo fmt`, `cargo clippy --all-targets`.
 - [x] 1.8 Build the Python extension with maturin and run the Python test suite.
 - [x] 1.9 Raise `test_runtime_memory_limit_spills` from a 2 MB to an 8 MB pool: DataFusion 55's aggregate spill needs more headroom than 53's (2 MB fails, 4 MB spills 31 times, 8 MB 15 times).
-- [ ] 1.10 Re-pin datafusion-bio-formats and datafusion-bio-functions to release tags once they are published.
+- [x] 1.10 Pin the abi3 floor with PyO3 `abi3-py311`: with bare `abi3`, PyO3 0.29 derives the floor from the build interpreter (Windows CI produced `cp314-abi3`). Build Linux wheels against CPython 3.11 only, so the manylinux image's 3.14t and PyPy interpreters do not add untested version-specific wheels.
+- [ ] 1.11 Re-pin datafusion-bio-formats and datafusion-bio-functions to release tags once they are published.
