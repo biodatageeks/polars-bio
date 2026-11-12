@@ -575,3 +575,21 @@ def test_installation_failure_and_owned_rollback(failure):
             assert fm._initialized
     """
     )
+
+
+@pytest.mark.parametrize("cls", [pl.DataFrame, pl.LazyFrame])
+def test_accessor_is_not_cached_and_frame_is_freed_by_refcount(cls):
+    # Issue #503: Polars' NameSpace caches the accessor on the instance; with the
+    # accessor's strong owner that formed a cycle only the cyclic GC could free.
+    frame = tagged(cls)
+    assert frame.config_meta.get_metadata() == META
+    assert "config_meta" not in frame.__dict__
+    assert frame.config_meta is not frame.config_meta
+    assert cls.config_meta is fm.FrameMetadata
+    ref = weakref.ref(frame)
+    gc.disable()
+    try:
+        del frame
+        assert ref() is None
+    finally:
+        gc.enable()
