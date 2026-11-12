@@ -1,6 +1,7 @@
 """The `datafusion.bio.progress_bar` session option (issue #504)."""
 
 import os
+import re
 import subprocess
 import sys
 import textwrap
@@ -150,6 +151,15 @@ def test_other_tqdm_progress_bars_are_not_affected(capsys):
     assert BAR_MARKER not in err
 
 
+def _shows_count(stderr, n):
+    """Whether a bar reported `n` processed rows.
+
+    Match the count field only: a plain substring would also hit the
+    timing-dependent rate, e.g. `20rows` inside `8111.20rows/s`.
+    """
+    return re.search(rf"(?<![\d.]){n}rows(?!/s)", stderr) is not None
+
+
 def _run_script(script, **env):
     result = subprocess.run(
         [sys.executable, "-c", textwrap.dedent(script)],
@@ -175,8 +185,8 @@ def test_disabling_after_import_needs_no_environment_variable():
     )
 
     assert result.stderr.count(BAR_MARKER) >= 1
-    assert "10rows" in result.stderr
-    assert "20rows" not in result.stderr
+    assert _shows_count(result.stderr, 10)
+    assert not _shows_count(result.stderr, 20)
 
 
 def test_tqdm_disable_environment_variable_still_wins():
