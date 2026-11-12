@@ -113,7 +113,7 @@ def copy_metadata(source, result):
 
 
 def clear_metadata(frame) -> None:
-    """Invalidate a native frame's metadata, including cached accessors."""
+    """Invalidate a native frame's metadata; live accessors read it per call."""
     _check_namespace_ownership()
     frame.__dict__.pop(_FRAME_ATTR, None)
 
@@ -155,8 +155,9 @@ class FrameMetadata:
     def __init__(self, frame):
         _check_namespace_ownership()
         # A weak owner breaks temporary_frame.config_meta.get_metadata(): Python
-        # may drop the temporary before the accessor's method is called. Cycles
-        # through Polars' cached accessor are handled by ordinary cyclic GC.
+        # may drop the temporary before the accessor's method is called. The
+        # strong owner is safe because _MetadataNamespace never caches the
+        # accessor on the frame, so no frame -> accessor -> frame cycle exists.
         self._owner = frame
 
     def _frame(self):
@@ -177,6 +178,22 @@ class FrameMetadata:
         Polars writers do not automatically serialize this namespace.
         """
         _write_parquet(self._frame(), file_path, kwargs)
+
+
+class _MetadataNamespace:
+    """Non-caching replacement for Polars' NameSpace descriptor (issue #503).
+
+    Polars caches the accessor via setattr(instance, name, accessor); together
+    with FrameMetadata's strong owner that is a reference cycle, so large frames
+    wait for the cyclic GC instead of being freed on their last reference.
+    ``_ns`` mirrors Polars' descriptor attribute used by rollback detection.
+    """
+
+    def __init__(self, namespace):
+        self._ns = namespace
+
+    def __get__(self, instance, owner):
+        return self._ns if instance is None else self._ns(instance)
 
 
 def _native_parquet_options(options):
@@ -312,6 +329,18 @@ def initialize() -> None:
             if hasattr(pl.LazyFrame, _NAMESPACE):
                 raise _conflict()
             pl.api.register_lazyframe_namespace(_NAMESPACE)(FrameMetadata)
+            for cls in _FRAMES:
+                # Load-bearing, not defensive: Polars' NameSpace keeps the
+                # registered class in private _ns, the same coupling as the
+                # rollback below. It proves the descriptor is ours before it is
+                # swapped for the non-caching one (#503). If Polars renames _ns,
+                # initialize() fails on import and the provider CI matrix fails.
+                if (
+                    getattr(cls.__dict__.get(_NAMESPACE), "_ns", None)
+                    is not FrameMetadata
+                ):
+                    raise _conflict()
+                setattr(cls, _NAMESPACE, _MetadataNamespace(FrameMetadata))
             for (cls, name), wrapper in wrappers.items():
                 if getattr(cls, name) is not originals[cls, name]:
                     raise _conflict()
