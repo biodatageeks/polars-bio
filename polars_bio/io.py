@@ -6,7 +6,6 @@ from typing import Any, Dict, Iterator, NamedTuple, Optional, Sequence, Union
 from uuid import uuid4
 
 import polars as pl
-from tqdm.auto import tqdm
 
 from polars_bio.polars_bio import (
     BamReadOptions,
@@ -55,6 +54,7 @@ from ._frame_metadata import set_metadata as _set_frame_metadata
 from ._io_source import register_io_source
 from ._metadata import set_coordinate_system
 from ._path_utils import strip_url_parameters
+from ._progress import row_progress_bar
 from .context import _resolve_zero_based, ctx
 from .predicate_translator import (
     BAM_INT32_COLUMNS,
@@ -5017,7 +5017,7 @@ def _lazy_scan(
 
         # 5. Stream with safety net
         df_stream = query_df.execute_stream()
-        progress_bar = tqdm(unit="rows")
+        progress_bar = row_progress_bar()
         remaining = int(n_rows) if n_rows is not None else None
         rootless_row_count = 0
         for r in df_stream:

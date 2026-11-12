@@ -12,10 +12,12 @@
 
 2. How can I suppress the processed-row progress output?
 
-    Set the `TQDM_DISABLE` environment variable to `1` before importing
-    `polars_bio` or `tqdm`. See
+    Call `pb.set_progress_bar(False)`. It turns off only
+    polars-bio's own progress bar and can be called at any time. To suppress the
+    progress output of every library that uses `tqdm`, set the `TQDM_DISABLE`
+    environment variable to `1` before importing `polars_bio` or `tqdm`. See
     [Reading files: Progress output](features/reading.md#progress-output) for
-    shell and Python examples.
+    examples.
 
 3. What to do if I get  `Illegal instruction (core dumped)` when using polars-bio?
 This error is likely due to the fact that the ABI of the polars-bio wheel package does not match the ABI of the Python interpreter.

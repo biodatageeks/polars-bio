@@ -2,10 +2,10 @@ from typing import Iterator, List, Optional, Union
 
 import polars as pl
 import pyarrow as pa
-from tqdm.auto import tqdm
 
 from ._io_source import register_io_source
 from ._metadata import set_coordinate_system
+from ._progress import row_progress_bar
 from .context import _resolve_zero_based, ctx
 from .logging import logger
 
@@ -192,7 +192,7 @@ class PileupOperations:
 
             # Stream batches
             df_stream = query_df.execute_stream()
-            progress_bar = tqdm(unit="rows")
+            progress_bar = row_progress_bar()
             remaining = int(n_rows) if n_rows is not None else None
 
             for batch in df_stream:

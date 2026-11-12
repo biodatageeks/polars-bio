@@ -3,9 +3,9 @@ from typing import Iterator, Union
 
 import polars as pl
 from datafusion import DataFrame
-from tqdm.auto import tqdm
 
 from ._io_source import register_io_source
+from ._progress import row_progress_bar
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ def _lazy_scan(
             return
 
         df_stream = query_df.execute_stream()
-        progress_bar = tqdm(unit="rows")
+        progress_bar = row_progress_bar()
         for r in df_stream:
             py_df = r.to_pyarrow()
             df = pl.DataFrame(py_df)

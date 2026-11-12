@@ -60,8 +60,34 @@ polars-bio applies the same performance machinery — indexing, pushdown, and pa
 ### Progress output
 
 When polars-bio streams batches from DataFusion into Polars, it displays the
-number of processed rows and throughput on stderr. To suppress this progress
-output for the whole process, set `TQDM_DISABLE=1` when starting Python:
+number of processed rows and throughput on stderr, once for every collected
+LazyFrame. To turn this progress bar off, call `pb.set_progress_bar(False)`:
+
+```python
+import polars_bio as pb
+
+pb.set_progress_bar(False)
+```
+
+This sets the `datafusion.bio.progress_bar` session option, so
+`pb.set_option(pb.POLARS_BIO_PROGRESS_BAR, False)` is equivalent.
+`pb.get_option(pb.POLARS_BIO_PROGRESS_BAR)` returns the current value as the
+string `"true"` or `"false"`, not as a boolean, so compare it with a string:
+
+```python
+pb.get_option(pb.POLARS_BIO_PROGRESS_BAR) == "true"
+```
+
+The option affects only polars-bio's own progress bars: bars of your application
+and of other libraries that use `tqdm` are still displayed. It is read each time
+a LazyFrame is collected, so you can change it at any point of a script or a
+notebook session, without restarting it, and it also applies to LazyFrames
+created before the change. Set it back to `True` (the default) to show the bar
+again.
+
+To suppress the progress output of every library that uses `tqdm`, for the
+whole process, set `TQDM_DISABLE=1` when starting Python. It takes precedence
+over the polars-bio option:
 
 ```bash
 TQDM_DISABLE=1 python analysis.py
