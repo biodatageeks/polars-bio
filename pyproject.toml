@@ -25,7 +25,7 @@ classifiers = [
 dependencies = [
   "polars>=1.40.0,<2.2",
   "pyarrow>=23.0.1,<25",
-  "datafusion>=53.0.0,<54",
+  "datafusion>=55.0.0,<56",
   "tqdm>=4.67.0,<5",
 ]
 

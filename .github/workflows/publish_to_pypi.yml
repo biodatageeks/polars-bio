@@ -147,7 +147,10 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist --find-interpreter
+          # One abi3 wheel (floor pinned by pyo3's `abi3-py311`). With
+          # `--find-interpreter` the manylinux image's 3.14t and PyPy
+          # interpreters would add untested version-specific wheels.
+          args: --release --out dist --interpreter python3.11
           sccache: 'true'
           manylinux: auto
         env:
