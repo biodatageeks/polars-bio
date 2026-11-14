@@ -11,7 +11,7 @@ DataFusion 53's external sorter can starve under `FairSpillPool` when several pa
 - Update Rust Arrow crate pins to 59.3.2, the line DataFusion 55.2.0 resolves.
 - Update the Rust toolchain from 1.91.0 to 1.94.0, DataFusion 55.2.0's MSRV.
 - Update the Python runtime dependency from `datafusion>=53.0.0,<54` to `datafusion>=55.0.0,<56`, here and in the in-repo bioconda recipe.
-- Pin datafusion-bio-formats and datafusion-bio-functions to their DataFusion 55 commits (biodatageeks/datafusion-bio-formats#248, biodatageeks/datafusion-bio-functions#332) until they are tagged.
+- Pin datafusion-bio-formats and datafusion-bio-functions to their DataFusion 55 releases, v1.16.0 and v0.25.0 (biodatageeks/datafusion-bio-formats#248, biodatageeks/datafusion-bio-functions#332).
 
 ## Impact
 - Affected specs: packaging

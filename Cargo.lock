@@ -509,6 +509,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "asyncband"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d2050892d4691cf110586070786712b504985a4d37ed64a9cd8a402718e1706"
+dependencies = [
+ "hashbrown 0.17.1",
+]
+
+[[package]]
 name = "atoi"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1165,6 +1174,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "217698eaf96b4a3f0bc4f3662aaa55bdf913cd54d7204591faa790070c6d0853"
 
 [[package]]
+name = "crc-fast"
+version = "1.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e75b2483e97a5a7da73ac68a05b629f9c53cff58d8ed1c77866079e18b00dba5"
+dependencies = [
+ "digest 0.10.7",
+ "spin 0.10.1",
+]
+
+[[package]]
 name = "crc32c"
 version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1274,19 +1293,13 @@ dependencies = [
 
 [[package]]
 name = "ctor"
-version = "0.6.3"
+version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "424e0138278faeb2b401f174ad17e715c829512d74f3d1e81eb43365c2e0590e"
+checksum = "ea691ed9f36489d087419b8b2ba3ef27d89621380b4178c73e2445a379e4e0f4"
 dependencies = [
- "ctor-proc-macro",
- "dtor",
+ "link-section",
+ "linktime-proc-macro",
 ]
-
-[[package]]
-name = "ctor-proc-macro"
-version = "0.0.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52560adf09603e58c9a7ee1fe1dcb95a16927b17c127f0ac02d6e768a0e25bc1"
 
 [[package]]
 name = "ctutils"
@@ -1373,8 +1386,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-bam"
-version = "1.15.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "1.16.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1399,8 +1412,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-bbi"
-version = "1.13.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "1.14.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-trait",
  "bigtools",
@@ -1411,8 +1424,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-bed"
-version = "1.15.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "1.16.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1434,8 +1447,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-bgen"
-version = "0.7.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "0.8.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1454,8 +1467,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-cooler"
-version = "1.15.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "1.16.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-trait",
  "datafusion",
@@ -1469,8 +1482,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-core"
-version = "1.15.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "1.16.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-compression",
  "bytes",
@@ -1492,8 +1505,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-cram"
-version = "1.15.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "1.16.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1518,8 +1531,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-fasta"
-version = "1.15.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "1.16.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1541,8 +1554,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-fastq"
-version = "1.15.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "1.16.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1565,8 +1578,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-foldcomp"
-version = "0.4.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "0.5.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-trait",
  "datafusion",
@@ -1577,8 +1590,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-gff"
-version = "1.15.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "1.16.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1604,8 +1617,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-gtf"
-version = "1.15.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "1.16.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1628,8 +1641,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-msa"
-version = "1.15.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "1.16.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1647,8 +1660,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-pairs"
-version = "1.15.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "1.16.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1674,8 +1687,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-pgen"
-version = "0.7.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "0.8.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1693,8 +1706,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-structure"
-version = "0.4.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "0.5.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1707,8 +1720,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-format-vcf"
-version = "1.15.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?rev=99d7f810c400fca015539b25bfe459f848cebea2#99d7f810c400fca015539b25bfe459f848cebea2"
+version = "1.16.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.16.0#7bf1e6ca36c0adc4f2b2007e799720554fae4a04"
 dependencies = [
  "async-compression",
  "async-stream",
@@ -1739,8 +1752,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-fastqc"
-version = "0.23.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=08a9e63c89887270db3f1dd70c8b66b664f65327#08a9e63c89887270db3f1dd70c8b66b664f65327"
+version = "0.24.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.25.0#4e81cf5930cd4be9a0da376ba2d7b59c93db1ffe"
 dependencies = [
  "datafusion",
  "futures",
@@ -1749,8 +1762,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-pileup"
-version = "0.24.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=08a9e63c89887270db3f1dd70c8b66b664f65327#08a9e63c89887270db3f1dd70c8b66b664f65327"
+version = "0.25.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.25.0#4e81cf5930cd4be9a0da376ba2d7b59c93db1ffe"
 dependencies = [
  "async-trait",
  "datafusion",
@@ -1763,8 +1776,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-ranges"
-version = "0.24.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=08a9e63c89887270db3f1dd70c8b66b664f65327#08a9e63c89887270db3f1dd70c8b66b664f65327"
+version = "0.25.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.25.0#4e81cf5930cd4be9a0da376ba2d7b59c93db1ffe"
 dependencies = [
  "ahash",
  "async-trait",
@@ -2716,21 +2729,6 @@ checksum = "442039f5147480ba31067cb00ada1adae6892028e40e45fc5de7b7df6dcc1b5f"
 dependencies = [
  "const-random",
 ]
-
-[[package]]
-name = "dtor"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "404d02eeb088a82cfd873006cb713fe411306c7d182c344905e101fb1167d301"
-dependencies = [
- "dtor-proc-macro",
-]
-
-[[package]]
-name = "dtor-proc-macro"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f678cf4a922c215c63e0de95eb1ff08a958a81d47e485cf9da1e27bf6305cfa5"
 
 [[package]]
 name = "dunce"
@@ -3746,7 +3744,7 @@ version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 dependencies = [
- "spin",
+ "spin 0.9.8",
 ]
 
 [[package]]
@@ -3924,6 +3922,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "link-section"
+version = "0.19.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d9aae57673c1a235149777a74d152f3210ebd3e3b13346d2cdb6809e566bd3c"
+
+[[package]]
+name = "linktime-proc-macro"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e57c38c1e860fd37c604281cdfb1dd2216977fd76a50f85ba2f388ef3219616"
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4039,15 +4049,6 @@ checksum = "69b6441f590336821bb897fb28fc622898ccceb1d6cea3fde5ea86b090c4de98"
 dependencies = [
  "cfg-if",
  "digest 0.11.3",
-]
-
-[[package]]
-name = "mea"
-version = "0.6.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2640d335e7273dacdcf51044026139b2e269c3bb0dfc3f8cb3496b85e3f6a42c"
-dependencies = [
- "slab",
 ]
 
 [[package]]
@@ -4568,11 +4569,13 @@ checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
 name = "opendal"
-version = "0.55.0"
-source = "git+https://github.com/apache/opendal.git?rev=1755db1da44e0aad050cb1d62aebbb0b64266037#1755db1da44e0aad050cb1d62aebbb0b64266037"
+version = "0.59.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46081824c74bac9f68f0bc4408077f77b0e315c006514719c97af1c2227ac2d2"
 dependencies = [
  "ctor",
  "opendal-core",
+ "opendal-http-transport-reqwest",
  "opendal-layer-concurrent-limit",
  "opendal-layer-logging",
  "opendal-layer-retry",
@@ -4585,23 +4588,22 @@ dependencies = [
 
 [[package]]
 name = "opendal-core"
-version = "0.55.0"
-source = "git+https://github.com/apache/opendal.git?rev=1755db1da44e0aad050cb1d62aebbb0b64266037#1755db1da44e0aad050cb1d62aebbb0b64266037"
+version = "0.59.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33d5a635dfea36a7a0c3bbb2ca34c97af17f98dd69b0cdf31a1d436a346e0a12"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "asyncband",
+ "base64 0.23.1",
  "bytes",
  "futures",
  "http",
- "http-body",
  "jiff",
  "log",
- "md-5 0.10.6",
- "mea",
+ "md-5 0.11.0",
  "percent-encoding",
- "quick-xml 0.38.4",
+ "quick-xml 0.42.0",
  "reqsign-core",
- "reqwest 0.13.4",
  "serde",
  "serde_json",
  "tokio",
@@ -4611,20 +4613,36 @@ dependencies = [
 ]
 
 [[package]]
-name = "opendal-layer-concurrent-limit"
-version = "0.55.0"
-source = "git+https://github.com/apache/opendal.git?rev=1755db1da44e0aad050cb1d62aebbb0b64266037#1755db1da44e0aad050cb1d62aebbb0b64266037"
+name = "opendal-http-transport-reqwest"
+version = "0.59.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc025e163c43993e30cf1829a30b791934e5b0f7cd4d7e03acc902a9efb7e8f5"
 dependencies = [
+ "bytes",
  "futures",
  "http",
- "mea",
+ "http-body",
+ "opendal-core",
+ "reqwest 0.13.4",
+]
+
+[[package]]
+name = "opendal-layer-concurrent-limit"
+version = "0.59.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "06b44bdf694cccb7d90515b3eac6623975a2813abf4f5c438b4949a329d6a45b"
+dependencies = [
+ "asyncband",
+ "futures",
+ "http",
  "opendal-core",
 ]
 
 [[package]]
 name = "opendal-layer-logging"
-version = "0.55.0"
-source = "git+https://github.com/apache/opendal.git?rev=1755db1da44e0aad050cb1d62aebbb0b64266037#1755db1da44e0aad050cb1d62aebbb0b64266037"
+version = "0.59.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "520d3de5d246c82a246c431ef0f52b8d2f091c7c49a3fd7a6f0ff519b1e7725f"
 dependencies = [
  "log",
  "opendal-core",
@@ -4632,8 +4650,9 @@ dependencies = [
 
 [[package]]
 name = "opendal-layer-retry"
-version = "0.55.0"
-source = "git+https://github.com/apache/opendal.git?rev=1755db1da44e0aad050cb1d62aebbb0b64266037#1755db1da44e0aad050cb1d62aebbb0b64266037"
+version = "0.59.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a02c59479b047878f4a0f269f23c847f24d67d1ff19f2b20fdd5a3bceefd451"
 dependencies = [
  "backon",
  "log",
@@ -4642,8 +4661,9 @@ dependencies = [
 
 [[package]]
 name = "opendal-layer-timeout"
-version = "0.55.0"
-source = "git+https://github.com/apache/opendal.git?rev=1755db1da44e0aad050cb1d62aebbb0b64266037#1755db1da44e0aad050cb1d62aebbb0b64266037"
+version = "0.59.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afffa0cf8a6690b3b44cc510816ba675638eb236699a7d449e44ac3344bafd36"
 dependencies = [
  "opendal-core",
  "tokio",
@@ -4651,28 +4671,30 @@ dependencies = [
 
 [[package]]
 name = "opendal-service-azblob"
-version = "0.55.0"
-source = "git+https://github.com/apache/opendal.git?rev=1755db1da44e0aad050cb1d62aebbb0b64266037#1755db1da44e0aad050cb1d62aebbb0b64266037"
+version = "0.59.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b674507cd2f764f6b40d5f88d284bb293c519d76e8aa0103987f970da412eeac"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "bytes",
  "http",
  "log",
  "opendal-core",
  "opendal-service-azure-common",
- "quick-xml 0.38.4",
+ "quick-xml 0.42.0",
  "reqsign-azure-storage",
  "reqsign-core",
  "reqsign-file-read-tokio",
  "serde",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "uuid",
 ]
 
 [[package]]
 name = "opendal-service-azure-common"
-version = "0.55.0"
-source = "git+https://github.com/apache/opendal.git?rev=1755db1da44e0aad050cb1d62aebbb0b64266037#1755db1da44e0aad050cb1d62aebbb0b64266037"
+version = "0.59.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdf9c9d0bfd1fa3638eec485c7f3448252cbb5a81774a2aa7abadc3e4f1ea43e"
 dependencies = [
  "http",
  "opendal-core",
@@ -4680,8 +4702,9 @@ dependencies = [
 
 [[package]]
 name = "opendal-service-gcs"
-version = "0.55.0"
-source = "git+https://github.com/apache/opendal.git?rev=1755db1da44e0aad050cb1d62aebbb0b64266037#1755db1da44e0aad050cb1d62aebbb0b64266037"
+version = "0.59.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9e5197fce0cd5929db9129a7e71e503841aa20bea4f1dcc54ab097a5f3652e9"
 dependencies = [
  "async-trait",
  "bytes",
@@ -4689,19 +4712,21 @@ dependencies = [
  "log",
  "opendal-core",
  "percent-encoding",
- "quick-xml 0.38.4",
+ "quick-xml 0.42.0",
  "reqsign-core",
  "reqsign-file-read-tokio",
  "reqsign-google",
  "serde",
  "serde_json",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
 name = "opendal-service-http"
-version = "0.55.0"
-source = "git+https://github.com/apache/opendal.git?rev=1755db1da44e0aad050cb1d62aebbb0b64266037#1755db1da44e0aad050cb1d62aebbb0b64266037"
+version = "0.59.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86fcb1bc533926c94a0b59fef011127736db19812fa0630280a4bde1a3cfaf6a"
 dependencies = [
  "http",
  "log",
@@ -4711,17 +4736,18 @@ dependencies = [
 
 [[package]]
 name = "opendal-service-s3"
-version = "0.55.0"
-source = "git+https://github.com/apache/opendal.git?rev=1755db1da44e0aad050cb1d62aebbb0b64266037#1755db1da44e0aad050cb1d62aebbb0b64266037"
+version = "0.59.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0932321e27c712a30ef72db56b12f31e41e9f0d2d3841d63a91bc8075cd8f0ef"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "bytes",
- "crc32c",
+ "crc-fast",
  "http",
  "log",
- "md-5 0.10.6",
+ "md-5 0.11.0",
  "opendal-core",
- "quick-xml 0.38.4",
+ "quick-xml 0.42.0",
  "reqsign-aws-v4",
  "reqsign-core",
  "reqsign-file-read-tokio",
@@ -4851,11 +4877,11 @@ dependencies = [
 
 [[package]]
 name = "pem"
-version = "3.0.6"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d30c53c26bc5b31a98cd02d20f25a7c8567146caf63ed593a9d87b2775291be"
+checksum = "d354a98a3d1251555de99e8fdd8afda05573c31b82f59063a7b0a29b5527f120"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "serde_core",
 ]
 
@@ -5236,16 +5262,6 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
-version = "0.38.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b66c2058c55a409d601666cffe35f04333cf1013010882cec174a7467cd4e21c"
-dependencies = [
- "memchr",
- "serde",
-]
-
-[[package]]
-name = "quick-xml"
 version = "0.39.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdcc8dd4e2f670d309a5f0e83fe36dfdc05af317008fea29144da1a2ac858e5e"
@@ -5256,9 +5272,9 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
-version = "0.40.1"
+version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2474bd2e5029e7ccb6abb2ba48cf2383a333851dedf495901544281590c7da7f"
+checksum = "41b1177fdf999d2321d3fb46ff47159d9c1fb9ad66a4879f8c50a0b504615e9b"
 dependencies = [
  "memchr",
  "serde",
@@ -5542,19 +5558,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
-name = "reqsign-aws-v4"
-version = "3.0.1"
+name = "reqsign-aws-core"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b75624bd8a466e37ddc0a7b6c33ac859a85347c153a916e1dd9d0b68338f74a"
+checksum = "d38c902d8ec745bd9eadd1abbcbe227f4c1fc2926b2ec8929f89234af3114500"
 dependencies = [
- "anyhow",
  "bytes",
  "form_urlencoded",
  "hex",
  "http",
  "log",
  "percent-encoding",
- "quick-xml 0.40.1",
+ "quick-xml 0.42.0",
  "reqsign-core",
  "rust-ini",
  "serde",
@@ -5564,13 +5579,29 @@ dependencies = [
 ]
 
 [[package]]
-name = "reqsign-azure-storage"
-version = "3.0.1"
+name = "reqsign-aws-v4"
+version = "3.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62b96928e73ad984de1d99e382749d09e5dab7dd707b767974f7e40aa926b82f"
+checksum = "906bfd028f96bfe73fdb892ce26f3b3f99b4f30feb9bd024be58bd6657f68b2b"
+dependencies = [
+ "bytes",
+ "http",
+ "log",
+ "quick-xml 0.42.0",
+ "reqsign-aws-core",
+ "reqsign-core",
+ "serde",
+]
+
+[[package]]
+name = "reqsign-azure-storage"
+version = "3.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7260e6c1d89422ba62d624a32c491b561386fb364ac4bf0959c740e34b251a2e"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "asyncband",
+ "base64 0.23.1",
  "bytes",
  "form_urlencoded",
  "http",
@@ -5586,15 +5617,14 @@ dependencies = [
 
 [[package]]
 name = "reqsign-core"
-version = "3.0.1"
+version = "3.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5fa5cb48808693614d1701fcd3db0b30fa292e0f18e122ae068b6d32eaeed3f"
+checksum = "85fed85c436b6b920e4b36310f699a77771a91e38ae483df48447bd7d162671c"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "asyncband",
+ "base64 0.23.1",
  "bytes",
- "form_urlencoded",
- "futures",
  "hex",
  "hmac 0.13.0",
  "http",
@@ -5611,9 +5641,9 @@ dependencies = [
 
 [[package]]
 name = "reqsign-file-read-tokio"
-version = "3.0.1"
+version = "3.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a4b6f3a3fd29ffcc99a90aec585a65217783badfd73acddf847b63ae683bda9"
+checksum = "586a8e198057773f9616901fd723a4bc186812b9765bc0f20368661d6169d906"
 dependencies = [
  "anyhow",
  "reqsign-core",
@@ -5622,10 +5652,11 @@ dependencies = [
 
 [[package]]
 name = "reqsign-google"
-version = "3.0.1"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb215d0876a18b6bd9cdd380b589e5292aaa638ca15266de794b1122d898b6b2"
+checksum = "719e55931cc81b8dcd69f95f0a2def55617cb76cb3aa2f8c439e10682e46fa10"
 dependencies = [
+ "bytes",
  "form_urlencoded",
  "http",
  "log",
@@ -6232,6 +6263,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
+name = "spin"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "023a211cb3138dbc438680b32560ad89f699977624c9f8dbb95a47d5b4c07dd3"
+
+[[package]]
 name = "spki"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6370,8 +6407,8 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "superintervals"
-version = "0.26.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=08a9e63c89887270db3f1dd70c8b66b664f65327#08a9e63c89887270db3f1dd70c8b66b664f65327"
+version = "0.27.0"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.25.0#4e81cf5930cd4be9a0da376ba2d7b59c93db1ffe"
 dependencies = [
  "aligned-vec",
  "serde",
