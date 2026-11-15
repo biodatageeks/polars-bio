@@ -18,6 +18,14 @@ on:
       - main
       - master
   workflow_dispatch:
+    inputs:
+      lto:
+        description: 'Build wheels with fat LTO, as for a release'
+        type: boolean
+        default: false
+  # Weekly fat-LTO build, so a broken release build shows up before a tag.
+  schedule:
+    - cron: '0 3 * * 1'
 
 
 concurrency:
@@ -35,6 +43,11 @@ permissions:
 # only after PyPI grants the project a higher limit.
 env:
   TARGET_CPU: skylake
+  # Fat LTO (profile `dist`: -30% wheel size, 5-14% faster scans, #511) is
+  # slow to build and its aarch64 link needs ~34 GiB, so it runs only for
+  # tags (PyPI releases), the weekly schedule, or a manual run with lto=true.
+  # Everything else builds the stripped `release` profile.
+  BUILD_PROFILE: ${{ (startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || inputs.lto == true) && '--profile dist' || '--release' }}
   PYPI_FILE_LIMIT_MIB: "100"
   SIZE_MARGIN_MIB: "5"
 
@@ -136,7 +149,9 @@ jobs:
     runs-on: ${{ matrix.target == 'aarch64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     strategy:
       matrix:
-        target: [x86_64, aarch64]
+        # With fat LTO the aarch64 wheel is built by linux-aarch64-lto instead:
+        # its link does not fit in the hosted arm runner's 16 GB.
+        target: ${{ fromJSON((startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || inputs.lto == true) && '["x86_64"]' || '["x86_64", "aarch64"]') }}
         include:
           - target: x86_64
             cpu_target: "skylake"
@@ -155,7 +170,7 @@ jobs:
           # One abi3 wheel (floor pinned by pyo3's `abi3-py311`). With
           # `--find-interpreter` the manylinux image's 3.14t and PyPy
           # interpreters would add untested version-specific wheels.
-          args: --profile dist --out dist --interpreter python3.11
+          args: ${{ env.BUILD_PROFILE }} --out dist --interpreter python3.11
           sccache: 'true'
           manylinux: auto
         env:
@@ -195,7 +210,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --profile dist --out dist --find-interpreter
+          args: ${{ env.BUILD_PROFILE }} --out dist --find-interpreter
           sccache: 'true'
         env:
           RUSTFLAGS: "-Dwarnings -Ctarget-cpu=${{ env.TARGET_CPU }}"
@@ -238,7 +253,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --profile dist --out dist --find-interpreter
+          args: ${{ env.BUILD_PROFILE }} --out dist --find-interpreter
           sccache: 'true'
         env:
           RUSTFLAGS: "-Dwarnings -Clink-arg=-undefined -Clink-arg=dynamic_lookup -Ctarget-cpu=${{ matrix.apple_cpu_target }}"
@@ -279,10 +294,76 @@ jobs:
           name: wheels-sdist
           path: dist
 
+  # Fat-LTO Linux aarch64 wheel. The final LTO step needs ~34 GiB (12 GiB on
+  # macOS; cause unknown), so it is cross-compiled on a self-hosted x86_64
+  # host (10 vCPU, 24 GB RAM + 64 GB swap) and tested on a native arm runner.
+  # Only for tags, the schedule and manual runs: never for pull requests, so
+  # code from forks cannot reach the self-hosted hosts.
+  linux-aarch64-lto:
+    if: ${{ startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || inputs.lto == true }}
+    runs-on: [self-hosted, Linux, X64, openstack-ii, huge-c10m25]
+    timeout-minutes: 300
+    steps:
+      # The build container runs as root and the runner is persistent, so an
+      # earlier run can leave root-owned files actions/checkout cannot delete.
+      - name: Remove root-owned files from earlier container builds
+        run: docker run --rm -v "${{ github.workspace }}:/w" busybox sh -c 'rm -rf /w/target /w/dist'
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Build wheel (cross-compiled, fat LTO)
+        uses: PyO3/maturin-action@v1
+        with:
+          target: aarch64
+          args: --profile dist --out dist --interpreter python3.11
+          # sccache cannot cache the final cdylib, and on the hosted runner it
+          # reported the OOM kill as a bare "exit status 2".
+          sccache: 'false'
+          # manylinux2014-cross ships GCC 4.8, which libdeflate and ring
+          # reject. pyarrow and datafusion only publish manylinux_2_28 aarch64
+          # wheels, so this tag costs no users.
+          manylinux: 2_28
+        env:
+          RUSTFLAGS: "-Dwarnings -Ctarget-cpu=generic"
+      - name: Check distribution size against the PyPI per-file limit
+        run: python .github/scripts/check_wheel_size.py dist
+      - uses: actions/upload-artifact@v6
+        with:
+          name: wheels-manylinux-aarch64
+          path: dist
+      - name: Hand the workspace back to the runner user
+        if: always()
+        run: docker run --rm -v "${{ github.workspace }}:/w" busybox chown -R "$(id -u):$(id -g)" /w
+
+  linux-aarch64-lto-test:
+    needs: linux-aarch64-lto
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v7
+        with:
+          name: wheels-manylinux-aarch64
+          path: dist
+      - name: Test structure readers from the cross-built wheel
+        shell: bash
+        run: |
+          python -m pip install pytest
+          python -m pip install dist/*.whl
+          mkdir -p wheel-tests/data
+          cp tests/test_io_structure.py tests/test_io_foldcomp.py wheel-tests/
+          cp -R tests/data/structure wheel-tests/data/
+          cd wheel-tests
+          python -c "import polars_bio, platform; print(polars_bio.__file__, platform.machine())"
+          python -m pytest test_io_structure.py test_io_foldcomp.py -q
+
   release:
     name: Release
     if: "startsWith(github.ref, 'refs/tags/')"
-    needs: [rust_tests, linux_arm64_tests, linux_tests_polars1, linux, windows, macos, sdist]
+    needs: [rust_tests, linux_arm64_tests, linux_tests_polars1, linux, linux-aarch64-lto-test, windows, macos, sdist]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
