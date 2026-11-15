@@ -21,7 +21,7 @@ code.
   Polars expression plugin** compiled into `polars_bio.abi3.so`
   (pyo3-polars, option "B" of the design spike):
   `pl.col("sequence").seq.revcomp()`, `.complement()`,
-  `.gc_content(ignore_n=...)`, `.translate(frame=..., table=..., to_stop=...)`
+  `.gc_content(denominator=...)`, `.translate(frame=..., table=..., to_stop=...)`
   and `pl.col("quality_scores").seq.mean_quality(offset=..., method=...)`.
   They work on any Polars frame, stream in Polars' streaming engine and never
   take the GIL.

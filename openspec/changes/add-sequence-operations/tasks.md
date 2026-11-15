@@ -16,20 +16,28 @@ phase 6 results.
 
 ## 1. Packaging groundwork (polars-bio)
 
-- [ ] 1.1 Bump `rust-toolchain.toml` to 1.95.0. Confirm that every CI job
+- [x] 1.1 Bump `rust-toolchain.toml` to 1.95.0. Confirm that every CI job
   picks it up through `rustup show`, and that `cargo clippy --all-targets -- -D warnings`
   passes on 1.95.
-- [ ] 1.2 Confirm that conda-forge's `compiler('rust')` resolves to ≥ 1.95 for
+- [x] 1.2 Confirm that conda-forge's `compiler('rust')` resolves to ≥ 1.95 for
   linux-64, osx-64 and osx-arm64. `bioconda-recipe/build.sh` deletes
   `rust-toolchain.toml`. Record the version in `bioconda-recipe/README.md`.
-- [ ] 1.3 Add `pyo3-polars = { version = "0.28", features = ["derive"] }` and
+- [x] 1.3 Add `pyo3-polars = { version = "0.28", features = ["derive"] }` and
   `polars = { version = "0.55", default-features = false }`. Check with
   `cargo tree -d` that no duplicate pyo3 or arrow-rs version appears, and
   that `uv lock --check` still passes.
-- [ ] 1.4 Add a wheel-size step to `publish_to_pypi.yml` that prints every
+  *Done differently:* the resolution was checked in the spike (no conflicts with
+  DataFusion 55 / arrow 59, +74 lock entries). The dependencies are added in
+  3.1, together with the plugin code. Added alone, the linker would drop almost
+  all of their code, so 1.5 would measure a misleadingly small wheel.
+- [x] 1.4 Add a wheel-size step to `publish_to_pypi.yml` that prints every
   wheel's size and fails above the budget (limit − 5 MB). Find out the
   project's actual PyPI per-file limit from the project settings, and record
   it in the workflow comment.
+  *Status:* `.github/scripts/check_wheel_size.py` runs in the linux, windows,
+  macos and sdist jobs with `PYPI_FILE_LIMIT_MIB=100` (Warehouse's default)
+  and a 5 MiB margin. The project's actual limit still has to be read from
+  its PyPI settings by an owner; raise `PYPI_FILE_LIMIT_MIB` if it is higher.
 - [ ] 1.5 Measure all five platform wheels from the PR's CI artifacts.
   - If any wheel is over budget, enable `[profile.release] strip = "symbols"`
     and verify with `nm -gU` / `nm -D` / `dumpbin /exports` that
@@ -40,7 +48,7 @@ Gate: wheels within budget on all platforms; full test suite green on Rust 1.95.
 
 ## 2. Kernels and SQL UDFs (datafusion-bio-functions)
 
-- [ ] 2.1 Build the oracle corpus and record each tool's exact definitions:
+- [x] 2.1 Build the oracle corpus and record each tool's exact definitions:
   - **seqkit 2.x:** `fx2tab -g` GC (are S and N counted?), `fx2tab -q` /
     `stats -a` average-quality method, `stats -a` gap characters and
     quartile definition.
@@ -49,6 +57,11 @@ Gate: wheels within budget on all platforms; full test suite green on Rust 1.95.
 
   Write the findings to `oracles.md` in this change, with tool versions.
   Resolve design open question 1.
+  *Done:* [oracles.md](oracles.md). This revised D5: GC counts G+C only
+  (`denominator="length"|"acgt"` replaces `ignore_n`); unknown bytes pass
+  through, with an optional `strict=True`; a `---` codon translates to `-`;
+  and `mean_quality` defaults to `error_prob`, seqkit's method. The
+  benchmark environment (6.1) reuses the same tool versions.
 - [ ] 2.2 Create crate `datafusion-bio-function-seq` with a `kernels` module
   of pure `&[u8]` functions: `revcomp`, `complement`, `gc_counts`,
   `translate` (NCBI tables), `phred_mean` (two methods) and `read_metrics`.
@@ -56,8 +69,9 @@ Gate: wheels within budget on all platforms; full test suite green on Rust 1.95.
   consistency).
 - [ ] 2.3 Add `udf` module: `ScalarUDF`s `seq_revcomp`, `seq_complement`,
   `seq_gc_content`, `seq_translate` and `seq_mean_quality`, accepting `Utf8`,
-  `LargeUtf8` and `Utf8View`, with null propagation and `ComputeError` on
-  invalid input.
+  `LargeUtf8` and `Utf8View`, with null propagation, unknown-byte
+  pass-through, and `ComputeError` only in `strict` mode and for quality bytes
+  below the offset.
 - [ ] 2.4 Add golden tests against the corpus from 2.1. Exact equality for
   strings; for floats, tolerance equal to seqkit's printed precision.
 - [ ] 2.5 Tag a functions release containing the crate.
