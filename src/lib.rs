@@ -20,6 +20,7 @@ mod operation;
 mod option;
 mod pileup;
 mod scan;
+mod seq_plugin;
 mod utils;
 mod write;
 

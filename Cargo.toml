@@ -69,9 +69,23 @@ datafusion-bio-format-msa = { git = "https://github.com/biodatageeks/datafusion-
 datafusion-bio-format-structure = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
 datafusion-bio-format-foldcomp = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
 
-datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.25.0" }
-datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.25.0", default-features = false }
-datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.25.0" }
+# TEMPORARY: every bio-functions crate is pinned to the commit of
+# biodatageeks/datafusion-bio-functions#334, which adds datafusion-bio-function-seq.
+# Keep all four on the same revision (mixing a rev with a tag compiles the repo
+# twice) and switch back to a release tag once #334 is released.
+datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "7fc63525fe7b6a2340724851e56ae3651814c541" }
+datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "7fc63525fe7b6a2340724851e56ae3651814c541", default-features = false }
+datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "7fc63525fe7b6a2340724851e56ae3651814c541" }
+datafusion-bio-function-seq = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "7fc63525fe7b6a2340724851e56ae3651814c541" }
+
+# Polars expression plugin for the `seq` namespace (src/seq_plugin.rs). pyo3-polars
+# must use the same pyo3 as datafusion-python (pyo3-ffi links "python", so a build
+# holds one pyo3): pyo3-polars 0.28 is the pyo3 0.29 line. No PolarsAllocator: the
+# crate keeps its own #[global_allocator], and buffers cross through the Arrow C
+# data interface, whose release callbacks free with the allocator that made them.
+pyo3-polars = { version = "0.28", features = ["derive"] }
+polars = { version = "0.55", default-features = false }
+serde = { version = "1", features = ["derive"] }
 
 async-trait = "0.1.86"
 futures = "0.3.31"

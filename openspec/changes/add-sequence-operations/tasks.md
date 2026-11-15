@@ -62,34 +62,41 @@ Gate: wheels within budget on all platforms; full test suite green on Rust 1.95.
   through, with an optional `strict=True`; a `---` codon translates to `-`;
   and `mean_quality` defaults to `error_prob`, seqkit's method. The
   benchmark environment (6.1) reuses the same tool versions.
-- [ ] 2.2 Create crate `datafusion-bio-function-seq` with a `kernels` module
+- [x] 2.2 Create crate `datafusion-bio-function-seq` with a `kernels` module
   of pure `&[u8]` functions: `revcomp`, `complement`, `gc_counts`,
   `translate` (NCBI tables), `phred_mean` (two methods) and `read_metrics`.
   Include unit tests and property tests (revcomp involution, translate frame
   consistency).
-- [ ] 2.3 Add `udf` module: `ScalarUDF`s `seq_revcomp`, `seq_complement`,
+  *Done in biodatageeks/datafusion-bio-functions#334:* the 25 NCBI tables are
+  generated from Biopython; `Translator` holds the scratch buffer for negative
+  frames; `read_metrics` also counts `X` for seqkit's protein `sum_n`.
+- [x] 2.3 Add `udf` module: `ScalarUDF`s `seq_revcomp`, `seq_complement`,
   `seq_gc_content`, `seq_translate` and `seq_mean_quality`, accepting `Utf8`,
   `LargeUtf8` and `Utf8View`, with null propagation, unknown-byte
   pass-through, and `ComputeError` only in `strict` mode and for quality bytes
   below the offset.
-- [ ] 2.4 Add golden tests against the corpus from 2.1. Exact equality for
+- [x] 2.4 Add golden tests against the corpus from 2.1. Exact equality for
   strings; for floats, tolerance equal to seqkit's printed precision.
+  *Done in #334:* `tests/data/make_golden.py` regenerates the corpus. The
+  Biopython/seqkit differences it found are in [oracles.md](oracles.md).
 - [ ] 2.5 Tag a functions release containing the crate.
 
 ## 3. Sequence expressions (polars-bio)
 
-- [ ] 3.1 Pin the functions tag from 2.5. Add `src/seq_plugin.rs` with one
+- [x] 3.1 Pin the functions tag from 2.5. Add `src/seq_plugin.rs` with one
   `#[polars_expr]` adapter per kernel, kwargs deserialized with serde, and no
   `PolarsAllocator`. Add `mod seq_plugin;` in `src/lib.rs`.
-- [ ] 3.2 Add `polars_bio/seq.py`, which registers the `seq` expression
+  *Status:* all four functions crates are pinned to the #334 commit until it
+  is released; switch them to the release tag with 2.5.
+- [x] 3.2 Add `polars_bio/seq.py`, which registers the `seq` expression
   namespace with `plugin_path = Path(__file__).parent` and
   `is_elementwise=True`. Import it from `polars_bio/__init__.py`. Validate
   kwargs in Python (`frame`, `table`, `alphabet`, `method`, `offset`) with
   clear `ValueError`s.
-- [ ] 3.3 Register the SQL UDFs from 2.3 in `create_context()`
+- [x] 3.3 Register the SQL UDFs from 2.3 in `create_context()`
   (`src/context.rs`). Add a test that DataFusion's built-in `translate` is
   still available.
-- [ ] 3.4 Add `tests/test_seq_expressions.py`:
+- [x] 3.4 Add `tests/test_seq_expressions.py`:
   - kernel semantics (nulls, null-instead-of-NaN, IUPAC, case, gaps, RNA,
     invalid bytes);
   - Biopython translate parity;
@@ -107,7 +114,7 @@ Gate: wheels within budget on all platforms; full test suite green on Rust 1.95.
   `translate` and `mean_quality` under both the in-memory and streaming
   engines, against a pure-Polars or `map_batches` baseline, and records wall
   time and cores used in the PR. Comparisons with other tools are in 6.3.
-- [ ] 3.7 Add an API reference page (`docs/api/`) and a usage section to
+- [x] 3.7 Add an API reference page (`docs/api/`) and a usage section to
   `docs/features/`, recommending `engine="streaming"`. Add a changelog entry.
 - [ ] 3.8 Stress test with polars-bio's allocator (mimalloc and the `jemalloc`
   feature build). Run 200 iterations over 1M rows and check that peak RSS is

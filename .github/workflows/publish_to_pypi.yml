@@ -119,6 +119,37 @@ jobs:
         run: uv pip install --python .venv "polars>=1.40.0,<2" && uv run --no-sync python -c "import polars; assert polars.__version__.startswith('1.'), polars.__version__; print(polars.__version__)"
       - run: make test-no-sync
 
+  # The `seq` expression namespace is a Polars plugin that crosses the Polars
+  # plugin ABI, so run its tests on each end of the supported polars range:
+  # 1.40.0, the newest 1.x, 2.0.0 and the newest 2.1.x. One build, then
+  # reinstall polars before each run.
+  seq_plugin_polars_matrix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Set up Rust
+        run: rustup show
+      - uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Install system dependencies for pysam build
+        run: sudo apt-get update && sudo apt-get install -y libbz2-dev liblzma-dev libcurl4-openssl-dev zlib1g-dev libdeflate-dev
+      - run: make install
+      - name: Run the seq tests on each supported polars version
+        run: |
+          for spec in "polars==1.40.0" "polars>=1.40.0,<2" "polars==2.0.0" "polars>=2.1.0,<2.2"; do
+            echo "::group::$spec"
+            uv pip install --python .venv "$spec"
+            uv run --no-sync python -c "import polars; print('polars', polars.__version__)"
+            uv run --no-sync pytest tests/test_seq_expressions.py -q
+            echo "::endgroup::"
+          done
+
   # Linux arm64 on a native GitHub arm runner. One interpreter only: the wheel
   # is abi3, so arch-specific breakage is interpreter-independent.
   linux_arm64_tests:

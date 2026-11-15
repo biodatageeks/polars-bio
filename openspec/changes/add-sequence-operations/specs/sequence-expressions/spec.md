@@ -43,7 +43,10 @@ The sequence kernels SHALL implement the following semantics:
 - `translate` SHALL accept frames ±1, ±2 and ±3 and NCBI translation-table ids,
   SHALL drop a trailing partial codon, SHALL emit `*` for stops, SHALL emit `X`
   for an ambiguous codon whose expansions do not all encode the same amino
-  acid, and SHALL emit `-` for a codon of three gap characters.
+  acid, SHALL emit `-` for a codon of three gap characters (`-` or `.`),
+  and SHALL emit `X` for any other codon containing a gap or a byte outside
+  the IUPAC nucleotide codes. A codon that a table lists as both a stop and
+  an amino acid SHALL translate to the amino acid.
   `to_stop=True` SHALL truncate before the first stop.
 - `mean_quality` SHALL raise a `ComputeError` for a quality byte below
   `offset`. It SHALL return `-10·log10(mean(10^(-Q/10)))` for
@@ -71,7 +74,11 @@ The sequence kernels SHALL implement the following semantics:
 
 #### Scenario: Translation parity with Biopython
 - **WHEN** `translate` is evaluated with each supported frame, table and `to_stop` combination on the test corpus
-- **THEN** every result SHALL equal Biopython's `Seq.translate` output for the same frame, with the same table and the trailing partial codon removed
+- **THEN** every result SHALL equal Biopython's `Seq.translate` output for the same frame, with the same table and the trailing partial codon removed, after mapping Biopython's ambiguity letters `B`, `Z` and `J` to `X`
+
+#### Scenario: Translation parity with seqkit
+- **WHEN** `translate` is evaluated with a positive frame and a table seqkit supports on the test corpus
+- **THEN** every result SHALL equal `seqkit translate` for the same frame and table
 
 #### Scenario: Reverse complement is an involution
 - **WHEN** `revcomp` is applied twice with the default `alphabet="dna"` to any sequence that contains no `U` or `u`

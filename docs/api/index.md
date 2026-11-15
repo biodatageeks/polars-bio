@@ -4,6 +4,7 @@ The polars-bio API reference is organized like the [Features](../features/index.
 
 - **[Reading files](reading.md)**: eager (`read_*`), lazy (`scan_*`), and describe (`describe_*`) access to bioinformatic formats from **local** and **[cloud](../features/cloud.md#cloud-storage)** storage.
 - **[Genomic operations](operations.md)**: interval (range) operations — *overlap*, *nearest*, *coverage*, *merge*, *cluster*, *complement*, *subtract* — and *pileup* per-base depth.
+- **[Sequence operations](sequences.md)**: the `seq` expression namespace (reverse complement, GC content, translation, mean quality) and its `seq_*` SQL functions.
 - **[Writing files](writing.md)**: eager (`write_*`) and streaming (`sink_*`) output to bioinformatic formats.
 - **[SQL interface](sql.md)**: register datasets as tables and query them with the **SQL** interface powered by [Apache DataFusion](https://datafusion.apache.org/user-guide/sql/index.html).
 - **[Auxiliary](auxiliary.md)**: DataFrame metadata, session options, and error types.

@@ -122,6 +122,29 @@ seqkit `translate` and Biopython `Seq.translate` agree on every probe:
 
 **Consequence for D5.** Add the gap-codon rule (`---` → `-`).
 
+The golden corpus in `datafusion-bio-function-seq` (40 random coding
+sequences, 25 tables, every frame) found where the two tools part ways:
+
+| Input | Biopython | seqkit | Kernel |
+|---|---|---|---|
+| Ambiguous codon covering {D,N}, {E,Q} or {I,L}: `RAT`, `SAR`, `MTT` | `B`, `Z`, `J` | `X` | `X` |
+| Codon with a partial gap, `A-G`, `AT-` | error | `X` | `X` |
+| Codon with an unknown byte, `ZZZ` | error | error (whole sequence) | `X` |
+| Codon of dots, `...` | error | error | `-` (both `-` and `.` are gaps) |
+| `U` mixed with `T`, `ATGUUU` | `MF` | error | `MF` |
+| Tables 15, 32, 33 | supported | not supported | supported |
+| Tables 27, 28, 31: codons that are both a stop and an amino acid | amino acid; `to_stop` refused | amino acid | amino acid; never a stop |
+| Ambiguity codes in negative frames, `RTT` at frame −1 | `N` | `K` | `N` |
+
+The last row is a seqkit 2.14.0 bug: `seqkit translate` reverses but does not
+complement IUPAC ambiguity codes in negative frames, so `RTT` is read as `AAR`
+instead of `AAY`. `seqkit seq -r -p` complements them correctly. Golden
+tests compare negative frames with Biopython only; positive frames match both
+tools on every corpus row.
+
+GC: seqkit prints `NaN` for `fx2tab -g` on a sequence with no A, C, G or T;
+the kernel returns null.
+
 ## Region extraction
 
 `samtools faidx -r`, `bedtools getfasta` and pyfaidx are probed in phase 5,

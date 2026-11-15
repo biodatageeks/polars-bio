@@ -11,6 +11,7 @@ from polars_bio.polars_bio import PyObjectStorageOptions as ObjectStorageOptions
 from polars_bio.polars_bio import ReadOptions, VcfReadOptions, VcfZarrReadOptions
 
 from . import polars_ext as polars_ext  # registers pl.LazyFrame.pb namespace
+from . import seq as seq  # registers the pl.Expr.seq namespace
 from ._metadata import (
     get_metadata,
     print_metadata_json,
