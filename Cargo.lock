@@ -696,7 +696,7 @@ dependencies = [
  "enum-map",
  "fxhash",
  "getset",
- "itertools 0.10.5",
+ "itertools 0.14.0",
  "itertools-num",
  "multimap",
  "ndarray 0.16.1",
@@ -1844,7 +1844,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-function-fastqc"
 version = "0.24.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=fd9acea08ecdedc72f3559f77281f4c20f63e022#fd9acea08ecdedc72f3559f77281f4c20f63e022"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=e5ed9f2315f30692ca6ca5f3900907b212e416da#e5ed9f2315f30692ca6ca5f3900907b212e416da"
 dependencies = [
  "datafusion",
  "futures",
@@ -1854,7 +1854,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-function-pileup"
 version = "0.25.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=fd9acea08ecdedc72f3559f77281f4c20f63e022#fd9acea08ecdedc72f3559f77281f4c20f63e022"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=e5ed9f2315f30692ca6ca5f3900907b212e416da#e5ed9f2315f30692ca6ca5f3900907b212e416da"
 dependencies = [
  "async-trait",
  "datafusion",
@@ -1868,7 +1868,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-function-ranges"
 version = "0.25.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=fd9acea08ecdedc72f3559f77281f4c20f63e022#fd9acea08ecdedc72f3559f77281f4c20f63e022"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=e5ed9f2315f30692ca6ca5f3900907b212e416da#e5ed9f2315f30692ca6ca5f3900907b212e416da"
 dependencies = [
  "ahash",
  "async-trait",
@@ -1886,7 +1886,7 @@ dependencies = [
 [[package]]
 name = "datafusion-bio-function-seq"
 version = "0.25.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=fd9acea08ecdedc72f3559f77281f4c20f63e022#fd9acea08ecdedc72f3559f77281f4c20f63e022"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=e5ed9f2315f30692ca6ca5f3900907b212e416da#e5ed9f2315f30692ca6ca5f3900907b212e416da"
 dependencies = [
  "datafusion",
 ]
@@ -5855,7 +5855,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
- "itertools 0.10.5",
+ "itertools 0.14.0",
  "proc-macro2 1.0.106",
  "quote 1.0.46",
  "syn 2.0.118",
@@ -7256,7 +7256,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 [[package]]
 name = "superintervals"
 version = "0.27.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=fd9acea08ecdedc72f3559f77281f4c20f63e022#fd9acea08ecdedc72f3559f77281f4c20f63e022"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=e5ed9f2315f30692ca6ca5f3900907b212e416da#e5ed9f2315f30692ca6ca5f3900907b212e416da"
 dependencies = [
  "aligned-vec",
  "serde",
@@ -7979,7 +7979,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

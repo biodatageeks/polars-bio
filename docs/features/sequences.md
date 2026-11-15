@@ -17,6 +17,7 @@ reads = (
         gc=pl.col("sequence").seq.gc_content(),
         qual=pl.col("quality_scores").seq.mean_quality(),
         rc=pl.col("sequence").seq.revcomp(),
+        rq=pl.col("quality_scores").seq.reverse(),
     )
     .filter((pl.col("gc") > 0.4) & (pl.col("qual") >= 20))
     .collect(engine="streaming")
@@ -33,6 +34,7 @@ reads = (
 | Expression | What it computes | Matches |
 |---|---|---|
 | `.seq.revcomp(alphabet="dna", strict=False)` | reverse complement | seqkit `seq -r -p`, seqfu `rc`, seqtk `seq -r`, Biopython |
+| `.seq.reverse()` | reversed string, e.g. a FASTQ quality alongside `revcomp` | Polars `str.reverse()`, much faster on ASCII |
 | `.seq.complement(alphabet="dna", strict=False)` | complement, not reversed | Biopython `complement` |
 | `.seq.gc_content(denominator="length")` | GC fraction, 0 to 1 | seqkit `fx2tab -B GC`; with `"acgt"`, seqkit `fx2tab -g` |
 | `.seq.translate(frame=1, table=1, to_stop=False)` | protein translation | Biopython `Seq.translate`, seqkit `translate` |
@@ -63,7 +65,7 @@ reads = (
 
 ## SQL
 
-The same kernels are registered as `seq_revcomp`, `seq_complement`,
+The same kernels are registered as `seq_revcomp`, `seq_reverse`, `seq_complement`,
 `seq_gc_content`, `seq_translate` and `seq_mean_quality`. DataFusion's own
 `translate(str, from, to)` string function is unaffected.
 

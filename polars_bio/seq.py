@@ -1,7 +1,7 @@
 """The `seq` expression namespace: sequence operations on String columns.
 
 Importing `polars_bio` registers it, so every Polars expression gains
-`.seq.revcomp()`, `.seq.complement()`, `.seq.gc_content()`,
+`.seq.revcomp()`, `.seq.reverse()`, `.seq.complement()`, `.seq.gc_content()`,
 `.seq.translate()` and `.seq.mean_quality()`. They work on any String
 column, not only on frames produced by polars-bio readers.
 
@@ -105,6 +105,23 @@ class SequenceExpr:
             alphabet=_choice("alphabet", alphabet, _ALPHABETS),
             strict=_flag("strict", strict),
         )
+
+    def reverse(self) -> pl.Expr:
+        """Reverse a string, for example a FASTQ quality alongside :meth:`revcomp`.
+
+        Equivalent to ``str.reverse()`` for sequence and quality data, but
+        much faster: it reverses ASCII bytes directly instead of Unicode
+        grapheme clusters. A multi-byte character is kept whole.
+
+        Example:
+            ```python
+            pb.scan_fastq("reads.fastq.gz").with_columns(
+                sequence=pl.col("sequence").seq.revcomp(),
+                quality_scores=pl.col("quality_scores").seq.reverse(),
+            )
+            ```
+        """
+        return _plugin("reverse", self._expr)
 
     def complement(self, alphabet: str = "dna", strict: bool = False) -> pl.Expr:
         """Complement, without reversing. Same rules as :meth:`revcomp`."""

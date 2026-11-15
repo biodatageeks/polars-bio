@@ -13,6 +13,7 @@ tools each function matches.
         docstring_section_style: table
         members:
             - revcomp
+            - reverse
             - complement
             - gc_content
             - translate
@@ -26,6 +27,7 @@ Optional arguments are positional constants.
 | Function | Optional arguments | Returns |
 |---|---|---|
 | `seq_revcomp(seq)` | `alphabet = 'dna'`, `strict = false` | the input's string type |
+| `seq_reverse(seq)` | — | the input's string type |
 | `seq_complement(seq)` | `alphabet = 'dna'`, `strict = false` | the input's string type |
 | `seq_gc_content(seq)` | `denominator = 'length'` | `DOUBLE` |
 | `seq_translate(seq)` | `frame = 1`, `table = 1`, `to_stop = false` | the input's string type |

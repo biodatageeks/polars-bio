@@ -4,7 +4,7 @@
 
 polars-bio SHALL register a `seq` Polars expression namespace when
 `polars_bio` is imported. It SHALL provide
-`revcomp(alphabet="dna", strict=False)`,
+`revcomp(alphabet="dna", strict=False)`, `reverse()`,
 `complement(alphabet="dna", strict=False)`,
 `gc_content(denominator="length")`,
 `translate(frame=1, table=1, to_stop=False)` and
@@ -16,6 +16,10 @@ LazyFrame, not only on frames produced by polars-bio readers.
 #### Scenario: Reverse complement on an arbitrary frame
 - **WHEN** a user evaluates `pl.DataFrame({"s": ["ACGTN", None, "aacc"]}).select(pl.col("s").seq.revcomp())`
 - **THEN** the result SHALL be `["NACGT", None, "ggtt"]`
+
+#### Scenario: Reverse a quality string
+- **WHEN** a user evaluates `pl.col("quality_scores").seq.reverse()` on `["II5#", None]`
+- **THEN** the result SHALL be `["#5II", None]`, and SHALL equal `str.reverse()` for every ASCII or multi-byte input without combining characters
 
 #### Scenario: Composition with a polars-bio scan
 - **WHEN** a user evaluates `pb.scan_fastq(path).with_columns(gc=pl.col("sequence").seq.gc_content()).filter(pl.col("gc") > 0.5)`
@@ -101,7 +105,7 @@ the Python GIL during execution.
 ### Requirement: Sequence SQL Functions
 
 polars-bio SHALL register DataFusion scalar functions `seq_revcomp`,
-`seq_complement`, `seq_gc_content`, `seq_translate` and `seq_mean_quality` in
+`seq_reverse`, `seq_complement`, `seq_gc_content`, `seq_translate` and `seq_mean_quality` in
 its session context. They SHALL take the same parameters, as positional SQL
 arguments, and SHALL return the same results as the corresponding `seq`
 expressions, because both use the same kernels.

@@ -73,10 +73,10 @@ datafusion-bio-format-foldcomp = { git = "https://github.com/biodatageeks/datafu
 # biodatageeks/datafusion-bio-functions#334, which adds datafusion-bio-function-seq.
 # Keep all four on the same revision (mixing a rev with a tag compiles the repo
 # twice) and switch back to a release tag once #334 is released.
-datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "fd9acea08ecdedc72f3559f77281f4c20f63e022" }
-datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "fd9acea08ecdedc72f3559f77281f4c20f63e022", default-features = false }
-datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "fd9acea08ecdedc72f3559f77281f4c20f63e022" }
-datafusion-bio-function-seq = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "fd9acea08ecdedc72f3559f77281f4c20f63e022" }
+datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "e5ed9f2315f30692ca6ca5f3900907b212e416da" }
+datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "e5ed9f2315f30692ca6ca5f3900907b212e416da", default-features = false }
+datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "e5ed9f2315f30692ca6ca5f3900907b212e416da" }
+datafusion-bio-function-seq = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "e5ed9f2315f30692ca6ca5f3900907b212e416da" }
 
 # Polars expression plugin for the `seq` namespace (src/seq_plugin.rs). pyo3-polars
 # must use the same pyo3 as datafusion-python (pyo3-ffi links "python", so a build

@@ -23,8 +23,9 @@ fn append_kernel_output(
     kernel: impl FnOnce(&mut Vec<u8>) -> Result<(), KernelError>,
 ) -> PolarsResult<()> {
     // SAFETY: the kernels keep valid UTF-8 valid. Complement maps ASCII to
-    // ASCII and copies every other byte unchanged; reverse complement moves a
-    // multi-byte character as a whole; translation writes ASCII only. The input
+    // ASCII and copies every other byte unchanged; reverse and reverse
+    // complement move a multi-byte character as a whole; translation writes
+    // ASCII only. The input
     // is a Polars string, so it is valid UTF-8. On error the kernels write
     // nothing.
     let bytes = unsafe { buf.as_mut_vec() };
@@ -64,6 +65,18 @@ fn seq_revcomp(inputs: &[Series], kwargs: ComplementKwargs) -> PolarsResult<Seri
     let out = ca.try_apply_into_string_amortized(|s, buf| {
         append_kernel_output(buf, |out| {
             kernels::revcomp_into(s.as_bytes(), alphabet, kwargs.strict, out)
+        })
+    })?;
+    Ok(out.into_series())
+}
+
+#[polars_expr(output_type=String)]
+fn seq_reverse(inputs: &[Series]) -> PolarsResult<Series> {
+    let ca = inputs[0].str()?;
+    let out = ca.try_apply_into_string_amortized(|s, buf| {
+        append_kernel_output(buf, |out| {
+            kernels::reverse_into(s.as_bytes(), out);
+            Ok(())
         })
     })?;
     Ok(out.into_series())

@@ -55,6 +55,13 @@ def test_rna_alphabet():
     assert col(["acgu"], s().seq.complement(alphabet="RNA")).item() == "ugca"
 
 
+def test_reverse_matches_str_reverse():
+    values = ["II5#", "", None, "A\u00e9C\u20ac", "!" * 151]
+    got = col(values, s().seq.reverse()).to_list()
+    assert got == col(values, s().str.reverse()).to_list()
+    assert got[0] == "#5II"
+
+
 def test_complement():
     assert col(["ACGTZ-", None], s().seq.complement()).to_list() == ["TGCAZ-", None]
 
@@ -280,11 +287,13 @@ def test_sql_matches_expressions():
     )
     pb.from_polars("seq_sql_parity", df)
     got = pb.sql(
-        "SELECT seq_revcomp(s) rc, seq_complement(s) c, seq_gc_content(s, 'acgt') gc, "
+        "SELECT seq_revcomp(s) rc, seq_reverse(q) rq, seq_complement(s) c, "
+        "seq_gc_content(s, 'acgt') gc, "
         "seq_translate(s, -1, 1, false) aa, seq_mean_quality(q) mq FROM seq_sql_parity"
     ).collect()
     want = df.select(
         rc=pl.col("s").seq.revcomp(),
+        rq=pl.col("q").seq.reverse(),
         c=pl.col("s").seq.complement(),
         gc=pl.col("s").seq.gc_content(denominator="acgt"),
         aa=pl.col("s").seq.translate(frame=-1),
