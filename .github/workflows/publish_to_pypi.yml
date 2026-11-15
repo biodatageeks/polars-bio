@@ -399,11 +399,14 @@ jobs:
           cd wheel-tests
           python -c "import polars_bio, platform; print(polars_bio.__file__, platform.machine())"
           python -m pytest test_io_structure.py test_io_foldcomp.py -q
+          # The seq namespace is a Polars plugin: check the fat-LTO wheel
+          # still exports its entry points.
+          python -c "import polars as pl, polars_bio; assert pl.DataFrame({'s': ['ACGTN']}).select(pl.col('s').seq.revcomp()).item() == 'NACGT'; print('seq plugin ok')"
 
   release:
     name: Release
     if: "startsWith(github.ref, 'refs/tags/')"
-    needs: [rust_tests, linux_arm64_tests, linux_tests_polars1, linux, linux-aarch64-lto-test, windows, macos, sdist]
+    needs: [rust_tests, linux_arm64_tests, linux_tests_polars1, seq_plugin_polars_matrix, linux, linux-aarch64-lto-test, windows, macos, sdist]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

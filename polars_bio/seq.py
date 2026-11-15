@@ -60,8 +60,10 @@ def _int(name, value, allowed=None, lo=None, hi=None):
     if not ok:
         if allowed is not None:
             expected = f"one of {', '.join(map(str, allowed))}"
-        else:
+        elif lo is not None and hi is not None:
             expected = f"an integer between {lo} and {hi}"
+        else:
+            expected = "an integer"
         raise ValueError(f"{name} must be {expected}, got {value!r}")
     return value
 

@@ -25,9 +25,8 @@ fn append_kernel_output(
     // SAFETY: the kernels keep valid UTF-8 valid. Complement maps ASCII to
     // ASCII and copies every other byte unchanged; reverse and reverse
     // complement move a multi-byte character as a whole; translation writes
-    // ASCII only. The input
-    // is a Polars string, so it is valid UTF-8. On error the kernels write
-    // nothing.
+    // ASCII only. The input is a Polars string, so it is valid UTF-8.
+    // On error the kernels write nothing.
     let bytes = unsafe { buf.as_mut_vec() };
     let result = kernel(bytes);
     debug_assert!(std::str::from_utf8(bytes).is_ok());
