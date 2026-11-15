@@ -86,15 +86,17 @@ Gate: wheels within budget on all platforms; full test suite green on Rust 1.95.
   strings; for floats, tolerance equal to seqkit's printed precision.
   *Done in #334:* `tests/data/make_golden.py` regenerates the corpus. The
   Biopython/seqkit differences it found are in [oracles.md](oracles.md).
-- [ ] 2.5 Tag a functions release containing the crate.
+- [x] 2.5 Tag a functions release containing the crate.
+  *Done:* datafusion-bio-functions v0.26.0 (#334), built on
+  datafusion-bio-formats v1.16.1.
 
 ## 3. Sequence expressions (polars-bio)
 
 - [x] 3.1 Pin the functions tag from 2.5. Add `src/seq_plugin.rs` with one
   `#[polars_expr]` adapter per kernel, kwargs deserialized with serde, and no
   `PolarsAllocator`. Add `mod seq_plugin;` in `src/lib.rs`.
-  *Status:* all four functions crates are pinned to the #334 commit until it
-  is released; switch them to the release tag with 2.5.
+  *Done:* all four functions crates are pinned to `tag = "v0.26.0"` and
+  every formats crate to `v1.16.1`.
 - [x] 3.2 Add `polars_bio/seq.py`, which registers the `seq` expression
   namespace with `plugin_path = Path(__file__).parent` and
   `is_elementwise=True`. Import it from `polars_bio/__init__.py`. Validate
