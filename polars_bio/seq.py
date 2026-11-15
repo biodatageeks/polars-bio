@@ -30,8 +30,11 @@ _ALPHABETS = ("dna", "rna")
 _DENOMINATORS = ("length", "acgt")
 _QUALITY_METHODS = ("error_prob", "arithmetic")
 _FRAMES = (1, 2, 3, -1, -2, -3)
-_CODON_TABLES = (1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16)
-_CODON_TABLES += (21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33)
+# NCBI translation table ids; 7, 8 and 17-20 are unassigned.
+_CODON_TABLES = (
+    1, 2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 16,
+    21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33,
+)  # fmt: skip
 
 
 def _choice(name, value, allowed):
@@ -52,7 +55,7 @@ def _int(name, value, allowed=None, lo=None, hi=None):
     ok = isinstance(value, int) and not isinstance(value, bool)
     if ok and allowed is not None:
         ok = value in allowed
-    if ok and lo is not None:
+    if ok and lo is not None and hi is not None:
         ok = lo <= value <= hi
     if not ok:
         if allowed is not None:

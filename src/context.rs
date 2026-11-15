@@ -217,8 +217,8 @@ fn create_context() -> SessionContext {
     // Register fastqc UDTF for SQL: SELECT * FROM fastqc('file.fastq')
     ctx.register_udtf("fastqc", std::sync::Arc::new(crate::fastqc::FastqcFunction));
 
-    // Register seq_revcomp, seq_complement, seq_gc_content, seq_translate and
-    // seq_mean_quality. The `seq_` prefix keeps DataFusion's built-in translate.
+    // Register seq_revcomp, seq_reverse, seq_complement, seq_gc_content,
+    // seq_translate and seq_mean_quality. The `seq_` prefix keeps DataFusion's built-in translate.
     datafusion_bio_function_seq::register_seq_functions(&ctx);
 
     ctx

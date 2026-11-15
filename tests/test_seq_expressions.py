@@ -74,6 +74,20 @@ def test_strict_raises_and_later_expressions_still_work():
     assert col(["ACGT"], s().seq.revcomp(strict=True)).item() == "ACGT"
 
 
+def test_kernel_error_mid_string_writes_nothing():
+    # The plugin appends kernel output straight into Polars' string buffer and
+    # relies on the kernels writing nothing on error and keeping UTF-8 valid.
+    # Fail on a multi-byte character after valid ASCII, in a later row, then
+    # check the namespace still works and multi-byte input round-trips.
+    with pytest.raises(ComputeError, match="'é' at byte offset 4"):
+        col(["ACGT", "ACGTéA"], s().seq.revcomp(strict=True))
+    with pytest.raises(ComputeError, match="'é'"):
+        col(["AC", "ACGTé"], s().seq.complement(strict=True))
+    out = col(["ACGTéA", "€", None], s().seq.revcomp())
+    assert out.to_list() == ["TéACGT", "€", None]
+    assert col(out.to_list(), s().seq.revcomp()).to_list() == ["ACGTéA", "€", None]
+
+
 def test_revcomp_is_an_involution_without_uracil():
     rng = random.Random(1)
     seqs = [
@@ -232,7 +246,7 @@ def test_scan_fastq_streaming():
     assert streamed.height > 0
 
 
-def test_filter_on_seq_expression_through_pushdown():
+def test_filter_on_seq_expression_client_side_fallback():
     # The predicate translator cannot push a plugin call down, so the filter
     # must fall back to the client side and still return exactly the right rows.
     full = pb.scan_fastq(FASTQ).collect()
@@ -300,6 +314,12 @@ def test_sql_matches_expressions():
         mq=pl.col("q").seq.mean_quality(),
     )
     assert got.equals(want)
+
+
+def test_sql_mean_quality_below_offset():
+    pb.from_polars("seq_sql_bad_quality", pl.DataFrame({"q": ["II "]}))
+    with pytest.raises(Exception, match="below the Phred offset 33"):
+        pb.sql("SELECT seq_mean_quality(q) FROM seq_sql_bad_quality").collect()
 
 
 def test_builtin_translate_still_available():
