@@ -120,6 +120,9 @@ class SequenceExpr:
 
         Example:
             ```python
+            import polars as pl
+            import polars_bio as pb  # registers .seq
+
             pb.scan_fastq("reads.fastq.gz").with_columns(
                 sequence=pl.col("sequence").seq.revcomp(),
                 quality_scores=pl.col("quality_scores").seq.reverse(),
