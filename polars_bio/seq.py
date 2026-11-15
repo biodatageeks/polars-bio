@@ -121,8 +121,8 @@ class SequenceExpr:
         Counts G and C in either case (not S, like every reference tool).
 
         Parameters:
-            denominator: ``"length"`` divides by the full sequence length
-                (seqkit ``fx2tab -B GC``, seqkit ``stats``, seqfu);
+            denominator: ``"length"`` divides by the full sequence length in
+                bytes (seqkit ``fx2tab -B GC``, seqkit ``stats``, seqfu);
                 ``"acgt"`` divides by the count of A, C, G and T only
                 (seqkit ``fx2tab -g``). A zero denominator gives null.
         """
