@@ -78,3 +78,10 @@ futures = "0.3.31"
 rand = "0.8.5"
 serde_json = "1.0"
 
+
+[profile.release]
+# Drop the symbol table from the extension module. It held ~11 MiB of every
+# wheel; the dynamic exports Python and Polars load (PyInit_polars_bio, the
+# plugin entry points) are kept. Native backtraces show addresses instead of
+# function names.
+strip = "symbols"
