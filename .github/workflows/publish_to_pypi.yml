@@ -30,8 +30,13 @@ permissions:
   contents: read
 
 # Windows wheel CPU target; Linux and macOS use per-target matrix settings.
+# PYPI_FILE_LIMIT_MIB is polars-bio's PyPI per-file upload limit, checked by
+# .github/scripts/check_wheel_size.py. Warehouse's default is 100 MiB; raise it
+# only after PyPI grants the project a higher limit.
 env:
   TARGET_CPU: skylake
+  PYPI_FILE_LIMIT_MIB: "100"
+  SIZE_MARGIN_MIB: "5"
 
 jobs:
   rust_tests:
@@ -167,6 +172,9 @@ jobs:
           cp -R tests/data/structure wheel-tests/data/
           cd wheel-tests
           python -m pytest test_io_structure.py test_io_foldcomp.py -q
+      - name: Check distribution size against the PyPI per-file limit
+        shell: bash
+        run: python .github/scripts/check_wheel_size.py dist
       - name: Upload wheels
         uses: actions/upload-artifact@v6
         with:
@@ -202,6 +210,9 @@ jobs:
           cp -R tests/data/structure wheel-tests/data/
           cd wheel-tests
           python -m pytest test_io_structure.py test_io_foldcomp.py -q
+      - name: Check distribution size against the PyPI per-file limit
+        shell: bash
+        run: python .github/scripts/check_wheel_size.py dist
       - name: Upload wheels
         uses: actions/upload-artifact@v6
         with:
@@ -242,6 +253,9 @@ jobs:
           cp -R tests/data/structure wheel-tests/data/
           cd wheel-tests
           python -m pytest test_io_structure.py test_io_foldcomp.py -q
+      - name: Check distribution size against the PyPI per-file limit
+        shell: bash
+        run: python .github/scripts/check_wheel_size.py dist
       - name: Upload wheels
         uses: actions/upload-artifact@v6
         with:
@@ -256,6 +270,9 @@ jobs:
         with:
           command: sdist
           args: --out dist
+      - name: Check distribution size against the PyPI per-file limit
+        shell: bash
+        run: python3 .github/scripts/check_wheel_size.py dist
       - name: Upload sdist
         uses: actions/upload-artifact@v6
         with:
