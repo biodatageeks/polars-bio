@@ -218,6 +218,9 @@ jobs:
           cp -R tests/data/structure wheel-tests/data/
           cd wheel-tests
           python -m pytest test_io_structure.py test_io_foldcomp.py -q
+          # The seq namespace is a Polars plugin: check that the stripped,
+          # fat-LTO wheel still exports its entry points.
+          python -c "import polars as pl, polars_bio; assert pl.DataFrame({'s': ['ACGTN']}).select(pl.col('s').seq.revcomp()).item() == 'NACGT'; print('seq plugin ok')"
       - name: Check distribution size against the PyPI per-file limit
         shell: bash
         run: python .github/scripts/check_wheel_size.py dist
@@ -256,6 +259,9 @@ jobs:
           cp -R tests/data/structure wheel-tests/data/
           cd wheel-tests
           python -m pytest test_io_structure.py test_io_foldcomp.py -q
+          # The seq namespace is a Polars plugin: check that the stripped,
+          # fat-LTO wheel still exports its entry points.
+          python -c "import polars as pl, polars_bio; assert pl.DataFrame({'s': ['ACGTN']}).select(pl.col('s').seq.revcomp()).item() == 'NACGT'; print('seq plugin ok')"
       - name: Check distribution size against the PyPI per-file limit
         shell: bash
         run: python .github/scripts/check_wheel_size.py dist
@@ -299,6 +305,9 @@ jobs:
           cp -R tests/data/structure wheel-tests/data/
           cd wheel-tests
           python -m pytest test_io_structure.py test_io_foldcomp.py -q
+          # The seq namespace is a Polars plugin: check that the stripped,
+          # fat-LTO wheel still exports its entry points.
+          python -c "import polars as pl, polars_bio; assert pl.DataFrame({'s': ['ACGTN']}).select(pl.col('s').seq.revcomp()).item() == 'NACGT'; print('seq plugin ok')"
       - name: Check distribution size against the PyPI per-file limit
         shell: bash
         run: python .github/scripts/check_wheel_size.py dist

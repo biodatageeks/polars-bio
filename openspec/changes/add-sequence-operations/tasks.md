@@ -38,11 +38,18 @@ phase 6 results.
   macos and sdist jobs with `PYPI_FILE_LIMIT_MIB=100` (Warehouse's default)
   and a 5 MiB margin. The project's actual limit still has to be read from
   its PyPI settings by an owner; raise `PYPI_FILE_LIMIT_MIB` if it is higher.
-- [ ] 1.5 Measure all five platform wheels from the PR's CI artifacts.
+- [x] 1.5 Measure all five platform wheels from the PR's CI artifacts.
   - If any wheel is over budget, enable `[profile.release] strip = "symbols"`
     and verify with `nm -gU` / `nm -D` / `dumpbin /exports` that
     `PyInit_polars_bio` and the `_polars_plugin_*` symbols are still exported.
   - Otherwise, file a PyPI limit request.
+  *Done in #509 (build PR):* the DataFusion 55 bump alone put Linux aarch64 at
+  95.4 MiB, over budget. #509 adds `strip = "symbols"` (aarch64 80.3, x86_64
+  84.2, macOS arm64 75.8 MiB; Windows unchanged at 85.3 MiB, as MSVC keeps
+  symbols in the PDB) and a fat-LTO `dist` profile for PyPI wheels (macOS
+  arm64 79.5 → 55.5 MB, #511). `nm -gU` shows `PyInit_polars_bio` survives
+  both. Every wheel job imports the built wheel and calls `.seq.revcomp()`,
+  which fails if the `_polars_plugin_*` exports are missing.
 
 Gate: wheels within budget on all platforms; full test suite green on Rust 1.95.
 
