@@ -36,7 +36,12 @@ recipe uses a build script rather than an inline `script:` entry:
 
 - `rust-toolchain.toml` pins an exact toolchain for local development. The conda
   build supplies its own `rustc` and has no `rustup` to satisfy the pin with, so
-  the file is removed.
+  the file is removed. conda-forge's pinning sets no `rust_compiler_version`, so
+  `compiler('rust')` resolves to the newest conda-forge Rust at build time
+  (1.100.0 on linux-64, osx-64, osx-arm64 and linux-aarch64 when checked on
+  2026-11-14). That must stay at or above the version in `rust-toolchain.toml`
+  (1.95.0, the minimum for `sysinfo 0.39`, which the Polars expression-plugin
+  dependencies pull in).
 - Upstream CI builds PyPI wheels with `-Ctarget-cpu=skylake` / `apple-m1` and
   `-Dwarnings`. Both are wrong for a redistributable package, so `RUSTFLAGS` is
   cleared.
