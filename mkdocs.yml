@@ -14,6 +14,7 @@ nav:
       - Genomic operations: features/operations.md
       - Reading files: features/reading.md
       - Protein structures: features/structures.md
+      - Sequence operations: features/sequences.md
       - Writing files: features/writing.md
       - SQL processing: features/sql.md
       - DataFrames support: features/dataframes.md
@@ -25,6 +26,7 @@ nav:
       - Overview: api/index.md
       - Reading files: api/reading.md
       - Genomic operations: api/operations.md
+      - Sequence operations: api/sequences.md
       - Writing files: api/writing.md
       - SQL interface: api/sql.md
       - Auxiliary: api/auxiliary.md

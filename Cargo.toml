@@ -48,30 +48,40 @@ tracing = { version = "0.1.41", features = ["log"] }
 futures-util = "0.3.31"
 
 # Keep every formats crate on the same release to avoid duplicate core types.
-# bio-functions v0.25.0 is built on bio-formats v1.16.0, so bump them together.
+# bio-functions v0.26.0 is built on bio-formats v1.16.1, so bump them together.
 # Structure and Foldcomp use pure-Rust codecs; the bundled Foldcomp MIT notices
 # still apply to its format and tables.
-datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-cram = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-pairs = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-gtf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-bbi = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-bgen = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-pgen = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-cooler = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-msa = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-structure = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
-datafusion-bio-format-foldcomp = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.0" }
+datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-core = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-gff = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-fastq = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-cram = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-bed = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-fasta = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-pairs = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-gtf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-bbi = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-bgen = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-pgen = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-cooler = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-msa = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-structure = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
+datafusion-bio-format-foldcomp = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.16.1" }
 
-datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.25.0" }
-datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.25.0", default-features = false }
-datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.25.0" }
+datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.26.0" }
+datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.26.0", default-features = false }
+datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.26.0" }
+datafusion-bio-function-seq = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.26.0" }
+
+# Polars expression plugin for the `seq` namespace (src/seq_plugin.rs). pyo3-polars
+# must use the same pyo3 as datafusion-python (pyo3-ffi links "python", so a build
+# holds one pyo3): pyo3-polars 0.28 is the pyo3 0.29 line. No PolarsAllocator: the
+# crate keeps its own #[global_allocator], and buffers cross through the Arrow C
+# data interface, whose release callbacks free with the allocator that made them.
+pyo3-polars = { version = "0.28", features = ["derive"] }
+polars = { version = "0.55", default-features = false }
+serde = { version = "1", features = ["derive"] }
 
 async-trait = "0.1.86"
 futures = "0.3.31"

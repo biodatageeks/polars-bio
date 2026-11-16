@@ -16,31 +16,46 @@ phase 6 results.
 
 ## 1. Packaging groundwork (polars-bio)
 
-- [ ] 1.1 Bump `rust-toolchain.toml` to 1.95.0. Confirm that every CI job
+- [x] 1.1 Bump `rust-toolchain.toml` to 1.95.0. Confirm that every CI job
   picks it up through `rustup show`, and that `cargo clippy --all-targets -- -D warnings`
   passes on 1.95.
-- [ ] 1.2 Confirm that conda-forge's `compiler('rust')` resolves to ≥ 1.95 for
+- [x] 1.2 Confirm that conda-forge's `compiler('rust')` resolves to ≥ 1.95 for
   linux-64, osx-64 and osx-arm64. `bioconda-recipe/build.sh` deletes
   `rust-toolchain.toml`. Record the version in `bioconda-recipe/README.md`.
-- [ ] 1.3 Add `pyo3-polars = { version = "0.28", features = ["derive"] }` and
+- [x] 1.3 Add `pyo3-polars = { version = "0.28", features = ["derive"] }` and
   `polars = { version = "0.55", default-features = false }`. Check with
   `cargo tree -d` that no duplicate pyo3 or arrow-rs version appears, and
   that `uv lock --check` still passes.
-- [ ] 1.4 Add a wheel-size step to `publish_to_pypi.yml` that prints every
+  *Done differently:* the resolution was checked in the spike (no conflicts with
+  DataFusion 55 / arrow 59, +74 lock entries). The dependencies are added in
+  3.1, together with the plugin code. Added alone, the linker would drop almost
+  all of their code, so 1.5 would measure a misleadingly small wheel.
+- [x] 1.4 Add a wheel-size step to `publish_to_pypi.yml` that prints every
   wheel's size and fails above the budget (limit − 5 MB). Find out the
   project's actual PyPI per-file limit from the project settings, and record
   it in the workflow comment.
-- [ ] 1.5 Measure all five platform wheels from the PR's CI artifacts.
+  *Status:* `.github/scripts/check_wheel_size.py` runs in the linux, windows,
+  macos and sdist jobs with `PYPI_FILE_LIMIT_MIB=100` (Warehouse's default)
+  and a 5 MiB margin. The project's actual limit still has to be read from
+  its PyPI settings by an owner; raise `PYPI_FILE_LIMIT_MIB` if it is higher.
+- [x] 1.5 Measure all five platform wheels from the PR's CI artifacts.
   - If any wheel is over budget, enable `[profile.release] strip = "symbols"`
     and verify with `nm -gU` / `nm -D` / `dumpbin /exports` that
     `PyInit_polars_bio` and the `_polars_plugin_*` symbols are still exported.
   - Otherwise, file a PyPI limit request.
+  *Done in #509 (build PR):* the DataFusion 55 bump alone put Linux aarch64 at
+  95.4 MiB, over budget. #509 adds `strip = "symbols"` (aarch64 80.3, x86_64
+  84.2, macOS arm64 75.8 MiB; Windows unchanged at 85.3 MiB, as MSVC keeps
+  symbols in the PDB) and a fat-LTO `dist` profile for PyPI wheels (macOS
+  arm64 79.5 → 55.5 MB, #511). `nm -gU` shows `PyInit_polars_bio` survives
+  both. Every wheel job imports the built wheel and calls `.seq.revcomp()`,
+  which fails if the `_polars_plugin_*` exports are missing.
 
 Gate: wheels within budget on all platforms; full test suite green on Rust 1.95.
 
 ## 2. Kernels and SQL UDFs (datafusion-bio-functions)
 
-- [ ] 2.1 Build the oracle corpus and record each tool's exact definitions:
+- [x] 2.1 Build the oracle corpus and record each tool's exact definitions:
   - **seqkit 2.x:** `fx2tab -g` GC (are S and N counted?), `fx2tab -q` /
     `stats -a` average-quality method, `stats -a` gap characters and
     quartile definition.
@@ -49,33 +64,48 @@ Gate: wheels within budget on all platforms; full test suite green on Rust 1.95.
 
   Write the findings to `oracles.md` in this change, with tool versions.
   Resolve design open question 1.
-- [ ] 2.2 Create crate `datafusion-bio-function-seq` with a `kernels` module
+  *Done:* [oracles.md](oracles.md). This revised D5: GC counts G+C only
+  (`denominator="length"|"acgt"` replaces `ignore_n`); unknown bytes pass
+  through, with an optional `strict=True`; a `---` codon translates to `-`;
+  and `mean_quality` defaults to `error_prob`, seqkit's method. The
+  benchmark environment (6.1) reuses the same tool versions.
+- [x] 2.2 Create crate `datafusion-bio-function-seq` with a `kernels` module
   of pure `&[u8]` functions: `revcomp`, `complement`, `gc_counts`,
   `translate` (NCBI tables), `phred_mean` (two methods) and `read_metrics`.
   Include unit tests and property tests (revcomp involution, translate frame
   consistency).
-- [ ] 2.3 Add `udf` module: `ScalarUDF`s `seq_revcomp`, `seq_complement`,
+  *Done in biodatageeks/datafusion-bio-functions#334:* the 25 NCBI tables are
+  generated from Biopython; `Translator` holds the scratch buffer for negative
+  frames; `read_metrics` also counts `X` for seqkit's protein `sum_n`.
+- [x] 2.3 Add `udf` module: `ScalarUDF`s `seq_revcomp`, `seq_complement`,
   `seq_gc_content`, `seq_translate` and `seq_mean_quality`, accepting `Utf8`,
-  `LargeUtf8` and `Utf8View`, with null propagation and `ComputeError` on
-  invalid input.
-- [ ] 2.4 Add golden tests against the corpus from 2.1. Exact equality for
+  `LargeUtf8` and `Utf8View`, with null propagation, unknown-byte
+  pass-through, and `ComputeError` only in `strict` mode and for quality bytes
+  below the offset.
+- [x] 2.4 Add golden tests against the corpus from 2.1. Exact equality for
   strings; for floats, tolerance equal to seqkit's printed precision.
-- [ ] 2.5 Tag a functions release containing the crate.
+  *Done in #334:* `tests/data/make_golden.py` regenerates the corpus. The
+  Biopython/seqkit differences it found are in [oracles.md](oracles.md).
+- [x] 2.5 Tag a functions release containing the crate.
+  *Done:* datafusion-bio-functions v0.26.0 (#334), built on
+  datafusion-bio-formats v1.16.1.
 
 ## 3. Sequence expressions (polars-bio)
 
-- [ ] 3.1 Pin the functions tag from 2.5. Add `src/seq_plugin.rs` with one
+- [x] 3.1 Pin the functions tag from 2.5. Add `src/seq_plugin.rs` with one
   `#[polars_expr]` adapter per kernel, kwargs deserialized with serde, and no
   `PolarsAllocator`. Add `mod seq_plugin;` in `src/lib.rs`.
-- [ ] 3.2 Add `polars_bio/seq.py`, which registers the `seq` expression
+  *Done:* all four functions crates are pinned to `tag = "v0.26.0"` and
+  every formats crate to `v1.16.1`.
+- [x] 3.2 Add `polars_bio/seq.py`, which registers the `seq` expression
   namespace with `plugin_path = Path(__file__).parent` and
   `is_elementwise=True`. Import it from `polars_bio/__init__.py`. Validate
   kwargs in Python (`frame`, `table`, `alphabet`, `method`, `offset`) with
   clear `ValueError`s.
-- [ ] 3.3 Register the SQL UDFs from 2.3 in `create_context()`
+- [x] 3.3 Register the SQL UDFs from 2.3 in `create_context()`
   (`src/context.rs`). Add a test that DataFusion's built-in `translate` is
   still available.
-- [ ] 3.4 Add `tests/test_seq_expressions.py`:
+- [x] 3.4 Add `tests/test_seq_expressions.py`:
   - kernel semantics (nulls, null-instead-of-NaN, IUPAC, case, gaps, RNA,
     invalid bytes);
   - Biopython translate parity;
@@ -93,7 +123,7 @@ Gate: wheels within budget on all platforms; full test suite green on Rust 1.95.
   `translate` and `mean_quality` under both the in-memory and streaming
   engines, against a pure-Polars or `map_batches` baseline, and records wall
   time and cores used in the PR. Comparisons with other tools are in 6.3.
-- [ ] 3.7 Add an API reference page (`docs/api/`) and a usage section to
+- [x] 3.7 Add an API reference page (`docs/api/`) and a usage section to
   `docs/features/`, recommending `engine="streaming"`. Add a changelog entry.
 - [ ] 3.8 Stress test with polars-bio's allocator (mimalloc and the `jemalloc`
   feature build). Run 200 iterations over 1M rows and check that peak RSS is

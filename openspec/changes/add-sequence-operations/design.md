@@ -113,32 +113,49 @@ The trade-off of stripping is less informative native backtraces.
 
 ### D5. Kernel semantics
 
-These are normative and pinned by tests:
+These are normative and pinned by tests. Each rule was checked against the
+oracle tools; [oracles.md](oracles.md) records the probes and tool versions.
 - **Null and empty input.** A null input gives a null output. A ratio whose
   denominator is zero (`gc_content`, `mean_quality`) gives **null**, not NaN.
   Polars orders NaN above every number, so `gc_content("") > 0.3` would keep
   empty reads.
-- **Alphabet.** `revcomp` and `complement` accept the IUPAC nucleotide codes
-  `ACGTURYSWKMBDHVN`, case-preserving, plus gap characters `-` and `.`, which
-  are kept. The complement pairs are A↔T, C↔G, R↔Y, K↔M, B↔V and D↔H; S, W
-  and N map to themselves. `alphabet="dna"` (default) maps A→T and U→A;
-  `alphabet="rna"` maps A→U and U→A. Any other byte raises `ComputeError`
-  naming the character.
-- **`gc_content`.** The case-insensitive count of G, C and S, divided by the
-  sequence length. With `ignore_n=True` the divisor is the length minus the
-  number of N. Returns a fraction between 0 and 1.
-- **`translate`.**
+- **Alphabet.**
+  - `revcomp` and `complement` complement the IUPAC nucleotide codes
+    `ACGTURYSWKMBDHVN`, preserving case. The pairs are A↔T, C↔G, R↔Y, K↔M,
+    B↔V and D↔H; S, W and N map to themselves. This table is identical in
+    seqkit, seqfu, seqtk and Biopython.
+  - `alphabet="dna"` (default) maps A→T and U→A, like seqfu, seqtk and
+    Biopython. `alphabet="rna"` maps A→U and U→A, like Biopython's
+    `reverse_complement_rna`.
+  - Any other byte, including the gap characters `-` and `.`, is copied
+    unchanged, as seqfu, seqtk and Biopython do. `strict=True` instead raises
+    `ComputeError` naming the first byte outside the alphabet.
+- **`gc_content`.** The case-insensitive count of G and C. No tool counts S.
+  The denominator is chosen with `denominator`:
+  - `"length"` (default): the full sequence length. Matches
+    `seqkit fx2tab -B GC`, seqkit `stats` `GC(%)`, seqfu `bases`/`stats`, and
+    seqtk `comp` as (C+G)/length.
+  - `"acgt"`: the count of A, C, G and T only. Matches `seqkit fx2tab -g`.
+
+  Returns a fraction between 0 and 1. The oracles print percentages.
+- **`translate`.** Matches both seqkit `translate` and Biopython
+  `Seq.translate` on every probe:
   - `frame` is one of ±1, ±2, ±3; negative frames translate the reverse
     complement.
   - `table` is an NCBI translation table id (default 1).
   - A trailing partial codon is dropped, and stops are `*`.
   - An ambiguous codon resolves to an amino acid only if every expansion
-    encodes the same one, otherwise `X`. This matches Biopython.
+    encodes the same one, otherwise `X`.
+  - A codon of three gap characters (`---`) becomes `-`.
+  - Lowercase input is accepted.
   - `to_stop=True` truncates before the first stop.
 - **`mean_quality`.**
   - `offset` defaults to 33; a byte below the offset raises `ComputeError`.
-  - `method="arithmetic"` (default) is the mean of the Phred scores.
-  - `method="error_prob"` is `-10·log10(mean(10^(-Q/10)))`.
+  - `method="error_prob"` (default) is `-10·log10(mean(10^(-Q/10)))`, the
+    method seqkit uses on purpose (seqkit issue #448). A read with Q40 and Q2
+    scores 5.01, which reflects its one almost useless base.
+  - `method="arithmetic"` is the plain mean of the Phred scores, which is what
+    FastQC's per-sequence quality module uses. The same read scores 21.
 
 ### D6. `seq_stats` pipeline
 
@@ -262,13 +279,13 @@ supports the operation.
 | pyo3-polars lags datafusion-python's pyo3 | Pin both. A pyo3 bump that pyo3-polars cannot follow blocks the bump. If that ever becomes a deadlock, ship the plugin as a separate package with its own pyo3 (`polars-bio-seq`). |
 | Wheel crosses PyPI's per-file limit | D4: CI size check, symbol stripping, or a limit request. |
 | `seq` namespace collides with another package's namespace | Polars warns when a namespace is overridden; document it. A collision only matters if both packages are imported. |
-| Definitions differ from seqkit (GC with S, gap characters, average-quality method) | Task 2.1 records seqkit's exact definitions first. Where they differ from D5, the parity test covers inputs where the definitions agree, and the difference is documented. |
+| Definitions differ from the oracle tools | Settled by task 2.1 ([oracles.md](oracles.md)), and D5 was revised to match them. The only remaining differences are deliberate: `strict=True` is optional, and fractions are returned where the tools print percentages. |
 | Benchmarks favour polars-bio through setup choices (input format, output format, thread counts) | The D8 fairness rules are fixed before any results are collected. The plain-gzip variant is reported too. Commands and environment files are published, so anyone can rerun. |
 | Command-line tools are timed with process start-up and polars-bio without its import | polars-bio runs are timed from a fresh `python -c` subprocess as well as in-process. The tables state which mode is shown. |
 
 ## Open Questions
 
-- Which average-quality method `seqkit stats -a` / `fx2tab -q` uses. This
-  decides which `method` is the seqkit parity oracle (task 2.1).
+- ~~Which average-quality method `seqkit stats -a` / `fx2tab -q` uses.~~
+  Resolved by task 2.1: the error-probability mean, which is now the default.
 - Whether remote `subseq` (S3/GCS/HTTP ranged reads) goes into a follow-up
   change or is folded in once the local reader exists.
