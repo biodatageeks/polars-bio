@@ -14,8 +14,9 @@ categories:
 polars-bio 0.38.0 adds a `seq` namespace to Polars expressions: reverse
 complement, GC content, translation, mean quality and more, running as native
 Polars plugins. At one thread they are **2.1–3.6× faster than seqkit** on
-FASTQ and 4.2–4.6× faster on translation, while matching seqkit and Biopython
-on golden test corpora. The release also
+FASTQ and 4.2–4.6× faster on translation. At 8 threads on BGZF input, GC
+content and mean quality run **24× faster than seqkit**. All of them match
+seqkit and Biopython on golden test corpora. The release also
 moves to DataFusion 55.2, makes plain-gzip FASTQ reads about 2× faster, and builds
 the PyPI wheels with fat link-time optimisation: **30% smaller and up to 14% faster**.
 
@@ -106,7 +107,7 @@ turned up a seqkit 2.14.0 bug: `seqkit translate` reverses but doesn't complemen
 IUPAC ambiguity codes in negative frames, so `RTT` at frame −1 becomes `K`
 instead of `N`. polars-bio agrees with Biopython there.
 
-## Benchmarks: one thread against seqkit, seqtk, seqfu and Biopython
+## Benchmarks against seqkit, seqtk, seqfu and Biopython
 
 Three pipelines, each producing the same file from the same input:
 
@@ -130,6 +131,8 @@ seqkit 2.14.0, seqtk 1.5, seqfu 1.30.3, Biopython 1.88 and Polars 2.1.0, and a
 fat-LTO build of polars-bio master at the 0.38.0 feature freeze. It wasn't
 otherwise idle (3–4.5 of 16 cores busy with background work), but seqkit's
 repeated runs agreed within a few percent.
+
+### One thread
 
 ![Sequence operations at one thread](figures/release-0.38.0/seqops-one-thread.png)
 
@@ -182,6 +185,79 @@ polars-bio's figure includes the Python interpreter with Polars, PyArrow and
 DataFusion loaded. It grows slowly with the input (on reverse complement from
 about 190 MB at 0.72M reads to 310 MB at 64.3M, a 90-fold larger file) because
 the data is processed in batches rather than loaded whole.
+
+### Multiple threads
+
+seqkit, seqtk, seqfu and Biopython process records one at a time, and only
+seqkit has a thread option. For these three subcommands `seqkit -j 8` helps
+only on plain gzip FASTQ input (1.7–2×, presumably by decompressing in a
+separate thread). On BGZF input it is no faster. polars-bio splits BGZF input
+into partitions and processes them in parallel, so we ran its three pipelines
+at 1, 2, 4 and 8 threads, setting `POLARS_MAX_THREADS` and polars-bio's
+`datafusion.execution.target_partitions` together.
+
+![Thread scaling on BGZF input](figures/release-0.38.0/seqops-scaling.png)
+
+**polars-bio wall time in seconds, BGZF input** (peak memory at 8 threads in
+the last column):
+
+| Operation | Reads | 1 | 2 | 4 | 8 | Speed-up | Peak MB at 8 |
+|---|---|---|---|---|---|---|---|
+| GC + mean quality → TSV | 0.72M | 0.19 | 0.10 | 0.06 | **0.05** | 3.9× | 272 |
+| | 4.25M | 1.60 | 0.78 | 0.40 | **0.24** | 6.6× | 323 |
+| | 24.8M | 7.71 | 3.75 | 1.90 | **1.10** | 7.0× | 397 |
+| | 64.3M | 18.75 | 8.99 | 4.62 | **2.98** | 6.3× | 445 |
+| Reverse complement → FASTQ | 0.72M | 0.21 | 0.18 | 0.17 | 0.18 | 1.2× | 575 |
+| | 4.25M | 1.65 | 1.07 | 1.05 | 1.07 | 1.5× | 1311 |
+| | 24.8M | 7.92 | 3.98 | 3.23 | 3.29 | 2.4× | 1466 |
+| | 64.3M | 20.19 | 10.03 | 10.08 | 10.23 | 2.0× | 1930 |
+| Translation → FASTA | Ensembl CDS | 0.76 | 0.78 | 0.80 | 0.80 | 1.0× | 749 |
+
+**seqkit wall time in seconds, `-j 1` → `-j 8`:**
+
+| Operation | Reads | BGZF | gzip |
+|---|---|---|---|
+| GC + mean quality | 24.8M | 26.71 → 27.00 | 25.55 → 12.67 |
+| | 64.3M | 66.15 → 67.42 | 63.17 → 32.07 |
+| Reverse complement | 24.8M | 22.41 → 22.66 | 21.25 → 12.52 |
+| | 64.3M | 58.95 → 60.26 | 55.53 → 30.14 |
+| Translation | Ensembl CDS | 3.52 → 3.57 | 3.36 → 2.99 |
+
+**GC content and mean quality scale 6–7×.** The reader, the `.seq` kernels
+and Polars all run in parallel, and Polars' own `sink_csv` writes the result.
+At 8 threads polars-bio processes 24.8M reads in 1.10 s, against 27.0 s for
+seqkit, and 64.3M reads in 2.98 s.
+
+**Reverse complement stops at about 2×.** Reading and transforming scale the
+same way. Without the write, reverse complement of 24.8M reads takes 1.02 s
+at 8 threads. But `pb.sink_fastq` wrote the output on one thread, through an
+8 KiB buffer and a per-read record object, and that single writer topped out at
+about 3.3 s. The fix,
+[datafusion-bio-formats#276](https://github.com/biodatageeks/datafusion-bio-formats/pull/276),
+formats each batch straight from Arrow and writes it through a 4 MiB buffer,
+with byte-identical output. In an A/B test of otherwise identical builds, it
+takes reverse complement of 24.8M reads at 8 threads from 3.40 s to 1.34 s,
+so it scales 6.3× instead of 2.5×. Peak memory at 8 threads stays at about
+1.2–1.5 GB with or without the fix (reading alone peaks at about 250 MB). It is
+held in the handoff from Polars to the writer, which is the next thing to fix.
+
+**Translation doesn't scale yet.** The Ensembl CDS file is read as one stream
+(0.60 s to read at 1 and at 8 threads), so the FASTA reader is the limit here,
+not the kernels.
+
+**Plain gzip never scales** for polars-bio: a gzip stream can only be
+decompressed from start to end, on one thread. At 8 threads it is still
+1.3–1.5× faster than `seqkit -j 8` on gzip (for example 8.78 s against
+12.67 s for GC + quality on 24.8M reads). For multi-threaded work, compress
+with `bgzip` instead of `gzip`: BGZF is still gzip-compatible.
+
+!!! warning "Read order with more than one partition"
+    polars-bio's default, `target_partitions=1`, reads the file as one
+    partition and writes reads in their input order, even with Polars using
+    every core. With `target_partitions` above 1, `pb.sink_fastq` writes the
+    same reads, but their order can change from run to run. Keep the default
+    when order matters, for example for paired-end files that must stay in
+    step.
 
 ### Plain gzip: 35–49% faster in this release
 
