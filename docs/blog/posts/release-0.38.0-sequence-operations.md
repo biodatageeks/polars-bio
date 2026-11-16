@@ -13,9 +13,9 @@ categories:
 
 polars-bio 0.38.0 adds a `seq` namespace to Polars expressions: reverse
 complement, GC content, translation, mean quality and more, running as native
-Polars plugins. At one thread they are **2.4–3.6× faster than seqkit** on BGZF
-FASTQ and 4.8× faster on translation, while matching seqkit and Biopython on
-golden test corpora. The release also
+Polars plugins. At one thread they are **2.1–3.6× faster than seqkit** on
+FASTQ and 4.2–4.6× faster on translation, while matching seqkit and Biopython
+on golden test corpora. The release also
 moves to DataFusion 55.2, makes plain-gzip FASTQ reads about 2× faster, and builds
 the PyPI wheels with fat link-time optimisation: **30% smaller and up to 14% faster**.
 
@@ -117,34 +117,71 @@ Three pipelines, each producing the same file from the same input:
 | Translation → FASTA | `.seq.translate()`, `sink_fasta` | `translate` | — | — | `translate()` |
 
 Inputs are public FASTQ runs of 0.72M (DRR609229), 4.25M (ERR5897746), 24.8M
-(DRR013000) and 64.3M (SRR39421268) reads, and the Ensembl GRCh38 CDS FASTA, each
-as BGZF and as plain gzip. Every tool runs with one thread (`-j 1`,
-`POLARS_MAX_THREADS=1`, `target_partitions=1`). For Biopython, import time is
-excluded. Times are the best of three runs on an Apple M3 Max (64 GB).
+(DRR013000) and 64.3M (SRR39421268) reads, and the Ensembl GRCh38 CDS FASTA
+(0.38M sequences), each as BGZF and as plain gzip. Every tool runs with one
+thread (`-j 1`, `POLARS_MAX_THREADS=1`, `target_partitions=1`) as a fresh
+process. Wall time is the best of three runs; CPU time is from that run, and
+peak memory is the highest of the three. For the two Python tools, wall and CPU
+time exclude interpreter start-up and imports, but peak memory includes them.
+Biopython runs on the three smaller FASTQ files only.
+
+The machine was an Apple M3 Max (16 cores, 64 GB) running macOS 15.7, with
+seqkit 2.14.0, seqtk 1.5, seqfu 1.30.3, Biopython 1.88 and Polars 2.1.0, and a
+fat-LTO build of polars-bio master at the 0.38.0 feature freeze. It wasn't
+otherwise idle (3–4.5 of 16 cores busy with background work), but seqkit's
+repeated runs agreed within a few percent.
 
 ![Sequence operations at one thread](figures/release-0.38.0/seqops-one-thread.png)
 
-**Wall time / CPU time in seconds, BGZF input:**
+**Reverse complement → FASTQ** (wall s / CPU s / peak MB):
 
-| Operation | Reads | polars-bio | seqkit | seqtk | seqfu | Biopython |
+| Reads | Input | polars-bio | seqkit | seqtk | seqfu | Biopython |
 |---|---|---|---|---|---|---|
-| Reverse complement | 0.72M | **0.24 / 0.49** | 0.57 / 0.57 | 0.69 / 0.68 | 1.75 / 1.92 | 1.46 / 1.45 |
-| | 4.25M | **2.09 / 3.34** | 5.78 / 5.54 | 5.44 / 5.19 | 10.20 / 11.94 | 11.26 / 10.28 |
-| | 24.8M | **8.34 / 13.68** | 27.21 / 23.84 | 26.76 / 22.55 | 49.30 / 57.09 | — |
-| GC + mean quality | 0.72M | **0.25 / 0.42** | 0.77 / 0.75 | 2.31 / 2.27 | — | 4.04 / 4.01 |
-| | 4.25M | **1.57 / 2.57** | 5.71 / 5.70 | 12.67 / 12.61 | — | 28.17 / 28.07 |
-| | 24.8M | **7.81 / 12.61** | 26.59 / 26.56 | 69.17 / 68.67 | — | — |
-| | 64.3M | **18.95 / 33.0** | 66.78 / 66.1 | 173.75 / 171.4 | — | — |
-| Translation | Ensembl CDS | **0.74 / 1.26** | 3.57 / 3.56 | — | — | 22.03 / 21.92 |
+| 0.72M | BGZF | **0.21 / 0.4 / 188** | 0.53 / 0.5 / 138 | 0.63 / 0.6 / 2 | 1.46 / 1.7 / 20 | 1.37 / 1.4 / 50 |
+| | gzip | **0.22 / 0.5 / 166** | 0.47 / 0.5 / 75 | 0.61 / 0.6 / 2 | 1.57 / 1.6 / 14 | 1.31 / 1.3 / 44 |
+| 4.25M | BGZF | **1.65 / 3.1 / 186** | 5.10 / 5.1 / 162 | 4.79 / 4.8 / 2 | 9.12 / 11.5 / 20 | 9.58 / 9.6 / 51 |
+| | gzip | **1.86 / 3.2 / 169** | 4.74 / 4.7 / 75 | 4.87 / 4.8 / 2 | 10.62 / 10.6 / 14 | 9.34 / 9.3 / 46 |
+| 24.8M | BGZF | **7.92 / 12.9 / 251** | 21.97 / 21.9 / 161 | 21.29 / 21.2 / 2 | 47.42 / 57.4 / 20 | 48.28 / 48.0 / 53 |
+| | gzip | **8.84 / 13.7 / 175** | 20.71 / 20.7 / 75 | 21.35 / 21.2 / 2 | 55.41 / 55.0 / 14 | 46.00 / 45.7 / 48 |
+| 64.3M | BGZF | **20.19 / 36.5 / 308** | 58.08 / 56.9 / 162 | 59.35 / 58.2 / 2 | 126.54 / 151.1 / 20 | — |
+| | gzip | **22.97 / 39.0 / 311** | 55.61 / 54.9 / 75 | 59.09 / 57.9 / 2 | 149.40 / 146.9 / 14 | — |
 
-polars-bio is the fastest tool in every case: 2.4–3.6× faster than the next
-tool on reverse complement and GC + quality, and 4.8× faster than seqkit on
-translation.
+**GC % + mean quality → TSV** (wall s / CPU s / peak MB):
 
-One caveat is visible in the CPU column. polars-bio's "one thread" uses about 1.6
-cores: the reader decodes one partition while Polars processes the previous
-batch. Counted by CPU time, it is still ahead everywhere on BGZF: about half of
-seqkit's CPU time on the large files, and a third on translation.
+| Reads | Input | polars-bio | seqkit | seqtk | Biopython |
+|---|---|---|---|---|---|
+| 0.72M | BGZF | **0.19 / 0.4 / 139** | 0.65 / 0.6 / 53 | 1.77 / 1.8 / 2 | 3.37 / 3.4 / 52 |
+| | gzip | **0.21 / 0.4 / 138** | 0.61 / 0.6 / 57 | 1.76 / 1.7 / 2 | 3.32 / 3.3 / 47 |
+| 4.25M | BGZF | **1.60 / 2.6 / 140** | 5.74 / 5.7 / 54 | 13.34 / 13.3 / 2 | 27.96 / 27.9 / 53 |
+| | gzip | **1.81 / 2.8 / 141** | 5.44 / 5.4 / 57 | 13.37 / 13.3 / 2 | 27.64 / 27.6 / 46 |
+| 24.8M | BGZF | **7.71 / 12.4 / 148** | 26.57 / 26.5 / 55 | 66.20 / 65.9 / 2 | 114.29 / 114.1 / 54 |
+| | gzip | **8.77 / 13.4 / 143** | 25.56 / 25.5 / 57 | 69.28 / 68.9 / 2 | 114.28 / 114.1 / 47 |
+| 64.3M | BGZF | **18.75 / 33.0 / 159** | 66.03 / 65.9 / 55 | 187.21 / 185.9 / 2 | — |
+| | gzip | **21.48 / 35.5 / 146** | 62.83 / 62.7 / 58 | 183.63 / 182.5 / 2 | — |
+
+**Translation → FASTA**, Ensembl CDS (wall s / CPU s / peak MB):
+
+| Input | polars-bio | seqkit | Biopython |
+|---|---|---|---|
+| BGZF | **0.76 / 1.3 / 336** | 3.52 / 3.5 / 56 | 21.83 / 21.8 / 55 |
+| gzip | **0.81 / 1.3 / 331** | 3.37 / 3.3 / 57 | 21.49 / 21.4 / 50 |
+
+**Wall time.** polars-bio is the fastest tool in every case: 2.1–2.9× faster
+than the next tool on reverse complement, 2.9–3.6× on GC + quality, and
+4.2–4.6× faster than seqkit on translation.
+
+**CPU time.** polars-bio's "one thread" uses 1.6–1.9 cores: the reader decodes
+the next batch while Polars processes the current one. Counted by CPU time, it
+still uses 35–70% of seqkit's on the 4.25M-read and larger files, and is about
+even with seqkit only on reverse complement of the smallest file.
+
+**Memory is the trade-off.** polars-bio peaks at 140–310 MB on FASTQ and about
+335 MB on translation, against 53–162 MB for seqkit, 44–55 MB for Biopython,
+14–20 MB for seqfu and 2 MB for seqtk, which streams one record at a time.
+polars-bio's figure includes the Python interpreter with Polars, PyArrow and
+DataFusion loaded. It grows slowly with the input (on reverse complement from
+about 190 MB at 0.72M reads to 310 MB at 64.3M, a 90-fold larger file) because
+the data is processed in batches rather than loaded whole.
 
 ### Plain gzip: 35–49% faster in this release
 
@@ -174,8 +211,10 @@ End to end, at one thread on plain gzip (wall / CPU seconds):
 | | 24.8M | 14.51 / 19.8 | **8.76 / 13.5** | −40% | 26.1 |
 | | 64.3M | 41.51 / 54.5 | **21.13 / 35.1** | −49% | 63–65 / 63 |
 
-Gzip input is now within about 10% of BGZF, and polars-bio uses less CPU time
-than seqkit on gzip as well as less wall time.
+Gzip input is now only 5–15% slower than BGZF for polars-bio (see the tables
+above), and polars-bio uses less CPU time than seqkit on gzip as well as less
+wall time. The before/after numbers in this table come from a separate A/B run
+of the two builds.
 
 ## DataFusion 55.2
 
@@ -256,5 +295,6 @@ pip install -U "polars-bio==0.38.0"
 The [Sequence operations guide](../../features/sequences.md) covers semantics,
 alphabets and translation in detail, and the
 [API reference](../../api/sequences.md) lists every parameter. The benchmark
-harness is in
-[polars-bio-bench](https://github.com/biodatageeks/polars-bio-bench).
+harness and the raw results (every run, with provenance and input checksums)
+are in
+[polars-bio-bench](https://github.com/biodatageeks/polars-bio-bench/tree/master/results/seqops-expressions-20261116-0909).
