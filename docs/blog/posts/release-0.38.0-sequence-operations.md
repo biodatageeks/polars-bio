@@ -57,8 +57,8 @@ and work on any String column. The same functions are available in SQL as
 
 Three pipelines, each producing the same file with every tool: reverse
 complement → FASTQ, GC % + mean quality → TSV, and translation → FASTA. Inputs
-are public FASTQ runs of 24.8M and 64.3M reads and the Ensembl GRCh38 CDS
-(0.38M sequences), BGZF-compressed. The machine was an Apple M3 Max; wall time is
+are public FASTQ runs of 0.72M, 4.25M, 24.8M and 64.3M reads and the Ensembl
+GRCh38 CDS (0.38M sequences), BGZF-compressed. The machine was an Apple M3 Max; wall time is
 the best of three runs.
 
 ### One thread
@@ -69,9 +69,13 @@ the best of three runs.
 
 | Pipeline | Reads | polars-bio | seqkit | seqtk | seqfu | Biopython |
 |---|---|---|---|---|---|---|
-| Reverse complement | 24.8M | **8.06** | 21.97 | 21.29 | 47.42 | 48.28 |
+| Reverse complement | 0.72M | **0.21** | 0.53 | 0.63 | 1.46 | 1.37 |
+| | 4.25M | **1.69** | 5.10 | 4.79 | 9.12 | 9.58 |
+| | 24.8M | **8.06** | 21.97 | 21.29 | 47.42 | 48.28 |
 | | 64.3M | **19.72** | 58.08 | 59.35 | 126.54 | 144.07 |
-| GC + mean quality | 24.8M | **7.71** | 26.57 | 66.20 | — | 114.29 |
+| GC + mean quality | 0.72M | **0.19** | 0.65 | 1.77 | — | 3.37 |
+| | 4.25M | **1.60** | 5.74 | 13.34 | — | 27.96 |
+| | 24.8M | **7.71** | 26.57 | 66.20 | — | 114.29 |
 | | 64.3M | **18.75** | 66.03 | 187.21 | — | 380.41 |
 | Translation | 0.38M | **0.73** | 3.52 | — | — | 21.83 |
 
@@ -83,12 +87,18 @@ time.
 
 ![Thread scaling on BGZF input](figures/release-0.38.0/seqops-scaling.png)
 
-**Wall time in seconds, 24.8M reads:**
+**Wall time in seconds:**
 
-| Pipeline | polars-bio, 1 → 8 threads | seqkit, `-j 1` → `-j 8` | At 8 threads |
-|---|---|---|---|
-| GC + mean quality | 7.71 → **1.10** (7.0×) | 26.71 → 27.00 | **24× faster** |
-| Reverse complement | 8.06 → **1.90** (4.2×) | 22.41 → 22.66 | **12× faster** |
+| Pipeline | Reads | polars-bio, 1 → 8 threads | seqkit, `-j 1` → `-j 8` | At 8 threads |
+|---|---|---|---|---|
+| GC + mean quality | 0.72M | 0.19 → **0.05** (3.9×) | | |
+| | 4.25M | 1.60 → **0.24** (6.6×) | | |
+| | 24.8M | 7.71 → **1.10** (7.0×) | 26.71 → 27.00 | **24× faster** |
+| | 64.3M | 18.75 → **2.98** (6.3×) | 66.15 → 67.42 | **23× faster** |
+| Reverse complement | 0.72M | 0.21 → **0.08** (2.8×) | | |
+| | 4.25M | 1.69 → **0.35** (4.8×) | | |
+| | 24.8M | 8.06 → **1.90** (4.2×) | 22.41 → 22.66 | **12× faster** |
+| | 64.3M | 19.72 → **5.68** (3.5×) | 58.95 → 60.26 | **11× faster** |
 
 polars-bio reads BGZF files in parallel partitions, so these pipelines scale
 with threads. seqkit's `-j` doesn't speed up these subcommands on BGZF input.
