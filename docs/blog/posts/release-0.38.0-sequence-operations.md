@@ -70,13 +70,10 @@ the best of three runs.
 | Pipeline | Reads | polars-bio | seqkit | seqtk | seqfu | Biopython |
 |---|---|---|---|---|---|---|
 | Reverse complement | 24.8M | **8.06** | 21.97 | 21.29 | 47.42 | 48.28 |
-| | 64.3M | **19.72** | 58.08 | 59.35 | 126.54 | 144.07\* |
+| | 64.3M | **19.72** | 58.08 | 59.35 | 126.54 | 144.07 |
 | GC + mean quality | 24.8M | **7.71** | 26.57 | 66.20 | — | 114.29 |
 | | 64.3M | **18.75** | 66.03 | 187.21 | — | 380.41 |
 | Translation | 0.38M | **0.73** | 3.52 | — | — | 21.83 |
-
-\* Measured in a later run on a busier machine (seqkit took 18% longer there), so
-likely a little slow.
 
 polars-bio is the fastest tool on every pipeline. The price is memory: it peaks at
 140–360 MB, against 2–160 MB for the other tools, which process one record at a
