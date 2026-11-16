@@ -14,8 +14,9 @@ categories:
 polars-bio 0.38.0 adds a `seq` namespace to Polars expressions: reverse
 complement, GC content, translation, mean quality and more, running as native
 Polars plugins. At one thread they are **2.1–3.6× faster than seqkit** on
-FASTQ and 4.2–4.6× faster on translation. At 8 threads on BGZF input, GC
-content and mean quality run **24× faster than seqkit**. All of them match
+FASTQ and 4.3–4.8× faster on translation. At 8 threads on BGZF input, GC
+content and mean quality run **24× faster than seqkit**, and reverse complement
+12× faster. All of them match
 seqkit and Biopython on golden test corpora. The release also
 moves to DataFusion 55.2, makes plain-gzip FASTQ reads about 2× faster, and builds
 the PyPI wheels with fat link-time optimisation: **30% smaller and up to 14% faster**.
@@ -128,7 +129,12 @@ Biopython runs on the three smaller FASTQ files only.
 
 The machine was an Apple M3 Max (16 cores, 64 GB) running macOS 15.7, with
 seqkit 2.14.0, seqtk 1.5, seqfu 1.30.3, Biopython 1.88 and Polars 2.1.0, and a
-fat-LTO build of polars-bio master at the 0.38.0 feature freeze. It wasn't
+fat-LTO build of polars-bio master at the 0.38.0 feature freeze. polars-bio's
+reverse complement and translation runs use the same build plus the faster
+FASTQ and FASTA writer from
+[datafusion-bio-formats#276](https://github.com/biodatageeks/datafusion-bio-formats/pull/276),
+described under [Multiple threads](#multiple-threads); GC + quality writes
+through Polars' own `sink_csv`, which that change doesn't touch. It wasn't
 otherwise idle (3–4.5 of 16 cores busy with background work), but seqkit's
 repeated runs agreed within a few percent.
 
@@ -140,14 +146,14 @@ repeated runs agreed within a few percent.
 
 | Reads | Input | polars-bio | seqkit | seqtk | seqfu | Biopython |
 |---|---|---|---|---|---|---|
-| 0.72M | BGZF | **0.21 / 0.4 / 188** | 0.53 / 0.5 / 138 | 0.63 / 0.6 / 2 | 1.46 / 1.7 / 20 | 1.37 / 1.4 / 50 |
-| | gzip | **0.22 / 0.5 / 166** | 0.47 / 0.5 / 75 | 0.61 / 0.6 / 2 | 1.57 / 1.6 / 14 | 1.31 / 1.3 / 44 |
-| 4.25M | BGZF | **1.65 / 3.1 / 186** | 5.10 / 5.1 / 162 | 4.79 / 4.8 / 2 | 9.12 / 11.5 / 20 | 9.58 / 9.6 / 51 |
-| | gzip | **1.86 / 3.2 / 169** | 4.74 / 4.7 / 75 | 4.87 / 4.8 / 2 | 10.62 / 10.6 / 14 | 9.34 / 9.3 / 46 |
-| 24.8M | BGZF | **7.92 / 12.9 / 251** | 21.97 / 21.9 / 161 | 21.29 / 21.2 / 2 | 47.42 / 57.4 / 20 | 48.28 / 48.0 / 53 |
-| | gzip | **8.84 / 13.7 / 175** | 20.71 / 20.7 / 75 | 21.35 / 21.2 / 2 | 55.41 / 55.0 / 14 | 46.00 / 45.7 / 48 |
-| 64.3M | BGZF | **20.19 / 36.5 / 308** | 58.08 / 56.9 / 162 | 59.35 / 58.2 / 2 | 126.54 / 151.1 / 20 | — |
-| | gzip | **22.97 / 39.0 / 311** | 55.61 / 54.9 / 75 | 59.09 / 57.9 / 2 | 149.40 / 146.9 / 14 | — |
+| 0.72M | BGZF | **0.21 / 0.3 / 176** | 0.53 / 0.5 / 138 | 0.63 / 0.6 / 2 | 1.46 / 1.7 / 20 | 1.37 / 1.4 / 50 |
+| | gzip | **0.22 / 0.4 / 173** | 0.47 / 0.5 / 75 | 0.61 / 0.6 / 2 | 1.57 / 1.6 / 14 | 1.31 / 1.3 / 44 |
+| 4.25M | BGZF | **1.69 / 2.5 / 208** | 5.10 / 5.1 / 162 | 4.79 / 4.8 / 2 | 9.12 / 11.5 / 20 | 9.58 / 9.6 / 51 |
+| | gzip | **1.92 / 2.7 / 179** | 4.74 / 4.7 / 75 | 4.87 / 4.8 / 2 | 10.62 / 10.6 / 14 | 9.34 / 9.3 / 46 |
+| 24.8M | BGZF | **8.06 / 11.5 / 259** | 21.97 / 21.9 / 161 | 21.29 / 21.2 / 2 | 47.42 / 57.4 / 20 | 48.28 / 48.0 / 53 |
+| | gzip | **9.09 / 12.4 / 230** | 20.71 / 20.7 / 75 | 21.35 / 21.2 / 2 | 55.41 / 55.0 / 14 | 46.00 / 45.7 / 48 |
+| 64.3M | BGZF | **19.72 / 30.4 / 300** | 58.08 / 56.9 / 162 | 59.35 / 58.2 / 2 | 126.54 / 151.1 / 20 | — |
+| | gzip | **22.30 / 33.1 / 277** | 55.61 / 54.9 / 75 | 59.09 / 57.9 / 2 | 149.40 / 146.9 / 14 | — |
 
 **GC % + mean quality → TSV** (wall s / CPU s / peak MB):
 
@@ -166,24 +172,24 @@ repeated runs agreed within a few percent.
 
 | Input | polars-bio | seqkit | Biopython |
 |---|---|---|---|
-| BGZF | **0.76 / 1.3 / 336** | 3.52 / 3.5 / 56 | 21.83 / 21.8 / 55 |
-| gzip | **0.81 / 1.3 / 331** | 3.37 / 3.3 / 57 | 21.49 / 21.4 / 50 |
+| BGZF | **0.73 / 1.1 / 362** | 3.52 / 3.5 / 56 | 21.83 / 21.8 / 55 |
+| gzip | **0.78 / 1.2 / 360** | 3.37 / 3.3 / 57 | 21.49 / 21.4 / 50 |
 
 **Wall time.** polars-bio is the fastest tool in every case: 2.1–2.9× faster
 than the next tool on reverse complement, 2.9–3.6× on GC + quality, and
-4.2–4.6× faster than seqkit on translation.
+4.3–4.8× faster than seqkit on translation.
 
-**CPU time.** polars-bio's "one thread" uses 1.6–1.9 cores: the reader decodes
+**CPU time.** polars-bio's "one thread" uses 1.4–1.9 cores: the reader decodes
 the next batch while Polars processes the current one. Counted by CPU time, it
-still uses 35–70% of seqkit's on the 4.25M-read and larger files, and is about
-even with seqkit only on reverse complement of the smallest file.
+still uses 45–60% of seqkit's on the 4.25M-read and larger files, 31–35% on
+translation, and 56–76% on the smallest file.
 
-**Memory is the trade-off.** polars-bio peaks at 140–310 MB on FASTQ and about
-335 MB on translation, against 53–162 MB for seqkit, 44–55 MB for Biopython,
+**Memory is the trade-off.** polars-bio peaks at 140–300 MB on FASTQ and about
+360 MB on translation, against 53–162 MB for seqkit, 44–55 MB for Biopython,
 14–20 MB for seqfu and 2 MB for seqtk, which streams one record at a time.
 polars-bio's figure includes the Python interpreter with Polars, PyArrow and
 DataFusion loaded. It grows slowly with the input (on reverse complement from
-about 190 MB at 0.72M reads to 310 MB at 64.3M, a 90-fold larger file) because
+about 175 MB at 0.72M reads to 300 MB at 64.3M, a 90-fold larger file) because
 the data is processed in batches rather than loaded whole.
 
 ### Multiple threads
@@ -207,11 +213,11 @@ the last column):
 | | 4.25M | 1.60 | 0.78 | 0.40 | **0.24** | 6.6× | 323 |
 | | 24.8M | 7.71 | 3.75 | 1.90 | **1.10** | 7.0× | 397 |
 | | 64.3M | 18.75 | 8.99 | 4.62 | **2.98** | 6.3× | 445 |
-| Reverse complement → FASTQ | 0.72M | 0.21 | 0.18 | 0.17 | 0.18 | 1.2× | 575 |
-| | 4.25M | 1.65 | 1.07 | 1.05 | 1.07 | 1.5× | 1311 |
-| | 24.8M | 7.92 | 3.98 | 3.23 | 3.29 | 2.4× | 1466 |
-| | 64.3M | 20.19 | 10.03 | 10.08 | 10.23 | 2.0× | 1930 |
-| Translation → FASTA | Ensembl CDS | 0.76 | 0.78 | 0.80 | 0.80 | 1.0× | 749 |
+| Reverse complement → FASTQ | 0.72M | 0.21 | 0.11 | 0.08 | **0.08** | 2.8× | 538 |
+| | 4.25M | 1.69 | 0.82 | 0.42 | **0.35** | 4.8× | 1299 |
+| | 24.8M | 8.06 | 3.88 | 2.30 | **1.90** | 4.2× | 1421 |
+| | 64.3M | 19.72 | 9.95 | 5.45 | **5.68** | 3.5× | 1926 |
+| Translation → FASTA | Ensembl CDS | 0.73 | 0.74 | 0.75 | 0.76 | 1.0× | 802 |
 
 **seqkit wall time in seconds, `-j 1` → `-j 8`:**
 
@@ -228,17 +234,23 @@ and Polars all run in parallel, and Polars' own `sink_csv` writes the result.
 At 8 threads polars-bio processes 24.8M reads in 1.10 s, against 27.0 s for
 seqkit, and 64.3M reads in 2.98 s.
 
-**Reverse complement stops at about 2×.** Reading and transforming scale the
-same way. Without the write, reverse complement of 24.8M reads takes 1.02 s
-at 8 threads. But `pb.sink_fastq` wrote the output on one thread, through an
-8 KiB buffer and a per-read record object, and that single writer topped out at
-about 3.3 s. The fix,
-[datafusion-bio-formats#276](https://github.com/biodatageeks/datafusion-bio-formats/pull/276),
-formats each batch straight from Arrow and writes it through a 4 MiB buffer,
-with byte-identical output. In an A/B test of otherwise identical builds, it
-takes reverse complement of 24.8M reads at 8 threads from 3.40 s to 1.34 s,
-so it scales 6.3× instead of 2.5×. Peak memory at 8 threads stays at about
-1.2–1.5 GB with or without the fix (reading alone peaks at about 250 MB). It is
+**Reverse complement now scales 3.5–4.8× on 4.25M reads and up.** In 0.37.0 it stopped at about
+2× (3.29 s on 24.8M reads and 10.23 s on 64.3M at 8 threads, the dotted line
+in the figure). Reading and transforming scaled: without the write, reverse
+complement of 24.8M reads took 1.02 s at 8 threads. But `pb.sink_fastq` wrote
+the output on one thread, through an 8 KiB buffer and a record object per read,
+and that writer topped out at about 3.3 s. In 0.38.0 the writer
+([datafusion-bio-formats#276](https://github.com/biodatageeks/datafusion-bio-formats/pull/276))
+formats each Arrow batch straight into a 4 MiB buffer, with byte-identical
+output, and uses 9–19% less CPU time than 0.37.0's writer even at one thread.
+
+Writing is still done on one thread, and beyond 4 threads it is the limit
+again: the 24.8M-read output is 5.17 GB, and just writing that many bytes to
+this machine's SSD takes 0.85–0.97 s. Outside the benchmark harness the best
+8-thread run took 1.31 s, and repeated runs vary between 1.3 and 1.9 s
+depending on how much of the previous run's output macOS is still flushing to
+disk. On 64.3M reads, 8 threads are no faster than 4. Peak memory at 8 threads
+is 1.3–1.9 GB on 4.25M reads and up (reading alone peaks at about 250 MB). It is
 held in the handoff from Polars to the writer, which is the next thing to fix.
 
 **Translation doesn't scale yet.** The Ensembl CDS file is read as one stream
