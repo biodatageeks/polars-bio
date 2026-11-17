@@ -1,0 +1,10 @@
+/* Justify (both-edges-aligned) body text in blog posts only.
+   Material for MkDocs tags blog-post content with .md-content--post, so the
+   API reference and other docs stay left-aligned. Scoped to prose paragraphs
+   and list items — tables, code blocks, and headings are unaffected. */
+.md-content--post .md-typeset p,
+.md-content--post .md-typeset li {
+  text-align: justify;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+}
