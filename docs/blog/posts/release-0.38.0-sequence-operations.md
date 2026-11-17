@@ -1,7 +1,7 @@
 ---
-draft: true
+draft: false
 date:
-  created: 2026-11-16
+  created: 2026-11-17
 categories:
   - releases
   - performance
@@ -148,5 +148,5 @@ pip install -U "polars-bio==0.38.0"
 
 The [Sequence operations guide](../../features/sequences.md) and the
 [API reference](../../api/sequences.md) cover every function. The benchmark
-harness and raw results are in
-[polars-bio-bench](https://github.com/biodatageeks/polars-bio-bench/tree/master/results/seqops-expressions-20261116-0909).
+harness and raw results (the `seqops-expressions-*` folders under `results/`)
+are in [polars-bio-bench](https://github.com/biodatageeks/polars-bio-bench).
