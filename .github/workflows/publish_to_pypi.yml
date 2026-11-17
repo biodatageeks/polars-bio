@@ -182,13 +182,10 @@ jobs:
       matrix:
         # With fat LTO the aarch64 wheel is built by linux-aarch64-lto instead:
         # its link does not fit in the hosted arm runner's 16 GB.
+        # No `include:` here: an include entry whose target is not in the list
+        # (aarch64 on LTO builds) adds a new job instead of being dropped, and
+        # that job's wheel collides with linux-aarch64-lto's artifact.
         target: ${{ fromJSON((startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || inputs.lto == true) && '["x86_64"]' || '["x86_64", "aarch64"]') }}
-        include:
-          - target: x86_64
-            cpu_target: "skylake"
-          # Generic ARMv8-A: manylinux aarch64 tags cannot express a newer ISA.
-          - target: aarch64
-            cpu_target: "generic"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -205,7 +202,8 @@ jobs:
           sccache: 'true'
           manylinux: auto
         env:
-          RUSTFLAGS: "-Dwarnings -Ctarget-cpu=${{ matrix.cpu_target }}"
+          # Generic ARMv8-A: manylinux aarch64 tags cannot express a newer ISA.
+          RUSTFLAGS: "-Dwarnings -Ctarget-cpu=${{ matrix.target == 'aarch64' && 'generic' || 'skylake' }}"
 
       - name: Test structure readers from built wheel
         if: runner.os != 'macOS' || matrix.target == 'aarch64' || runner.arch == 'X64'
