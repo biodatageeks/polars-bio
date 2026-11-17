@@ -97,19 +97,20 @@ and FASTQ quality control.
 
 ### Dependency pinning
 
-For polars-bio 0.37.0, both repositories are pinned to release tags in
+For polars-bio 0.38.0, both repositories are pinned to release tags in
 `Cargo.toml`; `Cargo.lock` records the resolved commit hashes:
 
 ```toml
 # Format crates (all 17 use the same tag)
-datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.15.0" }
-datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.15.0" }
+datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.17.0" }
+datafusion-bio-format-bam = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.17.0" }
 # ... see Cargo.toml for the complete list
 
 # Function crates
-datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.24.0" }
-datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.24.0", default-features = false }
-datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.24.0" }
+datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.27.0" }
+datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.27.0", default-features = false }
+datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.27.0" }
+datafusion-bio-function-seq = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.27.0" }
 ```
 
 !!! note
