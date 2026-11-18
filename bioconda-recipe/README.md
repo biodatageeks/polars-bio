@@ -26,7 +26,7 @@ not required. Its standalone recipe is retained as historical packaging work.
 | --- | --- | --- |
 | `polars` | `>=1.40.0,<2.2` | yes |
 | `pyarrow` | `>=23.0.1,<25` | yes |
-| `datafusion` | `>=53.0.0,<54` | yes (53.0.0) |
+| `datafusion` | `>=55.0.0,<56` | yes (55.0.0) |
 | `tqdm` | `>=4.67.0,<5` | yes |
 
 ## Build notes
@@ -110,7 +110,9 @@ that carries the version, sha256 and dependency changes together, and comment on
 the bot's PR that it is superseded. The bot closes its own PR once the
 replacement merges. 0.37.0 went this way: bioconda-recipes#71352 replaced
 autobump #71351, allowing `polars >=1.40.0,<2.2` and dropping
-`polars-config-meta`.
+`polars-config-meta`. So does 0.38.0: bioconda-recipes#71810 replaces autobump
+#71787, whose tests failed at `pip check` because the recipe still required
+`datafusion >=53.0.0,<54` while 0.38.0 needs `>=55.0.0,<56`.
 
 A quick check before opening such a PR, without a full build: install the
 published wheel in a fresh venv at each end of the new dependency range, run
