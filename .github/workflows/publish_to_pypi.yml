@@ -425,3 +425,12 @@ jobs:
       with:
         command: upload
         args: --non-interactive --skip-existing wheels-*/*
+
+  docs:
+    name: Publish docs
+    needs: release
+    uses: ./.github/workflows/publish_documentation.yml
+    with:
+      version: ${{ github.ref_name }}
+    permissions:
+      contents: write

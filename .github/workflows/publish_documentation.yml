@@ -1,9 +1,21 @@
 name: Publish docs via GitHub Pages
 on:
-  push:
-   tags:
-     - "*"
+  # Called by "Build, test, and publish to PyPI" after a release is uploaded,
+  # so the docs are built against the wheel that was just published.
+  workflow_call:
+    inputs:
+      version:
+        description: 'polars-bio version to install from PyPI'
+        type: string
+        default: ''
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'polars-bio version to install from PyPI (empty: latest)'
+        type: string
+        default: ''
+permissions:
+  contents: write
 jobs:
   build:
     env:
@@ -18,9 +30,21 @@ jobs:
           python-version: "3.12"
           enable-cache: true
       - run: uv sync --locked --all-extras --no-install-project
-      - name: Install polars-bio
-        run: uv run pip install polars-bio
+      # Install the published wheel into the uv environment. `uv run` without
+      # --no-sync would compile the checkout from source instead (~20 min).
+      - name: Install polars-bio from PyPI
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          spec="polars-bio${VERSION:+==$VERSION}"
+          # A release that was just uploaded can take a few minutes to appear.
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            uv pip install --refresh "$spec" && break
+            if [ "$attempt" = 10 ]; then exit 1; fi
+            sleep 30
+          done
+          uv run --no-sync python -I -c "import polars_bio; print('polars-bio', polars_bio.__version__)"
       - name: Deploy docs
-        run: uv run mkdocs gh-deploy --force --remote-branch gh-pages -f mkdocs.yml
+        run: uv run --no-sync mkdocs gh-deploy --force --remote-branch gh-pages -f mkdocs.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
