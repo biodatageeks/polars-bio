@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- polars-bio no longer sets the `polars_bio` logger to `WARNING` at import. Until `pb.set_loglevel()` is called, its records follow the application's logging configuration: an application whose root logger is at `INFO` or `DEBUG` now also receives polars-bio's own `INFO`/`DEBUG` records, and one without logging configuration still sees warnings only. Call `pb.set_loglevel("warning")` to keep the previous filtering.
+- Log records from the Rust dependency crates (DataFusion, `datafusion-bio-format-*`, `datafusion-bio-function-*`) are emitted under the `polars_bio` logger hierarchy, for example `polars_bio.datafusion_bio_function_ranges.physical_planner` instead of `datafusion_bio_function_ranges.physical_planner`. Logging configuration that addressed the old top-level logger names needs the `polars_bio.` prefix (#520).
+
+### Fixed
+- `pb.set_loglevel()` now also filters log records from the Rust dependency crates. Since 0.37.0 those records went to top-level Python loggers outside the `polars_bio` hierarchy, so an application with its root logger at `INFO` or `DEBUG` still received the interval-join planner's `INFO` messages after `pb.set_loglevel("warning")` (#520).
+- `pb.set_loglevel()` takes effect at any time. The Rust side caches logger levels, so lowering the level after an operation had run, for example from `warning` to `info`, left Rust records filtered until the Python session was restarted.
+
 ## [0.38.0] - 2026-11-17
 
 ### Added

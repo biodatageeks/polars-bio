@@ -16,6 +16,7 @@ static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 mod context;
 mod fastqc;
+mod logging;
 mod operation;
 mod option;
 mod pileup;
@@ -1525,8 +1526,9 @@ impl PyBgenMatrixReader {
 }
 
 #[pymodule]
-fn polars_bio(_py: Python, m: &Bound<PyModule>) -> PyResult<()> {
-    pyo3_log::init();
+fn polars_bio(py: Python, m: &Bound<PyModule>) -> PyResult<()> {
+    logging::init(py)?;
+    m.add_function(wrap_pyfunction!(logging::py_reset_log_level_cache, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_frame, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_lazy, m)?)?;
     m.add_function(wrap_pyfunction!(range_operation_scan, m)?)?;
