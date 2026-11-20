@@ -38,14 +38,23 @@ def test_import_preserves_application_logging(configured):
 
         assert root.handlers == handlers
         assert root.level == level
-        assert logging.getLogger("polars_bio").level == logging.WARNING
+        assert logging.getLogger("polars_bio").level == logging.NOTSET
+        assert logging.getLogger("polars_bio").getEffectiveLevel() == level
         """
     )
 
 
 @pytest.mark.parametrize(
     ("level", "expected"),
-    [("debug", 10), ("info", 20), ("warn", 30), ("warning", 30), ("INFO", 20)],
+    [
+        ("debug", 10),
+        ("info", 20),
+        ("warn", 30),
+        ("warning", 30),
+        ("error", 40),
+        ("critical", 50),
+        ("INFO", 20),
+    ],
 )
 def test_set_loglevel_preserves_application_logging(level, expected):
     _run_logging_script(
@@ -73,7 +82,7 @@ def test_set_loglevel_preserves_application_logging(level, expected):
     )
 
 
-@pytest.mark.parametrize("level", ["error", "INVALID", ""])
+@pytest.mark.parametrize("level", ["trace", "INVALID", ""])
 def test_set_loglevel_rejects_invalid_levels_without_reconfiguring(level):
     _run_logging_script(
         f"""
@@ -214,3 +223,140 @@ def test_warning_remains_visible_without_application_handlers():
         """
     )
     assert result.stderr.count("Library warning without handlers") == 1
+
+
+@pytest.mark.parametrize("level", ["warning", "info"])
+def test_rust_dependency_logs_respect_library_level(level):
+    # Issue #520: records from Rust dependency crates (here the interval-join
+    # planner in datafusion-bio-function-ranges) used to land on top-level
+    # Python loggers named after the crate, outside the ``polars_bio``
+    # hierarchy, so ``pb.set_loglevel`` could not filter them.
+    _run_logging_script(
+        f"""
+        import logging
+        import polars as pl
+        import polars_bio as pb
+
+        records = []
+        class CaptureHandler(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        root = logging.getLogger()
+        root.addHandler(CaptureHandler())
+        root.setLevel(logging.DEBUG)
+        pb.set_loglevel({level!r})
+
+        left = pl.DataFrame({{"chrom": ["chr1"], "start": [1], "end": [3]}})
+        right = pl.DataFrame({{"chrom": ["chr1"], "start": [2], "end": [4]}})
+        left.config_meta.set(coordinate_system_zero_based=True)
+        right.config_meta.set(coordinate_system_zero_based=True)
+        result = pb.overlap(left, right, output_type="polars.DataFrame")
+        assert result.shape == (1, 6)
+        root.info("Application information")
+
+        dependency = [
+            (record.name, record.levelname, record.getMessage())
+            for record in records
+            if "datafusion_bio_function_ranges" in record.name
+        ]
+        if {level!r} == "warning":
+            assert dependency == [], dependency
+        else:
+            assert dependency, "expected records from the ranges crate at info"
+            outside = [
+                entry for entry in dependency
+                if not entry[0].startswith("polars_bio.datafusion_bio_function_ranges")
+            ]
+            assert outside == [], outside
+        assert sum(record.getMessage() == "Application information" for record in records) == 1
+        assert root.level == logging.DEBUG
+        """
+    )
+
+
+def test_set_loglevel_applies_to_rust_logs_after_operations_ran():
+    # The Rust bridge caches each logger's level on first use. Without a cache
+    # reset, lowering the level after an operation ran at "warning" left the
+    # Rust records filtered until the Python session was restarted.
+    _run_logging_script(
+        """
+        import logging
+        import polars as pl
+        import polars_bio as pb
+
+        records = []
+        class CaptureHandler(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        root = logging.getLogger()
+        root.addHandler(CaptureHandler())
+        root.setLevel(logging.DEBUG)
+
+        left = pl.DataFrame({"chrom": ["chr1"], "start": [1], "end": [3]})
+        right = pl.DataFrame({"chrom": ["chr1"], "start": [2], "end": [4]})
+        left.config_meta.set(coordinate_system_zero_based=True)
+        right.config_meta.set(coordinate_system_zero_based=True)
+
+        def dependency_records(level):
+            pb.set_loglevel(level)
+            records.clear()
+            result = pb.overlap(left, right, output_type="polars.DataFrame")
+            assert result.shape == (1, 6)
+            return [
+                (record.name, record.levelname, record.getMessage())
+                for record in records
+                if "datafusion_bio_function_ranges" in record.name
+            ]
+
+        assert dependency_records("warning") == []
+        assert dependency_records("info") != []
+        assert dependency_records("warning") == []
+        assert dependency_records("info") != []
+        """
+    )
+
+
+@pytest.mark.parametrize("root_level", ["INFO", "WARNING"])
+def test_default_level_follows_application_logging(root_level):
+    # Without pb.set_loglevel, polars-bio sets no level of its own: Python and
+    # Rust records are filtered by the application's logging configuration.
+    _run_logging_script(
+        f"""
+        import logging
+        import polars as pl
+        import polars_bio as pb
+
+        records = []
+        class CaptureHandler(logging.Handler):
+            def emit(self, record):
+                records.append(record)
+
+        root = logging.getLogger()
+        root.addHandler(CaptureHandler())
+        root.setLevel(logging.{root_level})
+
+        left = pl.DataFrame({{"chrom": ["chr1"], "start": [1], "end": [3]}})
+        right = pl.DataFrame({{"chrom": ["chr1"], "start": [2], "end": [4]}})
+        left.config_meta.set(coordinate_system_zero_based=True)
+        right.config_meta.set(coordinate_system_zero_based=True)
+        result = pb.overlap(left, right, output_type="polars.DataFrame")
+        assert result.shape == (1, 6)
+
+        library = [
+            (record.name, record.levelname, record.getMessage())
+            for record in records
+            if record.name == "polars_bio" or record.name.startswith("polars_bio.")
+        ]
+        if {root_level!r} == "INFO":
+            names = {{name for name, _, _ in library}}
+            assert "polars_bio.operation" in names, library
+            assert any(
+                name.startswith("polars_bio.datafusion_bio_function_ranges")
+                for name in names
+            ), library
+        else:
+            assert library == [], library
+        """
+    )
