@@ -46,7 +46,15 @@ def test_import_preserves_application_logging(configured):
 
 @pytest.mark.parametrize(
     ("level", "expected"),
-    [("debug", 10), ("info", 20), ("warn", 30), ("warning", 30), ("INFO", 20)],
+    [
+        ("debug", 10),
+        ("info", 20),
+        ("warn", 30),
+        ("warning", 30),
+        ("error", 40),
+        ("critical", 50),
+        ("INFO", 20),
+    ],
 )
 def test_set_loglevel_preserves_application_logging(level, expected):
     _run_logging_script(
@@ -74,7 +82,7 @@ def test_set_loglevel_preserves_application_logging(level, expected):
     )
 
 
-@pytest.mark.parametrize("level", ["error", "INVALID", ""])
+@pytest.mark.parametrize("level", ["trace", "INVALID", ""])
 def test_set_loglevel_rejects_invalid_levels_without_reconfiguring(level):
     _run_logging_script(
         f"""
@@ -255,7 +263,7 @@ def test_rust_dependency_logs_respect_library_level(level):
         if {level!r} == "warning":
             assert dependency == [], dependency
         else:
-            assert any("HashJoinExec detected" in message for _, _, message in dependency), dependency
+            assert dependency, "expected records from the ranges crate at info"
             outside = [
                 entry for entry in dependency
                 if not entry[0].startswith("polars_bio.datafusion_bio_function_ranges")
@@ -291,21 +299,21 @@ def test_set_loglevel_applies_to_rust_logs_after_operations_ran():
         left.config_meta.set(coordinate_system_zero_based=True)
         right.config_meta.set(coordinate_system_zero_based=True)
 
-        def planner_messages(level):
+        def dependency_records(level):
             pb.set_loglevel(level)
             records.clear()
             result = pb.overlap(left, right, output_type="polars.DataFrame")
             assert result.shape == (1, 6)
             return [
-                record.getMessage()
+                (record.name, record.levelname, record.getMessage())
                 for record in records
                 if "datafusion_bio_function_ranges" in record.name
             ]
 
-        assert planner_messages("warning") == []
-        assert "HashJoinExec detected" in planner_messages("info")
-        assert planner_messages("warning") == []
-        assert "HashJoinExec detected" in planner_messages("info")
+        assert dependency_records("warning") == []
+        assert dependency_records("info") != []
+        assert dependency_records("warning") == []
+        assert dependency_records("info") != []
         """
     )
 

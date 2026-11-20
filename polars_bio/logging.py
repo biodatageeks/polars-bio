@@ -6,12 +6,23 @@ from polars_bio.polars_bio import py_reset_log_level_cache
 # the application's logging configuration.
 logger = logging.getLogger("polars_bio")
 
+_LEVELS = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warn": logging.WARNING,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+    "critical": logging.CRITICAL,
+}
+
 
 def set_loglevel(level: str):
     """Set the log level for the polars_bio logger.
 
     Args:
-        level: The log level to set. Can be "debug", "info", "warn", or "warning".
+        level: The log level to set, case-insensitive. Can be "debug", "info",
+            "warn", "warning", "error", or "critical". "error" hides warnings;
+            "critical" also hides errors.
 
     !!! note
         polars-bio sets no level of its own at import, so until this function
@@ -43,12 +54,7 @@ def set_loglevel(level: str):
         ```
     """
     level = level.lower()
-    if level == "debug":
-        logger.setLevel(logging.DEBUG)
-    elif level == "info":
-        logger.setLevel(logging.INFO)
-    elif level == "warn" or level == "warning":
-        logger.setLevel(logging.WARNING)
-    else:
+    if level not in _LEVELS:
         raise ValueError(f"{level} is not a valid log level")
+    logger.setLevel(_LEVELS[level])
     py_reset_log_level_cache()

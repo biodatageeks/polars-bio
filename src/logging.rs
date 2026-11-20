@@ -70,9 +70,14 @@ impl Log for PolarsBioLogger {
     }
 }
 
-/// Installs the bridge as the process-wide Rust logger.
+/// Installs the bridge as this extension module's Rust logger.
 ///
-/// Like `pyo3_log::init`, this leaves an already installed logger in place.
+/// The `log` crate's global logger is a static inside this module's binary, so
+/// a logger installed by another extension module, such as the `datafusion`
+/// Python package with its own `pyo3_log`, does not collide with this one.
+/// Installing fails only if a logger is already set inside this binary, that
+/// is if this module is initialised twice, and then `LEVEL_CACHE` already
+/// refers to the bridge that stays installed.
 pub(crate) fn init(py: Python<'_>) -> PyResult<()> {
     let inner = Logger::new(py, Caching::LoggersAndLevels)?;
     let level_cache = inner.reset_handle();

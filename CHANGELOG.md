@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `pb.set_loglevel()` accepts `"error"` and `"critical"`, to hide polars-bio warnings (and errors) without calling `logging.getLogger("polars_bio").setLevel()` directly.
+
 ### Changed
 - polars-bio no longer sets the `polars_bio` logger to `WARNING` at import. Until `pb.set_loglevel()` is called, its records follow the application's logging configuration: an application whose root logger is at `INFO` or `DEBUG` now also receives polars-bio's own `INFO`/`DEBUG` records, and one without logging configuration still sees warnings only. Call `pb.set_loglevel("warning")` to keep the previous filtering.
 - Log records from the Rust dependency crates (DataFusion, `datafusion-bio-format-*`, `datafusion-bio-function-*`) are emitted under the `polars_bio` logger hierarchy, for example `polars_bio.datafusion_bio_function_ranges.physical_planner` instead of `datafusion_bio_function_ranges.physical_planner`. Logging configuration that addressed the old top-level logger names needs the `polars_bio.` prefix (#520).
