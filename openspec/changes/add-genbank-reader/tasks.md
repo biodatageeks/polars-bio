@@ -30,6 +30,6 @@
 
 ## Verification
 
-The provider is committed on the companion branch `feat/genbank-reader` at `49d9fc1665224ab2eb139f425b9bc945a4ede2c5`. All direct companion dependencies use that revision. The locked release extension was built and exercised locally. The published revision is under review in [datafusion-bio-formats PR 278](https://github.com/biodatageeks/datafusion-bio-formats/pull/278).
+The provider is committed on the companion branch `feat/genbank-reader` at `dd324de24e212002bab38edb18225d03f0dc356c`. All direct companion dependencies use that revision. The locked release extension was built and exercised locally. The published revision is under review in [datafusion-bio-formats PR 278](https://github.com/biodatageeks/datafusion-bio-formats/pull/278).
 
 The upstream GenBank, core and MSA test suites passed (222 tests). GenBank Clippy passed with warnings denied. Python tests cover the new API, existing IO, frame metadata and pushdown, including S3, GCS and Azure against a local HTTP fixture implementing their read protocols. The public feature schema was also checked on Polars 1.40.0, 1.44.2, 2.0.x and 2.1.0. Input digests, output equivalence and timings are recorded in [the benchmark report](benchmarks.md).
