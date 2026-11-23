@@ -5290,6 +5290,8 @@ def _format_to_string(input_format: InputFormat) -> str:
         return "fasta"
     elif "Gtf" in format_str:
         return "gtf"
+    elif "GenBank" in format_str:
+        return "genbank"
     elif "Gff" in format_str:
         return "gff"
     # NOTE: BigWig/BigBed must be checked before Bed — "Bed" is a substring of
@@ -5342,7 +5344,13 @@ def _read_file(
     table_name = (
         f"_pb_{_format_to_string(input_format)}_scan_{uuid4().hex}"
         if input_format
-        in (InputFormat.Cool, InputFormat.Sto, InputFormat.A2m, InputFormat.A3m)
+        in (
+            InputFormat.Cool,
+            InputFormat.Sto,
+            InputFormat.A2m,
+            InputFormat.A3m,
+            InputFormat.GenBank,
+        )
         else None
     )
     if table_name is not None:

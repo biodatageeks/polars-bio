@@ -38,3 +38,5 @@
         members:
             - register_structure
             - register_foldcomp
+
+::: polars_bio.genbank.register_genbank

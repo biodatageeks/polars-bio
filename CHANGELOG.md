@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Read GenBank records and features with `scan_genbank`, `read_genbank` and `register_genbank`. The custom Rust parser supports qualifier projection, compound locations and plain, gzip and BGZF input (#523).
+
 ## [0.38.0] - 2026-11-17
 
 ### Added

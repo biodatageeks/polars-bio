@@ -910,6 +910,19 @@ async fn register_table_provider(
             .with_comment_prefix(msa_read_options.comment_prefix.clone())?;
             ctx.register_table(table_name, Arc::new(table_provider))?;
         },
+        InputFormat::GenBank => {
+            let opts = read_options
+                .as_ref()
+                .and_then(|o| o.genbank_read_options.as_ref());
+            let provider = datafusion_bio_format_genbank::GenBankTableProvider::new(
+                path.to_string(),
+                opts.and_then(|o| o.object_storage_options.clone()),
+                opts.map_or("records", |o| o.view.as_str()),
+                opts.and_then(|o| o.qualifier_fields.as_deref()),
+                opts.is_some_and(|o| o.zero_based),
+            )?;
+            ctx.register_table(table_name, Arc::new(provider))?;
+        },
         InputFormat::Sto => {
             let msa_read_options = read_options
                 .as_ref()

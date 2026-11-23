@@ -29,6 +29,7 @@ from .context import ctx, get_option, set_option
 from .exceptions import CoordinateSystemMismatchError, MissingCoordinateSystemError
 from .fastqc_op import FastQCOperations as fastqc_operations
 from .fastqc_op import FastQCResult
+from .genbank import read_genbank, register_genbank, scan_genbank
 from .io import IOOperations as data_input
 from .io import PgenMatrix
 from .logging import set_loglevel
@@ -232,6 +233,9 @@ __all__ = [
     "read_sto",
     "read_fastq",
     "read_pairs",
+    "read_genbank",
+    "register_genbank",
+    "scan_genbank",
     "read_gff",
     "read_gtf",
     "read_csv",
