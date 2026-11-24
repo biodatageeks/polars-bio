@@ -150,6 +150,7 @@ pub enum InputFormat {
     A2m,
     A3m,
     Sto,
+    GenBank,
 }
 
 #[pyclass(eq, get_all, from_py_object)]
@@ -183,6 +184,7 @@ impl fmt::Display for InputFormat {
             InputFormat::Cool => "COOL",
             InputFormat::A2m => "A2M",
             InputFormat::A3m => "A3M",
+            InputFormat::GenBank => "GenBank",
             InputFormat::Sto => "STOCKHOLM",
         };
         write!(f, "{}", text)
@@ -223,12 +225,14 @@ pub struct ReadOptions {
     pub cool_read_options: Option<CoolReadOptions>,
     #[pyo3(get, set)]
     pub msa_read_options: Option<MsaReadOptions>,
+    #[pyo3(get, set)]
+    pub genbank_read_options: Option<GenBankReadOptions>,
 }
 
 #[pymethods]
 impl ReadOptions {
     #[new]
-    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None, bigwig_read_options=None, bigbed_read_options=None, bgen_read_options=None, pgen_read_options=None, cool_read_options=None, msa_read_options=None))]
+    #[pyo3(signature = (vcf_read_options=None, gff_read_options=None, gtf_read_options=None, fastq_read_options=None, bam_read_options=None, cram_read_options=None, bed_read_options=None, fasta_read_options=None, pairs_read_options=None, vcf_zarr_read_options=None, bigwig_read_options=None, bigbed_read_options=None, bgen_read_options=None, pgen_read_options=None, cool_read_options=None, msa_read_options=None, genbank_read_options=None))]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         vcf_read_options: Option<VcfReadOptions>,
@@ -247,6 +251,7 @@ impl ReadOptions {
         pgen_read_options: Option<PgenReadOptions>,
         cool_read_options: Option<CoolReadOptions>,
         msa_read_options: Option<MsaReadOptions>,
+        genbank_read_options: Option<GenBankReadOptions>,
     ) -> Self {
         ReadOptions {
             vcf_read_options,
@@ -265,6 +270,7 @@ impl ReadOptions {
             pgen_read_options,
             cool_read_options,
             msa_read_options,
+            genbank_read_options,
         }
     }
 }
@@ -1507,6 +1513,36 @@ impl WriteOptions {
             fastq_write_options,
             bam_write_options,
             cram_write_options,
+        }
+    }
+}
+
+#[pyclass(name = "GenBankReadOptions", from_py_object)]
+#[derive(Clone, Debug)]
+pub struct GenBankReadOptions {
+    pub view: String,
+    pub qualifier_fields: Option<Vec<String>>,
+    pub zero_based: bool,
+    pub object_storage_options: Option<ObjectStorageOptions>,
+}
+
+#[pymethods]
+impl GenBankReadOptions {
+    #[new]
+    #[pyo3(signature = (view, qualifier_fields, zero_based, object_storage_options=None))]
+    pub fn new(
+        view: String,
+        qualifier_fields: Option<Vec<String>>,
+        zero_based: bool,
+        object_storage_options: Option<PyObjectStorageOptions>,
+    ) -> Self {
+        Self {
+            view,
+            qualifier_fields,
+            zero_based,
+            object_storage_options: pyobject_storage_options_to_object_storage_options(
+                object_storage_options,
+            ),
         }
     }
 }

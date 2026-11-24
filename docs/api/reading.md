@@ -94,3 +94,7 @@
             - scan_parquet
             - read_csv
             - read_parquet
+
+::: polars_bio.genbank.scan_genbank
+
+::: polars_bio.genbank.read_genbank

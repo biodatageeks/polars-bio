@@ -1,0 +1,35 @@
+LOCUS       TEST_A                    20 bp    DNA     circular SYN 01-JAN-2000
+DEFINITION  A small
+            example.
+ACCESSION   GBTEST001
+VERSION     GBTEST001.1
+SOURCE      synthetic construct
+  ORGANISM  synthetic construct
+            other sequences; artificial sequences.
+FEATURES             Location/Qualifiers
+     gene            complement(join(2..5,
+                     9..12))
+                     /gene="abc"
+                     /note="has ""quotes"" and
+                     a /slash"
+                     /note="again"
+                     /pseudo
+                     /empty=""
+     CDS             join(18..20,1..3)
+                     /translation="MA
+                     AA"
+                     /protein_id="TEST_PROT"
+                     /anticodon=(pos:1..3,
+                     aa:Met)
+     misc_feature    order(<1..5,9..>12)
+     misc_feature    10^11
+     misc_feature    AB000123.1:1..5
+ORIGIN
+        1 acgtacgtac gtacgtacgt
+//
+LOCUS       TEST_B                    10 bp    DNA     linear   SYN 01-JAN-2000
+DEFINITION  Assembled sequence.
+ACCESSION   GBTEST002
+VERSION     GBTEST002.1
+CONTIG      join(AB000123.1:1..10)
+//

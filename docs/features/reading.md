@@ -35,6 +35,7 @@ The matrix below summarizes which [performance features](#performance-features) 
 | [A2M](../api/reading.md#polars_bio.data_input.read_a2m)     | :white_check_mark: |  ❌  | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | [A3M](../api/reading.md#polars_bio.data_input.read_a3m)     | :white_check_mark: |  ❌  | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | [Stockholm](../api/reading.md#polars_bio.data_input.read_sto) | :white_check_mark: | :white_check_mark: (multi-alignment files, on `//`) | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| [GenBank](../api/reading.md#polars_bio.genbank.scan_genbank) | :white_check_mark: | :white_check_mark: (record boundaries) | :white_check_mark: | :white_check_mark: (name, record_id, type) | :white_check_mark: |
 | [GFF3](../api/reading.md#polars_bio.data_input.read_gff)    | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [GTF](../api/reading.md#polars_bio.data_input.read_gtf)     | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
 | [Pairs](../api/reading.md#polars_bio.data_input.read_pairs) | :white_check_mark: | :white_check_mark: (TBI/CSI) | :white_check_mark: | :white_check_mark: | :white_check_mark:  |
@@ -340,6 +341,26 @@ with profiling evidence in [bio-formats #256](https://github.com/biodatageeks/da
 ## Format-specific notes
 
 Most formats work through the generic `read_*`/`scan_*`/`register_*` API with no extra options. The formats below expose additional capabilities or behaviors worth knowing about.
+
+### GenBank records and features
+
+Use `pb.scan_genbank(path)` to read one row per LOCUS. The columns are `name`, `length`, `molecule_type`, `topology`, `division`, `date`, `definition`, `accession`, `version`, `organism`, `taxonomy` and `sequence`. The length is the declared number of bases for nucleotide records or amino acids for protein records. Protein records have `molecule_type="protein"`. CONTIG-only records have a null sequence. Select the columns you need to avoid assembling unused sequences.
+
+```python
+features = pb.scan_genbank("assembly.gbk.gz", view="features")
+proteins = features.filter(pl.col("type") == "CDS").select("record_id", "protein_id", "translation")
+```
+
+Feature rows contain `record_id` (the parent LOCUS name), `type`, `start`, `end`, `strand`, `location`, `parts` and `qualifiers`. The qualifier map groups repeated values into lists in file order. A valueless flag has a list containing null. Polars 1.x exposes key/value structs and Polars 2.x exposes a map. Promoting a qualifier returns its first value. Declare `qualifier_fields=["gene", "qualifiers"]` to use both a scalar column and the full map throughout a query. SQL registration accepts the same view and qualifier options.
+
+```python
+pb.register_genbank("assembly.gbk", "annotations", view="features", qualifier_fields=["gene"])
+genes = pb.sql("SELECT record_id, gene, start, end FROM annotations WHERE type = 'gene'")
+```
+
+Numeric bounds follow `use_zero_based`, or the session coordinate setting when omitted. The location text retains GenBank numbering. For local compounds, scalar bounds give the envelope and `parts` gives intervals in traversal order. For origin-spanning or remote locations the scalar bounds are null. Remote parts have null local coordinates. A between-base site is empty in half-open coordinates and has null closed bounds.
+
+Plain files and BGZF files can use multiple partitions at complete record boundaries. Local BGZF reads use a sibling GZI when available. Ordinary gzip uses a single decoding stream. Local files, S3, GCS and Azure use the same reader options as the other sequence formats.
 
 ### BGEN
 
