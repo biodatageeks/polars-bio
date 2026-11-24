@@ -358,8 +358,8 @@ class SequenceExpr:
         dual-meaning codons of tables 27, 28 and 31). A codon is a start or a
         stop only if every expansion of its IUPAC codes is one.
 
-        Each struct has ``start``, ``end`` (on the sequence as given, for
-        either strand, including the stop codon), ``strand`` (``"+"`` or
+        Each struct has ``start``, ``end`` (byte offsets on the sequence as
+        given, for either strand, including the stop codon), ``strand`` (``"+"`` or
         ``"-"``), ``frame`` (as in :meth:`translate`), ``aa_len`` (without the
         stop), ``has_start``, ``has_stop`` and, with ``include_protein``,
         ``protein`` (first codon as ``M``).
@@ -407,7 +407,8 @@ class SequenceExpr:
         pattern only, so ``N`` in the sequence matches nothing. Unlike
         ``nt_search``, the sequence's case is ignored and ``U`` matches
         ``T``. With the default 1-based setting positions are
-        ``nt_search``'s plus one.
+        ``nt_search``'s plus one. Positions are byte offsets, which equal
+        character offsets for ASCII sequences.
 
         Parameters:
             pattern: IUPAC nucleotide codes (``ACGTURYSWKMBDHVN``).
@@ -558,6 +559,7 @@ class SequenceExpr:
 
 
 _ORF_COLUMN = "__polars_bio_orf"
+_ORF_FIELDS = ("start", "end", "strand", "frame", "aa_len", "has_start", "has_stop")
 
 
 def orfs(
@@ -610,8 +612,16 @@ def orfs(
             "source must be a FASTA path or a Polars DataFrame or LazyFrame, "
             f"got {type(source).__name__}"
         )
-    if sequence_col not in lf.collect_schema().names():
+    names = lf.collect_schema().names()
+    if sequence_col not in names:
         raise ValueError(f"sequence_col {sequence_col!r} is not a column of source")
+    fields = list(_ORF_FIELDS) + (["protein"] if include_protein else [])
+    clashes = [c for c in names if c != sequence_col and c in fields]
+    if clashes:
+        raise ValueError(
+            f"source columns {clashes} clash with the ORF fields {fields}; "
+            "rename or drop them first"
+        )
     zero_based = _zero_based(use_zero_based)
     found = pl.col(sequence_col).seq.orfs(
         table=table,

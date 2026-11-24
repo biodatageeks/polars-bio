@@ -1136,3 +1136,20 @@ def test_scan_fastq_quality_control_pipeline():
 def test_invalid_arguments(make, match):
     with pytest.raises(ValueError, match=match):
         make()
+
+
+def test_pb_orfs_rejects_columns_that_clash_with_orf_fields():
+    df = pl.DataFrame({"sequence": ["ATGAAATAA"], "start": [5]})
+    with pytest.raises(ValueError, match="start"):
+        pb.orfs(df, min_len=1)
+    # protein clashes only when it is requested.
+    clash = pl.DataFrame({"sequence": ["ATGAAATAA"], "protein": ["x"]})
+    assert pb.orfs(clash, min_len=1).collect().height == 1
+    with pytest.raises(ValueError, match="protein"):
+        pb.orfs(clash, min_len=1, include_protein=True)
+
+
+def test_trim_quality_broadcasts_a_literal_quality():
+    df = pl.DataFrame({"s": ["ACGT", "ACGT"]})
+    out = df.select(t=s().seq.trim_quality(pl.lit("##II"), leading=20))["t"]
+    assert out.to_list() == [{"sequence": "GT", "quality_scores": "II"}] * 2

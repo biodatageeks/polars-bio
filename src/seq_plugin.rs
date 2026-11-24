@@ -528,7 +528,14 @@ fn trim_output(inputs: &[Field]) -> PolarsResult<Field> {
 #[polars_expr(output_type_func=trim_output)]
 fn seq_trim_quality(inputs: &[Series], kwargs: TrimKwargs) -> PolarsResult<Series> {
     let seqs = inputs[0].str()?;
-    let quals = inputs[1].str()?;
+    // Broadcast a single quality string (a literal), as Polars 1.x does
+    // before calling the plugin and Polars 2.x leaves to it.
+    let quals = if inputs[1].len() == 1 && seqs.len() != 1 {
+        inputs[1].new_from_index(0, seqs.len())
+    } else {
+        inputs[1].clone()
+    };
+    let quals = quals.str()?;
     polars_ensure!(
         seqs.len() == quals.len(),
         ShapeMismatch: "seq_trim_quality: {} sequences but {} quality strings", seqs.len(), quals.len()

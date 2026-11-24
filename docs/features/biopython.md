@@ -40,7 +40,7 @@ kept = (
 | `rec.seq.translate(stop_symbol="#")` | `.seq.translate(stop_symbol="#")` |
 | `rec.seq.translate(cds=True)` | `.seq.translate(cds=True)`, after filtering on `.seq.cds_status()` |
 | `try: ... except TranslationError` | `.seq.cds_status()` (null for a valid CDS, otherwise the failed check) |
-| ORF loop from the Biopython tutorial | `.seq.orfs(start_codons="ATG")`, or `pb.orfs(path)` for one row per ORF |
+| ORF loop over the six translated frames, each ORF from its first `M` to the next `*` | `.seq.orfs(start_codons="ATG")`, or `pb.orfs(path)` for one row per ORF (the tutorial's loop, which splits on `*` without requiring a start, reports different intervals) |
 | `Bio.SeqUtils.nt_search(seq, pattern)[1:]` | `.seq.find_motif(pattern, use_zero_based=True)` |
 | `Bio.SeqUtils.gc_fraction(seq)` | `.seq.gc_content()` (see the GC note in [Sequence operations](sequences.md)) |
 | `Bio.SeqUtils.GC_skew(seq, window)` | `.seq.gc_skew(window)` |
@@ -51,10 +51,11 @@ kept = (
 
 ## Differences to know about
 
-1. **Positions are 1-based by default.** `find_motif` and `orfs` follow
+1. **Positions are 1-based by default, and count bytes.** `find_motif` and `orfs` follow
    polars-bio's coordinate-system setting, which is 1-based closed unless you
    set it to 0-based. With the default, `find_motif` returns `nt_search`'s
-   positions plus one; pass `use_zero_based=True` to get Biopython's.
+   positions plus one; pass `use_zero_based=True` to get Biopython's. They
+   are byte offsets, the same as character offsets for ASCII sequences.
 2. **`B`, `Z` and `J` are opt-in.** By default an ambiguous codon whose
    expansions disagree gives `X`, as in seqkit. Pass
    `ambiguous="biopython"` for Biopython's letters.
