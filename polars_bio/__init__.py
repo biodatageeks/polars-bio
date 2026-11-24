@@ -35,6 +35,7 @@ from .logging import set_loglevel
 from .pileup_op import PileupOperations as pileup_operations
 from .range_op import FilterOp
 from .range_op import IntervalOperations as range_operations
+from .seq import orfs
 from .sql import SQL as data_processing
 from .structure import (
     read_foldcomp,
@@ -315,6 +316,7 @@ __all__ = [
     "depth",
     "fastqc",
     "fastqc_operations",
+    "orfs",
     "FastQCResult",
     "overlap",
     "nearest",

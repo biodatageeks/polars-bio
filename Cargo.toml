@@ -80,7 +80,7 @@ datafusion-bio-function-seq = { git = "https://github.com/biodatageeks/datafusio
 # crate keeps its own #[global_allocator], and buffers cross through the Arrow C
 # data interface, whose release callbacks free with the allocator that made them.
 pyo3-polars = { version = "0.28", features = ["derive"] }
-polars = { version = "0.55", default-features = false }
+polars = { version = "0.55", default-features = false, features = ["dtype-struct"] }
 serde = { version = "1", features = ["derive"] }
 
 async-trait = "0.1.86"
