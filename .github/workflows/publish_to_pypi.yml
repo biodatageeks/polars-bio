@@ -146,7 +146,7 @@ jobs:
             echo "::group::$spec"
             uv pip install --python .venv "$spec"
             uv run --no-sync python -c "import polars; print('polars', polars.__version__)"
-            uv run --no-sync pytest tests/test_seq_expressions.py -q
+            uv run --no-sync pytest tests/test_seq_expressions.py tests/test_seq_biopython.py -q
             echo "::endgroup::"
           done
 

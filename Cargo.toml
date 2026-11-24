@@ -69,10 +69,10 @@ datafusion-bio-format-msa = { git = "https://github.com/biodatageeks/datafusion-
 datafusion-bio-format-structure = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.17.0" }
 datafusion-bio-format-foldcomp = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", tag = "v1.17.0" }
 
-datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.27.0" }
-datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.27.0", default-features = false }
-datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.27.0" }
-datafusion-bio-function-seq = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", tag = "v0.27.0" }
+datafusion-bio-function-ranges = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "b057c83bd0973eda51f48010aea9255b56150078" }
+datafusion-bio-function-pileup = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "b057c83bd0973eda51f48010aea9255b56150078", default-features = false }
+datafusion-bio-function-fastqc = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "b057c83bd0973eda51f48010aea9255b56150078" }
+datafusion-bio-function-seq = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", rev = "b057c83bd0973eda51f48010aea9255b56150078" }
 
 # Polars expression plugin for the `seq` namespace (src/seq_plugin.rs). pyo3-polars
 # must use the same pyo3 as datafusion-python (pyo3-ffi links "python", so a build
@@ -80,7 +80,7 @@ datafusion-bio-function-seq = { git = "https://github.com/biodatageeks/datafusio
 # crate keeps its own #[global_allocator], and buffers cross through the Arrow C
 # data interface, whose release callbacks free with the allocator that made them.
 pyo3-polars = { version = "0.28", features = ["derive"] }
-polars = { version = "0.55", default-features = false }
+polars = { version = "0.55", default-features = false, features = ["dtype-struct"] }
 serde = { version = "1", features = ["derive"] }
 
 async-trait = "0.1.86"

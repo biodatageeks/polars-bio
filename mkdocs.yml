@@ -15,6 +15,7 @@ nav:
       - Reading files: features/reading.md
       - Protein structures: features/structures.md
       - Sequence operations: features/sequences.md
+      - Coming from Biopython: features/biopython.md
       - Writing files: features/writing.md
       - SQL processing: features/sql.md
       - DataFrames support: features/dataframes.md
