@@ -1843,8 +1843,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-fastqc"
-version = "0.26.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.27.0#61625ae71585f115594efc6af90b9439443b5829"
+version = "0.26.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=b057c83bd0973eda51f48010aea9255b56150078#b057c83bd0973eda51f48010aea9255b56150078"
 dependencies = [
  "datafusion",
  "futures",
@@ -1853,8 +1853,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-pileup"
-version = "0.27.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.27.0#61625ae71585f115594efc6af90b9439443b5829"
+version = "0.27.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=b057c83bd0973eda51f48010aea9255b56150078#b057c83bd0973eda51f48010aea9255b56150078"
 dependencies = [
  "async-trait",
  "datafusion",
@@ -1867,8 +1867,8 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-ranges"
-version = "0.27.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.27.0#61625ae71585f115594efc6af90b9439443b5829"
+version = "0.27.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=b057c83bd0973eda51f48010aea9255b56150078#b057c83bd0973eda51f48010aea9255b56150078"
 dependencies = [
  "ahash",
  "async-trait",
@@ -1885,10 +1885,11 @@ dependencies = [
 
 [[package]]
 name = "datafusion-bio-function-seq"
-version = "0.27.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.27.0#61625ae71585f115594efc6af90b9439443b5829"
+version = "0.27.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=b057c83bd0973eda51f48010aea9255b56150078#b057c83bd0973eda51f48010aea9255b56150078"
 dependencies = [
  "datafusion",
+ "twox-hash",
 ]
 
 [[package]]
@@ -5266,6 +5267,9 @@ dependencies = [
  "polars-compute",
  "polars-core",
  "polars-error",
+ "polars-io",
+ "polars-lazy",
+ "polars-ops",
  "polars-plan",
  "polars-utils",
  "version_check",
@@ -5452,6 +5456,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "polars-expr"
+version = "0.55.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b59262210ac41f3b30f49f46855501206eba27baaa6bd919545703bc706dd617"
+dependencies = [
+ "bitflags 2.13.0",
+ "hashbrown 0.17.1",
+ "num-traits",
+ "polars-arrow",
+ "polars-buffer",
+ "polars-compute",
+ "polars-core",
+ "polars-io",
+ "polars-ops",
+ "polars-plan",
+ "polars-row",
+ "polars-utils",
+ "rand 0.10.1",
+ "rayon",
+ "recursive",
+ "version_check",
+]
+
+[[package]]
 name = "polars-ffi"
 version = "0.55.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5496,6 +5524,50 @@ dependencies = [
  "simdutf8",
  "tokio",
  "zmij",
+]
+
+[[package]]
+name = "polars-lazy"
+version = "0.55.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79654a98520b5df9be08ce5004be90a5c8004d0f73d54500c1aa923874ec84f3"
+dependencies = [
+ "bitflags 2.13.0",
+ "chrono",
+ "either",
+ "memchr",
+ "polars-arrow",
+ "polars-buffer",
+ "polars-compute",
+ "polars-config",
+ "polars-core",
+ "polars-expr",
+ "polars-io",
+ "polars-mem-engine",
+ "polars-ops",
+ "polars-plan",
+ "polars-utils",
+ "rayon",
+ "version_check",
+]
+
+[[package]]
+name = "polars-mem-engine"
+version = "0.55.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "843e77a0987bea00063c227cbb889f30e754942b42851043cd9f90403e516ca2"
+dependencies = [
+ "memmap2",
+ "polars-arrow",
+ "polars-core",
+ "polars-error",
+ "polars-expr",
+ "polars-io",
+ "polars-ops",
+ "polars-plan",
+ "polars-utils",
+ "rayon",
+ "recursive",
 ]
 
 [[package]]
@@ -7255,8 +7327,8 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "superintervals"
-version = "0.29.0"
-source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?tag=v0.27.0#61625ae71585f115594efc6af90b9439443b5829"
+version = "0.29.1"
+source = "git+https://github.com/biodatageeks/datafusion-bio-functions.git?rev=b057c83bd0973eda51f48010aea9255b56150078#b057c83bd0973eda51f48010aea9255b56150078"
 dependencies = [
  "aligned-vec",
  "serde",
