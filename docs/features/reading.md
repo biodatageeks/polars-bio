@@ -344,7 +344,7 @@ Most formats work through the generic `read_*`/`scan_*`/`register_*` API with no
 
 ### GenBank records and features
 
-Use `pb.scan_genbank(path)` to read one row per LOCUS. The columns are `name`, `length`, `molecule_type`, `topology`, `division`, `date`, `definition`, `accession`, `version`, `organism`, `taxonomy` and `sequence`. The reader uses the declared length and returns a null sequence for CONTIG-only records. Select the columns you need to avoid assembling unused sequences.
+Use `pb.scan_genbank(path)` to read one row per LOCUS. The columns are `name`, `length`, `molecule_type`, `topology`, `division`, `date`, `definition`, `accession`, `version`, `organism`, `taxonomy` and `sequence`. The length is the declared number of bases for nucleotide records or amino acids for protein records. Protein records have `molecule_type="protein"`. CONTIG-only records have a null sequence. Select the columns you need to avoid assembling unused sequences.
 
 ```python
 features = pb.scan_genbank("assembly.gbk.gz", view="features")

@@ -112,7 +112,7 @@ def scan_genbank(
     timeout: int = 300,
     compression_type: str = "auto",
 ) -> pl.LazyFrame:
-    """Lazily scan GenBank nucleotide records or their features.
+    """Lazily scan nucleotide or protein GenBank records or their features.
 
     Choose `view="features"` for locations, ordered parts and qualifiers. Pass
     qualifier names in `qualifier_fields` to declare scalar columns for use

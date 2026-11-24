@@ -15,6 +15,11 @@ The reader SHALL expose lazy, eager and SQL access to GenBank records and featur
 - **WHEN** a record supplies a declared length and CONTIG assembly information without ORIGIN
 - **THEN** the records view returns the declared length and a null sequence.
 
+#### Scenario: Protein LOCUS record
+
+- **WHEN** a LOCUS declares its length in amino acids (`aa`)
+- **THEN** the records view returns its residue count and `protein` molecule type, and feature coordinates refer to positions in that protein.
+
 ### Requirement: Location and coordinate fidelity
 
 Feature rows SHALL expose native location text, ordered parts, strand and interpretable local bounds. Numeric bounds SHALL follow the explicit coordinate setting or the session setting when omitted.

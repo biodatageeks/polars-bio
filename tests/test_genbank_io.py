@@ -11,6 +11,24 @@ import polars_bio as pb
 SAMPLE = Path(__file__).parent / "data/genbank/example.gbk"
 
 
+def test_protein_locus(tmp_path):
+    path = tmp_path / "protein.gb"
+    path.write_text(
+        "LOCUS       PROTEIN                    4 aa            linear   PRI 01-JAN-2020\n"
+        "FEATURES             Location/Qualifiers\n"
+        "     Region          2..4\n"
+        "ORIGIN\n        1 mkwv\n//\n"
+    )
+    reference = SeqIO.read(path, "genbank")
+    record = pb.read_genbank(path).row(0, named=True)
+    assert record["length"] == len(reference)
+    assert record["sequence"] == str(reference.seq)
+    assert record["molecule_type"] == reference.annotations["molecule_type"]
+    feature = pb.read_genbank(path, "features", use_zero_based=True).row(0, named=True)
+    location = reference.features[0].location
+    assert (feature["start"], feature["end"]) == (location.start, location.end)
+
+
 def test_records_and_features():
     records = pb.read_genbank(SAMPLE)
     assert records.equals(pb.scan_genbank(SAMPLE).collect())
