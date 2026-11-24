@@ -18,7 +18,7 @@ Each of phases 1–3 is releasable on its own.
 
 Upstream (`datafusion-bio-functions`, crate `datafusion-bio-function-seq`):
 
-- [ ] 1.1 Oracle corpus.
+- [x] 1.1 Oracle corpus.
   - Extend `tests/data/make_golden.py` with a CDS corpus: valid sequences for
     every table, alternative start codons, ambiguous first and final codons,
     dual-meaning codons in tables 27, 28 and 31, and at least one sequence per
@@ -29,12 +29,12 @@ Upstream (`datafusion-bio-functions`, crate `datafusion-bio-function-seq`):
   - Add golden columns for `transcribe` and `back_transcribe`.
   - Pin a vsearch version and add a per-read expected-errors golden file.
     Fill in the "Expected errors" section of [oracles.md](oracles.md).
-- [ ] 1.2 Codon data. Add a checked-in generator script (none exists today;
+- [x] 1.2 Codon data. Add a checked-in generator script (none exists today;
   `codon_tables.rs` only carries a "Generated from Biopython 1.88" comment).
   It emits the amino-acid tables, and each table's start-codon set and
   stop-codon set, from Biopython 1.88. Check that the regenerated amino-acid
   tables are identical to the current ones.
-- [ ] 1.3 Kernels.
+- [x] 1.3 Kernels.
   - `Translator`: `stop_symbol`, `cds` and the ambiguity mode, as in design
     D2. `Translator::new(frame, table, to_stop)` keeps working.
   - A CDS check function returning the first failing check, used by both
@@ -45,7 +45,7 @@ Upstream (`datafusion-bio-functions`, crate `datafusion-bio-function-seq`):
   - Unit tests for every probe in [oracles.md](oracles.md), and property
     tests: `cds_status` is null exactly when `translate(cds=True)` succeeds;
     `back_transcribe(transcribe(s)) == s` for sequences without `U`.
-- [ ] 1.4 SQL functions.
+- [x] 1.4 SQL functions.
   - Generalise the return type of `SeqUdf` beyond String and Float64 (Int32
     is needed here; phases 2 and 3 add more).
   - Add `seq_cds_status`, `seq_transcribe`, `seq_back_transcribe`,
@@ -58,19 +58,21 @@ Upstream (`datafusion-bio-functions`, crate `datafusion-bio-function-seq`):
     `seq_translate(sequence, cds => true)`. Adopt named arguments if such
     calls work; record the outcome in the PR.
   - SQL tests in `tests/sql.rs`.
-- [ ] 1.5 Golden tests in `tests/golden.rs` against the corpus from 1.1.
+- [x] 1.5 Golden tests in `tests/golden.rs` against the corpus from 1.1.
 - [ ] 1.6 Tag a functions release.
 
 polars-bio:
+  *Not done:* the upstream branch `feat/seq-biopython-parity` is committed locally, not pushed or tagged.
 
 - [ ] 1.7 Pin the tag from 1.6 for all four functions crates.
-- [ ] 1.8 `src/seq_plugin.rs`: extend `seq_translate`'s kwargs; add
+  *Not done:* polars-bio builds against the local upstream worktree through an uncommitted `[patch]`.
+- [x] 1.8 `src/seq_plugin.rs`: extend `seq_translate`'s kwargs; add
   `seq_cds_status`, `seq_transcribe`, `seq_back_transcribe`,
   `seq_expected_errors`, `seq_min_quality` and `seq_max_quality`.
-- [ ] 1.9 `polars_bio/seq.py`: the new keyword arguments on `translate`
+- [x] 1.9 `polars_bio/seq.py`: the new keyword arguments on `translate`
   (keyword-only) and the six new methods, with argument validation and
   docstrings.
-- [ ] 1.10 `tests/test_seq_expressions.py`:
+- [x] 1.10 `tests/test_seq_expressions.py`:
   - every row of the CDS, stop-symbol and ambiguity tables in
     [oracles.md](oracles.md);
   - Biopython parity for `translate(cds=True, ambiguous="biopython")` on
@@ -83,7 +85,7 @@ polars-bio:
     nulls, empty strings and a byte below the offset;
   - expression versus SQL parity for every new function;
   - `LazyFrame.serialize()` round trip.
-- [ ] 1.11 Docs: add the new functions and options to
+- [x] 1.11 Docs: add the new functions and options to
   `docs/features/sequences.md` (function table and semantics) and check that
   `docs/api/sequences.md` renders them. Add a changelog entry.
 
@@ -103,8 +105,10 @@ wheel-size check green.
     design's risk table back to the maintainer.
 
 Upstream:
+  *Partly done:* list and struct outputs pass `tests/test_seq_biopython.py` under both engines on Polars 2.1.0 only; the four-version matrix runs in CI once the branch is pushed. Wheel sizes not measured yet.
 
-- [ ] 2.2 Oracles.
+- [x] 2.2 Oracles.
+  *Done differently:* the ORF oracle is the Biopython tutorial recipe, recorded in [oracles.md](oracles.md); orfipy and `getorf` were not used.
   - Choose the ORF oracle (orfipy, EMBOSS `getorf`, or both) and pin its
     version. Fill in the "ORF finding" section of [oracles.md](oracles.md),
     listing every difference from the definition in design D5.
@@ -113,31 +117,33 @@ Upstream:
     sequences with no ORF, sequences that start or end inside an ORF) and a
     motif corpus generated with `nt_search` (ambiguous patterns, overlapping
     hits, palindromes).
-- [ ] 2.3 Kernels.
+- [x] 2.3 Kernels.
   - ORF finder as defined in design D5, in 0-based half-open coordinates,
     writing into a caller-owned buffer or callback.
   - A compiled motif pattern and a search function as defined in design D7.
   - Unit tests, and the property tests from design D10 (the ORF/CDS
     invariant; motif search against a brute-force scan).
-- [ ] 2.4 SQL functions `seq_orfs` and `seq_find_motif`, with `List<Struct>`
+- [x] 2.4 SQL functions `seq_orfs` and `seq_find_motif`, with `List<Struct>`
   and `List<Int64>` return types and the trailing `zero_based` argument
   (design D6). SQL tests.
-- [ ] 2.5 Golden tests against the corpus from 2.2.
+- [x] 2.5 Golden tests against the corpus from 2.2.
 - [ ] 2.6 Tag a functions release.
 
 polars-bio:
+  *Not done:* see 1.6.
 
-- [ ] 2.7 Pin the tag from 2.6. Enable `dtype-struct`. Add `seq_orfs` and
+- [x] 2.7 Pin the tag from 2.6. Enable `dtype-struct`. Add `seq_orfs` and
   `seq_find_motif` to `src/seq_plugin.rs`, with the output type computed from
   the arguments (`include_protein`).
-- [ ] 2.8 `polars_bio/seq.py`: `orfs` and `find_motif`. Resolve
+  *Done except the pin:* see 1.7.
+- [x] 2.8 `polars_bio/seq.py`: `orfs` and `find_motif`. Resolve
   `use_zero_based=None` from the session option when the expression is built
   (design D6). Validate the pattern, `strands`, `start_codons` and `min_len`.
-- [ ] 2.9 Frame-level `pb.orfs(source, ...)` as in design D5: accept a FASTA
+- [x] 2.9 Frame-level `pb.orfs(source, ...)` as in design D5: accept a FASTA
   path or a frame, drop the sequence column, explode and unnest, and tag the
   result with its coordinate system through the existing metadata helper.
   Export it from `polars_bio/__init__.py`.
-- [ ] 2.10 Tests:
+- [x] 2.10 Tests:
   - `pb.orfs` from a FASTA path and from a frame: one row per ORF, the same
     ORFs as the expression, no sequence column, no rows for a sequence
     without ORFs;
@@ -158,7 +164,7 @@ polars-bio:
   - the expression captures the coordinate setting when it is built;
   - expression versus SQL parity with the same `zero_based` value;
   - streaming engine and `serialize()` round trip.
-- [ ] 2.11 Docs: ORF definition with a worked example, `pb.orfs` into a
+- [x] 2.11 Docs: ORF definition with a worked example, `pb.orfs` into a
   range operation, the coordinate rule, and the motif matching rule, in
   `docs/features/sequences.md`. Add `pb.orfs` to the API reference. Changelog
   entry.
@@ -170,7 +176,7 @@ tests green; wheel sizes within budget.
 
 Upstream:
 
-- [ ] 3.1 Oracles.
+- [x] 3.1 Oracles.
   - Golden files for `GC_skew` and `molecular_weight` (DNA, RNA, protein;
     single and double stranded; linear and circular; average and
     monoisotopic; inputs Biopython rejects).
@@ -180,25 +186,27 @@ Upstream:
   - Golden files for trimming (several thresholds and window sizes, reads
     shorter than the window, reads trimmed to nothing) and for the kept set of
     `seqkit rmdup -s`.
-- [ ] 3.2 Weight tables generated from Biopython 1.88 (average and
+- [x] 3.2 Weight tables generated from Biopython 1.88 (average and
   monoisotopic, for DNA, RNA and protein).
-- [ ] 3.3 Kernels: windowed GC content and GC skew, molecular weight, hash
+- [x] 3.3 Kernels: windowed GC content and GC skew, molecular weight, hash
   with `canonical`, and quality trimming, as in design D8. Unit tests and the
   property tests from design D10.
-- [ ] 3.4 SQL functions `seq_gc_content_windows`, `seq_gc_skew`,
+- [x] 3.4 SQL functions `seq_gc_content_windows`, `seq_gc_skew`,
   `seq_molecular_weight`, `seq_hash` and `seq_trim_quality`. This adds the
   `List<Float64>`, `UInt64` and `Struct` return types, a second column
   argument, and optional arguments that accept `NULL`. SQL tests.
-- [ ] 3.5 Golden tests against the corpus from 3.1.
+- [x] 3.5 Golden tests against the corpus from 3.1.
 - [ ] 3.6 Tag a functions release.
 
 polars-bio:
+  *Not done:* see 1.6.
 
-- [ ] 3.7 Pin the tag from 3.6. Add the five functions to
+- [x] 3.7 Pin the tag from 3.6. Add the five functions to
   `src/seq_plugin.rs`; `seq_trim_quality` takes two input columns.
-- [ ] 3.8 `polars_bio/seq.py`: `gc_content_windows`, `gc_skew`,
+  *Done except the pin:* see 1.7.
+- [x] 3.8 `polars_bio/seq.py`: `gc_content_windows`, `gc_skew`,
   `molecular_weight`, `hash` and `trim_quality`.
-- [ ] 3.9 Tests:
+- [x] 3.9 Tests:
   - `gc_skew` against Biopython `GC_skew`; windows with a step smaller than
     the window; a window with no G or C; empty input;
   - `molecular_weight` against Biopython for every option combination, and
@@ -210,7 +218,7 @@ polars-bio:
     stay the same length; length mismatch raises; a fully trimmed read gives
     empty strings; `unnest` restores the `scan_fastq` column names;
   - expression versus SQL parity, streaming, `serialize()` round trip.
-- [ ] 3.10 Docs: the five functions in `docs/features/sequences.md`,
+- [x] 3.10 Docs: the five functions in `docs/features/sequences.md`,
   including the hash stability statement and collision bound, and a
   quality-control recipe (`expected_errors` filter, trimming, length filter,
   deduplication). Changelog entry.
@@ -219,7 +227,7 @@ Gate: parity tests green; hash values pinned by tests.
 
 ## 4. Migration page and benchmarks
 
-- [ ] 4.1 Docs page "Coming from Biopython": a table mapping Biopython calls
+- [x] 4.1 Docs page "Coming from Biopython": a table mapping Biopython calls
   (`Seq.translate` and its options, `reverse_complement`, `transcribe`,
   `gc_fraction`, `GC_skew`, `nt_search`, `molecular_weight`, the ORF loop from
   the Biopython tutorial, `SeqIO.parse` filters) to polars-bio expressions and

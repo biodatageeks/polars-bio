@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Biopython-parity sequence operations (#512). `.seq.translate()` gains `stop_symbol`, `cds` (Biopython's complete-CDS validation; an invalid row raises) and `ambiguous="biopython"` (`B`/`Z`/`J` letters), with existing calls unchanged. New `seq` expressions: `cds_status` (why a row is not a complete CDS, for filtering before `cds=True`), `transcribe`, `back_transcribe`, `expected_errors` (vsearch `--fastq_maxee`), `min_quality`, `max_quality`, `orfs` (`List[Struct]`), `find_motif` (IUPAC, `nt_search`), `gc_content_windows`, `gc_skew`, `molecular_weight`, `hash` (XXH3-64, optionally strand-canonical) and `trim_quality` (Trimmomatic `LEADING`/`TRAILING`/`SLIDINGWINDOW`, returning the trimmed sequence and quality together). `pb.orfs()` returns one row per ORF tagged with its coordinate system, ready for `pb.overlap` and the other range operations. Positions from `orfs` and `find_motif` follow the coordinate-system setting, so with the default 1-based setting motif positions are `nt_search`'s plus one. Results match Biopython 1.88 and Trimmomatic 0.39 on golden corpora. The same kernels are available in `pb.sql` as `seq_*` functions. See the new "Coming from Biopython" docs page.
+
 ## [0.38.0] - 2026-11-17
 
 ### Added

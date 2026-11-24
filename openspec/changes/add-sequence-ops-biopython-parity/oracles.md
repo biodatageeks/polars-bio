@@ -10,10 +10,10 @@ that needs them; nothing in them is assumed yet.
 | Tool | Version | Status |
 |---|---|---|
 | Biopython | 1.88 | probed 2026-11-23 |
-| seqkit | 2.14.0 | to probe (`rmdup -s`) |
-| vsearch | pin in task 1.1 | to probe |
-| Trimmomatic | pin in task 3.1 | to probe |
-| ORF finder (orfipy and/or EMBOSS `getorf`) | choose and pin in task 2.2 | to probe |
+| seqkit | 2.14.0 (GitHub release binary) | probed 2026-11-24 (`rmdup -s`) |
+| vsearch | 2.32.0 (GitHub release binary) | probed 2026-11-24 |
+| Trimmomatic | 0.39 (0.41 needs Java 25; its trimmer sources read the same) | probed 2026-11-24 |
+| ORF finder | Biopython tutorial recipe (`Seq.translate` + split on `*`) | 2026-11-24, see below |
 
 Biopython, seqkit and the other versions already pinned in
 `add-sequence-operations/oracles.md` stay the same.
@@ -191,40 +191,61 @@ Signature in 1.88: `GC_skew(seq, window=100)`.
 Rules: windows do not overlap; the last, shorter window is included; a window
 with no G or C gives `0.0`.
 
-## Expected errors (to probe, task 1.1)
+## Expected errors (vsearch 2.32.0)
 
-Definition to confirm against vsearch: `EE = sum(10^(-Q/10))` over the read.
-Record the vsearch version, the exact command that prints per-read expected
-errors, its printed precision, and how `--fastq_maxee` treats a read whose EE
-equals the threshold.
+`vsearch --fastq_filter in.fq --fastq_maxee 1.0 --fastq_qmax 93`:
+- EE is `sum(10^(-Q/10))`; the filter keeps a read when **EE ≤ maxee**: a
+  single `!` base (EE exactly 1.0) is kept, `!!` (EE 2.0) is dropped.
+- `N` bases are not special (`--fastq_maxns` is unset by default).
+- `--fastq_qmax` must be raised above its default of 41 for Illumina 1.8+
+  files with higher scores; it does not change EE.
+- On DRR609229_1 (719,828 reads) vsearch keeps 334,366 reads; polars-bio's
+  `filter(seq.expected_errors() <= 1.0)` keeps the same reads in the same
+  order (checked 2026-11-24).
 
-## ORF finding (to probe, task 2.2)
+## ORF finding
 
-Biopython has no ORF finder, and the issue names no oracle for this
-operation. Task 2.2 chooses one (orfipy, EMBOSS `getorf`, or both), pins the
-version, and records for the chosen tool:
-- which start codon an ORF begins at when several precede the same stop;
-- whether reported coordinates include the stop codon, and their base;
-- how minimum length is measured (nucleotides or amino acids, with or without
-  the stop);
-- how partial ORFs at the sequence ends are reported;
-- how codons containing `N` are handled.
+There is no ORF finder in Biopython. The oracle is the recipe from the
+Biopython tutorial (translate each of the six frames, split on `*`, take
+each segment from its first `M`), restricted to complete ORFs with ATG
+starts in tables where only ATG encodes M (1, 4, 11). `seq.orfs(start_codons=
+"ATG")` returns exactly those ORFs on 60 generated sequences per table and on
+the first 80,000 Ensembl GRCh38 CDSs. The recipe has no notion of alternative
+start codons or partial ORFs; those are covered by the kernel's property
+tests (an ORF with a start and a stop is a valid CDS; partial output contains
+the complete output).
 
-Differences from the definition in design D5 are recorded here, and the
-golden test compares on the agreeing configuration.
+orfipy and EMBOSS `getorf` were not used: `getorf` reports ORFs between stops
+by default (not from a start codon), and orfipy is not on the machine's
+package channels without conda; both remain possible extra oracles.
 
-## Sequence deduplication (to probe, task 3.1)
+## Sequence deduplication (seqkit 2.14.0)
 
-Confirm with seqkit 2.14.0 whether `rmdup -s` treats a sequence and its
-reverse complement as duplicates by default, which flag restricts it to the
-given strand, and which record of a duplicate group is kept.
+`seqkit rmdup -s` on `r1 ACGTTT, r2 AAACGT, r3 ACGTTT, r4 GGGG, r5 acgttt`:
+- `rmdup -s` keeps `r1 r4 r5`: a sequence and its reverse complement are
+  duplicates **by default** (r2 is the reverse complement of r1), and case
+  matters (r5 is kept).
+- `rmdup -s -P` (positive strand only) keeps `r1 r2 r4 r5`.
+- `rmdup -s -i` (ignore case) keeps `r1 r4`.
+- The first record of a group is kept.
 
-## Quality trimming (to probe, task 3.1)
+On DRR609229_1, `rmdup -s` keeps 77,751 reads and `rmdup -s -P` 81,910;
+polars-bio keeps the same reads in both modes. So
+`unique(subset="h", keep="first", maintain_order=True)` reproduces
+`rmdup -s` with `h = seq.hash(canonical=True)` and `rmdup -s -P` with
+`h = seq.hash()`. For `-i`, upper-case the sequence first.
 
-Record for Trimmomatic `LEADING`, `TRAILING` and `SLIDINGWINDOW`:
-- whether a base equal to the threshold is kept;
-- how `SLIDINGWINDOW` treats a read shorter than the window;
-- where exactly the read is cut when a window fails (and whether trailing
-  low-quality bases of the kept part are removed);
-- that steps run in command-line order;
-- that a read trimmed to length zero is dropped.
+## Quality trimming (Trimmomatic 0.39)
+
+From the 0.39 jar (`SE -phred33`) and the trimmer sources on `main`:
+- `LEADING:q` keeps from the first base with quality **≥ q**; `TRAILING:q`
+  keeps up to the last such base, but never examines the first base, so a
+  read whose only passing base is its first is dropped.
+- `SLIDINGWINDOW:w:q` drops a read shorter than `w` or whose first window
+  averages below `q` (the test is `sum < q·w` in 32-bit float). Otherwise it
+  cuts at the end of the first failing window, then removes bases below `q`
+  from the new end, keeping at least one base.
+- An uppercase `N` base counts as quality 0 whatever its quality character;
+  a lowercase `n` keeps its quality.
+- Steps run in command-line order; a read trimmed to nothing is dropped.
+- The golden file covers 9 step combinations on 300 reads (1,615 kept reads).
