@@ -20,6 +20,7 @@ from .interval_op_helpers import (
 )
 from .logging import logger
 from .range_op_helpers import (
+    _set_result_metadata,
     _validate_input_formats,
     _validate_overlap_input,
     range_operation,
@@ -44,6 +45,12 @@ __all__ = [
 
 
 from polars_bio.polars_bio import FilterOp, OverlapOutputMode, RangeOp, RangeOptions
+
+
+def _quote_col(name: str):
+    """Return a DataFusion column reference preserving exact identifier case."""
+    escaped = name.replace('"', '""')
+    return col(f'"{escaped}"')
 
 
 def _parse_overlap_output_mode(
@@ -418,12 +425,14 @@ class IntervalOperations:
 
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
         cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
+        # range_operation receives (df2, df1), so columns_1/columns_2 must match
+        # that swapped order (columns_1 -> df2, columns_2 -> df1).
         range_options = RangeOptions(
             range_op=RangeOp.Coverage,
             filter_op=filter_op,
             suffixes=suffixes,
-            columns_1=cols1,
-            columns_2=cols2,
+            columns_1=cols2,
+            columns_2=cols1,
         )
         return range_operation(
             df2,
@@ -524,14 +533,23 @@ class IntervalOperations:
         cols1 = DEFAULT_INTERVAL_COLUMNS if cols1 is None else cols1
         cols2 = DEFAULT_INTERVAL_COLUMNS if cols2 is None else cols2
         if naive_query:
+            # range_operation receives (df2, df1), so columns_1/columns_2 must match
+            # that swapped order (columns_1 -> df2, columns_2 -> df1).
             range_options = RangeOptions(
                 range_op=RangeOp.CountOverlapsNaive,
                 filter_op=filter_op,
                 suffixes=suffixes,
-                columns_1=cols1,
-                columns_2=cols2,
+                columns_1=cols2,
+                columns_2=cols1,
             )
-            return range_operation(df2, df1, range_options, output_type, ctx)
+            return range_operation(
+                df2,
+                df1,
+                range_options,
+                output_type,
+                ctx,
+                projection_pushdown=projection_pushdown,
+            )
         df1 = read_df_to_datafusion(my_ctx, df1)
         df2 = read_df_to_datafusion(my_ctx, df2)
 
@@ -545,79 +563,80 @@ class IntervalOperations:
         is_s1 = prevent_column_collision("is_s1", curr_cols)
         suff, _ = suffixes
         df1, df2 = df2, df1
+        on_col_exprs = [_quote_col(c) for c in on_cols]
         df1 = df1.select(
             *(
                 [
                     literal(1).alias(is_s1),
-                    col(cols1[1]).alias(s1start_s2end),
-                    col(cols1[2]).alias(s1end_s2start),
-                    col(cols1[0]).alias(contig),
+                    _quote_col(cols2[1]).alias(s1start_s2end),
+                    _quote_col(cols2[2]).alias(s1end_s2start),
+                    _quote_col(cols2[0]).alias(contig),
                 ]
-                + on_cols
+                + on_col_exprs
             )
         )
         df2 = df2.select(
             *(
                 [
                     literal(0).alias(is_s1),
-                    col(cols2[2]).alias(s1end_s2start),
-                    col(cols2[1]).alias(s1start_s2end),
-                    col(cols2[0]).alias(contig),
+                    _quote_col(cols1[2]).alias(s1end_s2start),
+                    _quote_col(cols1[1]).alias(s1start_s2end),
+                    _quote_col(cols1[0]).alias(contig),
                 ]
-                + on_cols
+                + on_col_exprs
             )
         )
 
         df = df1.union(df2)
 
-        partitioning = [col(contig)] + [col(c) for c in on_cols]
+        partitioning = [_quote_col(contig)] + on_col_exprs
         df = df.select(
             *(
                 [
-                    s1start_s2end,
-                    s1end_s2start,
-                    contig,
-                    is_s1,
-                    datafusion.functions.sum(col(is_s1))
+                    _quote_col(s1start_s2end),
+                    _quote_col(s1end_s2start),
+                    _quote_col(contig),
+                    _quote_col(is_s1),
+                    datafusion.functions.sum(_quote_col(is_s1))
                     .over(
                         datafusion.expr.Window(
                             partition_by=partitioning,
                             order_by=[
-                                col(s1start_s2end).sort(),
-                                col(is_s1).sort(ascending=zero_based),
+                                _quote_col(s1start_s2end).sort(),
+                                _quote_col(is_s1).sort(ascending=zero_based),
                             ],
                         )
                     )
                     .alias(starts),
-                    datafusion.functions.sum(col(is_s1))
+                    datafusion.functions.sum(_quote_col(is_s1))
                     .over(
                         datafusion.expr.Window(
                             partition_by=partitioning,
                             order_by=[
-                                col(s1end_s2start).sort(),
-                                col(is_s1).sort(ascending=(not zero_based)),
+                                _quote_col(s1end_s2start).sort(),
+                                _quote_col(is_s1).sort(ascending=(not zero_based)),
                             ],
                         )
                     )
                     .alias(ends),
                 ]
-                + on_cols
+                + on_col_exprs
             )
         )
-        df = df.filter(col(is_s1) == 0)
+        df = df.filter(_quote_col(is_s1) == 0)
         df = df.select(
             *(
                 [
-                    col(contig).alias(cols1[0] + suff),
-                    col(s1end_s2start).alias(cols1[1] + suff),
-                    col(s1start_s2end).alias(cols1[2] + suff),
+                    _quote_col(contig).alias(cols1[0] + suff),
+                    _quote_col(s1end_s2start).alias(cols1[1] + suff),
+                    _quote_col(s1start_s2end).alias(cols1[2] + suff),
                 ]
-                + on_cols
-                + [(col(starts) - col(ends)).alias(count)]
+                + on_col_exprs
+                + [(_quote_col(starts) - _quote_col(ends)).alias(count)]
             )
         )
 
-        return convert_result(df, output_type)
+        return _set_result_metadata(convert_result(df, output_type), zero_based)
 
     @staticmethod
     def merge(
