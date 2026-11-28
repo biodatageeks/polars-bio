@@ -1,4 +1,5 @@
 import polars as pl
+import pytest
 
 import polars_bio as pb
 from tests._expected import DATA_DIR
@@ -82,3 +83,30 @@ def test_gff_attr_fields_multiple_attributes():
         assert attr in eager_sorted.columns
         assert lazy_sorted[attr].dtype == pl.String
         assert eager_sorted[attr].dtype == pl.String
+
+
+@pytest.mark.parametrize("columns", [["attributes"], ["ID"]])
+@pytest.mark.parametrize("predicate_pushdown", [True, False])
+def test_gff_second_projection_preserves_filter(columns, predicate_pushdown):
+    path = f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3"
+    filtered = (
+        pb.scan_gff(path, predicate_pushdown=predicate_pushdown)
+        .filter(pl.col("type") == "gene")
+        .select(columns)
+    )
+
+    expected = filtered.collect()
+    assert expected.height == 1
+    pl.testing.assert_frame_equal(filtered.select(columns).collect(), expected)
+
+
+def test_gff_second_projection_preserves_computed_id():
+    path = f"{DATA_DIR}/io/gff/gencode.v38.annotation.gff3"
+    genes = (
+        pb.scan_gff(path)
+        .select(pl.col("ID").str.to_lowercase().alias("ID"))
+        .filter(pl.col("ID").str.starts_with("ensg"))
+        .select("ID")
+        .collect()
+    )
+    assert genes["ID"].to_list() == ["ensg00000223972.5"]

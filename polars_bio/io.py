@@ -5579,6 +5579,7 @@ class AnnotationLazyFrameWrapper:
         predicate_pushdown: bool = True,
         format_type: str = "gff",
         deferred_predicate: Optional[pl.Expr] = None,
+        source_projected: bool = False,
     ):
         self._base_lf = base_lf
         self._file_path = file_path
@@ -5588,6 +5589,7 @@ class AnnotationLazyFrameWrapper:
         self._format_type = format_type
         self._config = self._FORMAT_CONFIG[format_type]
         self._deferred_predicate = deferred_predicate
+        self._source_projected = source_projected
 
     def _make_wrapper(
         self,
@@ -5595,6 +5597,7 @@ class AnnotationLazyFrameWrapper:
         projection_pushdown=None,
         predicate_pushdown=None,
         deferred_predicate=_PRESERVE_DEFERRED_PREDICATE,
+        source_projected=None,
     ):
         """Create a new wrapper of the same concrete type."""
         return type(self)(
@@ -5616,9 +5619,15 @@ class AnnotationLazyFrameWrapper:
                 if deferred_predicate is self._PRESERVE_DEFERRED_PREDICATE
                 else deferred_predicate
             ),
+            self._source_projected if source_projected is None else source_projected,
         )
 
     def select(self, exprs):
+        # Resolve virtual attribute columns at the source projection. Once a
+        # projection exists, rebuilding the scan would discard earlier steps.
+        if self._source_projected:
+            return self._make_wrapper(self._base_lf.select(exprs))
+
         # Source columns the projection needs (root names, NOT output names).
         # An aliased/computed expression like (pl.col("start") + 1).alias("s1")
         # needs the SOURCE column "start"; the alias/computation is applied
@@ -5761,11 +5770,18 @@ class AnnotationLazyFrameWrapper:
             # expressions resolve correctly (the scan above only pruned columns).
             new_lf = new_lf.select(exprs)
             return self._make_wrapper(
-                new_lf, projection_pushdown=False, deferred_predicate=None
+                new_lf,
+                projection_pushdown=False,
+                deferred_predicate=None,
+                source_projected=True,
             )
 
         # Otherwise delegate to Polars
-        return self._make_wrapper(self._base_lf.select(exprs))
+        return self._make_wrapper(
+            self._base_lf.select(exprs),
+            deferred_predicate=None,
+            source_projected=True,
+        )
 
     def filter(self, *predicates):
         if not predicates:
@@ -5773,6 +5789,8 @@ class AnnotationLazyFrameWrapper:
         pred = predicates[0]
         for p in predicates[1:]:
             pred = pred & p
+        if self._source_projected:
+            return self._make_wrapper(self._base_lf.filter(pred))
         deferred_predicate = (
             pred
             if self._deferred_predicate is None
@@ -5803,6 +5821,7 @@ class GffLazyFrameWrapper(AnnotationLazyFrameWrapper):
         projection_pushdown=True,
         predicate_pushdown=True,
         deferred_predicate=None,
+        source_projected=False,
     ):
         super().__init__(
             base_lf,
@@ -5812,6 +5831,7 @@ class GffLazyFrameWrapper(AnnotationLazyFrameWrapper):
             predicate_pushdown,
             "gff",
             deferred_predicate,
+            source_projected,
         )
 
 
@@ -5824,6 +5844,7 @@ class GtfLazyFrameWrapper(AnnotationLazyFrameWrapper):
         projection_pushdown=True,
         predicate_pushdown=True,
         deferred_predicate=None,
+        source_projected=False,
     ):
         super().__init__(
             base_lf,
@@ -5833,4 +5854,5 @@ class GtfLazyFrameWrapper(AnnotationLazyFrameWrapper):
             predicate_pushdown,
             "gtf",
             deferred_predicate,
+            source_projected,
         )
