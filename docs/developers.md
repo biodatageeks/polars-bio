@@ -349,7 +349,7 @@ When you pass a Polars LazyFrame to range operations like `overlap()` or `neares
 
 ### Requirements
 
-- **Polars >= 1.40.0, < 2.2** (polars 1.x, 2.0.x and 2.1.x are supported)
+- **Polars >= 1.40.0, < 2.3** (polars 1.x, 2.0.x, 2.1.x and 2.2.x are supported)
 
 The upper bound limits Polars to tested minor versions. Validate the full test suite,
 including predicate pushdown and Arrow C Stream export, before raising it.

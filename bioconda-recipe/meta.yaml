@@ -38,9 +38,9 @@ requirements:
     - maturin >=1.0,<2.0
   run:
     - python
-    # polars-bio 0.38.0 supports polars 1.x and 2.0/2.1 (tested on 1.40,
+    # polars-bio supports polars 1.x and 2.0/2.1/2.2 (tested on 1.40,
     # 1.44 and 2.x). polars < 1.40 returns wrong counts for cool/mcool scans.
-    - polars >=1.40.0,<2.2
+    - polars >=1.40.0,<2.3
     - pyarrow >=23.0.1,<25
     # 0.38.0 is built on DataFusion 55 and needs the matching datafusion-python.
     - datafusion >=55.0.0,<56

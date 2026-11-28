@@ -145,8 +145,8 @@ of the old live metadata dictionary with `set()`.
 
 The implementation wraps exactly 57 class/method pairs process-wide on Polars 1:
 33 frame transformations, 10 grouping boundaries, and 14 invalidating operations.
-On Polars 2.0/2.1, which removed `with_context`, the manifest has 56 entries.
-polars-bio supports Polars 1.x from 1.40.0, 2.0.x, and 2.1.x; newer minor
+On Polars 2.0–2.2, which removed `with_context`, the manifest has 56 entries.
+polars-bio supports Polars 1.x from 1.40.0, 2.0.x, 2.1.x, and 2.2.x; newer minor
 versions remain excluded until their IO, streaming, and metadata behavior is
 validated.
 Untagged Polars frames pass through those wrappers too. Compatibility tests cover the
