@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Polars 2.2 is now supported: the requirement moved from `polars>=1.40.0,<2.2` to `polars>=1.40.0,<2.3`, and `uv.lock` resolves Polars 2.2.0. The full test suite passes on Polars 2.2.0, and CI runs the `seq` plugin tests on 2.2.x as well.
+
 ## [0.38.0] - 2026-11-17
 
 ### Added

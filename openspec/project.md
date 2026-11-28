@@ -23,7 +23,7 @@
 
 **Dependency Version Policy**: Use `>=X.Y.Z,<(X+1)` format for runtime dependencies to allow compatible minor/patch updates while preventing breaking major version changes.
 
-Polars is an exception: use `>=1.40.0,<2.2` and validate newer minor releases
+Polars is an exception: use `>=1.40.0,<2.3` and validate newer minor releases
 before raising the upper bound, because its IO-plugin and expression-serialization
 APIs are unstable.
 
